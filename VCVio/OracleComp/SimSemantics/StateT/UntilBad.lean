@@ -9,6 +9,7 @@ module
 public import VCVio.OracleComp.SimSemantics.StateT.PreservesInv
 public import VCVio.OracleComp.SimSemantics.StateT.StateProjection
 public import VCVio.EvalDist.ProbabilityBounds
+public import VCVio.OracleComp.SimSemantics.StateT.Measure
 
 /-!
 # Identical until bad for `StateT σ ProbComp` handlers
@@ -47,6 +48,14 @@ preservation of `bad` (`QueryImpl.PreservesInv.extendState`, in
 `VCVio/OracleComp/SimSemantics/StateT/PreservesInv.lean`); bookkeeping such as counters or logs
 can therefore be added to both runs before applying the bounds.
 
+Agreement until `bad` composes with a probabilistic state map. If `fill` intertwines a handler
+`impl'` with a handler `implB` on another state space (`QueryImpl.IntertwinesOn`) and `impl`
+agrees with `impl'` until `bad`, an event of the output of the run of `implB` is at most the same
+event, or `bad` of the final state, in the run of `impl`
+(`QueryImpl.IntertwinesOn.prEvent_simulateQ_run_le_or_bad`). The handler `impl'` is `impl`
+patched on the steps that raise `bad` and from bad states, where it follows `implB` through
+`fill`.
+
 ## Main statements
 
 - `QueryImpl.DominatedUntilBad`: domination of one handler by another through a state map, on
@@ -62,6 +71,8 @@ can therefore be added to both runs before applying the bounds.
   exceeds the same event of the second by at most the bad mass of the first, respectively the
   second, run.
 - `QueryImpl.AgreeUntilBad.extendState`: agreement until `bad` under a shared passive extension.
+- `QueryImpl.IntertwinesOn.prEvent_simulateQ_run_le_or_bad`: an intertwining followed by
+  agreement until `bad` bounds an event of the intertwined run by the event or `bad`.
 
 The same idea, for handlers into `OracleComp spec` and with the output-marginal total-variation
 distance, is `OracleComp.ProgramLogic.Relational.identical_until_bad_with_flag`
@@ -290,5 +301,38 @@ theorem prEvent_simulateQ_run_le_add_bad_right (h : AgreeUntilBad impl₁ impl�
   rw [prEvent_true_eq_one, prEvent_true_eq_one]
 
 end AgreeUntilBad
+
+/-! ## Intertwining, then agreement until bad -/
+
+/-- **Intertwining, then agreement until bad.** Suppose `fill` intertwines `impl'` with `implB`
+on the states satisfying an invariant `inv` that `impl'` preserves, and `impl` agrees with `impl'`
+until `bad`, which `impl` preserves. From a state `s` satisfying `inv` whose fill is the point
+mass at `b`, an event of the output of the run of `implB` from `b` is at most the same event, or
+`bad` of the final state, in the run of `impl` from `s`. -/
+theorem IntertwinesOn.prEvent_simulateQ_run_le_or_bad {σB : Type}
+    {impl impl' : QueryImpl spec (StateT σ ProbComp)} {implB : QueryImpl spec (StateT σB ProbComp)}
+    {inv bad : σ → Prop} {fill : σ → ProbComp σB}
+    (hI : IntertwinesOn inv fill impl' implB) (hinv : PreservesInv impl' inv)
+    (hA : AgreeUntilBad impl impl' bad) (hbad : PreservesInv impl bad)
+    (oa : OracleComp spec α) (s : σ) (hs : inv s) (b : σB) (hfill : fill s = pure b)
+    (P : α → Prop) :
+    Pr{let z ← (simulateQ implB oa).run b}[P z.1] ≤
+      Pr{let z ← (simulateQ impl oa).run s}[P z.1 ∨ bad z.2] := by
+  classical
+  have heq : Pr{let z ← (simulateQ implB oa).run b}[P z.1] =
+      Pr{let z ← (simulateQ impl' oa).run s}[P z.1] := by
+    have h := hI.evalDist_simulateQ_run hinv oa s hs (γ := Bool)
+      fun a _ ↦ (pure (decide (P a)) : ProbComp Bool)
+    rw [hfill, pure_bind] at h
+    have h' : 𝒟[(simulateQ impl' oa).run s >>= fun z ↦ fill z.2 >>= fun _ ↦
+        (pure (decide (P z.1)) : ProbComp Bool)] =
+        𝒟[(simulateQ impl' oa).run s >>= fun z ↦ (pure (decide (P z.1)) : ProbComp Bool)] :=
+      evalDist_bind_congr_of_support _ _ _ fun z _ ↦ OracleComp.evalDist_bind_const _ _
+    rw [h'] at h
+    rw [prEvent_eq_evalDist_decide, prEvent_eq_evalDist_decide]
+    exact congrFun (congrArg DFunLike.coe h.symm) {true}
+  rw [heq]
+  exact hA.dominatedUntilBad.prEvent_simulateQ_run_le_map_or_bad
+    (fun _ _ _ _ _ ↦ trivial) hbad oa s trivial fun z ↦ P z.1
 
 end QueryImpl
