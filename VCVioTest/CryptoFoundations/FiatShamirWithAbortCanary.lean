@@ -267,12 +267,12 @@ def replayAdv : SignatureAlg.UnforgeableAdversary toySig where
 exists with probability `1/2`, and because its verification point is erased from the returned
 cache, verification re-hashes it live and accepts with probability `1/2`. Without the erasure
 the programmed challenge would be replayed and the value would be `1/2`. The proof goes through
-the bridge `managedRoNmaExp_simulatedNmaAdv_eq_eufNmaExp`, whose own proof is what the erasure
+the bridge `managedRoNmaExperiment_simulatedNmaAdv_eq_eufNmaExperiment`, whose own proof is what the erasure
 sustains; the direct cache-level witness of the erasure is `probeRun_pin_sign_false_erases`. -/
 theorem managedRoNmaAdvantage_replay_pin :
     SignatureAlg.managedRoNmaAdvantage (runtime (Commit := Bool) (Chal := Bool) Bool)
       (simulatedNmaAdv toyIds toyHr Bool 1 toySim replayAdv) = 1 / 4 := by
-  rw [SignatureAlg.managedRoNmaAdvantage, managedRoNmaExp_simulatedNmaAdv_eq_eufNmaExp,
+  rw [SignatureAlg.managedRoNmaAdvantage, managedRoNmaExperiment_simulatedNmaAdv_eq_eufNmaExperiment,
     SignatureAlg.eufNmaExperiment, runtime_evalDist_apply_singleton]
   refine (ENNReal.toReal_eq_toReal_iff' probOutput_ne_top (by finiteness)).mp ?_
   simp only [simulatedEufNmaAdv, simulatedNmaAdv, replayAdv, toySim, toyIds, toyHr, firstSome,

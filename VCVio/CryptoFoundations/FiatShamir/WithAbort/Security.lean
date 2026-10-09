@@ -95,13 +95,10 @@ success probability of `simulatedNmaAdv` equals the plain EUF-NMA success probab
 point from the returned cache, so `withCacheOverlay` agrees with the plain live verifier
 on every forgery (`withCacheOverlay_verify_eq_of_miss`); in particular a replayed signed
 forgery no longer wins through a programmed challenge. -/
-lemma managedRoNmaExp_simulatedNmaAdv_eq_eufNmaExp :
-    SignatureAlg.managedRoNmaExperiment (runtime M)
-        (simulatedNmaAdv ids hr M maxAttempts sim adv) =
-      SignatureAlg.eufNmaExperiment (runtime M)
-        (simulatedEufNmaAdv ids hr M maxAttempts sim adv) := by
+lemma managedRoNmaExperiment_simulatedNmaAdv_eq_eufNmaExperiment :
+    SignatureAlg.managedRoNmaExperiment (simulatedNmaAdv ids hr M maxAttempts sim adv) =
+      SignatureAlg.eufNmaExperiment (simulatedEufNmaAdv ids hr M maxAttempts sim adv) := by
   unfold SignatureAlg.managedRoNmaExperiment SignatureAlg.eufNmaExperiment
-  refine congrArg (runtime M).evalDist ?_
   refine bind_congr fun pksk => ?_
   -- Reduce the eufNma side `Prod.fst <$> _` to a bind, so both sides bind over
   -- `simulatedNmaAdv.main`, then compare the verification wrappers pointwise.
