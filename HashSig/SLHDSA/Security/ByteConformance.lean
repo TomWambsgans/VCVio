@@ -15,8 +15,8 @@ public import HashSig.SLHDSA.Security.RomConformance
 `shakeRomScheme vp` of `HashSig.SLHDSA.Security.ByteModel` is SLH-DSA over a random oracle on byte
 strings with `m`-byte answers. Answering that oracle by SHAKE256 itself, `shakeAnswer vp x`, the
 `m`-byte output of `shake256` on `x`, gives FIPS 205's SHAKE internal algorithms: key generation,
-signing and verification are those of `GeneralScheme` at the landed SHAKE bundle
-`shakePrimitives`, the functions the SHAKE known-answer tests exercise. The identification needs
+signing and verification are `GeneralScheme.keygenInternal`, `signInternal` and `verifyInternal`
+at the SHAKE bundle `shakePrimitives` of `HashSig.SLHDSA.Concrete.FIPS`. The identification needs
 `n ≤ m < 136`: every role reads a prefix of one `m`-byte answer, and SHAKE256's outputs of length
 below its `136`-byte rate are prefixes of one another. Every FIPS 205 parameter set satisfies it.
 
@@ -29,6 +29,8 @@ below its `136`-byte rate are prefixes of one another. Every FIPS 205 parameter 
   SHAKE function of that role, `shakeThash`, `shakeHmsg` and `shakePRFmsg`.
 * `shakeThash_toVector_singleton`: the tweakable hash at a `PRF` address applied to `SK.seed` is
   `shakePRF`.
+* `unifFwdAnswerImpl_shakeAnswer_compose_encImpl`: answering each typed query by SHAKE256 at its
+  encoding is answering it by the SHAKE bundle.
 * `romScheme_shakeCore_map_romAnswer`: the three-oracle scheme answered by the SHAKE bundle is
   `internalAlg vp (shakePrimitives vp.params)`.
 * `shakeRomScheme_map_shakeAnswer`: **conformance** — `shakeRomScheme vp optRand pkSeedDist` with
@@ -78,6 +80,7 @@ theorem toByteArray_eq_of_data_toList_eq {l : List Byte} {bs : ByteArray}
   apply Array.toList_inj.mp
   rw [List.toList_data_toByteArray, h]
 
+/-- A fixed-width vector packed as a byte array keeps its bytes. -/
 @[simp] theorem data_toList_bytesToByteArray {n : ℕ} (v : Bytes n) :
     (bytesToByteArray v).data.toList = v.toList := rfl
 

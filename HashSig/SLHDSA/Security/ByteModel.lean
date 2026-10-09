@@ -23,8 +23,9 @@ a query of it at the role's byte layout.
 whose output is `n` bytes reads the first `n` bytes of the answer (`prefixBytes`). This is
 SHAKE256 as an extendable-output random oracle restricted to outputs of at most `m` bytes: a
 forger's outputs are capped at `m` bytes, and every output the scheme itself reads, `n` or `m`
-bytes, is a prefix of the `m`-byte answer. The runtime is VCVio's lazy random oracle
-`ProbCompRuntime.rom (shakeSpec vp)`, and an adversary's budget is the generic
+bytes, is a prefix of the `m`-byte answer. The runtime `shakeRuntime vp` is VCVio's lazy random
+oracle `ProbCompRuntime.rom (shakeSpec vp)` from the empty cache, the advantage is
+`shakeAdvantage vp`, and an adversary's budget is the generic
 `UnforgeableAdversary.RomQueryBound`, one count per query of the single oracle.
 
 ## The scheme
@@ -48,9 +49,18 @@ seed read as a node by the identity.
 * `unforgeableExperiment_shakeRomScheme`, `shakeAdvantage_le_lintegral`: the experiment draws the
   public seed first, so a bound at each public seed averages to a bound at every seed
   distribution.
-* `length_encode_thash`, `length_encode_hmsg`, `length_encode_prfMsg`, the `take_encode_*` and
-  `drop_encode_*` prefix equations, and `encode_thash_inj`, `encode_hmsg_inj`,
-  `encode_prfMsg_inj`: the shape of each layout and the injectivity of each role.
+* `length_encode_thash`, `length_encode_hmsg`, `length_encode_prfMsg`; the `take_*` and `drop_*`
+  equations reading each field of a layout at its offset; and `encode_thash_inj`,
+  `encode_hmsg_inj`, `encode_prfMsg_inj`: the shape of each layout and the injectivity of each
+  role.
+
+## Implementation notes
+
+The carriers of `shakeCore vp` are `Bytes n` and `Bytes 32` only after `shakePrimitives` is
+unfolded, which `simp` and `rw` do not do. The tweakable-hash and `H_msg` layout equations take
+fields typed as byte vectors and the `PRF_msg` ones a query typed at the carriers; at a term whose
+fields have the other typing, instantiate the equation explicitly (`(encode_thash vp _ _ _).trans`)
+rather than rewriting with it.
 
 `HashSig.SLHDSA.Security.ByteConformance` instantiates the oracle by SHAKE256 and identifies the
 result with FIPS 205's SHAKE internal algorithms.
@@ -174,13 +184,17 @@ single oracle at its §11.1 layout. The public seed is drawn from `pkSeedDist` a
       (GeneralScheme.SignatureCore vp (shakeCore vp)) :=
   (romScheme (shakeCore vp) (Equiv.refl _) optRand pkSeedDist).map (simulateQ' (encImpl vp))
 
-/-- The forging advantage against `shakeRomScheme` under the lazy random oracle on byte strings,
-from the empty cache. -/
+/-- The runtime of the single-oracle model: the lazy random oracle on byte strings, from the empty
+cache, with uniform draws as sampled. -/
+noncomputable abbrev shakeRuntime : ProbCompRuntime (OracleComp (unifSpec + shakeSpec vp)) :=
+  ProbCompRuntime.rom (shakeSpec vp)
+
+/-- The forging advantage against `shakeRomScheme` under `shakeRuntime`. -/
 noncomputable def shakeAdvantage
     {optRand : PublicKeyCore (shakeCore vp) → ProbComp (shakeCore vp).Y}
     {pkSeedDist : ProbComp (shakeCore vp).PkSeed}
     (adv : UnforgeableAdversary (shakeRomScheme vp optRand pkSeedDist)) : ℝ≥0∞ :=
-  unforgeableAdvantage (ProbCompRuntime.rom (shakeSpec vp)) adv
+  unforgeableAdvantage (shakeRuntime vp) adv
 
 /-! ## The shape of each layout -/
 
@@ -245,6 +259,19 @@ theorem drop_encode_thash :
       adrsKey.toList ++ (xs.map Vector.toList).flatten := by
   simp
 
+/-- The address field of a tweakable-hash string, bytes `n` to `n + 32`. -/
+theorem take_drop_encode_thash :
+    ((encode vp (.inl (.thash pkSeed adrsKey xs))).drop vp.params.n).take 32 = adrsKey.toList := by
+  rw [drop_encode_thash]
+  simp
+
+/-- After `PK.seed ‖ ADRS`, a tweakable-hash string is the concatenation of its input blocks. -/
+theorem drop_add_encode_thash :
+    (encode vp (.inl (.thash pkSeed adrsKey xs))).drop (vp.params.n + 32) =
+      (xs.map Vector.toList).flatten := by
+  rw [← List.drop_drop, drop_encode_thash]
+  simp
+
 /-- An `H_msg` string begins with `R`. -/
 theorem take_encode_hmsg :
     (encode vp (.inl (.hmsg r pkSeed pkRoot msg))).take vp.params.n = r.toList := by
@@ -254,6 +281,27 @@ theorem take_encode_hmsg :
 theorem drop_encode_hmsg :
     (encode vp (.inl (.hmsg r pkSeed pkRoot msg))).drop vp.params.n =
       pkSeed.toList ++ pkRoot.toList ++ msg := by
+  simp
+
+/-- The second `n`-byte block of an `H_msg` string is `PK.seed`. -/
+theorem take_drop_encode_hmsg :
+    ((encode vp (.inl (.hmsg r pkSeed pkRoot msg))).drop vp.params.n).take vp.params.n =
+      pkSeed.toList := by
+  rw [drop_encode_hmsg]
+  simp
+
+/-- The third `n`-byte block of an `H_msg` string is `PK.root`. -/
+theorem take_drop_two_mul_encode_hmsg :
+    ((encode vp (.inl (.hmsg r pkSeed pkRoot msg))).drop (2 * vp.params.n)).take vp.params.n =
+      pkRoot.toList := by
+  rw [Nat.two_mul, ← List.drop_drop, drop_encode_hmsg]
+  simp
+
+/-- After `R ‖ PK.seed ‖ PK.root`, an `H_msg` string is the message. -/
+theorem drop_three_mul_encode_hmsg :
+    (encode vp (.inl (.hmsg r pkSeed pkRoot msg))).drop (3 * vp.params.n) = msg := by
+  rw [show 3 * vp.params.n = vp.params.n + vp.params.n + vp.params.n by omega, ← List.drop_drop,
+    ← List.drop_drop, drop_encode_hmsg]
   simp
 
 /-- A `PRF_msg` string begins with `SK.prf`. -/
@@ -268,6 +316,19 @@ theorem drop_encode_prfMsg (q : PrfMsgQuery (shakeCore vp).SkPrf (shakeCore vp).
       Vector.toList (q.optRand : Bytes vp.params.n) ++ q.msg := by
   rw [encode_prfMsg, List.append_assoc]
   exact List.drop_left' (Vector.length_toList (xs := (q.skPrf : Bytes vp.params.n)))
+
+/-- The second `n`-byte block of a `PRF_msg` string is `opt_rand`. -/
+theorem take_drop_encode_prfMsg (q : PrfMsgQuery (shakeCore vp).SkPrf (shakeCore vp).Y) :
+    ((encode vp (.inr q)).drop vp.params.n).take vp.params.n =
+      Vector.toList (q.optRand : Bytes vp.params.n) := by
+  rw [drop_encode_prfMsg]
+  exact List.take_left' (Vector.length_toList (xs := (q.optRand : Bytes vp.params.n)))
+
+/-- After `SK.prf ‖ opt_rand`, a `PRF_msg` string is the message. -/
+theorem drop_two_mul_encode_prfMsg (q : PrfMsgQuery (shakeCore vp).SkPrf (shakeCore vp).Y) :
+    (encode vp (.inr q)).drop (2 * vp.params.n) = q.msg := by
+  rw [Nat.two_mul, ← List.drop_drop, drop_encode_prfMsg]
+  exact List.drop_left' (Vector.length_toList (xs := (q.optRand : Bytes vp.params.n)))
 
 end Layout
 
