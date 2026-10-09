@@ -88,7 +88,7 @@ noncomputable def simulatedEufNmaAdv :
       (FiatShamirWithAbort.inROM ids hr M maxAttempts) where
   main pk := Prod.fst <$> (simulatedNmaAdv ids hr M maxAttempts sim adv).main pk
 
-omit [SampleableType Stmt] in
+omit [SampleableType Stmt] [SampleableType Chal] in
 /-- **Soundness of the managed-RO → plain EUF-NMA bridge** (Option B). The managed-RO NMA
 success probability of `simulatedNmaAdv` equals the plain EUF-NMA success probability of
 `simulatedEufNmaAdv`. The Option B post-processing erases the forgery's own verification
