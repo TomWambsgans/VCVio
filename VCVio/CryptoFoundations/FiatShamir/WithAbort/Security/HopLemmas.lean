@@ -53,7 +53,7 @@ event and `δ` enter only once, in the final averaging over `hr.gen`. -/
 omit [SampleableType Stmt] in
 /-- G₀ bridge: at every key pair produced by key generation, the real-signing hybrid
 experiment reproduces the success probability of the standard unforgeability experiment
-`SignatureAlg.unforgeableExp` under `runtime M`.
+`SignatureAlg.unforgeableExperiment` under `runtime M`.
 
 Distributional content: the runtime's `withStateOracle randomOracle` semantics of the
 experiment (with its `WriterT` signing log) coincides with the single-cache-layer
@@ -76,7 +76,7 @@ lemma unforgeableAdvantage_eq_hybridExpAtKey_real :
   have hrt : ∀ (oa : OracleComp (unifSpec + (M × Commit →ₒ Chal)) Bool),
       (runtime M).evalDist oa {true} = Pr[= true | (simulateQ base oa).run' ∅] := fun oa => by
     rw [runtime_evalDist_eq_simulateQ_run', evalDist_apply_singleton, hbase]
-  unfold SignatureAlg.unforgeableAdvantage SignatureAlg.unforgeableExp
+  unfold SignatureAlg.unforgeableAdvantage SignatureAlg.unforgeableExperiment
   rw [hrt]
   rw [show (FiatShamirWithAbort ids hr M maxAttempts).keygen =
     (liftM hr.gen : OracleComp (unifSpec + (M × Commit →ₒ Chal)) (Stmt × Wit)) from rfl]

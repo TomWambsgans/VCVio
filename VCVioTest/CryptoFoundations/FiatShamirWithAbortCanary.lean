@@ -273,7 +273,7 @@ theorem managedRoNmaAdvantage_replay_pin :
     SignatureAlg.managedRoNmaAdvantage (runtime (Commit := Bool) (Chal := Bool) Bool)
       (simulatedNmaAdv toyIds toyHr Bool 1 toySim replayAdv) = 1 / 4 := by
   rw [SignatureAlg.managedRoNmaAdvantage, managedRoNmaExp_simulatedNmaAdv_eq_eufNmaExp,
-    SignatureAlg.eufNmaExp, runtime_evalDist_apply_singleton]
+    SignatureAlg.eufNmaExperiment, runtime_evalDist_apply_singleton]
   refine (ENNReal.toReal_eq_toReal_iff' probOutput_ne_top (by finiteness)).mp ?_
   simp only [simulatedEufNmaAdv, simulatedNmaAdv, replayAdv, toySim, toyIds, toyHr, firstSome,
     FiatShamirWithAbort,
@@ -292,7 +292,7 @@ theorem managedRoNmaAdvantage_replay_pin :
 theorem eufNmaAdvantage_replay_pin :
     SignatureAlg.eufNmaAdvantage (runtime (Commit := Bool) (Chal := Bool) Bool)
       (simulatedEufNmaAdv toyIds toyHr Bool 1 toySim replayAdv) = 1 / 4 := by
-  rw [SignatureAlg.eufNmaAdvantage, SignatureAlg.eufNmaExp, runtime_evalDist_apply_singleton]
+  rw [SignatureAlg.eufNmaAdvantage, SignatureAlg.eufNmaExperiment, runtime_evalDist_apply_singleton]
   refine (ENNReal.toReal_eq_toReal_iff' probOutput_ne_top (by finiteness)).mp ?_
   simp only [simulatedEufNmaAdv, simulatedNmaAdv, replayAdv, toySim, toyIds, toyHr, firstSome,
     FiatShamirWithAbort,

@@ -96,11 +96,11 @@ point from the returned cache, so `withCacheOverlay` agrees with the plain live 
 on every forgery (`withCacheOverlay_verify_eq_of_miss`); in particular a replayed signed
 forgery no longer wins through a programmed challenge. -/
 lemma managedRoNmaExp_simulatedNmaAdv_eq_eufNmaExp :
-    SignatureAlg.managedRoNmaExp (runtime M)
+    SignatureAlg.managedRoNmaExperiment (runtime M)
         (simulatedNmaAdv ids hr M maxAttempts sim adv) =
-      SignatureAlg.eufNmaExp (runtime M)
+      SignatureAlg.eufNmaExperiment (runtime M)
         (simulatedEufNmaAdv ids hr M maxAttempts sim adv) := by
-  unfold SignatureAlg.managedRoNmaExp SignatureAlg.eufNmaExp
+  unfold SignatureAlg.managedRoNmaExperiment SignatureAlg.eufNmaExperiment
   refine congrArg (runtime M).evalDist ?_
   refine bind_congr fun pksk => ?_
   -- Reduce the eufNma side `Prod.fst <$> _` to a bind, so both sides bind over

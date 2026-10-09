@@ -919,7 +919,7 @@ lemma probOutput_hybridExp_sim_le_managedRoNmaAdvantage :
             withCacheOverlay result.2
               ((FiatShamirWithAbort ids hr M maxAttempts).verify
                 pksk.1 result.1.1 result.1.2))).run' ∅] := by
-    unfold SignatureAlg.managedRoNmaAdvantage SignatureAlg.managedRoNmaExp
+    unfold SignatureAlg.managedRoNmaAdvantage SignatureAlg.managedRoNmaExperiment
     -- Expose the bundled `withStateOracle` semantics as a run-normal-form ProbComp.
     rw [runtime_evalDist_eq_simulateQ_run', evalDist_apply_singleton]
     change Pr[= true | (simulateQ (unifFwdImpl (M × Commit →ₒ Chal) + ro)
