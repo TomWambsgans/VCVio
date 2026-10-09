@@ -93,6 +93,7 @@ public import VCVioTest.QueryHom
 public import VCVioTest.RandomOracleClassIndexedTape
 public import VCVioTest.RandomOracleControls
 public import VCVioTest.RandomOracleDefer
+public import VCVioTest.RandomOracleEncoded
 public import VCVioTest.RandomOracleFreshQuery
 public import VCVioTest.RandomOracleHiddenSeed
 public import VCVioTest.RandomOracleHiddenSeedCollapse
