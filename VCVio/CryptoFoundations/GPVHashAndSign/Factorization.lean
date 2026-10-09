@@ -32,7 +32,8 @@ variable {PK SK Domain Range : Type}
 The unconditional salt-inclusive U2 `signRunF_tvDist_le_collisionBound` (above) bounds the real and
 programmed *salt-inclusive signing runs* — phrased over the fixed `qSign`-step recursion `signRunF`.
 To consume it in the four GPV theorems, whose advantage is over the **adaptive** real game run
-`simulateQ impl (adv.main pk)` (`SignatureAlg.unforgeableExperiment`), one must match that adaptive run to
+`simulateQ impl (adv.main pk)` (`SignatureAlg.unforgeableExperiment`), one must match that
+adaptive run to
 the fixed `signRunF` recursion. That match is the **adaptive→`signRunF` factorization**:
 the adversary interleaves its `≤ qSign` signing queries (each drawing one fresh salt `r ← $ᵗ Salt`)
 with `≤ qHash` random-oracle queries *adaptively*, while `signRunF` draws its `qSign` salts in a

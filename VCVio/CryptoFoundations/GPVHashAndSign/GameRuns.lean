@@ -61,7 +61,8 @@ two worlds of the sign-then-hash hop:
   oracle forwarding (the lazy random oracle via the `runtime` bundle) and the real GPV signing
   oracle (`SignatureAlg.signingOracle`, which on each signing query draws a fresh salt, queries the
   random oracle, and trapdoor-samples a preimage). This is exactly the inner run of
-  `SignatureAlg.unforgeableExperimentNoFresh` for the GPV scheme, with the forgery `(msg, σ)` extracted.
+  `SignatureAlg.unforgeableNoFreshExperiment` for the GPV scheme, with the forgery `(msg, σ)`
+  extracted.
 
 - `progGameRun` is the **randomized sign-then-hash game run**: `adv.main pk` simulated under the
   *programmed* random oracle and the *simulator* signing oracle of the collision reduction
@@ -81,7 +82,8 @@ open Classical in
 The adversary's main computation is simulated under the real ambient oracle forwarding (the lazy
 random oracle supplied by the `runtime` bundle) together with the real GPV signing oracle
 (`SignatureAlg.signingOracle`), and the resulting forgery `(msg, σ)` is extracted. This is exactly
-the inner run of `SignatureAlg.unforgeableExperimentNoFresh` for the GPV scheme: it is the real-world side
+the inner run of `SignatureAlg.unforgeableNoFreshExperiment` for the GPV scheme: it is the
+real-world side
 of the sign-then-hash hop, the coupling's `realRun`. -/
 noncomputable def realGameRun
     (adv : SignatureAlg.UnforgeableAdversary

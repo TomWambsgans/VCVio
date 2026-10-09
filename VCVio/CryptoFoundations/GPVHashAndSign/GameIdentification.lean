@@ -189,7 +189,8 @@ freshness vehicle `gpvRealImplFresh` run started from `(∅, ∅), false`, proje
 collision flag.
 
 This is the kernel of the freshness game-identification (N)(a): it identifies the WriterT signing
-log of `unforgeableExperiment` with the `Finset M` signed-set carried by `gpvRealImplFresh`, across the
+log of `unforgeableExperiment` with the `Finset M` signed-set carried by `gpvRealImplFresh`,
+across the
 WriterT/StateT monad divide.  The proof chains the reconstruction pieces, mirroring the
 FiatShamir `probOutput_unforgeableExp_eq_hybridExpAtKey_real` kernel:
 `simulateQ_writerTMapBase_run` + `gpvOuter_writerTMapBase_implW` (fuse the inner WriterT pass with
@@ -708,7 +709,8 @@ headline over the tape is not established.
 `gpv_tvDist_real_programmed_le_collisionBound` to the headline bounds:
 
 1. *Game identification.* The headline LHS `SignatureAlg.unforgeableAdvantage (runtime) adv` is
-   `Pr[= true | unforgeableExperiment (runtime) adv]`, whose body runs `simulateQ impl (adv.main pk)` — the
+   `Pr[= true | unforgeableExperiment (runtime) adv]`, whose body runs `simulateQ impl
+   (adv.main pk)` — the
    signing oracle draws each fresh salt *internally* at an adversary-chosen point over the sum spec
    `unifSpec + (Salt × M →ₒ Range)`. Connecting this to the *pinned* hash-only run `ob` of
    `gpv_tvDist_real_programmed_le_collisionBound` (so that `abs_probOutput_toReal_sub_le_tvDist`
