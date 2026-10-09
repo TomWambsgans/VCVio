@@ -20,6 +20,12 @@ and the intermediate programs they are built from. A reduction that must answer 
 from an oracle — a PRF challenger, or a lazily sampled table — instantiates `secret` with that
 oracle instead of rewriting the program.
 
+The `*_eq_*` theorems are the faithfulness half of the abstraction: at the honest provider
+`fun a => pure (core.PRF pkSeed skSeed a)` a twin *is* the landed program it twins, as an equation
+in `m`. Every twin that the two scheme twins are built from is reached this way, from
+`wotsPkGenTopsWithSecret` up to `signInternalWithSecretRandomizerM`, so a reduction may descend to
+whatever layer it needs and rewrite back.
+
 The `*_natural` theorems carry a twin across a monad morphism: a morphism that commutes with the
 hash callbacks, and with the provider at secret-key addresses (`Adrs.IsSecretKey`, type `WOTS_PRF`
 or `FORS_PRF`), commutes with each program built from them. The twins read a secret only at
@@ -32,7 +38,7 @@ a `HasQuery.QueryHom (publicHashSpec core)`, so only the provider needs a hypoth
 
 ## Scope
 
-Nothing here is probabilistic: `m` is an arbitrary (lawful, for the naturality theorems) monad, no
+Nothing here is probabilistic: `m` is an arbitrary (lawful, for the theorems) monad, no
 distribution is formed, and no security property is stated — a provider is a plumbing device, and
 whether a particular provider is indistinguishable from the honest one is a question for
 `HashSig.SLHDSA.Security`. The public hash is untouched: the twins take the same hash, compression
@@ -41,16 +47,18 @@ and node-hash callbacks as the `*With` programs, the `*M` twins still reach the 
 digest split is likewise untouched, and `signInternalWithSecretRandomizerM` takes the message
 randomizer `R` itself, so a caller may draw it from an oracle.
 
-No equation between a twin at the honest provider `fun a => pure (core.PRF pkSeed skSeed a)` and
-the landed program it twins is stated here, and nothing here bounds the provider traffic of a
-twin: how many times it calls `secret`, or at which addresses.
+Each `*_eq_*` equation pins the *returned value* of a twin and, because the hash callbacks are
+universally quantified, the hash traffic the twin issues. It pins nothing about the provider
+traffic: the honest provider is effect-free, so the equation does not say how many times a twin
+calls `secret`, at which addresses it calls it when the result is discarded, or how those calls
+interleave with the hash callbacks, and nothing here bounds that traffic.
 
 ## Labels
 
-Forty declarations: the secret-key address predicate, its decidability instance and its two
-builder lemmas, nineteen provider-parametric programs, and seventeen naturality theorems. There is
-no private declaration: the monadic-vector naturality step the WOTS+ and FORS twins need is
-`Vector.ofFnM_natural` of `ToMathlib.Data.Vector`.
+Fifty-six declarations: the secret-key address predicate, its decidability instance and its two
+builder lemmas, nineteen provider-parametric programs, sixteen specialisation equations, and
+seventeen naturality theorems. There is no private declaration: the monadic-vector naturality step
+the WOTS+ and FORS twins need is `Vector.ofFnM_natural` of `ToMathlib.Data.Vector`.
 
 *Secret-key addresses*: `Adrs.IsSecretKey`, `Adrs.isSecretKey_wotsSkAdrs`,
 `Adrs.isSecretKey_forsSkAdrs`.
@@ -64,6 +72,19 @@ no private declaration: the monadic-vector naturality step the WOTS+ and FORS tw
 * hypertree: `signFromPositionWithSecret`, `signWithSecret`, `rootWithSecret`, and their
   explicit-public-hash forms `signWithSecretM`, `rootWithSecretM`;
 * scheme: `keygenInternalWithSecretM`, `signInternalWithSecretRandomizerM`.
+
+*Specialisation at the honest provider* — each states that the twin equals its landed program:
+
+* `wotsPkGenTopsWithSecret_eq_wotsPkGenTopsWith`, `wotsSignWithSecret_eq_wotsSignWith`,
+  `wotsPkGenWithSecret_eq_wotsPkGenWith`;
+* `xmssLeafWithSecret_eq_xmssLeafWith`, `xmssNodeWithSecret_eq_xmssNodeWith`,
+  `xmssSignWithSecret_eq_xmssSignWith`, `xmssRootWithSecret_eq_xmssRootWith`;
+* `forsLeafWithSecret_eq_forsLeafWith`, `forsSignWithSecret_eq_forsSignWith`,
+  `forsSignWithSecretM_eq_forsSignM`;
+* `signFromPositionWithSecret_eq_signFromPositionWith`, `signWithSecret_eq_signWith`,
+  `rootWithSecret_eq_rootWith`, `signWithSecretM_eq_signM`, `rootWithSecretM_eq_rootM`;
+* `signInternalWithSecretRandomizerM_eq_signInternalWithRandomizerM`; key generation is
+  `rootWithSecretM_eq_rootM`, `keygenInternalWithSecretM` being `rootWithSecretM`.
 
 *Naturality* — each states that a monad morphism commuting with the callbacks, and with the
 provider at secret-key addresses, commutes with the twin, named after it:
@@ -113,6 +134,13 @@ theorem Adrs.isSecretKey_forsSkAdrs (adrs : Adrs) (t : ℕ) : (forsSkAdrs adrs t
     let x ← secret (wotsSkAdrs adrs i.val)
     chainWith hash (wotsChainAdrs adrs i.val) x 0 (p.w - 1)
 
+/-- At the honest provider the provider-parametric WOTS+ chain ends are `wotsPkGenTopsWith`. -/
+theorem wotsPkGenTopsWithSecret_eq_wotsPkGenTopsWith {m : Type → Type*} [Monad m] [LawfulMonad m]
+    (hash : Adrs → core.Y → m core.Y) (sk : core.SkSeed) (pk : core.PkSeed) (adrs : Adrs) :
+    wotsPkGenTopsWithSecret core hash (fun a => pure (core.PRF pk sk a)) adrs =
+      wotsPkGenTopsWith core hash sk pk adrs := by
+  simp only [wotsPkGenTopsWithSecret, wotsPkGenTopsWith, pure_bind]
+
 /-- The WOTS+ signature on `msg` at `adrs` (FIPS 205 Algorithm 7), with each chain started from
 the value the provider `secret` returns at its `WOTS_PRF` address. -/
 @[expose] def wotsSignWithSecret {m : Type → Type*} [Monad m]
@@ -122,6 +150,14 @@ the value the provider `secret` returns at its `WOTS_PRF` address. -/
     let x ← secret (wotsSkAdrs adrs i.val)
     chainWith hash (wotsChainAdrs adrs i.val) x 0 (chainStepsCore core msg i.val)
 
+/-- At the honest provider provider-parametric WOTS+ signing is `wotsSignWith`. -/
+theorem wotsSignWithSecret_eq_wotsSignWith {m : Type → Type*} [Monad m] [LawfulMonad m]
+    (hash : Adrs → core.Y → m core.Y) (msg : core.Y) (sk : core.SkSeed) (pk : core.PkSeed)
+    (adrs : Adrs) :
+    wotsSignWithSecret core hash (fun a => pure (core.PRF pk sk a)) msg adrs =
+      wotsSignWith core hash msg sk pk adrs := by
+  simp only [wotsSignWithSecret, wotsSignWith, pure_bind]
+
 /-- The WOTS+ public key at `adrs` (FIPS 205 Algorithm 6): the provider-parametric chain ends
 compressed by `T_len` at `wotsPkAdrs adrs`. -/
 @[expose] def wotsPkGenWithSecret {m : Type → Type*} [Monad m]
@@ -129,6 +165,14 @@ compressed by `T_len` at `wotsPkAdrs adrs`. -/
     (secret : Adrs → m core.Y) (adrs : Adrs) : m core.Y := do
   let tops ← wotsPkGenTopsWithSecret core hash secret adrs
   compress (wotsPkAdrs adrs) tops.toList
+
+/-- At the honest provider the provider-parametric WOTS+ public key is `wotsPkGenWith`. -/
+theorem wotsPkGenWithSecret_eq_wotsPkGenWith {m : Type → Type*} [Monad m] [LawfulMonad m]
+    (hash : Adrs → core.Y → m core.Y) (compress : Adrs → List core.Y → m core.Y)
+    (sk : core.SkSeed) (pk : core.PkSeed) (adrs : Adrs) :
+    wotsPkGenWithSecret core hash compress (fun a => pure (core.PRF pk sk a)) adrs =
+      wotsPkGenWith core hash compress sk pk adrs := by
+  rw [wotsPkGenWithSecret, wotsPkGenWith, wotsPkGenTopsWithSecret_eq_wotsPkGenTopsWith]
 
 /-! ## Provider-parametric XMSS -/
 
@@ -160,12 +204,50 @@ through the provider-parametric tree, paired with the provider-parametric WOTS+ 
   let sig ← wotsSignWithSecret core hash secret msg (wotsLeafAdrs adrs idx)
   return ⟨sig, path⟩
 
+/-- At the honest provider the provider-parametric XMSS leaf is `xmssLeafWith`. -/
+theorem xmssLeafWithSecret_eq_xmssLeafWith {m : Type → Type*} [Monad m] [LawfulMonad m]
+    (hash : Adrs → core.Y → m core.Y) (compress : Adrs → List core.Y → m core.Y)
+    (sk : core.SkSeed) (pk : core.PkSeed) (adrs : Adrs) (t : ℕ) :
+    xmssLeafWithSecret core hash compress (fun a => pure (core.PRF pk sk a)) adrs t =
+      xmssLeafWith core hash compress sk pk adrs t := by
+  rw [xmssLeafWithSecret, xmssLeafWith, wotsPkGenWithSecret_eq_wotsPkGenWith]
+
+/-- At the honest provider provider-parametric XMSS signing is `xmssSignWith`. -/
+theorem xmssSignWithSecret_eq_xmssSignWith {m : Type → Type*} [Monad m] [LawfulMonad m]
+    (hash : Adrs → core.Y → m core.Y) (compress : Adrs → List core.Y → m core.Y)
+    (nodeHash : Adrs → core.Y → core.Y → m core.Y)
+    (msg : core.Y) (sk : core.SkSeed) (pk : core.PkSeed) (adrs : Adrs) (idx : ℕ) :
+    xmssSignWithSecret core hash compress nodeHash (fun a => pure (core.PRF pk sk a))
+        msg adrs idx =
+      xmssSignWith core hash compress nodeHash msg sk pk adrs idx := by
+  rw [xmssSignWithSecret, xmssSignWith, wotsSignWithSecret_eq_wotsSignWith,
+    funext fun t => xmssLeafWithSecret_eq_xmssLeafWith core hash compress sk pk adrs t]
+
 /-- The root of the XMSS tree at `adrs`, over provider-parametric leaves. -/
 @[expose] def xmssRootWithSecret {m : Type → Type*} [Monad m]
     (hash : Adrs → core.Y → m core.Y) (compress : Adrs → List core.Y → m core.Y)
     (nodeHash : Adrs → core.Y → core.Y → m core.Y) (secret : Adrs → m core.Y)
     (adrs : Adrs) : m core.Y :=
   xmssNodeWithSecret core hash compress nodeHash secret adrs p.hp 0
+
+/-- At the honest provider the provider-parametric XMSS subtree root is `xmssNodeWith`. -/
+theorem xmssNodeWithSecret_eq_xmssNodeWith {m : Type → Type*} [Monad m] [LawfulMonad m]
+    (hash : Adrs → core.Y → m core.Y) (compress : Adrs → List core.Y → m core.Y)
+    (nodeHash : Adrs → core.Y → core.Y → m core.Y)
+    (sk : core.SkSeed) (pk : core.PkSeed) (adrs : Adrs) (z t : ℕ) :
+    xmssNodeWithSecret core hash compress nodeHash (fun a => pure (core.PRF pk sk a)) adrs z t =
+      xmssNodeWith core hash compress nodeHash sk pk adrs z t := by
+  rw [xmssNodeWithSecret, xmssNodeWith,
+    funext fun t => xmssLeafWithSecret_eq_xmssLeafWith core hash compress sk pk adrs t]
+
+/-- At the honest provider the provider-parametric XMSS root is `xmssRootWith`. -/
+theorem xmssRootWithSecret_eq_xmssRootWith {m : Type → Type*} [Monad m] [LawfulMonad m]
+    (hash : Adrs → core.Y → m core.Y) (compress : Adrs → List core.Y → m core.Y)
+    (nodeHash : Adrs → core.Y → core.Y → m core.Y)
+    (sk : core.SkSeed) (pk : core.PkSeed) (adrs : Adrs) :
+    xmssRootWithSecret core hash compress nodeHash (fun a => pure (core.PRF pk sk a)) adrs =
+      xmssRootWith core hash compress nodeHash sk pk adrs := by
+  rw [xmssRootWithSecret, xmssRootWith, xmssNodeWithSecret_eq_xmssNodeWith]
 
 /-! ## Provider-parametric FORS -/
 
@@ -176,6 +258,14 @@ through the provider-parametric tree, paired with the provider-parametric WOTS+ 
     (adrs : Adrs) (t : ℕ) : m core.Y := do
   let x ← secret (forsSkAdrs adrs t)
   hash (forsNodeAdrs adrs 0 t) x
+
+/-- At the honest provider the provider-parametric FORS leaf is `forsLeafWith`. -/
+theorem forsLeafWithSecret_eq_forsLeafWith {m : Type → Type*} [Monad m] [LawfulMonad m]
+    (hash : Adrs → core.Y → m core.Y) (sk : core.SkSeed) (pk : core.PkSeed)
+    (adrs : Adrs) (t : ℕ) :
+    forsLeafWithSecret core hash (fun a => pure (core.PRF pk sk a)) adrs t =
+      forsLeafWith core hash sk pk adrs t := by
+  simp only [forsLeafWithSecret, forsLeafWith, forsSkGenCore, pure_bind]
 
 /-- The root of FORS tree `i` under `adrs` (FIPS 205 Algorithm 15), over provider-parametric
 leaves. -/
@@ -208,12 +298,33 @@ indexed leaf's `FORS_PRF` address. -/
     let sk ← secret (forsSkAdrs adrs idx)
     return ⟨sk, path⟩
 
+/-- At the honest provider provider-parametric FORS signing is `forsSignWith`. -/
+theorem forsSignWithSecret_eq_forsSignWith {m : Type → Type*} [Monad m] [LawfulMonad m]
+    (hash : Adrs → core.Y → m core.Y) (nodeHash : Adrs → core.Y → core.Y → m core.Y)
+    (md : List Byte) (sk : core.SkSeed) (pk : core.PkSeed) (adrs : Adrs) :
+    forsSignWithSecret core hash nodeHash (fun a => pure (core.PRF pk sk a)) md adrs =
+      forsSignWith core hash nodeHash md sk pk adrs := by
+  have hleaf : forsLeafWithSecret core hash (fun a => pure (core.PRF pk sk a)) adrs =
+      forsLeafWith core hash sk pk adrs :=
+    funext fun t => forsLeafWithSecret_eq_forsLeafWith core hash sk pk adrs t
+  rw [forsSignWithSecret, forsSignWith, hleaf]
+  refine congrArg Vector.ofFnM (funext fun i => ?_)
+  simp only [forsSkGenCore, pure_bind]
+
 /-- `forsSignWithSecret` with the public hash issued through `HasQuery (publicHashSpec core)` at
 `pkSeed`. -/
 @[expose] def forsSignWithSecretM {m : Type → Type*} [Monad m] [HasQuery (publicHashSpec core) m]
     (secret : Adrs → m core.Y) (md : List Byte) (pkSeed : core.PkSeed) (adrs : Adrs) :
     m (ForsSigCore p core) :=
   forsSignWithSecret core (PublicHash.f core pkSeed) (PublicHash.h core pkSeed) secret md adrs
+
+/-- At the honest provider provider-parametric FORS signing is `forsSignM`. -/
+theorem forsSignWithSecretM_eq_forsSignM {m : Type → Type*} [Monad m] [LawfulMonad m]
+    [HasQuery (publicHashSpec core) m] (skSeed : core.SkSeed) (pkSeed : core.PkSeed)
+    (md : List Byte) (adrs : Adrs) :
+    forsSignWithSecretM core (fun a => pure (core.PRF pkSeed skSeed a)) md pkSeed adrs =
+      (forsSignM core md skSeed pkSeed adrs : m (ForsSigCore p core)) := by
+  rw [forsSignWithSecretM, forsSignM, forsSignWithSecret_eq_forsSignWith]
 
 /-! ## Naturality of the WOTS+, XMSS and FORS twins -/
 
@@ -430,6 +541,28 @@ forces the redundant root recovery in the top layer, matching `signFromPositionW
         (layers + 1) (by simp [next]; omega) root
       return rest.insertIdx 0 sig
 
+/-- At the honest provider provider-parametric hypertree signing from a position is
+`signFromPositionWith`. -/
+theorem signFromPositionWithSecret_eq_signFromPositionWith {m : Type → Type*} [Monad m]
+    [LawfulMonad m]
+    (hash : Adrs → core.Y → m core.Y)
+    (compress : Adrs → List core.Y → m core.Y)
+    (nodeHash : Adrs → core.Y → core.Y → m core.Y)
+    (sk : core.SkSeed) (pk : core.PkSeed) (recoverFinal : Bool) (pos : LayerPosition vp) :
+    ∀ (layers : ℕ) (h : pos.layer.val + layers = vp.params.d) (msg : core.Y),
+      signFromPositionWithSecret core hash compress nodeHash (fun a => pure (core.PRF pk sk a))
+          recoverFinal pos layers h msg =
+        signFromPositionWith vp core hash compress nodeHash sk pk recoverFinal pos layers h msg
+  | 0, _, _ => by rw [signFromPositionWithSecret, signFromPositionWith]
+  | 1, _, msg => by
+      rw [signFromPositionWithSecret, signFromPositionWith, xmssSignWithSecret_eq_xmssSignWith]
+  | layers + 2, hremaining, msg => by
+      rw [signFromPositionWithSecret, signFromPositionWith, xmssSignWithSecret_eq_xmssSignWith]
+      refine bind_congr fun sig => bind_congr fun root => ?_
+      dsimp only
+      rw [signFromPositionWithSecret_eq_signFromPositionWith hash compress nodeHash sk pk false _
+        (layers + 1)]
+
 /-- The full hypertree signature of `msg` for the digest parts `parts` (FIPS 205 Algorithm 12),
 over provider-parametric XMSS signatures. -/
 @[expose] def signWithSecret {m : Type → Type*} [Monad m]
@@ -446,6 +579,26 @@ over provider-parametric XMSS signatures. -/
     (nodeHash : Adrs → core.Y → core.Y → m core.Y) (secret : Adrs → m core.Y) : m core.Y :=
   xmssRootWithSecret core hash compress nodeHash secret (layerAdrs (vp.params.d - 1) 0)
 
+/-- At the honest provider provider-parametric hypertree signing is `signWith`. -/
+theorem signWithSecret_eq_signWith {m : Type → Type*} [Monad m] [LawfulMonad m]
+    (hash : Adrs → core.Y → m core.Y)
+    (compress : Adrs → List core.Y → m core.Y)
+    (nodeHash : Adrs → core.Y → core.Y → m core.Y)
+    (sk : core.SkSeed) (pk : core.PkSeed) (msg : core.Y) (parts : DigestParts vp.params) :
+    signWithSecret core hash compress nodeHash (fun a => pure (core.PRF pk sk a)) msg parts =
+      signWith vp core hash compress nodeHash msg sk pk parts := by
+  rw [signWithSecret, signWith, signFromPositionWithSecret_eq_signFromPositionWith]
+
+/-- At the honest provider the provider-parametric hypertree root is `rootWith`. -/
+theorem rootWithSecret_eq_rootWith {m : Type → Type*} [Monad m] [LawfulMonad m]
+    (hash : Adrs → core.Y → m core.Y)
+    (compress : Adrs → List core.Y → m core.Y)
+    (nodeHash : Adrs → core.Y → core.Y → m core.Y)
+    (sk : core.SkSeed) (pk : core.PkSeed) :
+    rootWithSecret core hash compress nodeHash (fun a => pure (core.PRF pk sk a)) =
+      rootWith vp core hash compress nodeHash sk pk := by
+  rw [rootWithSecret, rootWith, xmssRootWithSecret_eq_xmssRootWith]
+
 /-- `signWithSecret` with the public hash issued through `HasQuery (publicHashSpec core)` at
 `pkSeed`. -/
 @[expose] def signWithSecretM {m : Type → Type*} [Monad m] [HasQuery (publicHashSpec core) m]
@@ -460,6 +613,22 @@ over provider-parametric XMSS signatures. -/
     (secret : Adrs → m core.Y) (pkSeed : core.PkSeed) : m core.Y :=
   rootWithSecret core (PublicHash.f core pkSeed) (PublicHash.tl core pkSeed)
     (PublicHash.h core pkSeed) secret
+
+/-- At the honest provider provider-parametric hypertree signing is `signM`. -/
+theorem signWithSecretM_eq_signM {m : Type → Type*} [Monad m] [LawfulMonad m]
+    [HasQuery (publicHashSpec core) m] (skSeed : core.SkSeed) (pkSeed : core.PkSeed)
+    (msg : core.Y) (parts : DigestParts vp.params) :
+    signWithSecretM core (fun a => pure (core.PRF pkSeed skSeed a)) msg pkSeed parts =
+      (signM vp core msg skSeed pkSeed parts : m (Signature vp core)) := by
+  rw [signWithSecretM, signWithSecret, signM, signFromPositionM,
+    signFromPositionWithSecret_eq_signFromPositionWith]
+
+/-- At the honest provider the provider-parametric hypertree root is `rootM`. -/
+theorem rootWithSecretM_eq_rootM {m : Type → Type*} [Monad m] [LawfulMonad m]
+    [HasQuery (publicHashSpec core) m] (skSeed : core.SkSeed) (pkSeed : core.PkSeed) :
+    rootWithSecretM core (fun a => pure (core.PRF pkSeed skSeed a)) pkSeed =
+      (rootM vp core skSeed pkSeed : m core.Y) := by
+  rw [rootWithSecretM, rootM, rootWithSecret_eq_rootWith]
 
 /-! ## Naturality of the hypertree twins -/
 
@@ -599,6 +768,18 @@ the message randomizer `R` supplied: neither secret seed appears. -/
   let forsPk ← forsPkFromSigM core forsSig parts.md.toList pkSeed parts.forsAdrs
   let htSig ← GeneralHypertree.signWithSecretM core secret forsPk pkSeed parts
   return ⟨R, forsSig, htSig⟩
+
+/-- At the honest provider provider-parametric signing at a supplied randomizer is
+`signInternalWithRandomizerM`. -/
+theorem signInternalWithSecretRandomizerM_eq_signInternalWithRandomizerM {m : Type → Type*}
+    [Monad m] [LawfulMonad m] [HasQuery (publicHashSpec core) m] (skSeed : core.SkSeed)
+    (pkSeed : core.PkSeed) (msg : List Byte) (pkRoot R : core.Y) :
+    signInternalWithSecretRandomizerM core (fun a => pure (core.PRF pkSeed skSeed a)) msg pkSeed
+        pkRoot R =
+      (signInternalWithRandomizerM vp core msg skSeed pkSeed pkRoot R :
+        m (SignatureCore vp core)) := by
+  rw [signInternalWithSecretRandomizerM, signInternalWithRandomizerM]
+  simp only [forsSignWithSecretM_eq_forsSignM, GeneralHypertree.signWithSecretM_eq_signM]
 
 /-! ## Naturality of the scheme twins -/
 

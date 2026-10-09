@@ -11,15 +11,16 @@ public import HashSig.SLHDSA.Security.CacheSecret
 /-!
 # The random-oracle scheme at a deterministic primitive bundle
 
-A secret provider of `HashSig.SLHDSA.SecretProvider` is honest when it returns
-`PRF(PK.seed, SK.seed, ADRS)` at every address: `prfSecret core pkSeed skSeed`. This module proves
-that each provider-parametric twin at the honest provider is the landed FIPS 205 program it twins,
-at every lawful monad, and uses that to identify `romScheme` with FIPS 205's internal algorithms
-once its three oracles are answered by a deterministic primitive bundle.
+`romScheme` of `HashSig.SLHDSA.Security.Target` draws every WOTS+ and FORS secret from the
+tweakable-hash oracle at a `PRF` address, and its randomizer from the `PRF_msg` oracle. This module
+answers the three oracles by a deterministic primitive bundle and identifies the result with
+FIPS 205's internal algorithms at that bundle. The secret draws become the honest provider
+`fun a => pure (prims.PRF pkSeed skSeed a)` when the bundle's tweakable hash at a
+secret-key address, applied to the secret seed read as a node, is its `PRF`; the provider-parametric
+programs then are the landed ones (the `*_eq_*` equations of `HashSig.SLHDSA.SecretProvider`).
 
 ## Main definitions
 
-* `prfSecret core pkSeed skSeed`: the honest provider, `pure ∘ core.PRF pkSeed skSeed`.
 * `Security.romAnswer prims`: the answer function of `hashSpec prims.core` given by a bundle: the
   tweakable hash and `H_msg` by `PublicHash.impl prims`, `PRF_msg` by `prims.PRFmsg`.
 * `Security.internalAlg vp prims optRand pkSeedDist`: FIPS 205 Algorithms 18–20 as a signature
@@ -29,9 +30,6 @@ once its three oracles are answered by a deterministic primitive bundle.
 
 ## Main statements
 
-* `keygenInternalWithSecretM_prfSecret`, `signInternalWithSecretRandomizerM_prfSecret`: the
-  scheme twins at the honest provider are `GeneralHypertree.rootM` and
-  `GeneralScheme.signInternalWithRandomizerM`.
 * `Security.romScheme_map_romAnswer`: when the tweakable hash of `prims` at a secret-key address
   applied to `e SK.seed` is `prims.PRF`, answering the oracles of `romScheme prims.core e` by
   `romAnswer prims` gives `internalAlg vp prims`.
@@ -40,147 +38,6 @@ once its three oracles are answered by a deterministic primitive bundle.
 public section
 
 open OracleComp OracleSpec
-
-namespace SLHDSA
-
-section PrfSecret
-
-variable {p : Params} (core : CorePrimitives p)
-
-/-- The honest secret provider: the WOTS+ or FORS secret value at an address is
-`PRF(PK.seed, SK.seed, ADRS)`, returned without effect. -/
-@[expose] def prfSecret {m : Type → Type*} [Monad m] (pkSeed : core.PkSeed)
-    (skSeed : core.SkSeed) : Adrs → m core.Y :=
-  fun a => pure (core.PRF pkSeed skSeed a)
-
-variable {m : Type → Type*} [Monad m] [LawfulMonad m]
-  (hash : Adrs → core.Y → m core.Y) (compress : Adrs → List core.Y → m core.Y)
-  (nodeHash : Adrs → core.Y → core.Y → m core.Y) (pkSeed : core.PkSeed) (skSeed : core.SkSeed)
-
-/-- The WOTS+ chain ends at the honest provider are the landed ones. -/
-theorem wotsPkGenTopsWithSecret_prfSecret (adrs : Adrs) :
-    wotsPkGenTopsWithSecret core hash (prfSecret core pkSeed skSeed) adrs =
-      wotsPkGenTopsWith core hash skSeed pkSeed adrs := by
-  simp only [wotsPkGenTopsWithSecret, wotsPkGenTopsWith, prfSecret, pure_bind]
-
-/-- The WOTS+ signature at the honest provider is the landed one. -/
-theorem wotsSignWithSecret_prfSecret (msg : core.Y) (adrs : Adrs) :
-    wotsSignWithSecret core hash (prfSecret core pkSeed skSeed) msg adrs =
-      wotsSignWith core hash msg skSeed pkSeed adrs := by
-  simp only [wotsSignWithSecret, wotsSignWith, prfSecret, pure_bind]
-
-/-- The WOTS+ public key at the honest provider is the landed one. -/
-theorem wotsPkGenWithSecret_prfSecret (adrs : Adrs) :
-    wotsPkGenWithSecret core hash compress (prfSecret core pkSeed skSeed) adrs =
-      wotsPkGenWith core hash compress skSeed pkSeed adrs := by
-  rw [wotsPkGenWithSecret, wotsPkGenWith, wotsPkGenTopsWithSecret_prfSecret]
-
-/-- The XMSS leaves at the honest provider are the landed ones. -/
-theorem xmssLeafWithSecret_prfSecret (adrs : Adrs) :
-    xmssLeafWithSecret core hash compress (prfSecret core pkSeed skSeed) adrs =
-      xmssLeafWith core hash compress skSeed pkSeed adrs := by
-  funext t
-  exact wotsPkGenWithSecret_prfSecret core hash compress pkSeed skSeed _
-
-/-- The XMSS subtree roots at the honest provider are the landed ones. -/
-theorem xmssNodeWithSecret_prfSecret (adrs : Adrs) (z t : ℕ) :
-    xmssNodeWithSecret core hash compress nodeHash (prfSecret core pkSeed skSeed) adrs z t =
-      xmssNodeWith core hash compress nodeHash skSeed pkSeed adrs z t := by
-  rw [xmssNodeWithSecret, xmssNodeWith, xmssLeafWithSecret_prfSecret]
-
-/-- The XMSS tree root at the honest provider is the landed one. -/
-theorem xmssRootWithSecret_prfSecret (adrs : Adrs) :
-    xmssRootWithSecret core hash compress nodeHash (prfSecret core pkSeed skSeed) adrs =
-      xmssRootWith core hash compress nodeHash skSeed pkSeed adrs :=
-  xmssNodeWithSecret_prfSecret core hash compress nodeHash pkSeed skSeed adrs _ _
-
-/-- The XMSS signature at the honest provider is the landed one. -/
-theorem xmssSignWithSecret_prfSecret (msg : core.Y) (adrs : Adrs) (idx : ℕ) :
-    xmssSignWithSecret core hash compress nodeHash (prfSecret core pkSeed skSeed) msg adrs idx =
-      xmssSignWith core hash compress nodeHash msg skSeed pkSeed adrs idx := by
-  rw [xmssSignWithSecret, xmssSignWith, xmssLeafWithSecret_prfSecret,
-    wotsSignWithSecret_prfSecret]
-
-/-- The FORS leaves at the honest provider are the landed ones. -/
-theorem forsLeafWithSecret_prfSecret (adrs : Adrs) :
-    forsLeafWithSecret core hash (prfSecret core pkSeed skSeed) adrs =
-      forsLeafWith core hash skSeed pkSeed adrs := by
-  funext t
-  simp only [forsLeafWithSecret, forsLeafWith, forsSkGenCore, prfSecret, pure_bind]
-
-/-- The FORS signature at the honest provider is the landed one. -/
-theorem forsSignWithSecret_prfSecret (md : List Byte) (adrs : Adrs) :
-    forsSignWithSecret core hash nodeHash (prfSecret core pkSeed skSeed) md adrs =
-      forsSignWith core hash nodeHash md skSeed pkSeed adrs := by
-  simp only [forsSignWithSecret, forsSignWith, forsLeafWithSecret_prfSecret, forsSkGenCore,
-    prfSecret, pure_bind]
-
-end PrfSecret
-
-namespace GeneralHypertree
-
-variable {vp : ValidatedParams} (core : CorePrimitives vp.params)
-  {m : Type → Type*} [Monad m] [LawfulMonad m]
-  (hash : Adrs → core.Y → m core.Y) (compress : Adrs → List core.Y → m core.Y)
-  (nodeHash : Adrs → core.Y → core.Y → m core.Y) (pkSeed : core.PkSeed) (skSeed : core.SkSeed)
-
-/-- Hypertree signing from a position at the honest provider is the landed loop. -/
-theorem signFromPositionWithSecret_prfSecret (recoverFinal : Bool) (pos : LayerPosition vp) :
-    ∀ (layers : ℕ) (h : pos.layer.val + layers = vp.params.d) (msg : core.Y),
-      signFromPositionWithSecret core hash compress nodeHash (prfSecret core pkSeed skSeed)
-          recoverFinal pos layers h msg =
-        signFromPositionWith vp core hash compress nodeHash skSeed pkSeed recoverFinal pos
-          layers h msg
-  | 0, _, _ => by rw [signFromPositionWithSecret, signFromPositionWith]
-  | 1, _, msg => by
-      rw [signFromPositionWithSecret, signFromPositionWith, xmssSignWithSecret_prfSecret]
-  | layers + 2, hremaining, msg => by
-      rw [signFromPositionWithSecret, signFromPositionWith, xmssSignWithSecret_prfSecret]
-      refine bind_congr fun sig => bind_congr fun root => ?_
-      dsimp only
-      rw [signFromPositionWithSecret_prfSecret false _ (layers + 1)]
-
-/-- Hypertree signing at the honest provider is the landed signer. -/
-theorem signWithSecret_prfSecret (msg : core.Y) (parts : DigestParts vp.params) :
-    signWithSecret core hash compress nodeHash (prfSecret core pkSeed skSeed) msg parts =
-      signWith vp core hash compress nodeHash msg skSeed pkSeed parts :=
-  signFromPositionWithSecret_prfSecret core hash compress nodeHash pkSeed skSeed _ _ _ _ _
-
-/-- The hypertree root at the honest provider is the landed root. -/
-theorem rootWithSecret_prfSecret :
-    rootWithSecret core hash compress nodeHash (prfSecret core pkSeed skSeed) =
-      rootWith vp core hash compress nodeHash skSeed pkSeed :=
-  xmssRootWithSecret_prfSecret core hash compress nodeHash pkSeed skSeed _
-
-end GeneralHypertree
-
-namespace GeneralScheme
-
-variable {vp : ValidatedParams} (core : CorePrimitives vp.params)
-  {m : Type → Type*} [Monad m] [LawfulMonad m] [HasQuery (publicHashSpec core) m]
-  (pkSeed : core.PkSeed) (skSeed : core.SkSeed)
-
-/-- Key generation at the honest provider computes the landed hypertree root. -/
-theorem keygenInternalWithSecretM_prfSecret :
-    (keygenInternalWithSecretM core (prfSecret core pkSeed skSeed) pkSeed : m core.Y) =
-      GeneralHypertree.rootM vp core skSeed pkSeed :=
-  GeneralHypertree.rootWithSecret_prfSecret core _ _ _ pkSeed skSeed
-
-/-- Signing at the honest provider and a supplied randomizer is the landed signer at that
-randomizer. -/
-theorem signInternalWithSecretRandomizerM_prfSecret (msg : List Byte) (pkRoot R : core.Y) :
-    (signInternalWithSecretRandomizerM core (prfSecret core pkSeed skSeed) msg pkSeed pkRoot R :
-        m (SignatureCore vp core)) =
-      signInternalWithRandomizerM vp core msg skSeed pkSeed pkRoot R := by
-  simp only [signInternalWithSecretRandomizerM, signInternalWithRandomizerM,
-    forsSignWithSecretM, forsSignM, forsSignWithSecret_prfSecret,
-    GeneralHypertree.signWithSecretM, GeneralHypertree.signM,
-    GeneralHypertree.signWithSecret_prfSecret, GeneralHypertree.signWith,
-    GeneralHypertree.signFromPositionM]
-
-end GeneralScheme
-
-end SLHDSA
 
 namespace SLHDSA.Security
 
@@ -256,12 +113,11 @@ theorem romScheme_map_romAnswer (e : prims.SkSeed ≃ prims.Y)
     rfl
   have hSecret : ∀ pkSeed skSeed (a : Adrs), a.IsSecretKey →
       F.toMonadHom (oracleSecret prims.core e pkSeed skSeed a) =
-        prfSecret prims.core pkSeed skSeed a := by
+        (pure (prims.PRF pkSeed skSeed a) : ProbComp prims.Y) := by
     intro pkSeed skSeed a ha
     rw [oracleSecret_natural prims.core F e pkSeed skSeed a]
     change (pure (prims.Thash pkSeed (prims.adrsToKey a) [e skSeed]) : ProbComp prims.Y) = _
     rw [hprf pkSeed skSeed a ha]
-    rfl
   apply SignatureAlg.ext
   · change F.toMonadHom (liftM pkSeedDist >>= romKeygenAt prims.core e) = _
     rw [F.toMonadHom.mmap_bind, hLift]
@@ -271,7 +127,8 @@ theorem romScheme_map_romAnswer (e : prims.SkSeed ≃ prims.Y)
     rw [F.toMonadHom.mmap_bind, hLift]
     refine bind_congr fun skPrf => ?_
     rw [F.toMonadHom.mmap_bind, GeneralScheme.keygenInternalWithSecretM_natural prims.core F _ _
-      (hSecret pkSeed skSeed), GeneralScheme.keygenInternalWithSecretM_prfSecret,
+      (hSecret pkSeed skSeed), GeneralScheme.keygenInternalWithSecretM,
+      GeneralHypertree.rootWithSecretM_eq_rootM,
       ← GeneralHypertree.rootM_natural vp prims.core
         (HasQuery.QueryHom.ofSimulateQ (spec := publicHashSpec prims.core) (m := ProbComp)),
       hFree, pure_bind, F.toMonadHom.mmap_pure]
@@ -290,7 +147,7 @@ theorem romScheme_map_romAnswer (e : prims.SkSeed ≃ prims.Y)
     rw [F.toMonadHom.mmap_bind, hR, pure_bind,
       GeneralScheme.signInternalWithSecretRandomizerM_natural prims.core F _ _
         (hSecret sk.pkSeed sk.skSeed),
-      GeneralScheme.signInternalWithSecretRandomizerM_prfSecret,
+      GeneralScheme.signInternalWithSecretRandomizerM_eq_signInternalWithRandomizerM,
       ← GeneralScheme.signInternalM_eq_signInternalWithRandomizerM,
       ← GeneralScheme.signInternalM_natural vp prims.core
         (HasQuery.QueryHom.ofSimulateQ (spec := publicHashSpec prims.core) (m := ProbComp)),
