@@ -128,7 +128,7 @@ theorem probOutput_unforgeableExp_eq_keygen_average
                 psf hr M Salt).verify pksk.1 msg σ
               return !log.wasQueried msg && verified)] := by
   classical
-  rw [SignatureAlg.unforgeableAdvantage, SignatureAlg.unforgeableExp,
+  rw [SignatureAlg.unforgeableAdvantage, SignatureAlg.unforgeableExperiment,
     runtime_evalDist_singleton]
   rw [show (GPVHashAndSign (m := OracleComp (unifSpec + (Salt × M →ₒ Range)))
         psf hr M Salt).keygen
@@ -440,7 +440,7 @@ theorem collisionFindingAdvantage_reduction_eq [DecidableEq Domain]
           pure (decide (xs.1 ≠ xs.2) &&
             decide (psf.eval pk xs.1 = psf.eval pk xs.2) &&
             psf.isShort xs.1 && psf.isShort xs.2) : ProbComp Bool)] := by
-  unfold collisionFindingAdvantage collisionFindingExp
+  unfold collisionFindingAdvantage collisionFindingExperiment
   simp only [map_eq_bind_pure_comp, bind_assoc, pure_bind, Function.comp]
 
 omit [DecidableEq Range] [Fintype Salt] in
@@ -1172,7 +1172,7 @@ theorem programmedPreimageAdvantage_reduction_eq [DecidableEq Domain]
           let x' ← programmedPreimageReduction psf hr M Salt adv domainSample qSign qHash
             pksk.1 y
           pure (decide (x' = x))) : ProbComp Bool)] := by
-  unfold programmedPreimageAdvantage programmedPreimageExp
+  unfold programmedPreimageAdvantage programmedPreimageExperiment
   rfl
 
 open Classical in

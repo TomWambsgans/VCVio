@@ -10,7 +10,7 @@ public import VCVio.CryptoFoundations.GPVHashAndSign.Basic
 
 /-! # GPV Hash-and-Sign: Min-Entropy Bound for the Programmed-Preimage Experiment
 
-In the exact-match experiment `GPVHashAndSign.programmedPreimageExp`, the challenger draws an
+In the exact-match experiment `GPVHashAndSign.programmedPreimageExperiment`, the challenger draws an
 honest key pair, a uniform target `y`, and a hidden short preimage `x ← trapdoorSample pk sk y`;
 the adversary sees only `(pk, y)` and wins by naming `x` exactly.  Since the hidden draw is
 never observed, the best possible strategy is to guess the single most likely preimage, so the
@@ -65,7 +65,7 @@ theorem programmedPreimageAdvantage_le_trapdoorGuessingProbability [DecidableEq 
     programmedPreimageAdvantage (psf := psf) (hr := hr) adversary ≤
       trapdoorGuessingProbability psf hr := by
   classical
-  unfold programmedPreimageAdvantage programmedPreimageExp
+  unfold programmedPreimageAdvantage programmedPreimageExperiment
   rw [← probEvent_eq_eq_probOutput]
   refine probEvent_bind_le_of_forall_le fun pksk hmem => ?_
   obtain ⟨pk, sk⟩ := pksk

@@ -300,9 +300,9 @@ without requiring discrete answer spaces; continuous final-event proofs can use 
 `le_evalDist_bind_apply` transports an almost-everywhere lower bound through a lossless draw;
 its monad is generic and its event need only be measurable.
 
-Runtime-valued signature experiments expose `IsSubprobabilityMeasure` instances, so
+A runtime assigns every experiment a subprobability measure `runtime.evalDist exp`, so
 `measure_le_one` and `measure_ne_top` apply directly. An instrumented experiment recording
-success and a Boolean selector uses `Measure.fst` for its success marginal.
+success and a Boolean selector uses `Measure.fst` of its measure for the success marginal.
 `Measure.fst_apply_eq_add` splits a marginal event into the two disjoint selector events.
 The SLH-DSA `advantage_eq_arms` and `sameMessageAdvantage_eq_arms` equations use that partition
 without caller-supplied evaluator laws; the runtime already bundles its measurable-map law.
@@ -386,12 +386,11 @@ whenever its measure specification agrees with its probability specification
 For a finite uniform oracle, `OracleSpec.IsUniformMeasureSpec.instCompatible` proves the same
 agreement for the native `uniformOn Set.univ` interpretation. It lets a theorem about a direct
 uniform measure fold use an existing finite probability equation at the compatibility boundary.
-For `ProbComp Bool` security games, use `boolDistAdvantage` for a two-game gap and
+For `ProbComp Bool` security games, use `𝒟[game₀].boolDist 𝒟[game₁]` for a two-game gap and
 `𝒟[game] {true}` for a success probability; prefer `Pr{...}[winningCondition]`
 when the game ends by testing a predicate. The native uniform measure instances for
 `unifSpec` and `coinSpec` are global, so no local uniform certificate is needed.
-`boolDistAdvantage_self`,
-`boolDistAdvantage_comm`, and `boolDistAdvantage_triangle` keep elementary
+`Measure.boolDist_self`, `Measure.boolDist_comm`, and `Measure.boolDist_triangle` keep elementary
 metric proofs independent of the finite façade.
 The split between `𝒟[…]` and `Pr[…]` is intentional: an unconditional `Eq.rec` law for `Pr[...]`
 only needs equality of result types, whereas a measure denotation also depends on the selected
