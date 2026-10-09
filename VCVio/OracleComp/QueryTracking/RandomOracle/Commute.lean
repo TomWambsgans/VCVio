@@ -23,6 +23,8 @@ continuation of the answers and the final cache.
 - `randomOracle.evalDist_run_bind_run_swap`: two lazy random-oracle queries commute.
 - `randomOracle.evalDist_run_bind_simulateQ_run_swap`: a lazy random-oracle query commutes with
   every computation run against the same oracle.
+- `randomOracle.evalDist_simulateQ_queryAll_run_bind_of_perm`: querying the lazy random oracle at
+  the indices of a list depends, through the final cache, only on the list up to permutation.
 -/
 
 public section
@@ -95,5 +97,25 @@ theorem evalDist_run_bind_simulateQ_run_swap {α γ : Type} [MeasurableSpace γ]
     rw [evalDist_run_bind_run_swap t t' cache fun u u' c ↦
       (simulateQ spec₀.randomOracle (k u')).run c >>= fun w ↦ f u w.1 w.2]
     exact evalDist_bind_congr_of_support _ _ _ fun y _ ↦ ih y.1 y.2
+
+/-- Querying the lazy random oracle at the indices of a list leaves a final cache whose
+distribution is unchanged when the list is permuted. -/
+theorem evalDist_simulateQ_queryAll_run_bind_of_perm {γ : Type} [MeasurableSpace γ]
+    {ts ts' : List ι₀} (h : ts.Perm ts') (cache : spec₀.QueryCache)
+    (f : spec₀.QueryCache → ProbComp γ) :
+    𝒟[(simulateQ spec₀.randomOracle (spec₀.queryAll ts)).run cache >>= fun w ↦ f w.2] =
+      𝒟[(simulateQ spec₀.randomOracle (spec₀.queryAll ts')).run cache >>= fun w ↦ f w.2] := by
+  induction h generalizing cache with
+  | nil => rfl
+  | cons t _ ih =>
+    simp only [OracleSpec.queryAll_cons, simulateQ_bind, simulateQ_query, OracleQuery.cont_query,
+      OracleQuery.input_query, id_map, StateT.run_bind, bind_assoc]
+    exact evalDist_bind_congr_of_support _ _ _ fun z _ ↦ ih z.2
+  | swap t t' ts =>
+    simp only [OracleSpec.queryAll_cons, simulateQ_bind, simulateQ_query, OracleQuery.cont_query,
+      OracleQuery.input_query, id_map, StateT.run_bind, bind_assoc]
+    exact evalDist_run_bind_run_swap t' t cache fun _ _ c ↦
+      (simulateQ spec₀.randomOracle (spec₀.queryAll ts)).run c >>= fun w ↦ f w.2
+  | trans _ _ ih₁ ih₂ => exact (ih₁ cache).trans (ih₂ cache)
 
 end randomOracle
