@@ -44,6 +44,8 @@ public import HashSig.SLHDSA.Scheme
 public import HashSig.SLHDSA.SecretProvider
 public import HashSig.SLHDSA.Security
 public import HashSig.SLHDSA.Security.AddressKeys
+public import HashSig.SLHDSA.Security.ByteConformance
+public import HashSig.SLHDSA.Security.ByteModel
 public import HashSig.SLHDSA.Security.CacheDecomposition
 public import HashSig.SLHDSA.Security.CacheReaders
 public import HashSig.SLHDSA.Security.CacheSecret
@@ -74,6 +76,7 @@ public import HashSig.SLHDSA.Security.LabelReaders
 public import HashSig.SLHDSA.Security.LimitedProfile
 public import HashSig.SLHDSA.Security.NodeGraph
 public import HashSig.SLHDSA.Security.ReachableTargets
+public import HashSig.SLHDSA.Security.RomConformance
 public import HashSig.SLHDSA.Security.RomDescentSecret
 public import HashSig.SLHDSA.Security.RomSchemeBridge
 public import HashSig.SLHDSA.Security.RomSchemeRun

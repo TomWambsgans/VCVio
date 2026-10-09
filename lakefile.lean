@@ -407,7 +407,8 @@ script test (args) do
     #["exe", "slhdsa_scheme_game_tests"],
     #["exe", "slhdsa_composition_tests"],
     #["exe", "slhdsa_suf_bound_tests"],
-    #["exe", "slhdsa_limited_profile_tests"]]
+    #["exe", "slhdsa_limited_profile_tests"],
+    #["exe", "slhdsa_byte_model_tests"]]
   if args.contains "--ffi" then
     steps := steps ++ #[#["exe", "mlkem_test"], #["exe", "mldsa_test"], #["exe", "falcon_test"]]
   for cmdArgs in steps do
@@ -464,6 +465,12 @@ lean_exe slhdsa_hypertree_tests where
 /-- Algorithms 21--25 message boundary and all twelve ACVP pre-hash digest/OID canaries. -/
 lean_exe slhdsa_external_tests where
   root := `HashSigTest.SLHDSA.External
+
+/-- SLH-DSA over a single SHAKE256 oracle: SHAKE256 at the FIPS 205 §11.1 layouts of `F`,
+`H_msg` and `PRF_msg` against the landed SHAKE functions, `PRF` as the tweakable hash at a `PRF`
+address, a layout-order negative control, and SHAKE256 prefix consistency. -/
+lean_exe slhdsa_byte_model_tests where
+  root := `HashSigTest.SLHDSA.ByteModel
 
 /-- Sizes, distinctness, cross-role disjointness, and pinned membership of the reachable security
 target ledgers, on small validated profiles. -/
