@@ -8,7 +8,7 @@
 
 **Symptom**: "failed to synthesize instance" mentioning `OracleSpec.AnswerMeasure`, `UniformAnswerMeasure`, `EvalDistSemantics`, or `MeasurableSpace`.
 
-**Fix**: Add `[OracleSpec.AnswerMeasure spec]` for arbitrary per-query answer measures, or `[OracleSpec.UniformAnswerMeasure spec]` for uniform answers. Answer measures live on the discrete σ-algebra, so answer types need no measurable-space hypotheses. For a concrete spec with finite, nonempty answer types, install a local instance with `UniformAnswerMeasure.ofFiniteNonempty spec` on that spec; a sum of specs gets its instance from `AnswerMeasure.add`, so do not declare one on the sum. To convert code written against the removed discrete `Pr[…]` API, see [`probability-migration.md`](probability-migration.md).
+**Fix**: Add `[OracleSpec.AnswerMeasure spec]` for arbitrary per-query answer measures, or `[OracleSpec.UniformAnswerMeasure spec]` for uniform answers. Answer measures live on the discrete σ-algebra, so answer types need no measurable-space hypotheses. For a concrete spec with finite, nonempty answer types, install a local instance with `UniformAnswerMeasure.ofFiniteNonempty spec` on that spec; a sum of specs gets its instance from `UniformAnswerMeasure.add`, so do not declare one on the sum. To convert code written against the removed discrete `Pr[…]` API, see [`probability-migration.md`](probability-migration.md).
 
 ### 2. `autoImplicit = false` is set globally in `lakefile.lean`
 
@@ -132,7 +132,7 @@ built with `ofFn` (`unifSpec`, `coinSpec`, `A →ₒ B`) reduce to their answer 
 combines per-branch instances; a specification defined by a `match` on the query keeps a
 per-query instance proved by `cases` (see `cmaSpec`). The spellings `spec.Range t`, `spec t`, and
 `spec.toPFunctor.B t` are one type at reducible transparency, so a hypothesis in any of them
-serves goals in the others. `UniformAnswerMeasure` is a proposition
+serves goals in the others. `UniformAnswerMeasure` adds the uniformity law
 and derives `finite_range`/`nonempty_range` as theorems, never instances.
 `VCVioTest/OracleComp/SpecInstanceSearch.lean` and `SpecInstanceSearchLibrary.lean` guard all of
 this with heartbeat-bounded canaries and an elaborated-term dependency check.
@@ -232,9 +232,9 @@ that differs syntactically from `Monad.toBind`. This means `pure_bind`, `bind_as
 
 **Symptom**: `simp [pure_bind]` or `rw [bind_assoc]` does nothing on a `do`-block goal.
 
-**Fix**: Use the restated lemmas from `ToMathlib.Control.Lawful.Basic` (namespace `LawfulMonad`):
-`do_pure_bind`, `do_bind_pure`, `do_bind_assoc`, `do_bind_pure_comp`, `do_map_bind`,
-`do_bind_map_left`. All are `@[simp]`.
+**Fix**: state the definition at the monad whose `Bind` instance is reducibly `Monad.toBind`, or
+expose that instance with `show`/`change`, so that the `LawfulMonad` laws `pure_bind`,
+`bind_assoc` and `bind_pure` match the desugared binds.
 
 ### 14. Hypothesis satisfiability is a proof obligation
 

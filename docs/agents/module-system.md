@@ -50,8 +50,8 @@ Probability semantics are PFunctor-parametric but remain in VCVio: PolyFun is
 domain-independent and should not acquire VCVio's measure policy. The
 `OracleSpec.AnswerMeasure` name is a definitional abbreviation of
 `PFunctor.AnswerMeasure` on `spec.toPFunctor` with the discrete σ-algebra on
-answers. `OracleSpec.UniformAnswerMeasure` is a proposition about those chosen
-measures; it carries no finite or inhabited data, and oracle-level uniform
+answers. `OracleSpec.UniformAnswerMeasure` extends it with the law that each chosen
+measure is uniform; it carries no finite or inhabited data, and oracle-level uniform
 interpretations are explicit (`UniformAnswerMeasure.ofFiniteNonempty`) rather
 than derived from finiteness.
 

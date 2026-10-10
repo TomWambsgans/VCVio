@@ -49,12 +49,12 @@ equalities or `tvDist` follows the *Standard proof conversion* table of the road
 
 | Removed | Replacement |
 |---|---|
-| `[IsProbabilitySpec spec]` | `[OracleSpec.IsMeasureSpec spec]` |
-| `[IsUniformSpec spec]` | `[OracleSpec.IsUniformMeasureSpec spec]`, plus `[Fintype (spec.Range t)]` where a cardinality appears |
+| `[IsProbabilitySpec spec]` | `[OracleSpec.AnswerMeasure spec]` |
+| `[IsUniformSpec spec]` | `[OracleSpec.UniformAnswerMeasure spec]`, plus `[Fintype (spec.Range t)]` where a cardinality appears |
 | `[∀ t, MeasurableSpace (spec.Range t)]`, `[∀ t, DiscreteMeasurableSpace (spec.Range t)]` | delete them: answer measures live on the discrete σ-algebra |
 | `OracleSpec.addRangeMeasurableSpace`, `OracleSpec.addRangeDiscreteMeasurableSpace` | delete them; no replacement is needed |
-| `IsUniformSpec.ofFintypeInhabited spec` | `IsUniformMeasureSpec.ofFiniteNonempty spec`, as a local instance; it needs only `Finite` and `Nonempty` answers |
-| `PFunctor.IsProbabilitySpec`, `PFunctor.IsUniformSpec` | `PFunctor.IsMeasureSpec`, `PFunctor.IsMeasureSpec.uniformOfFiniteNonempty` |
+| `IsUniformSpec.ofFintypeInhabited spec` | `UniformAnswerMeasure.ofFiniteNonempty spec`, as a local instance; it needs only `Finite` and `Nonempty` answers |
+| `PFunctor.IsProbabilitySpec`, `PFunctor.IsUniformSpec` | `PFunctor.AnswerMeasure`, `PFunctor.AnswerMeasure.uniformOfFiniteNonempty` |
 | `EvalDistCompatible`, `DiscreteEvalDistCompatible` | operational support lemmas and the `𝒟` equations; no class |
 | `[MonadLiftT m SPMF] [LawfulMonadLiftT m SPMF]` | `[EvalDistSemantics m] [LawfulEvalDistSemantics m]` |
 | `[MonadLiftT m SetM] [LawfulMonadLiftT m SetM]` for `support` | `[MonadAttach m] [ExactMonadAttach m]` |
@@ -63,8 +63,8 @@ equalities or `tvDist` follows the *Standard proof conversion* table of the road
 `unifSpec` and `coinSpec` carry global uniform measure instances. For a concrete specification
 whose answer types are abstract, such as `unifSpec + (Unit →ₒ Chal)` with `[Fintype Chal]
 [Inhabited Chal]`, declare
-`local instance : IsUniformMeasureSpec (Unit →ₒ Chal) := .ofFiniteNonempty _` on the component
-once per file. The sum then gets its instance from `IsUniformMeasureSpec.add`. Do not declare an
+`local instance : UniformAnswerMeasure (Unit →ₒ Chal) := .ofFiniteNonempty _` on the component
+once per file. The sum then gets its instance from `UniformAnswerMeasure.add`. Do not declare an
 instance on the sum itself, since it would compete with that one.
 
 ## Query and handler laws
@@ -72,7 +72,7 @@ instance on the sum itself, since it would compete with that one.
 | Removed | Replacement |
 |---|---|
 | `evalDist_liftM_query : 𝒟[liftM (query t)] = toMeasure t` | `evalDist_liftM_query` gives `(toMeasure t).trim le_top` in any measurable structure on the answer; `MeasureTheory.trim_eq_self` removes the trim under `⊤` (including `Bool`, `Fin n`) |
-| `simp [evalDist_liftM_query, toMeasure_singleton]` for `𝒟[liftM (query t)] {u}` | `simp` with the simp lemmas `evalDist_liftM_query_apply` and `IsUniformMeasureSpec.toMeasure_singleton` |
+| `simp [evalDist_liftM_query, toMeasure_singleton]` for `𝒟[liftM (query t)] {u}` | `simp` with the simp lemmas `evalDist_liftM_query_apply` and `UniformAnswerMeasure.toMeasure_singleton` |
 | `evalDist_liftM_query_eq_uniformOn_top` | `evalDist_liftM_query_uniform`, in any measurable structure; `evalDist_liftM_unifSpec_query` and `evalDist_liftM_coinSpec_query` for the built-in specifications |
 | `evalDist_simulateQ_run_congr_of_forall` | `evalDist_simulateQ_run_congr` with `=ᵈ` step facts; `evalDistEq_simulateQ_run` for the equality in distribution itself |
 | `evalDist_liftComp_of_evalDist`, `wp_liftComp_of_evalDist` | `evalDist_liftComp_of_evalDistEq`, `wp_liftComp_of_evalDistEq` |
@@ -181,7 +181,7 @@ pass `ENNReal.ofReal ζ_zk` to `HVZK`, as `FiatShamirWithAbort.euf_cma_bound` do
 | `VCVio.EvalDist.Fintype` | `VCVio.EvalDist.Monad.Basic` |
 | `VCVio.EvalDist.PFunctor` | `VCVio.EvalDist.PFunctorSupport` |
 | `VCVio.EvalDist.PFunctorMeasure` | `VCVio.EvalDist.PFunctorMeasure.Core` |
-| `VCVio.OracleComp.EvalDist.UniformCompatibility` | `VCVio.OracleComp.EvalDist.Measure`, `VCVio.OracleComp.EvalDist.MeasureSpec` |
+| `VCVio.OracleComp.EvalDist.UniformCompatibility` | `VCVio.OracleComp.EvalDist.Measure`, `VCVio.OracleComp.EvalDist.AnswerMeasure` |
 | `VCVio.OracleComp.Constructions.SampleableType.MeasureCompatibility`, `VCVio.OracleComp.Constructions.SampleableType.NativeMeasure` | `VCVio.OracleComp.Constructions.SampleableType.Measure` |
 | `VCVio.Native` | `VCVio.Foundations` |
 | `VCVio.OracleComp.SimSemantics.WriterT.Basic` | `VCVio.OracleComp.SimSemantics.WriterT.Core` |
@@ -200,7 +200,6 @@ pass `ENNReal.ofReal ζ_zk` to `HVZK`, as `FiatShamirWithAbort.euf_cma_bound` do
 | `VCVio.EvalDist.Expectation`, `VCVio.EvalDist.ExpectationMeasure` | `VCVio.ProgramLogic.Unary.HoareTriple` (`wp`) or `VCVio.EvalDist.Defs.Measure.Core` (`∫⁻` laws) |
 | `VCVio.EvalDist.RenyiDivergence`, `ToMathlib.Probability.ProbabilityMassFunction.RenyiDivergence`, `ToMathlib.Probability.Divergence.RenyiDiscrete`, `ToMathlib.Probability.ProbabilityMassFunction.RadonNikodym` | `ToMathlib.Probability.Divergence.Renyi` |
 | `ToMathlib.Probability.ProbabilityMassFunction.TotalVariation` | `ToMathlib.MeasureTheory.Measure.TotalVariation`; `ToMathlib.Probability.Divergence.RenyiTotalVariation` for the Rényi comparisons |
-| `VCVio.StateSeparating.DistEquiv` | `VCVio.StateSeparating.MeasureDistEquiv` |
 | `VCVio.StateSeparating.Advantage` | `VCVio.StateSeparating.Advantage.Measure` |
 | `VCVio.EvalDist.Monad.Disagreement` | `VCVio.EvalDist.Monad.Disagreement.Measure` |
 | `VCVio.EvalDist.Instances.FinRatPMF`, `ToMathlib.ProbabilityTheory.FinRatPMF.PMF` | `ToMathlib.ProbabilityTheory.FinRatPMF.Measure` |
@@ -218,6 +217,26 @@ The hubs `VCVio.OracleComp.EvalDist`, `VCVio.OracleComp.ProbComp`,
 and import the measure semantics of their area. `import VCVio.Foundations` is an entry point for
 the oracle and probability foundations whose import closure excludes Mathlib's `PMF`.
 
+## Names of the measure API's first release
+
+The first release of the measure API kept qualifiers that set it apart from the discrete layer it
+replaced. The codemod maps both spellings to the final names.
+
+| Removed first-release name | Replacement |
+|---|---|
+| `OracleSpec.IsMeasureSpec`, `PFunctor.IsMeasureSpec` | `OracleSpec.AnswerMeasure`, `PFunctor.AnswerMeasure` |
+| `IsUniformMeasureSpec` (+ `.add`, `.ofFiniteNonempty`, `.unifSpec`, `.coinSpec`, `.toMeasure_singleton`) | `UniformAnswerMeasure` |
+| `toIsMeasureSpec`, `unitArrowSpecIsUniformMeasureSpec`, `fairCoinMeasureSpec` | `toAnswerMeasure`, `unitArrowSpecUniformAnswerMeasure`, `fairCoinAnswerMeasure` |
+| `MeasureDistEquiv`, `MeasureDistEquiv₀` (notation `≡ᵈ`, `≡ᵈ₀` unchanged) | `DistEquiv`, `DistEquiv₀` |
+| `MeasureSemanticsVia`, `toMeasureSemanticsVia` | `SemanticsVia`, `toSemanticsVia` |
+| `MeasureProgramLogic`, `.toMAlgOrdered`, `.Quantitative` | `ExpectationWP`, `.algebra`, `.Lower` |
+| `OracleComp.Qualitative`, `OracleComp.Quantitative` (the unary readings) | `OracleComp.Necessary`, `OracleComp.Lower` |
+| `SymmEncAlg.measureComplete`, `measurePerfectSecrecyAt` | `completeWith`, `ciphertextRowsEqualWith` |
+| `restrictedSigma_hvzk_measure` | `restrictedSigma_hvzk` |
+| `OracleSpec.probHandler`, `simulateQ_probHandler` | `OracleSpec.uniformHandler`, `simulateQ_uniformHandler` |
+| modules `VCVio.OracleComp.EvalDist.MeasureSpec`, `VCVio.StateSeparating.MeasureDistEquiv`, `VCVio.ProgramLogic.Unary.WP.Qualitative`, `VCVio.ProgramLogic.Unary.WP.Quantitative` | `VCVio.OracleComp.EvalDist.AnswerMeasure`, `VCVio.StateSeparating.DistEquiv`, `VCVio.ProgramLogic.Unary.WP.Necessary`, `VCVio.ProgramLogic.Unary.WP.Lower` |
+| the `usesRetiredProbability` environment linter (`ToMathlib/Lint/LegacyProbability.lean`) | `usesPMF` (`ToMathlib/Lint/UsesPMF.lean`) |
+
 ## Symptoms
 
 | Symptom | Fix |
@@ -225,7 +244,7 @@ the oracle and probability foundations whose import closure excludes Mathlib's `
 | failed to synthesize `OracleSpec.IsMeasureSpec spec` | add the binder from *Classes and binders*, or the local instance for a concrete specification |
 | failed to synthesize `MeasurableSpace (spec.Range t)` inside a proof | `let : MeasurableSpace (spec.Range t) := ⊤` (use `let`, not `letI`, in a proposition-valued goal); in a statement, state the fact with `=ᵈ` or `Pr{…}[…]`, or take `{_ : MeasurableSpace (spec.Range t)}` |
 | `rw`/`simp` does not find a query law such as `evalDist_liftM_query_apply` when the answer type appears reduced (`Bool` rather than `spec.Range t`) | name the specification: `evalDist_liftM_query_apply (spec := S) t hs` |
-| two instances for a sum specification disagree (e.g. a local `IsUniformMeasureSpec (A + B)`) | declare the local instance on the components and let `IsMeasureSpec.add` build the sum |
+| two instances for a sum specification disagree (e.g. a local `IsUniformMeasureSpec (A + B)`) | declare the local instance on the components and let `AnswerMeasure.add` build the sum |
 | failed to synthesize `MeasurableSingletonClass α` for `𝒟[mx] {x}` | state the event as `Pr{let y ← mx}[y = x]` |
 | `rw` fails on a `𝒟[…]` term whose measurable-space instance is equal but spelled differently (e.g. Mathlib's `Fin` instance against a local `⊤`) | close with `exact`, `.trans` or `convert`, which unify up to definitional equality |
 | a goal shows `(toMeasure t).trim le_top` | `MeasureTheory.trim_eq_self` when the answer's measurable space is `⊤` by definition; otherwise evaluate measurable sets with `evalDist_liftM_query_apply` or `trim_measurableSet_eq` |
@@ -268,5 +287,5 @@ the oracle and probability foundations whose import closure excludes Mathlib's `
   uniform specifications provide.
 - **Discrete answers.** `OracleSpec` answer measures live on the discrete σ-algebra, so
   oracle programs carry no measurable-space hypotheses on answers. Continuous answer measures
-  belong at the `PFunctor.FreeM` level, where `PFunctor.IsMeasureSpec` takes any measurable
+  belong at the `PFunctor.FreeM` level, where `PFunctor.AnswerMeasure` takes any measurable
   structure.

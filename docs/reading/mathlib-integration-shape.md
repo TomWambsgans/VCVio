@@ -1,6 +1,7 @@
 # Mathlib Integration Shape: Short and Long Term
 
-> Snapshot date: 2026-08-22. Toolchain `v4.33.0`, Mathlib `v4.33.0`.
+> Status: historical design guidance from the 2026-08-22 snapshot (toolchain `v4.33.0`, Mathlib
+> `v4.33.0`); the probability moves it proposes landed with the measure layer.
 >
 > Scoping companion to `denotational-probability-semantics.md`, which lands with the
 > measure-semantics work. That document settles *what the semantic objects are*; this one asks what VCVio's probability

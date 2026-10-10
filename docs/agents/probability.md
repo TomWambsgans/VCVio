@@ -17,7 +17,7 @@ which finite events can be evaluated exactly and which semantics require measura
 `import VCVio.Foundations` is the public entry point for oracle, sampling, measure, kernel,
 operational-support, unary/relational WP, and stateful security foundations. Its import closure
 excludes Mathlib's `PMF`; `VCVioTest/Foundations.lean` checks this boundary. Across the library,
-the `usesRetiredProbability` environment linter (`ToMathlib/Lint/LegacyProbability.lean`) reports
+the `usesPMF` environment linter (`ToMathlib/Lint/UsesPMF.lean`) reports
 any declaration whose type or value uses `PMF` directly.
 
 Handler instrumentation lives in `QueryImpl.Constructions.Core`, `Append.Core`, `WriterT.Core`,
@@ -101,7 +101,7 @@ The qualitative `MAlgRelOrdered` instance for finite-response oracle trees
 measurable structure. The source and final operational output sets are finite concentration
 sets, so arbitrary final relations are handled by restricting to their countable measurable part.
 This works for uncountable output types and weighted interpretations; it needs only finite
-responses, without enumerations or uniformity. The anchoring to structural demonic WP and the
+responses, without enumerations or uniformity. The anchoring to the necessary reading's weakest preconditions and the
 bijection rules hold under uniform response measures, where every reachable output has positive
 mass.
 The generic relational class and laws come from `PolyFun.Control.Monad.Algebra.Relational`.
@@ -115,7 +115,7 @@ case helpers remain available in `RelationalAlgebraAnchored`.
 selected lawful interpretation. Its `of_step` rule retains each joint response/state law;
 `prEvent_eq` transports final events, and the advantage rules permit replacing experiments
 with different private-state types. `run_evalDist_eq` is the public observation equation.
-Weighted interpretations can give a structurally possible answer zero mass; measure equivalence
+Weighted interpretations can give a possible answer zero mass; measure equivalence
 therefore does not assert equality of operational support.
 
 `evalDist_boolBias_bind_coin` is a generic fair-coin reduction for lawful measure semantics and
@@ -306,7 +306,7 @@ property under that hypothesis. Such a local certificate is appropriate for a pa
 measurable pushforward; repeated certificates for the same named measure indicate a missing
 exported instance. For an abstract
 intermediate type, a local `MeasurableSpace α := ⊤` chooses the discrete structure; Mathlib uses
-this idiom in `MeasureTheory.Function.Piecewise` and `MeasureTheory.Function.SimpleFunc`.
+this idiom for piecewise functions (`Set.piecewise`) and in `Mathlib.MeasureTheory.Function.SimpleFunc`.
 Keep that choice inside structural APIs when callers do not need to observe intermediate values.
 Mathlib already supplies discrete measurable spaces for `Bool`, `ℕ`, `Fin n`, and other standard
 countable types; do not redeclare them locally when the canonical instance suffices.
@@ -441,14 +441,14 @@ Mathlib's `lintegral_fintype`, so all-random game hops need no point-probability
 continuation after complementing a fair bit.
 
 The type classes separate a choice of response measures (`AnswerMeasure`) from the
-uniformity law (`UniformAnswerMeasure`), which is a proposition about the chosen measures and
-carries no finiteness data: `UniformAnswerMeasure.finite_range` and `nonempty_range` recover
+uniformity law (`UniformAnswerMeasure`), which extends that choice with the law that each measure
+is uniform and carries no finiteness data: `UniformAnswerMeasure.finite_range` and `nonempty_range` recover
 both facts, and a cardinality statement takes `[Fintype (spec.Range t)]` for the query it
 mentions (`UniformAnswerMeasure.toMeasure_singleton`). A blanket instance from
 `[∀ t, Finite (spec.Range t)] [∀ t, Nonempty (spec.Range t)]` would silently choose a
 distribution for an arbitrary oracle, so `UniformAnswerMeasure.ofFiniteNonempty` is an explicit
 opt-in and only the concrete `unifSpec` and `coinSpec` instances are global. Structural
-`OracleComp.support` needs neither measure class; a
+`support` of an `OracleComp` needs neither measure class; a
 positive-mass bridge needs assumptions on the chosen measures.
 
 Oracle answer measures live on the discrete σ-algebra. `OracleSpec.AnswerMeasure spec` is
@@ -490,7 +490,7 @@ full-support condition on each answer measure, without adding a class for that o
 `OracleComp.mem_support_iff_evalDist_singleton_pos` discharges it from
 `UniformAnswerMeasure`; use this bridge when relating structural reachability to
 singleton mass.
-Structural support itself needs no probability interpretation. In particular,
+Support itself needs no probability interpretation. In particular,
 `OracleComp.support_nonempty` needs only `[∀ t, Nonempty (spec.Range t)]`; counting-oracle support
 and worst-case query bounds use that assumption alone.
 Keep the class hierarchy for chosen answer measures, and state one-off properties such as
@@ -622,10 +622,10 @@ a kernel-based responder need not have any executable realization. The executabl
 | Area | Decision | Rationale / next integration point |
 |------|----------|------------------------------------|
 | Closed `evalDist`, advantages, couplings | Keep `Measure` | There is no semantic input to bundle. |
-| `ReaderT` and `StateT` observations | Use `Kernel` now | Environment/state is exactly the kernel input; use the adapters above. |
-| Stateful responders and wired rounds | Use `Kernel` now | `answerKernel`, `stepAgainstKernel`, and kernel powers model transitions compositionally. |
+| `ReaderT` and `StateT` observations | Use `Kernel` | Environment/state is exactly the kernel input; use the adapters above. |
+| Stateful responders and wired rounds | Use `Kernel` | `answerKernel`, `stepAgainstKernel`, and kernel powers model transitions compositionally. |
 | Executable `QueryImpl`, `simulateQ`, machine runs | Keep monadic syntax | These are programs and evaluators; cross to kernels at observation boundaries. |
-| KL/data-processing continuations | Use `Kernel` now | `KLDivergence.denoteKernel` is implemented through `evalDistKernelOfDiscrete`. |
+| KL/data-processing continuations | Use `Kernel` | `denoteKernel` is implemented through `evalDistKernelOfDiscrete`. |
 | Query tracing, caches, costs, enforcement | Kernel views of observations, not handlers | Add kernel views of their `StateT` runs when a theorem composes distributions across states. |
 | Crypto functions parameterized by keys/messages/security parameter | Add kernels when composed probabilistically | A plain function remains clearer until measurability or data processing is actually used. |
 | UC/open-process runtime | Defer to an observation boundary | Structural process syntax has no canonical measurable space; bundle a kernel only for a chosen execution/observation model. |
@@ -801,7 +801,7 @@ squarely in `grind`'s wheelhouse.
 `OracleComp.prEvent_eq_zero_iff` (`Pr{let x ← mx}[p x] = 0 ↔ ∀ x ∈ support mx, ¬ p x`),
 `OracleComp.prEvent_eq_one_iff` (`… = 1 ↔ ∀ x ∈ support mx, p x`), and
 `OracleComp.prEvent_pos_iff` (`0 < … ↔ ∃ x ∈ support mx, p x`), all in
-`VCVio/OracleComp/EvalDist/Measure.lean`, relate event probability to structural support. Their
+`VCVio/OracleComp/EvalDist/Measure.lean`, relate event probability to possible outputs. Their
 right-hand sides introduce an *unbounded* quantifier over the support, which `grind` instantiates
 and Skolemizes into fresh witnesses that the default `support_bind` rules re-expand, with no
 finite grounding (`support ($ᵗ α) = Set.univ` is infinite). A default set containing them
@@ -857,7 +857,7 @@ keeping it.
 already grind-tags the `List.mapM` / `foldlM` / `forIn` layer), `Functor.map_map`, and the
 `simulateQ` routing layer (`QueryImpl.add_apply_inl/inr`, `simulateQ_add_liftComp_left/right`,
 the `withBadFlag`/`withBadUpdate`/`flattenStateT` run-shapes, `simulateQ_option_elim(M)`). The
-`simulateQ_add_liftComp` pair also prevents a saturation: without it, bare `grind` times out on a
+`simulateQ_add_liftComp_left`/`_right` pair also prevents a saturation: without it, bare `grind` times out on a
 routed `simulateQ (impl₁ + impl₂)` goal over a lifted computation.
 
 `VCVioTest/ProbabilityTactics.lean` is the living benchmark and **gate** for all of this: outcome

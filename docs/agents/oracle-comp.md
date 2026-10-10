@@ -41,7 +41,7 @@ Required typeclass instances for probability reasoning:
 - `𝒟[…]` needs a `MeasurableSpace` on the result type; `Pr{…}[…]` observes a `Prop` and needs
   none on intermediate results.
 
-Structural support, handler composition, instrumentation, and query bounds need no probability
+Support, handler composition, instrumentation, and query bounds need no probability
 interpretation. Finite uniform queries are a sampling specialization, not a requirement of the
 measure API.
 
@@ -83,8 +83,7 @@ depend on the oracle interface. It is the `Set` view of PolyFun's
 `FreeM.reachableUnder`, obtained by folding the angelic per-operation predicate
 transformer over the free tree. The pure, query, bind, and monotonicity laws are
 available as `reachableWhen_pure`, `reachableWhen_query`,
-`reachableWhen_bind`, and `reachableWhen_mono`. Use `reachableWhen` rather than the deprecated
-`supportWhen`.
+`reachableWhen_bind`, and `reachableWhen_mono`.
 
 `support oa` admits every typed response; `reachableWhen_univ_eq_support`
 connects it to the operation-indexed construction. The generic `support` name
@@ -144,7 +143,7 @@ class SubSpec (spec : OracleSpec.{u, w} ι) (superSpec : OracleSpec.{v, w} τ)
 
 By the Yoneda lemma for polynomial functors this lens data is in bijection with natural transformations `OracleQuery spec ⟹ OracleQuery superSpec`. The `MonadLift` parent records that natural transformation; the `liftM_eq_lift` field is the propositional coherence axiom forcing it to agree with the lens. Concrete `SubSpec` instances spell `monadLift` out *by hand* (rather than letting it default from the lens data), so that the lifted query reduces fully under `isDefEq` — this lets pattern-matching equations about lifted queries, such as `liftComp_query`, apply through their registered automation or explicitly by name.
 
-`SubSpec.toLens` exposes the underlying lens; `SubSpec.trans` is composition of these lenses; `MonadLiftT.refl` covers the identity.
+`SubSpec.toLens` exposes the underlying lens; `SubSpec.trans` is composition of these lenses; the reflexive `MonadLiftT` instance covers the identity.
 
 #### Why `SubSpec` extends `MonadLift` rather than `PFunctor.Lens`
 

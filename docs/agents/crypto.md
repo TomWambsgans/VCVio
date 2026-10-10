@@ -420,12 +420,9 @@ structure CostModel (spec : OracleSpec ι) (ω : Type) [AddCommMonoid ω] where
 | `expectedCost oa cm val` | `E[val(cost)]` via `wp` |
 | `WorstCaseCostBound oa cm bound` | All paths have cost `≤ bound` |
 | `ExpectedCostBound oa cm val bound` | Expected valued cost `≤ bound` |
-| `WorstCasePolyTime family cm val` | Worst-case poly bound over security parameter |
-| `ExpectedPolyTime family cm val` | Expected poly bound over security parameter |
 
 Key results: `fst_map_costDist` (instrumentation is transparent),
-`prEvent_costDist_gt_le_expectedCost_div` (Markov's inequality),
-`WorstCasePolyTime.toExpectedPolyTime`.
+`prEvent_costDist_gt_le_expectedCost_div` (Markov's inequality).
 
 ## Common Gotchas
 

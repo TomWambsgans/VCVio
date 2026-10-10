@@ -683,9 +683,10 @@ review than either alone.
 The surface is narrower than the dependency's prominence suggests. VCVio imports exactly
 four loom2 modules — `Loom.WP.Basic`, `Loom.ExceptPost`, `Loom.Triple.Basic`, and
 `Loom.Triple.SpecLemmas` — and does so from only five files
-([`Unary/WP/{Qualitative,Probabilistic,Quantitative}.lean`](../../VCVio/ProgramLogic/Unary/WP),
-[`Tactics/Unary/Internals.lean`](../../VCVio/ProgramLogic/Tactics/Unary/Internals.lean),
-and [`ToMathlib/Control/Monad/RelWP.lean`](../../ToMathlib/Control/Monad/RelWP.lean)).
+([`Unary/Loom/{Qualitative,Probabilistic,Quantitative}.lean`][loom-unary],
+[`Tactics/Unary/Internals.lean`][loom-internals],
+and [`ToMathlib/Control/Monad/RelWP.lean`][loom-relwp]; the links show the files as they were
+when this survey was committed).
 Everything else reaches Loom through the `Std.Do'` namespace, which is mentioned in 22
 files — so the *import* boundary is already tight, and it is the namespace, not the
 dependency graph, that would have to be swept.
@@ -699,6 +700,11 @@ dependency graph, that would have to be swept.
 | `EPost.nil`, `EPost.nil.mk`, `EPost.cons`, `EPost.cons.mk`, `EPost.cons.pushOption` | 74 | `EPost.Nil`, `EPost.Cons` (capitalised) | **Restructured to `EStack`** | **Reshape — the one substantial item.** |
 | `WriterT.apply_wp`, `wp_tell`, `wp_pure` | 6 | absent | absent | **VCVio-owned already** — declared inside `namespace Std.Do'` in [`Unary/WP/Lower.lean`](../../VCVio/ProgramLogic/Unary/WP/Lower.lean). Moves with VCVio; only the enclosing namespace changes. |
 | `RelTriple`, `rwp`, `RelWP` and their rules | 99 | absent | absent | **Stays downstream.** No relational layer upstream in either tree. |
+
+[loom-unary]: https://github.com/Verified-zkEVM/VCVio/tree/89e482107752b251d17c8255f87f33794b00f81f/VCVio/ProgramLogic/Unary/Loom
+[loom-internals]: https://github.com/Verified-zkEVM/VCVio/blob/89e482107752b251d17c8255f87f33794b00f81f/VCVio/ProgramLogic/Tactics/Unary/Internals.lean
+[loom-relwp]: https://github.com/Verified-zkEVM/VCVio/blob/89e482107752b251d17c8255f87f33794b00f81f/ToMathlib/Control/Monad/RelWP.lean
+[loom-quantitative]: https://github.com/Verified-zkEVM/VCVio/blob/89e482107752b251d17c8255f87f33794b00f81f/VCVio/ProgramLogic/Unary/Loom/Quantitative.lean
 
 **The `EPost` → `EStack` reshape is the only part that is not a rename.** Upstream has
 replaced the nil/cons *structures* with a right-nested product chain terminated by

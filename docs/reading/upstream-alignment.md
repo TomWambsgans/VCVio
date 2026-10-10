@@ -1,5 +1,9 @@
 # Upstream alignment survey
 
+> Status: living ledger. The survey sections are a historical snapshot of the discrete probability
+> layer, kept with the names and locations they surveyed; the verdicts and the later sections
+> track the present code.
+
 A ledger of VCVio's general-purpose machinery and tooling against what Lean core, Std,
 Batteries, Mathlib, cslib, and PolyFun already provide, with a verdict for each entry:
 **adopt** what upstream owns, **keep** what is genuinely VCVio's, **upstream** what belongs

@@ -35,8 +35,7 @@ is coerced to a proposition. For a single measurable event,
 `prEvent_eq_evalDist_of_discrete` handles any predicate on a discrete
 output space. `prEvent_eq_evalDist_decide` connects an event to a Boolean
 experiment that returns `decide` of the same predicate without requiring a
-measurable structure on intermediate outputs. The notation
-does not require a finite-distribution lift.
+measurable structure on intermediate outputs.
 
 State probabilities with `Pr{...}[...]` or apply `𝒟[...]` directly to a
 measurable set; `prEvent_eq_evalDist_singleton` converts a point mass
@@ -66,9 +65,9 @@ Open `OracleComp.ProgramLogic` for VCVio notation. Unary triples additionally re
 | `rwp⟦c₁ ~ c₂ \| post; epost₁, epost₂⟧` | Relational WP (`VCVio.ProgramLogic.rwp c₁ c₂ post epost₁ epost₂`) | `VCVio/ProgramLogic/NotationCore.lean` |
 | `⦃P⦄ c ⦃Q⦄` | Core unary Hoare triple (`Std.Internal.Do.Triple`) | Lean core `Std.Internal.Do.Triple.Basic` |
 | `mx =ᵈ my` | Equality in distribution (`EvalDistEq`): every event has the same probability, across monads | `VCVio/EvalDist/EvalDistEq.lean` |
-| `⟪c₁ ~ c₂ \| R⟫` | pRHL coupling (`RelTriple c₁ c₂ R`) | `VCVio/ProgramLogic/Notation.lean` |
-| `⟪c₁ ≈[ε] c₂ \| R⟫` | Approximate coupling (`ApproxRelTriple ε c₁ c₂ R`) | `VCVio/ProgramLogic/Notation.lean` |
-| `⦃f⦄ c₁ ≈ₑ c₂ ⦃g⦄` | Quantitative relational triple (`VCVio.ProgramLogic.RelTriple f c₁ c₂ g Lean.Order.bot Lean.Order.bot`) | `VCVio/ProgramLogic/Notation.lean` |
+| `⟪c₁ ~ c₂ \| R⟫` | pRHL coupling (`RelTriple c₁ c₂ R`) | `VCVio/ProgramLogic/NotationCore.lean` |
+| `⟪c₁ ≈[ε] c₂ \| R⟫` | Approximate coupling (`ApproxRelTriple ε c₁ c₂ R`) | `VCVio/ProgramLogic/NotationCore.lean` |
+| `⦃f⦄ c₁ ≈ₑ c₂ ⦃g⦄` | Quantitative relational triple (`VCVio.ProgramLogic.RelTriple f c₁ c₂ g Lean.Order.bot Lean.Order.bot`) | `VCVio/ProgramLogic/NotationCore.lean` |
 
 ## UC Composition Notations
 
@@ -97,15 +96,8 @@ Each type has `@[simp]` bridge lemmas (e.g., `Raw.hasPar`) that normalize
 
 Precedence ensures `A ∥ B ⊞ C ⊠ K` parses as `((A ∥ B) ⊞ C) ⊠ K`.
 
-## Removed Notation (Do NOT Use)
+## Removed notation
 
-| Dead notation | Replacement |
-|---------------|-------------|
-| `Pr[= x \| comp]`, `[= x \| comp]` | `Pr{let y ← comp}[y = x]` |
-| `Pr[p \| comp]`, `Pr[p x \| x ← comp]` | `Pr{let x ← comp}[p x]` |
-| `Pr[⊥ \| comp]` | `prFail comp` |
-| `𝒮[comp]` | `𝒟[comp]` |
-| `++ₒ` | `+` |
-
-To convert code written against the removed discrete probability API, see
+The removed discrete-layer forms for events, failure and distributions (`Pr[… | …]`, `𝒮[…]`)
+and the removed `++ₒ` combinator (now `+`) are listed with their replacements in
 [`probability-migration.md`](probability-migration.md).
