@@ -67,6 +67,32 @@ def ssig0 (x : UInt32) : UInt32 := rotr x 7 ^^^ rotr x 18 ^^^ (x >>> 3)
 /-- `σ₁(x)`. -/
 def ssig1 (x : UInt32) : UInt32 := rotr x 17 ^^^ rotr x 19 ^^^ (x >>> 10)
 
+/-- Eight working registers of one SHA-256 compression round. -/
+structure RoundState where
+  /-- First working register, in the standard state order. -/
+  a : UInt32
+  /-- Second working register, in the standard state order. -/
+  b : UInt32
+  /-- Third working register, in the standard state order. -/
+  c : UInt32
+  /-- Fourth working register, in the standard state order. -/
+  d : UInt32
+  /-- Fifth working register, in the standard state order. -/
+  e : UInt32
+  /-- Sixth working register, in the standard state order. -/
+  f : UInt32
+  /-- Seventh working register, in the standard state order. -/
+  g : UInt32
+  /-- Eighth working register, in the standard state order. -/
+  h : UInt32
+  deriving DecidableEq, Repr
+
+/-- One SHA-256 round, parameterized by its constant and schedule word. -/
+def round256 (s : RoundState) (kt wt : UInt32) : RoundState :=
+  let t1 := s.h + bsig1 s.e + ch s.e s.f s.g + kt + wt
+  let t2 := bsig0 s.a + maj s.a s.b s.c
+  ⟨t1 + t2, s.a, s.b, s.c, s.d + t1, s.e, s.f, s.g⟩
+
 /-- Big-endian 4-byte serialization of a 32-bit word. -/
 def u32be (x : UInt32) : ByteArray :=
   ByteArray.mk #[(x >>> 24).toUInt8, (x >>> 16).toUInt8, (x >>> 8).toUInt8, x.toUInt8]
@@ -87,31 +113,41 @@ def pad (msg : ByteArray) : ByteArray := Id.run do
     out := out.push 0
   return out ++ u64be bitLen
 
-/-- Process one 64-byte block at offset `base`, updating the 8-word state `st`. -/
-def compress (st : Array UInt32) (m : ByteArray) (base : Nat) : Array UInt32 := Id.run do
+/-- Load one big-endian word from a block at an arbitrary byte offset. -/
+def readWord256 (m : ByteArray) (base t : Nat) : UInt32 :=
+  let o := base + t * 4
+  (m[o]!).toUInt32 <<< 24 ||| (m[o + 1]!).toUInt32 <<< 16 |||
+    (m[o + 2]!).toUInt32 <<< 8 ||| (m[o + 3]!).toUInt32
+
+/-- Load the first sixteen schedule entries into the 64-word buffer. -/
+def loadSchedule256 (m : ByteArray) (base : Nat) : Array UInt32 := Id.run do
   let mut w : Array UInt32 := Array.replicate 64 0
   for t in [0:16] do
-    let o := base + t * 4
-    let word : UInt32 :=
-      (m[o]!).toUInt32 <<< 24 ||| (m[o + 1]!).toUInt32 <<< 16 |||
-        (m[o + 2]!).toUInt32 <<< 8 ||| (m[o + 3]!).toUInt32
-    w := w.set! t word
+    w := w.set! t (readWord256 m base t)
+  return w
+
+/-- Expand the remaining 48 schedule entries in place. -/
+def expandSchedule256 (initial : Array UInt32) : Array UInt32 := Id.run do
+  let mut w := initial
   for t in [16:64] do
     w := w.set! t (ssig1 (w[t - 2]!) + w[t - 7]! + ssig0 (w[t - 15]!) + w[t - 16]!)
-  let mut a := st[0]!
-  let mut b := st[1]!
-  let mut c := st[2]!
-  let mut d := st[3]!
-  let mut e := st[4]!
-  let mut f := st[5]!
-  let mut g := st[6]!
-  let mut h := st[7]!
+  return w
+
+/-- Run all 64 rounds from the selected chaining state and expanded schedule. -/
+def runRounds256 (st w : Array UInt32) : RoundState := Id.run do
+  let mut s : RoundState := ⟨st[0]!, st[1]!, st[2]!, st[3]!, st[4]!, st[5]!, st[6]!, st[7]!⟩
   for t in [0:64] do
-    let t1 := h + bsig1 e + ch e f g + k[t]! + w[t]!
-    let t2 := bsig0 a + maj a b c
-    h := g; g := f; f := e; e := d + t1; d := c; c := b; b := a; a := t1 + t2
-  return #[st[0]! + a, st[1]! + b, st[2]! + c, st[3]! + d,
-    st[4]! + e, st[5]! + f, st[6]! + g, st[7]! + h]
+    s := round256 s k[t]! w[t]!
+  return s
+
+/-- Add the final working registers to the incoming chaining state. -/
+def feedForward256 (st : Array UInt32) (s : RoundState) : Array UInt32 :=
+  #[st[0]! + s.a, st[1]! + s.b, st[2]! + s.c, st[3]! + s.d,
+    st[4]! + s.e, st[5]! + s.f, st[6]! + s.g, st[7]! + s.h]
+
+/-- Process one 64-byte block at offset `base`, updating the 8-word state `st`. -/
+def compress (st : Array UInt32) (m : ByteArray) (base : Nat) : Array UInt32 :=
+  feedForward256 st (runRounds256 st (expandSchedule256 (loadSchedule256 m base)))
 
 /-- Serialize the eight-word SHA-224/SHA-256 state to exactly 32 bytes. -/
 def stateBytes32 (st : Array UInt32) : ByteArray :=

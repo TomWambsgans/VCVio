@@ -1,135 +1,87 @@
 #!/usr/bin/env bash
-# scripts/check-interop-isolation.sh
-#
-# Enforce the TCB isolation contract between core VCVio libraries and the
-# experimental `Interop/` library, which optionally pulls in the hax and
-# aeneas Rust verification frontends.
-#
-# Two directions are checked:
-#
-# 1. CORE → INTEROP (forbidden):
-#    No file under any "core" library may import a module from
-#    `Interop.…`, `Hax.…`, or `Aeneas.…`. This is the headline guarantee:
-#    a routine `lake build` of core VCVio does not inherit the Rust
-#    verification toolchains' trusted computing base.
-#
-# 2. INTEROP → DOWNSTREAM (forbidden):
-#    No file under `Interop/**` may import from `LatticeCrypto.…`,
-#    `Examples.…`, `LatticeCryptoTest.…`, `Extern.…`, `VCVioWidgets.…`, or
-#    `VCVioTest.…`. Those libraries are themselves clients of VCVio, so
-#    Interop depending on them would create circular layering and pull
-#    user-facing libraries into the Interop TCB. Interop may freely import
-#    from `VCVio.…`, `ToMathlib.…`, `Hax.…`, and `Aeneas.…`.
-#
-# Exit code:
-#   0 — no violations.
-#   1 — at least one violation; offending lines are printed to stderr.
-#
-# Usage:
-#   scripts/check-interop-isolation.sh        # check the whole repo
-#   scripts/check-interop-isolation.sh --help # this help text
-#
-# The script uses `rg` if available (fast), otherwise falls back to `grep`.
+# Enforce the import boundaries of optional language and verification backends.
 set -euo pipefail
-
+cd "$(dirname "$0")/.."
 if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
-  sed -n '2,/^$/p' "$0" | sed 's/^# \{0,1\}//'
+  echo "Usage: scripts/check-interop-isolation.sh"
   exit 0
 fi
+python3 - <<'CHECK'
+from pathlib import Path
+import re
 
-REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-cd "$REPO_ROOT"
+CORE = {"VCVio", "VCVioCslib", "LatticeCrypto", "LatticeCryptoTest", "HashSig",
+        "HashSigTest", "Examples", "ToMathlib", "Extern", "VCVioWidgets", "VCVioTest"}
+BASE = {"Init", "Std", "Lean", "Mathlib", "Batteries", "Cslib", "ToCslib", "PolyFun", "Qq", "Aesop"}
 
-# Pick the fastest available searcher. Keep the `rg` and `grep` branches on
-# the same surface area by restricting both to `*.lean` files; otherwise the
-# `rg` path would scan Markdown and could flag documentation snippets that the
-# fallback ignores. `grep` also needs `-E` (POSIX ERE) to support `(a|b|c)`
-# alternation. Both variants treat the pattern argument identically.
-if command -v rg >/dev/null 2>&1; then
-  SEARCH=(rg --no-heading --line-number --color=never --glob '*.lean')
-else
-  SEARCH=(grep -RHn -E --include='*.lean')
-fi
+def imports(text):
+    # Remove nested Lean block comments before inspecting every import modifier.
+    depth = 0
+    cleaned = []
+    i = 0
+    while i < len(text):
+        if text[i:i+2] == '/-':
+            if depth == 0: cleaned.append(' ')
+            depth += 1
+            i += 2
+        elif depth and text[i:i+2] == '-/':
+            depth -= 1
+            i += 2
+        elif depth:
+            if text[i] == '\n': cleaned.append('\n')
+            i += 1
+        elif text[i:i+2] == '--':
+            end = text.find('\n', i)
+            i = len(text) if end < 0 else end
+        else:
+            cleaned.append(text[i])
+            i += 1
+    cleaned = ''.join(cleaned)
+    commands = {'public', 'meta', 'private', 'import', 'module', 'namespace', 'open',
+                'section', 'end', 'def', 'theorem', 'lemma', 'abbrev', 'inductive',
+                'structure', 'class', 'instance', 'variable', 'universe', 'set_option',
+                'noncomputable', 'initialize', 'attribute', 'export'}
+    identifier = re.compile(r"(?:[\w']+|«[^»]+»)(?:\.(?:[\w']+|«[^»]+»))*")
+    for match in re.finditer(r'(?m)^[ \t]*(?:(?:public|meta)\s+)*import\s+(?:all\s+)?',
+                             cleaned):
+        pos = match.end()
+        while pos < len(cleaned):
+            while pos < len(cleaned) and cleaned[pos].isspace(): pos += 1
+            module = identifier.match(cleaned, pos)
+            if not module or module[0] in commands: break
+            yield cleaned.count('\n', 0, pos) + 1, module[0]
+            pos = module.end()
 
-# Forbidden modules in core libraries. Anchored on `import ` plus a word
-# boundary at the end of the head segment so e.g. `import VCVioTest.…`
-# isn't accidentally matched by an `Interop` rule.
-CORE_LIBS=(VCVio VCVioCslib LatticeCrypto LatticeCryptoTest Examples ToMathlib Extern VCVioWidgets VCVioTest)
-CORE_FORBIDDEN_HEADS=(Interop Hax Aeneas)
-
-# Forbidden imports from inside Interop. We explicitly list downstream
-# libraries to avoid catching `import VCVio.…` (which is allowed).
-INTEROP_FORBIDDEN_HEADS=(LatticeCrypto LatticeCryptoTest Examples Extern VCVioWidgets VCVioTest)
-
-violations=0
-
-# Build a single regex for "import (Foo|Bar|Baz)…".
-join_alternation () {
-  local IFS='|'
-  echo "$*"
-}
-
-# Direction 1: CORE → forbidden heads.
-core_forbidden_re="^[[:space:]]*import[[:space:]]+($(join_alternation "${CORE_FORBIDDEN_HEADS[@]}"))(\.|[[:space:]]|$)"
-
-for lib in "${CORE_LIBS[@]}"; do
-  if [[ ! -d "$lib" ]]; then
-    continue
-  fi
-  matches="$("${SEARCH[@]}" "$core_forbidden_re" "$lib" 2>/dev/null || true)"
-  if [[ -n "$matches" ]]; then
-    echo "ERROR: forbidden import in core library '$lib/' (must not depend on Interop / Hax / Aeneas):" >&2
-    echo "$matches" >&2
-    echo >&2
-    violations=$((violations + 1))
-  fi
-done
-
-# Also check the umbrella `.lean` files at the repo root (e.g. `VCVio.lean`).
-for lib in "${CORE_LIBS[@]}"; do
-  umbrella="${lib}.lean"
-  if [[ -f "$umbrella" ]]; then
-    matches="$("${SEARCH[@]}" "$core_forbidden_re" "$umbrella" 2>/dev/null || true)"
-    if [[ -n "$matches" ]]; then
-      echo "ERROR: forbidden import in umbrella '$umbrella' (must not depend on Interop / Hax / Aeneas):" >&2
-      echo "$matches" >&2
-      echo >&2
-      violations=$((violations + 1))
-    fi
-  fi
-done
-
-# Direction 2: INTEROP → forbidden downstream heads.
-interop_forbidden_re="^[[:space:]]*import[[:space:]]+($(join_alternation "${INTEROP_FORBIDDEN_HEADS[@]}"))(\.|[[:space:]]|$)"
-
-if [[ -d Interop ]]; then
-  matches="$("${SEARCH[@]}" "$interop_forbidden_re" Interop 2>/dev/null || true)"
-  if [[ -n "$matches" ]]; then
-    echo "ERROR: forbidden import inside 'Interop/' (must not depend on downstream libraries):" >&2
-    echo "$matches" >&2
-    echo >&2
-    violations=$((violations + 1))
-  fi
-fi
-
-# Also check the `Interop.lean` umbrella at the repo root. It is part of the
-# Interop library (regenerated by `scripts/update-lib.sh`) and a downstream
-# `import` there would silently pull forbidden modules into the Interop TCB
-# even though the rest of `Interop/**` is clean.
-if [[ -f Interop.lean ]]; then
-  matches="$("${SEARCH[@]}" "$interop_forbidden_re" Interop.lean 2>/dev/null || true)"
-  if [[ -n "$matches" ]]; then
-    echo "ERROR: forbidden import in umbrella 'Interop.lean' (must not depend on downstream libraries):" >&2
-    echo "$matches" >&2
-    echo >&2
-    violations=$((violations + 1))
-  fi
-fi
-
-if (( violations > 0 )); then
-  echo "Interop TCB isolation check: ${violations} violation(s) found." >&2
-  echo "See scripts/check-interop-isolation.sh and Interop/README.md for the contract." >&2
-  exit 1
-fi
-
-echo "Interop TCB isolation check: OK."
+violations = []
+paths = set()
+for root in CORE | {'Interop'}:
+    paths.update(Path(root).rglob('*.lean'))
+    if Path(root + '.lean').is_file(): paths.add(Path(root + '.lean'))
+for path in sorted(paths):
+    if path.name == 'lakefile.lean': continue
+    owner = path.parts[0].removesuffix('.lean')
+    for line, name in imports(path.read_text()):
+        head = name.split('.')[0]
+        allowed = True
+        if owner in CORE:
+            allowed = head not in {'Interop', 'Hax', 'Aeneas'}
+        elif path.parts[:2] == ('Interop', 'Cryptol'):
+            component = path.parts[2].removesuffix('.lean')
+            if component == 'Consumer': component = 'Tests'
+            layers = {'Model': {'Model'}, 'Translation': {'Model', 'Translation'},
+                      'Bridge': {'Model', 'Translation', 'Bridge'},
+                      'Tests': {'Model', 'Translation', 'Bridge', 'Tests'},
+                      'Main': {'Model', 'Translation', 'Bridge'}}
+            allowed = head in BASE
+            if name.startswith('Interop.Cryptol.'):
+                allowed = name.split('.')[2] in layers.get(component, set())
+            if component in {'Bridge', 'Tests', 'Main'} and head in {'VCVio', 'ToMathlib', 'HashSig'}:
+                allowed = True
+        else:
+            allowed = head not in (CORE - {'VCVio', 'ToMathlib'}) and not name.startswith('Interop.Cryptol')
+        if not allowed:
+            violations.append(f'{path}:{line}: forbidden import {name}')
+if violations:
+    raise SystemExit('Interop isolation failed:\n' + '\n'.join(violations))
+print('Interop isolation: core, model, translation, bridge, and dormant backend boundaries OK')
+CHECK

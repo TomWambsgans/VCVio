@@ -13,10 +13,12 @@ run_lint=0
 run_test=0
 run_ffi=0
 run_axioms=0
+run_cryptol=0
+run_cryptol_external=0
 
 usage() {
   cat <<'EOF'
-Usage: ./scripts/validate.sh [--lint] [--test] [--ffi] [--axioms]
+Usage: ./scripts/validate.sh [--lint] [--test] [--ffi] [--axioms] [--cryptol] [--cryptol-external]
 
 Default fast checks (shared with per-PR CI):
   - lake build of the seven default proof libraries and the optional P/poly facade, with the non-sorry warning budget
@@ -47,6 +49,9 @@ Optional checks:
   --ffi     with --test: also the native ML-KEM / ML-DSA / Falcon executables
             (initialises the third_party/ submodules; slow)
   --axioms  ./scripts/test-axiomsweep.sh, then lake exe axiomsweep --check
+  --cryptol Optional Interop/Cryptol model, translation, bridge, and consumer checks
+  --cryptol-external Also compare against pinned Cryptol and Foundation checkouts;
+            requires CRYPTOL_BINARY and FOUNDATION_PATH
 EOF
 }
 
@@ -56,6 +61,8 @@ for arg in "$@"; do
     --test) run_test=1 ;;
     --ffi) run_ffi=1 ;;
     --axioms) run_axioms=1 ;;
+    --cryptol) run_cryptol=1 ;;
+    --cryptol-external) run_cryptol=1; run_cryptol_external=1 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "ERROR: unknown flag: $arg" >&2; usage >&2; exit 1 ;;
   esac
@@ -107,6 +114,7 @@ python3 ./scripts/test-classify-migration-errors.py
 bash scripts/test-complexity-backend-isolation.sh
 bash scripts/check-complexity-backend-isolation.sh
 bash scripts/check-extern-isolation.sh
+python3 scripts/test-interop-isolation.py
 bash scripts/check-interop-isolation.sh
 bash scripts/test-comment-fences.sh
 python3 ./scripts/check-comment-fences.py
@@ -177,4 +185,12 @@ if (( run_axioms )); then
 fi
 
 echo ""
+if (( run_cryptol )); then
+  cryptol_args=()
+  if (( run_lint )); then cryptol_args+=(--lint); fi
+  if (( run_test )); then cryptol_args+=(--test); fi
+  if (( run_axioms )); then cryptol_args+=(--axioms); fi
+  if (( run_cryptol_external )); then cryptol_args+=(--external); fi
+  bash Interop/Cryptol/scripts/validate.sh "${cryptol_args[@]}"
+fi
 echo "validate: OK."

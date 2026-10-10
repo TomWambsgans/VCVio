@@ -73,7 +73,7 @@ def style_modules(files: list[tuple[str, str]], roots: list[str]) -> dict[str, l
         if key in folded and folded[key] != path:
             raise ValueError(f"Case-insensitive filename clash: {folded[key]}, {path}")
         folded[key] = path
-        if not path.endswith(".lean"):
+        if not path.endswith(".lean") or Path(path).name == "lakefile.lean":
             continue
         if mode == "100755":
             raise ValueError(f"Executable Lean source: {path}")

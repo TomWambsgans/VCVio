@@ -1,0 +1,17 @@
+module  -- shake: keep-all --deprecated_module: ignore
+
+public import Interop.Cryptol.Bridge.ByteCompression
+public import Interop.Cryptol.Bridge.CLI
+public import Interop.Cryptol.Bridge.Compression
+public import Interop.Cryptol.Bridge.CompressionCertificate
+public import Interop.Cryptol.Bridge.CompressionSemantics
+public import Interop.Cryptol.Bridge.CompressionSource
+public import Interop.Cryptol.Bridge.CompressionTotal
+public import Interop.Cryptol.Bridge.Correspondence
+public import Interop.Cryptol.Bridge.Foundation
+public import Interop.Cryptol.Bridge.KeccakStatement
+public import Interop.Cryptol.Bridge.Probability
+public import Interop.Cryptol.Bridge.Round
+public import Interop.Cryptol.Bridge.SourceFoundation
+public import Interop.Cryptol.Bridge.SourceScalars
+public import Interop.Cryptol.Bridge.Specifications

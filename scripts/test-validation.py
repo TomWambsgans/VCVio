@@ -31,8 +31,13 @@ class ValidationTests(unittest.TestCase):
                      "check-reading-citations.py", "test-check-reading-citations.py",
                      "check-doc-names.py", "spec-coverage.py", "test-spec-coverage.py",
                      "check-lifted-law-parity.py", "test-lifted-law-parity.py",
-                     "test-module-times.py", "test-classify-migration-errors.py"):
+                     "test-module-times.py", "test-classify-migration-errors.py",
+                     "test-interop-isolation.py"):
             (scripts / name).write_text("pass\n")
+        cryptol = self.root / "Interop/Cryptol/scripts/validate.sh"
+        cryptol.parent.mkdir(parents=True)
+        self.script(cryptol, 'printf "cryptol %s\\n" "$*" >> "$VALIDATION_CALLS"\n'
+                    'exit "${CRYPTOL_TEST_EXIT:-0}"\n')
         # Not a no-op stub: the default pass has to be shown to reach it.
         (scripts / "check-comment-fences.py").write_text(
             'print("comment fences: stub")\n')
@@ -59,6 +64,19 @@ fi
         return subprocess.run(["bash", f"scripts/{name}", *args], cwd=self.root,
                               env=dict(self.env, **env), text=True, capture_output=True,
                               timeout=15)
+
+    def test_cryptol_is_optional_and_forwards_flags(self):
+        result = self.validate()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertNotIn("cryptol ", (self.root / "calls").read_text())
+        result = self.validate("--cryptol-external", "--test", "--lint", "--axioms")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("cryptol --lint --test --axioms --external",
+                      (self.root / "calls").read_text().splitlines())
+
+    def test_cryptol_failure_propagates(self):
+        result = self.validate("--cryptol", CRYPTOL_TEST_EXIT="9")
+        self.assertEqual(result.returncode, 9, result.stdout + result.stderr)
 
     def test_clean_tests_pass(self):
         result = self.validate("--test")

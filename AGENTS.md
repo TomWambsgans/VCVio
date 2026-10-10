@@ -93,6 +93,13 @@ The repo also includes a first-class lattice cryptography library under `Lattice
 - `VCVioWidgets/`: optional widget experiments and visualizations.
 - `VCVioComplexity/`: optional isolated Lake package for the complexitylib-backed exact-machine
   substrate; it is not part of VCVio's default dependency graph.
+- `Interop/Cryptol/`: one optional root-project development. Model owns language
+  semantics; Translation owns native IR, certificates, and export; Bridge owns
+  Foundation, HashSig, and probability correspondences. Imports flow from Bridge
+  through Translation to Model. Core libraries never import these modules.
+  Use `./scripts/validate.sh --cryptol --lint --test --axioms`; add
+  `--cryptol-external` with `CRYPTOL_BINARY=…` and `FOUNDATION_PATH=…` for pinned checks.
+  Set `POLYFUN_PATH=…` when using the companion local PolyFun checkout.
 - `Examples/`: compact framework examples such as OneTimePad, ElGamal, Schnorr, and program-logic tactic walkthroughs.
 - `Interop/`: experimental bridges to Rust verification frontends (hax, aeneas). **Strict TCB isolation**: nothing in core VCVio depends on it. See `docs/agents/interop.md`.
 - `csrc/`: C FFI shims used for differential testing against native ML-DSA, ML-KEM, and Falcon code.
