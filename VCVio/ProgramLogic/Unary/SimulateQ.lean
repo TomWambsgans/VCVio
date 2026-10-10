@@ -37,7 +37,7 @@ namespace OracleComp.ProgramLogic
 variable {ι : Type*} {spec : OracleSpec ι}
 variable {α : Type}
 
-section MeasureSpec
+section answerMeasure
 
 variable [OracleSpec.AnswerMeasure spec]
 
@@ -78,7 +78,7 @@ theorem wp_liftComp_of_evalDistEq {ι' : Type*} {superSpec : OracleSpec ι'}
     rw [wp_eq_lintegral _ _ Measurable.of_discrete, (hMeasure t).evalDist_eq,
       ← wp_eq_lintegral _ _ Measurable.of_discrete]
 
-end MeasureSpec
+end answerMeasure
 
 /-- Cartesian lifting between uniform specifications preserves quantitative WP. -/
 @[game_rule] theorem wp_liftComp [OracleSpec.UniformAnswerMeasure spec]
@@ -88,7 +88,7 @@ end MeasureSpec
     wp (liftComp mx superSpec) post = wp mx post :=
   wp_liftComp_of_evalDistEq (fun t ↦ evalDistEq_liftM_query_uniform t) mx post
 
-section MeasureSpec
+section answerMeasure
 
 variable [OracleSpec.AnswerMeasure spec]
 
@@ -117,6 +117,6 @@ after its state is discarded. The hidden state needs no measurable-space instanc
           ← wp_eq_lintegral _ _ Measurable.of_discrete]
 
 
-end MeasureSpec
+end answerMeasure
 
 end OracleComp.ProgramLogic

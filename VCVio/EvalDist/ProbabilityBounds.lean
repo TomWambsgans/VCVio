@@ -17,7 +17,7 @@ import Mathlib.MeasureTheory.Integral.Lebesgue.Sub
 Union bounds, event splitting, and conditioning on a common draw are stated for events observed
 in `Prop`, so intermediate types need no measurable-space arguments in the public statements. The
 common draw may lose mass; lower bounds ask for its losslessness as the trivially true event.
-Bounds that only need to hold on structurally reachable outputs go through core attachment.
+Bounds that only need to hold on possible outputs go through core attachment.
 Conditional independent draws bound the squared probability of a single event.
 -/
 
@@ -368,7 +368,7 @@ end conditioning
 
 /-! ## Reachable continuations through core attachment
 
-Bounds that only hold on structurally reachable outputs of the common draw factor the bind
+Bounds that only hold on possible outputs of the common draw factor the bind
 through `MonadAttach.attach`, whose outputs carry their reachability proof. -/
 
 section attach
@@ -392,7 +392,7 @@ theorem prEvent_true_attach (mx : m α) :
 
 variable [LawfulEvalDistSemantics m]
 
-/-- Implication between events only on the structurally reachable outputs bounds their
+/-- Implication between events only on the possible outputs bounds their
 probabilities. -/
 theorem prEvent_mono_of_support (mx : m α) (p q : α → Prop)
     (h : ∀ a ∈ support mx, p a → q a) :
@@ -402,14 +402,14 @@ theorem prEvent_mono_of_support (mx : m α) (p q : α → Prop)
   rw [prEvent_map, prEvent_map]
   exact prEvent_mono _ _ _ fun a ha ↦ h a.1 a.2 ha
 
-/-- Events that agree on every structurally reachable output have equal probability. -/
+/-- Events that agree on every possible output have equal probability. -/
 theorem prEvent_congr_of_support (mx : m α) (p q : α → Prop)
     (h : ∀ a ∈ support mx, p a ↔ q a) :
     Pr{let a ← mx}[p a] = Pr{let a ← mx}[q a] :=
   le_antisymm (prEvent_mono_of_support mx p q fun a ha ↦ (h a ha).1)
     (prEvent_mono_of_support mx q p fun a ha ↦ (h a ha).2)
 
-/-- An event avoiding every structurally reachable output has probability zero. -/
+/-- An event avoiding every possible output has probability zero. -/
 theorem prEvent_eq_zero_of_forall_mem_support (mx : m α) (p : α → Prop)
     (h : ∀ a ∈ support mx, ¬ p a) : Pr{let a ← mx}[p a] = 0 :=
   (prEvent_congr_of_support mx p (fun _ ↦ False) fun a ha ↦ iff_false_intro (h a ha)).trans
@@ -427,7 +427,7 @@ theorem prEvent_bind_le_of_forall_le_of_support (mx : m α) (f : α → m β) (q
   rw [bind_eq_attach_bind mx f]
   exact prEvent_bind_le_of_forall_le _ _ q fun a ↦ h a.1 a.2
 
-/-- A comparison of continuation events on the structurally reachable outputs survives a common
+/-- A comparison of continuation events on the possible outputs survives a common
 draw. -/
 theorem prEvent_bind_mono_of_forall_le_of_support {γ : Type} (mx : m α) (f : α → m β)
     (g : α → m γ) (p : β → Prop) (q : γ → Prop)

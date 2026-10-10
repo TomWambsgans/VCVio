@@ -30,7 +30,7 @@ example : True := by
     let _ := (inferInstance : WPMonad ProbComp ℝ≥0∞ EPost.Nil)
   trivial
 
-section Qualitative
+section Necessary
 open scoped OracleComp.Necessary
 
 example {ι : Type} {spec : OracleSpec ι} {α : Type} (oa : OracleComp spec α)
@@ -38,9 +38,9 @@ example {ι : Type} {spec : OracleSpec ι} {α : Type} (oa : OracleComp spec α)
     wp oa post EPost.Nil.mk ↔ ∀ a ∈ support oa, post a :=
   OracleComp.Necessary.wp_iff_forall_support oa post
 
-end Qualitative
+end Necessary
 
-section Quantitative
+section Lower
 open scoped OracleComp.Lower
 
 /--
@@ -67,7 +67,7 @@ example (post : PUnit.{1} → List Nat → ℝ≥0∞) :
   intro log
   simp [WriterT.run_bind, WriterT.run_tell, MAlgOrdered.wp_pure]
 
-end Quantitative
+end Lower
 
 section Probabilistic
 open scoped OracleComp.Probabilistic

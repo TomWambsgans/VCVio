@@ -17,9 +17,8 @@ This module interprets the probability-independent symmetric-encryption experime
 the ciphertext-channel rows for every pair of messages, packaged as a Mathlib Markov kernel when
 the row family is measurable.
 
-The definitions do not select a discrete probability representation and do not assume that an
-arbitrary monad is efficient. They isolate the semantic claim that concrete complexity proofs can
-compose with separately.
+The definitions do not assume that an arbitrary monad is efficient. They isolate the semantic
+claim that concrete complexity proofs can compose with separately.
 -/
 
 @[expose] public section

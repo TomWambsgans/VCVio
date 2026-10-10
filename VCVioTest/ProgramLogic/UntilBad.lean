@@ -13,7 +13,7 @@ public import VCVio.OracleComp.ProbComp.Basic
 # Identical-until-bad canaries
 
 The fundamental lemma needs no measurable structure on the simulation state and applies to
-real-valued outputs with their Borel structure. It requires no discrete backend.
+real-valued outputs with their Borel structure.
 -/
 
 public section

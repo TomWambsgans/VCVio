@@ -30,7 +30,7 @@ universe u v
 /-! ## `vcspec_simp` normalization set
 
 Centralized registration of the transformer-`wp` peel lemmas, `*.run`
-projections, monadic-algebra rewrites, and the `Quantitative.wp_eq_mAlgOrdered_wp`
+projections, monadic-algebra rewrites, and the `Lower.wp_eq_mAlgOrdered_wp`
 bridges that the unary tactic uses to expose spec-applicable goal shapes.
 The single simp set is consumed by `runVCSpecSimp`. New normalization rewrites
 should be tagged here (or at definition) rather than inserted into a
@@ -55,7 +55,7 @@ attribute [vcspec_simp]
   OracleComp.Lower.wp_eq_mAlgOrdered_wp
   OracleComp.Lower.wp_eq_mAlgOrdered_wp_epost
   MAlgOrdered.wp_bind MAlgOrdered.wp_pure MAlgOrdered.wp_map
-  -- VCVio per-transformer `Quantitative.wp_*` peeling lemmas
+  -- VCVio per-transformer `Lower.wp_*` peeling lemmas
   OracleComp.Lower.wp_StateT_bind
   OracleComp.Lower.wp_StateT_bind'
   OracleComp.Lower.wp_StateT_pure
@@ -787,7 +787,7 @@ def runProbEqSwap : TacticM Bool := do
       | (rw [OracleComp.evalDist_bind_bind_swap_of_uniform]; done))))
 
 /-- Reduce an equality of composed event masses, or of composed output measures, to the
-continuations on the structural support of the shared prefix. The goal left behind quantifies
+continuations at the possible outputs of the shared prefix. The goal left behind quantifies
 over a reachable prefix output and its support hypothesis. -/
 private def runProbEqCongrCore : TacticM Bool := do
   tryEvalTacticSyntax (← `(tactic|

@@ -79,7 +79,7 @@ lemma propInd_not {P : Prop} : propInd (¬P) = 1 - propInd P := by
 variable {ι : Type u} {spec : OracleSpec ι}
 variable {α β σ : Type}
 
-section MeasureSpec
+section answerMeasure
 
 variable [OracleSpec.AnswerMeasure spec]
 
@@ -378,7 +378,7 @@ lemma prEvent_eq_wp_propInd {ι : Type u} {spec : OracleSpec ι}
   classical
   simpa only [propInd_eq_ite] using prEvent_eq_wp_indicator oa p
 
-/-- Assertions agreeing on structural support have equal quantitative WP. -/
+/-- Assertions agreeing on possible outputs have equal quantitative WP. -/
 lemma wp_congr_of_support (oa : OracleComp spec α) {f g : α → ℝ≥0∞}
     (hfg : ∀ x ∈ support oa, f x = g x) : wp oa f = wp oa g :=
   le_antisymm (wp_mono_of_support oa fun x hx ↦ (hfg x hx).le)
@@ -445,7 +445,7 @@ theorem wp_liftM_query (t : spec.Domain) (post : spec.Range t → ℝ≥0∞) :
     wp (spec := spec) (HasQuery.query t : OracleComp spec (spec.Range t)) post =
       ∫⁻ u, post u ∂OracleSpec.AnswerMeasure.toMeasure t := wp_query t post
 
-end MeasureSpec
+end answerMeasure
 
 section Uniform
 
@@ -465,7 +465,7 @@ theorem wp_query_uniform [OracleSpec.UniformAnswerMeasure spec]
 
 end Uniform
 
-section MeasureSpec
+section answerMeasure
 
 variable [OracleSpec.AnswerMeasure spec]
 
@@ -614,6 +614,6 @@ lemma wp_congr_evalDist [MeasurableSpace α] {oa ob : OracleComp spec α}
     wp oa post = wp ob post := by
   rw [wp_eq_lintegral oa post hpost, wp_eq_lintegral ob post hpost, h]
 
-end MeasureSpec
+end answerMeasure
 
 end OracleComp.ProgramLogic

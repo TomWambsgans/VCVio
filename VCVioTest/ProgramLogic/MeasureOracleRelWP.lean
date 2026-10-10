@@ -13,7 +13,7 @@ public import VCVio.OracleComp.ProbComp.Basic
 # Relational oracle algebra canaries
 
 The qualitative measure coupling algebra supports the generic relational interface, including
-uncountable output types and weighted zero-mass branches. It requires no discrete backend.
+uncountable output types and weighted zero-mass branches.
 -/
 
 public section
@@ -89,7 +89,7 @@ example : MAlgRelOrdered.RelWP (weightedSpec.query 0 : OracleComp weightedSpec B
   exact ExpectationWP.couplingPost_refl (MeasureTheory.Measure.dirac false)
 
 /-- The zero-mass reachable answer `true` does not obstruct the coupling, so the anchoring rules
-relating couplings to structural support need uniform response measures. -/
+relating couplings to possible outputs need uniform response measures. -/
 example : RelTriple (pure false : OracleComp weightedSpec Bool)
       (weightedSpec.query 0 : OracleComp weightedSpec Bool) (· = ·) ∧
     true ∈ support (weightedSpec.query 0 : OracleComp weightedSpec Bool) := by

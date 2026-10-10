@@ -273,6 +273,7 @@ RENAMES: dict[str, str] = {
     "restrictedSigma_hvzk_measure": "restrictedSigma_hvzk",
     # The expectation interpretation and the unary readings.
     "MeasureProgramLogic.toMAlgOrdered": "ExpectationWP.algebra",
+    "MeasureProgramLogic.Probabilistic.toMAlgOrdered": "ExpectationWP.Probabilistic.algebra",
     "MeasureProgramLogic.Quantitative": "ExpectationWP.Lower",
     "MeasureProgramLogic": "ExpectationWP",
     "OracleComp.Qualitative": "OracleComp.Necessary",
@@ -477,7 +478,7 @@ LEGACY_TOKENS: list[tuple[str, str]] = [
     (r"@(?:OracleSpec\.)?UniformAnswerMeasure\.ofFiniteNonempty\b",
      "takes the specification and its `Finite` and `Nonempty` instances only"),
     (r"(?<![\w'.])SPMF(?![\w'])", "`Measure`; see *Notation and definitions*"),
-    (r"(?<![\w'])[\w'.]*?(?:evalSPMF|probOutput|probEvent|probFailure|tvDist)_[\w'.]*",
+    (r"(?<![\w'])[\w'.]*?(?:evalSPMF|probOutput|probEvent|probFailure|(?<!e)tvDist)_[\w'.]*",
      "a legacy lemma name; see *Lemma names*"),
 ]
 

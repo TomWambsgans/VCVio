@@ -12,7 +12,7 @@ public import Std.Internal.Do.ExceptPost
 public import VCVio.ProgramLogic.Unary.HoarePropTriple
 
 /-!
-# Structural weakest preconditions
+# Necessary weakest preconditions
 
 The qualitative core `WPMonad` interpretation quantifies over every structurally
 reachable output of `OracleComp spec`, independently of a probability interpretation.
@@ -34,7 +34,7 @@ namespace OracleComp.Necessary
 variable {ι : Type u} {spec : OracleSpec ι}
 variable {α β : Type}
 
-/-- Core weakest preconditions for all structurally reachable outputs.
+/-- Core weakest preconditions for all possible outputs.
 Enable with `open scoped OracleComp.Necessary`. -/
 noncomputable scoped instance instWP :
     Std.Internal.Do.WPMonad (OracleComp spec) Prop Std.Internal.Do.EPost.Nil :=
@@ -52,7 +52,7 @@ theorem wp_eq_mAlgOrdered_wp_prop (oa : OracleComp spec α) (post : α → Prop)
   rw [MonadAttach.toWPMonadDemonic_wp]
   exact propext (MonadAttach.wp_iff_allOutputs oa post).symm
 
-/-- Structural weakest preconditions hold precisely on every possible output. -/
+/-- Necessary weakest preconditions hold precisely on every possible output. -/
 theorem wp_iff_forall_support (oa : OracleComp spec α) (post : α → Prop) :
     Std.Internal.Do.wp oa post Lean.Order.bot ↔ ∀ a ∈ support oa, post a := by
   rw [wp_eq_mAlgOrdered_wp_prop]

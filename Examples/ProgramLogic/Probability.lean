@@ -15,7 +15,7 @@ This file validates probability-rewrite tactics from
 `VCVio.ProgramLogic.Tactics`: `vcstep rw`, `vcstep rw under`, `vcstep rw normalize`,
 `vcstep rw congr'`, and the exhaustive `vcgen` driver on equalities of `Pr{…}[…]` events.
 Oracle responses carry a chosen discrete measure specification; swaps use countable responses,
-and congruence leaves the continuations on the structural support of the shared prefix.
+and congruence leaves the continuations at the possible outputs of the shared prefix.
 -/
 
 @[expose] public section

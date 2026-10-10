@@ -14,10 +14,10 @@ import ToMathlib.Probability.UniformOn
 # Measure-valued oracle specifications
 
 An oracle specification assigns a probability measure to each query's response type.
-A uniform specification identifies each chosen response measure with the uniform measure on
-its response type; this is a proposition about the chosen measures, and finiteness and
-inhabitedness of the response types follow from it rather than being carried as data. These
-certificates are explicit: finiteness alone does not select a probabilistic interpretation.
+A uniform specification chooses the uniform measure on each response type; finiteness and
+inhabitedness of the response types follow from those measures being probability measures,
+rather than being carried separately. These choices are explicit: finiteness alone does not
+select a probabilistic interpretation.
 -/
 
 public section
@@ -69,8 +69,8 @@ noncomputable instance AnswerMeasure.add {ι' : Type*} (spec' : OracleSpec.{_, v
 
 /-- A chosen measure interpretation that samples uniformly from each answer type.
 
-This is a proposition about the chosen answer measures: each one is the uniform measure on its
-answer type. It carries no finiteness or inhabitedness data. `uniformOn Set.univ` is a
+It extends the choice of answer measures with the law that each one is the uniform measure on
+its answer type, and carries no finiteness or inhabitedness data. `uniformOn Set.univ` is a
 probability measure exactly on a finite, nonempty type, which
 `AnswerMeasure.isProbabilityMeasure` records, so `UniformAnswerMeasure.finite_range` and
 `UniformAnswerMeasure.nonempty_range` recover both facts. Statements about cardinalities take

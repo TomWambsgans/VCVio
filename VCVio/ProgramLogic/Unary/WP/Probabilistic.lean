@@ -42,7 +42,7 @@ theorem wp_one_le (oa : OracleComp spec α) :
 
 /-- The expectation algebra restricted to probability-valued assertions. -/
 noncomputable scoped instance instMAlgOrdered : MAlgOrdered (OracleComp spec) Prob :=
-  ExpectationWP.Probabilistic.toMAlgOrdered (OracleComp spec)
+  ExpectationWP.Probabilistic.algebra (OracleComp spec)
 
 /-- Core weakest preconditions for probability-valued assertions. -/
 noncomputable scoped instance instWP_prob :

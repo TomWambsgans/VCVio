@@ -86,7 +86,7 @@ theorem couplingPost_pure_pure_iff (a : α) (b : β) (R : RelPost α β) :
     CouplingPost (pure a : OracleComp spec₁ α) (pure b : OracleComp spec₂ β) R ↔ R a b := by
   simp [CouplingPost]
 
-/-- The output measure of a computation concentrates on its structural support. -/
+/-- The output measure of a computation concentrates on its possible outputs. -/
 theorem ae_mem_support (oa : OracleComp spec₁ α) :
     letI : MeasurableSpace α := ⊤; ∀ᵐ a ∂𝒟[oa], a ∈ support oa := by
   let : MeasurableSpace α := ⊤
@@ -527,12 +527,12 @@ end measureSpec
 
 /-! ## Anchoring and bijection rules under uniform response measures -/
 
-section uniformMeasureSpec
+section uniformAnswerMeasure
 
 variable [UniformAnswerMeasure spec₁] [UniformAnswerMeasure spec₂]
 
 /-- A coupling with a Dirac first marginal forces the first coordinate, so an almost-sure
-relation holds between that value and every structurally reachable output of the second
+relation holds between that value and every possible output of the second
 computation, each of which has positive mass under uniform response measures. -/
 private theorem forall_mem_support_of_couplingPost_pure_left {a : α} {y : OracleComp spec₂ β}
     {post : RelPost α β} (h : CouplingPost (pure a : OracleComp spec₁ α) y post) :
@@ -580,7 +580,7 @@ variable [∀ t, Finite (spec₁.Range t)] [∀ t, Finite (spec₂.Range t)]
 
 When one of the two computations is `pure`, the relational coupling logic collapses to the
 unary support-based logic of the other side. Every reachable output has positive mass under
-uniform response measures, so an almost-sure relation holds on the whole structural support.
+uniform response measures, so an almost-sure relation holds at every possible output.
 
 Together with the unary `Prop` algebra in `VCVio/ProgramLogic/Unary/HoarePropTriple.lean`,
 this lets `wpExc` / `rwpExc`-style honest exception combinators (in
@@ -651,7 +651,7 @@ lemma relTriple_bind_query_bij (t : spec₁.Domain)
     (relTriple_post_mono (relTriple_query_bij t hf) fun _ _ h => h.symm)
     fun a b hb => by simpa [hb] using hfg a
 
-end uniformMeasureSpec
+end uniformAnswerMeasure
 
 section Sampling
 

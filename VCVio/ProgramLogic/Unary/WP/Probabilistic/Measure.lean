@@ -37,18 +37,18 @@ omit [LawfulMonad m] in
 theorem wp_one_le {α : Type} (mx : m α) :
     MAlgOrdered.wp mx (fun _ ↦ (1 : ENNReal)) ≤ 1 := by
   let : MeasurableSpace α := MeasurableSpace.comap (fun _ : α ↦ (1 : ENNReal)) inferInstance
-  exact Quantitative.wp_le_const mx measurable_const
+  exact Lower.wp_le_const mx measurable_const
     (Filter.Eventually.of_forall fun _ ↦ le_rfl)
 
 
 /-- The expectation algebra restricted to bounded probability assertions. -/
 @[expose, instance_reducible]
-noncomputable def toMAlgOrdered : MAlgOrdered m Prob :=
+noncomputable def algebra : MAlgOrdered m Prob :=
   MAlgOrdered.restrictIic 1 (fun {_} mx ↦ wp_one_le m mx)
 
 /-- Select probability-bounded measure expectations. -/
 noncomputable scoped instance (priority := 1100) instMAlgOrdered : MAlgOrdered m Prob :=
-  toMAlgOrdered m
+  algebra m
 
 /-- Core WP with bounded probability assertions and no exception postcondition. -/
 noncomputable scoped instance (priority := 1100) instWP : WPMonad m Prob EPost.Nil :=
@@ -95,7 +95,7 @@ variable [MeasurableSpace α]
 theorem wp_val_eq_lintegral (mx : m α) (post : α → Prob)
     (hpost : Measurable fun a ↦ (post a).val) :
     (wp mx post (Lean.Order.bot : EPost.Nil)).val = ∫⁻ a, (post a).val ∂𝒟[mx] := by
-  rw [wp_val_eq_mAlgOrdered_wp, Quantitative.wp_eq_lintegral mx _ hpost]
+  rw [wp_val_eq_mAlgOrdered_wp, Lower.wp_eq_lintegral mx _ hpost]
 
 /-- Constant assertions retain the successful-output mass. -/
 theorem wp_const (mx : m α) (p : Prob) :
