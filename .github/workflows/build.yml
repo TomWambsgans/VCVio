@@ -358,7 +358,6 @@ jobs:
             --path-prefix Examples.lean \
             --path-prefix VCVioWidgets.lean \
             --exclude-substring 'declaration uses `sorry`' \
-            --exclude-substring 'VCVio retiring probability API' \
             --label 'repository non-sorry warnings'
       - name: Time test module
         run: |
@@ -417,7 +416,6 @@ jobs:
             --path-prefix LatticeCryptoTest/ \
             --path-prefix LatticeCryptoTest.lean \
             --path-prefix HashSigTest/ \
-            --exclude-substring 'VCVio retiring probability API' \
             --label 'test-library warnings'
       # The same ratchet over the test libraries, which only exist as oleans once `lake
       # test` has built them — the incident this gate exists for would have been just as

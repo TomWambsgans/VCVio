@@ -13,10 +13,10 @@ public import VCVio.EvalDist.Defs.Measure.ExceptT
 /-!
 # Bundled measure observations
 
-`SemanticsVia` factors a computation through an internal monad and an external observer.
-`MeasureSemanticsVia` makes the observer's measurable-space choice explicit and certifies
-subprobability mass. Observation need not preserve bind: a fixed environment, initial state,
-or output projection may hide internal effects at the observation boundary.
+`MeasureSemanticsVia` factors a computation through an internal monad and an external
+measure-valued observer, with the observer's measurable-space choice explicit and its
+subprobability mass certified. Observation need not preserve bind: a fixed environment, initial
+state, or output projection may hide internal effects at the observation boundary.
 
 The bundles select interpretations as data, without choosing a global semantics instance.
 Optional and exceptional observations retain unsuccessful runs as missing successful-output mass.
@@ -26,51 +26,14 @@ public section
 
 open MeasureTheory
 
-universe u v w x
-
-/-- Bundled semantics for `m` obtained by factoring through an internal semantic monad.
-
-`SemanticsVia m Obs` packages the very general pattern:
-
-1. interpret a computation in the surface monad `m` into some internal semantic monad `Sem`
-2. observe the resulting internal computation as an external semantic object `Obs α`
-
-The observation target `Obs` is generic: it can describe possible outcomes, traces, or other
-observations independent of a probability representation. Measure-valued observations use
-`MeasureSemanticsVia`, which also selects the output measurable space.
-
-The important asymmetry is that `interpret` is required to be a monad morphism, while `observe`
-is not. This lets us model semantics where running the internal computation requires fixing hidden
-state or discarding auxiliary structure before exposing the final denotation. -/
-structure SemanticsVia (m : Type u → Type v) [Monad m] (Obs : Type u → Type x) where
-  /-- Internal monad used to give denotational meaning to computations in `m`. -/
-  Sem : Type u → Type w
-  /-- Monad structure on the internal semantic monad. -/
-  [instMonadSem : Monad Sem]
-  /-- Interpret a surface computation into the internal semantic monad. -/
-  interpret : m →ᵐ Sem
-  /-- Observe the internal semantic computation as an external semantic object, forgetting any
-  hidden internal structure. -/
-  observe : {α : Type u} → Sem α → Obs α
-
-namespace SemanticsVia
-
-variable {m : Type u → Type v} [Monad m] {Obs : Type u → Type x} {α : Type u}
-
-/-- The external denotation of `mx` under a bundled semantics factorization. -/
-@[expose]
-def denote (sem : SemanticsVia m Obs) (mx : m α) : Obs α :=
-  sem.observe (sem.interpret mx)
-
-end SemanticsVia
-
-/-! ## Measure-valued semantics -/
+universe u v w
 
 /-- Bundled subprobability semantics factoring a surface monad through an internal monad.
 
-Unlike `SemanticsVia m Measure`, which cannot be formed because observing a `Measure α` requires
-a selected measurable space, the measurable-space argument is explicit in `observe`. Failure or
-nontermination is represented by missing mass. -/
+`interpret` is a monad morphism into the internal monad; `observe` need not be one, and takes
+the output measurable space explicitly, since observing a `Measure α` requires one. Running the
+internal computation may fix hidden state or discard auxiliary structure before the final
+denotation is exposed. Failure or nontermination is represented by missing mass. -/
 structure MeasureSemanticsVia (m : Type u → Type v) [Monad m] where
   /-- Internal semantic monad. -/
   Sem : Type u → Type w
