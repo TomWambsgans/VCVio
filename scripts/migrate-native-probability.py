@@ -18,10 +18,13 @@ Rewrites:
 - oracle answer-type binders `[∀ t, MeasurableSpace (spec.Range t)]`,
   `[∀ t, DiscreteMeasurableSpace (spec.Range t)]` and `[∀ t, MeasurableSingletonClass …]` are
   deleted, with the `omit … in` and `variable` lines they leave empty;
-- `IsProbabilitySpec` and `IsUniformSpec` binders become `IsMeasureSpec` and
-  `IsUniformMeasureSpec`, and `IsUniformSpec.ofFintypeInhabited` becomes
-  `IsUniformMeasureSpec.ofFiniteNonempty`;
-- renamed declarations (`RENAMES`) and removed modules (`MODULES`).
+- `IsProbabilitySpec` and `IsUniformSpec` binders become `OracleSpec.AnswerMeasure` and
+  `OracleSpec.UniformAnswerMeasure`, and `IsUniformSpec.ofFintypeInhabited` becomes
+  `UniformAnswerMeasure.ofFiniteNonempty`;
+- equations of output distributions `𝒮[A] = 𝒮[B]` become `A =ᵈ B`;
+- renamed declarations (`RENAMES`), including the names of the measure API's first release
+  (`IsMeasureSpec`, `MeasureDistEquiv`, `MeasureSemanticsVia`, `MeasureProgramLogic`, the
+  `Qualitative` and `Quantitative` readings), and removed or moved modules (`MODULES`).
 
 Everything the script cannot rewrite is reported as `path:line: …` with a pointer into
 `docs/agents/probability-migration.md`. The exit status is 0 whether or not anything was
@@ -219,8 +222,63 @@ RENAMES: dict[str, str] = {
     "evalDist_liftComp_of_evalDist": "evalDist_liftComp_of_evalDistEq",
     "wp_liftComp_of_evalDist": "wp_liftComp_of_evalDistEq",
     # Classes.
-    "IsUniformSpec.ofFintypeInhabited": "IsUniformMeasureSpec.ofFiniteNonempty",
+    "IsUniformSpec.ofFintypeInhabited": "UniformAnswerMeasure.ofFiniteNonempty",
     "GameEquiv": "EvalDistEq",
+    # Lemmas the measure API's first release renamed after this table was written.
+    "tsum_probOutput_bind_mul": "OracleComp.tsum_prEvent_bind_mul",
+    "tsum_probOutput_pure_mul": "OracleComp.tsum_prEvent_pure_mul",
+    "tsum_probOutput_map_mul": "OracleComp.tsum_prEvent_map_mul",
+    "probOutput_ne_zero_of_mem_support": "OracleComp.prEvent_ne_zero_of_mem_support",
+    "probEvent_uniformSample": "SampleableType.prEvent_uniformSample",
+    "probEvent_or_le": "prEvent_or_le",
+    "probEvent_le_of_eq_bind_hiddenReadList": "prEvent_le_of_eq_bind_hiddenReadList",
+    "probEvent_bind_fire_le_of_gen": "prEvent_bind_fire_le_of_gen",
+    "SPMFSemantics.withStateOracle": "SemanticsVia.withStateOracle",
+    # Names of the measure API's first release: the qualifiers that set it apart from the
+    # discrete layer are gone with that layer. Answer measures.
+    "IsUniformMeasureSpec": "UniformAnswerMeasure",
+    "IsMeasureSpec": "AnswerMeasure",
+    "IsMeasureSpec'": "AnswerMeasure'",
+    "toIsMeasureSpec": "toAnswerMeasure",
+    "instIsUniformMeasureSpecChalSingleton": "instUniformAnswerMeasureChalSingleton",
+    "unitArrowSpecIsUniformMeasureSpec": "unitArrowSpecUniformAnswerMeasure",
+    "fairCoinMeasureSpec": "fairCoinAnswerMeasure",
+    "explicitCoinMeasureSpec": "explicitCoinAnswerMeasure",
+    "oneCoinMeasureSpec": "oneCoinAnswerMeasure",
+    "weightedMeasureSpec": "weightedAnswerMeasure",
+    "simulateQ_probHandler": "simulateQ_uniformHandler",
+    "probHandler": "uniformHandler",
+    # Equality in distribution of packages, and bundled semantics.
+    "MeasureDistEquiv₀": "DistEquiv₀",
+    "MeasureDistEquiv": "DistEquiv",
+    "measureDistEquiv_dhToLR_left_link_real_eq_elgamalLR_left":
+        "distEquiv_dhToLR_left_link_real_eq_elgamalLR_left",
+    "measureDistEquiv_dhToLR_right_link_real_eq_elgamalLR_right":
+        "distEquiv_dhToLR_right_link_real_eq_elgamalLR_right",
+    "measureDistEquiv_dhToLR_link_rand_swap": "distEquiv_dhToLR_link_rand_swap",
+    "MeasureSemanticsVia": "SemanticsVia",
+    "toMeasureSemanticsVia": "toSemanticsVia",
+    # Symmetric encryption with explicit semantics, and the restricted Schnorr statement.
+    "measureComplete": "completeWith",
+    "measureComplete_iff_completeKernel_eq_dirac": "completeWith_iff_completeKernel_eq_dirac",
+    "measureComplete_toSymmEncAlg": "completeWith_toSymmEncAlg",
+    "coinOneTimePad_measureComplete": "coinOneTimePad_completeWith",
+    "measurePerfectSecrecyAt": "ciphertextRowsEqualWith",
+    "measurePerfectSecrecyAt_iff_kernel_rows_eq": "ciphertextRowsEqualWith_iff_kernel_rows_eq",
+    "measurePerfectSecrecyAt_of_constant": "ciphertextRowsEqualWith_of_constant",
+    "measurePerfectSecrecyAt_iff_ciphertextRowsEqualAt":
+        "ciphertextRowsEqualWith_iff_ciphertextRowsEqualAt",
+    "coinOneTimePad_measurePerfectSecrecyAt": "coinOneTimePad_ciphertextRowsEqualWith",
+    "identityChannel_not_measurePerfectSecrecyAt": "identityChannel_not_ciphertextRowsEqualWith",
+    "restrictedSigma_hvzk_measure": "restrictedSigma_hvzk",
+    # The expectation interpretation and the unary readings.
+    "MeasureProgramLogic.toMAlgOrdered": "ExpectationWP.algebra",
+    "MeasureProgramLogic.Quantitative": "ExpectationWP.Lower",
+    "MeasureProgramLogic": "ExpectationWP",
+    "OracleComp.Qualitative": "OracleComp.Necessary",
+    "Qualitative.Spec": "Necessary.Spec",
+    "OracleComp.Quantitative": "OracleComp.Lower",
+    "Quantitative.Spec": "Lower.Spec",
 }
 
 # Declarations whose replacement changes the argument shape; reported, not rewritten.
@@ -235,7 +293,7 @@ REPORT_NAMES: dict[str, str] = {
         "step hypotheses are now `=ᵈ` (see *Query and handler laws*)",
     "evalDist_simulateQ_run'_eq_of_forall":
         "step hypotheses are now `=ᵈ` (see *Query and handler laws*)",
-    "MeasureDistEquiv.of_step":
+    "DistEquiv.of_step":
         "step hypotheses are now `=ᵈ` (see *Query and handler laws*)",
     "wp_simulateQ_eq":
         "the per-query hypothesis is now `=ᵈ` (see *Query and handler laws*)",
@@ -291,7 +349,6 @@ MODULES: dict[str, list[str]] = {
         ["ToMathlib.Probability.Divergence.Renyi"],
     "ToMathlib.Probability.ProbabilityMassFunction.TotalVariation":
         ["ToMathlib.MeasureTheory.Measure.TotalVariation"],
-    "VCVio.StateSeparating.DistEquiv": ["VCVio.StateSeparating.MeasureDistEquiv"],
     "VCVio.StateSeparating.Advantage": ["VCVio.StateSeparating.Advantage.Measure"],
     "VCVio.EvalDist.Monad.Disagreement": ["VCVio.EvalDist.Monad.Disagreement.Measure"],
     "VCVio.EvalDist.Instances.FinRatPMF": ["ToMathlib.ProbabilityTheory.FinRatPMF.Measure"],
@@ -310,6 +367,11 @@ MODULES: dict[str, list[str]] = {
          "VCVio.ProgramLogic.Relational.SimulateQ.UntilBad"],
     "VCVio.ProgramLogic.Relational.WP.Coherence": ["VCVio.ProgramLogic.Relational.WP.Quantitative"],
     "VCVio.Prelude": ["VCVio.Prelude.Core"],
+    # Modules of the measure API's first release.
+    "VCVio.OracleComp.EvalDist.MeasureSpec": ["VCVio.OracleComp.EvalDist.AnswerMeasure"],
+    "VCVio.StateSeparating.MeasureDistEquiv": ["VCVio.StateSeparating.DistEquiv"],
+    "VCVio.ProgramLogic.Unary.WP.Qualitative": ["VCVio.ProgramLogic.Unary.WP.Necessary"],
+    "VCVio.ProgramLogic.Unary.WP.Quantitative": ["VCVio.ProgramLogic.Unary.WP.Lower"],
     # The discrete layer itself.
     "ToMathlib.ProbabilityTheory.SPMF": [],
     "ToMathlib.Probability.ProbabilityMassFunction.Lemmas":
@@ -329,7 +391,7 @@ MODULES: dict[str, list[str]] = {
     "VCVio.EvalDist.PFunctor": ["VCVio.EvalDist.PFunctorSupport"],
     "VCVio.EvalDist.PFunctorMeasure": ["VCVio.EvalDist.PFunctorMeasure.Core"],
     "VCVio.OracleComp.EvalDist.UniformCompatibility":
-        ["VCVio.OracleComp.EvalDist.Measure", "VCVio.OracleComp.EvalDist.MeasureSpec"],
+        ["VCVio.OracleComp.EvalDist.Measure", "VCVio.OracleComp.EvalDist.AnswerMeasure"],
     "VCVio.OracleComp.Constructions.SampleableType.MeasureCompatibility":
         ["VCVio.OracleComp.Constructions.SampleableType.Measure"],
     "VCVio.OracleComp.Constructions.SampleableType.NativeMeasure":
@@ -409,10 +471,10 @@ LEGACY_TOKENS: list[tuple[str, str]] = [
     (r"(?<![\w'.])NeverFail(?![\w'])", "nothing on `OracleComp`; see *Classes and binders*"),
     (r"EvalDistCompatible", "operational support lemmas; see *Classes and binders*"),
     (r"PFunctor\.IsProbabilitySpec|PFunctor\.IsUniformSpec",
-     "`PFunctor.IsMeasureSpec`; see *Classes and binders*"),
+     "`PFunctor.AnswerMeasure`; see *Classes and binders*"),
     (r"MeasurableSpace\s*\([^\n]*?\.Range\b",
      "answer measures are discrete; see *Classes and binders*"),
-    (r"@(?:OracleSpec\.)?IsUniformMeasureSpec\.ofFiniteNonempty\b",
+    (r"@(?:OracleSpec\.)?UniformAnswerMeasure\.ofFiniteNonempty\b",
      "takes the specification and its `Finite` and `Nonempty` instances only"),
     (r"(?<![\w'.])SPMF(?![\w'])", "`Measure`; see *Notation and definitions*"),
     (r"(?<![\w'])[\w'.]*?(?:evalSPMF|probOutput|probEvent|probFailure|tvDist)_[\w'.]*",
@@ -600,6 +662,60 @@ def convert_legacy_event(event: str, comp: str, prose: bool = False) -> str | No
     return f"Pr{{{draw(x, comp)}}}[{pred} {x}]"
 
 
+def plain_application(term: str) -> bool:
+    """Whether `term` is an identifier applied to identifiers and bracketed groups, which binds
+    tighter than `=ᵈ` and needs no parentheses."""
+    term = term.strip()
+    if is_atomic(term):
+        return True
+    rest, j = [], 0
+    while j < len(term):
+        if term[j] in OPEN:
+            try:
+                j = match_close(term, j) + 1
+            except ValueError:
+                return False
+            rest.append(" ")
+            continue
+        rest.append(term[j])
+        j += 1
+    return re.fullmatch(r"@?[^\W\d][\w'.!?₀-₉ₐ-ₜᵢ-ᵪ]*(?:\s+[\w'.!?₀-₉ₐ-ₜᵢ-ᵪ@]*)*",
+                        "".join(rest).strip()) is not None
+
+
+def rewrite_spmf_equations(text: str) -> str:
+    """`𝒮[A] = 𝒮[B]` becomes `A =ᵈ B`, unless a side is applied to an argument (a pointwise mass)
+    or the left side is itself an argument; a side that is not an application is parenthesized."""
+    out: list[str] = []
+    i = 0
+    while True:
+        k = text.find("𝒮[", i)
+        if k < 0:
+            out.append(text[i:])
+            return "".join(out)
+        try:
+            close = match_close(text, k + 1)
+            m = re.match(r"\s*=\s*𝒮\[", text[close + 1:])
+            close2 = match_close(text, close + 1 + m.end() - 1) if m else -1
+        except ValueError:
+            close2 = -1
+        before = text[:k].rstrip()
+        argument = bool(before) and (before[-1] in ")]}⟩" or re.match(r"[\w'!?₀-₉]", before[-1]))
+        after = text[close2 + 1:close2 + 2] if close2 >= 0 else ""
+        applied = bool(re.match(r"[ \t]+[\w(⟨@'!?]", text[close2 + 1:close2 + 3])) or after == "("
+        if close2 < 0 or argument or applied:
+            out.append(text[i:k + 2])
+            i = k + 2
+            continue
+        sides = []
+        for term in (text[k + 2:close], text[close + 1 + m.end():close2]):
+            term = term.strip()
+            sides.append(term if plain_application(term) else f"({term})")
+        out.append(text[i:k])
+        out.append(f"{sides[0]} =ᵈ {sides[1]}")
+        i = close2 + 1
+
+
 def rewrite_eq_events(text: str) -> str:
     """Write the singleton events `Pr{mx}[= a]` and `Pr{mx}[(· = a)]` of earlier versions of the
     measure API as `Pr{let x ← mx}[x = a]`."""
@@ -779,8 +895,8 @@ def delete_answer_binders(text: str) -> str:
 
 
 CLASS_BINDERS = [
-    (re.compile(r"\[\s*(?:OracleSpec\.)?IsProbabilitySpec\s+"), "[OracleSpec.IsMeasureSpec "),
-    (re.compile(r"\[\s*(?:OracleSpec\.)?IsUniformSpec\s+"), "[OracleSpec.IsUniformMeasureSpec "),
+    (re.compile(r"\[\s*(?:OracleSpec\.)?IsProbabilitySpec\s+"), "[OracleSpec.AnswerMeasure "),
+    (re.compile(r"\[\s*(?:OracleSpec\.)?IsUniformSpec\s+"), "[OracleSpec.UniformAnswerMeasure "),
 ]
 
 
@@ -879,6 +995,7 @@ def migrate(text: str, path: str, report: Report) -> str:
     text = rewrite_opens(text)
     text = rewrite_legacy_events(text, report, path)
     text = rewrite_eq_events(text)
+    text = rewrite_spmf_equations(text)
     text = rewrite_draw_items(text, report, path)
     text = delete_answer_binders(text)
     text = rewrite_classes(text, report, path)

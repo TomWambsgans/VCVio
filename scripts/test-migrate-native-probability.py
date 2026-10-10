@@ -111,7 +111,7 @@ class BinderTests(unittest.TestCase):
         )
         expected = (
             "variable {ι : Type} {spec : OracleSpec ι}\n"
-            "  [OracleSpec.IsMeasureSpec spec]\n"
+            "  [OracleSpec.AnswerMeasure spec]\n"
             "\n"
             "theorem t (x : Nat) : x = x := rfl\n"
             "theorem u : True := trivial\n"
@@ -128,9 +128,9 @@ class BinderTests(unittest.TestCase):
     def test_classes(self):
         out, items = migrate("variable [IsProbabilitySpec spec] [OracleSpec.IsUniformSpec spec']\n"
                              "instance : IsUniformSpec s := IsUniformSpec.ofFintypeInhabited s\n")
-        self.assertEqual(out, "variable [OracleSpec.IsMeasureSpec spec] "
-                              "[OracleSpec.IsUniformMeasureSpec spec']\n"
-                              "instance : IsUniformSpec s := IsUniformMeasureSpec.ofFiniteNonempty s\n")
+        self.assertEqual(out, "variable [OracleSpec.AnswerMeasure spec] "
+                              "[OracleSpec.UniformAnswerMeasure spec']\n"
+                              "instance : IsUniformSpec s := UniformAnswerMeasure.ofFiniteNonempty s\n")
         self.assertTrue(any("Fintype" in msg for _, _, msg in items))
 
 
@@ -204,6 +204,71 @@ class ImportTests(unittest.TestCase):
     def test_unrelated_imports_are_untouched(self):
         source = "public import A\npublic import B\npublic import A\n"
         self.assertEqual(migrate(source)[0], source)
+
+
+class FirstReleaseTests(unittest.TestCase):
+    """Sources written against the measure API's first release land on the final names."""
+
+    def assertMigrates(self, source, expected):
+        self.assertEqual(migrate(source)[0], expected)
+
+    def test_answer_measures(self):
+        self.assertMigrates("[OracleSpec.IsMeasureSpec spec] [IsUniformMeasureSpec spec']",
+                            "[OracleSpec.AnswerMeasure spec] [UniformAnswerMeasure spec']")
+        self.assertMigrates("IsMeasureSpec.toMeasure t = IsUniformMeasureSpec.add.toMeasure t",
+                            "AnswerMeasure.toMeasure t = UniformAnswerMeasure.add.toMeasure t")
+        self.assertMigrates("h.toIsMeasureSpec, instIsUniformMeasureSpecChalSingleton, "
+                            "spec.toPFunctor.IsMeasureSpec, fairCoinMeasureSpec",
+                            "h.toAnswerMeasure, instUniformAnswerMeasureChalSingleton, "
+                            "spec.toPFunctor.AnswerMeasure, fairCoinAnswerMeasure")
+        self.assertMigrates("spec.probHandler, simulateQ_probHandler, ProbHandler spec",
+                            "spec.uniformHandler, simulateQ_uniformHandler, ProbHandler spec")
+
+    def test_packages_and_bundled_semantics(self):
+        self.assertMigrates("MeasureDistEquiv₀ h₀ h₁ ∧ QueryImpl.Stateful.MeasureDistEquiv i j",
+                            "DistEquiv₀ h₀ h₁ ∧ QueryImpl.Stateful.DistEquiv i j")
+        self.assertMigrates("runtime.toMeasureSemanticsVia.evalDist mx = "
+                            "(MeasureSemanticsVia.ofEvalDistSemantics m).evalDist mx",
+                            "runtime.toSemanticsVia.evalDist mx = "
+                            "(SemanticsVia.ofEvalDistSemantics m).evalDist mx")
+        out, items = migrate("exact MeasureDistEquiv.of_step h")
+        self.assertEqual(out, "exact DistEquiv.of_step h")
+        self.assertEqual(len(items), 1)
+
+    def test_expectation_interpretation_and_readings(self):
+        self.assertMigrates("MeasureProgramLogic.toMAlgOrdered m, MeasureProgramLogic.Quantitative.wp",
+                            "ExpectationWP.algebra m, ExpectationWP.Lower.wp")
+        self.assertMigrates("OracleComp.Qualitative.Spec, OracleComp.Quantitative.triple, "
+                            "Quantitative.Spec, OracleComp.Rel.Qualitative.triple",
+                            "OracleComp.Necessary.Spec, OracleComp.Lower.triple, "
+                            "Lower.Spec, OracleComp.Rel.Qualitative.triple")
+
+    def test_modules(self):
+        source = ("public import VCVio.OracleComp.EvalDist.MeasureSpec\n"
+                  "import VCVio.StateSeparating.DistEquiv\n"
+                  "import VCVio.StateSeparating.MeasureDistEquiv\n"
+                  "import VCVio.ProgramLogic.Unary.WP.Qualitative\n")
+        expected = ("public import VCVio.OracleComp.EvalDist.AnswerMeasure\n"
+                    "import VCVio.StateSeparating.DistEquiv\n"
+                    "import VCVio.ProgramLogic.Unary.WP.Necessary\n")
+        self.assertMigrates(source, expected)
+
+    def test_distribution_equations(self):
+        # An equation of two output distributions is an equality in distribution.
+        self.assertMigrates("(h : 𝒮[oa >>= f] = 𝒮[ob])", "(h : (oa >>= f) =ᵈ ob)")
+        self.assertMigrates("(h : ∀ a, 𝒮[f a] = 𝒮[g a]) : 𝒮[mx] = 𝒮[my] ∧ True",
+                            "(h : ∀ a, f a =ᵈ g a) : mx =ᵈ my ∧ True")
+        # A pointwise mass, or a distribution passed as an argument, is left and reported.
+        for source in ("𝒮[mx] x = 𝒮[my] x", "foo 𝒮[mx] = 𝒮[my]"):
+            out, items = migrate(source)
+            self.assertEqual(out, source)
+            self.assertEqual(len(items), 1)
+
+    def test_tables_record_chains_by_their_final_name(self):
+        self.assertEqual([old for old, new in codemod.RENAMES.items() if new in codemod.RENAMES],
+                         [])
+        self.assertEqual([old for old, targets in codemod.MODULES.items()
+                          if old in targets or any(t in codemod.MODULES for t in targets)], [])
 
 
 class CommandLineTests(unittest.TestCase):
