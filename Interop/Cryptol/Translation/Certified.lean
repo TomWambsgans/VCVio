@@ -57,18 +57,10 @@ theorem contract_iff (f : CertifiedFunction ha hb) (g : a.Native → b.Native)
     (h : ∀ x, f.implementation.denote Env.empty x = g x)
     (pre : a.Native → Prop) (post : a.Native → b.Native → Prop) :
     DataContract ha (Resolved.lower f.source) pre post ↔ ∀ x, pre x → post x (g x) := by
-  have hr (x : a.Native) : Represents b (g x)
-      (DomainResult.applyContinuous ((Resolved.lower f.source).denote Environment.empty)
-        (encodeData ha x)) := by
-    rw [f.lower_apply, h x]
-    exact represents_encodeData hb _
-  constructor
-  · intro hc x hx
-    obtain ⟨y, hy, hp⟩ := hc x hx
-    have he := Represents.functional hb hy (hr x)
-    simpa only [he] using hp
-  · intro hp x hx
-    exact ⟨g x, hr x, hp x hx⟩
+  let semantic : CertifiedMeaning ha hb :=
+    ⟨(Resolved.lower f.source).denote Environment.empty,
+      f.implementation.denote Env.empty, f.lower_apply⟩
+  exact semantic.contract_iff g h pre post
 
 end CertifiedFunction
 

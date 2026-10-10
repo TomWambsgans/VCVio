@@ -245,6 +245,64 @@ def check_reference_demand(cryptol):
     print(f"Versioned demand checks: {2 * len(cases)} normal/reference observations passed")
 
 
+def check_polymorphic(cryptol):
+    """Versioned observations of the finite Lean examples' handwritten source counterparts."""
+    executable = str(Path(shutil.which(cryptol)).resolve())
+    env = dict(os.environ)
+    env["PATH"] = str(Path(executable).parent) + os.pathsep + env.get("PATH", "")
+    source = """module OrderedPolymorphic where
+polyMap : {n, a, b} (a -> b) -> [n]a -> [n]b
+polyMap f xs = [ f x | x <- xs ]
+polyXor : {n} (fin n) => ([n], [n]) -> [n]
+polyXor (x, y) = x ^ y
+different : {n : #} Bit
+different = constant`{n = n + 1}
+constant : {n : #} Bit
+constant = True
+twoUses : (Bit, Integer)
+twoUses = (identity True, identity (3 : Integer))
+  where
+    identity : {a} a -> a
+    identity x = x
+"""
+    cases = [
+        ('polyMap (\\x -> 7 : Integer) (error "unused" : [3]Integer)',
+         "[7, 7, 7]", "[7, 7, 7]"),
+        ('polyMap (error "function" : Integer -> Integer) ([] : [0]Integer)', "0", "[]"),
+        ('(polyMap (\\x -> 7 : Integer) (error "source" : [inf]Integer)) @ 1000',
+         "7", "error:source"),
+        ('(polyMap (\\x -> x) (error "source" : [3]Integer)) @ 1',
+         "error:source", "error:source"),
+        ('toInteger (polyXor ((error "left" : [0]), ([] : [0])))',
+         "error:left", "error:left"),
+        ('twoUses', "(True, 3)", "(True, 3)"),
+    ]
+    for width in (0, 1, 2, 3, 8, 32, 64):
+        left = (1 << width) - 1
+        right = left // 3
+        expression = f"toInteger (polyXor (({left} : [{width}]), ({right} : [{width}])))"
+        cases.append((expression, str(left ^ right), str(left ^ right)))
+    for number in ("0", "1", "31", "inf"):
+        cases.append((f"different`{{n={number}}}", "True", "True"))
+    with tempfile.TemporaryDirectory(prefix="cryptol-ordered-") as directory:
+        fixture = Path(directory) / "OrderedPolymorphic.cry"
+        fixture.write_text(source)
+        for expression, reference, normal in cases:
+            for prefix, expected in ((":eval ", reference), ("", normal)):
+                result = run([executable, "--ignore-cryptolrc", "--color=none", "-e",
+                              "-c", f":load {fixture}", "-c", ":set base=10",
+                              "-c", prefix + expression], env=env)
+                output = result.stdout + result.stderr
+                error = expected.startswith("error:")
+                pattern = (r"^Run-time error: " + re.escape(expected[6:]) + r"$" if error
+                           else "^" + re.escape(expected) + "$")
+                require(result.returncode == (1 if error and not prefix else 0) and
+                        re.search(pattern, output, re.MULTILINE) and
+                        not re.search(r"parse error|type error|\[error\]", output, re.IGNORECASE),
+                        "Ordered polymorphic observation changed: " + expression + "\n" + output)
+    print(f"Ordered polymorphism: {2 * len(cases)} normal/reference observations passed")
+
+
 def check_cryptol(cryptol, fixtures):
     executable = shutil.which(cryptol)
     require(executable is not None, f"Cryptol executable not found: {cryptol}")
@@ -327,6 +385,7 @@ def main():
         check_cryptol(args.cryptol, fixtures)
         check_external_words(args.cryptol, words)
         check_reference_demand(args.cryptol)
+        check_polymorphic(args.cryptol)
 
 
 if __name__ == "__main__":

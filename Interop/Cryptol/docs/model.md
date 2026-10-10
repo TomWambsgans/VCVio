@@ -26,17 +26,17 @@ parser, name resolver, type inference engine, or constraint solver.
 | Axis | Checked model |
 |---|---|
 | Types | Bits, integers, unit, binary products, functions, finite and infinite sequences |
-| Polymorphism | Separate numeric and value-type variables; prenex schemas; checked instantiation. A suspended-family domain and a changing-instantiation recursive spike are proved separately from resolved syntax. |
+| Polymorphism | Ordered numeric, type, and proof binders; checked instantiation and local polymorphic values; one finite syntax tree before instantiation |
 | Numeric expressions | Finite constants, infinity, variables, addition, multiplication, minimum; finiteness and equality constraints |
-| Binding | Typed de Bruijn variables, capture-avoiding renaming/substitution, semantic substitution laws |
+| Binding | Typed de Bruijn positions and capture-avoiding transformations; semantic substitution laws for the monomorphic core/native IR; beta laws for ordered polymorphic syntax |
 | Laziness | Suspended function arguments, let values, product fields, sequence elements; only the selected conditional branch is demanded |
-| Recursion | Least fixed points at every closed type; monomorphic groups use lazy products. The polymorphic-domain extension takes one simultaneous fixed point over all valid instantiations. |
+| Recursion | Least fixed points at every closed type; monomorphic groups use lazy products. Finite polymorphic group syntax takes one fixed point of the whole scheme environment before instantiation. |
 | Failure | Semantic bottom, explicit evaluation error, and returned outer value are distinct |
 | Primitives | Structural zero; lazy finite folds; array arithmetic; Bit/integer operations; partial word logic, lexicographic comparison, modular arithmetic, conversions, dynamic shifts/rotations; structural sequence operations |
 | Derived descriptions | Sequence literals, generators, map, parallel zip, finite-prefix append, observation windows; big-endian literals and finite total descriptions |
 
-Products represent tuple spines. Named records, nominal types, local polymorphic
-let bindings, arbitrary Cryptol type-class constraints, and the full numeric
+Products represent tuple spines. Named records, nominal types,
+arbitrary Cryptol type-class constraints, and the full numeric
 type language are not included. Rational, modular-integer, float, foreign, and
 cryptographic/security primitives are also outside the fragment. Word lowerings compile to the core, using `Expr.force` to demand an outer
 constructor without demanding its components. `force` is internal: `Resolved.Term`
@@ -124,6 +124,57 @@ the dynamic reference operation, including partial sources.
 laws. An elementwise round trip does not imply equality of outer computations:
 `join (split (error ...))` exposes a constructor before demanding the source.
 
+## Ordered polymorphic syntax and semantics
+
+[`Scheme.lean`](../Model/Scheme.lean) retains the order of numeric, type, and
+proof binders. Every numeric or type quantifier introduces a fresh outer
+`DomainResult` around its family. Thus an error before any instantiation, an
+error after a numeric argument, and an error after a subsequent type argument
+are distinct meanings. Proof binders range over checked evidence and add no
+suspension. `Scheme.domain_subst` identifies the complete pointed domains under
+parameter substitution, including their order and bottom.
+
+[`PolyScope.lean`](../Model/PolyScope.lean) tracks free parameters and numeric
+assumptions. A `Scope.Map` supplies numeric and type expressions and proves
+that they preserve assumptions. [`PolyReindex.lean`](../Model/PolyReindex.lean)
+implements one constructor-local `ScopedFamily.Hom`; the generic PolyFun
+traversal performs the tree recursion. Instantiating two distinct type
+parameters to the same type preserves the two value-variable positions.
+[`PolySubstitution.lean`](../Model/PolySubstitution.lean) uses that action to
+move value substitutions under parameter binders without capturing variables.
+Its identity law and mixed-binder capture regressions are checked; a general
+whole-language semantic substitution theorem is not yet provided.
+
+[`PolySyntax.lean`](../Model/PolySyntax.lean) stores finite heads and finitely
+many children. Heads carry checked result annotations separately from their
+constructor data, so type transport does not obscure recursive positions.
+[`PolyConstructors.lean`](../Model/PolyConstructors.lean) hides identity context
+casts for ordinary clients. The syntax includes numeric/type/proof abstraction
+and application, local polymorphic lets, heterogeneous recursive groups,
+functions, products, generators, indexing, and selected primitives. A closed
+resolved term embeds through `Term.closed`.
+
+[`PolyDenotation.lean`](../Model/PolyDenotation.lean) folds the tree into
+continuous environment maps at each valid parameter assignment. Recursive
+groups use the generic `ScopedDomain.Env.fixGroup`: recursive calls can select
+different instantiations because the fixed point is taken before specialization.
+[`PolyLaws.lean`](../Model/PolyLaws.lean) exposes numeric/type/value beta laws,
+erased proof application, lazy lets, and exact agreement of the closed embedding
+with `Resolved.denote`. These are denotational laws. The monomorphic abstract
+machine and adequacy theorem do not yet cover this syntax.
+`Specialization` selects a meaning; it does not produce a resolved AST. The
+existing source printer also remains monomorphic.
+
+[`PolyExamples.lean`](../Model/PolyExamples.lean) gives a single 11-node map
+description at all finite and infinite lengths, with selected-element meaning
+on arbitrary suspended functions and sources. Its XOR description has 10 nodes
+independent of width. [`PolyRecursion.lean`](../Model/PolyRecursion.lean) proves
+that a recursive call at `n + 1` can yield a returned family whose every instance
+is bottom; a two-binding group produces the constant true family through a call
+at a changed instantiation. Neither example unfolds a family of host-generated
+syntax trees. The older flat `Schema` domain API in `Polymorphic.lean` remains
+available; the ordered API is the syntax-facing development.
+
 ## Finite descriptions and specification transfer
 
 [`Finite.lean`](../Translation/Finite.lean) gives a smaller typed language
@@ -184,6 +235,18 @@ strict-prefix fixed-point rule; `Finite/Loop.lean` constructs shared finite
 prefix tables and iterations. `ResolvedSequences.lean` supplies ranges and
 single-generator comprehensions, with partial denotation equations.
 
+[`SemanticCertificate.lean`](../Translation/SemanticCertificate.lean) factors
+the representation contract over a semantic computation, independent of which
+syntax denotes it. [`CertifiedFamily.lean`](../Translation/CertifiedFamily.lean)
+retains one finite polymorphic source together with implementations and
+all-input representation proofs for every instance of an explicit
+`FamilyInterface`. Its `contract_iff` pulls or pushes arbitrary preconditions
+and postconditions at those instances. The interface determines the scope of
+the theorem; it need not cover every possible specialization of the source.
+[`PolymorphicExamples.lean`](../Translation/PolymorphicExamples.lean) certifies
+XOR for **every** natural width and every pair of words, including width zero.
+This transfer uses a denotational equality and does not require a new evaluator.
+
 A downstream Foundation/VCVio consumer reifies a monomorphic source AST while
 retaining its fixed point and fold. Lean then checks the recurrence compilation
 and its correspondence to a VCVio byte-array function. The frontend, erased
@@ -224,7 +287,14 @@ The generic additions are reusable outside the model:
   strict-prefix recurrences. `ToCslib/Data/Fin/Cases.lean` adds proved compiler
   simplifications for finite case/vector lookup at the pinned Lean version.
 - `PolyFun/Control/Domain/Result.lean`: errors and partial information with
-  continuous strict sequencing.
+  continuous strict sequencing and elimination into arbitrary pointed domains.
+- `PolyFun/IPFunctor/Scoped/Family*.lean`: context-changing finite syntax,
+  constructor-local parameter maps, value substitutions, and finite node counts.
+  The generic traversal composition and relational fold laws also support the
+  independent polymorphic tutorial in PolyFun.
+- `PolyFun/Control/Domain/Pointed.lean` and `IPFunctor/Scoped/Domain.lean`:
+  bundled domains, continuous heterogeneous environments, and one simultaneous
+  least fixed point for a finite binding group.
 - `PFunctor.Resumption.denote`: continuous-algebra semantics; agreement with
   well-founded `FreeM` folds; lens transport; supremum of finite truncation folds.
 - `ITree.denote`: silent steps interpreted by identity; exact agreement with
@@ -294,7 +364,15 @@ structural zero, lazy map, integer comparison error order, and empty-array
 arithmetic demand checks.
 
 The concatenation difference persists when rotating to its defined bit.
-Partial comprehensions remain lazy in both evaluators. The target is the pinned
+Constant maps over a finite erroneous source remain lazy in both evaluators.
+For an infinite erroneous source, the reference returns the constant at a
+selected index while normal evaluation reports the source error. The ordered
+polymorphism matrix checks 34 observations covering map demand, empty lengths,
+local polymorphism, numeric instantiation, and XOR at seven widths. These are
+handwritten Cryptol counterparts, not an extraction theorem for the new syntax.
+An empty integer sequence displays as `0` in the reference and `[]` in normal
+evaluation; the driver treats this as a presentation difference.
+The target is the pinned
 reference semantics; total BitVec theorems do not establish normal-evaluator
 agreement on arbitrary partial words.
 
@@ -328,18 +406,20 @@ upgrade. Probability and security interpretations belong downstream in VCVio.
 
 | Capability | Current evidence | Remaining boundary |
 |---|---|---|
-| Shared syntax | Resolved and native terms are `ScopedSignature.Term`; generic rename/substitution laws, fold fusion, relational folds and reindexing | The shared binding signature handles value binders; type binders that change the ambient context still need language-specific representation and laws |
+| Shared syntax | Resolved/native terms use `ScopedSignature`; ordered polymorphic terms use `ScopedFamily`. Generic renaming, traversal composition, relational folds, and positional reindexing | General semantic preservation and normalized composition for polymorphic parameter/value substitution remain to be proved |
 | Native semantics | One constructor algebra and generic semantic substitution; source preservation composes with resolved lowering | Native fragment is total and monomorphic |
 | Recurrence compilation | Prefix uniqueness, least-fixed-point agreement, compact singleton extension and a linear syntax-size theorem | No general termination compiler or evaluation-time certificate |
-| Polymorphic recursion | Suspended schema families; simultaneous recursive-group fixed point; strict continuous fixed-point fusion; changing-instantiation regression | No resolved `ETAbs`/`ETApp`/local-polymorphic-group syntax-to-domain theorem yet |
+| Ordered polymorphism | Finite numeric/type/proof syntax, continuous denotation, beta laws, closed embedding, map at finite/infinite lengths, XOR certificate at every finite width | No polymorphic operational adequacy or full upstream `ETAbs`/`ETApp` frontend correspondence |
+| Polymorphic recursion | Finite recursive-group syntax, one scheme-environment fixed point, changing-instantiation and mutual-recursion proofs | No general compiler from polymorphic recursive groups to finite native implementations |
 | Language semantics | Closed typed core, operational soundness and adequacy, lazy words/sequences, explicit errors | Records, nominal/enumeration types, rational and modular integers, full numeric functions/constraints, full comprehensions, trace/deepseq/random are absent |
 | Opaque operations | Unsupported operations are rejected by the importer | Floating point, arrays and foreign backends need explicit semantic interfaces and conditional correspondence proofs |
 | Inbound transport | Preserved pinned SHA-256 typed dump, scoped structural reifier, rejection tests and generated-artifact checks | `:extract-coq` erases information; a general typed-AST exporter and Lean decoder remain to be built |
 | Outbound transport | Typed resolved printer and comparisons with both pinned evaluators | No formal parser/printer round trip or Haskell correctness proof |
 | Foundation | SHA-256 compression for all finite state/block values and valid byte windows; adaptive VCVio replacement | CRC, whole-hash padding and cryptographic security claims remain outside the certificate |
 
-The semantic-domain spike deliberately retains an outer result around each
-polymorphic family. Taking only a product of monomorphic computations would
-identify distinct demand behaviors. The generic sort-reindexing API preserves
-binding positions under a noninjective instantiation, but it is not a substitute
-for these quantified-value semantics.
+The ordered semantics retains a separate outer result at every numeric and type
+quantifier. Flattening all quantifiers into one product of monomorphic
+computations would identify distinct demand behaviors. Proof guards are erased
+and add no suspension. The generic sort-reindexing API preserves binding
+positions under noninjective instantiation; quantified-value semantics is an
+additional language-specific responsibility.

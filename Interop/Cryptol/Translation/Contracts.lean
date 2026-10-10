@@ -6,7 +6,7 @@ Authors: Devon Tuma
 
 module
 
-public import Interop.Cryptol.Translation.Representation
+public import Interop.Cryptol.Translation.SemanticCertificate
 public import Interop.Cryptol.Translation.FiniteSource
 
 /-!
@@ -25,8 +25,7 @@ namespace Interop.Cryptol.Finite
 @[expose] def DataContract {a b : Ty} (ha : DataShape a)
     (f : ClosedExpr [] (.arrow a.core b.core))
     (pre : a.Native → Prop) (post : a.Native → b.Native → Prop) : Prop :=
-  ∀ x, pre x → ∃ y, Represents b y
-    (DomainResult.applyContinuous (f.denote Environment.empty) (encodeData ha x)) ∧ post x y
+  DataMeaningContract ha (f.denote Environment.empty) pre post
 
 /-- Preconditions and postconditions transfer in either direction across an all-input equality. -/
 theorem Term.dataContract_iff {a b : Ty} (ha : DataShape a) (hb : DataShape b)

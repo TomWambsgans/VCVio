@@ -28,7 +28,7 @@ The optional workflow takes an explicit published PolyFun revision.
 
 | Directory | Responsibility | Imports |
 |---|---|---|
-| `Model` | Types, resolved scoped syntax, lazy domains, operational semantics, adequacy, primitive demand rules | PolyFun, CSLib, Mathlib |
+| `Model` | Types, resolved and ordered polymorphic syntax, lazy domains, monomorphic operational semantics and adequacy, primitive demand rules | PolyFun, CSLib, Mathlib |
 | `Translation` | Native scoped IR, representation relation, source translation, certificates, quotation and export | Model |
 | `Bridge` | Foundation source artifacts, SHA-256 correspondence, byte encoding and VCVio probability theorems | Model, Translation, VCVio, HashSig |
 | `Tests` | Public API, semantic and rejection regressions | The three optional libraries |
@@ -52,9 +52,17 @@ The native prefix builder binds both the prefix and the newly computed entry,
 then stores a prefix reference and a single append node.
 `Term.nodeCount_prefixTable_le` proves a linear description-size bound when step
 bodies have a uniform size bound. This is not an evaluation-time bound.
-The polymorphic-domain spike includes a recursive call at a different numeric
-instantiation and distinguishes outer divergence from a returned family with
-divergent instances. Its syntax and frontend preservation are not yet integrated.
+Ordered numeric, type, and proof binders use PolyFun's context-changing binding
+families. One finite syntax tree denotes polymorphic map at finite or infinite
+lengths; another supplies XOR with a representation certificate for every finite
+width, including zero. Recursive groups take a single fixed point before
+instantiation. The semantics distinguishes errors at successive quantifiers,
+outer divergence, and a returned family with divergent instances.
+
+Public beta laws, the closed resolved embedding, and per-instance specification
+transfer are proved. General semantic preservation of polymorphic syntax
+substitution, polymorphic operational adequacy, and frontend correspondence
+remain open. The existing monomorphic adequacy theorem keeps its original scope.
 
 External evidence uses clean, pinned checkouts:
 
