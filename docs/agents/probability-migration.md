@@ -235,7 +235,7 @@ replaced. The codemod maps both spellings to the final names.
 | `restrictedSigma_hvzk_measure` | `restrictedSigma_hvzk` |
 | `OracleSpec.probHandler`, `simulateQ_probHandler` | `OracleSpec.uniformHandler`, `simulateQ_uniformHandler` |
 | modules `VCVio.OracleComp.EvalDist.MeasureSpec`, `VCVio.StateSeparating.MeasureDistEquiv`, `VCVio.ProgramLogic.Unary.WP.Qualitative`, `VCVio.ProgramLogic.Unary.WP.Quantitative` | `VCVio.OracleComp.EvalDist.AnswerMeasure`, `VCVio.StateSeparating.DistEquiv`, `VCVio.ProgramLogic.Unary.WP.Necessary`, `VCVio.ProgramLogic.Unary.WP.Lower` |
-| the `usesRetiredProbability` environment linter (`ToMathlib/Lint/LegacyProbability.lean`) | `usesPMF` (`ToMathlib/Lint/UsesPMF.lean`) |
+| the `usesRetiredProbability` environment linter | `usesPMF` (`ToMathlib/Lint/UsesPMF.lean`) |
 
 ## Symptoms
 
