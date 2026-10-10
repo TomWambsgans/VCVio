@@ -7,7 +7,7 @@ Authors: Devon Tuma
 module
 public import VCVio.Prelude.Core
 public import VCVio.CryptoFoundations.SecExp.Measure
-public import VCVio.StateSeparating.MeasureDistEquiv
+public import VCVio.StateSeparating.DistEquiv
 public import VCVio.ProgramLogic.Relational.Measure.Bind
 public import VCVio.ProgramLogic.Relational.Measure.Deterministic
 public import VCVio.ProgramLogic.Relational.Basic
@@ -54,7 +54,7 @@ public import VCVio.CryptoFoundations.MacAlg
 public import VCVio.CryptoFoundations.KeyEncapMech
 public import VCVio.CryptoFoundations.DataEncapMech
 public import VCVio.CryptoFoundations.AsymmEncAlg.Defs
-public import VCVio.ProgramLogic.Unary.WP.Qualitative
+public import VCVio.ProgramLogic.Unary.WP.Necessary
 public import VCVio.ProgramLogic.Unary.WP.OracleMeasure
 public import VCVio.ProgramLogic.Unary.WP.Probabilistic.Measure
 public import VCVio.OracleComp.Constructions.UniformSelectMeasure

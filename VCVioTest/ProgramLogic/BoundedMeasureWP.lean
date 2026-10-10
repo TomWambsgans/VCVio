@@ -7,7 +7,7 @@ Authors: Devon Tuma
 module
 public import VCVio.ProgramLogic.Unary.WP.Probabilistic.Measure
 public import VCVio.EvalDist.Defs.Measure.Deterministic
-public import VCVio.OracleComp.EvalDist.MeasureSpec
+public import VCVio.OracleComp.EvalDist.AnswerMeasure
 public import Mathlib.Tactic.GRewrite
 
 /-!

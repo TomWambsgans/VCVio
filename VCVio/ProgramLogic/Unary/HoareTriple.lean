@@ -7,7 +7,7 @@ Authors: Quang Dao
 module
 
 public import VCVio.ProgramLogic.Unary.WP.OracleMeasure
-public import VCVio.ProgramLogic.Unary.WP.Quantitative
+public import VCVio.ProgramLogic.Unary.WP.Lower
 public import VCVio.EvalDist.ProbabilityNotation
 public import VCVio.OracleComp.Constructions.Replicate.Basic
 public import VCVio.OracleComp.Constructions.SampleableType.Basic
@@ -18,7 +18,7 @@ public import ToMathlib.MeasureTheory.Measure.Bounds
 
 `wp` and `Triple` expose the expectation interpretation of core's lattice-generic
 weakest-precondition API for `OracleComp`. Their equations follow from the ordered
-expectation algebra in `Unary/WP/Quantitative.lean`.
+expectation algebra in `Unary/WP/Lower.lean`.
 
 Core's `⦃ pre ⦄ program ⦃ post ⦄` notation is available through
 `open scoped Std.Internal.Do OracleComp.Quantitative`. VCVio's quantitative facade

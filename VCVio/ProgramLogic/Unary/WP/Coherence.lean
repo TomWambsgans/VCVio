@@ -7,7 +7,7 @@ Authors: Quang Dao
 module
 
 public import VCVio.ProgramLogic.Unary.WP.Probabilistic
-public import VCVio.ProgramLogic.Unary.WP.Qualitative
+public import VCVio.ProgramLogic.Unary.WP.Necessary
 
 /-!
 # Coherence of unary assertion carriers

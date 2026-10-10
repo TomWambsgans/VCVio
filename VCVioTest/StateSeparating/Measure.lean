@@ -6,7 +6,7 @@ Authors: Devon Tuma
 
 module
 
-public import VCVio.StateSeparating.MeasureDistEquiv
+public import VCVio.StateSeparating.DistEquiv
 
 /-!
 # Weighted stateful-handler measure equivalence

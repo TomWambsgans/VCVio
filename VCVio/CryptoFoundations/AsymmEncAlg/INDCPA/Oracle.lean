@@ -17,7 +17,7 @@ public import VCVio.OracleComp.SimSemantics.Append
 public import VCVio.ProgramLogic.Relational.SimulateQ
 public import ToMathlib.Control.StateT
 public import ToMathlib.Data.ENNReal.Gauss
-import VCVio.OracleComp.EvalDist.MeasureSpec
+import VCVio.OracleComp.EvalDist.AnswerMeasure
 import VCVio.OracleComp.Constructions.SampleableType.Basic
 
 /-!

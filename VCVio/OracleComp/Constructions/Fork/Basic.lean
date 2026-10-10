@@ -8,7 +8,7 @@ module
 public import PolyFun.PFunctor.Free.Cursor.Fork
 public import ToMathlib.Probability.UniformOn
 public import VCVio.EvalDist.ProbabilityBounds
-public import VCVio.OracleComp.EvalDist.MeasureSpec
+public import VCVio.OracleComp.EvalDist.AnswerMeasure
 
 /-!
 # Measure bounds for typed occurrence forks

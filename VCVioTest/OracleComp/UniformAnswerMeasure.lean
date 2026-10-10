@@ -7,7 +7,7 @@ Authors: Devon Tuma
 module
 
 public import VCVio.OracleComp.EvalDist.Measure
-public import VCVio.OracleComp.EvalDist.MeasureSpec
+public import VCVio.OracleComp.EvalDist.AnswerMeasure
 public import VCVio.OracleComp.OracleComp
 public import VCVio.EvalDist.ProbabilityNotation
 public import VCVio.EvalDist.BitVec.Measure

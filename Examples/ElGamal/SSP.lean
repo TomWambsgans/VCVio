@@ -6,7 +6,7 @@ Authors: Quang Dao
 
 module
 public import VCVio.StateSeparating.Hybrid
-public import VCVio.StateSeparating.MeasureDistEquiv
+public import VCVio.StateSeparating.DistEquiv
 public import VCVio.OracleComp.Constructions.SampleableType.Measure
 public import VCVio.OracleComp.SimSemantics.QueryImpl.Constructions.Core
 

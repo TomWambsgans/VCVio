@@ -6,7 +6,7 @@ Authors: Quang Dao
 
 module
 public import Examples.OneTimePad.HeapBasic
-public import VCVio.StateSeparating.MeasureDistEquiv
+public import VCVio.StateSeparating.DistEquiv
 
 /-!
 # Two parallel OTP channels via `QueryImpl.Stateful.parSum`
@@ -54,7 +54,7 @@ compositions and is unnecessary now that:
   the OTP cryptographic core as a *per-(query, heap) handler
   equality* between the gated real and ideal single-channel
   handlers, and
-* `QueryImpl.Stateful.MeasureDistEquiv.parSum_congr` (in `VCVio.StateSeparating.MeasureDistEquiv`)
+* `QueryImpl.Stateful.MeasureDistEquiv.parSum_congr` (in `VCVio.StateSeparating.DistEquiv`)
   lifts a pair of such per-handler equalities to a `≡ᵈ`-hop on the
   parallel composite, without any operational `liftComp`
   bookkeeping.
@@ -135,7 +135,7 @@ Both ingredients live one layer below:
 
 * `realImpl_impl_evalDistEq_idealImpl` (HeapBasic.lean): per-(query,
   heap) handler equality in distribution at the single-channel layer.
-* `QueryImpl.Stateful.MeasureDistEquiv.parSum_congr` (VCVio.StateSeparating.MeasureDistEquiv): lift
+* `QueryImpl.Stateful.MeasureDistEquiv.parSum_congr` (VCVio.StateSeparating.DistEquiv): lift
   per-handler measure equalities on each factor to a `≡ᵈ`-hop on
   the parallel composite.
 

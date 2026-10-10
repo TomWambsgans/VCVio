@@ -6,7 +6,7 @@ Authors: Devon Tuma
 
 module
 public import VCVio.OracleComp.SimSemantics.SimulateQ
-public import VCVio.OracleComp.EvalDist.MeasureSpec
+public import VCVio.OracleComp.EvalDist.AnswerMeasure
 public import VCVio.EvalDist.EvalDistEq
 
 /-!

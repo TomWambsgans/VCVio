@@ -6,7 +6,7 @@ Authors: Quang Dao
 
 module
 public import VCVio.OracleComp.ProbComp.Basic
-public import VCVio.OracleComp.EvalDist.MeasureSpec
+public import VCVio.OracleComp.EvalDist.AnswerMeasure
 public import VCVio.EvalDist.Defs.Semantics.Core
 public import PolyFun.Control.Monad.Hom
 import VCVio.EvalDist.Monad.Measure

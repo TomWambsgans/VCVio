@@ -111,7 +111,7 @@ explicitly. `MAlgRelOrdered.rwpExc` accepts one postcondition on both exception 
 `rwpExcCases` packages four separate corner postconditions, while the one-sided and optional
 case helpers remain available in `RelationalAlgebraAnchored`.
 
-`VCVio.StateSeparating.MeasureDistEquiv` compares all adaptive client output measures under the
+`VCVio.StateSeparating.DistEquiv` compares all adaptive client output measures under the
 selected lawful interpretation. Its `of_step` rule retains each joint response/state law;
 `prEvent_eq` transports final events, and the advantage rules permit replacing experiments
 with different private-state types. `run_evalDist_eq` is the public observation equation.
@@ -848,7 +848,7 @@ disconnects them. Concretely: `@[grind norm] bind_pure_comp` (`mx >>= fun a => p
 do-block normalises to a `<$>` form while the E-matching-side `replicate` unfolds stay in `bind`
 form, and the E-graph never connects the two. It is therefore deliberately **not** tagged. Gate any
 new `@[grind norm]` candidate against all of `VCVioTest/{ProbabilityTactics,MonadProbability,`
-`LongChainPrograms,GrindFailFast}.lean` and `VCVioTest/EvalDist/MeasureBridge.lean` before
+`LongChainPrograms,GrindFailFast}.lean` and `VCVioTest/EvalDist/MeasureGate.lean` before
 keeping it.
 
 **Structural additions to the default set** (all gated in `VCVioTest/GrindFailFast.lean`):
@@ -942,7 +942,7 @@ and `grw` registrations. Measure-bind rewriting requires importing
 The simp, grind and `gcongr` sets of the probability layer are designed around one normal form
 and one *ladder* below it. The normal form is the measure form: singleton, event and total masses
 stay `𝒟[mx] s` or `Pr{…}[…]`, and `simp` leaves it only to reach a closed form.
-`VCVioTest/EvalDist/MeasureBridge.lean` pins this contract. The ladder has one canonical spelling
+`VCVioTest/EvalDist/MeasureGate.lean` pins this contract. The ladder has one canonical spelling
 per rung, mass-left throughout, each rung reached from the one above it by an existing pathway
 rather than by a per-rung duplicate lemma.
 
@@ -982,7 +982,7 @@ inside proofs, never as a normal form.
 
 **What the gates enforce.** The gate files (`VCVioTest/ProbabilityTactics.lean`,
 `MonadProbability.lean`, `LongChainPrograms.lean`, `GrindFailFast.lean`,
-`EvalDist/MeasureBridge.lean`, `Tactic/*.lean`, `ProgramLogic/GCongr.lean`) state
+`EvalDist/MeasureGate.lean`, `Tactic/*.lean`, `ProgramLogic/GCongr.lean`) state
 "goal family → one terminal tactic" and are the gate for every change to these sets:
 
 1. *One terminal call.* A positive entry is `by <one tactic>` or a term: `simp`, `grind`,

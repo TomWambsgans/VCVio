@@ -8,7 +8,7 @@ module
 
 public import Std.Tactic.Do
 public import VCVio.ProgramLogic.Unary.HoareTriple
-public import VCVio.ProgramLogic.Unary.WP.Qualitative
+public import VCVio.ProgramLogic.Unary.WP.Necessary
 public import VCVio.ProgramLogic.Unary.WriterTBridge
 
 /-!
