@@ -238,10 +238,10 @@ class FirstReleaseTests(unittest.TestCase):
     def test_expectation_interpretation_and_readings(self):
         self.assertMigrates("MeasureProgramLogic.toMAlgOrdered m, MeasureProgramLogic.Quantitative.wp",
                             "ExpectationWP.algebra m, ExpectationWP.Lower.wp")
-        self.assertMigrates("OracleComp.Qualitative.Spec, OracleComp.Quantitative.triple, "
-                            "Quantitative.Spec, OracleComp.Rel.Qualitative.triple",
-                            "OracleComp.Necessary.Spec, OracleComp.Lower.triple, "
-                            "Lower.Spec, OracleComp.Rel.Qualitative.triple")
+        self.assertMigrates("OracleComp.Qualitative.wp_eq_mAlgOrdered_wp, OracleComp.Quantitative.triple, "
+                            "OracleComp.Rel.Qualitative.triple",
+                            "OracleComp.Necessary.wp_eq_mAlgOrdered_wp, OracleComp.Lower.triple, "
+                            "OracleComp.Rel.Qualitative.triple")
 
     def test_modules(self):
         source = ("public import VCVio.OracleComp.EvalDist.MeasureSpec\n"
@@ -269,6 +269,23 @@ class FirstReleaseTests(unittest.TestCase):
                          [])
         self.assertEqual([old for old, targets in codemod.MODULES.items()
                           if old in targets or any(t in codemod.MODULES for t in targets)], [])
+
+
+class RepositoryTests(unittest.TestCase):
+    def test_repository_is_a_fixed_point(self):
+        """Every tracked Lean source of the libraries is unchanged by the codemod: a retired name
+        that reappears is reported here, with no build."""
+        root = SCRIPT.parent.parent
+        listed = subprocess.run(["git", "ls-files", "*.lean"], cwd=root, capture_output=True,
+                                text=True, encoding="utf-8").stdout.split()
+        changed = []
+        for name in listed:
+            if name.startswith(("Interop/", "third_party/")):
+                continue
+            text = (root / name).read_text(encoding="utf-8")
+            if codemod.migrate(text, name, codemod.Report()) != text:
+                changed.append(name)
+        self.assertEqual(changed, [])
 
 
 class CommandLineTests(unittest.TestCase):

@@ -235,17 +235,14 @@ RENAMES: dict[str, str] = {
     "probEvent_bind_fire_le_of_gen": "prEvent_bind_fire_le_of_gen",
     "SPMFSemantics.withStateOracle": "SemanticsVia.withStateOracle",
     # Names of the measure API's first release: the qualifiers that set it apart from the
-    # discrete layer are gone with that layer. Answer measures.
+    # discrete layer are gone with that layer. Only library names are mapped; names local to
+    # the test libraries are not downstream API. Answer measures.
     "IsUniformMeasureSpec": "UniformAnswerMeasure",
     "IsMeasureSpec": "AnswerMeasure",
-    "IsMeasureSpec'": "AnswerMeasure'",
     "toIsMeasureSpec": "toAnswerMeasure",
     "instIsUniformMeasureSpecChalSingleton": "instUniformAnswerMeasureChalSingleton",
     "unitArrowSpecIsUniformMeasureSpec": "unitArrowSpecUniformAnswerMeasure",
     "fairCoinMeasureSpec": "fairCoinAnswerMeasure",
-    "explicitCoinMeasureSpec": "explicitCoinAnswerMeasure",
-    "oneCoinMeasureSpec": "oneCoinAnswerMeasure",
-    "weightedMeasureSpec": "weightedAnswerMeasure",
     "simulateQ_probHandler": "simulateQ_uniformHandler",
     "probHandler": "uniformHandler",
     # Equality in distribution of packages, and bundled semantics.
@@ -266,10 +263,7 @@ RENAMES: dict[str, str] = {
     "measurePerfectSecrecyAt": "ciphertextRowsEqualWith",
     "measurePerfectSecrecyAt_iff_kernel_rows_eq": "ciphertextRowsEqualWith_iff_kernel_rows_eq",
     "measurePerfectSecrecyAt_of_constant": "ciphertextRowsEqualWith_of_constant",
-    "measurePerfectSecrecyAt_iff_ciphertextRowsEqualAt":
-        "ciphertextRowsEqualWith_iff_ciphertextRowsEqualAt",
     "coinOneTimePad_measurePerfectSecrecyAt": "coinOneTimePad_ciphertextRowsEqualWith",
-    "identityChannel_not_measurePerfectSecrecyAt": "identityChannel_not_ciphertextRowsEqualWith",
     "restrictedSigma_hvzk_measure": "restrictedSigma_hvzk",
     # The expectation interpretation and the unary readings.
     "MeasureProgramLogic.toMAlgOrdered": "ExpectationWP.algebra",
@@ -277,9 +271,7 @@ RENAMES: dict[str, str] = {
     "MeasureProgramLogic.Quantitative": "ExpectationWP.Lower",
     "MeasureProgramLogic": "ExpectationWP",
     "OracleComp.Qualitative": "OracleComp.Necessary",
-    "Qualitative.Spec": "Necessary.Spec",
     "OracleComp.Quantitative": "OracleComp.Lower",
-    "Quantitative.Spec": "Lower.Spec",
 }
 
 # Declarations whose replacement changes the argument shape; reported, not rewritten.
