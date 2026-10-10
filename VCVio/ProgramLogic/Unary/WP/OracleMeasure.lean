@@ -18,14 +18,14 @@ measures. Discrete answers suffice; uniformity and positive answer masses are un
 public section
 
 open MeasureTheory
-open scoped ENNReal MeasureProgramLogic.Quantitative
+open scoped ENNReal ExpectationWP.Lower
 
 universe u
 
-namespace MeasureProgramLogic.Quantitative
+namespace ExpectationWP.Lower
 
 variable {ι : Type u} {spec : OracleSpec.{u, 0} ι}
-  [OracleSpec.IsMeasureSpec spec]
+  [OracleSpec.AnswerMeasure spec]
   {α : Type}
 
 /-- Structural postcondition comparison controls expectation WP. -/
@@ -79,4 +79,4 @@ theorem wp_le_const_add_of_support (mx : OracleComp spec α) {f g : α → ENNRe
   refine (wp_mono_of_support mx hfg).trans_eq ?_
   rw [wp_add_of_oracle, wp_const_of_oracle]
 
-end MeasureProgramLogic.Quantitative
+end ExpectationWP.Lower

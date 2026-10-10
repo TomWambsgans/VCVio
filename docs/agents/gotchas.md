@@ -4,11 +4,11 @@
 
 ### 1. Probability semantics require the right spec class
 
-`evalDist` / `𝒟[…]` and `Pr{…}[…]` on `OracleComp spec` need `[OracleSpec.IsMeasureSpec spec]`, and `𝒟[…]` also needs a `MeasurableSpace` on the result type. Uniform answer measures are `[OracleSpec.IsUniformMeasureSpec spec]`; uniform cardinality lemmas additionally take `[Fintype (spec.Range t)]` for the queries they mention. `unifSpec` and `coinSpec` have global instances. Plain `support` works on arbitrary `OracleComp spec`.
+`evalDist` / `𝒟[…]` and `Pr{…}[…]` on `OracleComp spec` need `[OracleSpec.AnswerMeasure spec]`, and `𝒟[…]` also needs a `MeasurableSpace` on the result type. Uniform answer measures are `[OracleSpec.UniformAnswerMeasure spec]`; uniform cardinality lemmas additionally take `[Fintype (spec.Range t)]` for the queries they mention. `unifSpec` and `coinSpec` have global instances. Plain `support` works on arbitrary `OracleComp spec`.
 
-**Symptom**: "failed to synthesize instance" mentioning `OracleSpec.IsMeasureSpec`, `IsUniformMeasureSpec`, `EvalDistSemantics`, or `MeasurableSpace`.
+**Symptom**: "failed to synthesize instance" mentioning `OracleSpec.AnswerMeasure`, `UniformAnswerMeasure`, `EvalDistSemantics`, or `MeasurableSpace`.
 
-**Fix**: Add `[OracleSpec.IsMeasureSpec spec]` for arbitrary per-query answer measures, or `[OracleSpec.IsUniformMeasureSpec spec]` for uniform answers. Answer measures live on the discrete σ-algebra, so answer types need no measurable-space hypotheses. For a concrete spec with finite, nonempty answer types, install a local instance with `IsUniformMeasureSpec.ofFiniteNonempty spec` on that spec; a sum of specs gets its instance from `IsMeasureSpec.add`, so do not declare one on the sum. To convert code written against the removed discrete `Pr[…]` API, see [`probability-migration.md`](probability-migration.md).
+**Fix**: Add `[OracleSpec.AnswerMeasure spec]` for arbitrary per-query answer measures, or `[OracleSpec.UniformAnswerMeasure spec]` for uniform answers. Answer measures live on the discrete σ-algebra, so answer types need no measurable-space hypotheses. For a concrete spec with finite, nonempty answer types, install a local instance with `UniformAnswerMeasure.ofFiniteNonempty spec` on that spec; a sum of specs gets its instance from `AnswerMeasure.add`, so do not declare one on the sum. To convert code written against the removed discrete `Pr[…]` API, see [`probability-migration.md`](probability-migration.md).
 
 ### 2. `autoImplicit = false` is set globally in `lakefile.lean`
 
@@ -20,7 +20,7 @@ and do not add `set_option autoImplicit false` in individual files.
 ### 3. `evalDist` is the measure fold; `support` is structural
 
 On `OracleComp spec`, `𝒟[mx]` is the successful-output measure of `PFunctor.FreeM.denote`, the
-recursive fold that composes the answer measures chosen by `[OracleSpec.IsMeasureSpec spec]` with
+recursive fold that composes the answer measures chosen by `[OracleSpec.AnswerMeasure spec]` with
 `Measure.bind`; `PFunctor.FreeM.evalDist_eq_denote` states the identity, which holds by `rfl`.
 `Pr{…}[…]` is `prEvent`, the mass `𝒟[…]` puts on `True` (`prEvent_def`). `support` is PolyFun's
 structural `MonadAttach.support` and needs no measure; `PFunctor.FreeM.support_eq_liftM_univ`
@@ -132,7 +132,7 @@ built with `ofFn` (`unifSpec`, `coinSpec`, `A →ₒ B`) reduce to their answer 
 combines per-branch instances; a specification defined by a `match` on the query keeps a
 per-query instance proved by `cases` (see `cmaSpec`). The spellings `spec.Range t`, `spec t`, and
 `spec.toPFunctor.B t` are one type at reducible transparency, so a hypothesis in any of them
-serves goals in the others. `IsUniformMeasureSpec` is a proposition
+serves goals in the others. `UniformAnswerMeasure` is a proposition
 and derives `finite_range`/`nonempty_range` as theorems, never instances.
 `VCVioTest/OracleComp/SpecInstanceSearch.lean` and `SpecInstanceSearchLibrary.lean` guard all of
 this with heartbeat-bounded canaries and an elaborated-term dependency check.
@@ -190,7 +190,7 @@ support …`: `OracleComp.prEvent_eq_zero_iff`, `OracleComp.prEvent_eq_one_iff`,
 are deliberately **not** `@[grind]`. Their RHS introduces an unbounded support quantifier that
 `grind` Skolemizes into fresh witnesses with no finite grounding, so as default rules they make a
 naive `grind` on a probability goal *saturate and time out* instead of failing fast. They hold
-under `[OracleSpec.IsUniformMeasureSpec spec]`, where every reachable output has positive mass. If
+under `[OracleSpec.UniformAnswerMeasure spec]`, where every reachable output has positive mass. If
 a `grind` proof genuinely needs one, re-supply it: `grind [OracleComp.prEvent_eq_zero_iff]`. The
 directed membership bridges (`support_bind`, `mem_support_bind_iff`,
 `mem_finSupport_iff_mem_support`) stay `@[grind =]`. See the benchmarks
@@ -216,7 +216,7 @@ swap, congruence, and small bounded compositions. If you need to rewrite and con
 `vcstep rw` for a top-level swap, `vcstep rw under 1` under one shared bind prefix, or
 `vcstep rw congr` / `vcstep rw congr'` to expose a shared outer bind. The underlying rewrites are
 `OracleComp.prEvent_bind_bind_swap` / `OracleComp.evalDist_bind_bind_swap` (countable answer
-types; `_of_uniform` variants under `IsUniformMeasureSpec`) and
+types; `_of_uniform` variants under `UniformAnswerMeasure`) and
 `OracleComp.prEvent_bind_congr_of_support`; `Pr{…}[…]` elaborates its final draw as a map, so
 normalize with `simp only [map_eq_bind_pure_comp, bind_assoc]` before rewriting by hand.
 

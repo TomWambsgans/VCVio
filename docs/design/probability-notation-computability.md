@@ -19,7 +19,7 @@ so a failed branch contributes zero; a computation that explicitly returns an
 |---|---|---|
 | `FinRatPMF.Raw` with finite rational branches | Exact rational mass via `Raw.prob` | `DecidableEq` on outputs; a decidable predicate can be compiled to a Boolean output |
 | `OracleComp` with finite, enumerable oracle answers | Exact rational mass after `simulateQ finRatImpl` | `FinEnum` and inhabited answer types, plus an executable event |
-| General discrete `OracleComp` with measure-specified queries | Measure statement, not necessarily an algorithm | A measure specification (`IsMeasureSpec`); infinite sums need not reduce |
+| General discrete `OracleComp` with measure-specified queries | Measure statement, not necessarily an algorithm | A measure specification (`AnswerMeasure`); infinite sums need not reduce |
 | Continuous `FreeM` queries | Measure statement and measurable-event proofs | A measure specification and measurable continuation or event; numerical integration is separate |
 | Resumptions or possibly infinite interaction | Finite-fuel observations and limit theorems | No generic exact termination decision procedure |
 

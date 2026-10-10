@@ -116,17 +116,17 @@ namespace OracleSpec
 /-- The canonical randomized oracle of a specification with sampleable answers: answer each query
 by uniform sampling. Specializes to a fair coin on `coinSpec` and to uniform selection on
 `unifSpec`. -/
-noncomputable def probHandler {ι : Type} (spec : OracleSpec.{0, 0} ι)
+noncomputable def uniformHandler {ι : Type} (spec : OracleSpec.{0, 0} ι)
     [∀ t, SampleableType (spec.Range t)] : ProbHandler spec :=
   uniformSampleImpl
 
 open OracleComp in
 /-- Running a program against the canonical randomized oracle of a uniform specification preserves
-its distribution: machine-level game values against `probHandler` are statements about the
+its distribution: machine-level game values against `uniformHandler` are statements about the
 program itself. -/
-theorem simulateQ_probHandler {ι : Type} {spec : OracleSpec.{0, 0} ι}
-    [∀ t, SampleableType (spec.Range t)] [IsUniformMeasureSpec spec] {α : Type}
-    (oa : OracleComp spec α) : simulateQ spec.probHandler oa =ᵈ oa :=
+theorem simulateQ_uniformHandler {ι : Type} {spec : OracleSpec.{0, 0} ι}
+    [∀ t, SampleableType (spec.Range t)] [UniformAnswerMeasure spec] {α : Type}
+    (oa : OracleComp spec α) : simulateQ spec.uniformHandler oa =ᵈ oa :=
   uniformSampleImpl.evalDistEq_simulateQ oa
 
 end OracleSpec

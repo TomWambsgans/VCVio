@@ -46,7 +46,7 @@ theorem wpProp_iff_forall_support (oa : OracleComp spec α) (p : α → Prop) :
 
 /-- Uniform answer measures identify probability-one observations with structural correctness. -/
 theorem wpProp_iff_prEvent_eq_one
-    [OracleSpec.IsUniformMeasureSpec spec]
+    [OracleSpec.UniformAnswerMeasure spec]
     (oa : OracleComp spec α) (p : α → Prop) :
     wpProp (spec := spec) oa p ↔ Pr{let x ← oa}[p x] = 1 := by
   rw [wpProp_iff_forall_support, OracleComp.prEvent_eq_one_iff]

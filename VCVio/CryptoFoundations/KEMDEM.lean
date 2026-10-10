@@ -79,10 +79,10 @@ theorem support_correctnessExperiment_composeWithDEM
 /-- Perfect correctness composes for oracle computations whose answer measures give every
 response positive mass: a KEM and an externally keyed DEM that each succeed with probability `1`
 give a composed scheme that succeeds with probability `1`. Uniform answer measures supply the
-full-support hypothesis through `OracleSpec.IsUniformMeasureSpec.toMeasure_singleton_pos`. -/
+full-support hypothesis through `OracleSpec.UniformAnswerMeasure.toMeasure_singleton_pos`. -/
 theorem perfectlyCorrect_composeWithDEM {ι : Type} {spec : OracleSpec ι}
-    [OracleSpec.IsMeasureSpec spec]
-    (hfull : ∀ t (u : spec.Range t), 0 < OracleSpec.IsMeasureSpec.toMeasure t {u})
+    [OracleSpec.AnswerMeasure spec]
+    (hfull : ∀ t (u : spec.Range t), 0 < OracleSpec.AnswerMeasure.toMeasure t {u})
     (kem : KEMScheme (OracleComp spec) K PK SK CKEM) (dem : DEMScheme (OracleComp spec) K M CDEM)
     (hkem : 𝒟[kem.correctnessExperiment] {true} = 1)
     (hdem : ∀ k : K, ∀ msg : M, 𝒟[dem.correctnessExperiment k msg] {true} = 1) :

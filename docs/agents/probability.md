@@ -142,7 +142,7 @@ no structural positivity assumption or bind instance search is needed.
 The [measure conversion roadmap](../design/measure-conversion-roadmap.md) records the owning
 modules, standard proof conversions, theorem families, and validation gates.
 
-`open scoped MeasureProgramLogic.Probabilistic` selects bounded `Prob` expectations for any
+`open scoped ExpectationWP.Probabilistic` selects bounded `Prob` expectations for any
 lawful measure semantics. Public value laws connect them to quantitative WP and Lebesgue
 integration; constants retain success mass. Plain `simp`, `gcongr`, and `grw` work on optional
 computations and weighted oracles. Qualitative oracle WP delegates to PolyFun's direct demonic
@@ -259,7 +259,7 @@ event masses as rational sums, and the singleton simp lemma reduces to `Raw.prob
 `FinRatPMF.finRatImpl.evalDist_simulateQ` and `prEvent_simulateQ` identify executable evaluation
 with the uniform oracle interpretation.
 `VCVio.ProgramLogic.Unary.WP.Measure` builds the ordered expectation algebra directly from
-lawful measure semantics for any monad. `open scoped MeasureProgramLogic.Quantitative` selects
+lawful measure semantics for any monad. `open scoped ExpectationWP.Lower` selects
 its `MAlgOrdered` and core `WPMonad` interpretations; no oracle uniformity is required. This
 scope takes precedence over core `Prop` interpretations, including `Option`.
 `wp_eq_lintegral` is an explicit bridge to Mathlib integration. `simp` preserves the WP head
@@ -268,7 +268,7 @@ through addition and scaling, and constants keep the successful-mass factor:
 almost-everywhere comparisons have their own laws. `gcongr` and `grw` compare pointwise
 postconditions. `wp_le_const_mul_mass_add` retains the mass factor for lossy computations;
 `IsProbabilityMeasure` simplifies it to one automatically. The oracle quantitative facade
-`OracleComp.ProgramLogic.wp` uses this same algebra under any `[OracleSpec.IsMeasureSpec spec]`.
+`OracleComp.ProgramLogic.wp` uses this same algebra under any `[OracleSpec.AnswerMeasure spec]`.
 Expectations are integrals: `wp_eq_lintegral` identifies the oracle `wp` with `∫⁻` against
 `𝒟[mx]`, and integrals stay available to Mathlib's API.
 
@@ -420,8 +420,8 @@ A measure denotation depends on the `MeasurableSpace` selected on its result typ
 blanket measurable-space instance on finite types: `𝒟[…]` asks for one, while `Pr{…}[…]`
 observes the computation through `Prop` and keeps the choice internal.
 
-For the finite-range and fair-coin oracles, `OracleSpec.IsUniformMeasureSpec.unifSpec`
-and `OracleSpec.IsUniformMeasureSpec.coinSpec` are the canonical interpretations.
+For the finite-range and fair-coin oracles, `OracleSpec.UniformAnswerMeasure.unifSpec`
+and `OracleSpec.UniformAnswerMeasure.coinSpec` are the canonical interpretations.
 Their instances apply only to these concrete oracle specifications; other oracle
 specifications require an explicit measure interpretation. `ProbComp.evalDist_uniformFin`
 simplifies a query to `uniformOn Set.univ`, and `ProbComp.prEvent_uniformFin` evaluates a
@@ -440,22 +440,22 @@ Mathlib's `lintegral_fintype`, so all-random game hops need no point-probability
 `ProbComp.evalDist_bind_not_uniformBool` applies the uniform-reindexing law to any
 continuation after complementing a fair bit.
 
-The type classes separate a choice of response measures (`IsMeasureSpec`) from the
-uniformity law (`IsUniformMeasureSpec`), which is a proposition about the chosen measures and
-carries no finiteness data: `IsUniformMeasureSpec.finite_range` and `nonempty_range` recover
+The type classes separate a choice of response measures (`AnswerMeasure`) from the
+uniformity law (`UniformAnswerMeasure`), which is a proposition about the chosen measures and
+carries no finiteness data: `UniformAnswerMeasure.finite_range` and `nonempty_range` recover
 both facts, and a cardinality statement takes `[Fintype (spec.Range t)]` for the query it
-mentions (`IsUniformMeasureSpec.toMeasure_singleton`). A blanket instance from
+mentions (`UniformAnswerMeasure.toMeasure_singleton`). A blanket instance from
 `[∀ t, Finite (spec.Range t)] [∀ t, Nonempty (spec.Range t)]` would silently choose a
-distribution for an arbitrary oracle, so `IsUniformMeasureSpec.ofFiniteNonempty` is an explicit
+distribution for an arbitrary oracle, so `UniformAnswerMeasure.ofFiniteNonempty` is an explicit
 opt-in and only the concrete `unifSpec` and `coinSpec` instances are global. Structural
 `OracleComp.support` needs neither measure class; a
 positive-mass bridge needs assumptions on the chosen measures.
 
-Oracle answer measures live on the discrete σ-algebra. `OracleSpec.IsMeasureSpec spec` is
-`PFunctor.IsMeasureSpec` at `fun _ => ⊤`, so `IsMeasureSpec.toMeasure t` is a measure on
+Oracle answer measures live on the discrete σ-algebra. `OracleSpec.AnswerMeasure spec` is
+`PFunctor.AnswerMeasure` at `fun _ => ⊤`, so `AnswerMeasure.toMeasure t` is a measure on
 `(spec.Range t, ⊤)`, and statements about oracle computations take no measurable-space
 hypotheses on answer types. Continuous answer measures belong at the `PFunctor.FreeM` level,
-where `PFunctor.IsMeasureSpec` accepts arbitrary measurable structures. The query laws are generic
+where `PFunctor.AnswerMeasure` accepts arbitrary measurable structures. The query laws are generic
 in the measurable structure that observes an answer:
 
 - `evalDist_liftM_query` gives `(toMeasure t).trim le_top`, and `MeasureTheory.trim_eq_self`
@@ -469,13 +469,13 @@ When a concrete specification's answer type appears reduced (`Bool` rather than
 `spec.Range t`), `rw` and `simp` match the generic laws only with the specification named, as in
 `evalDist_liftM_query_apply (spec := S) t hs`: Lean assigns the measurable-space argument before
 the query has determined `spec`. Handler-level hypotheses (`evalDist_simulateQ_congr`,
-`evalDist_simulateQ_run_congr`, `QueryImpl.Stateful.MeasureDistEquiv.of_step`,
+`evalDist_simulateQ_run_congr`, `QueryImpl.Stateful.DistEquiv.of_step`,
 `wp_simulateQ_eq`, `wp_simulateQ_run'_eq`) are equalities in distribution `=ᵈ`, so handler states
 need no measurable structure either. A tactic proof that needs the discrete structure on an answer
 or on a reply-state product declares it with `let : MeasurableSpace (spec.Range t) := ⊤`, using
 `let` because the goal is a proposition. A concrete specification with finite nonempty answers
-takes `IsUniformMeasureSpec.ofFiniteNonempty _` as a local instance on that specification. Sums
-get their instances from `IsMeasureSpec.add` and `IsUniformMeasureSpec.add`, and a local instance
+takes `UniformAnswerMeasure.ofFiniteNonempty _` as a local instance on that specification. Sums
+get their instances from `AnswerMeasure.add` and `UniformAnswerMeasure.add`, and a local instance
 declared on the sum itself would compete with them.
 For oracle-relative possibility, use `OracleComp.reachableWhen possibleOutputs oa`:
 it follows only the query responses in `possibleOutputs`, with pure/query/bind laws
@@ -488,7 +488,7 @@ state-dependent notion must retain the starting state or operation policy.
 `OracleComp.mem_support_iff_evalDist_singleton_pos_of_fullSupport` takes the precise
 full-support condition on each answer measure, without adding a class for that one law.
 `OracleComp.mem_support_iff_evalDist_singleton_pos` discharges it from
-`IsUniformMeasureSpec`; use this bridge when relating structural reachability to
+`UniformAnswerMeasure`; use this bridge when relating structural reachability to
 singleton mass.
 Structural support itself needs no probability interpretation. In particular,
 `OracleComp.support_nonempty` needs only `[∀ t, Nonempty (spec.Range t)]`; counting-oracle support
@@ -592,7 +592,7 @@ the successful-output denotation to its first marginal before the upstream `run'
 unfolds; consumers do not need to supply the measurable-map equation.
 
 `ProbabilitySemantics` is the total/lossless semantics bundle used by transformer adapters.
-The lower-level `MeasureSemanticsVia` describes potentially lossy surface semantics.
+The lower-level `SemanticsVia` describes potentially lossy surface semantics.
 Import `VCVio.EvalDist.Defs.Semantics.Core` for the bundles and
 `VCVio.EvalDist.MeasureSemantics` for effect-preserving transformer observations. Bundled
 `evalDist` observations infer `IsSubprobabilityMeasure` and `IsFiniteMeasure`.
@@ -651,8 +651,8 @@ constant-continuation laws.
 | `measureETVDist_bind_bind_le_lintegral` | Conditional composition with an AE majorant under the prefix law | `EvalDist/MeasureTVDist/Bind.lean` |
 | `Measure.etvDist_bind_bind_le_of_bad` | Exceptional prefix mass plus the good-branch allowance weighted by its mass | `ToMathlib/MeasureTheory/Measure/TotalVariation/Bind.lean` |
 | `Measure.Coupling` | Joint measure with prescribed marginals | `ToMathlib/MeasureTheory/Measure/Coupling.lean` |
-| `MeasureProgramLogic.RelWP` | Almost-everywhere relational postcondition under a measure coupling | `ProgramLogic/Relational/Measure.lean` |
-| `MeasureProgramLogic.eRelWP` | Best coupled `lintegral` post-expectation | `ProgramLogic/Relational/Measure.lean` |
+| `ExpectationWP.RelWP` | Almost-everywhere relational postcondition under a measure coupling | `ProgramLogic/Relational/Measure.lean` |
+| `ExpectationWP.eRelWP` | Best coupled `lintegral` post-expectation | `ProgramLogic/Relational/Measure.lean` |
 
 ## ProbComp and Sampling
 
@@ -1016,9 +1016,9 @@ library proofs got shorter; a set with no library caller is itself a finding.
 
 ## Common Mistakes
 
-1. **Missing probability spec classes**: on `OracleComp spec`, `𝒟[...]` and `Pr{...}[...]` require `[OracleSpec.IsMeasureSpec spec]`, and uniform-answer lemmas `[OracleSpec.IsUniformMeasureSpec spec]`, not just finite, nonempty answer types. Answer measures live on the discrete σ-algebra, so answer types take no `MeasurableSpace` hypotheses. Use `IsUniformMeasureSpec.ofFiniteNonempty spec` as a local instance when a concrete finite spec should answer uniformly. `𝒟[...]` additionally needs an ambient `MeasurableSpace` on the output; `Pr{...}[...]` does not.
+1. **Missing probability spec classes**: on `OracleComp spec`, `𝒟[...]` and `Pr{...}[...]` require `[OracleSpec.AnswerMeasure spec]`, and uniform-answer lemmas `[OracleSpec.UniformAnswerMeasure spec]`, not just finite, nonempty answer types. Answer measures live on the discrete σ-algebra, so answer types take no `MeasurableSpace` hypotheses. Use `UniformAnswerMeasure.ofFiniteNonempty spec` as a local instance when a concrete finite spec should answer uniformly. `𝒟[...]` additionally needs an ambient `MeasurableSpace` on the output; `Pr{...}[...]` does not.
 
-2. **Carrying duplicate probability instances**: do not add a separate `[OracleSpec.IsMeasureSpec spec]` when `[OracleSpec.IsUniformMeasureSpec spec]` is already in scope. `IsUniformMeasureSpec` extends `IsMeasureSpec`; a second instance can make instance search ambiguous and need not describe the same answer measures.
+2. **Carrying duplicate probability instances**: do not add a separate `[OracleSpec.AnswerMeasure spec]` when `[OracleSpec.UniformAnswerMeasure spec]` is already in scope. `UniformAnswerMeasure` extends `AnswerMeasure`; a second instance can make instance search ambiguous and need not describe the same answer measures.
 
 3. **Using `support` when `finSupport` is needed**: `finSupport mx` requires `[HasEvalFinset m]` and `[DecidableEq α]`, and `finSupport_bind` also `[DecidableEq β]`.
 

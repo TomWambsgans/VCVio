@@ -29,7 +29,7 @@ namespace VCVioTest.StateSeparating.Measure
 
 abbrev WeightedSpec : OracleSpec (Fin 1) := Fin 1 →ₒ Bool
 
-noncomputable instance : IsMeasureSpec WeightedSpec where
+noncomputable instance : AnswerMeasure WeightedSpec where
   toMeasure _ := Measure.dirac false
   isProbabilityMeasure _ := inferInstance
 
@@ -39,15 +39,15 @@ def drawHandler : QueryImpl.Stateful WeightedSpec WeightedSpec Unit := fun _ ↦
 def constantHandler : QueryImpl.Stateful WeightedSpec WeightedSpec Unit := fun _ ↦
   StateT.mk fun state ↦ pure (false, state)
 
-theorem handlers_equiv : MeasureDistEquiv drawHandler () constantHandler () := by
-  apply MeasureDistEquiv.of_step
+theorem handlers_equiv : DistEquiv drawHandler () constantHandler () := by
+  apply DistEquiv.of_step
   intro operation state
   let : MeasurableSpace (WeightedSpec.Range operation × Unit) := ⊤
   refine EvalDistEq.of_evalDist_eq ?_
   simp only [drawHandler, constantHandler, StateT.run_mk, _root_.evalDist_map_of_discrete,
     evalDist_pure, OracleComp.evalDist_liftM_query (spec := WeightedSpec),
     MeasureTheory.trim_eq_self]
-  simp only [IsMeasureSpec.toMeasure, PFunctor.IsMeasureSpec.toMeasure]
+  simp only [AnswerMeasure.toMeasure, PFunctor.AnswerMeasure.toMeasure]
   exact Measure.map_dirac' Measurable.of_discrete false
 
 example (client : OracleComp WeightedSpec Bool) :

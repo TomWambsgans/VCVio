@@ -33,7 +33,7 @@ example : True := by
   fail_if_success let _ := inferInstanceAs (WPMonad Option ENNReal EPost.Nil)
   trivial
 
-open scoped MeasureProgramLogic.Quantitative
+open scoped ExpectationWP.Lower
 
 example (c : ENNReal) : MAlgOrdered.wp (none : Option Nat) (fun _ ↦ c) = 0 := by simp
 
@@ -64,21 +64,21 @@ example (mx : m α) (f g : α → ENNReal) (c : ENNReal)
     (hf : Measurable f) (hg : Measurable g) :
     MAlgOrdered.wp mx (fun x ↦ c + f x + g x) =
       c * 𝒟[mx] Set.univ + MAlgOrdered.wp mx f + MAlgOrdered.wp mx g := by
-  simp only [MeasureProgramLogic.Quantitative.wp_add mx (fun x ↦ c + f x) g
+  simp only [ExpectationWP.Lower.wp_add mx (fun x ↦ c + f x) g
       (measurable_const.add hf) hg,
-    MeasureProgramLogic.Quantitative.wp_add mx (fun _ ↦ c) f measurable_const hf,
-    MeasureProgramLogic.Quantitative.wp_const]
+    ExpectationWP.Lower.wp_add mx (fun _ ↦ c) f measurable_const hf,
+    ExpectationWP.Lower.wp_const]
 
 example (mx : m α) (f g : α → ENNReal) (c : ENNReal)
     (hf : Measurable f) (hg : Measurable g)
     (hfg : ∀ᵐ x ∂𝒟[mx], f x ≤ c + g x) :
     MAlgOrdered.wp mx f ≤ c * 𝒟[mx] Set.univ + MAlgOrdered.wp mx g :=
-  MeasureProgramLogic.Quantitative.wp_le_const_mul_mass_add mx hf hg hfg
+  ExpectationWP.Lower.wp_le_const_mul_mass_add mx hf hg hfg
 
 example (mx : m α) (f g : α → ENNReal) (c : ENNReal) [IsProbabilityMeasure 𝒟[mx]]
     (hf : Measurable f) (hg : Measurable g)
     (hfg : ∀ᵐ x ∂𝒟[mx], f x ≤ c + g x) :
     MAlgOrdered.wp mx f ≤ c + MAlgOrdered.wp mx g := by
-  simpa using MeasureProgramLogic.Quantitative.wp_le_const_mul_mass_add mx hf hg hfg
+  simpa using ExpectationWP.Lower.wp_le_const_mul_mass_add mx hf hg hfg
 
 end VCVioTest.ProgramLogic.MeasureWP

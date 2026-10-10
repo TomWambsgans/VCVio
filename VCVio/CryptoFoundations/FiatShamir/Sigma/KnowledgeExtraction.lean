@@ -190,8 +190,8 @@ section probability
 variable [SampleableType Chal]
 
 /-- The singleton replay challenge oracle uses uniform challenges. -/
-noncomputable local instance : IsUniformMeasureSpec (Unit →ₒ Chal) :=
-  IsUniformMeasureSpec.ofFiniteNonempty _
+noncomputable local instance : UniformAnswerMeasure (Unit →ₒ Chal) :=
+  UniformAnswerMeasure.ofFiniteNonempty _
 
 /-- Forkable acceptance equals acceptance of the actual verifier for a bounded ordinary prover. -/
 theorem forkable_acceptance_eq_verification

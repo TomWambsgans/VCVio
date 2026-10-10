@@ -24,7 +24,7 @@ The qualitative and probability-bounded carriers have separate scopes.
 @[expose] public section
 
 open VCVio.ProgramLogic
-open ENNReal Std.Internal.Do OracleComp.Quantitative
+open ENNReal Std.Internal.Do OracleComp.Lower
 
 universe u
 
@@ -37,7 +37,7 @@ variable {α β γ δ : Type}
 
 section measureSpec
 
-variable [OracleSpec.IsMeasureSpec spec₁] [OracleSpec.IsMeasureSpec spec₂]
+variable [OracleSpec.AnswerMeasure spec₁] [OracleSpec.AnswerMeasure spec₂]
 
 /-- Quantitative `VCVio.ProgramLogic.RelWP` interpretation of pairs of `OracleComp`
 programs valued in `ℝ≥0∞`.
@@ -140,7 +140,7 @@ end measureSpec
 
 section oracleQuery
 
-variable [OracleSpec.IsUniformMeasureSpec spec₁]
+variable [OracleSpec.UniformAnswerMeasure spec₁]
 
 /-- Oracle query under a bijection for the quantitative
 `VCVio.ProgramLogic.RelTriple` carrier. -/

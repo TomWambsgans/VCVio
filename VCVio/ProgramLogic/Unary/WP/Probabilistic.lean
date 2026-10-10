@@ -33,7 +33,7 @@ open ENNReal Std.Internal.Do
 namespace OracleComp.Probabilistic
 
 variable {ι : Type u} {spec : OracleSpec ι} {α : Type}
-  [OracleSpec.IsMeasureSpec spec]
+  [OracleSpec.AnswerMeasure spec]
 
 /-- Oracle expectation preserves the probability bound. -/
 theorem wp_one_le (oa : OracleComp spec α) :
@@ -42,7 +42,7 @@ theorem wp_one_le (oa : OracleComp spec α) :
 
 /-- The expectation algebra restricted to probability-valued assertions. -/
 noncomputable scoped instance instMAlgOrdered : MAlgOrdered (OracleComp spec) Prob :=
-  MeasureProgramLogic.Probabilistic.toMAlgOrdered (OracleComp spec)
+  ExpectationWP.Probabilistic.toMAlgOrdered (OracleComp spec)
 
 /-- Core weakest preconditions for probability-valued assertions. -/
 noncomputable scoped instance instWP_prob :
@@ -53,6 +53,6 @@ noncomputable scoped instance instWP_prob :
 theorem wp_val_eq_mAlgOrdered_wp (oa : OracleComp spec α) (post : α → Prob) :
     (Std.Internal.Do.wp oa post Lean.Order.bot).val =
       MAlgOrdered.wp (m := OracleComp spec) (l := ℝ≥0∞) oa (fun a => (post a).val) :=
-  MeasureProgramLogic.Probabilistic.wp_val_eq_mAlgOrdered_wp oa post
+  ExpectationWP.Probabilistic.wp_val_eq_mAlgOrdered_wp oa post
 
 end OracleComp.Probabilistic

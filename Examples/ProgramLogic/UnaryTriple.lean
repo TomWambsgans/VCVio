@@ -20,12 +20,12 @@ This file validates unary `Triple` stepping and structural `vcgen` decomposition
 open ENNReal OracleSpec OracleComp
 open Lean.Order
 open OracleComp.ProgramLogic
-open scoped OracleComp.ProgramLogic Std.Internal.Do OracleComp.Quantitative
+open scoped OracleComp.ProgramLogic Std.Internal.Do OracleComp.Lower
 
 universe u
 
 variable {ι : Type u} {spec : OracleSpec ι}
-variable [OracleSpec.IsMeasureSpec spec]
+variable [OracleSpec.AnswerMeasure spec]
 variable {α β γ : Type}
 
 /-! ## `vcstep` on `Triple` goals -/

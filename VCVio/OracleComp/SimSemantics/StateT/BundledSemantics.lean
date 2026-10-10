@@ -33,7 +33,7 @@ sampling into the uniform summand, giving the runtime of such a world.
 
 open OracleComp OracleSpec
 
-namespace MeasureSemanticsVia
+namespace SemanticsVia
 
 /-- Measure semantics for an oracle world consisting of public randomness plus a hidden stateful
 oracle implementation.
@@ -43,7 +43,7 @@ the final state produces the visible successful-output measure directly. -/
 noncomputable def withStateOracle
     {ι : Type} {hashSpec : OracleSpec ι} {σ : Type}
     (hashImpl : QueryImpl hashSpec (StateT σ ProbComp)) (s : σ) :
-    MeasureSemanticsVia (OracleComp (unifSpec + hashSpec)) where
+    SemanticsVia (OracleComp (unifSpec + hashSpec)) where
   Sem := StateT σ ProbComp
   instMonadSem := inferInstance
   interpret := simulateQ'
@@ -58,7 +58,7 @@ lemma withStateOracle_evalDist
     {ι : Type} {hashSpec : OracleSpec ι} {σ α : Type}
     (hashImpl : QueryImpl hashSpec (StateT σ ProbComp)) (s : σ)
     [MeasurableSpace α] (mx : OracleComp (unifSpec + hashSpec) α) :
-    (MeasureSemanticsVia.withStateOracle hashImpl s).evalDist mx =
+    (SemanticsVia.withStateOracle hashImpl s).evalDist mx =
       𝒟[StateT.run' (simulateQ'
         ((QueryImpl.ofLift unifSpec ProbComp).liftTarget (StateT σ ProbComp) + hashImpl) mx) s] :=
   rfl
@@ -70,8 +70,8 @@ lemma withStateOracle_evalDist_map
     (hashImpl : QueryImpl hashSpec (StateT σ ProbComp)) (s : σ)
     [MeasurableSpace α] [MeasurableSpace β] (f : α → β) (hf : Measurable f)
     (mx : OracleComp (unifSpec + hashSpec) α) :
-    (MeasureSemanticsVia.withStateOracle hashImpl s).evalDist (f <$> mx) =
-      ((MeasureSemanticsVia.withStateOracle hashImpl s).evalDist mx).map f := by
+    (SemanticsVia.withStateOracle hashImpl s).evalDist (f <$> mx) =
+      ((SemanticsVia.withStateOracle hashImpl s).evalDist mx).map f := by
   simp only [withStateOracle_evalDist, simulateQ_map,
     StateT.run'_map', evalDist_map _ hf]
 
@@ -81,26 +81,26 @@ lemma withStateOracle_evalDist_bind_pure
     (hashImpl : QueryImpl hashSpec (StateT σ ProbComp)) (s : σ)
     [MeasurableSpace α] [MeasurableSpace β] (mx : OracleComp (unifSpec + hashSpec) α)
     (f : α → β) (hf : Measurable f) :
-    (MeasureSemanticsVia.withStateOracle hashImpl s).evalDist (mx >>= fun x => pure (f x)) =
-      ((MeasureSemanticsVia.withStateOracle hashImpl s).evalDist mx).map f := by
+    (SemanticsVia.withStateOracle hashImpl s).evalDist (mx >>= fun x => pure (f x)) =
+      ((SemanticsVia.withStateOracle hashImpl s).evalDist mx).map f := by
   simpa only [map_eq_bind_pure_comp, Function.comp_def] using
     withStateOracle_evalDist_map hashImpl s f hf mx
 
-end MeasureSemanticsVia
+end SemanticsVia
 
 namespace ProbCompRuntime
 
 /-- Runtime for an oracle world consisting of public randomness plus a hidden stateful oracle
 implementation `hashImpl` started from `s`. Experiments are observed through
-`MeasureSemanticsVia.withStateOracle`, and plain `ProbComp` sampling lifts into the uniform
+`SemanticsVia.withStateOracle`, and plain `ProbComp` sampling lifts into the uniform
 summand. -/
 noncomputable def withStateOracle
     {ι : Type} {hashSpec : OracleSpec ι} {σ : Type}
     (hashImpl : QueryImpl hashSpec (StateT σ ProbComp)) (s : σ) :
     ProbCompRuntime (OracleComp (unifSpec + hashSpec)) where
-  toMeasureSemanticsVia := MeasureSemanticsVia.withStateOracle hashImpl s
+  toSemanticsVia := SemanticsVia.withStateOracle hashImpl s
   toProbCompLift := ProbCompLift.ofMonadLift _
-  evalDist_map_eq f hf mx := MeasureSemanticsVia.withStateOracle_evalDist_map _ _ f hf mx
+  evalDist_map_eq f hf mx := SemanticsVia.withStateOracle_evalDist_map _ _ f hf mx
 
 /-- The state-oracle runtime observes the measure of the simulated run from its initial
 state. -/

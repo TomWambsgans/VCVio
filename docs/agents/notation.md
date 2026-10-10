@@ -23,7 +23,7 @@ branches, `match`, `let mut` and loops; see *Writing events with `do` sequences*
 `probability.md`. A single output is an event like any other, `Pr{let x ← mx}[x = a]`. Failure
 is missing mass: the probability that `mx` fails is `prFail mx = 1 - Pr{let _ ← mx}[True]`, and a
 lossless computation satisfies `IsProbabilityMeasure 𝒟[mx]`. Every `OracleComp spec`
-computation is lossless under `[OracleSpec.IsMeasureSpec spec]`
+computation is lossless under `[OracleSpec.AnswerMeasure spec]`
 (`OracleComp.prEvent_true_eq_one`); failure arises in `OptionT (OracleComp spec)` and similar
 transformers.
 
@@ -57,7 +57,7 @@ for the exact finite evaluator boundary and decidability requirements.
 ## Program Logic Notations
 
 Open `OracleComp.ProgramLogic` for VCVio notation. Unary triples additionally require
-`open scoped Std.Internal.Do` and an interpretation, such as `OracleComp.Quantitative`.
+`open scoped Std.Internal.Do` and an interpretation, such as `OracleComp.Lower`.
 
 | Notation | Meaning | Defined in |
 |----------|---------|------------|

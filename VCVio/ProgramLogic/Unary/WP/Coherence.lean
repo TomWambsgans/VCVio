@@ -13,7 +13,7 @@ public import VCVio.ProgramLogic.Unary.WP.Necessary
 # Coherence of unary assertion carriers
 
 These lemmas relate structural predicates, probability-valued assertions, and quantitative
-expectations. The probability-one equivalence uses `IsUniformMeasureSpec`; it is not a generic
+expectations. The probability-one equivalence uses `UniformAnswerMeasure`; it is not a generic
 identification of measure-theoretic almost-sure behavior with structural reachability.
 
 The statements expose the underlying algebras, so several carrier instances need not be
@@ -29,7 +29,7 @@ open ENNReal OracleComp.ProgramLogic OracleComp.ProgramLogic.PropLogic
 namespace OracleComp.WP.Coherence
 
 variable {ι : Type u} {spec : OracleSpec ι}
-variable [OracleSpec.IsUniformMeasureSpec spec]
+variable [OracleSpec.UniformAnswerMeasure spec]
 variable {α : Type}
 
 /-! ## Probabilistic ↔ Quantitative

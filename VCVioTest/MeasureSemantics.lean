@@ -51,7 +51,7 @@ example {α β : Type*} [MeasurableSpace α] [MeasurableSpace β]
 @[expose, reducible] def gaussSpec : PFunctor.{0, 0} := ⟨PUnit, fun _ => ℝ⟩
 
 /-- The operation is answered by a standard Gaussian, a law with no atoms. -/
-noncomputable instance : gaussSpec.IsMeasureSpec where
+noncomputable instance : gaussSpec.AnswerMeasure where
   toMeasure _ := gaussianReal 0 1
   isProbabilityMeasure _ := instIsProbabilityMeasureGaussianReal 0 1
 
@@ -101,10 +101,10 @@ theorem isProbabilityMeasure_denote_shiftedGaussian :
 
 /-- The uniform measure interpretation is an explicit value, not a global instance. -/
 @[instance_reducible]
-noncomputable def explicitCoinMeasureSpec : explicitCoinSpec.IsMeasureSpec :=
-  IsMeasureSpec.uniformOfFiniteNonempty _
+noncomputable def explicitCoinAnswerMeasure : explicitCoinSpec.AnswerMeasure :=
+  AnswerMeasure.uniformOfFiniteNonempty _
 
-attribute [local instance] explicitCoinMeasureSpec
+attribute [local instance] explicitCoinAnswerMeasure
 
 /-- A uniform operation denotes `uniformOn univ` directly. -/
 theorem denote_explicitCoin_lift :
@@ -125,22 +125,22 @@ example : Measure.IsCoupling (Measure.Coupling.refl (gaussianReal 0 1)).joint
   (Measure.Coupling.refl (gaussianReal 0 1)).property
 
 /-- Relational reasoning applies directly to a continuous denotation. -/
-example : MeasureProgramLogic.RelWP shiftedGaussian shiftedGaussian (· = ·) :=
-  MeasureProgramLogic.relWP_refl shiftedGaussian
+example : ExpectationWP.RelWP shiftedGaussian shiftedGaussian (· = ·) :=
+  ExpectationWP.relWP_refl shiftedGaussian
 
 /-! ## A discrete interface -/
 
 /-- An interface with a single operation, answered by a coin flip. -/
 @[expose, reducible] def coinSpec : PFunctor.{0, 0} := ⟨PUnit, fun _ => Bool⟩
 
-noncomputable instance : coinSpec.IsMeasureSpec := IsMeasureSpec.uniformOfFiniteNonempty _
+noncomputable instance : coinSpec.AnswerMeasure := AnswerMeasure.uniformOfFiniteNonempty _
 
 /-- A nonzero, branch-sensitive lower bound rules out a vacuous quantitative semantics. -/
 example : (1 : ℝ≥0∞) ≤
-    MeasureProgramLogic.eRelWP (pure true : FreeM coinSpec Bool)
+    ExpectationWP.eRelWP (pure true : FreeM coinSpec Bool)
       (pure false : FreeM coinSpec Bool)
       (fun a b => if a && !b then 1 else 0) := by
-  exact MeasureProgramLogic.le_eRelWP_pure_pure
+  exact ExpectationWP.le_eRelWP_pure_pure
     (m₁ := FreeM coinSpec) (m₂ := FreeM coinSpec) true false
     (fun a b => if a && !b then 1 else 0) (by fun_prop)
 
@@ -239,7 +239,7 @@ theorem outputMeasure_one_delayedTrue :
     Resumption.outputMeasure 1 delayedTrue = Measure.dirac true := by
   rw [delayedTrue, Resumption.outputMeasure_query_succ (P := coinSpec)]
   rw [Measure.bind_const,
-    (IsMeasureSpec.isProbabilityMeasure (P := coinSpec) PUnit.unit).measure_univ, one_smul]
+    (AnswerMeasure.isProbabilityMeasure (P := coinSpec) PUnit.unit).measure_univ, one_smul]
   exact Resumption.outputMeasure_pure (P := coinSpec) 0 true
 
 /-- The fuel-free returned-output semantics sees the delayed return with total mass one. -/

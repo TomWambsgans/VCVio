@@ -13,7 +13,7 @@ public import VCVio.EvalDist.Defs.Measure.ExceptT
 /-!
 # Bundled measure observations
 
-`MeasureSemanticsVia` factors a computation through an internal monad and an external
+`SemanticsVia` factors a computation through an internal monad and an external
 measure-valued observer, with the observer's measurable-space choice explicit and its
 subprobability mass certified. Observation need not preserve bind: a fixed environment, initial
 state, or output projection may hide internal effects at the observation boundary.
@@ -34,7 +34,7 @@ universe u v w
 the output measurable space explicitly, since observing a `Measure α` requires one. Running the
 internal computation may fix hidden state or discard auxiliary structure before the final
 denotation is exposed. Failure or nontermination is represented by missing mass. -/
-structure MeasureSemanticsVia (m : Type u → Type v) [Monad m] where
+structure SemanticsVia (m : Type u → Type v) [Monad m] where
   /-- Internal semantic monad. -/
   Sem : Type u → Type w
   /-- Monad structure carried by the internal semantics. -/
@@ -47,44 +47,44 @@ structure MeasureSemanticsVia (m : Type u → Type v) [Monad m] where
   observe_apply_univ_le_one : ∀ {α : Type u} [MeasurableSpace α] (mx : Sem α),
     observe mx Set.univ ≤ 1
 
-instance {m : Type u → Type v} [Monad m] (sem : MeasureSemanticsVia m) : Monad sem.Sem :=
+instance {m : Type u → Type v} [Monad m] (sem : SemanticsVia m) : Monad sem.Sem :=
   sem.instMonadSem
 
-namespace MeasureSemanticsVia
+namespace SemanticsVia
 
 variable {m : Type u → Type v} [Monad m] {α : Type u}
 
 /-- The visible measure denoted by a computation under a bundled semantics. -/
 @[expose]
-noncomputable def evalDist (sem : MeasureSemanticsVia m) [MeasurableSpace α]
+noncomputable def evalDist (sem : SemanticsVia m) [MeasurableSpace α]
     (mx : m α) : Measure α :=
   sem.observe (sem.interpret mx)
 
 @[simp]
-theorem evalDist_apply_univ_le_one (sem : MeasureSemanticsVia m) [MeasurableSpace α]
+theorem evalDist_apply_univ_le_one (sem : SemanticsVia m) [MeasurableSpace α]
     (mx : m α) : sem.evalDist mx Set.univ ≤ 1 :=
   sem.observe_apply_univ_le_one (sem.interpret mx)
 
 /-- Every bundled observation is a subprobability measure. -/
-instance evalDist.instIsSubprobabilityMeasure (sem : MeasureSemanticsVia m)
+instance evalDist.instIsSubprobabilityMeasure (sem : SemanticsVia m)
     [MeasurableSpace α] (mx : m α) : IsSubprobabilityMeasure (sem.evalDist mx) :=
   ⟨sem.evalDist_apply_univ_le_one mx⟩
 
 /-- Failure probability is the mass missing from the successful-output measure. -/
 @[expose]
-noncomputable def prFail (sem : MeasureSemanticsVia m) [MeasurableSpace α]
+noncomputable def prFail (sem : SemanticsVia m) [MeasurableSpace α]
     (mx : m α) : ENNReal :=
   1 - sem.evalDist mx Set.univ
 
 @[simp]
-theorem prFail_le_one (sem : MeasureSemanticsVia m) [MeasurableSpace α]
+theorem prFail_le_one (sem : SemanticsVia m) [MeasurableSpace α]
     (mx : m α) : sem.prFail mx ≤ 1 :=
   tsub_le_self
 
 /-- Package a global `EvalDistSemantics` instance as a local bundled semantics. -/
 @[expose]
 protected noncomputable def ofEvalDistSemantics (m : Type u → Type v) [Monad m]
-    [EvalDistSemantics m] : MeasureSemanticsVia m where
+    [EvalDistSemantics m] : SemanticsVia m where
   Sem := m
   instMonadSem := inferInstance
   interpret := MonadHom.id m
@@ -94,20 +94,20 @@ protected noncomputable def ofEvalDistSemantics (m : Type u → Type v) [Monad m
 @[simp]
 theorem ofEvalDistSemantics_evalDist (mx : m α) [EvalDistSemantics m]
     [MeasurableSpace α] :
-    (MeasureSemanticsVia.ofEvalDistSemantics m).evalDist mx = 𝒟[mx] := by
+    (SemanticsVia.ofEvalDistSemantics m).evalDist mx = 𝒟[mx] := by
   rfl
 
 /-- Bundling a lossless denotation preserves its probability-measure certificate. -/
 instance ofEvalDistSemantics.instIsProbabilityMeasure [EvalDistSemantics m]
     [MeasurableSpace α] (mx : m α) [IsProbabilityMeasure 𝒟[mx]] :
-    IsProbabilityMeasure ((MeasureSemanticsVia.ofEvalDistSemantics m).evalDist mx) :=
+    IsProbabilityMeasure ((SemanticsVia.ofEvalDistSemantics m).evalDist mx) :=
   inferInstanceAs (IsProbabilityMeasure 𝒟[mx])
 
 /-- Bundle the successful-output semantics of an optional computation. Its observation
 measures present outputs and retains any underlying failure as missing mass. -/
 @[expose]
 protected noncomputable def optionT (m : Type u → Type v) [Monad m]
-    [EvalDistSemantics m] : MeasureSemanticsVia (OptionT m) where
+    [EvalDistSemantics m] : SemanticsVia (OptionT m) where
   Sem := OptionT m
   instMonadSem := inferInstance
   interpret := MonadHom.id (OptionT m)
@@ -119,13 +119,13 @@ protected noncomputable def optionT (m : Type u → Type v) [Monad m]
 @[simp]
 theorem optionT_evalDist (mx : OptionT m α) [EvalDistSemantics m]
     [MeasurableSpace α] :
-    (MeasureSemanticsVia.optionT m).evalDist mx = (𝒟[mx.run]).dropNone := by
+    (SemanticsVia.optionT m).evalDist mx = (𝒟[mx.run]).dropNone := by
   exact (Measure.dropNone_eq_comap_some _).symm
 
 /-- Optional bundling preserves a known successful-output probability certificate. -/
 instance optionT.instIsProbabilityMeasure [EvalDistSemantics m]
     [MeasurableSpace α] (mx : OptionT m α) [IsProbabilityMeasure 𝒟[mx]] :
-    IsProbabilityMeasure ((MeasureSemanticsVia.optionT m).evalDist mx) := by
+    IsProbabilityMeasure ((SemanticsVia.optionT m).evalDist mx) := by
   rw [optionT_evalDist, Measure.dropNone_eq_comap_some, ← OptionT.evalDist_eq_comap_some]
   infer_instance
 
@@ -134,7 +134,7 @@ in the run measure and are discarded only by the `Except.ok` observation at this
 @[expose]
 protected noncomputable def exceptT (ε : Type u) [MeasurableSpace ε]
     (m : Type u → Type v) [Monad m] [EvalDistSemantics m] :
-    MeasureSemanticsVia (ExceptT ε m) where
+    SemanticsVia (ExceptT ε m) where
   Sem := ExceptT ε m
   instMonadSem := inferInstance
   interpret := MonadHom.id (ExceptT ε m)
@@ -146,15 +146,15 @@ protected noncomputable def exceptT (ε : Type u) [MeasurableSpace ε]
 @[simp]
 theorem exceptT_evalDist (ε : Type u) [MeasurableSpace ε]
     (mx : ExceptT ε m α) [EvalDistSemantics m] [MeasurableSpace α] :
-    (MeasureSemanticsVia.exceptT ε m).evalDist mx = (𝒟[mx.run]).comap Except.ok := by
+    (SemanticsVia.exceptT ε m).evalDist mx = (𝒟[mx.run]).comap Except.ok := by
   rfl
 
 /-- Exceptional bundling preserves a known successful-output probability certificate. -/
 instance exceptT.instIsProbabilityMeasure {ε : Type u} [MeasurableSpace ε]
     [EvalDistSemantics m] [MeasurableSpace α] (mx : ExceptT ε m α)
     [IsProbabilityMeasure 𝒟[mx]] :
-    IsProbabilityMeasure ((MeasureSemanticsVia.exceptT ε m).evalDist mx) := by
+    IsProbabilityMeasure ((SemanticsVia.exceptT ε m).evalDist mx) := by
   rw [exceptT_evalDist, ← ExceptT.evalDist_eq_comap_ok]
   infer_instance
 
-end MeasureSemanticsVia
+end SemanticsVia

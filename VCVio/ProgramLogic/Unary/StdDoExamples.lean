@@ -24,7 +24,7 @@ set_option mvcgen.warning false
 namespace OracleComp.ProgramLogic.StdDo
 
 variable {ι : Type u} {spec : OracleSpec ι}
-variable [OracleSpec.IsUniformMeasureSpec spec]
+variable [OracleSpec.UniformAnswerMeasure spec]
 variable {α : Type}
 
 example (x : α) :

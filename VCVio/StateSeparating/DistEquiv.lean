@@ -35,34 +35,34 @@ variable {ι : Type u} {I : OracleSpec.{u, 0} ι}
   [EvalDistSemantics (OracleComp I)]
 
 /-- Every adaptive client observes equal measures from the two initial handler states. -/
-@[expose] def MeasureDistEquiv (left : Stateful I E σ₀) (s₀ : σ₀)
+@[expose] def DistEquiv (left : Stateful I E σ₀) (s₀ : σ₀)
     (right : Stateful I E σ₁) (s₁ : σ₁) : Prop :=
   ∀ {α : Type} [MeasurableSpace α] (client : OracleComp E α),
     𝒟[left.run s₀ client] = 𝒟[right.run s₁ client]
 
-@[inherit_doc MeasureDistEquiv]
+@[inherit_doc DistEquiv]
 scoped notation:50 "(" h₀ ", " s₀ ")" " ≡ᵈ " "(" h₁ ", " s₁ ")" =>
-  QueryImpl.Stateful.MeasureDistEquiv h₀ s₀ h₁ s₁
+  QueryImpl.Stateful.DistEquiv h₀ s₀ h₁ s₁
 
 /-- Every adaptive client observes equal measures from the default initial handler states. -/
-@[expose] def MeasureDistEquiv₀ [Inhabited σ₀] [Inhabited σ₁] (left : Stateful I E σ₀)
+@[expose] def DistEquiv₀ [Inhabited σ₀] [Inhabited σ₁] (left : Stateful I E σ₀)
     (right : Stateful I E σ₁) : Prop :=
-  MeasureDistEquiv left default right default
+  DistEquiv left default right default
 
-@[inherit_doc MeasureDistEquiv₀]
-scoped infix:50 " ≡ᵈ₀ " => QueryImpl.Stateful.MeasureDistEquiv₀
+@[inherit_doc DistEquiv₀]
+scoped infix:50 " ≡ᵈ₀ " => QueryImpl.Stateful.DistEquiv₀
 
-namespace MeasureDistEquiv
+namespace DistEquiv
 
 /-- Equivalent handlers have equal measures for each measurable client observation. -/
 theorem run_evalDist_eq {left : Stateful I E σ₀} {right : Stateful I E σ₁}
-    {s₀ : σ₀} {s₁ : σ₁} (h : MeasureDistEquiv left s₀ right s₁)
+    {s₀ : σ₀} {s₁ : σ₁} (h : DistEquiv left s₀ right s₁)
     {α : Type} [MeasurableSpace α] (client : OracleComp E α) :
     𝒟[left.run s₀ client] = 𝒟[right.run s₁ client] := h client
 
 /-- Equivalent handlers run every client to computations equal in distribution. -/
 theorem run_evalDistEq [LawfulEvalDistSemantics (OracleComp I)] {left : Stateful I E σ₀}
-    {right : Stateful I E σ₁} {s₀ : σ₀} {s₁ : σ₁} (h : MeasureDistEquiv left s₀ right s₁)
+    {right : Stateful I E σ₁} {s₀ : σ₀} {s₁ : σ₁} (h : DistEquiv left s₀ right s₁)
     {α : Type} (client : OracleComp E α) : left.run s₀ client =ᵈ right.run s₁ client :=
   letI : MeasurableSpace α := ⊤
   EvalDistEq.of_evalDist_eq (h client)
@@ -72,32 +72,32 @@ theorem of_run_evalDist_eq {left : Stateful I E σ₀} {right : Stateful I E σ�
     {s₀ : σ₀} {s₁ : σ₁}
     (h : ∀ {α : Type} [MeasurableSpace α] (client : OracleComp E α),
       𝒟[left.run s₀ client] = 𝒟[right.run s₁ client]) :
-    MeasureDistEquiv left s₀ right s₁ := h
+    DistEquiv left s₀ right s₁ := h
 
 protected theorem refl (handler : Stateful I E σ) (state : σ) :
-    MeasureDistEquiv handler state handler state := fun _ ↦ rfl
+    DistEquiv handler state handler state := fun _ ↦ rfl
 
 protected theorem symm {left : Stateful I E σ₀} {right : Stateful I E σ₁}
-    {s₀ : σ₀} {s₁ : σ₁} (h : MeasureDistEquiv left s₀ right s₁) :
-    MeasureDistEquiv right s₁ left s₀ := fun client ↦ (h client).symm
+    {s₀ : σ₀} {s₁ : σ₁} (h : DistEquiv left s₀ right s₁) :
+    DistEquiv right s₁ left s₀ := fun client ↦ (h client).symm
 
 protected theorem trans {left : Stateful I E σ₀} {middle : Stateful I E σ₁}
     {right : Stateful I E σ₂} {s₀ : σ₀} {s₁ : σ₁} {s₂ : σ₂}
-    (h₀ : MeasureDistEquiv left s₀ middle s₁)
-    (h₁ : MeasureDistEquiv middle s₁ right s₂) :
-    MeasureDistEquiv left s₀ right s₂ := fun client ↦ (h₀ client).trans (h₁ client)
+    (h₀ : DistEquiv left s₀ middle s₁)
+    (h₁ : DistEquiv middle s₁ right s₂) :
+    DistEquiv left s₀ right s₂ := fun client ↦ (h₀ client).trans (h₁ client)
 
 /-- Equal executions induce equal observations. -/
 theorem of_run_eq {left : Stateful I E σ₀} {right : Stateful I E σ₁}
     {s₀ : σ₀} {s₁ : σ₁}
     (h : ∀ {α : Type} (client : OracleComp E α),
       left.run s₀ client = right.run s₁ client) :
-    MeasureDistEquiv left s₀ right s₁ := fun client ↦ congrArg evalDist (h client)
+    DistEquiv left s₀ right s₁ := fun client ↦ congrArg evalDist (h client)
 
 /-- Local equality of the joint response and state measures lifts through every client. -/
 theorem of_step [LawfulEvalDistSemantics (OracleComp I)] {left right : Stateful I E σ}
     (h : ∀ operation state, (left operation).run state =ᵈ (right operation).run state)
-    (state : σ) : MeasureDistEquiv left state right state := by
+    (state : σ) : DistEquiv left state right state := by
   intro α _ client
   let : MeasurableSpace σ := ⊤
   simp only [Stateful.run, StateT.run'_eq, _root_.evalDist_map _ measurable_fst]
@@ -127,10 +127,10 @@ theorem of_step_bij [LawfulEvalDistSemantics (OracleComp I)] {left : Stateful I 
     {right : Stateful I E σ₁} (φ : σ₀ ≃ σ₁)
     (h : ∀ operation state,
       (left operation).run state =ᵈ Prod.map id φ.symm <$> (right operation).run (φ state))
-    (state : σ₀) : MeasureDistEquiv left state right (φ state) := by
+    (state : σ₀) : DistEquiv left state right (φ state) := by
   let transported : Stateful I E σ₀ := fun operation ↦ StateT.mk fun s ↦
     Prod.map id φ.symm <$> (right operation).run (φ s)
-  have hstep : MeasureDistEquiv left state transported state :=
+  have hstep : DistEquiv left state transported state :=
     of_step (fun operation s ↦ h operation s) state
   intro α _ client
   refine (hstep client).trans (congrArg evalDist ?_)
@@ -140,7 +140,7 @@ theorem of_step_bij [LawfulEvalDistSemantics (OracleComp I)] {left : Stateful I 
 /-- Equivalent handlers assign equal mass to every observable event. -/
 theorem prEvent_eq [LawfulEvalDistSemantics (OracleComp I)]
     {left : Stateful I E σ₀} {right : Stateful I E σ₁}
-    {s₀ : σ₀} {s₁ : σ₁} (h : MeasureDistEquiv left s₀ right s₁)
+    {s₀ : σ₀} {s₁ : σ₁} (h : DistEquiv left s₀ right s₁)
     {α : Type} (client : OracleComp E α) (event : α → Prop) :
     Pr{let output ← left.run s₀ client}[event output] =
       Pr{let output ← right.run s₁ client}[event output] := by
@@ -150,7 +150,7 @@ theorem prEvent_eq [LawfulEvalDistSemantics (OracleComp I)]
 /-- Boolean distinguishing advantage vanishes for equivalent probability-only handlers. -/
 theorem boolDist_eq_zero
     {left : Stateful unifSpec E σ₀} {right : Stateful unifSpec E σ₁}
-    {s₀ : σ₀} {s₁ : σ₁} (h : MeasureDistEquiv left s₀ right s₁)
+    {s₀ : σ₀} {s₁ : σ₁} (h : DistEquiv left s₀ right s₁)
     (client : OracleComp E Bool) :
     𝒟[left.run s₀ client].boolDist 𝒟[right.run s₁ client] = 0 := by
   simp [h client]
@@ -158,7 +158,7 @@ theorem boolDist_eq_zero
 /-- Equivalent handlers may replace the left experiment in a distinguishing bound. -/
 theorem advantage_left {left : Stateful unifSpec E σ₀} {left' : Stateful unifSpec E σ₂}
     {s₀ : σ₀} {s₀' : σ₂}
-    (h : MeasureDistEquiv left s₀ left' s₀') (right : Stateful unifSpec E σ₁) (s₁ : σ₁)
+    (h : DistEquiv left s₀ left' s₀') (right : Stateful unifSpec E σ₁) (s₁ : σ₁)
     (client : OracleComp E Bool) :
     left.advantage s₀ right s₁ client = left'.advantage s₀' right s₁ client :=
   advantage_eq_of_evalDist_run_eq (h client)
@@ -167,13 +167,13 @@ theorem advantage_left {left : Stateful unifSpec E σ₀} {left' : Stateful unif
 theorem advantage_right (left : Stateful unifSpec E σ₀) (s₀ : σ₀)
     {right : Stateful unifSpec E σ₁} {right' : Stateful unifSpec E σ₂}
     {s₁ : σ₁} {s₁' : σ₂}
-    (h : MeasureDistEquiv right s₁ right' s₁') (client : OracleComp E Bool) :
+    (h : DistEquiv right s₁ right' s₁') (client : OracleComp E Bool) :
     left.advantage s₀ right s₁ client = left.advantage s₀ right' s₁' client :=
   advantage_eq_of_evalDist_run_eq_right (h client)
 
 /-- Equivalent probability-only handlers have zero distinguishing advantage. -/
 theorem advantage_eq_zero {left : Stateful unifSpec E σ₀} {right : Stateful unifSpec E σ₁}
-    {s₀ : σ₀} {s₁ : σ₁} (h : MeasureDistEquiv left s₀ right s₁)
+    {s₀ : σ₀} {s₁ : σ₁} (h : DistEquiv left s₀ right s₁)
     (client : OracleComp E Bool) : left.advantage s₀ right s₁ client = 0 :=
   h.boolDist_eq_zero client
 
@@ -181,8 +181,8 @@ theorem advantage_eq_zero {left : Stateful unifSpec E σ₀} {right : Stateful u
 theorem link_inner_congr {μ : Type} {M : OracleSpec μ} {τ : Type}
     (outer : Stateful M E τ) (state : τ)
     {left : Stateful I M σ₀} {right : Stateful I M σ₁} {s₀ : σ₀} {s₁ : σ₁}
-    (h : MeasureDistEquiv left s₀ right s₁) :
-    MeasureDistEquiv (outer.link left) (state, s₀) (outer.link right) (state, s₁) := by
+    (h : DistEquiv left s₀ right s₁) :
+    DistEquiv (outer.link left) (state, s₀) (outer.link right) (state, s₁) := by
   intro α _ client
   rw [run_link_eq_run_shiftLeft, run_link_eq_run_shiftLeft]
   exact h (outer.shiftLeft state client)
@@ -190,7 +190,7 @@ theorem link_inner_congr {μ : Type} {M : OracleSpec μ} {τ : Type}
 section parSum
 
 variable {ι₁ ι₂ : Type u} {I₁ : OracleSpec.{u, 0} ι₁} {I₂ : OracleSpec.{u, 0} ι₂}
-  [OracleSpec.IsUniformMeasureSpec I₁] [OracleSpec.IsUniformMeasureSpec I₂]
+  [OracleSpec.UniformAnswerMeasure I₁] [OracleSpec.UniformAnswerMeasure I₂]
   {ε₁ ε₂ : Type v} {E₁ : OracleSpec.{v, 0} ε₁} {E₂ : OracleSpec.{v, 0} ε₂}
 
 /-- Parallel composition preserves local measure equality of both factors, over uniform import
@@ -199,7 +199,7 @@ theorem parSum_congr {h₁ h₁' : Stateful I₁ E₁ σ₁} {h₂ h₂' : State
     (hh₁ : ∀ operation state, (h₁ operation).run state =ᵈ (h₁' operation).run state)
     (hh₂ : ∀ operation state, (h₂ operation).run state =ᵈ (h₂' operation).run state)
     (s₁ : σ₁) (s₂ : σ₂) :
-    MeasureDistEquiv (h₁.parSum h₂) (s₁, s₂) (h₁'.parSum h₂') (s₁, s₂) := by
+    DistEquiv (h₁.parSum h₂) (s₁, s₂) (h₁'.parSum h₂') (s₁, s₂) := by
   refine of_step (fun operation state ↦ ?_) (s₁, s₂)
   obtain ⟨a, b⟩ := state
   rcases operation with t | t
@@ -212,5 +212,5 @@ theorem parSum_congr {h₁ h₁' : Stateful I₁ E₁ σ₁} {h₂ h₂' : State
 
 end parSum
 
-end MeasureDistEquiv
+end DistEquiv
 end QueryImpl.Stateful

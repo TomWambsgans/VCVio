@@ -29,7 +29,7 @@ variable {ι : Type} [DecidableEq ι] {spec : OracleSpec ι}
 variable (main : OracleComp spec α) (qb : ι → ℕ)
     (js : List ι) (i : ι) (cf : α → Option (Fin (qb i + 1)))
     [unifSpec ˡ⊂ₒ spec]
-    [OracleSpec.IsUniformMeasureSpec spec]
+    [OracleSpec.UniformAnswerMeasure spec]
 
 /-- Seeded forking lemma as a quantitative Hoare triple for the fork-success event. -/
 theorem triple_seededFork [Fintype (spec.Range i)] :

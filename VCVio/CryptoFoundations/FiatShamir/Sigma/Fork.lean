@@ -440,12 +440,12 @@ noncomputable def advantage [DecidableEq M] [DecidableEq Commit] [SampleableType
 /-- Forwarding uniform selection and answering the challenge oracle by uniform sampling
 preserves the distribution of every computation over `wrappedSpec Chal`. -/
 theorem simulateQ_uniformImpl_evalDistEq [SampleableType Chal]
-    [IsUniformMeasureSpec (Unit →ₒ Chal)] {α : Type} (oa : OracleComp (wrappedSpec Chal) α) :
+    [UniformAnswerMeasure (Unit →ₒ Chal)] {α : Type} (oa : OracleComp (wrappedSpec Chal) α) :
     simulateQ (QueryImpl.ofLift unifSpec ProbComp +
       uniformSampleImpl (spec := (Unit →ₒ Chal))) oa =ᵈ oa := by
   let : MeasurableSpace α := ⊤
   refine EvalDistEq.of_evalDist_eq (evalDist_simulateQ_eq_of_forall _ (fun t => ?_) oa)
-  rw [OracleSpec.IsMeasureSpec.toMeasure_eq_uniformOn]
+  rw [OracleSpec.AnswerMeasure.toMeasure_eq_uniformOn]
   rcases t with n | u
   · simp only [QueryImpl.add_apply_inl, QueryImpl.ofLift_eq_id', QueryImpl.id'_apply]
     exact evalDist_liftM_query_uniform (spec := unifSpec) n
@@ -1363,7 +1363,7 @@ discharge `hreach` by establishing this correspondence at the level of `runTrace
 theorem replayForkingBound
     [DecidableEq M] [DecidableEq Commit]
     [DecidableEq Chal] [SampleableType Chal] [Fintype Chal]
-    [IsUniformMeasureSpec (wrappedSpec Chal)]
+    [UniformAnswerMeasure (wrappedSpec Chal)]
     (nmaAdv : SignatureAlg.ManagedRoNmaAdversary
       (FiatShamir.inROM σ hr M))
     (qH : ℕ) (pk : Stmt)

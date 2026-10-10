@@ -96,7 +96,7 @@ Additive, no simp-normal-form changes, safe to land during the current cycle.
 1. **Make `expectedValue` an `∫⁻`.** With 69 uses over three files it does not warrant a bridge —
    but the obvious form of the move is a trap worth recording. `expectedValue` is generic over
    `{m} [Monad m] [MonadLiftT m SPMF]`, whereas `FreeM.denote` needs
-   `[∀ a, MeasurableSpace (P.B a)] [P.IsMeasureSpec]`. Redefining it as `∫⁻ x, g x ∂(denote mx)`
+   `[∀ a, MeasurableSpace (P.B a)] [P.AnswerMeasure]`. Redefining it as `∫⁻ x, g x ∂(denote mx)`
    would therefore **narrow it from any SPMF-lifting monad to free monads over a measure spec** —
    a regression, not a free adoption.
 

@@ -21,7 +21,7 @@ weakest-precondition API for `OracleComp`. Their equations follow from the order
 expectation algebra in `Unary/WP/Lower.lean`.
 
 Core's `⦃ pre ⦄ program ⦃ post ⦄` notation is available through
-`open scoped Std.Internal.Do OracleComp.Quantitative`. VCVio's quantitative facade
+`open scoped Std.Internal.Do OracleComp.Lower`. VCVio's quantitative facade
 keeps the carrier explicit in its definitions.
 -/
 
@@ -29,7 +29,7 @@ keeps the carrier explicit in its definitions.
 
 open ENNReal MeasureTheory
 open Std.Internal.Do
-open scoped OracleComp.Quantitative
+open scoped OracleComp.Lower
 
 universe u
 
@@ -81,7 +81,7 @@ variable {α β σ : Type}
 
 section MeasureSpec
 
-variable [OracleSpec.IsMeasureSpec spec]
+variable [OracleSpec.AnswerMeasure spec]
 
 /-! ## API contract
 
@@ -107,7 +107,7 @@ noncomputable abbrev Triple (pre : ℝ≥0∞) (oa : OracleComp spec α)
 /-! ## Internal alias
 
 `MAlgOrdered.wp` is `rfl`-equal to `wp _ _` on
-`OracleComp` via the `OracleComp.Quantitative.instWP` instance. The bridge `wp_eq_mAlgOrdered_wp`
+`OracleComp` via the `OracleComp.Lower.instWP` instance. The bridge `wp_eq_mAlgOrdered_wp`
 re-exposes this so existing `MAlgOrdered.wp_*` lemmas can be applied with
 a single rewrite. -/
 
@@ -119,12 +119,12 @@ theorem wp_eq_mAlgOrdered_wp (oa : OracleComp spec α) (post : α → ℝ≥0∞
 theorem wp_eq_lintegral [MeasurableSpace α] (oa : OracleComp spec α)
     (post : α → ℝ≥0∞) (hpost : Measurable post) :
     wp oa post = ∫⁻ x, post x ∂𝒟[oa] :=
-  MeasureProgramLogic.Quantitative.wp_eq_lintegral oa post hpost
+  ExpectationWP.Lower.wp_eq_lintegral oa post hpost
 
 /-- Quantitative WP integrates the assertion-valued observation, without an output space. -/
 theorem wp_eq_lintegral_map (oa : OracleComp spec α) (post : α → ℝ≥0∞) :
     wp oa post = ∫⁻ y, y ∂𝒟[post <$> oa] :=
-  MeasureProgramLogic.Quantitative.wp_eq_lintegral_map oa post
+  ExpectationWP.Lower.wp_eq_lintegral_map oa post
 
 /-- A quantitative core triple is the corresponding inequality of expectations. -/
 theorem triple_iff_le_wp
@@ -232,7 +232,7 @@ theorem wp_mono (oa : OracleComp spec α) {post post' : α → ℝ≥0∞}
 @[gcongr]
 theorem wp_mono_of_support (oa : OracleComp spec α) {post post' : α → ℝ≥0∞}
     (hpost : ∀ x ∈ support oa, post x ≤ post' x) : wp oa post ≤ wp oa post' :=
-  MeasureProgramLogic.Quantitative.wp_mono_of_support oa hpost
+  ExpectationWP.Lower.wp_mono_of_support oa hpost
 
 /-- Support-aware comparison on PolyFun's canonical quantitative WP head. -/
 @[gcongr]
@@ -248,7 +248,7 @@ theorem wp_ne_top_of_finite [Finite α] (oa : OracleComp spec α) {post : α →
   let c := ⨆ x, post x
   have hc : c ≠ ⊤ := iSup_ne_top hpost
   exact ne_top_of_le_ne_top hc
-    (MeasureProgramLogic.Quantitative.wp_le_const_of_support oa fun x _ ↦ le_iSup post x)
+    (ExpectationWP.Lower.wp_le_const_of_support oa fun x _ ↦ le_iSup post x)
 
 @[game_rule] theorem wp_map (f : α → β) (oa : OracleComp spec α) (post : β → ℝ≥0∞) :
     wp (f <$> oa) post =
@@ -257,20 +257,20 @@ theorem wp_ne_top_of_finite [Finite α] (oa : OracleComp spec α) {post : α →
 
 theorem wp_const (oa : OracleComp spec α) (c : ℝ≥0∞) :
     MAlgOrdered.wp oa (fun _ ↦ c) = c :=
-  MeasureProgramLogic.Quantitative.wp_const_of_oracle oa c
+  ExpectationWP.Lower.wp_const_of_oracle oa c
 
 @[game_rule] theorem wp_add (oa : OracleComp spec α) (f g : α → ℝ≥0∞) :
     wp oa (fun x ↦ f x + g x) = wp oa f + wp oa g :=
-  MeasureProgramLogic.Quantitative.wp_add_of_oracle oa f g
+  ExpectationWP.Lower.wp_add_of_oracle oa f g
 
 theorem wp_const_mul (oa : OracleComp spec α) (f : α → ℝ≥0∞) (c : ℝ≥0∞) :
     wp oa (fun x ↦ f x * c) = wp oa f * c := by
   simpa only [wp_eq_mAlgOrdered_wp, mul_comm] using
-    (MeasureProgramLogic.Quantitative.wp_const_mul_of_oracle oa c f)
+    (ExpectationWP.Lower.wp_const_mul_of_oracle oa c f)
 
 @[game_rule] theorem wp_mul_const (oa : OracleComp spec α) (c : ℝ≥0∞) (f : α → ℝ≥0∞) :
     wp oa (fun x ↦ c * f x) = c * wp oa f :=
-  MeasureProgramLogic.Quantitative.wp_const_mul_of_oracle oa c f
+  ExpectationWP.Lower.wp_const_mul_of_oracle oa c f
 
 /-- A support-wise postcondition bound controls the quantitative WP. -/
 theorem wp_le_const_of_support (oa : OracleComp spec α) {post : α → ℝ≥0∞} {c : ℝ≥0∞}
@@ -289,7 +289,7 @@ theorem wp_le_const_add_of_support (oa : OracleComp spec α) {f g : α → ℝ�
 theorem wp_finsetSum {κ : Type*} (oa : OracleComp spec α) (s : Finset κ)
     (f : κ → α → ℝ≥0∞) :
     wp oa (fun x ↦ ∑ i ∈ s, f i x) = ∑ i ∈ s, wp oa (f i) :=
-  MeasureProgramLogic.Quantitative.wp_finsetSum_of_oracle oa s f
+  ExpectationWP.Lower.wp_finsetSum_of_oracle oa s f
 
 /-! ## `Triple` lemmas (against `Triple _ _ _`)
 
@@ -372,7 +372,7 @@ lemma prEvent_eq_wp_indicator (oa : OracleComp spec α) (p : α → Prop)
 
 /-- Event probability is WP of its proposition indicator. -/
 lemma prEvent_eq_wp_propInd {ι : Type u} {spec : OracleSpec ι}
-    [OracleSpec.IsMeasureSpec spec] {α : Type}
+    [OracleSpec.AnswerMeasure spec] {α : Type}
     (oa : OracleComp spec α) (p : α → Prop) :
     Pr{let x ← oa}[p x] = wp oa (fun x => propInd (p x)) := by
   classical
@@ -429,33 +429,33 @@ theorem wp_eq_tsum [∀ t, Finite (spec.Range t)] (oa : OracleComp spec α) (pos
 /-- A query's quantitative WP integrates against its configured answer measure. -/
 @[game_rule] theorem wp_query (t : spec.Domain) (post : spec.Range t → ℝ≥0∞) :
     wp (query t : OracleComp spec (spec.Range t)) post =
-      ∫⁻ u, post u ∂OracleSpec.IsMeasureSpec.toMeasure t := by
+      ∫⁻ u, post u ∂OracleSpec.AnswerMeasure.toMeasure t := by
   let : MeasurableSpace (spec.Range t) := ⊤
   rw [wp_eq_lintegral _ _ Measurable.of_discrete, evalDist_liftM_query, trim_eq_self]
 
 /-- Lifting a primitive query has the same expectation rule. -/
 theorem wp_liftM_query (t : spec.Domain) (post : spec.Range t → ℝ≥0∞) :
     wp (liftM (query t) : OracleComp spec (spec.Range t)) post =
-      ∫⁻ u, post u ∂OracleSpec.IsMeasureSpec.toMeasure t := by
+      ∫⁻ u, post u ∂OracleSpec.AnswerMeasure.toMeasure t := by
   let : MeasurableSpace (spec.Range t) := ⊤
   rw [wp_eq_lintegral _ _ Measurable.of_discrete, evalDist_liftM_query, trim_eq_self]
 
 /-- The ergonomic query interface integrates the configured answer measure. -/
 @[game_rule] theorem wp_HasQuery_query (t : spec.Domain) (post : spec.Range t → ℝ≥0∞) :
     wp (spec := spec) (HasQuery.query t : OracleComp spec (spec.Range t)) post =
-      ∫⁻ u, post u ∂OracleSpec.IsMeasureSpec.toMeasure t := wp_query t post
+      ∫⁻ u, post u ∂OracleSpec.AnswerMeasure.toMeasure t := wp_query t post
 
 end MeasureSpec
 
 section Uniform
 
 /-- A uniform query's expectation is its finite average. -/
-theorem wp_query_uniform [OracleSpec.IsUniformMeasureSpec spec]
+theorem wp_query_uniform [OracleSpec.UniformAnswerMeasure spec]
     (t : spec.Domain) [Fintype (spec.Range t)] (post : spec.Range t → ℝ≥0∞) :
     wp (query t : OracleComp spec (spec.Range t)) post =
       ∑ u, (Fintype.card (spec.Range t) : ℝ≥0∞)⁻¹ * post u := by
   let : MeasurableSpace (spec.Range t) := ⊤
-  rw [wp_query, OracleSpec.IsMeasureSpec.toMeasure_eq_uniformOn]
+  rw [wp_query, OracleSpec.AnswerMeasure.toMeasure_eq_uniformOn]
   rw [lintegral_fintype]
   apply Finset.sum_congr rfl
   intro u _
@@ -467,7 +467,7 @@ end Uniform
 
 section MeasureSpec
 
-variable [OracleSpec.IsMeasureSpec spec]
+variable [OracleSpec.AnswerMeasure spec]
 
 /-- Uniform sampling integrates its chosen measure. -/
 @[game_rule] theorem wp_uniformSample [SampleableType α] (post : α → ℝ≥0∞) :

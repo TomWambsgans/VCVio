@@ -18,7 +18,7 @@ zero-mass possible answers. No discrete probability backend is imported.
 public section
 
 open MeasureTheory
-open scoped ENNReal MeasureProgramLogic.Quantitative
+open scoped ENNReal ExpectationWP.Lower
 
 run_cmd do
   let env ← Lean.getEnv
@@ -32,7 +32,7 @@ namespace VCVioTest.OracleComp.SupportMeasure
 section Generic
 
 variable {ι : Type u} {spec : OracleSpec.{u, 0} ι}
-  [OracleSpec.IsMeasureSpec spec]
+  [OracleSpec.AnswerMeasure spec]
   {α : Type} [MeasurableSpace α] [DiscreteMeasurableSpace α]
 
 example (mx : OracleComp spec α) (f g : α → ENNReal)
@@ -42,12 +42,12 @@ example (mx : OracleComp spec α) (f g : α → ENNReal)
 
 example (mx : OracleComp spec α) (f g : α → ENNReal)
     (hfg : ∀ x ∈ support mx, f x ≤ g x) : MAlgOrdered.wp mx f ≤ MAlgOrdered.wp mx g := by
-  grw [MeasureProgramLogic.Quantitative.wp_mono_of_support mx hfg]
+  grw [ExpectationWP.Lower.wp_mono_of_support mx hfg]
 
 example (mx : OracleComp spec α) (f g : α → ENNReal) (c : ENNReal)
     (hfg : ∀ x ∈ support mx, f x ≤ c + g x) :
     MAlgOrdered.wp mx f ≤ c + MAlgOrdered.wp mx g :=
-  MeasureProgramLogic.Quantitative.wp_le_const_add_of_support mx hfg
+  ExpectationWP.Lower.wp_le_const_add_of_support mx hfg
 
 end Generic
 
@@ -55,7 +55,7 @@ end Generic
 
 abbrev WeightedSpec : OracleSpec (Fin 1) := Fin 1 →ₒ Bool
 
-noncomputable instance weightedMeasureSpec : OracleSpec.IsMeasureSpec WeightedSpec where
+noncomputable instance weightedAnswerMeasure : OracleSpec.AnswerMeasure WeightedSpec where
   toMeasure _ := Measure.dirac false
   isProbabilityMeasure _ := inferInstance
 
@@ -64,6 +64,6 @@ example : true ∈ support (liftM (WeightedSpec.query 0) : OracleComp WeightedSp
 
 example : 𝒟[(liftM (WeightedSpec.query 0) : OracleComp WeightedSpec Bool)] {true} = 0 := by
   rw [OracleComp.evalDist_liftM_query_apply (spec := WeightedSpec) 0 (MeasurableSet.singleton _)]
-  simp [OracleSpec.IsMeasureSpec.toMeasure, PFunctor.IsMeasureSpec.toMeasure]
+  simp [OracleSpec.AnswerMeasure.toMeasure, PFunctor.AnswerMeasure.toMeasure]
 
 end VCVioTest.OracleComp.SupportMeasure

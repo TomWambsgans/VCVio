@@ -89,7 +89,7 @@ variable {α β γ δ : Type}
 
 section measureSpec
 
-variable [IsMeasureSpec spec₁] [IsMeasureSpec spec₂]
+variable [AnswerMeasure spec₁] [AnswerMeasure spec₂]
 
 /-! ## Quantitative relational WP rules -/
 
@@ -100,7 +100,7 @@ theorem eRelWP_mono {oa : OracleComp spec₁ α} {ob : OracleComp spec₂ β}
     eRelWP oa ob post ≤ eRelWP oa ob post' := by
   let : MeasurableSpace α := ⊤
   let : MeasurableSpace β := ⊤
-  exact MeasureProgramLogic.eRelWP_mono oa ob hpost
+  exact ExpectationWP.eRelWP_mono oa ob hpost
 
 /-- Monotonicity/consequence rule for quantitative relational WP. -/
 theorem eRelWP_conseq {pre pre' : ℝ≥0∞}
@@ -120,7 +120,7 @@ theorem le_eRelWP_of_isCoupling {oa : OracleComp spec₁ α} {ob : OracleComp sp
       ∫⁻ z, post z.1 z.2 ∂c.joint ≤ eRelWP oa ob post := by
   let : MeasurableSpace α := ⊤
   let : MeasurableSpace β := ⊤
-  exact MeasureProgramLogic.le_eRelWP_of_isCoupling oa ob post c
+  exact ExpectationWP.le_eRelWP_of_isCoupling oa ob post c
 
 /-- Coupled expectations are bounded by any pointwise bound on the postcondition. -/
 theorem eRelWP_le (oa : OracleComp spec₁ α) (ob : OracleComp spec₂ β)
@@ -128,7 +128,7 @@ theorem eRelWP_le (oa : OracleComp spec₁ α) (ob : OracleComp spec₂ β)
     eRelWP oa ob post ≤ bound := by
   let : MeasurableSpace α := ⊤
   let : MeasurableSpace β := ⊤
-  exact MeasureProgramLogic.eRelWP_le oa ob post bound h
+  exact ExpectationWP.eRelWP_le oa ob post bound h
 
 /-- An indicator postcondition has coupled expectation at most one. -/
 theorem eRelWP_indicator_le_one (oa : OracleComp spec₁ α) (ob : OracleComp spec₂ β)
@@ -142,7 +142,7 @@ theorem eRelWP_pure (a : α) (b : β) (post : α → β → ℝ≥0∞) :
     eRelWP (pure a : OracleComp spec₁ α) (pure b : OracleComp spec₂ β) post = post a b := by
   let : MeasurableSpace α := ⊤
   let : MeasurableSpace β := ⊤
-  exact MeasureProgramLogic.eRelWP_pure_pure a b post
+  exact ExpectationWP.eRelWP_pure_pure a b post
 
 /-- Pure rule for quantitative relational WP. -/
 theorem eRelWP_pure_le (a : α) (b : β) (post : α → β → ℝ≥0∞) :
@@ -457,7 +457,7 @@ end measureSpec
 
 section oracleQuery
 
-variable [IsUniformMeasureSpec spec₁]
+variable [UniformAnswerMeasure spec₁]
   [∀ t, Finite (spec₁.Range t)]
 
 /-- Quantitative lower bound for two oracle queries coupled by a bijection on the range.

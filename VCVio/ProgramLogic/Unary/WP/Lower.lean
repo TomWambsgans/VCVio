@@ -20,7 +20,7 @@ public import PolyFun.Control.Do.Spec
 # Quantitative weakest preconditions
 
 The expectation algebra on `OracleComp spec` gives a core `WPMonad` interpretation
-with `ℝ≥0∞` assertions. Enable it with `open scoped OracleComp.Quantitative`.
+with `ℝ≥0∞` assertions. Enable it with `open scoped OracleComp.Lower`.
 The algebra-to-WP bridge and lattice instances come from PolyFun. The transformer
 lemmas describe expectation after running state, reader, option, exception, and writer layers.
 
@@ -40,14 +40,14 @@ universe u v
 namespace OracleComp.ProgramLogic
 
 variable {ι : Type u} {spec : OracleSpec ι}
-variable [OracleSpec.IsMeasureSpec spec]
+variable [OracleSpec.AnswerMeasure spec]
 variable {α β : Type}
 
 /-! ## Expectation algebra and the `MAlgOrdered` instance -/
 
 /-- The nonnegative expectation algebra under the configured oracle answer measures. -/
 noncomputable instance instMAlgOrdered : MAlgOrdered (OracleComp spec) ℝ≥0∞ :=
-  MeasureProgramLogic.toMAlgOrdered (OracleComp spec)
+  ExpectationWP.algebra (OracleComp spec)
 
 /-- The expectation of the identity under the configured oracle answer measures. -/
 noncomputable def μ (oa : OracleComp spec ℝ≥0∞) : ℝ≥0∞ :=
@@ -55,16 +55,16 @@ noncomputable def μ (oa : OracleComp spec ℝ≥0∞) : ℝ≥0∞ :=
 
 end OracleComp.ProgramLogic
 
-namespace OracleComp.Quantitative
+namespace OracleComp.Lower
 
 /-! ## `Std.Internal.Do.WP` instance for `OracleComp` -/
 
 variable {ι : Type u} {spec : OracleSpec ι}
-variable [OracleSpec.IsMeasureSpec spec]
+variable [OracleSpec.AnswerMeasure spec]
 variable {α β : Type}
 
 /-- Core weakest preconditions from the quantitative expectation algebra.
-Enable with `open scoped OracleComp.Quantitative`. -/
+Enable with `open scoped OracleComp.Lower`. -/
 noncomputable scoped instance instWP :
     Std.Internal.Do.WPMonad (OracleComp spec) ℝ≥0∞ Std.Internal.Do.EPost.Nil :=
   MAlgOrdered.toWPMonad
@@ -253,12 +253,12 @@ theorem wp_ReaderT_monadLift {ρ : Type} (oa : OracleComp spec α)
       Lean.Order.bot = fun r => Std.Internal.Do.wp oa (fun a => post a r) Lean.Order.bot :=
   rfl
 
-end OracleComp.Quantitative
+end OracleComp.Lower
 
-namespace OracleComp.Quantitative
+namespace OracleComp.Lower
 
 variable {ι : Type u} {spec : OracleSpec ι}
-variable [OracleSpec.IsMeasureSpec spec]
+variable [OracleSpec.AnswerMeasure spec]
 variable {α β : Type}
 
 namespace WriterT
@@ -321,4 +321,4 @@ theorem triple_iff_mAlgOrdered_triple
       MAlgOrdered.Triple (m := OracleComp spec) (l := ℝ≥0∞) pre oa post :=
   Std.Internal.Do.Triple.iff
 
-end OracleComp.Quantitative
+end OracleComp.Lower

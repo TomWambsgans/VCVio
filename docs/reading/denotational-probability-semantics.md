@@ -36,7 +36,7 @@ Where a missing general-purpose lemma or measurable-space instance is needed, it
 
 [`VCVio/EvalDist/PFunctorMeasure/Core.lean`](../../VCVio/EvalDist/PFunctorMeasure/Core.lean) provides:
 
-- `PFunctor.IsMeasureSpec`, assigning a probability measure to each operation's answer type;
+- `PFunctor.AnswerMeasure`, assigning a probability measure to each operation's answer type;
 - `PFunctor.FreeM.denote`, with `pure` interpreted by `Measure.dirac` and an operation interpreted
   by `Measure.bind`;
 - an unconditional bind law for discrete operation answers;
@@ -44,9 +44,9 @@ Where a missing general-purpose lemma or measurable-space instance is needed, it
   are explicit;
 - `IsProbabilityMeasure` for every discrete-answer program.
 
-During the migration, `IsProbabilitySpec`, its induced `IsMeasureSpec`, and an agreement theorem
+During the migration, `IsProbabilitySpec`, its induced `AnswerMeasure`, and an agreement theorem
 with the legacy PMF fold formed the compatibility route. They were removed with the discrete
-layer; semantic definitions take `IsMeasureSpec` directly.
+layer; semantic definitions take `AnswerMeasure` directly.
 
 ### Monad transformer stacks
 

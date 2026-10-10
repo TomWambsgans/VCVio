@@ -15,7 +15,7 @@ The ordered expectation algebra integrates the identity against a computation's
 successful-output measure. Its construction only needs lawful measure semantics;
 neither uniform sampling nor losslessness is required.
 
-Enable the quantitative interpretation with `open scoped MeasureProgramLogic.Quantitative`.
+Enable the quantitative interpretation with `open scoped ExpectationWP.Lower`.
 The integral characterization uses the chosen output space and explicit measurability of
 postconditions. Unobserved outputs can instead be mapped into the assertion carrier.
 Continuous effects require their own measurable program interface
@@ -29,7 +29,7 @@ open scoped ENNReal
 
 universe v
 
-namespace MeasureProgramLogic
+namespace ExpectationWP
 
 variable (m : Type → Type v) [Monad m] [EvalDistSemantics m] [LawfulEvalDistSemantics m]
 
@@ -152,4 +152,4 @@ theorem wp_le_const_mul_mass_add (mx : m α) {f g : α → ENNReal} {c : ENNReal
     rw [lintegral_add_left measurable_const, lintegral_const]
 
 end Quantitative
-end MeasureProgramLogic
+end ExpectationWP

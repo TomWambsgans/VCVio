@@ -56,7 +56,7 @@ theorem evalDist_bind_congr_of_support {ι : Type u} {α β : Type} {spec : Orac
 private theorem evalDist_query_bind_bind_swap
     {ι : Type u} {β γ : Type} {spec : OracleSpec.{u, 0} ι}
     [∀ t, Countable (spec.Range t)]
-    [OracleSpec.IsMeasureSpec spec] [MeasurableSpace γ]
+    [OracleSpec.AnswerMeasure spec] [MeasurableSpace γ]
     (t : spec.Domain) (my : OracleComp spec β) (f : spec.Range t → β → OracleComp spec γ) :
     𝒟[query t >>= fun a ↦ my >>= fun b ↦ f a b] =
       𝒟[my >>= fun b ↦ query t >>= fun a ↦ f a b] := by
@@ -78,7 +78,7 @@ neither countability nor measurable-space instances. -/
 theorem evalDist_bind_bind_swap
     {ι : Type u} {α β γ : Type} {spec : OracleSpec.{u, 0} ι}
     [∀ t, Countable (spec.Range t)]
-    [OracleSpec.IsMeasureSpec spec] [MeasurableSpace γ]
+    [OracleSpec.AnswerMeasure spec] [MeasurableSpace γ]
     (mx : OracleComp spec α) (my : OracleComp spec β) (f : α → β → OracleComp spec γ) :
     𝒟[mx >>= fun a ↦ my >>= fun b ↦ f a b] =
       𝒟[my >>= fun b ↦ mx >>= fun a ↦ f a b] := by
@@ -95,13 +95,13 @@ theorem evalDist_bind_bind_swap
 countability of the response types follows from uniformity. -/
 theorem evalDist_bind_bind_swap_of_uniform
     {ι : Type u} {α β γ : Type} {spec : OracleSpec.{u, 0} ι}
-    [OracleSpec.IsUniformMeasureSpec spec]
+    [OracleSpec.UniformAnswerMeasure spec]
     [MeasurableSpace γ]
     (mx : OracleComp spec α) (my : OracleComp spec β) (f : α → β → OracleComp spec γ) :
     𝒟[mx >>= fun a ↦ my >>= fun b ↦ f a b] =
       𝒟[my >>= fun b ↦ mx >>= fun a ↦ f a b] :=
   have : ∀ t, Countable (spec.Range t) := fun t ↦
-    have := OracleSpec.IsUniformMeasureSpec.finite_range (spec := spec) t
+    have := OracleSpec.UniformAnswerMeasure.finite_range (spec := spec) t
     Finite.to_countable
   evalDist_bind_bind_swap mx my f
 
@@ -109,7 +109,7 @@ theorem evalDist_bind_bind_swap_of_uniform
 specification. -/
 theorem EvalDistEq.bind_bind_swap
     {ι : Type u} {α β γ : Type} {spec : OracleSpec.{u, 0} ι}
-    [OracleSpec.IsUniformMeasureSpec spec]
+    [OracleSpec.UniformAnswerMeasure spec]
     (mx : OracleComp spec α) (my : OracleComp spec β) (f : α → β → OracleComp spec γ) :
     (mx >>= fun a ↦ my >>= fun b ↦ f a b) =ᵈ (my >>= fun b ↦ mx >>= fun a ↦ f a b) :=
   let : MeasurableSpace γ := ⊤
@@ -119,7 +119,7 @@ theorem EvalDistEq.bind_bind_swap
 theorem prEvent_bind_bind_swap
     {ι : Type u} {α β : Type} {spec : OracleSpec.{u, 0} ι}
     [∀ t, Countable (spec.Range t)]
-    [OracleSpec.IsMeasureSpec spec]
+    [OracleSpec.AnswerMeasure spec]
     (mx : OracleComp spec α) (my : OracleComp spec β) (f : α → β → OracleComp spec Prop) :
     prEvent (mx >>= fun a ↦ my >>= fun b ↦ f a b) =
       prEvent (my >>= fun b ↦ mx >>= fun a ↦ f a b) := by
@@ -129,7 +129,7 @@ theorem prEvent_bind_bind_swap
 oracle specification. -/
 theorem prEvent_bind_bind_swap_of_uniform
     {ι : Type u} {α β : Type} {spec : OracleSpec.{u, 0} ι}
-    [OracleSpec.IsUniformMeasureSpec spec]
+    [OracleSpec.UniformAnswerMeasure spec]
     (mx : OracleComp spec α) (my : OracleComp spec β) (f : α → β → OracleComp spec Prop) :
     prEvent (mx >>= fun a ↦ my >>= fun b ↦ f a b) =
       prEvent (my >>= fun b ↦ mx >>= fun a ↦ f a b) := by
@@ -139,7 +139,7 @@ theorem prEvent_bind_bind_swap_of_uniform
 computation's unobserved intermediate result needs no measurable-space instance. -/
 theorem lintegral_evalDist_bind_mono_of_support
     {ι : Type u} {α β γ : Type} {spec : OracleSpec.{u, 0} ι}
-    [OracleSpec.IsMeasureSpec spec]
+    [OracleSpec.AnswerMeasure spec]
     [MeasurableSpace β] [MeasurableSpace γ]
     (mx : OracleComp spec α) (f : α → OracleComp spec β) (g : α → OracleComp spec γ)
     {v : β → ENNReal} {w : γ → ENNReal} (hv : Measurable v) (hw : Measurable w)
@@ -159,7 +159,7 @@ needs to hold on structurally reachable outputs. This is the operational special
 `evalDist_bind_apply_mono`: structural reachability supplies its almost-everywhere premise. -/
 theorem evalDist_bind_apply_mono_of_support
     {ι : Type u} {α β : Type} {spec : OracleSpec.{u, 0} ι}
-    [OracleSpec.IsMeasureSpec spec]
+    [OracleSpec.AnswerMeasure spec]
     [MeasurableSpace β]
     (mx : OracleComp spec α) (f g : α → OracleComp spec β)
     {event : Set β} (hevent : MeasurableSet event)
@@ -179,7 +179,7 @@ theorem evalDist_bind_apply_mono_of_support
 No measurable space is required on the hidden common result type. -/
 theorem evalDist_bind_apply_le_add_of_support
     {ι : Type u} {α β : Type} {spec : OracleSpec.{u, 0} ι}
-    [OracleSpec.IsMeasureSpec spec]
+    [OracleSpec.AnswerMeasure spec]
     [MeasurableSpace β]
     (mx : OracleComp spec α) (f g h : α → OracleComp spec β)
     {event : Set β} (hevent : MeasurableSet event)
@@ -201,7 +201,7 @@ theorem evalDist_bind_apply_le_add_of_support
 The common computation need not carry a measurable-space instance on its output type. -/
 theorem le_evalDist_bind_apply_of_support
     {ι : Type u} {α β : Type} {spec : OracleSpec.{u, 0} ι}
-    [OracleSpec.IsMeasureSpec spec]
+    [OracleSpec.AnswerMeasure spec]
     [MeasurableSpace β]
     (mx : OracleComp spec α) (f : α → OracleComp spec β)
     {event : Set β} (hevent : MeasurableSet event) {r : ℝ≥0∞}
@@ -223,7 +223,7 @@ theorem le_evalDist_bind_apply_of_support
 event masses. No measurable space is needed on the hidden common result type. -/
 theorem evalDist_bind_apply_congr_of_support
     {ι : Type u} {α β : Type} {spec : OracleSpec.{u, 0} ι}
-    [OracleSpec.IsMeasureSpec spec]
+    [OracleSpec.AnswerMeasure spec]
     [MeasurableSpace β]
     (mx : OracleComp spec α) (f g : α → OracleComp spec β)
     {event : Set β} (hevent : MeasurableSet event)
@@ -237,7 +237,7 @@ theorem evalDist_bind_apply_congr_of_support
 composed events. -/
 theorem prEvent_bind_mono_of_support
     {ι : Type u} {α : Type} {spec : OracleSpec.{u, 0} ι}
-    [OracleSpec.IsMeasureSpec spec]
+    [OracleSpec.AnswerMeasure spec]
     (mx : OracleComp spec α) (f g : α → OracleComp spec Prop)
     (h : ∀ a ∈ support mx, prEvent (f a) ≤ prEvent (g a)) :
     prEvent (mx >>= f) ≤ prEvent (mx >>= g) :=
@@ -247,7 +247,7 @@ theorem prEvent_bind_mono_of_support
 composed event probabilities. The common result needs no measurable space. -/
 theorem prEvent_bind_congr_of_support
     {ι : Type u} {α : Type} {spec : OracleSpec.{u, 0} ι}
-    [OracleSpec.IsMeasureSpec spec]
+    [OracleSpec.AnswerMeasure spec]
     (mx : OracleComp spec α) (f g : α → OracleComp spec Prop)
     (h : ∀ a ∈ support mx, prEvent (f a) = prEvent (g a)) :
     prEvent (mx >>= f) = prEvent (mx >>= g) :=
@@ -257,7 +257,7 @@ theorem prEvent_bind_congr_of_support
 give binds equal in distribution. -/
 theorem EvalDistEq.bind_congr_of_support
     {ι : Type u} {α β : Type} {spec : OracleSpec.{u, 0} ι}
-    [OracleSpec.IsMeasureSpec spec]
+    [OracleSpec.AnswerMeasure spec]
     (mx : OracleComp spec α) {f g : α → OracleComp spec β}
     (h : ∀ a ∈ support mx, f a =ᵈ g a) : mx >>= f =ᵈ mx >>= g :=
   _root_.EvalDistEq.of_forall_prEvent_eq fun p ↦ by
@@ -268,7 +268,7 @@ theorem EvalDistEq.bind_congr_of_support
 lossless oracle computation. -/
 theorem evalDist_bind_apply_eq_one_of_ae
     {ι : Type u} {α β : Type v} {spec : OracleSpec.{u, v} ι}
-    [OracleSpec.IsMeasureSpec spec]
+    [OracleSpec.AnswerMeasure spec]
     [MeasurableSpace α] [DiscreteMeasurableSpace α] [MeasurableSpace β]
     (mx : OracleComp spec α) (f : α → OracleComp spec β)
     {event : Set β} (hevent : MeasurableSet event)
@@ -283,9 +283,9 @@ singleton mass. The full-support hypothesis belongs to the chosen measure interp
 finiteness alone does not determine it. -/
 theorem mem_support_iff_evalDist_singleton_pos_of_fullSupport
     {ι : Type u} {spec : OracleSpec.{u, v} ι}
-    [OracleSpec.IsMeasureSpec spec]
+    [OracleSpec.AnswerMeasure spec]
     (hfull : ∀ t (u : spec.Range t),
-      0 < OracleSpec.IsMeasureSpec.toMeasure t {u})
+      0 < OracleSpec.AnswerMeasure.toMeasure t {u})
     {α : Type v} [MeasurableSpace α] [MeasurableSingletonClass α]
     (mx : OracleComp spec α) (x : α) :
     x ∈ support mx ↔ 0 < 𝒟[mx] {x} := by
@@ -334,9 +334,9 @@ theorem mem_support_iff_evalDist_singleton_pos_of_fullSupport
 provided every oracle response has positive singleton mass. -/
 theorem evalDist_apply_setOf_eq_one_iff_forall_mem_support_of_fullSupport
     {ι : Type u} {α : Type v} {spec : OracleSpec.{u, v} ι}
-    [OracleSpec.IsMeasureSpec spec]
+    [OracleSpec.AnswerMeasure spec]
     (hfull : ∀ t (u : spec.Range t),
-      0 < OracleSpec.IsMeasureSpec.toMeasure t {u})
+      0 < OracleSpec.AnswerMeasure.toMeasure t {u})
     [MeasurableSpace α] [DiscreteMeasurableSpace α]
     (mx : OracleComp spec α) (p : α → Prop) :
     𝒟[mx] {x | p x} = 1 ↔ ∀ x ∈ support mx, p x := by
@@ -356,31 +356,31 @@ theorem evalDist_apply_setOf_eq_one_iff_forall_mem_support_of_fullSupport
 /-- Under uniform oracle semantics, structural reachability is positive singleton mass. -/
 theorem mem_support_iff_evalDist_singleton_pos
     {ι : Type u} {spec : OracleSpec.{u, v} ι}
-    [OracleSpec.IsUniformMeasureSpec spec]
+    [OracleSpec.UniformAnswerMeasure spec]
     {α : Type v} [MeasurableSpace α] [MeasurableSingletonClass α]
     (mx : OracleComp spec α) (x : α) :
     x ∈ support mx ↔ 0 < 𝒟[mx] {x} :=
   mem_support_iff_evalDist_singleton_pos_of_fullSupport
-    (fun t u => OracleSpec.IsUniformMeasureSpec.toMeasure_singleton_pos t u) mx x
+    (fun t u => OracleSpec.UniformAnswerMeasure.toMeasure_singleton_pos t u) mx x
 
 /-- Under uniform oracle semantics, an event has probability one exactly when it contains every
 structurally reachable output. It is not a default `grind` rule: its unbounded support quantifier
 saturates `grind`. -/
 theorem evalDist_apply_setOf_eq_one_iff_forall_mem_support
     {ι : Type u} {α : Type v} {spec : OracleSpec.{u, v} ι}
-    [OracleSpec.IsUniformMeasureSpec spec]
+    [OracleSpec.UniformAnswerMeasure spec]
     [MeasurableSpace α] [DiscreteMeasurableSpace α]
     (mx : OracleComp spec α) (p : α → Prop) :
     𝒟[mx] {x | p x} = 1 ↔ ∀ x ∈ support mx, p x :=
   evalDist_apply_setOf_eq_one_iff_forall_mem_support_of_fullSupport
-    (fun t u => OracleSpec.IsUniformMeasureSpec.toMeasure_singleton_pos t u) mx p
+    (fun t u => OracleSpec.UniformAnswerMeasure.toMeasure_singleton_pos t u) mx p
 
 /-! ## Events in `Pr{}` form -/
 
 section measureSpec
 
 variable {ι : Type u} {spec : OracleSpec.{u, 0} ι}
-  [OracleSpec.IsMeasureSpec spec] {α : Type}
+  [OracleSpec.AnswerMeasure spec] {α : Type}
 
 /-- Oracle computations with a measure interpretation are lossless. The law takes precedence
 over the event laws of particular computations, such as the uniform counting law. -/
@@ -478,7 +478,7 @@ end measureSpec
 section uniformMeasureSpec
 
 variable {ι : Type u} {spec : OracleSpec.{u, 0} ι}
-  [OracleSpec.IsUniformMeasureSpec spec] {α : Type}
+  [OracleSpec.UniformAnswerMeasure spec] {α : Type}
 
 /-- Under uniform oracle semantics, an event has probability one exactly when it holds on every
 structurally reachable output. -/
@@ -615,7 +615,7 @@ it is the mass under the discrete structure `⊤`. Statements proved at `⊤` th
 any chosen measurable space on the output, such as a Borel structure. -/
 theorem evalDist_apply_eq_top_apply
     {ι : Type u} {α : Type} {spec : OracleSpec.{u, 0} ι}
-    [OracleSpec.IsMeasureSpec spec]
+    [OracleSpec.AnswerMeasure spec]
     [MeasurableSpace α] (mx : OracleComp spec α) {s : Set α} (hs : MeasurableSet s) :
     𝒟[mx] s = (letI : MeasurableSpace α := ⊤; 𝒟[mx]) s := by
   induction mx using OracleComp.inductionOn with

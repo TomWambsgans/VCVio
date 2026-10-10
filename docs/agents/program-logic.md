@@ -12,7 +12,7 @@
   `Std.Do` view. It is not the main engine for quantitative or relational VCGen.
 
 For continuous or otherwise non-discrete denotations, import
-`VCVio.ProgramLogic.Relational.Measure`. Its `MeasureProgramLogic.RelWP` uses an almost-everywhere
+`VCVio.ProgramLogic.Relational.Measure`. Its `ExpectationWP.RelWP` uses an almost-everywhere
 postcondition under a Mathlib `Measure.Coupling`, and `eRelWP` integrates quantitative
 post-expectations with `lintegral`. The `OracleComp` relational logic (`RelTriple`, `CouplingPost`,
 `eRelWP`) specializes these to the output measures observed in the discrete structure on each
@@ -34,7 +34,7 @@ rules for queries need uniform response measures.
 For `wp oa f ≤ wp oa g`, `gcongr with x hx` exposes `hx : x ∈ support oa` and the
 pointwise obligation `f x ≤ g x`. The unrestricted `wp_mono` theorem remains available as a
 lower-priority fallback. On raw `Std.Internal.Do.wp` expressions, normalize with
-`simp only [OracleComp.Quantitative.wp_eq_mAlgOrdered_wp]` before `gcongr`.
+`simp only [OracleComp.Lower.wp_eq_mAlgOrdered_wp]` before `gcongr`.
 `wp_eq_lintegral` integrates a measurable assertion in the chosen result space;
 `wp_eq_lintegral_map` observes an arbitrary assertion without requiring a space on hidden results.
 
@@ -719,13 +719,13 @@ stage degrade gracefully.
 Lean v4.34 provides lattice-generic `Std.Internal.Do.WPMonad`, `Triple`, transformer
 instances, and `vcgen`. The unary carriers in `Unary/WP/` consume these directly:
 
-- `open scoped OracleComp.Quantitative` selects expectation in `ℝ≥0∞` for `OracleComp spec`
-  under `[OracleSpec.IsMeasureSpec spec]`.
-- `open scoped MeasureProgramLogic.Quantitative` selects measure-backed expectation
+- `open scoped OracleComp.Lower` selects expectation in `ℝ≥0∞` for `OracleComp spec`
+  under `[OracleSpec.AnswerMeasure spec]`.
+- `open scoped ExpectationWP.Lower` selects measure-backed expectation
   for any lawful monad with `LawfulEvalDistSemantics`. It also selects this carrier over
   core `Prop` interpretations for monads such as `Option`. Its module is
   `VCVio.ProgramLogic.Unary.WP.Measure`.
-- `open scoped OracleComp.Qualitative` selects universal structural reachability.
+- `open scoped OracleComp.Necessary` selects universal structural reachability.
 - `open scoped OracleComp.Probabilistic` selects the restricted algebra on `Set.Iic 1`.
 
 Use `open scoped Std.Internal.Do` for core triple notation. Carrier choice is local;

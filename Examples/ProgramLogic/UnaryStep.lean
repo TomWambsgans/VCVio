@@ -22,7 +22,7 @@ registered `@[vcspec]` hints, and `liftComp`.
 
 @[expose] public section
 
-open scoped Std.Internal.Do OracleComp.Quantitative WriterT.MonoidWP
+open scoped Std.Internal.Do OracleComp.Lower WriterT.MonoidWP
 
 open ENNReal OracleSpec OracleComp
 open Lean.Order
@@ -33,7 +33,7 @@ open scoped OracleComp.ProgramLogic
 universe u
 
 variable {ι : Type u} {spec : OracleSpec ι}
-variable [OracleSpec.IsUniformMeasureSpec spec]
+variable [OracleSpec.UniformAnswerMeasure spec]
 variable {α β : Type}
 
 /-! ## Notation examples -/
@@ -70,7 +70,7 @@ example (x : α) (xs : List α) (f : β → α → OracleComp spec β)
 
 example (t : spec.Domain) (post : spec.Range t → ℝ≥0∞) :
     wp⟦(query t : OracleComp spec (spec.Range t))⟧ post =
-      ∫⁻ u, post u ∂OracleSpec.IsMeasureSpec.toMeasure t := by
+      ∫⁻ u, post u ∂OracleSpec.AnswerMeasure.toMeasure t := by
   vcstep
 
 example (c : Prop) [Decidable c]
@@ -341,7 +341,7 @@ example (f : β → α → OracleComp spec β) (init : β) (post : β → ℝ≥
   vcstep
 
 example (t : spec.Domain) (post : spec.Range t → ℝ≥0∞) :
-    (∫⁻ u, post u ∂OracleSpec.IsMeasureSpec.toMeasure t) ≤
+    (∫⁻ u, post u ∂OracleSpec.AnswerMeasure.toMeasure t) ≤
       wp⟦(query t : OracleComp spec (spec.Range t))⟧ post := by
   vcstep
 
@@ -443,7 +443,7 @@ example :
 section LiftComp
 
 variable {ι' : Type} {superSpec : OracleSpec ι'}
-variable [OracleSpec.IsUniformMeasureSpec superSpec]
+variable [OracleSpec.UniformAnswerMeasure superSpec]
 variable [h : spec ⊂ₒ superSpec] [spec ˡ⊂ₒ superSpec]
 
 example (oa : OracleComp spec α) (post : α → ℝ≥0∞) :

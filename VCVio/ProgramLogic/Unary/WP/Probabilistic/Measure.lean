@@ -15,7 +15,7 @@ public import ToMathlib.Control.Monad.Algebra
 
 Lawful successful-output measure semantics give bounded probability assertions by restricting
 the expectation algebra to `Prob`. Enable this interpretation with
-`open scoped MeasureProgramLogic.Probabilistic`.
+`open scoped ExpectationWP.Probabilistic`.
 -/
 
 public section
@@ -25,12 +25,12 @@ open scoped ENNReal
 
 universe v
 
-namespace MeasureProgramLogic.Probabilistic
+namespace ExpectationWP.Probabilistic
 
 variable (m : Type → Type v) [Monad m] [LawfulMonad m]
   [EvalDistSemantics m] [LawfulEvalDistSemantics m]
 
-attribute [local instance] MeasureProgramLogic.Quantitative.instMAlgOrdered
+attribute [local instance] ExpectationWP.Lower.instMAlgOrdered
 
 omit [LawfulMonad m] in
 /-- Subprobability expectations preserve the upper bound one. -/
@@ -102,4 +102,4 @@ theorem wp_const (mx : m α) (p : Prob) :
     (wp mx (fun _ ↦ p) (Lean.Order.bot : EPost.Nil)).val = p.val * 𝒟[mx] Set.univ := by
   rw [wp_val_eq_lintegral mx _ measurable_const, lintegral_const]
 
-end MeasureProgramLogic.Probabilistic
+end ExpectationWP.Probabilistic

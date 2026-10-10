@@ -20,7 +20,7 @@ and `by_hoare` support in the unary tactic layer.
 open ENNReal OracleSpec OracleComp
 open Lean.Order
 open OracleComp.ProgramLogic
-open scoped OracleComp.ProgramLogic Std.Internal.Do OracleComp.Quantitative
+open scoped OracleComp.ProgramLogic Std.Internal.Do OracleComp.Lower
 
 universe u
 
@@ -29,7 +29,7 @@ variable {α β γ : Type}
 
 section ProbabilityLowering
 
-variable [OracleSpec.IsMeasureSpec spec]
+variable [OracleSpec.AnswerMeasure spec]
 
 /-! ### Probability goal lowering -/
 
@@ -52,7 +52,7 @@ end ProbabilityLowering
 
 section Equalities
 
-variable [∀ t, Countable (spec.Range t)] [OracleSpec.IsMeasureSpec spec]
+variable [∀ t, Countable (spec.Range t)] [OracleSpec.AnswerMeasure spec]
 
 /-! ### Probability equality (swap / congr) -/
 
@@ -107,7 +107,7 @@ end Equalities
 
 section ProbabilityLowering
 
-variable [OracleSpec.IsMeasureSpec spec]
+variable [OracleSpec.AnswerMeasure spec]
 
 /-! ### Probability lower bounds -/
 

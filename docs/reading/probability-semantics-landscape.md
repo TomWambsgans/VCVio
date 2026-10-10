@@ -181,7 +181,7 @@ defines `SemanticsVia m Obs`. It separates:
 
 The observation does not have to be a monad morphism. This matters for stateful or
 instrumented computations whose hidden state is discarded only at the observation
-boundary. `MeasureSemanticsVia` is its measure-valued specialization.
+boundary. `SemanticsVia` is its measure-valued specialization.
 
 This is a better migration seam than requiring every source monad to lift directly into
 every future probability representation. A measure-oriented design should preserve the
@@ -1457,7 +1457,7 @@ read through the GitHub API rather than from PR prose.
 | Claim | Method |
 |---|---|
 | `SPMF := OptionT PMF`, its `FunLike`, and the `SPMF.mk`/`toPMF` round-trips | Read `ToMathlib/ProbabilityTheory/SPMF.lean` |
-| `SemanticsVia` / `MeasureSemanticsVia` as described in §2.2 | Read `VCVio/EvalDist/Defs/Semantics/Core.lean` in full |
+| `SemanticsVia` / `SemanticsVia` as described in §2.2 | Read `VCVio/EvalDist/Defs/Semantics/Core.lean` in full |
 | `probEvent` is defined through `PMF.toOuterMeasure` | Read `VCVio/EvalDist/Defs/Basic.lean` |
 | `IsProbabilitySpec.toPMF` is PMF-valued; `IsUniformSpec` adds `Fintype`/`Inhabited`/uniformity | Read `VCVio/OracleComp/EvalDist.lean` |
 | `support` is `MonadLiftT m SetM`-based | Read `VCVio/EvalDist/Defs/Support.lean`; `SetM` located at `Mathlib/Data/Set/Functor.lean` |

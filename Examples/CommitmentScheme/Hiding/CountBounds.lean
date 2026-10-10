@@ -1136,9 +1136,9 @@ abbrev HidingAvgSpec (M : Type) (S : Type) (C : Type) :=
   (Unit →ₒ S) + CMOracle M S C
 
 /-- Uniform sampling of a salt in its chosen finite response space. -/
-noncomputable instance unitArrowSpecIsUniformMeasureSpec (S : Type) [Fintype S] [Inhabited S] :
-    OracleSpec.IsUniformMeasureSpec (Unit →ₒ S) :=
-  OracleSpec.IsUniformMeasureSpec.ofFiniteNonempty _
+noncomputable instance unitArrowSpecUniformAnswerMeasure (S : Type) [Fintype S] [Inhabited S] :
+    OracleSpec.UniformAnswerMeasure (Unit →ₒ S) :=
+  OracleSpec.UniformAnswerMeasure.ofFiniteNonempty _
 
 abbrev hidingAvgLeftImpl :
     QueryImpl (Unit →ₒ S)

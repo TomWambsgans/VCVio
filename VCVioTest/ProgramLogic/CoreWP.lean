@@ -31,17 +31,17 @@ example : True := by
   trivial
 
 section Qualitative
-open scoped OracleComp.Qualitative
+open scoped OracleComp.Necessary
 
 example {ι : Type} {spec : OracleSpec ι} {α : Type} (oa : OracleComp spec α)
     (post : α → Prop) :
     wp oa post EPost.Nil.mk ↔ ∀ a ∈ support oa, post a :=
-  OracleComp.Qualitative.wp_iff_forall_support oa post
+  OracleComp.Necessary.wp_iff_forall_support oa post
 
 end Qualitative
 
 section Quantitative
-open scoped OracleComp.Quantitative
+open scoped OracleComp.Lower
 
 /--
 warning: The `vcgen` tactic is an experimental drop-in replacement for `mvcgen` that will eventually replace it. Avoid using it in production projects.
