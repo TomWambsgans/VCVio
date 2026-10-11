@@ -303,12 +303,17 @@ class EventLemmaTests(unittest.TestCase):
                                  "`tvDist_nonneg`: `measureTVDist_nonneg` (real); `measureETVDist` "
                                  "is `ℝ≥0∞`-valued"]))
 
-    def test_local_discrete_answer_structure_is_not_reported(self):
-        _, items = migrate("theorem t [MeasurableSpace (spec.Range u)] : True := by\n"
+    def test_only_structures_on_every_answer_type_are_reported(self):
+        _, items = migrate("theorem t {_ : MeasurableSpace (spec.Range u)} [h : ∀ t,\n"
+                           "    MeasurableSpace (spec.Range t)] : True := by\n"
                            "  let _ : MeasurableSpace (spec.Range u) := ⊤\n"
-                           "  letI : MeasurableSpace (unifSpec.Range n) := ⊤\n  trivial")
-        self.assertEqual([(line, msg.split(":")[0]) for _, line, msg in items],
-                         [(1, "`MeasurableSpace (spec.Range`")])
+                           "  · letI : MeasurableSpace (unifSpec.Range n) := ⊤\n    trivial")
+        self.assertEqual([line for _, line, _ in items], [2])
+
+    def test_mathlib_total_variation_is_not_a_legacy_name(self):
+        _, items = migrate("exact Measure.tvDist_triangle _ _ _ h₁ h₂ h₃ |>.trans "
+                           "(MeasureTheory.Measure.etvDist_le_one _ _ h₁ h₂)")
+        self.assertEqual(items, [])
 
     def test_no_name_is_both_renamed_and_reported(self):
         self.assertEqual([k for k in codemod.RENAMES if k in codemod.LEGACY_HINTS], [])

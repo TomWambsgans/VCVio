@@ -490,13 +490,16 @@ LEGACY_TOKENS: list[tuple[str, str]] = [
     (r"EvalDistCompatible", "operational support lemmas; see *Classes and binders*"),
     (r"PFunctor\.IsProbabilitySpec|PFunctor\.IsUniformSpec",
      "`PFunctor.AnswerMeasure`; see *Classes and binders*"),
-    # A binder on answer types; a local `let`/`letI` discrete structure inside a proof is the fix.
-    (r"(?m)^(?![ \t]*(?:let|letI|haveI)\b)[^\n]*?(?P<tok>MeasurableSpace\s*\([^\n]*?\.Range\b)",
+    # A measurable structure on every answer type that `delete_answer_binders` left (a binder split
+    # across lines, a hypothesis); one on a single answer type (`{_ : MeasurableSpace (spec.Range
+    # t)}`, a local `let` in a proof) is how the measure API states a query law.
+    (r"∀[^,\n]*,\s*(?P<tok>(?:Discrete)?MeasurableSpace\s*\([^\n]*?\.Range\b)",
      "answer measures are discrete; see *Classes and binders*"),
     (r"@(?:OracleSpec\.)?UniformAnswerMeasure\.ofFiniteNonempty\b",
      "takes the specification and its `Finite` and `Nonempty` instances only"),
     (r"(?<![\w'.])SPMF(?![\w'])", "`Measure`; see *Notation and definitions*"),
-    (r"(?<![\w'])[\w'.]*?(?:evalSPMF|probOutput|probEvent|probFailure|(?<!e)tvDist)_[\w'.]*",
+    (r"(?<![\w'.])(?![\w'.]*Measure\.e?tvDist)[\w'.]*?(?:evalSPMF|probOutput|probEvent|probFailure|"
+     r"(?<!e)tvDist)_[\w'.]*",
      "a legacy lemma name; see *Lemma names*"),
 ]
 
