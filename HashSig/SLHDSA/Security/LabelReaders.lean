@@ -21,7 +21,7 @@ point of a node at its drawn children values reads the node's label, and every o
 the public cache. This module shows that the honest readers of
 `HashSig.SLHDSA.Security.CacheReaders` and `HashSig.SLHDSA.Security.CacheSecret`, run on that cache
 at the oracle-backed provider `oracleSecret core e pkSeed s.1`, return drawn cells. The scoped
-notations `𝒞[e, pkSeed, s, st]` for that cache and `𝒮[e, pkSeed, s]` for that provider are opened
+notations `𝒞[e, pkSeed, s, st]` for that cache and `𝒫[e, pkSeed, s]` for that provider are opened
 by `open scoped SLHDSA.Security.MergedCache`.
 
 * The secret at a secret-key address reads its derivation cell
@@ -88,7 +88,7 @@ scoped notation "𝒞[" e ", " pkSeed ", " s ", " st "]" =>
     (CanonicalGraph.toSplitCache (slhGraph _ pkSeed) st))
 
 /-- The oracle-backed secret provider at the first secret seed of `s`. -/
-scoped notation "𝒮[" e ", " pkSeed ", " s "]" => oracleSecret _ e pkSeed (Prod.fst s)
+scoped notation "𝒫[" e ", " pkSeed ", " s "]" => oracleSecret _ e pkSeed (Prod.fst s)
 
 end MergedCache
 
@@ -101,7 +101,7 @@ private theorem map_cast_eq {α : Type} {h : α = α} (o : Option α) : o.map (c
 
 /-- At a secret-key address, the oracle-backed secret reads the derivation cell at its key. -/
 theorem simulateQ_toPartialImpl_oracleSecret_merge {b : Adrs} (hb : b.IsSecretKey) :
-    simulateQ 𝒞[e, pkSeed, s, st].toPartialImpl (𝒮[e, pkSeed, s] b) =
+    simulateQ 𝒞[e, pkSeed, s, st].toPartialImpl (𝒫[e, pkSeed, s] b) =
       st.2 (.inl (.inl ⟨core.adrsToKey b, b, hb, rfl⟩)) := by
   rw [oracleSecret, simulateQ_toPartialImpl_f, QueryCache.fst_apply]
   exact ((secretEncoding core e pkSeed).merge_toSplitCache_apply_enc (slhGraph core pkSeed) s st
@@ -186,7 +186,7 @@ private theorem forall₂_map_range {n : ℕ} {P : Adrs ⊕ Adrs → core.Y → 
     simpa using h ⟨i, by simpa using h₁⟩⟩
 
 private theorem cellValue_inl_of_oracleSecret {b : Adrs} (hb : b.IsSecretKey) {x : core.Y}
-    (hx : simulateQ 𝒞[e, pkSeed, s, st].toPartialImpl (𝒮[e, pkSeed, s] b) = some x) :
+    (hx : simulateQ 𝒞[e, pkSeed, s, st].toPartialImpl (𝒫[e, pkSeed, s] b) = some x) :
     cellValue st (.inl b) = some x := by
   simpa [cellValue, childCell_inl core hb] using
     (simulateQ_toPartialImpl_oracleSecret_merge hb).symm.trans hx
@@ -231,7 +231,7 @@ private theorem forall₂_childAdrs_of_chain? (hd : core.KeyDiscipline vp) {adrs
 /-- The tops of the chains at `adrs` are the drawn labels of the steps at hash address `w - 2`. -/
 private theorem forall₂_childAdrs_wotsPkAdrs (hd : core.KeyDiscipline vp) {adrs : Adrs}
     {tops : Vector core.Y vp.params.len} (hmem : wotsPkAdrs adrs ∈ constructionAddresses vp)
-    (h : wotsPkGenTopsWithSecret? core 𝒞[e, pkSeed, s, st] 𝒮[e, pkSeed, s] pkSeed adrs =
+    (h : wotsPkGenTopsWithSecret? core 𝒞[e, pkSeed, s, st] 𝒫[e, pkSeed, s] pkSeed adrs =
       some tops) :
     List.Forall₂ (fun b v ↦ cellValue st b = some v) (childAdrs vp (wotsPkAdrs adrs))
       tops.toList := by
@@ -252,7 +252,7 @@ private theorem forall₂_childAdrs_wotsPkAdrs (hd : core.KeyDiscipline vp) {adr
 theorem childVals_eq_some_of_chain? (hd : core.KeyDiscipline vp) {adrs : Adrs} {i t : ℕ}
     {x v : core.Y} (hmem : (wotsChainAdrs adrs i).setHashAddress t ∈ constructionAddresses vp)
     (hx : simulateQ 𝒞[e, pkSeed, s, st].toPartialImpl
-      (𝒮[e, pkSeed, s] (wotsSkAdrs adrs i)) = some x)
+      (𝒫[e, pkSeed, s] (wotsSkAdrs adrs i)) = some x)
     (h : chain? core 𝒞[e, pkSeed, s, st] pkSeed (wotsChainAdrs adrs i) x 0 t = some v) :
     (slhGraph core pkSeed).childVals st
       ⟨core.adrsToKey ((wotsChainAdrs adrs i).setHashAddress t), _, hmem, rfl⟩ = some [v] :=
@@ -276,7 +276,7 @@ private theorem childAdrs_xmssNodeAdrs_succ (adrs : Adrs) (z t : ℕ) :
 
 private theorem cellValue_of_xmssNodeWithSecret? (hd : core.KeyDiscipline vp) {adrs : Adrs} :
     ∀ {z t : ℕ} {v : core.Y}, xmssCellAdrs adrs z t ∈ constructionAddresses vp →
-      xmssNodeWithSecret? core 𝒞[e, pkSeed, s, st] 𝒮[e, pkSeed, s] pkSeed adrs z t = some v →
+      xmssNodeWithSecret? core 𝒞[e, pkSeed, s, st] 𝒫[e, pkSeed, s] pkSeed adrs z t = some v →
       cellValue st (.inr (xmssCellAdrs adrs z t)) = some v
   | 0, t, v, hmem, h => by
     simp only [xmssNodeWithSecret?, xmssNodeWithSecret, PerfectMerkleTree.merkleRootM,
@@ -297,7 +297,7 @@ private theorem cellValue_of_xmssNodeWithSecret? (hd : core.KeyDiscipline vp) {a
 node at `xmssNodeAdrs adrs hp 0`. -/
 theorem label_of_xmssRootWithSecret? (hd : core.KeyDiscipline vp) {adrs : Adrs} {v : core.Y}
     (hmem : xmssNodeAdrs adrs vp.params.hp 0 ∈ constructionAddresses vp)
-    (h : xmssRootWithSecret? core 𝒞[e, pkSeed, s, st] 𝒮[e, pkSeed, s] pkSeed adrs = some v) :
+    (h : xmssRootWithSecret? core 𝒞[e, pkSeed, s, st] 𝒫[e, pkSeed, s] pkSeed adrs = some v) :
     st.2 (.inr ⟨core.adrsToKey (xmssNodeAdrs adrs vp.params.hp 0), _, hmem, rfl⟩) = some v := by
   have hp := vp.valid.hp_pos
   unfold xmssRootWithSecret? xmssRootWithSecret at h
@@ -313,7 +313,7 @@ at `forsNodeAdrs adrs 0 t` are drawn at `[x]`. -/
 theorem childVals_eq_some_of_forsSkAdrs (hd : core.KeyDiscipline vp) {adrs : Adrs} {t : ℕ}
     {x : core.Y} (hmem : forsNodeAdrs adrs 0 t ∈ constructionAddresses vp)
     (hx : simulateQ 𝒞[e, pkSeed, s, st].toPartialImpl
-      (𝒮[e, pkSeed, s] (forsSkAdrs adrs t)) = some x) :
+      (𝒫[e, pkSeed, s] (forsSkAdrs adrs t)) = some x) :
     (slhGraph core pkSeed).childVals st ⟨core.adrsToKey (forsNodeAdrs adrs 0 t), _, hmem, rfl⟩ =
       some [x] := by
   refine childVals_of_forall₂ hd hmem ?_
@@ -322,7 +322,7 @@ theorem childVals_eq_some_of_forsSkAdrs (hd : core.KeyDiscipline vp) {adrs : Adr
 
 private theorem cellValue_of_forsNodeWithSecret? (hd : core.KeyDiscipline vp) {adrs : Adrs} :
     ∀ {z t : ℕ} {v : core.Y}, forsNodeAdrs adrs z t ∈ constructionAddresses vp →
-      forsNodeWithSecret? core 𝒞[e, pkSeed, s, st] 𝒮[e, pkSeed, s] pkSeed adrs z t = some v →
+      forsNodeWithSecret? core 𝒞[e, pkSeed, s, st] 𝒫[e, pkSeed, s] pkSeed adrs z t = some v →
       cellValue st (.inr (forsNodeAdrs adrs z t)) = some v
   | 0, t, v, hmem, h => by
     simp only [forsNodeWithSecret?, PerfectMerkleTree.merkleRootM, forsLeafWithSecret,
@@ -341,7 +341,7 @@ private theorem cellValue_of_forsNodeWithSecret? (hd : core.KeyDiscipline vp) {a
 private theorem forall₂_childAdrs_forsPkAdrs (hd : core.KeyDiscipline vp) {adrs : Adrs}
     {roots : Vector core.Y vp.params.k} (hmem : forsPkAdrs adrs ∈ constructionAddresses vp)
     (h : ∀ i : Fin vp.params.k, forsNodeWithSecret? core 𝒞[e, pkSeed, s, st]
-      𝒮[e, pkSeed, s] pkSeed adrs vp.params.a i.val = some roots[i]) :
+      𝒫[e, pkSeed, s] pkSeed adrs vp.params.a i.val = some roots[i]) :
     List.Forall₂ (fun b v ↦ cellValue st b = some v) (childAdrs vp (forsPkAdrs adrs))
       roots.toList := by
   rw [childAdrs_forsPkAdrs]
@@ -353,7 +353,7 @@ private theorem forall₂_childAdrs_forsPkAdrs (hd : core.KeyDiscipline vp) {adr
 label of the roots compression at `forsPkAdrs adrs`. -/
 theorem label_of_forsPkGenWithSecret? (hd : core.KeyDiscipline vp) {adrs : Adrs} {v : core.Y}
     (hmem : forsPkAdrs adrs ∈ constructionAddresses vp)
-    (h : forsPkGenWithSecret? core 𝒞[e, pkSeed, s, st] 𝒮[e, pkSeed, s] pkSeed adrs = some v) :
+    (h : forsPkGenWithSecret? core 𝒞[e, pkSeed, s, st] 𝒫[e, pkSeed, s] pkSeed adrs = some v) :
     st.2 (.inr ⟨core.adrsToKey (forsPkAdrs adrs), _, hmem, rfl⟩) = some v := by
   obtain ⟨roots, hroots, hv⟩ := (forsPkGenWithSecret?_eq_some_iff core _ _ pkSeed adrs).1 h
   exact (cellValue_inr hmem).symm.trans ((merge_fst_thash_of_forall₂ hd hmem
@@ -364,7 +364,7 @@ theorem label_of_forsPkGenWithSecret? (hd : core.KeyDiscipline vp) {adrs : Adrs}
 /-- **Honest message.** If the honest message signed at `pos` reads `m`, `m` is the drawn label
 of the node at `msgAdrs pos`. -/
 theorem label_of_honestMessage? (hd : core.KeyDiscipline vp) (pos : LayerPosition vp) {m : core.Y}
-    (h : honestMessage? 𝒞[e, pkSeed, s, st] 𝒮[e, pkSeed, s] pkSeed pos = some m) :
+    (h : honestMessage? 𝒞[e, pkSeed, s, st] 𝒫[e, pkSeed, s] pkSeed pos = some m) :
     st.2 (.inr ⟨core.adrsToKey (msgAdrs pos), _, msgAdrs_mem_constructionAddresses pos, rfl⟩) =
       some m := by
   unfold honestMessage? at h
@@ -378,7 +378,7 @@ theorem label_of_honestMessage? (hd : core.KeyDiscipline vp) (pos : LayerPositio
 oracle-backed provider is the point of a node at its drawn children values. -/
 theorem exists_childVals_eq_some_of_honestEntry (hd : core.KeyDiscipline vp)
     {t : (publicHashSpec core).Domain}
-    (h : HonestEntry 𝒮[e, pkSeed, s] pkSeed 𝒞[e, pkSeed, s, st] t) :
+    (h : HonestEntry 𝒫[e, pkSeed, s] pkSeed 𝒞[e, pkSeed, s, st] t) :
     ∃ κ vs, (slhGraph core pkSeed).childVals st κ = some vs ∧
       (slhGraph core pkSeed).pt κ vs = .inl t := by
   refine match h with
@@ -399,7 +399,7 @@ theorem exists_childVals_eq_some_of_honestEntry (hd : core.KeyDiscipline vp)
 cache at the oracle-backed provider is a public entry, at the key of a node, equal to the node's
 drawn label. -/
 theorem tcHazard_of_targetCollision (hd : core.KeyDiscipline vp)
-    (h : TargetCollision 𝒮[e, pkSeed, s] pkSeed 𝒞[e, pkSeed, s, st]) :
+    (h : TargetCollision 𝒫[e, pkSeed, s] pkSeed 𝒞[e, pkSeed, s, st]) :
     (slhNodeKeys core pkSeed).TCHazard st := by
   obtain ⟨key, xs, ys, v, hhon, hne, hx, hy⟩ := h
   obtain ⟨κ, vs, hκ, hpt⟩ := exists_childVals_eq_some_of_honestEntry hd hhon

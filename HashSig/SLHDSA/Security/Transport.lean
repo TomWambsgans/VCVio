@@ -147,7 +147,7 @@ theorem conflict_of_chain?_of_cell_eq_none (hd : core.KeyDiscipline vp) (hfst : 
     (hq : (𝒞[e, pkSeed, s, st₀]
       (.thash pkSeed (core.adrsToKey ((wotsChainAdrs adrs i).setHashAddress t)) [g])).isSome)
     (hx : simulateQ 𝒞[e, pkSeed, s, st].toPartialImpl
-      (𝒮[e, pkSeed, s] (wotsSkAdrs adrs i)) = some x)
+      (𝒫[e, pkSeed, s] (wotsSkAdrs adrs i)) = some x)
     (hg : chain? core 𝒞[e, pkSeed, s, st] pkSeed (wotsChainAdrs adrs i) x 0 t = some g) :
     (slhGraph core pkSeed).Conflict st :=
   conflict_of_isSome_merge_fst_thash hd.keySeparated hfst (by
@@ -166,7 +166,7 @@ theorem conflict_of_forsSkAdrs_of_cell_eq_none (hd : core.KeyDiscipline vp)
     (hq : (𝒞[e, pkSeed, s, st₀]
       (.thash pkSeed (core.adrsToKey (forsNodeAdrs adrs 0 t)) [x])).isSome)
     (hx : simulateQ 𝒞[e, pkSeed, s, st].toPartialImpl
-      (𝒮[e, pkSeed, s] (forsSkAdrs adrs t)) = some x) :
+      (𝒫[e, pkSeed, s] (forsSkAdrs adrs t)) = some x) :
     (slhGraph core pkSeed).Conflict st :=
   conflict_of_isSome_merge_fst_thash hd.keySeparated hfst (by
       rw [slhGraph_ch_forsNodeAdrs_zero core hd pkSeed hmem]
