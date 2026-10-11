@@ -6,8 +6,9 @@ Authors: Quang Dao
 
 module
 public import VCVio.CryptoFoundations.HardnessAssumptions.TweakableHash.FinalValidity
-public import VCVio.OracleComp.Constructions.SampleableType
-public import VCVio.OracleComp.EvalDist.UniformCompatibility
+public import VCVio.OracleComp.Constructions.SampleableType.Basic
+public import VCVio.OracleComp.Constructions.SampleableType.Measure
+public import VCVio.OracleComp.EvalDist.AnswerMeasure
 public import VCVio.OracleComp.SimSemantics.Append
 public import VCVio.OracleComp.SimSemantics.StateT.PreservesInv
 
@@ -220,10 +221,6 @@ theorem openOracle_run :
     (openOracle targets j).run opened =
       pure ((targets[j]?.map Prod.snd).getD default, opened ++ [j]) := by
   simp [openOracle]
-
--- Declaration-specific naming exceptions for this game's underscore-separated names.
-attribute [nolint defsWithUnderscore]
-  experiment advantage
 
 end SM_DT_OpenPRE_SourceFinalValidity
 

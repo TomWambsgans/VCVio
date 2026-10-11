@@ -8,6 +8,7 @@ from collections import Counter
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import sys
 import tempfile
@@ -15,7 +16,8 @@ import tempfile
 
 BASELINE = Path("scripts/nolints.json")
 TEST_ROOTS = ("VCVioTest", "LatticeCryptoTest", "HashSigTest")
-RETIRED_PROBABILITY_LINTER = "usesRetiredProbability"
+UNDERSCORE_LINTER = "defsWithUnderscore"
+ACRONYM = re.compile(r"[A-Z][A-Z0-9]+")
 
 
 def run(*args: str, **kwargs) -> subprocess.CompletedProcess:
@@ -127,8 +129,66 @@ def collect(tool: str, libraries: list[str], baseline: str) -> set[tuple[str, st
                                                         result.stdout, result.stderr)
                 raise ValueError(f"Incomplete linter output for {library}: {result.stdout}")
             current.update(read_pairs(path.read_text(), library))
-            print(result.stdout, end="", flush=True)
+            print(without_accepted_reports(result.stdout), end="", flush=True)
     return current
+
+
+def name_components(name: str) -> list[str]:
+    """Split a Lean declaration name on dots outside `«»` quotation, dropping the quotes."""
+    components, current, quoted = [], [], False
+    for char in name:
+        if char in "«»":
+            quoted = char == "«"
+        elif char == "." and not quoted:
+            components.append("".join(current))
+            current = []
+        else:
+            current.append(char)
+    return [*components, "".join(current)]
+
+
+def acronym_led(name: str) -> bool:
+    """Whether a `defsWithUnderscore` finding follows the security-notion naming convention.
+
+    Every name component containing `_` must split on `_` into segments whose first segment
+    is an acronym of at least two capitals or digits and whose other segments, except the
+    last, start with a capital: `IND_CPA_Advantage`, `SM_DT_UD_Adversary`,
+    `IND_CPA_OneTime_Game`, `OW_CPA_oracleSpec`. The last segment is unconstrained.
+    """
+    for component in name_components(name):
+        segments = component.split("_")
+        if len(segments) > 1 and not (ACRONYM.fullmatch(segments[0]) and
+                                      all(s[:1].isupper() for s in segments[1:-1])):
+            return False
+    return True
+
+
+def accepted_by_policy(pair: tuple[str, str]) -> bool:
+    """Whether a finding is accepted by repository naming policy rather than the baseline."""
+    linter, name = pair
+    return linter == UNDERSCORE_LINTER and acronym_led(name)
+
+
+UNDERSCORE_REPORT = re.compile(r": error: @?(\S+) The definition `[^`]+` contains an underscore\.")
+
+
+def without_accepted_reports(output: str) -> str:
+    """Drop runLinter report lines for findings the naming policy accepts.
+
+    Module headers left with no report lines are dropped too. runLinter's own summary count
+    still includes the accepted findings; the driver prints the accepted count separately.
+    """
+    lines = [line for line in output.splitlines(keepends=True)
+             if not ((match := UNDERSCORE_REPORT.search(line))
+                     and accepted_by_policy((UNDERSCORE_LINTER, match.group(1))))]
+    kept = []
+    for index, line in enumerate(lines):
+        following = lines[index + 1] if index + 1 < len(lines) else ""
+        if line.startswith("-- ") and not line.startswith("-- Found ") and \
+                ": error: " not in following:
+            continue
+        kept.append(line)
+    return "".join(kept)
 
 
 def check_delta(current: set, baseline: set, *, prune: bool) -> None:
@@ -168,17 +228,16 @@ def environment(libraries: list[str], *, no_build: bool, prune: bool,
     if base_ref:
         base = run("git", "merge-base", "HEAD", base_ref, stdout=subprocess.PIPE).stdout.strip()
         previous = run("git", "show", f"{base}:{BASELINE}", stdout=subprocess.PIPE).stdout
-        # Retiring PMF/SPMF is tracked in nolints.json by declaration. A declaration
-        # that already used this API may first be exposed by a new import or linter
-        # improvement, so review additions to this one ledger in the baseline diff.
-        additions = {pair for pair in baseline - read_pairs(previous, base_ref)
-                     if pair[0] != RETIRED_PROBABILITY_LINTER}
+        additions = baseline - read_pairs(previous, base_ref)
         if additions:
             raise ValueError("Lint baseline additions relative to the merge base:\n"
                              + format_pairs(additions))
     if not no_build:
         run("lake", "build", *libraries)
     current = collect(executable("batteries/runLinter"), libraries, baseline_text)
+    accepted = set(filter(accepted_by_policy, current))
+    current -= accepted
+    print(f"Accepted {len(accepted)} acronym-led {UNDERSCORE_LINTER} findings by naming policy.")
     check_delta(current, baseline, prune=prune)
     if prune and current != baseline:
         write_baseline(BASELINE, current)
