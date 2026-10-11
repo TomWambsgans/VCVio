@@ -7,6 +7,7 @@ Authors: Oleksandr Vovkotrub
 module
 
 public import VCVio.CryptoFoundations.FiatShamir.WithAbort.Security
+public import VCVio.OracleComp.Constructions.SampleableType.Measure
 
 /-!
 # Fiat-Shamir-with-aborts CMA-to-NMA canaries
@@ -100,10 +101,10 @@ noncomputable def ghostRun :
 /-- Both attempts abort with distinct commitments (probability `1/2 · 1/2 · 1/2`): the real
 layer is empty and the ghost layer holds both rejected programmings. -/
 theorem ghostRun_pin_abort_abort :
-    Pr[= (none, ((none, none), (some false, some false))) | ghostRun] = 1 / 8 := by
-  refine (ENNReal.toReal_eq_toReal_iff' probOutput_ne_top (by finiteness)).mp ?_
+    Pr{let x ← ghostRun}[x = (none, ((none, none), (some false, some false)))] = 1 / 8 := by
+  refine (ENNReal.toReal_eq_toReal_iff' (prEvent_ne_top _) (by finiteness)).mp ?_
   simp [ghostRun, ghostSignBody, layerView, toyIds, StateT.run_bind, StateT.run_map,
-    StateT.run_modify, probOutput_bind_eq_tsum, uncacheQuery, QueryCache.cacheQuery,
+    StateT.run_modify, OracleComp.prEvent_bind_eq_tsum_prEvent, uncacheQuery, QueryCache.cacheQuery,
     Finset.filter_insert, Finset.filter_singleton]
   simp (disch := finiteness) [ENNReal.toReal_add, ENNReal.toReal_mul, ENNReal.toReal_inv]
   norm_num
@@ -112,10 +113,11 @@ theorem ghostRun_pin_abort_abort :
 `true` (probability `1/16`): the real layer holds the accepted programming at `(true, true)`
 and the ghost layer keeps the rejected one at `(true, false)`. -/
 theorem ghostRun_pin_abort_accept :
-    Pr[= (some (true, true), ((some true, none), (none, some false))) | ghostRun] = 1 / 16 := by
-  refine (ENNReal.toReal_eq_toReal_iff' probOutput_ne_top (by finiteness)).mp ?_
+    Pr{let x ← ghostRun}[x = (some (true, true), ((some true, none), (none, some false)))] =
+      1 / 16 := by
+  refine (ENNReal.toReal_eq_toReal_iff' (prEvent_ne_top _) (by finiteness)).mp ?_
   simp [ghostRun, ghostSignBody, layerView, toyIds, StateT.run_bind, StateT.run_map,
-    StateT.run_modify, probOutput_bind_eq_tsum, uncacheQuery, QueryCache.cacheQuery,
+    StateT.run_modify, OracleComp.prEvent_bind_eq_tsum_prEvent, uncacheQuery, QueryCache.cacheQuery,
     Finset.filter_insert, Finset.filter_singleton,
     ENNReal.toReal_mul, ENNReal.toReal_inv]
   norm_num
@@ -124,10 +126,10 @@ theorem ghostRun_pin_abort_accept :
 attempt succeeds there (`1/4`), or the first aborts there and the second succeeds there, in
 which case the accepted programming uncaches the ghost entry (`1/16`). -/
 theorem ghostRun_pin_accept_clean :
-    Pr[= (some (true, true), ((some true, none), (none, none))) | ghostRun] = 5 / 16 := by
-  refine (ENNReal.toReal_eq_toReal_iff' probOutput_ne_top (by finiteness)).mp ?_
+    Pr{let x ← ghostRun}[x = (some (true, true), ((some true, none), (none, none)))] = 5 / 16 := by
+  refine (ENNReal.toReal_eq_toReal_iff' (prEvent_ne_top _) (by finiteness)).mp ?_
   simp [ghostRun, ghostSignBody, layerView, toyIds, StateT.run_bind, StateT.run_map,
-    StateT.run_modify, probOutput_bind_eq_tsum, uncacheQuery, QueryCache.cacheQuery,
+    StateT.run_modify, OracleComp.prEvent_bind_eq_tsum_prEvent, uncacheQuery, QueryCache.cacheQuery,
     Finset.filter_insert, Finset.filter_singleton]
   simp (disch := finiteness) [ENNReal.toReal_add, ENNReal.toReal_mul, ENNReal.toReal_inv]
   norm_num
@@ -201,25 +203,26 @@ noncomputable def probeRun : ProbComp ProbeView :=
 signature, the forgery message is `true` because both hash answers agree, the uniform point
 is not cached, nothing is programmed, and the live read at `(true, false)` is cached. -/
 theorem probeRun_pin_abort :
-    Pr[= ⟨true, none, none, none, none, none, some true⟩ | probeRun] = 1 / 4 := by
-  refine (ENNReal.toReal_eq_toReal_iff' probOutput_ne_top (by finiteness)).mp ?_
+    Pr{let x ← probeRun}[x = ⟨true, none, none, none, none, none, some true⟩] = 1 / 4 := by
+  refine (ENNReal.toReal_eq_toReal_iff' (prEvent_ne_top _) (by finiteness)).mp ?_
   simp only [probeRun, simulatedNmaAdv, probeAdv, toySim, toyIds, firstSome, simulateQ_bind,
     simulateQ_query, OracleQuery.input_query, OracleQuery.cont_query, StateT.run_bind,
     StateT.run_get, map_eq_bind_pure_comp, bind_assoc, pure_bind, QueryImpl.add_apply_inl,
     QueryImpl.add_apply_inr, simulateQ_unifSim_run, roSim.simulateQ_liftComp]
   simp only [unifFwdImpl, QueryImpl.liftTarget_apply, HasQuery.toQueryImpl_apply,
     OracleComp.liftM_run_StateT, randomOracle, bind_assoc, QueryCache.cacheQuery, simulateQ_bind]
-  simp [probeView, probOutput_bind_eq_tsum, probOutput_query,
-    QueryCache.cacheQuery]
+  simp [probeView, OracleComp.prEvent_bind_eq_tsum_prEvent, prEvent_liftM_query_eq_card_div,
+    QueryCache.cacheQuery, Finset.filter_eq', Finset.filter_insert, Finset.filter_singleton]
+  simp (disch := finiteness) [ENNReal.toReal_add, ENNReal.toReal_mul, ENNReal.toReal_inv]
   norm_num
 
 /-- The simulator accepts at commitment `true` (`1/4`) and the live hash answer is `false`
 (`1/2`): the transcript is programmed at `(false, true)`, and the forgery point `(true, true)`
 is distinct from the cached live read at `(true, false)`, which survives. -/
 theorem probeRun_pin_sign_true :
-    Pr[= ⟨true, some (true, true), none, some true, none, none, some false⟩ | probeRun]
+    Pr{let x ← probeRun}[x = ⟨true, some (true, true), none, some true, none, none, some false⟩]
       = 1 / 8 := by
-  refine (ENNReal.toReal_eq_toReal_iff' probOutput_ne_top (by finiteness)).mp ?_
+  refine (ENNReal.toReal_eq_toReal_iff' (prEvent_ne_top _) (by finiteness)).mp ?_
   simp only [probeRun, simulatedNmaAdv, probeAdv, toySim, toyIds, firstSome, simulateQ_bind,
     simulateQ_query, OracleQuery.input_query, OracleQuery.cont_query, StateT.run_bind,
     StateT.run_get, map_eq_bind_pure_comp, bind_assoc, pure_bind, QueryImpl.add_apply_inl,
@@ -227,17 +230,17 @@ theorem probeRun_pin_sign_true :
   simp only [unifFwdImpl, QueryImpl.liftTarget_apply, HasQuery.toQueryImpl_apply,
     OracleComp.liftM_run_StateT, randomOracle, bind_assoc, QueryCache.cacheQuery, simulateQ_bind]
   simp (config := { decide := true }) [probeView,
-    probOutput_bind_eq_tsum, probOutput_query, QueryCache.cacheQuery, Fintype.sum_prod_type,
-    Finset.filter_insert, Finset.filter_singleton]
+    OracleComp.prEvent_bind_eq_tsum_prEvent, prEvent_liftM_query_eq_card_div, QueryCache.cacheQuery,
+    Fintype.sum_prod_type, Finset.filter_eq', Finset.filter_insert, Finset.filter_singleton]
   norm_num
 
 /-- The simulator accepts at commitment `false` (`1/4`): the transcript is programmed at
 `(false, false)`, and the forgery point `(true, false)` coincides with the cached live read,
 which Option B erases regardless of the live answer. -/
 theorem probeRun_pin_sign_false_erases :
-    Pr[= ⟨true, some (false, true), none, none, some true, none, none⟩ | probeRun]
+    Pr{let x ← probeRun}[x = ⟨true, some (false, true), none, none, some true, none, none⟩]
       = 1 / 4 := by
-  refine (ENNReal.toReal_eq_toReal_iff' probOutput_ne_top (by finiteness)).mp ?_
+  refine (ENNReal.toReal_eq_toReal_iff' (prEvent_ne_top _) (by finiteness)).mp ?_
   simp only [probeRun, simulatedNmaAdv, probeAdv, toySim, toyIds, firstSome, simulateQ_bind,
     simulateQ_query, OracleQuery.input_query, OracleQuery.cont_query, StateT.run_bind,
     StateT.run_get, map_eq_bind_pure_comp, bind_assoc, pure_bind, QueryImpl.add_apply_inl,
@@ -245,17 +248,18 @@ theorem probeRun_pin_sign_false_erases :
   simp only [unifFwdImpl, QueryImpl.liftTarget_apply, HasQuery.toQueryImpl_apply,
     OracleComp.liftM_run_StateT, randomOracle, bind_assoc, QueryCache.cacheQuery, simulateQ_bind]
   simp (config := { decide := true }) [probeView,
-    probOutput_bind_eq_tsum, probOutput_query, QueryCache.cacheQuery, Fintype.sum_prod_type,
-    Finset.filter_insert, Finset.filter_singleton]
+    OracleComp.prEvent_bind_eq_tsum_prEvent, prEvent_liftM_query_eq_card_div, QueryCache.cacheQuery,
+    Fintype.sum_prod_type, Finset.filter_eq', Finset.filter_insert, Finset.filter_singleton]
+  simp (disch := finiteness) [ENNReal.toReal_add, ENNReal.toReal_mul, ENNReal.toReal_inv]
   norm_num
 
 /-- The toy runtime is the caching random oracle over the empty cache. -/
 lemma runtime_evalDist_apply_singleton (oa : OracleComp toySpec Bool) (b : Bool) :
     (runtime (Commit := Bool) (Chal := Bool) Bool).evalDist oa {b} =
-      Pr[= b | (simulateQ (unifFwdImpl (Bool × Bool →ₒ Bool) +
+      Pr{let x ← ((simulateQ (unifFwdImpl (Bool × Bool →ₒ Bool) +
           (randomOracle : QueryImpl (Bool × Bool →ₒ Bool)
-            (StateT (Bool × Bool →ₒ Bool).QueryCache ProbComp))) oa).run' ∅] := by
-  rw [runtime_evalDist_eq_simulateQ_run', evalDist_apply_singleton]
+            (StateT (Bool × Bool →ₒ Bool).QueryCache ProbComp))) oa).run' ∅)}[x = b] := by
+  rw [runtime_evalDist_eq_simulateQ_run', ← prEvent_eq_evalDist_singleton]
 
 /-- The replay adversary: request one signature on `true` and return it as the forgery. -/
 def replayAdv : SignatureAlg.UnforgeableAdversary toySig where
@@ -267,14 +271,17 @@ def replayAdv : SignatureAlg.UnforgeableAdversary toySig where
 exists with probability `1/2`, and because its verification point is erased from the returned
 cache, verification re-hashes it live and accepts with probability `1/2`. Without the erasure
 the programmed challenge would be replayed and the value would be `1/2`. The proof goes through
-the bridge `managedRoNmaExp_simulatedNmaAdv_eq_eufNmaExp`, whose own proof is what the erasure
-sustains; the direct cache-level witness of the erasure is `probeRun_pin_sign_false_erases`. -/
+the bridge `managedRoNmaExperiment_simulatedNmaAdv_eq_eufNmaExperiment`, whose own proof is what the
+erasure sustains; the direct cache-level witness of the erasure is `probeRun_pin_sign_false_erases`.
+-/
 theorem managedRoNmaAdvantage_replay_pin :
     SignatureAlg.managedRoNmaAdvantage (runtime (Commit := Bool) (Chal := Bool) Bool)
       (simulatedNmaAdv toyIds toyHr Bool 1 toySim replayAdv) = 1 / 4 := by
-  rw [SignatureAlg.managedRoNmaAdvantage, managedRoNmaExp_simulatedNmaAdv_eq_eufNmaExp,
-    SignatureAlg.eufNmaExp, runtime_evalDist_apply_singleton]
-  refine (ENNReal.toReal_eq_toReal_iff' probOutput_ne_top (by finiteness)).mp ?_
+  classical
+  rw [SignatureAlg.managedRoNmaAdvantage,
+      managedRoNmaExperiment_simulatedNmaAdv_eq_eufNmaExperiment,
+    SignatureAlg.eufNmaExperiment, runtime_evalDist_apply_singleton]
+  refine (ENNReal.toReal_eq_toReal_iff' (prEvent_ne_top _) (by finiteness)).mp ?_
   simp only [simulatedEufNmaAdv, simulatedNmaAdv, replayAdv, toySim, toyIds, toyHr, firstSome,
     FiatShamirWithAbort,
     simulateQ_bind, simulateQ_query, OracleQuery.input_query, OracleQuery.cont_query,
@@ -282,9 +289,10 @@ theorem managedRoNmaAdvantage_replay_pin :
     QueryImpl.add_apply_inr, simulateQ_unifSim_run, roSim.simulateQ_liftComp]
   simp only [randomOracle, QueryCache.cacheQuery]
   simp (config := { decide := true }) [unifFwdImpl.simulateQ_run, roSim.simulateQ_liftM_spec_query,
-    StateT.run_bind, StateT.run_modifyGet, StateT.run_pure, map_eq_bind_pure_comp,
-    probOutput_bind_eq_tsum, Fintype.sum_prod_type, Finset.filter_insert, Finset.filter_singleton,
-    apply_ite Finset.card, Finset.card_singleton, Finset.card_empty, Finset.sum_ite_eq']
+    StateT.run_bind, StateT.run_modifyGet, StateT.run_pure,
+    OracleComp.prEvent_bind_eq_tsum_prEvent, Fintype.sum_prod_type, Finset.filter_insert,
+        Finset.filter_singleton,
+    apply_ite Finset.card, Finset.card_singleton, Finset.card_empty]
   simp (disch := finiteness) [ENNReal.toReal_add, ENNReal.toReal_mul, ENNReal.toReal_inv]
   norm_num
 
@@ -292,8 +300,9 @@ theorem managedRoNmaAdvantage_replay_pin :
 theorem eufNmaAdvantage_replay_pin :
     SignatureAlg.eufNmaAdvantage (runtime (Commit := Bool) (Chal := Bool) Bool)
       (simulatedEufNmaAdv toyIds toyHr Bool 1 toySim replayAdv) = 1 / 4 := by
-  rw [SignatureAlg.eufNmaAdvantage, SignatureAlg.eufNmaExp, runtime_evalDist_apply_singleton]
-  refine (ENNReal.toReal_eq_toReal_iff' probOutput_ne_top (by finiteness)).mp ?_
+  classical
+  rw [SignatureAlg.eufNmaAdvantage, SignatureAlg.eufNmaExperiment, runtime_evalDist_apply_singleton]
+  refine (ENNReal.toReal_eq_toReal_iff' (prEvent_ne_top _) (by finiteness)).mp ?_
   simp only [simulatedEufNmaAdv, simulatedNmaAdv, replayAdv, toySim, toyIds, toyHr, firstSome,
     FiatShamirWithAbort,
     simulateQ_bind, simulateQ_query, OracleQuery.input_query, OracleQuery.cont_query,
@@ -301,9 +310,10 @@ theorem eufNmaAdvantage_replay_pin :
     QueryImpl.add_apply_inr, simulateQ_unifSim_run, roSim.simulateQ_liftComp]
   simp only [randomOracle, QueryCache.cacheQuery]
   simp (config := { decide := true }) [unifFwdImpl.simulateQ_run, roSim.simulateQ_liftM_spec_query,
-    StateT.run_bind, StateT.run_modifyGet, StateT.run_pure, map_eq_bind_pure_comp,
-    probOutput_bind_eq_tsum, Fintype.sum_prod_type, Finset.filter_insert, Finset.filter_singleton,
-    apply_ite Finset.card, Finset.card_singleton, Finset.card_empty, Finset.sum_ite_eq']
+    StateT.run_bind, StateT.run_modifyGet, StateT.run_pure,
+    OracleComp.prEvent_bind_eq_tsum_prEvent, Fintype.sum_prod_type, Finset.filter_insert,
+        Finset.filter_singleton,
+    apply_ite Finset.card, Finset.card_singleton, Finset.card_empty]
   simp (disch := finiteness) [ENNReal.toReal_add, ENNReal.toReal_mul, ENNReal.toReal_inv]
   norm_num
 

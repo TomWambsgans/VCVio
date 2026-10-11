@@ -63,13 +63,49 @@ print("-- Linting passed for " + root + ".")
 
     def test_collection_accepts_reported_new_findings(self):
         tool = self.tool('''import pathlib, sys
-pathlib.Path("scripts/nolints.json").write_text('[["usesRetiredProbability", "A.legacy"]]')
+pathlib.Path("scripts/nolints.json").write_text('[["usesPMF", "A.legacy"]]')
 print("-- Found 1 errors in 1 declarations")
-print("The `usesRetiredProbability` linter reports:")
+print("The `usesPMF` linter reports:")
 sys.exit(1)
 ''')
         self.assertEqual(lint.collect(tool, ["A"], "[]"),
-                         {("usesRetiredProbability", "A.legacy")})
+                         {("usesPMF", "A.legacy")})
+
+    def test_acronym_led_underscore_names_are_accepted_by_policy(self):
+        for name in ("AsymmEncAlg.IND_CPA_Advantage", "SM_DT_UD_Adversary.State",
+                     "AsymmEncAlg.IND_CPA_OneTime_Game_ProbComp", "BR93.br93AsymmEnc.RO_Spec",
+                     "IND_CPA_oracleSpec", "Foo.«IND_CPA_Game»"):
+            self.assertTrue(lint.accepted_by_policy((lint.UNDERSCORE_LINTER, name)), name)
+        for name in ("AsymmEncAlg.IND_CPA_queryImpl'_counted",
+                     "Falcon.Concrete.BigInt31.zint_add", "KEMScheme.IND_CPA_Adversary.toIND_CCA",
+                     "A_B", "sha3_256", "«term_x_».IND_CPA"):
+            self.assertFalse(lint.accepted_by_policy((lint.UNDERSCORE_LINTER, name)), name)
+        self.assertFalse(lint.accepted_by_policy(("docBlame", "IND_CPA_Advantage")))
+
+    def test_policy_accepted_findings_are_not_baseline_entries(self):
+        lint.BASELINE.parent.mkdir()
+        lint.BASELINE.write_text('[["docBlame", "A.f"]]\n')
+        findings = {("docBlame", "A.f"), (lint.UNDERSCORE_LINTER, "A.IND_CPA_Game")}
+        with patch.object(lint, "collect", return_value=findings), \
+                patch.object(lint, "executable", return_value="fake-linter"):
+            lint.environment(["A"], no_build=True, prune=True, base_ref=None)
+        self.assertEqual(lint.BASELINE.read_text(), '[["docBlame", "A.f"]]\n')
+
+    def test_accepted_reports_are_not_echoed(self):
+        output = (
+            "-- Found 2 errors in 3 declarations in L with 1 linters\n\n"
+            "/- The `defsWithUnderscore` linter reports: -/\n"
+            "-- L.A\n"
+            "./L/A.lean:1:1: error: @N.IND_CPA_Game The definition `N.IND_CPA_Game` "
+            "contains an underscore. Rest.\n\n"
+            "-- L.B\n"
+            "./L/B.lean:2:1: error: N.zint_add The definition `N.zint_add` "
+            "contains an underscore. Rest.\n")
+        shown = lint.without_accepted_reports(output)
+        self.assertNotIn("IND_CPA_Game", shown)
+        self.assertNotIn("-- L.A", shown)
+        self.assertIn("-- L.B\n./L/B.lean:2:1: error: N.zint_add", shown)
+        self.assertIn("-- Found 2 errors", shown)
 
     def test_stale_entries_fail_check_but_allow_prune(self):
         baseline = {("docBlame", "A.f")}
@@ -159,7 +195,7 @@ sys.exit(23)
             collect.assert_not_called()
         self.assertEqual(lint.BASELINE.read_bytes(), before)
 
-    def test_retired_probability_findings_are_reviewed_in_baseline_diff(self):
+    def test_retired_probability_additions_are_rejected(self):
         subprocess.run(["git", "init", "-q"], check=True)
         lint.BASELINE.parent.mkdir()
         lint.BASELINE.write_text('[["docBlame", "A.f"]]\n')
@@ -168,10 +204,11 @@ sys.exit(23)
                         "user.email=lint-test@example.invalid", "-c", "commit.gpgSign=false",
                         "commit", "-qm", "Baseline"], check=True)
         lint.BASELINE.write_text('[["docBlame", "A.f"], '
-                                 '["usesRetiredProbability", "A.legacy"]]\n')
-        findings = {("docBlame", "A.f"), ("usesRetiredProbability", "A.legacy")}
+                                 '["usesPMF", "A.legacy"]]\n')
+        findings = {("docBlame", "A.f"), ("usesPMF", "A.legacy")}
         with patch.object(lint, "collect", return_value=findings), \
-                patch.object(lint, "executable", return_value="fake-linter"):
+                patch.object(lint, "executable", return_value="fake-linter"), \
+                self.assertRaisesRegex(ValueError, "additions relative to the merge base"):
             lint.environment(["A"], no_build=True, prune=False, base_ref="HEAD")
 
 

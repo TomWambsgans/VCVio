@@ -17,9 +17,8 @@ This module interprets the probability-independent symmetric-encryption experime
 the ciphertext-channel rows for every pair of messages, packaged as a Mathlib Markov kernel when
 the row family is measurable.
 
-The definitions do not select a discrete probability representation and do not assume that an
-arbitrary monad is efficient. They isolate the semantic claim that concrete complexity proofs can
-compose with separately.
+The definitions do not assume that an arbitrary monad is efficient. They isolate the semantic
+claim that concrete complexity proofs can compose with separately.
 -/
 
 @[expose] public section
@@ -37,34 +36,34 @@ variable {m : Type → Type v} [Monad m] {M K C : Type}
 /-- The round-trip experiment as a kernel from messages to decrypted outputs. -/
 noncomputable def completeKernel [MeasurableSpace M]
     (semantics : ProbabilitySemantics m) (encAlg : SymmEncAlg m M K C)
-    (hMeasurable : Measurable fun msg ↦ semantics.denote (encAlg.CompleteExp msg)) :
+    (hMeasurable : Measurable fun msg ↦ semantics.denote (encAlg.completenessExperiment msg)) :
     Kernel M (Option M) :=
-  ⟨fun msg ↦ semantics.denote (encAlg.CompleteExp msg), hMeasurable⟩
+  ⟨fun msg ↦ semantics.denote (encAlg.completenessExperiment msg), hMeasurable⟩
 
 @[simp]
 theorem completeKernel_apply [MeasurableSpace M]
     (semantics : ProbabilitySemantics m) (encAlg : SymmEncAlg m M K C)
-    (hMeasurable : Measurable fun msg ↦ semantics.denote (encAlg.CompleteExp msg))
+    (hMeasurable : Measurable fun msg ↦ semantics.denote (encAlg.completenessExperiment msg))
     (msg : M) :
     encAlg.completeKernel semantics hMeasurable msg =
-      semantics.denote (encAlg.CompleteExp msg) := rfl
+      semantics.denote (encAlg.completenessExperiment msg) := rfl
 
 instance isMarkovKernel_completeKernel [MeasurableSpace M]
     (semantics : ProbabilitySemantics m) (encAlg : SymmEncAlg m M K C)
-    (hMeasurable : Measurable fun msg ↦ semantics.denote (encAlg.CompleteExp msg)) :
+    (hMeasurable : Measurable fun msg ↦ semantics.denote (encAlg.completenessExperiment msg)) :
     IsMarkovKernel (encAlg.completeKernel semantics hMeasurable) where
-  isProbabilityMeasure msg := semantics.isProbabilityMeasure (encAlg.CompleteExp msg)
+  isProbabilityMeasure msg := semantics.isProbabilityMeasure (encAlg.completenessExperiment msg)
 
 /-- Measure-level perfect correctness: every round trip has the Dirac law at the input message. -/
-def measureComplete [MeasurableSpace M]
+def completeWith [MeasurableSpace M]
     (encAlg : SymmEncAlg m M K C) (semantics : ProbabilitySemantics m) : Prop :=
-  ∀ msg, semantics.denote (encAlg.CompleteExp msg) = Measure.dirac (some msg)
+  ∀ msg, semantics.denote (encAlg.completenessExperiment msg) = Measure.dirac (some msg)
 
 /-- Kernel form of measure-level perfect correctness. -/
-theorem measureComplete_iff_completeKernel_eq_dirac [MeasurableSpace M]
+theorem completeWith_iff_completeKernel_eq_dirac [MeasurableSpace M]
     (encAlg : SymmEncAlg m M K C) (semantics : ProbabilitySemantics m)
-    (hMeasurable : Measurable fun msg ↦ semantics.denote (encAlg.CompleteExp msg)) :
-    encAlg.measureComplete semantics ↔
+    (hMeasurable : Measurable fun msg ↦ semantics.denote (encAlg.completenessExperiment msg)) :
+    encAlg.completeWith semantics ↔
       ∀ msg, encAlg.completeKernel semantics hMeasurable msg = Measure.dirac (some msg) :=
   Iff.rfl
 
@@ -74,51 +73,51 @@ theorem measureComplete_iff_completeKernel_eq_dirac [MeasurableSpace M]
 noncomputable def perfectSecrecyCipherKernel [MeasurableSpace M] [MeasurableSpace C]
     (semantics : ProbabilitySemantics m) (encAlg : SymmEncAlg m M K C)
     (hMeasurable : Measurable fun msg ↦
-      semantics.denote (encAlg.PerfectSecrecyCipherGivenMsgExp msg)) :
+      semantics.denote (encAlg.perfectSecrecyCipherGivenMsgExperiment msg)) :
     Kernel M C :=
-  ⟨fun msg ↦ semantics.denote (encAlg.PerfectSecrecyCipherGivenMsgExp msg), hMeasurable⟩
+  ⟨fun msg ↦ semantics.denote (encAlg.perfectSecrecyCipherGivenMsgExperiment msg), hMeasurable⟩
 
 @[simp]
 theorem perfectSecrecyCipherKernel_apply [MeasurableSpace M] [MeasurableSpace C]
     (semantics : ProbabilitySemantics m) (encAlg : SymmEncAlg m M K C)
     (hMeasurable : Measurable fun msg ↦
-      semantics.denote (encAlg.PerfectSecrecyCipherGivenMsgExp msg))
+      semantics.denote (encAlg.perfectSecrecyCipherGivenMsgExperiment msg))
     (msg : M) :
     encAlg.perfectSecrecyCipherKernel semantics hMeasurable msg =
-      semantics.denote (encAlg.PerfectSecrecyCipherGivenMsgExp msg) := rfl
+      semantics.denote (encAlg.perfectSecrecyCipherGivenMsgExperiment msg) := rfl
 
 instance isMarkovKernel_perfectSecrecyCipherKernel
     [MeasurableSpace M] [MeasurableSpace C]
     (semantics : ProbabilitySemantics m) (encAlg : SymmEncAlg m M K C)
     (hMeasurable : Measurable fun msg ↦
-      semantics.denote (encAlg.PerfectSecrecyCipherGivenMsgExp msg)) :
+      semantics.denote (encAlg.perfectSecrecyCipherGivenMsgExperiment msg)) :
     IsMarkovKernel (encAlg.perfectSecrecyCipherKernel semantics hMeasurable) where
   isProbabilityMeasure msg :=
-    semantics.isProbabilityMeasure (encAlg.PerfectSecrecyCipherGivenMsgExp msg)
+    semantics.isProbabilityMeasure (encAlg.perfectSecrecyCipherGivenMsgExperiment msg)
 
 /-- Measure-level perfect secrecy: every pair of messages induces the same ciphertext measure. -/
-def measurePerfectSecrecyAt [MeasurableSpace C]
+def ciphertextRowsEqualWith [MeasurableSpace C]
     (encAlg : SymmEncAlg m M K C) (semantics : ProbabilitySemantics m) : Prop :=
   ∀ msg₀ msg₁,
-    semantics.denote (encAlg.PerfectSecrecyCipherGivenMsgExp msg₀) =
-      semantics.denote (encAlg.PerfectSecrecyCipherGivenMsgExp msg₁)
+    semantics.denote (encAlg.perfectSecrecyCipherGivenMsgExperiment msg₀) =
+      semantics.denote (encAlg.perfectSecrecyCipherGivenMsgExperiment msg₁)
 
 /-- Kernel-row form of measure-level perfect secrecy. -/
-theorem measurePerfectSecrecyAt_iff_kernel_rows_eq [MeasurableSpace M] [MeasurableSpace C]
+theorem ciphertextRowsEqualWith_iff_kernel_rows_eq [MeasurableSpace M] [MeasurableSpace C]
     (encAlg : SymmEncAlg m M K C) (semantics : ProbabilitySemantics m)
     (hMeasurable : Measurable fun msg ↦
-      semantics.denote (encAlg.PerfectSecrecyCipherGivenMsgExp msg)) :
-    encAlg.measurePerfectSecrecyAt semantics ↔
+      semantics.denote (encAlg.perfectSecrecyCipherGivenMsgExperiment msg)) :
+    encAlg.ciphertextRowsEqualWith semantics ↔
       ∀ msg₀ msg₁,
         encAlg.perfectSecrecyCipherKernel semantics hMeasurable msg₀ =
           encAlg.perfectSecrecyCipherKernel semantics hMeasurable msg₁ :=
   Iff.rfl
 
 /-- A ciphertext law independent of the message establishes measure-level perfect secrecy. -/
-theorem measurePerfectSecrecyAt_of_constant [MeasurableSpace C]
+theorem ciphertextRowsEqualWith_of_constant [MeasurableSpace C]
     (encAlg : SymmEncAlg m M K C) (semantics : ProbabilitySemantics m) (law : Measure C)
-    (hlaw : ∀ msg, semantics.denote (encAlg.PerfectSecrecyCipherGivenMsgExp msg) = law) :
-    encAlg.measurePerfectSecrecyAt semantics := by
+    (hlaw : ∀ msg, semantics.denote (encAlg.perfectSecrecyCipherGivenMsgExperiment msg) = law) :
+    encAlg.ciphertextRowsEqualWith semantics := by
   intro msg₀ msg₁
   rw [hlaw msg₀, hlaw msg₁]
 

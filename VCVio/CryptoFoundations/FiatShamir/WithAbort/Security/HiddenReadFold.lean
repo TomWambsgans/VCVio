@@ -49,17 +49,18 @@ variable (adv : SignatureAlg.UnforgeableAdversary
 /-! ## Direct route: averaged multi-key hidden-read fold to the target
 
 The direct route bounds the eager ghost-read bad probability by the multi-key
-hidden-target first-fire bound `OracleComp.probEvent_hiddenReadList_le` (`≤ n·(qH+1)·ε`
+hidden-target first-fire bound `OracleComp.prEvent_hiddenReadList_le` (`≤ n·(qH+1)·ε`
 for `n` ghost keys), then averages the per-key-count bound over the run's key-count law.
 The averaging step is the pure-`ℝ≥0∞` arithmetic fold `hiddenReadList_fold_le_target`
 below: it takes any sub-probability weight `P : ℕ → ℝ≥0∞` over the number of ghost keys
 whose mean is bounded by the expected attempt count `qS/(1-p)` (the
-`tsum_probOutput_commit_mul_abort_le` aggregate) and folds the per-count bound
+`tsum_prEvent_commit_mul_abort_le` aggregate) and folds the per-count bound
 `k·(qH+1)·ε` into the target `qS·(qH+1)·ε/(1-p)`. It is the `[fold]` step of the chain
-`Pr[eager bad] ≤ Pr[readManyList …] = Pr[hiddenReadList …] ≤ n·(qH+1)·ε ≤[fold] target`,
-consumed by `probEvent_ghostBlind_bad_le_of_fac` once that chain's deferred-sampling
-factorization is supplied as the hypothesis `hfac`. The headline instead charges the
-ghost-read bound through the first-moment route of
+the eager bad probability is at most that of `readManyList …`, which equals that of
+`hiddenReadList …`, at most `n·(qH+1)·ε`, folded into the target, consumed by
+`prEvent_ghostBlind_bad_le_of_fac` once that chain's deferred-sampling factorization is supplied as
+the hypothesis `hfac`. The headline instead charges the ghost-read bound through the first-moment
+route of
 `Security/TapeFactorization.lean`. -/
 lemma hiddenReadList_fold_le_target (qS qH : ℕ) (ε p_abort : ℝ) (hp : p_abort < 1)
     (P : ℕ → ℝ≥0∞)
@@ -86,7 +87,7 @@ omit [SampleableType Stmt] in
 `∑_{a<maxAttempts} ofReal p^a` — which counts *all* attempts (each attempt `a` is reached
 with probability `≤ pᵃ`, *including* the accepting one) — is bounded by `ofReal (1/(1-p))`.
 This is the geometric sum that turns the per-query charge increment of
-`tsum_probOutput_run_ghostSignBody_mul_memCharge_le` (factor `∑_{a<maxAttempts} pᵃ`) into the
+`tsum_prEvent_run_ghostSignBody_mul_memCharge_le` (factor `∑_{a<maxAttempts} pᵃ`) into the
 `1/(1-p)` factor of the target `qS·(qH+1)·ε/(1-p)`. -/
 lemma geomAttemptSum_le {p_abort : ℝ} (hp₀ : 0 ≤ p_abort) (hp : p_abort < 1) :
     (∑ a ∈ Finset.range maxAttempts, ENNReal.ofReal p_abort ^ a)
@@ -191,20 +192,20 @@ open scoped Classical in
 draw `oa`. Averaging a functional `F` over the post-step `(output, state)` pair therefore
 collapses the state coordinate to the fixed `p`: the per-`p` inner sum equals the plain
 uniform average of `F (·, p)`. Pure measure-theoretic rearrangement (`ENNReal.tsum_prod'`,
-off-diagonal collapse, `probOutput_map_injective` on the injective `(·, p)`); no
+off-diagonal collapse, `prEvent_map_injective` on the injective `(·, p)`); no
 probabilistic content. -/
-lemma tsum_probOutput_map_state_fixed {R G : Type} (oa : ProbComp R) (p : G)
+lemma tsum_prEvent_map_state_fixed {R G : Type} (oa : ProbComp R) (p : G)
     (F : R × G → ℝ≥0∞) :
-    (∑' z : R × G, Pr[= z | (fun u => (u, p)) <$> oa] * F z)
-      = ∑' u : R, Pr[= u | oa] * F (u, p) := by
+    (∑' z : R × G, Pr{let x ← (fun u => (u, p)) <$> oa}[x = z] * F z)
+      = ∑' u : R, Pr{let x ← oa}[x = u] * F (u, p) := by
   classical
   rw [ENNReal.tsum_prod']
   refine tsum_congr fun u => ?_
   rw [tsum_eq_single p ?_]
-  · rw [probOutput_map_injective oa (f := fun u => (u, p))
+  · rw [prEvent_map_injective oa (f := fun u => (u, p))
       (fun a b h => (Prod.ext_iff.mp h).1) u]
   · intro g hg
-    rw [probOutput_eq_zero_of_not_mem_support, zero_mul]
+    rw [prEvent_eq_zero_of_not_mem_support, zero_mul]
     intro hmem
     rw [support_map] at hmem
     obtain ⟨u', _, hu'⟩ := hmem
@@ -216,21 +217,21 @@ fixing the state, so the post-step ghost layer is always `p`'s. -/
 lemma ghostHybridImpl_unif_expected_enncard (pk : Stmt) (sk : Wit)
     (n : unifSpec.Domain) (p : GhostState M Commit Chal) :
     (∑' z : unifSpec.Range n × GhostState M Commit Chal,
-        Pr[= z | (ghostHybridImpl ids M maxAttempts true pk sk (.inl (.inl n))).run p] *
+        Pr{let x ← (ghostHybridImpl ids M maxAttempts true pk sk (.inl (.inl n))).run p}[x = z] *
           QueryCache.enncard (z.2.1.1.2))
       = QueryCache.enncard (p.1.1.2) := by
   classical
   calc (∑' z : unifSpec.Range n × GhostState M Commit Chal,
-        Pr[= z | (ghostHybridImpl ids M maxAttempts true pk sk (.inl (.inl n))).run p] *
+        Pr{let x ← (ghostHybridImpl ids M maxAttempts true pk sk (.inl (.inl n))).run p}[x = z] *
           QueryCache.enncard (z.2.1.1.2))
       = ∑' u : unifSpec.Range n,
-          Pr[= u | (HasQuery.toQueryImpl (spec := unifSpec) (m := ProbComp)) n] *
+          Pr{let x ← (HasQuery.toQueryImpl (spec := unifSpec) (m := ProbComp)) n}[x = u] *
             QueryCache.enncard (p.1.1.2) :=
-        tsum_probOutput_map_state_fixed
+        tsum_prEvent_map_state_fixed
           ((HasQuery.toQueryImpl (spec := unifSpec) (m := ProbComp)) n) p
           (fun z => QueryCache.enncard (z.2.1.1.2))
     _ = QueryCache.enncard (p.1.1.2) := by
-        rw [ENNReal.tsum_mul_right, tsum_probOutput_eq_one' (by simp), one_mul]
+        rw [ENNReal.tsum_mul_right, OracleComp.tsum_prEvent_eq_one _, one_mul]
 
 omit [SampleableType Stmt] in
 /-- Read step preserves the per-state expected ghost size: the eager read writes only the
@@ -238,7 +239,7 @@ omit [SampleableType Stmt] in
 lemma ghostHybridImpl_read_expected_enncard (pk : Stmt) (sk : Wit)
     (mc : M × Commit) (p : GhostState M Commit Chal) :
     (∑' z : Chal × GhostState M Commit Chal,
-        Pr[= z | (ghostHybridImpl ids M maxAttempts true pk sk (.inl (.inr mc))).run p] *
+        Pr{let x ← (ghostHybridImpl ids M maxAttempts true pk sk (.inl (.inr mc))).run p}[x = z] *
           QueryCache.enncard (z.2.1.1.2))
       = QueryCache.enncard (p.1.1.2) := by
   classical
@@ -253,50 +254,48 @@ lemma ghostHybridImpl_read_expected_enncard (pk : Stmt) (sk : Wit)
     · simp only [hgh, ↓reduceIte, support_pure] at hz
       subst hz; rfl
   have hconst : (∑' z : Chal × GhostState M Commit Chal,
-        Pr[= z | (ghostHybridImpl ids M maxAttempts true pk sk (.inl (.inr mc))).run p] *
+        Pr{let x ← (ghostHybridImpl ids M maxAttempts true pk sk (.inl (.inr mc))).run p}[x = z] *
           QueryCache.enncard (z.2.1.1.2))
       = ∑' z : Chal × GhostState M Commit Chal,
-        Pr[= z | (ghostHybridImpl ids M maxAttempts true pk sk (.inl (.inr mc))).run p] *
+        Pr{let x ← (ghostHybridImpl ids M maxAttempts true pk sk (.inl (.inr mc))).run p}[x = z] *
           QueryCache.enncard (p.1.1.2) := by
     refine tsum_congr fun z => ?_
     by_cases hz : z ∈ support ((ghostHybridImpl ids M maxAttempts true pk sk
         (.inl (.inr mc))).run p)
     · congr 1
       exact congrArg QueryCache.enncard (hghost z hz)
-    · have h0 : Pr[= z | (ghostHybridImpl ids M maxAttempts true pk sk (.inl (.inr mc))).run p]
-          = 0 := probOutput_eq_zero_of_not_mem_support hz
+    · have h0 : Pr{let x ← (ghostHybridImpl ids M maxAttempts true pk sk (.inl (.inr mc))).run
+                     p}[x = z]
+          = 0 := prEvent_eq_zero_of_not_mem_support _ hz
       rw [h0, zero_mul, zero_mul]
   rw [hconst, ENNReal.tsum_mul_right]
   have hone : (∑' z : Chal × GhostState M Commit Chal,
-      Pr[= z | (ghostHybridImpl ids M maxAttempts true pk sk (.inl (.inr mc))).run p]) = 1 := by
-    refine tsum_probOutput_eq_one' ?_
-    simp only [ghostHybridImpl, StateT.run_mk]
-    rcases hgh : p.1.1.2 mc with _ | v
-    · rcases p.1.1.1 mc with _ | v' <;> simp [roStep]
-    · simp
+      Pr{let x ← (ghostHybridImpl ids M maxAttempts true pk sk (.inl (.inr mc))).run p}[x = z]) =
+          1 := by
+    exact OracleComp.tsum_prEvent_eq_one _
   rw [hone, one_mul]
 
 omit [SampleableType Stmt] in
 /-- Sign step grows the per-state expected ghost size by at most `∑ attempts ≤ 1/(1-p)`: the
 signing body's accepted-transcript / rejected-attempt programming writes to the ghost layer
-(`tsum_probOutput_run_ghostSignBody_mul_ghost_enncard_le` plus the geometric fold). -/
+(`tsum_prEvent_run_ghostSignBody_mul_ghost_enncard_le` plus the geometric fold). -/
 lemma ghostHybridImpl_sign_expected_enncard_le (pk : Stmt) (sk : Wit) (msg : M)
     {p_abort : ℝ}
-    (hAbort : Pr[= none | ids.honestExecution pk sk] ≤ ENNReal.ofReal p_abort)
+    (hAbort : Pr{let x ← ids.honestExecution pk sk}[x = none] ≤ ENNReal.ofReal p_abort)
     (hp₀ : 0 ≤ p_abort) (hp : p_abort < 1) (p : GhostState M Commit Chal) :
     (∑' z : Option (Commit × Resp) × GhostState M Commit Chal,
-        Pr[= z | (ghostHybridImpl ids M maxAttempts true pk sk (.inr msg)).run p] *
+        Pr{let x ← (ghostHybridImpl ids M maxAttempts true pk sk (.inr msg)).run p}[x = z] *
           QueryCache.enncard (z.2.1.1.2))
       ≤ QueryCache.enncard (p.1.1.2) + ENNReal.ofReal (1 / (1 - p_abort)) := by
   classical
   -- The handler maps the `ghostSignBody` output state into the ghost layer; the expected
   -- ghost size of the result equals that of the `ghostSignBody` output's ghost component.
   have hmap : (∑' z : Option (Commit × Resp) × GhostState M Commit Chal,
-        Pr[= z | (ghostHybridImpl ids M maxAttempts true pk sk (.inr msg)).run p] *
+        Pr{let x ← (ghostHybridImpl ids M maxAttempts true pk sk (.inr msg)).run p}[x = z] *
           QueryCache.enncard (z.2.1.1.2))
       = ∑' w : Option (Commit × Resp) ×
           ((M × Commit →ₒ Chal).QueryCache × (M × Commit →ₒ Chal).QueryCache),
-        Pr[= w | (ghostSignBody ids M pk sk msg maxAttempts).run p.1.1] *
+        Pr{let x ← (ghostSignBody ids M pk sk msg maxAttempts).run p.1.1}[x = w] *
           QueryCache.enncard (w.2.2) := by
     rw [show (ghostHybridImpl ids M maxAttempts true pk sk (.inr msg)).run p
           = (fun alc => (alc.1, ((alc.2, msg :: p.1.2), p.2))) <$>
@@ -316,22 +315,22 @@ lemma ghostHybridImpl_sign_expected_enncard_le (pk : Stmt) (sk : Wit) (msg : M)
     · intro z hz
       simp only [Function.mem_support, ne_eq, mul_eq_zero, not_or] at hz
       have hzs : z ∈ support (g <$> (ghostSignBody ids M pk sk msg maxAttempts).run p.1.1) :=
-        (mem_support_iff _ z).mpr hz.1
+        (OracleComp.mem_support_iff_prEvent_ne_zero _ z).mpr hz.1
       rw [support_map] at hzs
       obtain ⟨w, hw, rfl⟩ := hzs
       refine ⟨⟨w, ?_⟩, rfl⟩
       simp only [Function.mem_support, ne_eq, mul_eq_zero, not_or]
-      refine ⟨probOutput_ne_zero_of_mem_support hw, ?_⟩
+      refine ⟨OracleComp.prEvent_ne_zero_of_mem_support hw, ?_⟩
       have heq : ((g w).2.1.1.2) = w.2.2 := rfl
       rw [heq] at hz; exact hz.2
     · rintro ⟨w, hw⟩
-      change Pr[= g w | g <$> (ghostSignBody ids M pk sk msg maxAttempts).run p.1.1] *
+      change Pr{let x ← g <$> (ghostSignBody ids M pk sk msg maxAttempts).run p.1.1}[x = g w] *
           QueryCache.enncard ((g w).2.1.1.2)
-        = Pr[= w | (ghostSignBody ids M pk sk msg maxAttempts).run p.1.1] *
+        = Pr{let x ← (ghostSignBody ids M pk sk msg maxAttempts).run p.1.1}[x = w] *
           QueryCache.enncard (w.2.2)
-      rw [probOutput_map_injective _ hginj]
+      rw [prEvent_map_injective _ hginj]
   rw [hmap]
-  refine le_trans (tsum_probOutput_run_ghostSignBody_mul_ghost_enncard_le ids M pk sk msg
+  refine le_trans (tsum_prEvent_run_ghostSignBody_mul_ghost_enncard_le ids M pk sk msg
     hAbort maxAttempts p.1.1.1 p.1.1.2) ?_
   gcongr
   exact geomAttemptSum_le maxAttempts hp₀ hp
@@ -339,7 +338,7 @@ lemma ghostHybridImpl_sign_expected_enncard_le (pk : Stmt) (sk : Wit) (msg : M)
 /-- **Per-state ghost charge accumulator** for the threaded eager-charge bound: the
 mass-weighted total size of the ghost cache layer. Linear in the state measure `ν`, preserved
 by read/uniform steps (which never write the ghost layer) and grown additively by sign steps
-(`tsum_probOutput_run_ghostSignBody_mul_ghost_enncard_le`). -/
+(`tsum_prEvent_run_ghostSignBody_mul_ghost_enncard_le`). -/
 noncomputable def ghostChargeK (ν : GhostState M Commit Chal → ℝ≥0∞) : ℝ≥0∞ :=
   ∑' p : GhostState M Commit Chal, ν p * QueryCache.enncard (p.1.1.2)
 
@@ -362,19 +361,22 @@ mass: the post-step flag equals the pre-step flag with probability one (mass `�
 lemma ghostHybridImpl_flag_preserved_le {γ : Type}
     (run : ProbComp (γ × GhostState M Commit Chal)) (p : GhostState M Commit Chal)
     (hflag : ∀ z ∈ support run, z.2.2 = p.2) :
-    (∑' z : γ × GhostState M Commit Chal, Pr[= z | run] * (if z.2.2 = true then 1 else 0))
+    (∑' z : γ × GhostState M Commit Chal, Pr{let x ← run}[x = z] * (if z.2.2 = true then 1 else 0))
       ≤ (if p.2 = true then 1 else 0) := by
   classical
-  calc (∑' z : γ × GhostState M Commit Chal, Pr[= z | run] * (if z.2.2 = true then 1 else 0))
-      = ∑' z : γ × GhostState M Commit Chal, Pr[= z | run] * (if p.2 = true then 1 else 0) := by
+  calc (∑' z : γ × GhostState M Commit Chal, Pr{let x ← run}[x = z]
+      * (if z.2.2 = true then 1 else 0))
+      = ∑' z : γ × GhostState M Commit Chal,
+          Pr{let x ← run}[x = z] * (if p.2 = true then 1 else 0) := by
         refine tsum_congr fun z => ?_
         by_cases hz : z ∈ support run
         · rw [hflag z hz]
-        · rw [probOutput_eq_zero_of_not_mem_support hz, zero_mul, zero_mul]
-    _ = (∑' z : γ × GhostState M Commit Chal, Pr[= z | run]) * (if p.2 = true then 1 else 0) := by
+        · rw [prEvent_eq_zero_of_not_mem_support _ hz, zero_mul, zero_mul]
+    _ = (∑' z : γ × GhostState M Commit Chal, Pr{let x ← run}[x = z])
+        * (if p.2 = true then 1 else 0) := by
         rw [ENNReal.tsum_mul_right]
     _ ≤ (if p.2 = true then 1 else 0) :=
-        mul_le_of_le_one_left zero_le tsum_probOutput_le_one
+        mul_le_of_le_one_left zero_le (OracleComp.tsum_prEvent_le_one _)
 
 omit [SampleableType Stmt] in
 /-- Per-state read-step bad-mass bound: the eager read sets the bad flag only on a ghost hit,
@@ -383,7 +385,7 @@ the read target. -/
 lemma ghostHybridImpl_read_expected_flag_le (pk : Stmt) (sk : Wit)
     (mc : M × Commit) (p : GhostState M Commit Chal) :
     (∑' z : Chal × GhostState M Commit Chal,
-        Pr[= z | (ghostHybridImpl ids M maxAttempts true pk sk (.inl (.inr mc))).run p] *
+        Pr{let x ← (ghostHybridImpl ids M maxAttempts true pk sk (.inl (.inr mc))).run p}[x = z] *
           (if z.2.2 = true then 1 else 0))
       ≤ (if p.2 = true then 1 else 0) + memCharge M p.1.1.2 mc := by
   classical
@@ -406,23 +408,24 @@ lemma ghostHybridImpl_read_expected_flag_le (pk : Stmt) (sk : Wit)
       rw [show memCharge M p.1.1.2 mc = 1 by simp [memCharge, hgh]]
       exact le_add_self
   calc (∑' z : Chal × GhostState M Commit Chal,
-          Pr[= z | (ghostHybridImpl ids M maxAttempts true pk sk (.inl (.inr mc))).run p] *
+          Pr{let x ← (ghostHybridImpl ids M maxAttempts true pk sk (.inl (.inr mc))).run p}[x = z] *
             (if z.2.2 = true then 1 else 0))
       ≤ ∑' z : Chal × GhostState M Commit Chal,
-          Pr[= z | (ghostHybridImpl ids M maxAttempts true pk sk (.inl (.inr mc))).run p] *
+          Pr{let x ← (ghostHybridImpl ids M maxAttempts true pk sk (.inl (.inr mc))).run p}[x = z] *
             ((if p.2 = true then 1 else 0) + memCharge M p.1.1.2 mc) := by
         refine ENNReal.tsum_le_tsum fun z => ?_
         by_cases hz : z ∈ support ((ghostHybridImpl ids M maxAttempts true pk sk
             (.inl (.inr mc))).run p)
         · gcongr; exact hflag z hz
         · refine le_of_eq (mul_eq_zero.mpr (Or.inl ?_)) |>.trans zero_le
-          exact probOutput_eq_zero_of_not_mem_support hz
+          exact prEvent_eq_zero_of_not_mem_support _ hz
     _ = (∑' z : Chal × GhostState M Commit Chal,
-          Pr[= z | (ghostHybridImpl ids M maxAttempts true pk sk (.inl (.inr mc))).run p]) *
+          Pr{let x ← (ghostHybridImpl ids M maxAttempts true pk sk (.inl (.inr mc))).run
+               p}[x = z]) *
           ((if p.2 = true then 1 else 0) + memCharge M p.1.1.2 mc) := by
         rw [ENNReal.tsum_mul_right]
     _ ≤ (if p.2 = true then 1 else 0) + memCharge M p.1.1.2 mc :=
-        mul_le_of_le_one_left zero_le tsum_probOutput_le_one
+        mul_le_of_le_one_left zero_le (OracleComp.tsum_prEvent_le_one _)
 
 omit [SampleableType Stmt] in
 /-- **`h_carry` premise of the threaded bound for the ghost handler.** The carried bad mass
@@ -432,8 +435,8 @@ lemma avgBadM_ghostHybridImpl_threaded_carry
     (ε p_abort : ℝ) (_hp₀ : 0 ≤ p_abort) (_hp : p_abort < 1) (_hε : 0 ≤ ε)
     (pk : Stmt) (sk : Wit)
     (_hGuess : ∀ cm : Commit,
-      Pr[= cm | Prod.fst <$> ids.commit pk sk] ≤ ENNReal.ofReal ε)
-    (_hAbort : Pr[= none | ids.honestExecution pk sk] ≤ ENNReal.ofReal p_abort)
+      Pr{let x ← Prod.fst <$> ids.commit pk sk}[x = cm] ≤ ENNReal.ofReal ε)
+    (_hAbort : Pr{let x ← ids.honestExecution pk sk}[x = none] ≤ ENNReal.ofReal p_abort)
     (ν : GhostState M Commit Chal → ℝ≥0∞)
     (_hInv : ghostChargeInv M ε ν)
     (t : ((unifSpec + (M × Commit →ₒ Chal)) + (M →ₒ Option (Commit × Resp))).Domain) :
@@ -462,7 +465,8 @@ lemma avgBadM_ghostHybridImpl_threaded_carry
     rw [ite_eq_left (by simp)]
     calc (∑' p : GhostState M Commit Chal, ν p *
             ∑' z : Chal × GhostState M Commit Chal,
-              Pr[= z | (ghostHybridImpl ids M maxAttempts true pk sk (.inl (.inr mc))).run p] *
+              Pr{let x ← (ghostHybridImpl ids M maxAttempts true pk sk (.inl (.inr mc))).run
+                   p}[x = z] *
                 (if z.2.2 = true then 1 else 0))
         ≤ ∑' p : GhostState M Commit Chal, ν p *
             ((if p.2 = true then 1 else 0) + memCharge M p.1.1.2 mc) :=
@@ -494,8 +498,8 @@ lemma avgBadM_ghostHybridImpl_threaded_K
     (ε p_abort : ℝ) (hp₀ : 0 ≤ p_abort) (hp : p_abort < 1) (_hε : 0 ≤ ε)
     (pk : Stmt) (sk : Wit)
     (_hGuess : ∀ cm : Commit,
-      Pr[= cm | Prod.fst <$> ids.commit pk sk] ≤ ENNReal.ofReal ε)
-    (hAbort : Pr[= none | ids.honestExecution pk sk] ≤ ENNReal.ofReal p_abort)
+      Pr{let x ← Prod.fst <$> ids.commit pk sk}[x = cm] ≤ ENNReal.ofReal ε)
+    (hAbort : Pr{let x ← ids.honestExecution pk sk}[x = none] ≤ ENNReal.ofReal p_abort)
     (ν : GhostState M Commit Chal → ℝ≥0∞)
     (_hInv : ghostChargeInv M ε ν)
     (t : ((unifSpec + (M × Commit →ₒ Chal)) + (M →ₒ Option (Commit × Resp))).Domain) :
@@ -518,7 +522,7 @@ lemma avgBadM_ghostHybridImpl_threaded_K
       = ∑' p : GhostState M Commit Chal, ν p *
           ∑' z : (((unifSpec + (M × Commit →ₒ Chal)) +
               (M →ₒ Option (Commit × Resp))).Range t) × GhostState M Commit Chal,
-            Pr[= z | (ghostHybridImpl ids M maxAttempts true pk sk t).run p] *
+            Pr{let x ← (ghostHybridImpl ids M maxAttempts true pk sk t).run p}[x = z] *
               QueryCache.enncard (z.2.1.1.2) := by
     rw [← OracleComp.ProgramLogic.Relational.tsum_tsum_postStepOutM_mul
       (ghostHybridImpl ids M maxAttempts true pk sk) ν t (fun s => QueryCache.enncard s.1.1.2)]

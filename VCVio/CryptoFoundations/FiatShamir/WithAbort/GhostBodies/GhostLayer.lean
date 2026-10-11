@@ -38,7 +38,7 @@ variable (sim : Stmt → ProbComp (Option (Commit × Chal × Resp)))
 
 /-! ## Ghost-layer presentation of the reprogramming bodies
 
-The Prog → Trans hop (`probOutput_hybridExpAtKey_prog_le_trans`) compares two signing
+The Prog → Trans hop (`prEvent_hybridExpAtKey_prog_le_trans`) compares two signing
 bodies whose caches genuinely differ throughout the run: `progSignBody` programs every
 attempt, while `transSignBody` programs only the accepted transcript. The bridge is a
 two-layer presentation of the cache: a *real* layer holding the entries both games agree
@@ -234,7 +234,7 @@ The Prog-side handler (`ghostHybridImpl … true`) answers such a query from the
 layer (matching `progSignBody`'s overlaid cache), while the Trans-side handler
 (`ghostHybridImpl … false`) answers it from the real layer (matching `transSignBody`'s
 cache). On every other query the two handlers are literally identical, which is the
-identical-until-bad shape of `tvDist_simulateQ_run_le_probEvent_output_bad`. -/
+identical-until-bad shape of `measureETVDist_simulateQ_run_le_prEvent_bad`. -/
 
 /-- One caching random-oracle step on a bare cache, as a `ProbComp`. Agrees with
 `(randomOracle mc).run re` (see `randomOracle_run_eq_roStep`). -/
@@ -291,21 +291,21 @@ lemma ghostHybridImpl_agree_good (pk : Stmt) (sk : Wit)
     (s : ((M × Commit →ₒ Chal).QueryCache × (M × Commit →ₒ Chal).QueryCache) × List M)
     (u : ((unifSpec + (M × Commit →ₒ Chal)) + (M →ₒ Option (Commit × Resp))).Range t)
     (s' : ((M × Commit →ₒ Chal).QueryCache × (M × Commit →ₒ Chal).QueryCache) × List M) :
-    Pr[= (u, (s', false)) |
-        (ghostHybridImpl ids M maxAttempts true pk sk t).run (s, false)] =
-      Pr[= (u, (s', false)) |
-        (ghostHybridImpl ids M maxAttempts false pk sk t).run (s, false)] := by
+    Pr{let x ← (ghostHybridImpl ids M maxAttempts true pk sk t).run
+         (s, false)}[x = (u, (s', false))] =
+      Pr{let x ← (ghostHybridImpl ids M maxAttempts false pk sk t).run
+           (s, false)}[x = (u, (s', false))] := by
   rcases t with (n | mc) | msg
   · rfl
   · simp only [ghostHybridImpl, StateT.run_mk]
     cases hgh : s.1.2 mc with
     | some v =>
         simp only [↓reduceIte]
-        rw [probOutput_eq_zero_of_not_mem_support (by
+        rw [prEvent_eq_zero_of_not_mem_support _ (by
             intro h
             rw [support_pure] at h
             simpa using congrArg (fun z : _ × GhostState M Commit Chal => z.2.2) h),
-          probOutput_eq_zero_of_not_mem_support (by
+          prEvent_eq_zero_of_not_mem_support _ (by
             intro h
             rw [ite_eq_right Bool.false_ne_true, support_map] at h
             obtain ⟨cu, -, hcu⟩ := h
@@ -383,10 +383,9 @@ lemma ghostBlindImpl_agree_good (pk : Stmt) (sk : Wit)
     (s : ((M × Commit →ₒ Chal).QueryCache × (M × Commit →ₒ Chal).QueryCache) × List M)
     (u : ((unifSpec + (M × Commit →ₒ Chal)) + (M →ₒ Option (Commit × Resp))).Range t)
     (s' : ((M × Commit →ₒ Chal).QueryCache × (M × Commit →ₒ Chal).QueryCache) × List M) :
-    Pr[= (u, (s', false)) |
-        (ghostHybridImpl ids M maxAttempts true pk sk t).run (s, false)] =
-      Pr[= (u, (s', false)) |
-        (ghostBlindImpl ids M maxAttempts pk sk t).run (s, false)] :=
+    Pr{let x ← (ghostHybridImpl ids M maxAttempts true pk sk t).run
+         (s, false)}[x = (u, (s', false))] =
+      Pr{let x ← (ghostBlindImpl ids M maxAttempts pk sk t).run (s, false)}[x = (u, (s', false))] :=
   ghostHybridImpl_agree_good ids M maxAttempts pk sk t s u s'
 
 omit [SampleableType Stmt] in

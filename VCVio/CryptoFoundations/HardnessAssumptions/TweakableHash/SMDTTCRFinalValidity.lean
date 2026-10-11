@@ -8,7 +8,7 @@ module
 public import VCVio.CryptoFoundations.HardnessAssumptions.TweakableHash.FinalValidity
 public import VCVio.CryptoFoundations.HardnessAssumptions.TweakableHash.SMDTTCR
 public import VCVio.OracleComp.SimSemantics.StateT.PreservesInv
-public import VCVio.OracleComp.EvalDist.UniformCompatibility
+public import VCVio.OracleComp.EvalDist.AnswerMeasure
 
 /-!
 # Source-final-validity SM-DT-TCR
@@ -154,9 +154,5 @@ theorem valid_eq_decide_valid_of_reachable {prob : Problem ι PkSeed Tweak M Y}
     adv.choose .initial (SourceFinalValidity.invariant_initial _ _) z hz).eq_decide _ _ _
 
 end Reachable
-
--- Declaration-specific naming exceptions for this game's underscore-separated names.
-attribute [nolint defsWithUnderscore]
-  experiment advantage
 
 end TweakableHash.SM_DT_TCR_SourceFinalValidity
