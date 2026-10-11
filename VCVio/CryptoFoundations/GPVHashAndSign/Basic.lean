@@ -13,6 +13,8 @@ public import VCVio.OracleComp.QueryTracking.RandomOracle.Simulation
 public import VCVio.OracleComp.QueryTracking.RandomOracle.DeferredSampling
 public import VCVio.OracleComp.QueryTracking.RandomOracle.ProbeEps
 public import VCVio.OracleComp.Coercions.Add.Basic
+public import VCVio.OracleComp.ProbCompLift
+public import VCVio.EvalDist.Defs.Semantics.Core
 public import VCVio.OracleComp.SimSemantics.StateT.BundledSemantics
 public import VCVio.ProgramLogic.Relational.ProgrammingOracle
 
@@ -90,7 +92,8 @@ the trapdoor sampler, so it is not vacuously true. -/
     (psf : PreimageSampleableFunction PK SK Domain Range) : Prop :=
   ∃ domainSample : PK → ProbComp Domain,
     ∀ (pk : PK) (sk : SK),
-      (do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain)) =ᵈ (do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
+      (do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain)) =ᵈ
+        (do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
             : ProbComp (Range × Domain))
 
 end PreimageSampleableFunction
@@ -145,10 +148,10 @@ variable {PK SK Domain Range : Type}
     ProbCompRuntime (OracleComp (unifSpec + (Salt × M →ₒ Range))) :=
   ProbCompRuntime.rom (Salt × M →ₒ Range)
 
-/-- The GPV random-oracle world observed as a subprobability distribution: public randomness is
-forwarded and hash queries are answered by the lazy random oracle from the empty cache. The
-measure-valued `runtime` observes the same simulation (`runtime_evalDist_singleton`); the game
-hops are stated against this distribution. -/
+/-- The GPV random-oracle world as a bundled measure semantics: public randomness is forwarded
+and hash queries are answered by the lazy random oracle from the empty cache. The runtime
+bundle `runtime` observes the same simulation (`runtime_evalDist`); the game hops are stated
+against the `ProbComp` run `runtimeRun` of this semantics. -/
 @[expose] noncomputable def runtimeSemantics :
     SemanticsVia (OracleComp (unifSpec + (Salt × M →ₒ Range))) :=
   SemanticsVia.withStateOracle
@@ -156,13 +159,33 @@ hops are stated against this distribution. -/
       QueryImpl (Salt × M →ₒ Range) (StateT ((Salt × M →ₒ Range).QueryCache) ProbComp)))
     ∅
 
+/-- The GPV random-oracle world run as a `ProbComp` program: the computation is interpreted by
+`runtimeSemantics` and the lazy random oracle's cache is run from `∅`. Its output measure is the
+measure of `runtimeSemantics` (`evalDist_runtimeRun`). -/
+@[expose] noncomputable def runtimeRun {α : Type}
+    (oa : OracleComp (unifSpec + (Salt × M →ₒ Range)) α) : ProbComp α :=
+  ((runtimeSemantics M Salt).interpret oa).run' ∅
+
 omit [DecidableEq Range] [SampleableType Salt] [Fintype Salt] in
-/-- The point masses of `runtime` are those of `runtimeSemantics`. -/
+/-- The measure of `runtimeSemantics` is the measure of its `ProbComp` run. -/
+theorem evalDist_runtimeRun {α : Type} [MeasurableSpace α]
+    (oa : OracleComp (unifSpec + (Salt × M →ₒ Range)) α) :
+    𝒟[runtimeRun M Salt oa] = (runtimeSemantics M Salt).evalDist oa :=
+  rfl
+
+omit [DecidableEq Range] [SampleableType Salt] [Fintype Salt] in
+/-- The measures of `runtime` are those of `runtimeSemantics`. -/
+theorem runtime_evalDist {α : Type} [MeasurableSpace α]
+    (oa : OracleComp (unifSpec + (Salt × M →ₒ Range)) α) :
+    (runtime M Salt).evalDist oa = (runtimeSemantics M Salt).evalDist oa :=
+  rfl
+
+omit [DecidableEq Range] [SampleableType Salt] [Fintype Salt] in
+/-- The point masses of `runtime` are the output probabilities of `runtimeRun`. -/
 theorem runtime_evalDist_singleton {α : Type} [MeasurableSpace α] [MeasurableSingletonClass α]
     (oa : OracleComp (unifSpec + (Salt × M →ₒ Range)) α) (x : α) :
-    (runtime M Salt).evalDist oa {x} = Pr{let y ← (runtimeSemantics M Salt).evalSPMF oa}[y = x] := by
-  rw [runtime, ProbCompRuntime.rom_evalDist, evalDist_apply_singleton]
-  rfl
+    (runtime M Salt).evalDist oa {x} = Pr{let y ← runtimeRun M Salt oa}[y = x] := by
+  rw [runtime_evalDist, ← evalDist_runtimeRun, prEvent_eq_evalDist_singleton]
 
 /-- Structural query bound for GPV EUF-CMA adversaries that tracks both signing-oracle
 queries (`qSign`) and random-oracle queries (`qHash`). Uniform-sampling queries are
@@ -198,7 +221,7 @@ abbrev CollisionAdversary := PK → ProbComp (Domain × Domain)
 @[expose] noncomputable def collisionFindingAdvantage [DecidableEq Domain]
     (adversary : CollisionAdversary (PK := PK) (Domain := Domain)) :
     ℝ≥0∞ :=
-  Pr{let x ← collisionFindingExperiment (psf := psf) (hr := hr) adversary}[x = true]
+  𝒟[collisionFindingExperiment (psf := psf) (hr := hr) adversary] {true}
 
 /-- A programmed-preimage adversary receives a public key and a programmed target `y`,
 and tries to reproduce the challenger's hidden short preimage sampled for `y`. -/
@@ -224,7 +247,7 @@ succeeds iff it reproduces exactly the hidden programmed preimage `x`. -/
     (adversary : ProgrammedPreimageAdversary
       (PK := PK) (Domain := Domain) (Range := Range)) :
     ℝ≥0∞ :=
-  Pr{let x ← programmedPreimageExperiment (psf := psf) (hr := hr) adversary}[x = true]
+  𝒟[programmedPreimageExperiment (psf := psf) (hr := hr) adversary] {true}
 
 
 end GPVHashAndSign

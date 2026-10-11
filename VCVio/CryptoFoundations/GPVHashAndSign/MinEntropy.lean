@@ -22,7 +22,7 @@ min-entropy `H∞`.
   supremum of pointwise output masses over honestly generated keys and all targets.
 * `programmedPreimageAdvantage_le_trapdoorGuessingProbability` — the generic bound: every
   programmed-preimage adversary's advantage is at most that guessing probability.
-* `programmedPreimageAdvantage_le_of_probOutput_trapdoorSample_le` — hypothesis form: a
+* `programmedPreimageAdvantage_le_of_prEvent_trapdoorSample_le` — hypothesis form: a
   uniform pointwise bound `ε` on the sampler's masses at honest keys bounds the advantage
   by `ε`.
 
@@ -66,10 +66,10 @@ theorem programmedPreimageAdvantage_le_trapdoorGuessingProbability [DecidableEq 
       trapdoorGuessingProbability psf hr := by
   classical
   unfold programmedPreimageAdvantage programmedPreimageExperiment
-  rw [← probEvent_eq_eq_probOutput]
-  refine prEvent_bind_le_of_forall_le fun pksk hmem => ?_
+  rw [← prEvent_eq_evalDist_singleton]
+  refine prEvent_bind_le_of_forall_le_of_support _ _ _ fun pksk hmem => ?_
   obtain ⟨pk, sk⟩ := pksk
-  refine prEvent_bind_le_of_forall_le fun y _ => ?_
+  refine prEvent_bind_le_of_forall_le _ _ _ fun y => ?_
   have hinner : ∀ x : Domain,
       Pr{let z ← adversary pk y >>= fun x' => pure (decide (x' = x))}[z = true]
         = Pr{let z ← adversary pk y}[z = x] := by
@@ -79,17 +79,18 @@ theorem programmedPreimageAdvantage_le_trapdoorGuessingProbability [DecidableEq 
     simp [hx']
   calc Pr{let z ← (psf.trapdoorSample pk sk y >>= fun x =>
         adversary pk y >>= fun x' => pure (decide (x' = x)))}[z = true]
-      = ∑' x : Domain, Pr{let z ← psf.trapdoorSample pk sk y}[z = x] * Pr{let z ← adversary pk y}[z = x] := by
+      = ∑' x : Domain, Pr{let z ← psf.trapdoorSample pk sk y}[z = x] *
+          Pr{let z ← adversary pk y}[z = x] := by
         rw [OracleComp.prEvent_bind_eq_tsum]
         exact tsum_congr fun x => by rw [hinner]
-    _ ≤ ∑' x : Domain,
-          (⨆ z : Domain, Pr{let x ← psf.trapdoorSample pk sk y}[x = z]) * Pr{let z ← adversary pk y}[z = x] :=
+    _ ≤ ∑' x : Domain, (⨆ z : Domain, Pr{let x ← psf.trapdoorSample pk sk y}[x = z]) *
+          Pr{let z ← adversary pk y}[z = x] :=
         ENNReal.tsum_le_tsum fun x => mul_le_mul'
           (le_iSup (fun z => Pr{let x ← psf.trapdoorSample pk sk y}[x = z]) x) le_rfl
     _ = (⨆ z : Domain, Pr{let x ← psf.trapdoorSample pk sk y}[x = z])
           * ∑' x : Domain, Pr{let z ← adversary pk y}[z = x] := ENNReal.tsum_mul_left
     _ ≤ (⨆ z : Domain, Pr{let x ← psf.trapdoorSample pk sk y}[x = z]) * 1 :=
-        mul_le_mul' le_rfl OracleComp.tsum_prEvent_le_one
+        mul_le_mul' le_rfl (OracleComp.tsum_prEvent_le_one _)
     _ = ⨆ z : Domain, Pr{let x ← psf.trapdoorSample pk sk y}[x = z] := mul_one _
     _ ≤ trapdoorGuessingProbability psf hr := by
         unfold trapdoorGuessingProbability
@@ -101,7 +102,7 @@ theorem programmedPreimageAdvantage_le_trapdoorGuessingProbability [DecidableEq 
 trapdoor sampler's output masses at honestly generated keys bounds every programmed-preimage
 adversary's advantage by `ε`.  This is the shape consumed by the exact-match hypothesis
 `hMinEntropy` of `euf_cma_collision_bound`. -/
-theorem programmedPreimageAdvantage_le_of_probOutput_trapdoorSample_le [DecidableEq Domain]
+theorem programmedPreimageAdvantage_le_of_prEvent_trapdoorSample_le [DecidableEq Domain]
     (adversary : ProgrammedPreimageAdversary
       (PK := PK) (Domain := Domain) (Range := Range))
     {ε : ℝ≥0∞}
