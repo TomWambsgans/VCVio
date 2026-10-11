@@ -1,9 +1,10 @@
 # Dependency and source provenance
 
 
-The optional [Cryptol model](../README.md) builds on the local
-v4.35 work at PolyFun `559cd9857da50cf6f4f113c60702bf3176c9541d`
-([PR 271](https://github.com/Verified-zkEVM/PolyFun/pull/271)). The dependency
+The optional [Cryptol model](../README.md) pins the published PolyFun companion
+at `66cc2941b07c86b14ddc9384c2c97e081d4c3cbf`. That development builds on the
+v4.35 work at `559cd9857da50cf6f4f113c60702bf3176c9541d`
+([PR 271](https://github.com/Verified-zkEVM/PolyFun/pull/271)). The other dependency
 pins remain Lean `v4.35.0-rc3`, Mathlib
 `c55e6e786f49471c72fbddbec5415808896aec1e`, and CSLib
 `a91aaaf96a72419b399c41c974a171749bf5b929`. Exact weakest preconditions are

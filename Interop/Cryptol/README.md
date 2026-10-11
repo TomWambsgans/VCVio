@@ -16,7 +16,10 @@ lake exe cryptol-interop model arx-native 32 8
 ./scripts/validate.sh --cryptol --lint --test --axioms
 ```
 
-The current development needs the companion PolyFun changes. For a local checkout:
+The root manifest pins the companion PolyFun development at
+`66cc2941b07c86b14ddc9384c2c97e081d4c3cbf`. The commands above and the separate
+`Consumer` use that published dependency; no sibling checkout is required.
+For local development against a different PolyFun checkout:
 
 ```bash
 lake -R -KpolyfunPath=/path/to/PolyFun update PolyFun --keep-toolchain
@@ -24,7 +27,8 @@ POLYFUN_PATH=/path/to/PolyFun bash Interop/Cryptol/scripts/validate.sh --lint --
 ```
 
 Keep the resulting local path override out of the committed dependency manifest.
-The optional workflow takes an explicit published PolyFun revision.
+The optional workflow takes an explicit published PolyFun revision; use the
+manifest's revision to reproduce this development.
 
 | Directory | Responsibility | Imports |
 |---|---|---|
@@ -69,7 +73,6 @@ External evidence uses clean, pinned checkouts:
 ```bash
 CRYPTOL_BINARY=/path/to/cryptol-3.6.0/bin/cryptol \
 FOUNDATION_PATH=/path/to/Foundation \
-POLYFUN_PATH=/path/to/PolyFun \
   bash Interop/Cryptol/scripts/validate.sh --lint --test --axioms --external
 ```
 

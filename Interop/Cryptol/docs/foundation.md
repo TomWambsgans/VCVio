@@ -17,8 +17,8 @@ and HashSig never import the bridge.
 PolyFun owns generic scoped syntax, folds, continuous domains and prefix
 recurrences. All targets use VCVio's Lean `v4.35.0-rc3` toolchain and common
 Mathlib/CSLib pins. The [upstream ledger](upstream.md) records the fork and
-external PR audit. A published PolyFun foundation revision is still needed
-before the companion branch is externally reproducible without a local override.
+external PR audit. The root manifest pins the published companion PolyFun
+revision, so the bridge and its separate consumer build without a local override.
 
 ## Checked connection
 
@@ -71,8 +71,10 @@ add `--check` to require byte-for-byte reproduction. After staging new modules,
 run `./scripts/update-lib.sh` to regenerate all optional umbrellas.
 
 The optional `cryptol.yml` workflow takes an explicit PolyFun revision and runs
-these local checks. It can be dispatched after that foundation revision is
-available remotely, without adding this package to the default VCVio graph.
+the Lean, lint, regression, and axiom checks. External Cryptol/Foundation checks
+use the project README's command with the pinned tools. Manual dispatch requires the
+workflow to be available on the default branch; this package stays outside the
+default VCVio graph.
 
 ## Executable probes and limits
 
