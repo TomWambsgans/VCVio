@@ -30,11 +30,11 @@ variable {PK SK Domain Range : Type}
 
 /-! ## O1: the data-processing bridge from Step-1 to a post-processed (verification) game
 
-Step-1 (`gpv_tvDist_real_programmed_le_collisionBound`) bounds the total-variation distance between
-the *forgery* distributions `realGameRun` and `progGameRun` (both `SPMF (M × (Salt × Domain))`) by
-`collisionBound`. The headline games are obtained by post-processing each forgery `out = (msg, σ)`
-through a verification step `k : M × (Salt × Domain) → SPMF Bool`. The lemma below is the
-data-processing transfer of Step-1 across that post-processing: for *any* `SPMF`-valued
+Step-1 (`gpv_measureTVDist_real_programmed_le_collisionBound`) bounds the total-variation distance
+between the *forgery* distributions `realGameRun` and `progGameRun` (both `SPMF (M × (Salt ×
+Domain))`) by `collisionBound`. The headline games are obtained by post-processing each forgery `out
+= (msg, σ)` through a verification step `k : M × (Salt × Domain) → SPMF Bool`. The lemma below is
+the data-processing transfer of Step-1 across that post-processing: for *any* `SPMF`-valued
 post-processor `k`, the success probability of the real post-processed game exceeds that of the
 programmed post-processed game by at most `collisionBound`.
 
@@ -52,7 +52,8 @@ theorem gpv_realGameVerify_le_progGameVerify_add_collisionBound
       (S' := Salt × Domain) (α := M × (Salt × Domain))
       (oa := adv.main pk) (qSign := qSign) (qHash := qHash))
     (hNF : ∀ c, NeverFail (psf.trapdoorSample pk sk c))
-    (hreg : (do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain)) =ᵈ (do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
+    (hreg : (do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain)) =ᵈ
+      (do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
             : ProbComp (Range × Domain)))
     (k : M × (Salt × Domain) → SPMF Bool) :
     Pr{let x ← realGameRun psf hr M Salt adv pk sk >>= k}[x = true]
@@ -83,7 +84,7 @@ theorem gpv_realGameVerify_le_progGameVerify_add_collisionBound
         (progGameRun psf hr M Salt adv domainSample pk >>= k)
       ≤ (collisionBound Salt qSign qHash).toReal :=
     le_trans (SPMF.tvDist_bind_right_le k _ _)
-      (gpv_tvDist_real_programmed_le_collisionBound psf hr M Salt pk sk adv domainSample
+      (gpv_measureTVDist_real_programmed_le_collisionBound psf hr M Salt pk sk adv domainSample
         qSign qHash hQ hNF hreg)
   linarith [le_trans hsub hdpi]
 
@@ -329,7 +330,8 @@ theorem gpv_advantage_le_progGameVerifyFreshAvg_add_collisionBound
       (GPVHashAndSign (m := OracleComp (unifSpec + (Salt × M →ₒ Range))) psf hr M Salt))
     (domainSample : PK → ProbComp Domain)
     (hreg : ∀ (pk : PK) (sk : SK), (pk, sk) ∈ support hr.gen →
-      (do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain)) =ᵈ (do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
+      (do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain)) =ᵈ
+        (do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
             : ProbComp (Range × Domain)))
     (hNF : ∀ (pk : PK) (sk : SK), (pk, sk) ∈ support hr.gen →
       ∀ (c : Range), NeverFail (psf.trapdoorSample pk sk c))
@@ -424,8 +426,8 @@ omit [Fintype Salt] in
 probability.** The success probability of the collision reduction in the keyed collision game is
 exactly the chance, over a freshly generated public key `pk` and the reduction's candidate pair
 `(x₁, x₂)`, that the pair is a genuine `psf.eval`-collision of two distinct short preimages.  This
-exposes the collision event as a plain `Pr{let x ← …}[x = true]` so the Step-2 extraction can bound the
-programmed game's distinct-collision mass against it. -/
+exposes the collision event as a plain `Pr{let x ← …}[x = true]` so the Step-2 extraction can bound
+the programmed game's distinct-collision mass against it. -/
 theorem collisionFindingAdvantage_reduction_eq [DecidableEq Domain]
     (adv : SignatureAlg.UnforgeableAdversary
       (GPVHashAndSign (m := OracleComp (unifSpec + (Salt × M →ₒ Range))) psf hr M Salt))
@@ -454,7 +456,8 @@ preimage recorded at each programmed random-oracle entry by the collision reduct
 lemma isShort_of_mem_support_domainSample
     (domainSample : PK → ProbComp Domain) (pk : PK) (sk : SK)
     (hcorrect : psf.CorrectAt pk sk)
-    (hreg : (do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain)) =ᵈ (do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
+    (hreg : (do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain)) =ᵈ
+      (do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
             : ProbComp (Range × Domain)))
     (s : Domain) (hs : s ∈ support (domainSample pk)) :
     psf.isShort s = true := by
@@ -549,7 +552,7 @@ combined run over `adv.main pk >>= verifyKont` onto the game handler recovers th
 freshness verify game (`map_run_progGameRunImplCombined_proj_table`), so the game's success
 probability equals the probability, over the combined run, of the *winning event*: the forged
 message is fresh (not in the signed set) and the verification Bool is `true`. -/
-lemma progGameVerifyFresh_eq_probEvent_combined (domainSample : PK → ProbComp Domain) (pk : PK)
+lemma progGameVerifyFresh_eq_prEvent_combined (domainSample : PK → ProbComp Domain) (pk : PK)
     (adv : SignatureAlg.UnforgeableAdversary
       (GPVHashAndSign (m := OracleComp (unifSpec + (Salt × M →ₒ Range))) psf hr M Salt)) :
     Pr{let x ← progGameVerifyFresh psf hr M Salt adv domainSample pk}[x = true]
@@ -579,7 +582,7 @@ projecting the combined run onto `reductionImpl` (`map_run_progGameRunImplCombin
 re-expresses the reduction's collision-success probability as the probability, over the combined run
 *of `adv.main pk` alone*, that the table records a hidden preimage `sHidden` at the forged point
 with `(sHidden, s⋆)` a genuine `psf.eval`-collision of two distinct short preimages. -/
-lemma reduction_collision_eq_probEvent_combined [DecidableEq Domain]
+lemma reduction_collision_eq_prEvent_combined [DecidableEq Domain]
     (domainSample : PK → ProbComp Domain) (pk : PK)
     (adv : SignatureAlg.UnforgeableAdversary
       (GPVHashAndSign (m := OracleComp (unifSpec + (Salt × M →ₒ Range))) psf hr M Salt)) :
@@ -622,7 +625,8 @@ the forged point exhibits a hidden preimage `sHidden` with `psf.eval pk sHidden 
 lemma distinct_implies_collision_pointwise [DecidableEq Domain]
     (domainSample : PK → ProbComp Domain) (pk : PK) (sk : SK)
     (hcorrect : psf.CorrectAt pk sk)
-    (hreg : (do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain)) =ᵈ (do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
+    (hreg : (do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain)) =ᵈ
+      (do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
             : ProbComp (Range × Domain)))
     (adv : SignatureAlg.UnforgeableAdversary
       (GPVHashAndSign (m := OracleComp (unifSpec + (Salt × M →ₒ Range))) psf hr M Salt))
@@ -817,7 +821,8 @@ turns into the table collision. -/
 lemma gpv_perKey_distinct_le_collision [DecidableEq Domain]
     (domainSample : PK → ProbComp Domain) (pk : PK) (sk : SK)
     (hcorrect : psf.CorrectAt pk sk)
-    (hreg : (do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain)) =ᵈ (do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
+    (hreg : (do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain)) =ᵈ
+      (do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
             : ProbComp (Range × Domain)))
     (adv : SignatureAlg.UnforgeableAdversary
       (GPVHashAndSign (m := OracleComp (unifSpec + (Salt × M →ₒ Range))) psf hr M Salt))
@@ -865,7 +870,7 @@ omit [DecidableEq Range] [SampleableType Range] [DecidableEq M] [DecidableEq Sal
 when `b = 0`, i.e. with probability `1 / (k + 1)`.  This is the atomic per-entry win probability of
 the reservoir-sampling embedding: summing it telescopes to the uniform `1 / N` over the `N`
 programmed entries that drives the multi-target `qSign + qHash` guessing loss. -/
-lemma probOutput_reservoirStep_win (k : ℕ) :
+lemma prEvent_reservoirStep_win (k : ℕ) :
     Pr{let x ← ($ᵗ Fin (k + 1) : ProbComp (Fin (k + 1)))}[x = (0 : Fin (k + 1))]
       = ((k : ℝ≥0∞) + 1)⁻¹ := by
   rw [probOutput_uniformSample]
@@ -874,11 +879,11 @@ lemma probOutput_reservoirStep_win (k : ℕ) :
 open Classical in
 omit [DecidableEq Range] [SampleableType Range] [DecidableEq M] [DecidableEq Salt]
   [SampleableType Salt] [Fintype Salt] in
-/-- **Reservoir per-step miss mass.** Complementary to `probOutput_reservoirStep_win`: at the
+/-- **Reservoir per-step miss mass.** Complementary to `prEvent_reservoirStep_win`: at the
 `k`-th programmed entry the reservoir step keeps the previous winner (draws `b ≠ 0`) with
 probability `k / (k + 1)`.  This is the per-entry survival factor whose telescoping product over a
 trace of `N` entries gives each fixed entry the uniform reservoir mass `1 / N`. -/
-lemma probEvent_reservoirStep_miss (k : ℕ) :
+lemma prEvent_reservoirStep_miss (k : ℕ) :
     Pr{let x ← ($ᵗ Fin (k + 1) : ProbComp (Fin (k + 1)))}[x ≠ (0 : Fin (k + 1))]
       = (k : ℝ≥0∞) / ((k : ℝ≥0∞) + 1) := by
   rw [SampleableType.prEvent_uniformSample]
@@ -892,7 +897,7 @@ step `k` (the `k`-th programmed entry, with running count `k`) draws the reservo
 `b ← $ᵗ Fin (k + 1)`; on `b = 0` the new entry `k` becomes the winner, otherwise the current winner
 survives.  The recorded winner is the index of the entry at which the reduction would embed its
 external target.  Its winner marginal is the data-independent core of the reservoir analysis:
-`probOutput_reservoirWinnerIndex_eq` shows each of the `N` entries is the winner with probability
+`prEvent_reservoirWinnerIndex_eq` shows each of the `N` entries is the winner with probability
 exactly `1 / N`. -/
 @[expose] noncomputable def reservoirWinnerIndex : ℕ → ProbComp (Option ℕ)
   | 0 => pure none
@@ -902,14 +907,14 @@ exactly `1 / N`. -/
       pure (if b = 0 then some k else w)
 
 /-- One-step unfolding of `reservoirWinnerIndex` as an explicit double bind, used to feed the
-per-step reservoir atoms (`probOutput_reservoirStep_win` / `probEvent_reservoirStep_miss`). -/
+per-step reservoir atoms (`prEvent_reservoirStep_win` / `prEvent_reservoirStep_miss`). -/
 lemma reservoirWinnerIndex_succ (k : ℕ) :
     reservoirWinnerIndex (k + 1) = (reservoirWinnerIndex k >>= fun w =>
       ($ᵗ Fin (k + 1) : ProbComp (Fin (k + 1))) >>= fun b =>
         pure (if b = 0 then some k else w)) := rfl
 
 /-- **Reservoir survival sum.** The total mass of the non-winning coins `b ≠ 0` at the `k`-th
-reservoir step is `k / (k + 1)`; this is `probEvent_reservoirStep_miss` rephrased as a `tsum`, the
+reservoir step is `k / (k + 1)`; this is `prEvent_reservoirStep_miss` rephrased as a `tsum`, the
 per-step survival factor of a fixed prior winner. -/
 lemma tsum_reservoirStep_survival (k : ℕ) :
     (∑' x : Fin (k + 1),
@@ -924,7 +929,7 @@ lemma tsum_reservoirStep_survival (k : ℕ) :
 and a target index `j ≠ k`, the step lands on `some j` exactly when the coin misses (`b ≠ 0`) and
 the prior winner already equals `some j`; that mass is the survival factor `k / (k + 1)` when
 `w = some j`, and `0` otherwise. -/
-lemma probOutput_reservoirStep_ne (k : ℕ) (w : Option ℕ) (j : ℕ) (hjk : j ≠ k) :
+lemma prEvent_reservoirStep_ne (k : ℕ) (w : Option ℕ) (j : ℕ) (hjk : j ≠ k) :
     Pr{let x ← (($ᵗ Fin (k + 1) : ProbComp (Fin (k + 1))) >>= fun b =>
         pure (if b = 0 then some k else w) : ProbComp (Option ℕ))}[x = some j]
       = (if w = some j then ((k : ℝ≥0∞) / ((k : ℝ≥0∞) + 1)) else 0) := by
@@ -951,8 +956,8 @@ lemma probOutput_reservoirStep_ne (k : ℕ) (w : Option ℕ) (j : ℕ) (hjk : j 
 
 /-- **Reservoir step, new target.** At the `k`-th reservoir step, for any prior winner `w ≠ some k`,
 the step lands on the new entry `some k` exactly when the coin hits (`b = 0`), with probability
-`1 / (k + 1)` (`probOutput_reservoirStep_win`). -/
-lemma probOutput_reservoirStep_eq (k : ℕ) (w : Option ℕ) (hw : w ≠ some k) :
+`1 / (k + 1)` (`prEvent_reservoirStep_win`). -/
+lemma prEvent_reservoirStep_eq (k : ℕ) (w : Option ℕ) (hw : w ≠ some k) :
     Pr{let x ← (($ᵗ Fin (k + 1) : ProbComp (Fin (k + 1))) >>= fun b =>
         pure (if b = 0 then some k else w) : ProbComp (Option ℕ))}[x = some k]
       = ((k : ℝ≥0∞) + 1)⁻¹ := by
@@ -975,7 +980,7 @@ lemma probOutput_reservoirStep_eq (k : ℕ) (w : Option ℕ) (hw : w ≠ some k)
 /-- **Reservoir winner index is bounded.** Every winner index in the support of an `n`-step
 reservoir run is strictly below `n`: a winner is only ever recorded at an entry that has already
 been processed.  This guarantees the prior winner `w` from `reservoirWinnerIndex k` is never the
-yet-unseen index `k`, the side condition consumed by `probOutput_reservoirStep_eq`. -/
+yet-unseen index `k`, the side condition consumed by `prEvent_reservoirStep_eq`. -/
 lemma reservoirWinnerIndex_support_lt :
     ∀ (n : ℕ) (w : Option ℕ), w ∈ support (reservoirWinnerIndex n) →
       ∀ i, w = some i → i < n
@@ -1006,7 +1011,7 @@ lemma reservoirWinnerIndex_neverFail : ∀ n, NeverFail (reservoirWinnerIndex n)
 
 /-- The winner marginal of the reservoir process is a genuine distribution: its outputs sum to `1`
 (it never fails), so the per-index probabilities partition the unit mass. -/
-lemma tsum_probOutput_reservoirWinnerIndex (n : ℕ) :
+lemma tsum_prEvent_reservoirWinnerIndex (n : ℕ) :
     ∑' w : Option ℕ, Pr{let x ← reservoirWinnerIndex n}[x = w] = 1 :=
   OracleComp.tsum_prEvent_eq_one (reservoirWinnerIndex_neverFail n).OracleComp.prFail_eq_zero
 
@@ -1018,7 +1023,7 @@ by the recursion `reservoirWinnerIndex`; the telescoping of the per-step embeddi
 the
 data-independent winner-selection core of the GPV Step-2 reservoir close, separable from the
 embedding-indistinguishability coupling `hreg`. -/
-lemma probOutput_reservoirWinnerIndex_eq :
+lemma prEvent_reservoirWinnerIndex_eq :
     ∀ (N j : ℕ), j < N → Pr{let x ← reservoirWinnerIndex N}[x = some j] = (N : ℝ≥0∞)⁻¹
   | 0, j, hj => absurd hj (by omega)
   | k + 1, j, hj => by
@@ -1033,21 +1038,21 @@ lemma probOutput_reservoirWinnerIndex_eq :
               = Pr{let x ← reservoirWinnerIndex j}[x = w] * ((j : ℝ≥0∞) + 1)⁻¹ := by
           intro w
           by_cases hw : w ∈ support (reservoirWinnerIndex j)
-          · rw [probOutput_reservoirStep_eq j w (fun hwk =>
+          · rw [prEvent_reservoirStep_eq j w (fun hwk =>
               absurd (reservoirWinnerIndex_support_lt j w hw j hwk) (by omega))]
           · rw [prEvent_eq_zero_of_not_mem_support hw, zero_mul, zero_mul]
         rw [tsum_congr hcongr, ENNReal.tsum_mul_right,
-          tsum_probOutput_reservoirWinnerIndex, one_mul]
+          tsum_prEvent_reservoirWinnerIndex, one_mul]
         push_cast; ring_nf
       · -- the target is an earlier entry `j < k`; it must survive (`b ≠ 0`) and already be `w`
-        rw [tsum_congr (fun w => by rw [probOutput_reservoirStep_ne k w j hjk] :
+        rw [tsum_congr (fun w => by rw [prEvent_reservoirStep_ne k w j hjk] :
           ∀ w : Option ℕ, Pr{let x ← reservoirWinnerIndex k}[x = w] *
               Pr{let x ← (($ᵗ Fin (k + 1) : ProbComp (Fin (k + 1))) >>= fun b =>
                 pure (if b = 0 then some k else w) : ProbComp (Option ℕ))}[x = some j]
             = Pr{let x ← reservoirWinnerIndex k}[x = w] *
                 (if w = some j then ((k : ℝ≥0∞) / ((k : ℝ≥0∞) + 1)) else 0))]
         rw [tsum_eq_single (some j) (fun w hw => by rw [ite_eq_right (fun h => hw h), mul_zero]),
-          ite_eq_left rfl, probOutput_reservoirWinnerIndex_eq k j (by omega)]
+          ite_eq_left rfl, prEvent_reservoirWinnerIndex_eq k j (by omega)]
         have hk : (k : ℝ≥0∞) ≠ 0 := by
           simp only [ne_eq, Nat.cast_eq_zero]; omega
         rw [ENNReal.div_eq_inv_mul, ← mul_assoc, mul_comm ((k : ℝ≥0∞))⁻¹ ((k : ℝ≥0∞) + 1)⁻¹,
@@ -1059,24 +1064,24 @@ lemma probOutput_reservoirWinnerIndex_eq :
 one programmed entry, the reservoir winner marginal places no mass on `none`: every run of
 `reservoirWinnerIndex (N + 1)` selects one of the recorded slots.  This is the exhaustiveness fact
 the in-fold lift consumes: the union of the per-slot winning events `{winner = some j}` exhausts the
-winner marginal, so summing the per-slot uniform mass `1 / N` (`probOutput_reservoirWinnerIndex_eq`)
+winner marginal, so summing the per-slot uniform mass `1 / N` (`prEvent_reservoirWinnerIndex_eq`)
 over the `N` slots recovers the whole probability with no leftover `none` branch. Proved by
-partitioning the unit total mass (`tsum_probOutput_reservoirWinnerIndex`) into the `none` atom and
+partitioning the unit total mass (`tsum_prEvent_reservoirWinnerIndex`) into the `none` atom and
 the `some j` atoms, the latter summing to `∑_{j < N} 1 / N = 1` by D2a together with the support
 bound `reservoirWinnerIndex_support_lt`. -/
-lemma probOutput_reservoirWinnerIndex_none_eq_zero (N : ℕ) (hN : N ≠ 0) :
+lemma prEvent_reservoirWinnerIndex_none_eq_zero (N : ℕ) (hN : N ≠ 0) :
     Pr{let x ← reservoirWinnerIndex N}[x = (none : Option ℕ)] = 0 := by
   have hsplit : ∑' w : Option ℕ, Pr{let x ← reservoirWinnerIndex N}[x = w]
       = Pr{let x ← reservoirWinnerIndex N}[x = (none : Option ℕ)]
         + ∑' j : ℕ, Pr{let x ← reservoirWinnerIndex N}[x = some j] := by
     rw [tsum_option _ ENNReal.summable]
-  rw [tsum_probOutput_reservoirWinnerIndex] at hsplit
+  rw [tsum_prEvent_reservoirWinnerIndex] at hsplit
   have hsome : ∑' j : ℕ, Pr{let x ← reservoirWinnerIndex N}[x = some j] = 1 := by
     have hpt : ∀ j : ℕ,
         Pr{let x ← reservoirWinnerIndex N}[x = some j] = if j < N then (N : ℝ≥0∞)⁻¹ else 0 := by
       intro j
       by_cases hj : j < N
-      · rw [ite_eq_left hj, probOutput_reservoirWinnerIndex_eq N j hj]
+      · rw [ite_eq_left hj, prEvent_reservoirWinnerIndex_eq N j hj]
       · rw [ite_eq_right hj]
         exact prEvent_eq_zero_of_not_mem_support
           (fun hmem => hj (reservoirWinnerIndex_support_lt N (some j) hmem j rfl))
@@ -1093,14 +1098,14 @@ lemma probOutput_reservoirWinnerIndex_none_eq_zero (N : ℕ) (hN : N ≠ 0) :
 /-- **D2b — reservoir winner uniform lower bound.** When the realized programmed-entry count `N` is
 at most the multi-target budget `Q := qSign + qHash`, the reservoir winner lands on any fixed slot
 `j < N` with probability at least `1 / Q`.  This converts the exact per-`N` uniformity of D2a
-(`probOutput_reservoirWinnerIndex_eq`, each slot has mass exactly `1 / N`) into the budget-uniform
+(`prEvent_reservoirWinnerIndex_eq`, each slot has mass exactly `1 / N`) into the budget-uniform
 lower bound `1 / Q` that the multi-target factor `qSign + qHash` of the exact-match reduction pays:
 since `N ≤ Q`, `1 / N ≥ 1 / Q`.  Lifting this per-slot bound into the in-fold run (where `N` and the
 slot identities are adaptive, but always `N ≤ qSign + qHash` by `combined_run_table_card_le`) is the
 data-independent core of the reservoir close. -/
-lemma probOutput_reservoirWinnerIndex_ge (N j Q : ℕ) (hj : j < N) (hNQ : N ≤ Q) :
+lemma prEvent_reservoirWinnerIndex_ge (N j Q : ℕ) (hj : j < N) (hNQ : N ≤ Q) :
     (Q : ℝ≥0∞)⁻¹ ≤ Pr{let x ← reservoirWinnerIndex N}[x = some j] := by
-  rw [probOutput_reservoirWinnerIndex_eq N j hj]
+  rw [prEvent_reservoirWinnerIndex_eq N j hj]
   exact ENNReal.inv_le_inv.mpr (by exact_mod_cast hNQ)
 
 /-- **Pre-sampled-index programmed-preimage reduction.** Draws the embed index up front via
@@ -1142,7 +1147,8 @@ omit [Fintype Salt] in
 success probability of the reduction in the keyed programmed-preimage game equals the chance,
 averaged over a fresh key pair `(pk, sk) ← hr.gen` and a uniform target `y`, that the reduction
 reproduces the challenger's hidden short preimage `x`. Exposes the exact-match event as a plain
-`Pr{let x ← …}[x = true]` bind so the Step-2 extraction can average it against the same keygen mass. -/
+`Pr{let x ← …}[x = true]` bind so the Step-2 extraction can average it against the same keygen mass.
+-/
 theorem programmedPreimageAdvantage_reduction_eq [DecidableEq Domain]
     (adv : SignatureAlg.UnforgeableAdversary
       (GPVHashAndSign (m := OracleComp (unifSpec + (Salt × M →ₒ Range))) psf hr M Salt))

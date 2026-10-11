@@ -409,8 +409,8 @@ conclusion *given* the up-to-bad coupling
 through the
 fire-on-miss bad event (which, per reason 1 above, would require the false inequality
 "fire-on-miss ≤ salt-collision").  The GPV-instantiated Step-1 hop actually consumed by the headline
-bounds is `gpv_tvDist_real_programmed_le_collisionBound`, which is unconditional over the pinned
-game runs; the salt-inclusive re-statement is its hash-only surface analogue.
+bounds is `gpv_measureTVDist_real_programmed_le_collisionBound`, which is unconditional over the
+pinned game runs; the salt-inclusive re-statement is its hash-only surface analogue.
 
 The coupling `hcouple` is the identical-until-bad coupling between the real GPV run (lazy random
 oracle, fresh uniform answer at each `(r, m)`) and the programmed run (answer `psf.eval pk s`),

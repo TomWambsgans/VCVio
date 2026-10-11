@@ -66,7 +66,8 @@ theorem gpv_progGameVerifyFreshAvg_le_collisionAdv_add_preimageAdv [DecidableEq 
       (GPVHashAndSign (m := OracleComp (unifSpec + (Salt × M →ₒ Range))) psf hr M Salt))
     (domainSample : PK → ProbComp Domain)
     (hreg : ∀ (pk : PK) (sk : SK), (pk, sk) ∈ support hr.gen →
-      (do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain)) =ᵈ (do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
+      (do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain)) =ᵈ
+        (do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
             : ProbComp (Range × Domain)))
     (hNF : ∀ (pk : PK) (sk : SK), (pk, sk) ∈ support hr.gen →
       ∀ (c : Range), NeverFail (psf.trapdoorSample pk sk c))
@@ -90,8 +91,8 @@ theorem gpv_progGameVerifyFreshAvg_le_collisionAdv_add_preimageAdv [DecidableEq 
   -- Lift the game success onto the combined run, split into the distinct and exact-match branches,
   -- transfer the distinct branch to the collision reduction, and hand the exact branch to the
   -- reservoir bound.
-  rw [progGameVerifyFresh_eq_probEvent_combined psf hr M Salt domainSample pksk.1 adv,
-    reduction_collision_eq_probEvent_combined psf hr M Salt domainSample pksk.1 adv]
+  rw [progGameVerifyFresh_eq_prEvent_combined psf hr M Salt domainSample pksk.1 adv,
+    reduction_collision_eq_prEvent_combined psf hr M Salt domainSample pksk.1 adv]
   refine le_trans (prEvent_mono (fun w _ hw => ?_) :
       _ ≤ Pr{let w ← _}[((decide (w.1.1.1 ∉ w.2.1.1.2) && w.1.2) = true ∧
               w.2.2 (w.1.1.2.1, w.1.1.1) ≠ some w.1.1.2.2) ∨
@@ -135,7 +136,8 @@ theorem forgery_yields_collision_or_exact_match [DecidableEq Domain]
       (GPVHashAndSign (m := OracleComp (unifSpec + (Salt × M →ₒ Range))) psf hr M Salt))
     (domainSample : PK → ProbComp Domain)
     (hreg : ∀ (pk : PK) (sk : SK), (pk, sk) ∈ support hr.gen →
-      (do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain)) =ᵈ (do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
+      (do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain)) =ᵈ
+        (do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
             : ProbComp (Range × Domain)))
     (hNF : ∀ (pk : PK) (sk : SK), (pk, sk) ∈ support hr.gen →
       ∀ (c : Range), NeverFail (psf.trapdoorSample pk sk c))
@@ -175,7 +177,8 @@ theorem forgery_yields_collision [DecidableEq Domain]
       (GPVHashAndSign (m := OracleComp (unifSpec + (Salt × M →ₒ Range))) psf hr M Salt))
     (domainSample : PK → ProbComp Domain)
     (hreg : ∀ (pk : PK) (sk : SK), (pk, sk) ∈ support hr.gen →
-      (do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain)) =ᵈ (do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
+      (do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain)) =ᵈ
+        (do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
             : ProbComp (Range × Domain)))
     (hNF : ∀ (pk : PK) (sk : SK), (pk, sk) ∈ support hr.gen →
       ∀ (c : Range), NeverFail (psf.trapdoorSample pk sk c))
@@ -229,7 +232,8 @@ theorem euf_cma_collision_bound [DecidableEq Domain]
     (hcorrect : ∀ pk sk, (pk, sk) ∈ support hr.gen → psf.CorrectAt pk sk)
     (domainSample : PK → ProbComp Domain)
     (hreg : ∀ (pk : PK) (sk : SK), (pk, sk) ∈ support hr.gen →
-      (do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain)) =ᵈ (do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
+      (do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain)) =ᵈ
+        (do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
             : ProbComp (Range × Domain)))
     (qSign qHash : ℕ)
     (adv : SignatureAlg.UnforgeableAdversary
@@ -271,7 +275,8 @@ theorem euf_cma_split_bound [DecidableEq Domain]
     (hcorrect : ∀ pk sk, (pk, sk) ∈ support hr.gen → psf.CorrectAt pk sk)
     (domainSample : PK → ProbComp Domain)
     (hreg : ∀ (pk : PK) (sk : SK), (pk, sk) ∈ support hr.gen →
-      (do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain)) =ᵈ (do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
+      (do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain)) =ᵈ
+        (do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
             : ProbComp (Range × Domain)))
     (qSign qHash : ℕ)
     (adv : SignatureAlg.UnforgeableAdversary

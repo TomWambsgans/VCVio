@@ -50,7 +50,7 @@ agree under the same projection at the distribution level.  This is the `evalSPM
 of `OracleComp.map_run_simulateQ_eq_of_query_map_eq`: the per-query hypothesis may discard a
 never-failing answer-irrelevant draw (e.g. a write-only trapdoor sample) that breaks the *monadic*
 equality but preserves the distribution. -/
-theorem evalSPMF_map_run_simulateQ_eq_of_query_evalSPMF_map_eq
+theorem evalDistEq_map_run_simulateQ_eq_of_query_evalDistEq_map_eq
     {ι : Type} {spec : OracleSpec ι}
     {σ₁ σ₂ : Type} {α : Type}
     (impl₁ : QueryImpl spec (StateT σ₁ ProbComp))
@@ -92,7 +92,8 @@ lemma progGameRunImplCombinedTrapCount_freshSig_proj (pk : PK) (sk : SK)
               ((Salt × M) → Option Domain)) × (((Salt × M) → Option ℕ) × ℕ) =>
           ((((s.1.1.1.1, s.2.2), s.2.1), s.1.1.1.2) :
             (((Salt × M →ₒ Range).QueryCache × ℕ) × ((Salt × M) → Option ℕ)) × Finset M)) <$>
-        (progGameRunImplCombinedTrapCount psf M Salt pk sk t).run s) =ᵈ ((embedTrapFreshIdxSigImpl psf M Salt pk sk t).run
+        (progGameRunImplCombinedTrapCount psf M Salt pk sk t).run s) =ᵈ
+          ((embedTrapFreshIdxSigImpl psf M Salt pk sk t).run
         ((((s.1.1.1.1, s.2.2), s.2.1), s.1.1.1.2))) := by
   cases t with
   | inl q =>
@@ -123,8 +124,8 @@ lemma progGameRunImplCombinedTrapCount_freshSig_proj (pk : PK) (sk : SK)
 omit [DecidableEq Range] [Fintype Salt] in
 /-- **Run-level trap-count → fresh-sig distribution projection.** Transports the per-query step
 `progGameRunImplCombinedTrapCount_freshSig_proj` through the whole adaptive fold via
-`evalSPMF_map_run_simulateQ_eq_of_query_evalSPMF_map_eq`: dropping the freshness Bool flag and the
-write-only trapdoor table from the full simulated trap-count run, and reshaping to the fresh-sig
+`evalDistEq_map_run_simulateQ_eq_of_query_evalDistEq_map_eq`: dropping the freshness Bool flag and
+the write-only trapdoor table from the full simulated trap-count run, and reshaping to the fresh-sig
 state layout, recovers the `embedTrapFreshIdxSigImpl` run distribution. -/
 lemma map_run_progGameRunImplCombinedTrapCount_freshSig_proj (pk : PK) (sk : SK)
     (hNF : ∀ c : Range, NeverFail (psf.trapdoorSample pk sk c))
@@ -136,9 +137,10 @@ lemma map_run_progGameRunImplCombinedTrapCount_freshSig_proj (pk : PK) (sk : SK)
               ((Salt × M) → Option Domain)) × (((Salt × M) → Option ℕ) × ℕ) =>
           ((((s.1.1.1.1, s.2.2), s.2.1), s.1.1.1.2) :
             (((Salt × M →ₒ Range).QueryCache × ℕ) × ((Salt × M) → Option ℕ)) × Finset M)) <$>
-        (simulateQ (progGameRunImplCombinedTrapCount psf M Salt pk sk) oa).run s) =ᵈ ((simulateQ (embedTrapFreshIdxSigImpl psf M Salt pk sk) oa).run
+        (simulateQ (progGameRunImplCombinedTrapCount psf M Salt pk sk) oa).run s) =ᵈ
+          ((simulateQ (embedTrapFreshIdxSigImpl psf M Salt pk sk) oa).run
         ((((s.1.1.1.1, s.2.2), s.2.1), s.1.1.1.2))) := by
-  exact evalSPMF_map_run_simulateQ_eq_of_query_evalSPMF_map_eq
+  exact evalDistEq_map_run_simulateQ_eq_of_query_evalDistEq_map_eq
     (progGameRunImplCombinedTrapCount psf M Salt pk sk)
     (embedTrapFreshIdxSigImpl psf M Salt pk sk)
     (fun s => ((((s.1.1.1.1, s.2.2), s.2.1), s.1.1.1.2)))
@@ -155,7 +157,7 @@ is a lower bound for the winner-slot-restricted per-target embedding win
 (`reservoir_embed_winnerIdx_le`'s left side, i.e. the right side of the floor-free coupling).  The
 front target average `∑' y, Pr[= y] · embedTrapIdxImpl … j y` is lifted to the signed-set-augmented
 index run (`map_run_embedTrapIdxSigImpl_proj`, signed set passive) and then to the inline-fresh run
-(`evalSPMF_frontDraw_embedTrapIdxSigImpl_eq_embedTrapFreshSigImpl`).  On the inline-fresh run the
+(`evalDistEq_frontDraw_embedTrapIdxSigImpl_eq_embedTrapFreshSigImpl`).  On the inline-fresh run the
 freshness recovery (`embedTrapIdxSigImpl_fresh_idx_cache_eq`) makes the diagonal
 `cache(forged) = some y` automatic on the freshness-confined winner slot, so the front `y` is
 recovered as the cached image and the embed win event's literal `cache(forged) = some y` is matched;
@@ -183,7 +185,7 @@ lemma freshSig_winnerSlot_deferred_le_embed [DecidableEq Domain] [Inhabited Rang
   classical
   -- Rewrite each per-target embed win on the Sig-augmented run (signed set passive), then express
   -- the win mass as a `tsum` over the run output `r`.
-  rw [tsum_probOutput_embedTrapFreshIdxSig_mul_eq_frontDraw psf M Salt pk sk j (adv.main pk)
+  rw [tsum_prEvent_embedTrapFreshIdxSig_mul_eq_frontDraw psf M Salt pk sk j (adv.main pk)
     ((((∅, 0), fun _ => none), ∅))]
   refine ENNReal.tsum_le_tsum fun y => ?_
   refine mul_le_mul' le_rfl ?_
@@ -482,9 +484,9 @@ expectation of `G · 1_{table(k₀) = some sStar}` equals the run expectation of
 
 * the frozen indicator `1_{table_s(k₀) = some sStar}` if `k₀` was already programmed at the start
   state `s` (`cache_s(k₀) ≠ none`); or
-* the deferred trapdoor-draw probability `Pr{let x ← trapdoorSample (cache_z(k₀))}[x = sStar]` if `k₀` is
-  freshly programmed during the run (`cache_s(k₀) = none` and `cache_z(k₀) ≠ none`), and `0` if `k₀`
-  is never programmed (`cache_z(k₀) = none`).
+* the deferred trapdoor-draw probability `Pr{let x ← trapdoorSample (cache_z(k₀))}[x = sStar]` if
+  `k₀` is freshly programmed during the run (`cache_s(k₀) = none` and `cache_z(k₀) ≠ none`), and `0`
+  if `k₀` is never programmed (`cache_z(k₀) = none`).
 
 The recorded preimage `x ← trapdoorSample (cache k₀)` is sampled write-only at the `k₀` programming
 event and never read, so its position in the adaptive fold is irrelevant: at the programming step

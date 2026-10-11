@@ -22,14 +22,13 @@ selective identical-until-bad lemma
 `OracleComp.ProgramLogic.Relational.measureETVDist_simulateQ_run_le_queryBoundP_mul`, applied on the
 freshness-tracking verify-Bool vehicle (`realGameVerifyFresh`): the signing step of the fresh
 flag handler `gpvRealImplFlagFresh` is the only step touching the trapdoor sampler
-(`tvDist_run_gpvRealImplFlagFresh_sign_le`), while uniform and random-oracle steps are
+(`measureTVDist_run_gpvRealImplFlagFresh_sign_le`), while uniform and random-oracle steps are
 implementation-identical across the swap (`gpvRealImplFlagFresh_run_inl_trapdoorSwap`), and
 the verification read is sampler-free (`gpvVerifyRead_trapdoorSwap`).
 
-The headline accumulation is `advantage_le_advantage_add_of_trapdoorSample_tvDist` (one-sided,
-`ℝ≥0∞` form, the shape consumed by scheme-level security statements) together with the
-symmetric two-sided corollary `abs_advantage_toReal_sub_le_of_trapdoorSample_tvDist`.
--/
+The headline accumulation is `advantage_le_advantage_add_of_trapdoorSample_measureTVDist`
+(one-sided, `ℝ≥0∞` form, the shape consumed by scheme-level security statements) together with the
+symmetric two-sided corollary `abs_advantage_toReal_sub_le_of_trapdoorSample_measureTVDist`. -/
 
 public section
 
@@ -76,7 +75,7 @@ of the freshness-tracking real handler shares the fresh salt draw and the lazy r
 step across the swap, and differs only in the trapdoor draw at the resolved target; the shared
 final packaging is a `map`, so the step-level distance is at most the per-call sampler
 distance `ε`, uniformly in the starting state. -/
-lemma tvDist_run_gpvRealImplFlagFresh_sign_le (pk : PK) (sk : SK)
+lemma measureTVDist_run_gpvRealImplFlagFresh_sign_le (pk : PK) (sk : SK)
     {ε : ℝ} (hε : 0 ≤ ε)
     (hStep : ∀ c, tvDist (psf.trapdoorSample pk sk c) (psf'.trapdoorSample pk sk c) ≤ ε)
     (msg : M) (s : ((Salt × M →ₒ Range).QueryCache × Finset M) × Bool) :
@@ -97,7 +96,7 @@ most `ε` — keeps the joint output-and-state distributions within `qSign · ε
 budgets telescope across the adaptively interleaved query stream by
 `measureETVDist_simulateQ_run_le_queryBoundP_mul`, the handlers agreeing exactly on the uniform and
 random-oracle steps. -/
-theorem tvDist_run_simulateQ_gpvRealImplFlagFresh_trapdoorSwap_le (pk : PK) (sk : SK)
+theorem measureTVDist_run_simulateQ_gpvRealImplFlagFresh_trapdoorSwap_le (pk : PK) (sk : SK)
     {ε : ℝ} (hε : 0 ≤ ε)
     (hStep : ∀ c, tvDist (psf.trapdoorSample pk sk c) (psf'.trapdoorSample pk sk c) ≤ ε)
     {α : Type}
@@ -109,7 +108,7 @@ theorem tvDist_run_simulateQ_gpvRealImplFlagFresh_trapdoorSwap_le (pk : PK) (sk 
   refine measureETVDist_simulateQ_run_le_queryBoundP_mul _ _ hε (· matches .inr _) ?_ ?_ oa hqb s₀
   · rintro (q | msg) hSt s
     · simp at hSt
-    · exact tvDist_run_gpvRealImplFlagFresh_sign_le psf psf' hr M Salt pk sk hε hStep msg s
+    · exact measureTVDist_run_gpvRealImplFlagFresh_sign_le psf psf' hr M Salt pk sk hε hStep msg s
   · rintro (q | msg) hSt s
     · exact gpvRealImplFlagFresh_run_inl_trapdoorSwap psf psf' hr M Salt pk sk q s
     · simp at hSt
@@ -120,9 +119,9 @@ theorem tvDist_run_simulateQ_gpvRealImplFlagFresh_trapdoorSwap_le (pk : PK) (sk 
 swapping the trapdoor sampler underneath the real freshness verify-Bool game costs at most
 `qSign · ε`: the verification read is sampler-free (`gpvVerifyRead_trapdoorSwap`), so both
 games simulate the *same* computation on the two handlers, and the run-level accumulation
-`tvDist_run_simulateQ_gpvRealImplFlagFresh_trapdoorSwap_le` transports through the winning-Bool
-projection and the Bool total-variation bridge. -/
-theorem probOutput_realGameVerifyFresh_le_trapdoorSwap_add
+`measureTVDist_run_simulateQ_gpvRealImplFlagFresh_trapdoorSwap_le` transports through the
+winning-Bool projection and the Bool total-variation bridge. -/
+theorem prEvent_realGameVerifyFresh_le_trapdoorSwap_add
     (hEval : ∀ pk x, psf.eval pk x = psf'.eval pk x)
     (hShort : ∀ x, psf.isShort x = psf'.isShort x)
     (adv : SignatureAlg.UnforgeableAdversary
@@ -156,7 +155,7 @@ theorem probOutput_realGameVerifyFresh_le_trapdoorSwap_add
   -- The signing-query budget extends over the appended (signing-free) verification read.
   have hqb : oa.IsQueryBoundP (· matches .inr _) qSign :=
     isQueryBoundP_bind hQ (fun out _ => gpvVerifyKont_no_sign psf' M Salt pk out)
-  have h_run := tvDist_run_simulateQ_gpvRealImplFlagFresh_trapdoorSwap_le psf psf' hr M Salt
+  have h_run := measureTVDist_run_simulateQ_gpvRealImplFlagFresh_trapdoorSwap_le psf psf' hr M Salt
     pk sk hε hStep oa hqb (((∅ : (Salt × M →ₒ Range).QueryCache), (∅ : Finset M)), false)
   -- Game-level total variation: project the joint run through the winning Bool.
   have h_tv : SPMF.tvDist (realGameVerifyFresh psf hr M Salt adv pk sk)
@@ -193,11 +192,11 @@ distance `ε` at every target on honestly generated keys and the adversary makes
 `qSign` signing queries.  The right-hand adversary is the same `main` repackaged at the
 swapped scheme; both advantages read the shared random-oracle `runtime`.
 
-The proof averages the per-key hop `probOutput_realGameVerifyFresh_le_trapdoorSwap_add` over
+The proof averages the per-key hop `prEvent_realGameVerifyFresh_le_trapdoorSwap_add` over
 the key generator through the game identification
 `advantage_eq_keygen_average_realGameVerifyFresh`; keys outside `support hr.gen` carry no
 mass. -/
-theorem advantage_le_advantage_add_of_trapdoorSample_tvDist
+theorem advantage_le_advantage_add_of_trapdoorSample_measureTVDist
     (hEval : ∀ pk x, psf.eval pk x = psf'.eval pk x)
     (hShort : ∀ x, psf.isShort x = psf'.isShort x)
     {ε : ℝ} (hε : 0 ≤ ε)
@@ -222,7 +221,7 @@ theorem advantage_le_advantage_add_of_trapdoorSample_tvDist
       Pr{let y ← realGameVerifyFresh psf hr M Salt adv x.1 x.2}[y = true] ≤
         Pr{let y ← realGameVerifyFresh psf' hr M Salt ⟨adv.main⟩ x.1 x.2}[y = true]
           + ENNReal.ofReal (qSign * ε) := fun x hx =>
-    probOutput_realGameVerifyFresh_le_trapdoorSwap_add psf psf' hr M Salt hEval hShort adv
+    prEvent_realGameVerifyFresh_le_trapdoorSwap_add psf psf' hr M Salt hEval hShort adv
       x.1 x.2 hε (hStep x.1 x.2 hx) (hQ x.1)
   calc ∑' x : PK × SK,
         Pr{let y ← 𝒮[hr.gen]}[y = x] * Pr{let y ← realGameVerifyFresh psf hr M Salt adv x.1 x.2}[y = true]
@@ -250,10 +249,10 @@ theorem advantage_le_advantage_add_of_trapdoorSample_tvDist
 
 /-- **Two-sided sampler-transport accumulation, real form.** The EUF-CMA advantages of the
 same adversary `main` against the two GPV instantiations differ by at most `qSign · ε`: both
-one-sided instances of `advantage_le_advantage_add_of_trapdoorSample_tvDist` (the reverse
+one-sided instances of `advantage_le_advantage_add_of_trapdoorSample_measureTVDist` (the reverse
 direction swaps the roles of the two PSFs, with the per-call bound flipped by symmetry of the
 total-variation distance). -/
-theorem abs_advantage_toReal_sub_le_of_trapdoorSample_tvDist
+theorem abs_advantage_toReal_sub_le_of_trapdoorSample_measureTVDist
     (hEval : ∀ pk x, psf.eval pk x = psf'.eval pk x)
     (hShort : ∀ x, psf.isShort x = psf'.isShort x)
     {ε : ℝ} (hε : 0 ≤ ε)
@@ -269,9 +268,9 @@ theorem abs_advantage_toReal_sub_le_of_trapdoorSample_tvDist
             (GPVHashAndSign (m := OracleComp (unifSpec + (Salt × M →ₒ Range)))
               psf' hr M Salt))).toReal| ≤ qSign * ε := by
   have h_loss_nonneg : (0 : ℝ) ≤ qSign * ε := mul_nonneg (Nat.cast_nonneg _) hε
-  have h₁ := advantage_le_advantage_add_of_trapdoorSample_tvDist psf psf' hr M Salt
+  have h₁ := advantage_le_advantage_add_of_trapdoorSample_measureTVDist psf psf' hr M Salt
     hEval hShort hε hStep qSign adv hQ
-  have h₂ := advantage_le_advantage_add_of_trapdoorSample_tvDist psf' psf hr M Salt
+  have h₂ := advantage_le_advantage_add_of_trapdoorSample_measureTVDist psf' psf hr M Salt
     (fun pk x => (hEval pk x).symm) (fun x => (hShort x).symm) hε
     (fun pk sk hx c => tvDist_comm (psf'.trapdoorSample pk sk c)
       (psf.trapdoorSample pk sk c) ▸ hStep pk sk hx c)

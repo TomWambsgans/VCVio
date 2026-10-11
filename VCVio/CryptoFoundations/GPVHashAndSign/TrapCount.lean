@@ -248,7 +248,7 @@ and an `Option ℕ`-valued index `idx` that is recorded (`≠ none`) on every po
 outcome, the event mass partitions over the index value: `Pr[P] = ∑' j, Pr[P ∧ idx = some j]`.  The
 `some j` atoms tile the event, with the index of each `P`-outcome read off the outcome itself.  This
 is the abstract index partition behind the GPV Step-2 trap-mass decomposition `∑' j, g j = trap`. -/
-theorem probEvent_eq_tsum_probEvent_index_aux {ι : Type} {m : Type → Type}
+theorem prEvent_eq_tsum_prEvent_index_aux {ι : Type} {m : Type → Type}
     [MonadLiftT m SPMF] (mx : m ι) (P : ι → Prop) (idx : ι → Option ℕ)
     (hidx : ∀ x, Pr{let y ← mx}[y = x] ≠ 0 → P x → idx x ≠ none) :
     Pr{let x ← mx}[P x] = ∑' j : ℕ, Pr{let x ← mx}[P x ∧ idx x = some j] := by
@@ -513,7 +513,8 @@ theorem embedTrapImpl_frontDraw_commute {ρ γ : Type} (pk : PK) (sk : SK) (j : 
     (k : ρ → (((unifSpec + (Salt × M →ₒ Range)) + (M →ₒ (Salt × Domain))).Range t ×
       ((Salt × M →ₒ Range).QueryCache × ℕ)) → ProbComp γ) :
     (od >>= fun r =>
-        (embedTrapImpl psf M Salt pk sk j y t).run s >>= fun pq => k r pq) =ᵈ ((embedTrapImpl psf M Salt pk sk j y t).run s >>= fun pq =>
+        (embedTrapImpl psf M Salt pk sk j y t).run s >>= fun pq => k r pq) =ᵈ
+          ((embedTrapImpl psf M Salt pk sk j y t).run s >>= fun pq =>
         od >>= fun r => k r pq) :=
   OracleComp.DeferredSampling.evalSPMF_bind_comm od
     ((embedTrapImpl psf M Salt pk sk j y t).run s) (fun r pq => k r pq)
@@ -527,7 +528,7 @@ counter (with the same trapdoor-recording signing step as `embedTrapImpl`).
 
 The point of this handler is the GPV Step-2 front-loading: averaging `embedTrapImpl … w y` over an
 external target draw `y ← $ᵗ Range` *equals* this inline-fresh run distributionally
-(`evalSPMF_frontDraw_embedTrapImpl_eq_embedTrapFresh`), because the count-`w` miss happens at most
+(`evalDistEq_frontDraw_embedTrapImpl_eq_embedTrapFresh`), because the count-`w` miss happens at most
 once and there caching a front-loaded `y` versus an inline-fresh `v` is the same uniform draw, while
 every other step is literally independent of `y` (`embedTrapImpl_run_step_indep_of_target`). -/
 @[expose] noncomputable def embedTrapFreshImpl (pk : PK) (sk : SK) :
@@ -608,7 +609,7 @@ off-`j` random-oracle miss (`s.2 ≠ j`), and every signing step — `embedTrapI
 `embedTrapFreshImpl` run *literally identically*: the only place `embedTrapImpl`'s special winner
 branch (`if st.2 = j then embed y`) fires is the count-`j` miss, and there both handlers otherwise
 draw a fresh uniform and cache it.  This is the per-step bridge through which the front-loading lift
-`evalSPMF_frontDraw_embedTrapImpl_eq_embedTrapFresh` commutes the front target draw past every
+`evalDistEq_frontDraw_embedTrapImpl_eq_embedTrapFresh` commutes the front target draw past every
 non-winner step. -/
 lemma embedTrapImpl_run_step_eq_embedTrapFresh (pk : PK) (sk : SK) (j : ℕ) (y : Range)
     (t : ((unifSpec + (Salt × M →ₒ Range)) + (M →ₒ (Salt × Domain))).Domain)
@@ -676,10 +677,11 @@ omit [DecidableEq Range] [Fintype Salt] in
 the counter only increases (`embedTrapImpl_run_step_count_le`), so it never returns to `j`, hence
 the winner branch never fires and every step agrees (`embedTrapImpl_run_step_eq_embedTrapFresh`).
 The external target `y` is irrelevant past the winner. -/
-lemma evalSPMF_run_embedTrapImpl_eq_embedTrapFresh_of_lt (pk : PK) (sk : SK) (j : ℕ) (y : Range)
+lemma evalDistEq_run_embedTrapImpl_eq_embedTrapFresh_of_lt (pk : PK) (sk : SK) (j : ℕ) (y : Range)
     {β : Type} (oa : OracleComp ((unifSpec + (Salt × M →ₒ Range)) + (M →ₒ (Salt × Domain))) β) :
     ∀ (s : (Salt × M →ₒ Range).QueryCache × ℕ), j < s.2 →
-      ((simulateQ (embedTrapImpl psf M Salt pk sk j y) oa).run s) =ᵈ ((simulateQ (embedTrapFreshImpl psf M Salt pk sk) oa).run s) := by
+      ((simulateQ (embedTrapImpl psf M Salt pk sk j y) oa).run s) =ᵈ
+        ((simulateQ (embedTrapFreshImpl psf M Salt pk sk) oa).run s) := by
   induction oa using OracleComp.inductionOn with
   | pure a => intro s _; rfl
   | query_bind t ob ih =>
@@ -719,13 +721,14 @@ threading the start state (hence the running counter):
   `y ← $ᵗ Range; (cache y; return y)` *is* the inline-fresh draw `v ← $ᵗ Range; (cache v; return v)`
   (the discarded draw collapses by `probFailure_uniformSample`).  After this step the counter is
   `j + 1 > j`, so the trap-sibling and inline-fresh continuations coincide
-  (`evalSPMF_run_embedTrapImpl_eq_embedTrapFresh_of_lt`). -/
-lemma evalSPMF_frontDraw_embedTrapImpl_eq_embedTrapFresh
+  (`evalDistEq_run_embedTrapImpl_eq_embedTrapFresh_of_lt`). -/
+lemma evalDistEq_frontDraw_embedTrapImpl_eq_embedTrapFresh
     (pk : PK) (sk : SK) (j : ℕ)
     {β : Type} (oa : OracleComp ((unifSpec + (Salt × M →ₒ Range)) + (M →ₒ (Salt × Domain))) β) :
     ∀ (s : (Salt × M →ₒ Range).QueryCache × ℕ),
       (($ᵗ Range : ProbComp Range) >>= fun y =>
-          (simulateQ (embedTrapImpl psf M Salt pk sk j y) oa).run s) =ᵈ ((simulateQ (embedTrapFreshImpl psf M Salt pk sk) oa).run s) := by
+          (simulateQ (embedTrapImpl psf M Salt pk sk j y) oa).run s) =ᵈ
+            ((simulateQ (embedTrapFreshImpl psf M Salt pk sk) oa).run s) := by
   induction oa using OracleComp.inductionOn with
   | pure a =>
       intro s
@@ -763,7 +766,7 @@ lemma evalSPMF_frontDraw_embedTrapImpl_eq_embedTrapFresh
         refine evalSPMF_bind_congr' _ (fun y => ?_)
         rw [OracleComp.DeferredSampling.evalSPMF_bind_const_neverFails _
           (probFailure_uniformSample Range)]
-        exact evalSPMF_run_embedTrapImpl_eq_embedTrapFresh_of_lt psf M Salt pk sk j y (ob y)
+        exact evalDistEq_run_embedTrapImpl_eq_embedTrapFresh_of_lt psf M Salt pk sk j y (ob y)
           (s.1.cacheQuery q y, s.2 + 1) (by omega)
       · -- **Off-winner step.** The step is `y`-independent; commute the front `y` past it.
         push Not at hwin
@@ -1125,12 +1128,13 @@ omit [DecidableEq Range] [Fintype Salt] in
 /-- **Post-winner coincidence (idx-augmented).** Once the running counter has passed the winner slot
 (`j < s.1.2`), `embedTrapIdxImpl … j y` and `embedTrapFreshIdxImpl` produce identical output
 distributions over any `oa`.  Idx-augmented mirror of
-`evalSPMF_run_embedTrapImpl_eq_embedTrapFresh_of_lt`. -/
-lemma evalSPMF_run_embedTrapIdxImpl_eq_embedTrapFreshIdx_of_lt (pk : PK) (sk : SK) (j : ℕ)
+`evalDistEq_run_embedTrapImpl_eq_embedTrapFresh_of_lt`. -/
+lemma evalDistEq_run_embedTrapIdxImpl_eq_embedTrapFreshIdx_of_lt (pk : PK) (sk : SK) (j : ℕ)
     (y : Range)
     {β : Type} (oa : OracleComp ((unifSpec + (Salt × M →ₒ Range)) + (M →ₒ (Salt × Domain))) β) :
     ∀ (s : ((Salt × M →ₒ Range).QueryCache × ℕ) × ((Salt × M) → Option ℕ)), j < s.1.2 →
-      ((simulateQ (embedTrapIdxImpl psf M Salt pk sk j y) oa).run s) =ᵈ ((simulateQ (embedTrapFreshIdxImpl psf M Salt pk sk) oa).run s) := by
+      ((simulateQ (embedTrapIdxImpl psf M Salt pk sk j y) oa).run s) =ᵈ
+        ((simulateQ (embedTrapFreshIdxImpl psf M Salt pk sk) oa).run s) := by
   induction oa using OracleComp.inductionOn with
   | pure a => intro s _; rfl
   | query_bind t ob ih =>
@@ -1151,16 +1155,17 @@ omit [DecidableEq Range] [Fintype Salt] in
 /-- **The idx-augmented GPV Step-2 front-loading lift.** Averaging the idx-augmented trap-sibling
 embed run over an external target draw `y ← $ᵗ Range` equals the idx-augmented inline-fresh run
 `embedTrapFreshIdxImpl`.  Idx-augmented mirror of
-`evalSPMF_frontDraw_embedTrapImpl_eq_embedTrapFresh`: off-winner steps commute the front `y` past
+`evalDistEq_frontDraw_embedTrapImpl_eq_embedTrapFresh`: off-winner steps commute the front `y` past
 `y`-independent steps; at the count-`j` winner miss the front `y` is the immediately consumed draw
 (cached at the slot tagged `idx = some j`), so the front `y` *is* the inline-fresh winner draw, and
-post-winner the two runs coincide (`evalSPMF_run_embedTrapIdxImpl_eq_embedTrapFreshIdx_of_lt`). -/
-lemma evalSPMF_frontDraw_embedTrapIdxImpl_eq_embedTrapFreshIdx
+post-winner the two runs coincide (`evalDistEq_run_embedTrapIdxImpl_eq_embedTrapFreshIdx_of_lt`). -/
+lemma evalDistEq_frontDraw_embedTrapIdxImpl_eq_embedTrapFreshIdx
     (pk : PK) (sk : SK) (j : ℕ)
     {β : Type} (oa : OracleComp ((unifSpec + (Salt × M →ₒ Range)) + (M →ₒ (Salt × Domain))) β) :
     ∀ (s : ((Salt × M →ₒ Range).QueryCache × ℕ) × ((Salt × M) → Option ℕ)),
       (($ᵗ Range : ProbComp Range) >>= fun y =>
-          (simulateQ (embedTrapIdxImpl psf M Salt pk sk j y) oa).run s) =ᵈ ((simulateQ (embedTrapFreshIdxImpl psf M Salt pk sk) oa).run s) := by
+          (simulateQ (embedTrapIdxImpl psf M Salt pk sk j y) oa).run s) =ᵈ
+            ((simulateQ (embedTrapFreshIdxImpl psf M Salt pk sk) oa).run s) := by
   induction oa using OracleComp.inductionOn with
   | pure a =>
       intro s
@@ -1196,7 +1201,7 @@ lemma evalSPMF_frontDraw_embedTrapIdxImpl_eq_embedTrapFreshIdx
         refine evalSPMF_bind_congr' _ (fun y => ?_)
         rw [OracleComp.DeferredSampling.evalSPMF_bind_const_neverFails _
           (probFailure_uniformSample Range)]
-        exact evalSPMF_run_embedTrapIdxImpl_eq_embedTrapFreshIdx_of_lt psf M Salt pk sk j y (ob y)
+        exact evalDistEq_run_embedTrapIdxImpl_eq_embedTrapFreshIdx_of_lt psf M Salt pk sk j y (ob y)
           ((s.1.1.cacheQuery q y, s.1.2 + 1),
             fun t' => if t' = q then some s.1.2 else s.2 t') (by simp only [hcount]; omega)
       · -- **Off-winner step.** The step is `y`-independent; commute the front `y` past it.
