@@ -194,7 +194,8 @@ theorem toyPk_h_ne_zero : toyPk.h ≠ 0 := by
     LatticeCrypto.NegacyclicRing.coeff_zero (coeffRing 2) ⟨0, by decide⟩] at this
   exact absurd this (by decide)
 
-/-- The Falcon tree at depth `0`. -/
+/-- The Falcon tree at depth `0`: one leaf whose off-diagonal entry `l01` is zero. The toy
+sampler ignores the leaf's standard deviations. -/
 @[expose] noncomputable def toyTree : FalconTree toyP.fftDepth := FalconTree.leaf 0 0 0 0
 
 /-- The secret key: the NTRU basis `(f, g, F, G)`. -/
@@ -295,9 +296,10 @@ theorem toyPrims_samplerZ : toyPrims.samplerZ = toySamplerZ := rfl
 /-! ## The signing attempt as a box sampler
 
 `Primitives.ffSampling` at depth `0` makes four `samplerZ` calls, one per real coordinate of the
-target pair `(t₀, t₁)`; with `toySamplerZ` each returns the rounded coordinate plus an offset in
-`{−1, 0, 1}`. The attempt is therefore a uniform draw from the box `(Fin 3)⁴`, mapped through the
-lattice basis and Falcon's norm check. -/
+target pair `(t₀, t₁)`, the two of `t₁` first; the leaf's `l01` is zero, so the corrected
+`t₀`-coordinates are those of `t₀`. With `toySamplerZ` each call returns the rounded coordinate
+plus an offset in `{−1, 0, 1}`. The attempt is therefore a uniform draw from the box `(Fin 3)⁴`,
+mapped through the lattice basis and Falcon's norm check. -/
 
 /-- The perturbation box: four independent draws from `Fin 3`, read as offsets in `{−1, 0, 1}`. -/
 abbrev Box : Type := Fin 3 × Fin 3 × Fin 3 × Fin 3
@@ -314,12 +316,13 @@ abbrev Box : Type := Fin 3 × Fin 3 × Fin 3 × Fin 3
 @[expose] noncomputable def tgt (c : Rq 2) : FFTPair 0 := toFFTTarget toyP toyPrims c toySk
 
 /-- The sampled lattice coordinates `(z₀, z₁)` for target `c` and box point `δ`: the rounded
-target coordinates, each offset by the corresponding box coordinate. -/
+target coordinates, each offset by a box coordinate. The first two box coordinates offset `z₁`,
+which the leaf samples first, and the last two offset `z₀`. -/
 @[expose] noncomputable def zOf (c : Rq 2) (δ : Box) : IntPoly 2 × IntPoly 2 :=
-  (polyOfPair (round (RealFFTPoly.re (tgt c).1 0) + off δ.1)
-      (round (RealFFTPoly.im (tgt c).1 0) + off δ.2.1),
-   polyOfPair (round (RealFFTPoly.re (tgt c).2 0) + off δ.2.2.1)
-      (round (RealFFTPoly.im (tgt c).2 0) + off δ.2.2.2))
+  (polyOfPair (round (RealFFTPoly.re (tgt c).1 0) + off δ.2.2.1)
+      (round (RealFFTPoly.im (tgt c).1 0) + off δ.2.2.2),
+   polyOfPair (round (RealFFTPoly.re (tgt c).2 0) + off δ.1)
+      (round (RealFFTPoly.im (tgt c).2 0) + off δ.2.1))
 
 /-- The candidate preimage for target `c` and box point `δ`: `(c − v₀, −v₁)` for the lattice
 point `v = z · B`. -/
@@ -332,7 +335,8 @@ theorem toy_trapdoorSample (c : Rq 2) :
   change (do
     let z ← Primitives.ffSampling toyPrims 0 (tgt c) (FalconTree.leaf 0 0 0 0)
     pure (fromFFTPreimage toyP toyPrims c toySk z)) = _
-  simp only [Primitives.ffSampling, toyPrims_samplerZ, toySamplerZ, bind_assoc, pure_bind]
+  simp only [Primitives.ffSampling, toyPrims_samplerZ, toySamplerZ, bind_assoc, pure_bind,
+    mul_zero, sub_zero, add_zero]
   simp only [uniformSample, SampleableType.selectElem, seq_eq_bind_map, map_eq_bind_pure_comp,
     bind_assoc, pure_bind, Function.comp_def]
   refine bind_congr fun d₀ => bind_congr fun d₁ => bind_congr fun d₂ => bind_congr fun d₃ => ?_
@@ -784,23 +788,23 @@ theorem tgt_zero_coords : ta 0 = 0 ∧ tb 0 = 0 ∧ tc 0 = 0 ∧ td 0 = 0 := by
 
 /-- At the zero target the sampled coordinates are the box offsets themselves. -/
 theorem zOf_zero (δ : Box) :
-    zOf 0 δ = (polyOfPair (off δ.1) (off δ.2.1), polyOfPair (off δ.2.2.1) (off δ.2.2.2)) := by
+    zOf 0 δ = (polyOfPair (off δ.2.2.1) (off δ.2.2.2), polyOfPair (off δ.1) (off δ.2.1)) := by
   obtain ⟨h1, h2, h3, h4⟩ := tgt_zero_coords
   simp only [ta, tb, tc, td] at h1 h2 h3 h4
   simp only [zOf, h1, h2, h3, h4, round_zero, zero_add]
 
 /-- The candidate's coefficients at the zero target, as integer linear forms in the offsets. -/
 @[expose]
-def w10 (δ : Box) : ℤ := -(5 * off δ.1 - 2 * off δ.2.1 - 106 * off δ.2.2.1 + 32 * off δ.2.2.2)
+def w10 (δ : Box) : ℤ := -(5 * off δ.2.2.1 - 2 * off δ.2.2.2 - 106 * off δ.1 + 32 * off δ.2.1)
 /-- The second coefficient of the candidate's first component at the zero target. -/
 @[expose]
-def w11 (δ : Box) : ℤ := -(2 * off δ.1 + 5 * off δ.2.1 - 32 * off δ.2.2.1 - 106 * off δ.2.2.2)
+def w11 (δ : Box) : ℤ := -(2 * off δ.2.2.1 + 5 * off δ.2.2.2 - 32 * off δ.1 - 106 * off δ.2.1)
 /-- The first coefficient of the candidate's second component at the zero target. -/
 @[expose]
-def w20 (δ : Box) : ℤ := -(106 * off δ.1 + 32 * off δ.2.1 + 5 * off δ.2.2.1 + 2 * off δ.2.2.2)
+def w20 (δ : Box) : ℤ := -(106 * off δ.2.2.1 + 32 * off δ.2.2.2 + 5 * off δ.1 + 2 * off δ.2.1)
 /-- The second coefficient of the candidate's second component at the zero target. -/
 @[expose]
-def w21 (δ : Box) : ℤ := 32 * off δ.1 - 106 * off δ.2.1 + 2 * off δ.2.2.1 - 5 * off δ.2.2.2
+def w21 (δ : Box) : ℤ := 32 * off δ.2.2.1 - 106 * off δ.2.2.2 + 2 * off δ.1 - 5 * off δ.2.1
 
 /-- The candidate at the zero target, coefficient by coefficient. -/
 theorem sOf_zero_eq (δ : Box) :
