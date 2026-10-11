@@ -134,7 +134,7 @@ of `hGuess` on good keys is stronger than the key-averaged commitment-guessing c
 ePrint 2023/246; it is conservative and therefore sound, and the averaged form would matter
 only for tightness, not soundness. -/
 theorem euf_cma_to_nma
-    (ζ_zk : ℝ) (hζ : 0 ≤ ζ_zk) (hhvzk : ids.HVZK sim ζ_zk)
+    (ζ_zk : ℝ) (hζ : 0 ≤ ζ_zk) (hhvzk : ids.HVZK sim (ENNReal.ofReal ζ_zk))
     (qS qH : ℕ) (ε p_abort δ : ℝ)
     (hε : 0 ≤ ε) (hδ : 0 ≤ δ) (hp₀ : 0 ≤ p_abort) (hp : p_abort < 1)
     (Good : Stmt → Wit → Prop)
@@ -152,7 +152,7 @@ theorem euf_cma_to_nma
         (simulatedNmaAdv ids hr M maxAttempts sim adv) +
       ENNReal.ofReal (cmaToNmaLoss qS qH ε p_abort ζ_zk δ hp) := by
   classical
-  -- `advantage = Pr[G₀]` via the per-key bridge `G₀`.
+  -- The advantage is the success probability of `G₀`, via the per-key bridge.
   rw [unforgeableAdvantage_eq_hybridExpAtKey_real ids hr M maxAttempts adv]
   -- Nonnegativity of the three per-hop slack pieces.
   have h1p : (0 : ℝ) < 1 - p_abort := by linarith
@@ -172,11 +172,11 @@ theorem euf_cma_to_nma
         ENNReal.ofReal (perKeyLoss qS qH ε p_abort ζ_zk) := by
     rintro ⟨pk, sk⟩ hmem hgood
     have hrel : rel pk sk = true := hr.gen_sound pk sk hmem
-    have step1 := probOutput_hybridExpAtKey_real_le_prog ids hr M maxAttempts adv qS qH ε p_abort
+    have step1 := prEvent_hybridExpAtKey_real_le_prog ids hr M maxAttempts adv qS qH ε p_abort
       hp₀ hp hQ pk sk (hGuess pk sk hgood) (hAbort pk sk hgood)
-    have step2 := probOutput_hybridExpAtKey_prog_le_trans ids hr M maxAttempts adv qS qH ε p_abort
+    have step2 := prEvent_hybridExpAtKey_prog_le_trans ids hr M maxAttempts adv qS qH ε p_abort
       hp₀ hp hε hQ pk sk (hGuess pk sk hgood) (hAbort pk sk hgood)
-    have step3 := probOutput_hybridExpAtKey_trans_le_sim ids hr M maxAttempts sim adv ζ_zk hζ hhvzk
+    have step3 := prEvent_hybridExpAtKey_trans_le_sim ids hr M maxAttempts sim adv ζ_zk hζ hhvzk
       qS qH p_abort hp₀ hp hQ pk sk hrel (hAbortSim pk sk hgood)
     -- Chain the three hops and collapse the `ofReal` sums (slack pieces nonneg).
     calc Pr{let x ← (hybridExpAtKey ids hr M maxAttempts adv
@@ -214,10 +214,12 @@ theorem euf_cma_to_nma
   -- Average the per-key bound over `hr.gen`, paying `δ` on the complement of `Good`.
   have hbound : Pr{let y ← (do
         let x ← hr.gen
-        hybridExpAtKey ids hr M maxAttempts adv (realSignBody ids M maxAttempts x.1 x.2) x.1)}[y = true] ≤
+        hybridExpAtKey ids hr M maxAttempts adv (realSignBody ids M maxAttempts x.1 x.2)
+            x.1)}[y = true] ≤
       Pr{let y ← (do
         let x ← hr.gen
-        hybridExpAtKey ids hr M maxAttempts adv (simSignBody M maxAttempts sim x.1 x.2) x.1)}[y = true] +
+        hybridExpAtKey ids hr M maxAttempts adv (simSignBody M maxAttempts sim x.1 x.2)
+            x.1)}[y = true] +
         ENNReal.ofReal (perKeyLoss qS qH ε p_abort ζ_zk) + ENNReal.ofReal δ := by
     simp only [OracleComp.prEvent_bind_eq_tsum]
     -- Pointwise: split on `Good`. On `Good` use `hperkey`; off `Good` charge the `δ` slot.
@@ -248,9 +250,9 @@ theorem euf_cma_to_nma
                   (realSignBody ids M maxAttempts x.1 x.2) x.1)}[y = true] ≤
               Pr{let y ← hr.gen}[y = x] * (if ¬ Good x.1 x.2 then 1 else 0) := by
             simp only [hg, not_false_eq_true, ite_true]
-            exact mul_le_mul' le_rfl prEvent_le_one
+            exact mul_le_mul' le_rfl (prEvent_le_one _)
           exact le_trans this le_add_self
-      · simp [prEvent_eq_zero_of_not_mem_support hx]
+      · simp [prEvent_eq_zero_of_not_mem_support _ hx]
     calc ∑' x, Pr{let y ← hr.gen}[y = x] * Pr{let y ← (hybridExpAtKey ids hr M maxAttempts adv
             (realSignBody ids M maxAttempts x.1 x.2) x.1)}[y = true]
         ≤ ∑' x, (Pr{let y ← hr.gen}[y = x] * Pr{let y ← (hybridExpAtKey ids hr M maxAttempts adv
@@ -267,7 +269,7 @@ theorem euf_cma_to_nma
               (simSignBody M maxAttempts sim x.1 x.2) x.1)}[y = true]) +
             ENNReal.ofReal (perKeyLoss qS qH ε p_abort ζ_zk) + ENNReal.ofReal δ := by
           gcongr
-          · rw [ENNReal.tsum_mul_right, tsum_probOutput_of_liftM_PMF, one_mul]
+          · rw [ENNReal.tsum_mul_right, OracleComp.tsum_prEvent_eq_one, one_mul]
           · calc ∑' x, Pr{let y ← hr.gen}[y = x] * (if ¬ Good x.1 x.2 then 1 else 0)
                 = ∑' x, if ¬ Good x.1 x.2 then Pr{let y ← hr.gen}[y = x] else 0 := by
                   refine tsum_congr fun x => ?_; by_cases hg : Good x.1 x.2 <;> simp [hg]
@@ -278,7 +280,7 @@ theorem euf_cma_to_nma
   refine le_trans hbound ?_
   rw [cmaToNmaLoss_eq_perKeyLoss_add, ENNReal.ofReal_add hPK hδ, add_assoc]
   gcongr
-  exact probOutput_hybridExp_sim_le_managedRoNmaAdvantage ids hr M maxAttempts sim adv
+  exact prEvent_hybridExp_sim_le_managedRoNmaAdvantage ids hr M maxAttempts sim adv
 
 omit [SampleableType Stmt] [SampleableType Chal] in
 /-- Cache-invariant companion to `simulatedNmaAdv`: the reduction issues at most `qH`
@@ -293,8 +295,8 @@ lemma simulatedNmaAdv_nmaHashQueryBound
     ∀ pk, FiatShamir.nmaHashQueryBound (M := M) (Commit := Commit) (Chal := Chal)
       (oa := (simulatedNmaAdv ids hr M maxAttempts sim adv).main pk) qH := by
   have : Fintype Chal := Fintype.ofFinite Chal
-  let : IsUniformSpec ((M × Commit →ₒ Chal) : OracleSpec _) :=
-    UniformAnswerMeasure.ofFiniteNonempty _
+  let : OracleSpec.UniformAnswerMeasure ((M × Commit →ₒ Chal) : OracleSpec _) :=
+    .ofFiniteNonempty _
   intro pk
   let spec := unifSpec + (M × Commit →ₒ Chal)
   let fwd : QueryImpl spec (StateT spec.QueryCache (OracleComp spec)) :=
