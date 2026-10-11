@@ -9,7 +9,7 @@ public import ToMathlib.Combinatorics.ChallengeTree
 public import VCVio.EvalDist.Defs.Instances
 public import VCVio.EvalDist.Monad.Basic
 public import VCVio.OracleComp.Constructions.SampleableType
-public import VCVio.OracleComp.Constructions.SampleableType.NativeMeasure
+public import VCVio.OracleComp.Constructions.SampleableType.Measure
 public import VCVio.OracleComp.EvalDist.Measure
 
 /-!

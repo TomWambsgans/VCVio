@@ -23,7 +23,7 @@ The witness set is a `coordFamily`, whose special soundness is checked by `decid
 
 public section
 
-open Finset CoordinateWise OracleComp OracleComp.EvalDist SigmaProtocol
+open Finset CoordinateWise OracleComp SigmaProtocol
 
 open scoped ENNReal
 
