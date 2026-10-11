@@ -73,7 +73,7 @@ theorem gpv_progGameVerifyFreshAvg_le_collisionAdv_add_preimageAdv [DecidableEq 
     (hQ : ∀ pk, signHashQueryBound
       (S' := Salt × Domain) (α := M × (Salt × Domain))
       (oa := adv.main pk) (qSign := qSign) (qHash := qHash)) :
-    Pr{let x ← ((𝒮[hr.gen] : SPMF (PK × SK)) >>= fun pksk =>
+    Pr{let x ← (hr.gen >>= fun pksk =>
         progGameVerifyFresh psf hr M Salt adv domainSample pksk.1)}[x = true]
       ≤ collisionFindingAdvantage (psf := psf) (hr := hr)
           (reduction psf hr M Salt adv domainSample) +
@@ -91,11 +91,11 @@ theorem gpv_progGameVerifyFreshAvg_le_collisionAdv_add_preimageAdv [DecidableEq 
   -- reservoir bound.
   rw [progGameVerifyFresh_eq_prEvent_combined psf hr M Salt domainSample pksk.1 adv,
     reduction_collision_eq_prEvent_combined psf hr M Salt domainSample pksk.1 adv]
-  refine le_trans (prEvent_mono (fun w _ hw => ?_) :
-      _ ≤ Pr{let w ← _}[((decide (w.1.1.1 ∉ w.2.1.1.2) && w.1.2) = true ∧
+  refine le_trans (prEvent_mono _ _
+    (fun w => ((decide (w.1.1.1 ∉ w.2.1.1.2) && w.1.2) = true ∧
               w.2.2 (w.1.1.2.1, w.1.1.1) ≠ some w.1.1.2.2) ∨
             ((decide (w.1.1.1 ∉ w.2.1.1.2) && w.1.2) = true ∧
-              w.2.2 (w.1.1.2.1, w.1.1.1) = some w.1.1.2.2)]) ?_
+              w.2.2 (w.1.1.2.1, w.1.1.1) = some w.1.1.2.2)) (fun w hw => ?_)) ?_
   · by_cases heq : w.2.2 (w.1.1.2.1, w.1.1.1) = some w.1.1.2.2
     · exact Or.inr ⟨hw, heq⟩
     · exact Or.inl ⟨hw, heq⟩
@@ -116,13 +116,6 @@ theorem gpv_progGameVerifyFreshAvg_le_collisionAdv_add_preimageAdv [DecidableEq 
    programmed-preimage experiment.
 
 The only additional failure mode is a salt collision, bounded by `collisionBound`.
-
-The honest trapdoor sampler is assumed total (`hNF`): for every key pair and target the sampler
-`psf.trapdoorSample` never fails (`NeverFail`).  This is the standard GPV08 well-formedness
-condition that the trapdoor inversion is a genuine distribution; it is the hypothesis that keeps
-probability mass during the real↔programmed sign-then-hash hop and is not implied by `hcorrect`
-(which constrains only the *support* of the sampler) nor by `hreg` (which equates only the *total
-masses* of the two joint distributions).
 
 The forger is assumed to query its forgery point (`hForge`, `ForgesQueriedPoint`): the standard
 ROM well-formedness condition that the forgery lands on a programmed random-oracle entry, so the
@@ -284,6 +277,7 @@ theorem euf_cma_split_bound [DecidableEq Domain]
           programmedPreimageAdvantage (psf := psf) (hr := hr)
             (programmedPreimageReduction psf hr M Salt adv domainSample qSign qHash) +
         collisionBound Salt qSign qHash :=
-  forgery_yields_collision_or_exact_match psf hr M Salt hcorrect qSign qHash adv domainSample hreg hForge hQ
+  forgery_yields_collision_or_exact_match psf hr M Salt hcorrect qSign qHash adv domainSample hreg
+    hForge hQ
 
 end GPVHashAndSign
