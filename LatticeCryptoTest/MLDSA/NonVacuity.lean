@@ -31,7 +31,7 @@ The witness values are:
 * `hr := hrShort`, `hGen := rfl` — the genuine short-key generable relation
   (`keygenShort_generable`);
 * `sim := neverAbortSim` (constant non-`none` transcript) with `ζ_zk = 1`, discharged by
-  `tvDist_le_one`;
+  `measureETVDist_le_one`;
 * `Good := honestNoAbortGood` — the pairs at which the honest prover never aborts — with
   `p_abort = 0`: `hAbort` holds by definition of the event and `hAbortSim` because the simulator
   never aborts; `hGood` holds at the trivial regularity budget `δ = 1`.  Whether
@@ -42,7 +42,8 @@ The witness values are:
   `qS = qH = 0`;
 * `mlwe := mldsaMatrixMLWE`, `εbridge = 1`: the proven seed-to-matrix reduction
   `advantage_mldsaMLWEShort_le_matrix` under `expandAIdealization p prims 1`, which holds
-  unconditionally (`expandAIdealization_one`) since advantages are differences of probabilities.
+  unconditionally (`expandAIdealization_one`) since the Boolean distance of two probability
+  measures is at most one.
 -/
 
 public section
@@ -65,7 +66,7 @@ variable (p : Params) (prims : Primitives p) [nttOps : NTTRingOps]
 /-! ## The witness data: simulator, good event, and trivial adversary -/
 
 /-- The never-aborting HVZK simulator: output the default transcript with probability one.  It
-discharges `hAbortSim` at `p_abort = 0` (`probOutput_none_neverAbortSim`) and the HVZK hypothesis
+discharges `hAbortSim` at `p_abort = 0` (`prEvent_none_neverAbortSim`) and the HVZK hypothesis
 at the trivial budget `ζ_zk = 1` (`neverAbortSim_hvzk`); it carries no zero-knowledge content. -/
 noncomputable def neverAbortSim :
     PublicKey p prims →
@@ -97,14 +98,17 @@ noncomputable def trivialForger (maxAttempts : ℕ) :
 variation distance never exceeds one. -/
 lemma neverAbortSim_hvzk :
     (identificationSchemeShort p prims).HVZK (neverAbortSim p prims) 1 :=
-  fun _ _ _ => tvDist_le_one _ _
+  fun _ _ _ => by
+    let : MeasurableSpace (Option (Commitment p prims × CommitHashBytes p × Response p prims)) :=
+      ⊤
+    exact measureETVDist_le_one _ _
 
 omit nttOps [DecidableEq prims.High]
   [SampleableType (CommitHashBytes p)] in
 /-- The never-aborting simulator indeed never aborts: the probability of `none` is zero. -/
-lemma probOutput_none_neverAbortSim (pk : PublicKey p prims) :
+lemma prEvent_none_neverAbortSim (pk : PublicKey p prims) :
     Pr{let x ← neverAbortSim p prims pk}[x = none] = 0 :=
-  prEvent_eq_zero_of_not_mem_support (by simp [neverAbortSim])
+  prEvent_eq_zero_of_not_mem_support _ (by simp [neverAbortSim])
 
 omit [DecidableEq M] [Inhabited (Commitment p prims)]
   [Inhabited (Response p prims)]
@@ -120,25 +124,12 @@ omit nttOps [DecidableEq prims.High]
   [Inhabited (Commitment p prims)] [Inhabited (Response p prims)]
   [SampleableType (CommitHashBytes p)] in
 /-- `expandAIdealization` holds unconditionally at the trivial budget `εA = 1`: the two branch
-probabilities both lie in `[0, 1]`, so their difference is at most one in absolute value.  This
-carries no idealization content; it exists to discharge the MLWE bridge of the consistency
-witness through the proven reduction `advantage_mldsaMLWEShort_le_matrix`. -/
-lemma expandAIdealization_one : expandAIdealization p prims 1 := by
-  intro _ D
-  have key : ∀ x y : ProbComp Bool,
-      |(Pr{let y ← x}[y = true]).toReal - (Pr{let x ← y}[x = true]).toReal| ≤ 1 := fun x y => by
-    have hx1 : (Pr{let y ← x}[y = true]).toReal ≤ 1 :=
-      le_trans (ENNReal.toReal_mono ENNReal.one_ne_top prEvent_le_one)
-        (le_of_eq ENNReal.toReal_one)
-    have hy1 : (Pr{let x ← y}[x = true]).toReal ≤ 1 :=
-      le_trans (ENNReal.toReal_mono ENNReal.one_ne_top prEvent_le_one)
-        (le_of_eq ENNReal.toReal_one)
-    have hx0 : (0 : ℝ) ≤ (Pr{let y ← x}[y = true]).toReal := ENNReal.toReal_nonneg
-    have hy0 : (0 : ℝ) ≤ (Pr{let x ← y}[x = true]).toReal := ENNReal.toReal_nonneg
-    rw [abs_sub_le_iff]
-    exact ⟨by linarith, by linarith⟩
-  simp only [evalDist_apply_singleton]
-  exact key _ _
+probabilities both lie in `[0, 1]`, so their Boolean distance is at most one.  This carries no
+idealization content; it exists to discharge the MLWE bridge of the consistency witness through
+the proven reduction `advantage_mldsaMLWEShort_le_matrix`. -/
+lemma expandAIdealization_one : expandAIdealization p prims 1 := fun _ =>
+  ENNReal.absDiff_le_iff.2
+    ⟨le_add_left (evalDist_apply_le_one _ _), le_add_left (evalDist_apply_le_one _ _)⟩
 
 /-! ## The joint frontier certificate -/
 
@@ -158,7 +149,8 @@ theorem mldsa_short_cma_hyps_inhabited (maxAttempts : ℕ) :
     -- hGen
     (hrShort p prims).gen = keygenShort p prims ∧
     -- hζ and hhvzk at ζ_zk = 1
-    ((0 : ℝ) ≤ 1 ∧ (identificationSchemeShort p prims).HVZK (neverAbortSim p prims) 1) ∧
+    ((0 : ℝ) ≤ 1 ∧
+      (identificationSchemeShort p prims).HVZK (neverAbortSim p prims) (ENNReal.ofReal 1)) ∧
     -- hε, hδ, hp₀, hp at ε = 1, δ = 1, p_abort = 0
     ((0 : ℝ) ≤ 1 ∧ (0 : ℝ) ≤ 1 ∧ (0 : ℝ) ≤ 0 ∧ (0 : ℝ) < 1) ∧
     -- hGood at δ = 1
@@ -189,13 +181,13 @@ theorem mldsa_short_cma_hyps_inhabited (maxAttempts : ℕ) :
         LearningWithErrors.advantage (mldsaMatrixMLWE p)
           (matrixLift p prims (distinguisherBShort p prims (hrShort p prims) maxAttempts main)) +
           1) :=
-  ⟨rfl, ⟨zero_le_one, neverAbortSim_hvzk p prims⟩,
+  ⟨rfl, ⟨zero_le_one, by rw [ENNReal.ofReal_one]; exact neverAbortSim_hvzk p prims⟩,
     ⟨zero_le_one, zero_le_one, le_rfl, zero_lt_one⟩,
-    by rw [ENNReal.ofReal_one]; exact prEvent_le_one,
-    fun _pk _sk _h _cm => by rw [ENNReal.ofReal_one]; exact prEvent_le_one,
+    by rw [ENNReal.ofReal_one]; exact prEvent_le_one _,
+    fun _pk _sk _h _cm => by rw [ENNReal.ofReal_one]; exact prEvent_le_one _,
     fun _pk _sk h => by rw [ENNReal.ofReal_zero]; exact h.le,
     fun pk _sk _h => by
-      rw [ENNReal.ofReal_zero]; exact (probOutput_none_neverAbortSim p prims pk).le,
+      rw [ENNReal.ofReal_zero]; exact (prEvent_none_neverAbortSim p prims pk).le,
     trivialForger_signHashQueryBound p prims M maxAttempts,
     fun _ => advantage_mldsaMLWEShort_le_matrix p prims (expandAIdealization_one p prims) _⟩
 
@@ -214,21 +206,21 @@ theorem trivial_euf_cma_security_of_nma_short (maxAttempts : ℕ) :
         (FiatShamirWithAbort.runtime
           (Commit := Commitment p prims) (Chal := CommitHashBytes p) M)
         (trivialForger p prims M maxAttempts) ≤
-      ENNReal.ofReal
-          (LearningWithErrors.advantage (mldsaMatrixMLWE p)
-            (matrixLift p prims (distinguisherBShort p prims (hrShort p prims) maxAttempts main)) +
-            1) +
+      LearningWithErrors.advantage (mldsaMatrixMLWE p)
+          (matrixLift p prims (distinguisherBShort p prims (hrShort p prims) maxAttempts main)) +
+        1 +
         SelfTargetMSIS.advantage (extractorCShort p prims main) +
         ENNReal.ofReal (FiatShamirWithAbort.cmaToNmaLoss 0 0 1 0 1 1 zero_lt_one) :=
   euf_cma_security_of_nma_short p prims (mldsaMatrixMLWE p)
     maxAttempts (hrShort p prims) rfl (neverAbortSim p prims) 1 zero_le_one
-    (neverAbortSim_hvzk p prims) 0 0 1 0 1 zero_le_one zero_le_one le_rfl zero_lt_one
+    (by rw [ENNReal.ofReal_one]; exact neverAbortSim_hvzk p prims)
+    0 0 1 0 1 zero_le_one zero_le_one le_rfl zero_lt_one
     (honestNoAbortGood p prims)
-    (by rw [ENNReal.ofReal_one]; exact prEvent_le_one)
-    (fun _pk _sk _h _cm => by rw [ENNReal.ofReal_one]; exact prEvent_le_one)
+    (by rw [ENNReal.ofReal_one]; exact prEvent_le_one _)
+    (fun _pk _sk _h _cm => by rw [ENNReal.ofReal_one]; exact prEvent_le_one _)
     (fun _pk _sk h => by rw [ENNReal.ofReal_zero]; exact h.le)
     (fun pk _sk _h => by
-      rw [ENNReal.ofReal_zero]; exact (probOutput_none_neverAbortSim p prims pk).le)
+      rw [ENNReal.ofReal_zero]; exact (prEvent_none_neverAbortSim p prims pk).le)
     (trivialForger p prims M maxAttempts)
     (trivialForger_signHashQueryBound p prims M maxAttempts)
     1
