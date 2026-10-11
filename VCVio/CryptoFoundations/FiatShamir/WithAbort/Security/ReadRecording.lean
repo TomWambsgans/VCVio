@@ -217,7 +217,7 @@ read-recording run's final-state predicate "some recorded read-commit lies in th
 list", from any pair of `deferredReadInv`-related start states.
 
 Reads off the bad-ordering component of `deferredReadInv` from the run coupling
-`deferredDrawRead_run` via `probEvent_le_of_relTriple_imp`. This converts the read-time bad flag of
+`deferredDrawRead_run` via `prEvent_le_of_relTriple`. This converts the read-time bad flag of
 `deferredDrawImpl` into the membership predicate over the read-recording run's final state, where
 both the recorded read-commit list and the drawn list are available together. -/
 theorem deferredDraw_bad_le_readRecord {γ : Type}
@@ -226,8 +226,9 @@ theorem deferredDraw_bad_le_readRecord {γ : Type}
     (s₁ : DeferredState M Commit Chal) (s₂ : DeferredReadState M Commit Chal)
     (hinv : deferredReadInv M s₁ s₂) :
     Pr{let z ← (simulateQ (deferredDrawImpl ids M maxAttempts pk sk) oa).run s₁}[z.2.2 = true]
-      ≤ Pr{let z ← (simulateQ (deferredDrawReadImpl ids M maxAttempts pk sk) oa).run s₂}[∃ rc ∈ z.2.2, rc ∈ z.2.1.1.2] :=
-  OracleComp.ProgramLogic.Relational.probEvent_le_of_relTriple_imp
+      ≤ Pr{let z ← (simulateQ (deferredDrawReadImpl ids M maxAttempts pk sk) oa).run
+             s₂}[∃ rc ∈ z.2.2, rc ∈ z.2.1.1.2] :=
+  OracleComp.ProgramLogic.Relational.prEvent_le_of_relTriple
     (deferredDrawRead_run ids M maxAttempts pk sk oa s₁ s₂ hinv)
     (fun _ _ hp hbad => hp.2 hbad)
 
@@ -239,8 +240,9 @@ recorded read-commits that lie in the drawn list.
 
 This is the elementary first-moment (Markov) step of the per-position route: a firing run has at
 least one coincidence, so the indicator of the firing event is dominated by the (nonnegative,
-integer-valued) coincidence count, and `Pr[fire] ≤ E[count]` by the Markov core
-`probEvent_le_tsum_probOutput_mul_cost`. The probabilistic content — bounding `E[count]` by
+integer-valued) coincidence count, so the firing probability is at most the expected count by
+the Markov core `prEvent_le_tsum_prEvent_mul_cost`. The probabilistic content — bounding `E[count]`
+by
 `(qH+1)·ε·E[#attempts]` — is the per-position independence of each fresh draw from the
 value-free recorded read-commit list, supplied by `readRecord_expected_coincidences_le`. This
 lemma is exactly the step that isolates that independence from the firing event. -/
@@ -248,12 +250,13 @@ theorem readRecord_pred_le_expected_coincidences {γ : Type}
     (pk : Stmt) (sk : Wit)
     (oa : OracleComp ((unifSpec + (M × Commit →ₒ Chal)) + (M →ₒ Option (Commit × Resp))) γ)
     (s : DeferredReadState M Commit Chal) :
-    Pr{let z ← (simulateQ (deferredDrawReadImpl ids M maxAttempts pk sk) oa).run s}[∃ rc ∈ z.2.2, rc ∈ z.2.1.1.2]
+    Pr{let z ← (simulateQ (deferredDrawReadImpl ids M maxAttempts pk sk) oa).run
+         s}[∃ rc ∈ z.2.2, rc ∈ z.2.1.1.2]
       ≤ ∑' z : γ × DeferredReadState M Commit Chal,
           Pr{let x ← (simulateQ (deferredDrawReadImpl ids M maxAttempts pk sk) oa).run s}[x = z] *
             (z.2.2.countP (fun rc => decide (rc ∈ z.2.1.1.2)) : ℝ≥0∞) := by
   classical
-  refine probEvent_le_tsum_probOutput_mul_cost _ _ _ (fun z hz => ?_)
+  refine OracleComp.prEvent_le_tsum_prEvent_mul_cost _ _ _ (fun z hz => ?_)
   obtain ⟨rc, hrc, hrd⟩ := hz
   have hpos : 0 < z.2.2.countP (fun rc => decide (rc ∈ z.2.1.1.2)) := by
     rw [List.countP_pos_iff]

@@ -63,7 +63,7 @@ the all-attempts-reprogram hybrid and in the accepted-only-reprogram hybrid, hen
 factor 2; the `qH + 1` accounts for the final verification query). The second term pays
 for collisions among the signing oracle's own commitments. The third term glues the
 per-attempt simulator across the restart loop, whose expected length is at most
-`1/(1-p)` (see `tvDist_firstSome_le_geometric`); a simulator for the accepted-transcript
+`1/(1-p)` (see `measureTVDist_firstSome_le_geometric`); a simulator for the accepted-transcript
 distribution itself (the paper's acHVZK notion) would shave this `1/(1-p)` factor. -/
 @[expose] noncomputable def cmaToNmaLoss (qS qH : ℕ) (ε p ζ_zk δ : ℝ) (_hp : p < 1) : ℝ :=
   2 * qS * (qH + 1) * ε / (1 - p) +

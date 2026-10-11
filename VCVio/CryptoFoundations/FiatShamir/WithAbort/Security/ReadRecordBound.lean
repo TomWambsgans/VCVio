@@ -13,7 +13,7 @@ public import VCVio.CryptoFoundations.FiatShamir.WithAbort.Security.SignStepChar
 
 The expected read/reject coincidence bounds of the read-recording run, for the
 non-tape and tape presentations, and the resulting bad-event bounds
-`probEvent_ghostBlindImpl_bad_le` and `probEvent_ghostRead_bad_le`.
+`prEvent_ghostBlindImpl_bad_le` and `prEvent_ghostRead_bad_le`.
 
 Part of the CMA-to-NMA security development for the Fiat-Shamir-with-aborts
 transform; `VCVio.CryptoFoundations.FiatShamir.WithAbort.Security` assembles
@@ -96,7 +96,8 @@ theorem readRecord_expected_pairs_nontape_general {γ : Type}
       obtain ⟨hQ1, hQ2⟩ := hQ
       simp only [simulateQ_bind, simulateQ_query, OracleQuery.input_query, OracleQuery.cont_query,
         id_map, StateT.run_bind]
-      rw [OracleComp.tsum_prEvent_bind_mul, OracleComp.tsum_prEvent_bind_mul, OracleComp.tsum_prEvent_bind_mul,
+      rw [OracleComp.tsum_prEvent_bind_mul, OracleComp.tsum_prEvent_bind_mul,
+          OracleComp.tsum_prEvent_bind_mul,
         ← ENNReal.tsum_mul_left, ← ENNReal.tsum_add]
       rcases t with (n | mc) | msg
       · -- UNIFORM: the step is deterministic in the state (`x.2 = s`); factor per step output and
@@ -115,7 +116,7 @@ theorem readRecord_expected_pairs_nontape_general {γ : Type}
           rw [mul_left_comm (ENNReal.ofReal ε * ((s.2.length + qH : ℕ) : ℝ≥0∞)), ← mul_add]
           gcongr
           exact ih u qH (hQ2' u) s
-        · rw [prEvent_eq_zero_of_not_mem_support hx]; simp
+        · rw [prEvent_eq_zero_of_not_mem_support _ hx]; simp
       · -- READ: the post-state drawn / signed lists are unchanged; the read list grows by one and
         -- the read budget decrements by one, so the constant `readlist.length + qH` is preserved.
         have hpos : 0 < qH := by
@@ -142,7 +143,7 @@ theorem readRecord_expected_pairs_nontape_general {γ : Type}
           gcongr
           exact ih cu.1 (qH - 1) (hQ2' cu) ((((cu.2, s.1.1.1.2), s.1.1.2),
             s.1.2 || decide (mc.2 ∈ s.1.1.2)), mc.2 :: s.2)
-        · rw [prEvent_eq_zero_of_not_mem_support hx]; simp
+        · rw [prEvent_eq_zero_of_not_mem_support _ hx]; simp
       · -- SIGN: the body's fresh rejected draws extend the drawn list; the body charge must keep
         -- the body draws *averaged* (a fixed body output lets the adversary target the recorded
         -- value), so the sum over body outputs is retained. The read budget is unchanged (signing
@@ -161,7 +162,7 @@ times the expected attempt count.
 
 In this representation each rejected commitment is drawn *inline* at its signing step, so each fresh
 draw sits in the independent-of-the-readlist position required by the atomic value-free charge
-`tsum_probOutput_commit_mul_count_le`: the recorded reads answer from `roStep` on the real layer and
+`tsum_prEvent_commit_mul_count_le`: the recorded reads answer from `roStep` on the real layer and
 never the drawn (rejected) values, so the final read list is independent of every rejected draw.
 The proof instantiates the inline-run induction `readRecord_expected_pairs_nontape_general` at the
 empty-drawn-list start state, where the pre-existing term vanishes and the constant read-length
@@ -206,7 +207,7 @@ theorem readRecord_expected_pairs_nontape_le {γ : Type}
 omit [SampleableType Stmt] in
 /-- **The value-free per-pair charge in the tape-factored representation.** Separate reusable
 infrastructure: the same bound as `readRecord_expected_pairs_nontape_le`, stated over the
-front-loaded run produced by `evalSPMF_deferredDrawRead_eq_drawList_tapeDrawRead`, in which the
+front-loaded run produced by `evalDistEq_deferredDrawRead_eq_drawList_tapeDrawRead`, in which the
 read-recording run reads `drawList (ids.commit pk sk) (maxAttempts·qSrem) >>= fun tape => …` with
 the draw tape sampled *upfront* as one independent block. It is not on the live path of
 `readRecord_expected_coincidences_le`, which consumes the inline form directly.
@@ -268,14 +269,15 @@ theorem readRecord_expected_pairs_tape_le {γ : Type}
   -- `readlist ⊥ (rejected tape position's VALUE)`: the tape→readlist channel runs only through
   -- signatures (= ACCEPTED entries), so a rejected position's `Commit` value never enters any read
   -- target or query answer (reads answer via `roStep` on the real layer). Front-loading the draws
-  -- (`evalSPMF_deferredDrawRead_eq_drawList_tapeDrawRead`) exhibits the draws as one independent
+  -- (`evalDistEq_deferredDrawRead_eq_drawList_tapeDrawRead`) exhibits the draws as one independent
   -- block but does not by itself supply that independence.
   -- Transport BACK to the non-tape run via the fold equality: every tape probability equals the
   -- corresponding non-tape `deferredDrawReadImpl` run probability. This makes the recorded draws
   -- *inline-fresh* (drawn at each sign step) rather than front-loaded, which is the position in
   -- which each rejected draw is independent of the (value-free) final read list, and lets
   -- `readRecord_expected_pairs_nontape_le` discharge the goal.
-  have hfold := evalSPMF_deferredDrawRead_eq_drawList_tapeDrawRead ids M maxAttempts pk sk oa qSrem
+  have hfold := evalDistEq_deferredDrawRead_eq_drawList_tapeDrawRead ids M maxAttempts pk sk oa
+      qSrem
     hQ.1 ((((re, l), []), false), [])
   have hpr : ∀ z : γ × DeferredReadState M Commit Chal,
       Pr{let x ← (OracleComp.drawList (ids.commit pk sk) (maxAttempts * qSrem) >>= fun tape =>
@@ -285,7 +287,7 @@ theorem readRecord_expected_pairs_tape_le {γ : Type}
               (((((re, l), []), false), []), tape))}[x = z] =
         Pr{let x ← ((simulateQ (deferredDrawReadImpl ids M maxAttempts pk sk) oa).run
             ((((re, l), []), false), []))}[x = z] :=
-    fun z => by rw [prEvent_eq_evalDist_singleton, prEvent_eq_evalDist_singleton, ← hfold]
+    fun z => (hfold.prEvent_eq (· = z)).symm
   simp only [hpr]
   exact readRecord_expected_pairs_nontape_le ids M maxAttempts qH ε p_abort hp₀ hp hε pk sk
     hGuess hAbort oa hQ.2 re l
@@ -315,13 +317,13 @@ drawn-value law, established on the inline route by the value-substitution invar
 `deferredDrawRead_run_count_dl_invariant` inside `nontape_signStep_charge`.
 
 **Tape factorization.** The same independence is exhibited representationally by the two halves of
-the tape factorization: `evalSPMF_ghostSignDrawBody_eq_drawList_tapeSignBody` recasts one signing
+the tape factorization: `evalDistEq_ghostSignDrawBody_eq_drawList_tapeSignBody` recasts one signing
 body's inline attempt draws as consumption from a pre-drawn tape
 (`((ghostSignDrawBody … n).run re) =ᵈ (drawList (ids.commit pk sk) n >>= tapeSignBody … tape)`)
-via the local i.i.d. resampling commute `evalSPMF_bind_comm_probComp`, and
-`evalSPMF_deferredDrawRead_eq_drawList_tapeDrawRead` lifts that across the `simulateQ (oa)` fold, so
-the per-query tape blocks of every interleaved signing query commute to the very front as a single
-independent draw block of `maxAttempts · qSrem` commitments, past the adaptive read points.
+via the local i.i.d. resampling commute `OracleComp.EvalDistEq.bind_bind_swap`, and
+`evalDistEq_deferredDrawRead_eq_drawList_tapeDrawRead` lifts that across the `simulateQ (oa)` fold,
+so the per-query tape blocks of every interleaved signing query commute to the very front as a
+single independent draw block of `maxAttempts · qSrem` commitments, past the adaptive read points.
 
 The surrounding reduction is `countP_mem_le_sum_count`, the deterministic readlist-length bound
 `deferredDrawReadImpl_run_readlist_length_le`, the expected drawn-list length fold
@@ -349,7 +351,8 @@ theorem readRecord_expected_pairs_le {γ : Type}
   -- STEP C: transport both expectations through the fold-level tape factorization, so the recorded
   -- draws become a function of the front tape and the value-free read list becomes independent of
   -- the tape values.
-  have hfold := evalSPMF_deferredDrawRead_eq_drawList_tapeDrawRead ids M maxAttempts pk sk oa qSrem
+  have hfold := evalDistEq_deferredDrawRead_eq_drawList_tapeDrawRead ids M maxAttempts pk sk oa
+      qSrem
     hQ.1 ((((re, l), []), false), [])
   have hpr : ∀ z : γ × DeferredReadState M Commit Chal,
       Pr{let x ← ((simulateQ (deferredDrawReadImpl ids M maxAttempts pk sk) oa).run
@@ -359,7 +362,7 @@ theorem readRecord_expected_pairs_le {γ : Type}
                 (p.1, p.2.1)) <$>
               (simulateQ (tapeDrawReadImpl ids M maxAttempts pk sk) oa).run
                 (((((re, l), []), false), []), tape))}[x = z] :=
-    fun z => by rw [prEvent_eq_evalDist_singleton, prEvent_eq_evalDist_singleton, hfold]
+    fun z => hfold.prEvent_eq (· = z)
   simp only [hpr]
   -- The per-pair charge in the tape-factored representation: with `drawnlist = f(tape)` (recorded
   -- rejected tape entries) and `readlist` value-free (`roStep`), each `(read slot, draw slot)` pair
@@ -380,7 +383,7 @@ single numeric inequality.
 
 **The accounting (why this is TRUE and additive — no per-output skew).** The coincidence count is a
 double sum `Σ_{rc ∈ readlist} Σ_{d ∈ drawnlist} 1[rc = d]`, hence purely additive; the
-rejection-conditioning skew that broke every `Pr[bad]` / per-output route lives in
+rejection-conditioning skew that broke every bad-probability / per-output route lives in
 output-conditioning, never in a SUM. Bounding `E[count]` decomposes over (read, draw) pairs:
 * each recorded drawn commit `d` is a fresh i.i.d. raw `Prod.fst <$> ids.commit pk sk` draw of mass
   `≤ ε` (`hGuess`), recorded write-only on rejected attempts (the accept branch records `[]`);
@@ -510,9 +513,9 @@ mass is reduced to the deferred-draw run (`ghostBlind_bad_le_deferredDraw`), the
 read-recording final-state read-hit predicate (`deferredDraw_bad_le_readRecord`), then to the
 expected coincidence count by the Markov step (`readRecord_pred_le_expected_coincidences`),
 which is finally charged by the numeric value-free bound `readRecord_expected_coincidences_le`.
-Chaining with `probEvent_ghostHybridImpl_bad_le_ghostBlind` discharges the eager form
-(`probEvent_ghostRead_bad_le`). -/
-theorem probEvent_ghostBlindImpl_bad_le
+Chaining with `prEvent_ghostHybridImpl_bad_le_ghostBlind` discharges the eager form
+(`prEvent_ghostRead_bad_le`). -/
+theorem prEvent_ghostBlindImpl_bad_le
     (qS qH : ℕ) (ε p_abort : ℝ) (hp₀ : 0 ≤ p_abort) (hp : p_abort < 1) (hε : 0 ≤ ε)
     (hQ : ∀ pk, FiatShamir.signHashQueryBound M
       (S' := Option (Commit × Resp)) (oa := adv.main pk) qS qH)
@@ -551,7 +554,7 @@ the ghost layer with the joint law of `(w, c)` conditioned on rejection, and inf
 the run only through the ghost-domain membership tests of later adversarial queries.
 Per (rejected attempt `j`, adversarial query `k`) pair, the conditional independence of
 the post-rejection run from `w` given the rejection event yields
-`Pr[query k hits attempt j] ≤ Pr[attempt j runs] · ε` (the `1/Pr[reject]` skew of the
+`Pr{…}[query k hits attempt j] ≤ Pr{…}[attempt j runs] · ε` (the `1/Pr{…}[reject]` skew of the
 conditioned commitment law cancels against the rejection probability of the attempt).
 Summing the expected number of attempts (`≤ 1/(1-p)` per signing query by `hAbort`)
 against the `qH` adversarial queries (`hQ`) gives the bound; the budget `qH + 1` leaves
@@ -562,9 +565,9 @@ The abort probability is assumed to lie in `[0, 1)` (`hp₀`, `hp`), which is wh
 geometric attempt factor `1/(1 - p_abort)` well defined and at least `1`; `hε : 0 ≤ ε` matches
 the per-attempt guessing bound `hGuess`, and `hQ` pins the query budgets `(qS, qH)` of
 `adv.main pk`. The proof reduces the eager ghost-read bad mass to the ghost-blind run
-(`probEvent_ghostHybridImpl_bad_le_ghostBlind`, identical until bad) and closes it with the
-first-moment bound `probEvent_ghostBlindImpl_bad_le`. -/
-lemma probEvent_ghostRead_bad_le
+(`prEvent_ghostHybridImpl_bad_le_ghostBlind`, identical until bad) and closes it with the
+first-moment bound `prEvent_ghostBlindImpl_bad_le`. -/
+lemma prEvent_ghostRead_bad_le
     (qS qH : ℕ) (ε p_abort : ℝ) (hp₀ : 0 ≤ p_abort) (hp : p_abort < 1) (hε : 0 ≤ ε)
     (hQ : ∀ pk, FiatShamir.signHashQueryBound M
       (S' := Option (Commit × Resp)) (oa := adv.main pk) qS qH)
@@ -578,12 +581,12 @@ lemma probEvent_ghostRead_bad_le
               List M), false))}[z.2.2 = true]
       ≤ ENNReal.ofReal (qS * (qH + 1) * ε / (1 - p_abort)) := by
   -- M1 reduces the eager ghost-read bad mass to the ghost-blind run's bad mass
-  -- (`probEvent_ghostHybridImpl_bad_le_ghostBlind`, identical until bad), and the ghost-blind
-  -- bound `probEvent_ghostBlindImpl_bad_le` (the first-moment route) closes it at
+  -- (`prEvent_ghostHybridImpl_bad_le_ghostBlind`, identical until bad), and the ghost-blind
+  -- bound `prEvent_ghostBlindImpl_bad_le` (the first-moment route) closes it at
   -- `qS·(qH+1)·ε/(1-p)`, with the numeric charge supplied by
   -- `readRecord_expected_coincidences_le`.
-  refine (probEvent_ghostHybridImpl_bad_le_ghostBlind ids hr M maxAttempts adv pk sk).trans ?_
-  refine le_trans (probEvent_ghostBlindImpl_bad_le ids hr M maxAttempts adv qS qH ε p_abort
+  refine (prEvent_ghostHybridImpl_bad_le_ghostBlind ids hr M maxAttempts adv pk sk).trans ?_
+  refine le_trans (prEvent_ghostBlindImpl_bad_le ids hr M maxAttempts adv qS qH ε p_abort
     hp₀ hp hε hQ pk sk hGuess hAbort) (le_of_eq ?_)
   norm_cast
 
