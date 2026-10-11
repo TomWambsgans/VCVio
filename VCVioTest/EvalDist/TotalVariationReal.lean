@@ -77,4 +77,11 @@ example (a : ProbComp α) (b : ProbComp β) (p : α → β → Prop) :
     Pr{let x ← a; let y ← b}[p x y] = Pr{let y ← b; let x ← a}[p x y] := by
   rw [prEvent_bind_map_swap]
 
+open scoped ENNReal in
+open OracleComp.ProgramLogic.Relational in
+/-- The flag-guarded expectation of a step is a sum over its unflagged outputs; at `ProbComp` the
+answer types are finite, as the lemma asks. -/
+example (mx : ProbComp (ℕ × Bool × Bool)) (F : ℕ × Bool × Bool → ℝ≥0∞) :=
+  wp_ite_flag_eq_tsum mx F
+
 end VCVioTest.TotalVariationReal
