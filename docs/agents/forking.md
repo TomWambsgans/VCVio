@@ -71,7 +71,7 @@ accepting values. Success is therefore a deterministic predicate on `c₀` given
 (`sub_div_le_div_card_filter`) with no probability monad in sight.
 
 In this model, randomized behavior is represented by a distribution over complete tables, and the
-`Averaging` section of
+*Averaging* section of
 [`CoordinateFork.lean`](../../VCVio/CryptoFoundations/CoordinateFork.lean) averages the counting
 bound over an *arbitrary* such distribution:
 
@@ -349,7 +349,7 @@ with `ℝ≥0` errors.
 
 **Two upstreaming backlogs point here.** `ArkLib/ToVCVio/` is a handful of small `OracleComp` /
 `EvalDist` / `SubSpec` / `simulateQ` / `Vector.mapM` support lemmas, sorry-free, staged by name for
-this repo. `ArkLib/Data/Probability/Instances.lean` carries an explicit `TODO` to move most of its
+this repo. `ArkLib/Data/Probability/Instances.lean` carries an explicit to-do to move most of its
 contents here; its uniform-splitting and marginalization theorems overlap
 [`EvalDist/IndepProduct.lean`](../../VCVio/EvalDist/IndepProduct.lean).
 
