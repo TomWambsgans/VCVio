@@ -9,7 +9,7 @@ module
 public import VCVio.OracleComp.QueryTracking.QueryBound
 public import VCVio.OracleComp.ProbComp
 public import VCVio.EvalDist.Monad.Measure
-public import VCVio.OracleComp.EvalDist.MeasureSpec
+public import VCVio.OracleComp.EvalDist.AnswerMeasure
 public import VCVio.OracleComp.SimSemantics.StateT.StateProjection
 
 /-!
