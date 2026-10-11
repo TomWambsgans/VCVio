@@ -267,8 +267,8 @@ theorem verifyProb_eq_lintegral (σ : SigmaProtocol Stmt Wit Commit PrvState (ι
       = ∫⁻ p, acceptRatio (acceptTable (σ.verify x p.1) (pure p.2)) ∂𝒟[P] := by
   have key := prEvent_bind_eq_lintegral_of_discrete P
     (fun p : Commit × ((ι → S) → Resp) =>
-      (($ᵗ (ι → S)) >>= fun c => pure (σ.verify x p.1 c (p.2 c) = true))) id
-  simp only [id_eq, bind_pure] at key
+      (fun c => σ.verify x p.1 c (p.2 c) = true) <$> ($ᵗ (ι → S))) id
+  simp only [id_map, Functor.map_map, id_eq] at key
   rw [verifyProb, key]
   exact lintegral_congr fun p => (acceptRatio_acceptTable_pure (σ.verify x p.1) p.2).symm
 

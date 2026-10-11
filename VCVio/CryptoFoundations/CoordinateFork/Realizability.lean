@@ -86,9 +86,8 @@ theorem prEvent_verdict (V : (ι → S) → Y → Bool) (A : (ι → S) → Prob
 
 omit [DecidableEq ι] [Fintype ι] [DecidableEq S] [Fintype S] [SampleableType (ι → S)] in
 /-- A `ProbComp` carries full mass, which is the losslessness the coordinate marginals need. -/
-theorem prEvent_true_probComp {α : Type} (mx : ProbComp α) : Pr{let _ ← mx}[True] = 1 := by
-  rw [prEvent_true_eq_evalDist_apply_univ]
-  exact measure_univ
+theorem prEvent_true_probComp {α : Type} (mx : ProbComp α) : Pr{let _ ← mx}[True] = 1 :=
+  OracleComp.prEvent_true_eq_one mx
 
 /-! ## The adversary's success probability -/
 
@@ -108,8 +107,8 @@ theorem advSucc_eq_sum_div (V : (ι → S) → Y → Bool) (A : (ι → S) → P
   let _ : MeasurableSpace (ι → S) := ⊤
   let _ : MeasurableSingletonClass (ι → S) := ⟨fun _ => trivial⟩
   have key := prEvent_bind_eq_lintegral_of_discrete ($ᵗ (ι → S))
-    (fun c => (A c >>= fun y => pure (V c y = true))) id
-  simp only [id_eq, bind_pure] at key
+    (fun c => (fun y => V c y = true) <$> A c) id
+  simp only [id_map, Functor.map_map, id_eq] at key
   rw [advSucc, key, SampleableType.evalDist_uniformSample, lintegral_uniformOn_univ]
 
 /-! ## Transfer to the table bound -/
