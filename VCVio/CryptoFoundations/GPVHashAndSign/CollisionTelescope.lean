@@ -523,7 +523,8 @@ The per-`r` charges accumulate to exactly `card (c n) / |Salt| + (1 - card (c n)
 Pr[saltSeq c n]`, which equals `Pr[saltSeq c (n + 1)]` by the independence identity
 `prEvent_saltSeq_succ`. This realizes design L3a: a stateful telescoping accepting
 state-dependent per-step costs. -/
-theorem signRunF_measureTVDist_le_saltSeq_aux {St : Type} [MeasurableSpace St] [Finite Salt]
+theorem signRunF_measureTVDist_le_saltSeq_aux {St : Type} [MeasurableSpace (St × Bool)]
+    [Finite Salt]
     (stepReal stepProg : ℕ → St → Salt → ProbComp St)
     (c : ℕ → Finset Salt)
     (h_step : ∀ n st r, r ∉ c n → stepReal n st r =ᵈ stepProg n st r)
@@ -663,7 +664,7 @@ into two parts:
 Chaining this result with the telescope `prEvent_saltSeq_le_collisionBound`
 (`Pr[saltSeq] ≤ collisionBound`) yields the salt-inclusive coupling that discharges the U2
 hypothesis `hcouple`, once the GPV reduction handlers and per-step caches `c j` are instantiated. -/
-theorem signRunF_measureTVDist_le_saltSeq {St : Type} [MeasurableSpace St] [Finite Salt]
+theorem signRunF_measureTVDist_le_saltSeq {St : Type} [MeasurableSpace (St × Bool)] [Finite Salt]
     (stepReal stepProg : ℕ → St → Salt → ProbComp St)
     (c : ℕ → Finset Salt)
     (h_step : ∀ n st r, r ∉ c n → stepReal n st r =ᵈ stepProg n st r)
@@ -703,8 +704,8 @@ queries (each drawing a fresh salt) with up to `qHash` adversary hash queries *a
 fixed `qSign`-step `signRunF` recursion. That factorization is the deferred-sampling joint coupling
 packaged as `AdaptiveFactorizesSignRunF` (see the *Adaptive→signRunF factorization* section
 below). -/
-theorem signRunF_measureTVDist_le_collisionBound {St : Type} [MeasurableSpace St] [Finite Salt]
-    [Nonempty Salt]
+theorem signRunF_measureTVDist_le_collisionBound {St : Type} [MeasurableSpace (St × Bool)]
+    [Finite Salt] [Nonempty Salt]
     (stepReal stepProg : ℕ → St → Salt → ProbComp St)
     (c : ℕ → Finset Salt)
     (h_step : ∀ n st r, r ∉ c n → stepReal n st r =ᵈ stepProg n st r)
