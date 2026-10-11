@@ -70,7 +70,7 @@ The repo also includes a first-class lattice cryptography library under `Lattice
 - `LatticeCrypto/`: lattice-specific algebra, hardness assumptions, scheme definitions, security theorems, and concrete implementations.
 - `HashSig/`: hash-based signatures — SLH-DSA (SPHINCS+, FIPS 205) proof-level specs,
   component-level FIPS conformance results, and an EUF-CMA bound in the classical random-oracle
-  model with three oracles (the tweakable hash, `H_msg`, `PRF_msg`): `securityTarget_two_one`,
+  model with three oracles (the tweakable hash, `Hmsg`, `PRFmsg`): `securityTarget_two_one`,
   per public seed and averaged over seed distributions. There is no faithfulness theorem relating
   that model to the byte-level scheme, no SUF-CMA bound and no complete FIPS conformance result.
   Peer of `LatticeCrypto/`; depends on `VCVio`/`ToMathlib` but nothing in those imports it back.
