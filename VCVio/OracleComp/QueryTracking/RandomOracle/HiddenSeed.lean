@@ -688,7 +688,7 @@ theorem prEvent_flaggedIdealImpl_le_mul_expectedSimulatedQueryCount {ms : ProbCo
     let _ : MeasurableSpace S := ⊤
     simp only [prEvent_bind_bind_eq_lintegral_of_discrete]
     exact lintegral_congr hflag
-  rw [hswap, OracleComp.prEvent_bind_bind_swap]
+  rw [hswap, OracleComp.prEvent_bind_map_swap]
   let run := (simulateQ (idealImpl pub X R) oa).run (∅, ∅)
   let _ : MeasurableSpace (α × SplitCache pub X R) := ⊤
   calc Pr{let w ← run; let s ← ms}[∃ x, (w.2.1 (E.enc s x)).isSome]
@@ -746,7 +746,7 @@ theorem prEvent_realImpl_le_add_mul_expectedSimulatedQueryCount {ms : ProbComp S
       Prod.map id (E.merge s ∘ Prod.fst) <$>
         (simulateQ (E.coupledImpl s) oa).run ((∅, ∅), false) := by
     rw [E.map_run_simulateQ_coupledImpl s oa ((∅, ∅), false), merge_empty]
-  simp only [hs, bind_map_left]
+  simp only [hs, Functor.map_map]
   exact E.prEvent_coupledImpl_le_add_mul_expectedSimulatedQueryCount hε hp oa
     fun s z ↦ P s (z.1, E.merge s z.2)
 

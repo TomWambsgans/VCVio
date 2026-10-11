@@ -112,7 +112,7 @@ theorem prEvent_simulateQ_run_map_and_not_bad_le (h : DominatedUntilBad impl₁ 
     simp only [simulateQ_pure, StateT.run_pure]
     refine le_trans (le_of_eq ?_) (prEvent_mono (pure (x, f s) : ProbComp _)
       (fun z ↦ P z ∧ ¬bad s) P fun _ hz ↦ hz.1)
-    simp only [pure_bind]
+    simp only [map_pure]
   | query_bind t k ih =>
     by_cases hb : bad s
     · rw [prEvent_eq_zero_of_forall_mem_support _ _ fun z hz hz' ↦
@@ -167,8 +167,7 @@ theorem prEvent_simulateQ_run_le_map_or_bad (h : DominatedUntilBad impl₁ impl�
     fun z ↦ P (z.1, f z.2) ∨ bad z.2
   rw [prEvent_true_eq_one] at e₁ e₂
   refine ENNReal.le_of_add_le_add_right
-    (ne_top_of_le_ne_top ENNReal.one_ne_top
-      (prEvent_le_one ((simulateQ impl₂ oa).run (f s)) fun z ↦ ¬P z)) ?_
+    (prEvent_ne_top ((fun z ↦ ¬P z) <$> (simulateQ impl₂ oa).run (f s))) ?_
   rw [e₁, ← e₂]
   refine add_le_add le_rfl (le_trans (le_of_eq ?_) hcore)
   exact prEvent_congr _ _ _ fun z ↦ not_or
@@ -216,7 +215,7 @@ theorem extendState {Q : Type} (h : AgreeUntilBad impl₁ impl₂ bad)
     (aux : (t : spec.Domain) → σ → spec.Range t → σ → Q → Q) :
     AgreeUntilBad (impl₁.extendState aux) (impl₂.extendState aux) fun st ↦ bad st.1 := by
   intro t st hst P
-  simp only [QueryImpl.extendState_apply, bind_assoc, pure_bind]
+  simp only [QueryImpl.extendState_apply, prEvent_norm]
   exact h t st.1 hst fun z ↦ P (z.1, (z.2, aux t st.1 z.1 z.2 st.2))
 
 /-- If two handlers agree until `bad`, the first is dominated by the second until `bad`, through

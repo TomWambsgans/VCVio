@@ -529,8 +529,8 @@ theorem prEvent_deferredImpl_endFill_eq_maskedFill_bind_maskedImpl {α : Type}
          let z ← (simulateQ G.maskedImpl oa).run s'}[P (z.1, z.2.1)] := by
   have h := G.intertwines_maskedFill.evalDist_simulateQ_run oa s
     fun a s' ↦ (pure (P (a, s'.1)) : ProbComp Prop)
-  simp only [RelabelState.maskedFill, bind_map_left] at h ⊢
-  rw [h]
+  simp only [RelabelState.maskedFill, bind_map_left, prEvent_norm] at h ⊢
+  rw [prEvent_def, prEvent_def, h]
 
 /-- **Deferred decision for touched cells, with nothing pending.** From a state with no pending
 cell, the deferred game followed by the end fill has the distribution of the masked game from the

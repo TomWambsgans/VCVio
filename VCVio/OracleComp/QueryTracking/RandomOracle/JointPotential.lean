@@ -492,7 +492,7 @@ theorem prEvent_deferredFillDraw_and_le {S α : Type} (ms : ProbComp S)
       ms (fun s st ↦ H s st.1) (fun st ↦ c st.1) (fun st ↦ hH st.1) B hB
       (((X ⊕ K) →ₒ R).queryAll z.2.2) z.2.1 hz
     simpa only [fillDraw, RelabelState.endFill_eq_simulateQ_cellImpl, bind_assoc, bind_map_left,
-      pure_bind] using key
+      prEvent_norm] using key
   have h1 := prEvent_bind_and_le_of_potential nk.isPotentialStep_deferredImpl fillDraw
     (fun y ↦ (G.Conflict y.2.1 ∨ nk.TCHazard y.2.1) ∨ H y.2.2 y.2.1.1)
     (fun y ↦ nk.potential y.2.1 + c y.2.1.1) B hB hgmono hg oa ((∅, ∅), [])
@@ -503,7 +503,7 @@ theorem prEvent_deferredFillDraw_and_le {S α : Type} (ms : ProbComp S)
         refine prEvent_mono _ _ _ fun w hw ↦ ?_
         exact ⟨or_assoc.2 hw.1, (add_le_add (nk.potential_le_two_mul w.2.1) le_rfl).trans hw.2⟩
     _ ≤ B := by
-      simpa only [deferredFillDraw, fillDraw, bind_assoc] using h1
+      simpa only [deferredFillDraw, fillDraw, bind_assoc, prEvent_norm] using h1
 
 /-- **The joint potential over three phases, under a pathwise budget.** When
 `2 · #keyEntries / |R| + c ≤ B` holds at the end of every deferred run, the deferred game from
@@ -518,7 +518,7 @@ theorem prEvent_deferredFillDraw_le_of_budget {S α : Type} (ms : ProbComp S)
       2 * ((nk.keyEntries z.2.1.1).encard : ℝ≥0∞) / Nat.card R + c z.2.1.1 ≤ B) :
     Pr{let w ← G.deferredFillDraw ms oa}[
       G.Conflict w.2.1 ∨ nk.TCHazard w.2.1 ∨ H w.2.2 w.2.1.1] ≤ B := by
-  refine le_trans (prEvent_mono_of_support _ fun w hw h ↦ ⟨h, ?_⟩)
+  refine le_trans (prEvent_mono_of_support _ _ _ fun w hw h ↦ ⟨h, ?_⟩)
     (nk.prEvent_deferredFillDraw_and_le ms H c hH oa B hB)
   simp only [deferredFillDraw, mem_support_bind_iff, support_pure, Set.mem_singleton_iff] at hw
   obtain ⟨z, hz, st, hst, s, -, rfl⟩ := hw

@@ -385,11 +385,11 @@ theorem prEvent_run_randomOracle_le_of_transport {α : Type} (q : ℕ)
       ∀ z ∈ support ((simulateQ (tapeCachingImpl D R) oa).run (∅, List.ofFn v)), ¬ P z.2.1) :
     Pr{let z ← (simulateQ (OracleSpec.randomOracle (spec := (D →ₒ R))) oa).run ∅}[P z.2] ≤
       b := by
-  rw [prEvent_congr_of_evalDist_eq _ _ (evalDist_run_randomOracle_eq_tapeList oa ∅ q)]
+  rw [(evalDistEq_iff_evalDist_eq.mpr (evalDist_run_randomOracle_eq_tapeList oa ∅ q)).prEvent_eq]
   refine le_trans (le_of_eq ?_) ((prEvent_bind_le_prEvent_of_forall_eq_zero (answerTape R q)
     (fun v => (simulateQ (tapeCachingImpl D R) oa).run (∅, List.ofFn v)) E (fun z => P z.2.1)
     fun v hv => ?_).trans hE)
-  · simp only [tapeList_eq_map_answerTape, bind_map_left, bind_assoc, pure_bind]
+  · simp only [tapeList_eq_map_answerTape, bind_map_left, prEvent_norm]
   · exact prEvent_eq_zero_of_forall_mem_support _ _ (htransport v hv)
 
 variable [MeasurableSpace R] [DiscreteMeasurableSpace R]

@@ -7,6 +7,7 @@ Authors: Alexander Hicks
 module
 
 public import VCVio.EvalDist.Lossless
+public import VCVio.OracleComp.QueryTracking.RandomOracle.Simulation
 public import VCVio.OracleComp.QueryTracking.RandomOracle.Tape
 
 /-!

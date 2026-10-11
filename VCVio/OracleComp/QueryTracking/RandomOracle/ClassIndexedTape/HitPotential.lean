@@ -390,7 +390,7 @@ theorem hitPot_step
           ∃ p ∈ P.filter fun p => ¬ HitCleared jF ((c, L), q) p, ∃ t',
             q.1.cls t' = some jF ∧ q.1.pos t' = some p ∧ rel x u t' := fun u => by
         simp only [Set.mem_ofPred_eq, HitsPending, Finset.mem_filter, and_assoc]
-      simp only [hev]
+      rw [prEvent_congr _ _ _ hev]
       refine (prEvent_exists_finset_le _ _ _).trans ?_
       rw [hitPending, ← nsmul_eq_mul]
       refine Finset.sum_le_card_nsmul _ _ _ fun p _ => ?_

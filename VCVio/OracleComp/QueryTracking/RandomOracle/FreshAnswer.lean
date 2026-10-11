@@ -182,7 +182,7 @@ theorem prEvent_bind_and_le_of_potential {so : QueryImpl spec (StateT σ ProbCom
     (oa : OracleComp spec α) (s : σ) (hs : ¬ P s) :
     Pr{let z ← (simulateQ so oa).run s; let y ← g z}[Q y ∧ Ψ y ≤ K] ≤ K - Φ s := by
   let _ : MeasurableSpace τ := ⊤
-  rw [← bind_assoc, prEvent_eq_evalDist_of_discrete]
+  rw [← map_bind, prEvent_eq_evalDist_of_discrete]
   refine evalDist_bind_apply_setOf_and_le_of_potential h g Q Ψ K hK' hgmono (fun z hz => ?_) oa
     s hs
   rw [← prEvent_eq_evalDist_of_discrete]
@@ -203,7 +203,7 @@ theorem prEvent_bind_draw_and_le_of_potential {so : QueryImpl spec (StateT σ Pr
   have key := prEvent_bind_and_le_of_potential h (fun z => (fun x => (z, x)) <$> mx)
     (fun y => P y.1.2 ∨ H y.2 y.1.2) (fun y => Φ y.1.2 + c y.1.2) K hK' (fun z y hy => ?_)
     (fun z hz => ?_) oa s hs
-  · simpa only [bind_map_left] using key
+  · simpa only [Functor.map_map] using key
   · rw [support_map] at hy
     obtain ⟨x, -, rfl⟩ := hy
     exact le_self_add
