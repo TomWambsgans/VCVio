@@ -147,7 +147,11 @@ for a measurable continuation in any monad), `tvDist_map_le` → `measureTVDist_
 `tvDist_nonneg`/`tvDist_triangle`/`tvDist_le_one` → `measureTVDist_nonneg`/`measureTVDist_triangle`/
 `measureTVDist_le_one`, `abs_probOutput_toReal_sub_le_tvDist` →
 `abs_prEvent_toReal_sub_le_measureTVDist`, and `measureTVDist_eq_toReal_measureETVDist` moves
-between the two forms. The complement of an event is `prEvent_not_eq_one_sub` on `OracleComp`.
+between the two forms. After a common prefix, a uniform bound on the continuations gives
+`measureTVDist_bind_left_le_of_forall_le`, and continuations equal in distribution off a bad
+prefix event give `measureTVDist_bind_left_le_prEvent_of_evalDistEq` (both with `ℝ≥0∞` forms).
+The complement of an event is `prEvent_not_eq_one_sub` on `OracleComp`, and independent draws
+commute inside a two-draw event by `prEvent_bind_map_swap`.
 
 ## Converted theorem families
 
