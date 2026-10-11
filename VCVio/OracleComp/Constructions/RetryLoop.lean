@@ -6,8 +6,10 @@ Authors: Oleksandr Vovkotrub
 
 module
 public import VCVio.OracleComp.ProbComp
-public import VCVio.OracleComp.Constructions.SampleableType
-public import VCVio.EvalDist.MeasureTVDist.Basic
+public import VCVio.OracleComp.Constructions.SampleableType.Basic
+public import VCVio.OracleComp.Constructions.SampleableType.Measure
+public import VCVio.OracleComp.EvalDist.Sum
+public import VCVio.EvalDist.MeasureTVDist.Event
 
 /-! # First-Success Retry Loops and their Total-Variation Theory
 
@@ -18,15 +20,19 @@ a total `ProbComp α` by falling back to `default` when the budget is exhausted.
 
 Two facts about such loops are needed to price a rejection sampler against an idealization.
 
-* `tvDist_firstSome_le_geometric` — per-attempt closeness accumulates geometrically.  If two
-  attempts are within total-variation distance `ζ` and the second rejects with probability at
-  most `q`, the `n`-attempt loops are within `ζ · (1 + q + ⋯ + q^(n-1))`, hence within
-  `ζ / (1 - q)` for every budget once `q < 1`.
+* `measureTVDist_firstSome_le_geometric` — per-attempt closeness accumulates geometrically.
+  If two attempts are within total-variation distance `ζ` and the second rejects with
+  probability at most `q`, the `n`-attempt loops are within `ζ · (1 + q + ⋯ + q^(n-1))`, hence
+  within `ζ / (1 - q)` for every budget once `q < 1`.
 
-* `tvDist_retryToDefault_le_pow` — a loop whose attempt *resamples* (`ResamplesTo`: replacing
-  a rejection by a fresh draw from `cond` reproduces `cond`'s law, the defining property of
-  rejection sampling) is within `q ^ n` of `cond` at budget `n`.  All of the error is the
-  budget-exhaustion mass.
+* `measureTVDist_retryToDefault_le_pow` — a loop whose attempt *resamples* (`ResamplesTo`:
+  replacing a rejection by a fresh draw from `cond` reproduces `cond`'s law, the defining
+  property of rejection sampling) is within `q ^ n` of `cond` at budget `n`.  All of the error
+  is the budget-exhaustion mass.
+
+Distances are real total variation (`measureTVDist`) in a measurable structure on the outputs;
+the loop lemmas take the attempt's optional outputs to be discrete, as they are for the `⊤`
+structure that a caller fixes.
 
 Together these separate the two costs a rejection loop carries — the per-attempt
 approximation error and the exhaustion probability — instead of charging the whole rejection
@@ -64,7 +70,7 @@ lemma firstSome_succ (attempt : ProbComp (Option α)) (n : ℕ) :
 
 /-- The retry loop read as a total computation: fall back to `default` when the attempt budget
 is exhausted.  The fallback carries all of the loop's deviation from an ideal sampler
-(`tvDist_retryToDefault_le_pow`). -/
+(`measureTVDist_retryToDefault_le_pow`). -/
 noncomputable def retryToDefault [Inhabited α]
     (attempt : ProbComp (Option α)) (n : ℕ) : ProbComp α :=
   (fun o => o.getD default) <$> firstSome attempt n
@@ -94,13 +100,16 @@ most `q`, then the `n`-attempt retry loops are within `ζ · (1 + q + ⋯ + q^(n
 
 Each hybrid step couples one more attempt, and attempt `j` is only reached when the first `j`
 attempts of the second loop all rejected — which is where the geometric factor comes from. -/
-lemma tvDist_firstSome_le_geometric (a₁ a₂ : ProbComp (Option α))
-    {ζ q : ℝ} (hζ : tvDist a₁ a₂ ≤ ζ) (hq : Pr{let x ← a₂}[x = none].toReal ≤ q) (hq0 : 0 ≤ q) :
-    ∀ n : ℕ, tvDist (firstSome a₁ n) (firstSome a₂ n) ≤ ζ * ∑ j ∈ Finset.range n, q ^ j
+lemma measureTVDist_firstSome_le_geometric [MeasurableSpace (Option α)]
+    [DiscreteMeasurableSpace (Option α)] (a₁ a₂ : ProbComp (Option α))
+    {ζ q : ℝ} (hζ : measureTVDist a₁ a₂ ≤ ζ) (hq : Pr{let x ← a₂}[x = none].toReal ≤ q)
+    (hq0 : 0 ≤ q) :
+    ∀ n : ℕ, measureTVDist (firstSome a₁ n) (firstSome a₂ n) ≤
+      ζ * ∑ j ∈ Finset.range n, q ^ j
   | 0 => by simp [firstSome]
   | (n + 1) => by
-    have hζ0 : 0 ≤ ζ := le_trans (tvDist_nonneg a₁ a₂) hζ
-    have ih := tvDist_firstSome_le_geometric a₁ a₂ hζ hq hq0 n
+    have hζ0 : 0 ≤ ζ := le_trans (measureTVDist_nonneg a₁ a₂) hζ
+    have ih := measureTVDist_firstSome_le_geometric a₁ a₂ hζ hq hq0 n
     have hGeomNonneg : (0 : ℝ) ≤ ∑ j ∈ Finset.range n, q ^ j :=
       Finset.sum_nonneg fun j _ => pow_nonneg hq0 j
     set k₁ : Option α → ProbComp (Option α) := fun r =>
@@ -112,24 +121,25 @@ lemma tvDist_firstSome_le_geometric (a₁ a₂ : ProbComp (Option α))
       | some a => pure (some a)
       | none => firstSome a₂ n with hk₂
     have hterm : ∀ b : Option α, b ≠ (none : Option α) →
-        Pr{let x ← a₂}[x = b].toReal * tvDist (k₁ b) (k₂ b) = 0 := by
+        Pr{let x ← a₂}[x = b].toReal * measureTVDist (k₁ b) (k₂ b) = 0 := by
       intro b hb
       match b, hb with
       | some a, _ => simp [hk₁, hk₂]
-    have hStep : tvDist (a₂ >>= k₁) (a₂ >>= k₂) ≤
-        Pr{let x ← a₂}[x = none].toReal * tvDist (firstSome a₁ n) (firstSome a₂ n) := by
-      refine le_trans (tvDist_bind_left_le a₂ k₁ k₂) (le_of_eq ?_)
+    have hStep : measureTVDist (a₂ >>= k₁) (a₂ >>= k₂) ≤
+        Pr{let x ← a₂}[x = none].toReal * measureTVDist (firstSome a₁ n) (firstSome a₂ n) := by
+      refine le_trans (measureTVDist_bind_left_le_tsum a₂ k₁ k₂) (le_of_eq ?_)
       rw [tsum_eq_single (none : Option α) hterm]
     calc
-      tvDist (firstSome a₁ (n + 1)) (firstSome a₂ (n + 1))
-          = tvDist (a₁ >>= k₁) (a₂ >>= k₂) := by
+      measureTVDist (firstSome a₁ (n + 1)) (firstSome a₂ (n + 1))
+          = measureTVDist (a₁ >>= k₁) (a₂ >>= k₂) := by
             rw [firstSome_succ, firstSome_succ]
-      _ ≤ tvDist (a₁ >>= k₁) (a₂ >>= k₁) + tvDist (a₂ >>= k₁) (a₂ >>= k₂) :=
-            tvDist_triangle _ _ _
-      _ ≤ ζ + Pr{let x ← a₂}[x = none].toReal * tvDist (firstSome a₁ n) (firstSome a₂ n) :=
-            add_le_add (le_trans (tvDist_bind_right_le k₁ a₁ a₂) hζ) hStep
+      _ ≤ measureTVDist (a₁ >>= k₁) (a₂ >>= k₁) + measureTVDist (a₂ >>= k₁) (a₂ >>= k₂) :=
+            measureTVDist_triangle _ _ _
+      _ ≤ ζ + Pr{let x ← a₂}[x = none].toReal *
+            measureTVDist (firstSome a₁ n) (firstSome a₂ n) :=
+            add_le_add (le_trans (measureTVDist_bind_right_le a₁ a₂ k₁) hζ) hStep
       _ ≤ ζ + q * (ζ * ∑ j ∈ Finset.range n, q ^ j) :=
-            add_le_add le_rfl (mul_le_mul hq ih (tvDist_nonneg _ _) hq0)
+            add_le_add le_rfl (mul_le_mul hq ih (measureTVDist_nonneg _ _) hq0)
       _ = ζ * ∑ j ∈ Finset.range (n + 1), q ^ j := by
             have hsum : ∑ j ∈ Finset.range (n + 1), q ^ j =
                 q * (∑ j ∈ Finset.range n, q ^ j) + 1 := by
@@ -140,13 +150,14 @@ lemma tvDist_firstSome_le_geometric (a₁ a₂ : ProbComp (Option α))
 
 /-- The geometric accumulation in closed form: for a rejection probability `q < 1` the loop
 error is at most `ζ / (1 - q)` at every attempt budget. -/
-lemma tvDist_firstSome_le_div (a₁ a₂ : ProbComp (Option α))
-    {ζ q : ℝ} (hζ : tvDist a₁ a₂ ≤ ζ) (hq : Pr{let x ← a₂}[x = none].toReal ≤ q)
+lemma measureTVDist_firstSome_le_div [MeasurableSpace (Option α)]
+    [DiscreteMeasurableSpace (Option α)] (a₁ a₂ : ProbComp (Option α))
+    {ζ q : ℝ} (hζ : measureTVDist a₁ a₂ ≤ ζ) (hq : Pr{let x ← a₂}[x = none].toReal ≤ q)
     (hq0 : 0 ≤ q) (hq1 : q < 1) (n : ℕ) :
-    tvDist (firstSome a₁ n) (firstSome a₂ n) ≤ ζ / (1 - q) := by
-  have hζ0 : 0 ≤ ζ := le_trans (tvDist_nonneg a₁ a₂) hζ
+    measureTVDist (firstSome a₁ n) (firstSome a₂ n) ≤ ζ / (1 - q) := by
+  have hζ0 : 0 ≤ ζ := le_trans (measureTVDist_nonneg a₁ a₂) hζ
   have hlt : (0 : ℝ) < 1 - q := by linarith
-  refine le_trans (tvDist_firstSome_le_geometric a₁ a₂ hζ hq hq0 n) ?_
+  refine le_trans (measureTVDist_firstSome_le_geometric a₁ a₂ hζ hq hq0 n) ?_
   have key : (∑ j ∈ Finset.range n, q ^ j) * (1 - q) = 1 - q ^ n := by
     have h := geom_sum_mul q n
     nlinarith [h]
@@ -159,19 +170,23 @@ lemma tvDist_firstSome_le_div (a₁ a₂ : ProbComp (Option α))
 
 /-- The total reading of the loop is no further apart than the optional one: `retryToDefault`
 is a deterministic image of `firstSome`. -/
-lemma tvDist_retryToDefault_le_firstSome [Inhabited α] (a₁ a₂ : ProbComp (Option α)) (n : ℕ) :
-    tvDist (retryToDefault a₁ n) (retryToDefault a₂ n) ≤
-      tvDist (firstSome a₁ n) (firstSome a₂ n) :=
-  tvDist_map_le _ _ _
+lemma measureTVDist_retryToDefault_le_firstSome [Inhabited α] [MeasurableSpace α]
+    [MeasurableSpace (Option α)] [DiscreteMeasurableSpace (Option α)]
+    (a₁ a₂ : ProbComp (Option α)) (n : ℕ) :
+    measureTVDist (retryToDefault a₁ n) (retryToDefault a₂ n) ≤
+      measureTVDist (firstSome a₁ n) (firstSome a₂ n) :=
+  measureTVDist_map_le _ _ _ .of_discrete
 
 /-- Geometric accumulation for the total reading of the loop: the closed-form companion of
-`tvDist_firstSome_le_div`. -/
-lemma tvDist_retryToDefault_le_div [Inhabited α] (a₁ a₂ : ProbComp (Option α))
-    {ζ q : ℝ} (hζ : tvDist a₁ a₂ ≤ ζ) (hq : Pr{let x ← a₂}[x = none].toReal ≤ q)
+`measureTVDist_firstSome_le_div`. -/
+lemma measureTVDist_retryToDefault_le_div [Inhabited α] [MeasurableSpace α]
+    [MeasurableSpace (Option α)] [DiscreteMeasurableSpace (Option α)]
+    (a₁ a₂ : ProbComp (Option α))
+    {ζ q : ℝ} (hζ : measureTVDist a₁ a₂ ≤ ζ) (hq : Pr{let x ← a₂}[x = none].toReal ≤ q)
     (hq0 : 0 ≤ q) (hq1 : q < 1) (n : ℕ) :
-    tvDist (retryToDefault a₁ n) (retryToDefault a₂ n) ≤ ζ / (1 - q) :=
-  le_trans (tvDist_retryToDefault_le_firstSome a₁ a₂ n)
-    (tvDist_firstSome_le_div a₁ a₂ hζ hq hq0 hq1 n)
+    measureTVDist (retryToDefault a₁ n) (retryToDefault a₂ n) ≤ ζ / (1 - q) :=
+  le_trans (measureTVDist_retryToDefault_le_firstSome a₁ a₂ n)
+    (measureTVDist_firstSome_le_div a₁ a₂ hζ hq hq0 hq1 n)
 
 /-! ## Rejection resampling and the exhaustion-only error -/
 
@@ -192,14 +207,14 @@ within `q ^ n` of `cond` in total variation.
 This is what separates the two costs of a rejection sampler: the loop is *exactly* right up to
 running out of attempts, so the rejection rate itself is never charged to an approximation
 budget — only `q ^ n` is. -/
-theorem tvDist_retryToDefault_le_pow [Inhabited α]
+theorem measureTVDist_retryToDefault_le_pow [Inhabited α] [MeasurableSpace α]
     (attempt : ProbComp (Option α)) (cond : ProbComp α) {q : ℝ}
     (hres : ResamplesTo attempt cond)
     (hq : Pr{let x ← attempt}[x = none].toReal ≤ q) (hq0 : 0 ≤ q) :
-    ∀ n : ℕ, tvDist (retryToDefault attempt n) cond ≤ q ^ n
-  | 0 => by simpa using tvDist_le_one (pure (default : α) : ProbComp α) cond
+    ∀ n : ℕ, measureTVDist (retryToDefault attempt n) cond ≤ q ^ n
+  | 0 => by simpa using measureTVDist_le_one (pure (default : α) : ProbComp α) cond
   | (n + 1) => by
-    have ih := tvDist_retryToDefault_le_pow attempt cond hres hq hq0 n
+    have ih := measureTVDist_retryToDefault_le_pow attempt cond hres hq hq0 n
     set g : Option α → ProbComp α := fun o =>
       match o with
       | some v => pure v
@@ -209,27 +224,29 @@ theorem tvDist_retryToDefault_le_pow [Inhabited α]
       | some v => pure v
       | none => cond with hgInf
     -- The resampling branch is exactly `cond`.
-    have hzero : tvDist (attempt >>= gInf) cond = 0 := by
-      rw [tvDist_eq_zero_iff]; exact hres
+    have hzero : measureTVDist (attempt >>= gInf) cond = 0 := by
+      rw [measureTVDist_eq_zero_iff]; exact hres.evalDist_eq
     -- Only the rejection branch contributes to the loop-versus-resampling gap.
     have hterm : ∀ b : Option α, b ≠ (none : Option α) →
-        Pr{let x ← attempt}[x = b].toReal * tvDist (g b) (gInf b) = 0 := by
+        Pr{let x ← attempt}[x = b].toReal * measureTVDist (g b) (gInf b) = 0 := by
       intro b hb
       match b, hb with
       | some a, _ => simp [hg, hgInf]
-    have hStep : tvDist (attempt >>= g) (attempt >>= gInf) ≤
-        Pr{let x ← attempt}[x = none].toReal * tvDist (retryToDefault attempt n) cond := by
-      refine le_trans (tvDist_bind_left_le attempt g gInf) (le_of_eq ?_)
+    have hStep : measureTVDist (attempt >>= g) (attempt >>= gInf) ≤
+        Pr{let x ← attempt}[x = none].toReal * measureTVDist (retryToDefault attempt n) cond := by
+      refine le_trans (measureTVDist_bind_left_le_tsum attempt g gInf) (le_of_eq ?_)
       rw [tsum_eq_single (none : Option α) hterm]
-    calc tvDist (retryToDefault attempt (n + 1)) cond
-        = tvDist (attempt >>= g) cond := by rw [retryToDefault_succ]
-      _ ≤ tvDist (attempt >>= g) (attempt >>= gInf) + tvDist (attempt >>= gInf) cond :=
-          tvDist_triangle _ _ _
-      _ ≤ Pr{let x ← attempt}[x = none].toReal * tvDist (retryToDefault attempt n) cond + 0 := by
+    calc measureTVDist (retryToDefault attempt (n + 1)) cond
+        = measureTVDist (attempt >>= g) cond := by rw [retryToDefault_succ]
+      _ ≤ measureTVDist (attempt >>= g) (attempt >>= gInf) +
+            measureTVDist (attempt >>= gInf) cond :=
+          measureTVDist_triangle _ _ _
+      _ ≤ Pr{let x ← attempt}[x = none].toReal *
+            measureTVDist (retryToDefault attempt n) cond + 0 := by
           rw [hzero]; exact add_le_add hStep le_rfl
       _ ≤ q * q ^ n := by
           rw [add_zero]
-          exact mul_le_mul hq ih (tvDist_nonneg _ _) hq0
+          exact mul_le_mul hq ih (measureTVDist_nonneg _ _) hq0
       _ = q ^ (n + 1) := by ring
 
 /-! ## Uniform rejection sampling -/
@@ -258,7 +275,7 @@ theorem ResamplesTo.uniform_filter {D : Type} [Fintype D] [SampleableType D]
     refine bind_congr fun δ => ?_
     split_ifs <;> rfl
   rw [hbind]
-  refine evalSPMF_ext fun x => ?_
+  refine OracleComp.evalDistEq_of_forall_prEvent_eq_output fun x => ?_
   -- The counts: `N` box points, `K` accepted, `M` accepted with image `x`.
   set N : ℕ := Fintype.card D with hN
   set K : ℕ := Fintype.card {δ : D // P δ} with hK
@@ -271,13 +288,13 @@ theorem ResamplesTo.uniform_filter {D : Type} [Fintype D] [SampleableType D]
     congr 2
     exact Fintype.card_congr (Equiv.subtypeSubtypeEquivSubtypeInter P fun δ => F δ = x)
   -- The resampled attempt puts mass `(M + (N − K) · M / K) / N` on `x`.
-  rw [probOutput_bind_eq_sum_fintype]
-  simp only [probOutput_uniformSample]
+  rw [prEvent_bind_eq_sum_fintype]
+  simp only [SampleableType.prEvent_uniformSample_eq_singleton]
   have hterm : ∀ δ : D, Pr{let y ← (if P δ then pure (F δ) else cond : ProbComp α)}[y = x] =
       (if P δ ∧ F δ = x then 1 else 0) + (if P δ then 0 else (M : ℝ≥0∞) / K) := by
     intro δ
     by_cases hδ : P δ
-    · simp [hδ, prEvent_pure, eq_comm]
+    · simp [hδ, eq_comm]
     · simp [hδ, hp]
   simp only [hterm, mul_add, Finset.sum_add_distrib, ← Finset.mul_sum]
   rw [Finset.sum_boole, Finset.sum_ite, Finset.sum_const_zero, zero_add, Finset.sum_const,
