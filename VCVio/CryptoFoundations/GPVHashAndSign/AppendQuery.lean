@@ -338,8 +338,6 @@ theorem euf_cma_split_bound_of_queryBound [DecidableEq Domain]
     (qSign qHash : ℕ)
     (adv : SignatureAlg.UnforgeableAdversary
       (GPVHashAndSign (m := OracleComp (unifSpec + (Salt × M →ₒ Range))) psf hr M Salt))
-    (hNF : ∀ (pk : PK) (sk : SK), (pk, sk) ∈ support hr.gen →
-      ∀ (c : Range), NeverFail (psf.trapdoorSample pk sk c))
     (hQ : ∀ pk, signHashQueryBound
       (S' := Salt × Domain) (α := M × (Salt × Domain))
       (oa := adv.main pk) (qSign := qSign) (qHash := qHash)) :
@@ -353,7 +351,7 @@ theorem euf_cma_split_bound_of_queryBound [DecidableEq Domain]
         collisionBound Salt qSign (qHash + 1) := by
   rw [← advantage_appendForgeQuery psf hr M Salt adv]
   exact euf_cma_split_bound psf hr M Salt hcorrect domainSample hreg qSign (qHash + 1)
-    (appendForgeQuery psf hr M Salt adv) hNF
+    (appendForgeQuery psf hr M Salt adv)
     (forgesQueriedPoint_appendForgeQuery psf hr M Salt adv domainSample)
     (fun pk => signHashQueryBound_appendForgeQuery psf hr M Salt adv qSign qHash pk (hQ pk))
 
@@ -384,8 +382,6 @@ theorem euf_cma_collision_bound_of_queryBound [DecidableEq Domain]
     (qSign qHash : ℕ)
     (adv : SignatureAlg.UnforgeableAdversary
       (GPVHashAndSign (m := OracleComp (unifSpec + (Salt × M →ₒ Range))) psf hr M Salt))
-    (hNF : ∀ (pk : PK) (sk : SK), (pk, sk) ∈ support hr.gen →
-      ∀ (c : Range), NeverFail (psf.trapdoorSample pk sk c))
     (hQ : ∀ pk, signHashQueryBound
       (S' := Salt × Domain) (α := M × (Salt × Domain))
       (oa := adv.main pk) (qSign := qSign) (qHash := qHash)) :
@@ -395,7 +391,7 @@ theorem euf_cma_collision_bound_of_queryBound [DecidableEq Domain]
         ((qSign + (qHash + 1) : ℕ) : ENNReal) * trapdoorGuessingProbability psf hr +
         collisionBound Salt qSign (qHash + 1) := by
   refine (euf_cma_split_bound_of_queryBound psf hr M Salt hcorrect domainSample hreg qSign qHash
-    adv hNF hQ).trans ?_
+    adv hQ).trans ?_
   gcongr
   exact programmedPreimageAdvantage_le_trapdoorGuessingProbability psf hr _
 

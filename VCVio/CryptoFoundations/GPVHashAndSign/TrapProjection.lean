@@ -83,7 +83,6 @@ reshaping the remaining `(cache, signedSet, idx, counter)` components into the f
 at every programming event; the trap run's extra trapdoor sample `x ← trapdoorSample pk sk v` is
 never read, so under `hNF` it is a never-failing value-irrelevant prefix that drops out. -/
 lemma progGameRunImplCombinedTrapCount_freshSig_proj (pk : PK) (sk : SK)
-    (hNF : ∀ c : Range, NeverFail (psf.trapdoorSample pk sk c))
     (t : ((unifSpec + (Salt × M →ₒ Range)) + (M →ₒ (Salt × Domain))).Domain)
     (s : ((((Salt × M →ₒ Range).QueryCache × Finset M) × Bool) × ((Salt × M) → Option Domain)) ×
       (((Salt × M) → Option ℕ) × ℕ)) :
@@ -128,7 +127,6 @@ omit [DecidableEq Range] [Fintype Salt] in
 the write-only trapdoor table from the full simulated trap-count run, and reshaping to the fresh-sig
 state layout, recovers the `embedTrapFreshIdxSigImpl` run distribution. -/
 lemma map_run_progGameRunImplCombinedTrapCount_freshSig_proj (pk : PK) (sk : SK)
-    (hNF : ∀ c : Range, NeverFail (psf.trapdoorSample pk sk c))
     {β : Type} (oa : OracleComp ((unifSpec + (Salt × M →ₒ Range)) + (M →ₒ (Salt × Domain))) β)
     (s : ((((Salt × M →ₒ Range).QueryCache × Finset M) × Bool) × ((Salt × M) → Option Domain)) ×
       (((Salt × M) → Option ℕ) × ℕ)) :
@@ -144,7 +142,7 @@ lemma map_run_progGameRunImplCombinedTrapCount_freshSig_proj (pk : PK) (sk : SK)
     (progGameRunImplCombinedTrapCount psf M Salt pk sk)
     (embedTrapFreshIdxSigImpl psf M Salt pk sk)
     (fun s => ((((s.1.1.1.1, s.2.2), s.2.1), s.1.1.1.2)))
-    (progGameRunImplCombinedTrapCount_freshSig_proj psf M Salt pk sk hNF) oa s
+    (progGameRunImplCombinedTrapCount_freshSig_proj psf M Salt pk sk) oa s
 
 omit [Fintype Salt] in
 /-- **Step-2 embed-side reduction to the common freshness-confined deferred functional.**  The
@@ -495,7 +493,6 @@ both frozen afterwards), turning `1_{table(k₀) = some sStar}` into the trapdoo
 off the programming step the table at `k₀` is untouched, so the IH carries through.  This is the
 defer-to-end twin of the front-loading lift, *keeping* the forged draw rather than dropping it. -/
 lemma progGameRunImplCombinedTrapCount_table_defer (pk : PK) (sk : SK)
-    (hNF : ∀ (c : Range), NeverFail (psf.trapdoorSample pk sk c))
     (k₀ : Salt × M) (sStar : Domain)
     {β : Type} (oa : OracleComp ((unifSpec + (Salt × M →ₒ Range)) + (M →ₒ (Salt × Domain))) β)
     (G : β →
@@ -753,8 +750,7 @@ not deferrable, which is why dropping freshness falsifies the bound. -/
 lemma trap_freshSig_le_winnerSlot_deferred [Inhabited Range]
     (pk : PK) (sk : SK) (j : ℕ)
     (adv : SignatureAlg.UnforgeableAdversary
-      (GPVHashAndSign (m := OracleComp (unifSpec + (Salt × M →ₒ Range))) psf hr M Salt))
-    (hNF : ∀ (c : Range), NeverFail (psf.trapdoorSample pk sk c)) :
+      (GPVHashAndSign (m := OracleComp (unifSpec + (Salt × M →ₒ Range))) psf hr M Salt)) :
     Pr{let w ← ((simulateQ (progGameRunImplCombinedTrapCount psf M Salt pk sk)
           (adv.main pk)).run
           (((((∅ : (Salt × M →ₒ Range).QueryCache), (∅ : Finset M)), false), fun _ => none),
@@ -794,7 +790,7 @@ lemma trap_freshSig_le_winnerSlot_deferred [Inhabited Range]
             Pr{let x ← (psf.trapdoorSample pk sk
               (((projS z.2).1.1.1 (z.1.2.1, z.1.1)).getD default))}[x = z.1.2.2]
           else 0) := by
-    have hmap := map_run_progGameRunImplCombinedTrapCount_freshSig_proj psf M Salt pk sk hNF
+    have hmap := map_run_progGameRunImplCombinedTrapCount_freshSig_proj psf M Salt pk sk
       (adv.main pk)
       (((((∅ : (Salt × M →ₒ Range).QueryCache), (∅ : Finset M)), false), fun _ => none),
         (fun _ => none), 0)
@@ -894,7 +890,7 @@ lemma trap_freshSig_le_winnerSlot_deferred [Inhabited Range]
       rw [hGp]; refine ite_eq_right ?_
       rintro ⟨hbp, -, hbw, -⟩
       exact hbw (by rw [show b.1 = p.1.2 from by rw [← hbp]]; exact hmem)
-    have hdefer := progGameRunImplCombinedTrapCount_table_defer psf M Salt pk sk hNF p.1 p.2
+    have hdefer := progGameRunImplCombinedTrapCount_table_defer psf M Salt pk sk p.1 p.2
       (adv.main pk) (Gp p) hGfreshp
       (((((∅ : (Salt × M →ₒ Range).QueryCache), (∅ : Finset M)), false), fun _ => none),
         (fun _ => none), 0) (by simp)

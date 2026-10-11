@@ -51,7 +51,6 @@ theorem gpv_realGameVerify_le_progGameVerify_add_collisionBound
     (hQ : signHashQueryBound
       (S' := Salt × Domain) (α := M × (Salt × Domain))
       (oa := adv.main pk) (qSign := qSign) (qHash := qHash))
-    (hNF : ∀ c, NeverFail (psf.trapdoorSample pk sk c))
     (hreg : (do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain)) =ᵈ
       (do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
             : ProbComp (Range × Domain)))
@@ -85,7 +84,7 @@ theorem gpv_realGameVerify_le_progGameVerify_add_collisionBound
       ≤ (collisionBound Salt qSign qHash).toReal :=
     le_trans (SPMF.tvDist_bind_right_le k _ _)
       (gpv_measureTVDist_real_programmed_le_collisionBound psf hr M Salt pk sk adv domainSample
-        qSign qHash hQ hNF hreg)
+        qSign qHash hQ hreg)
   linarith [le_trans hsub hdpi]
 
 open Classical in
@@ -333,8 +332,6 @@ theorem gpv_advantage_le_progGameVerifyFreshAvg_add_collisionBound
       (do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain)) =ᵈ
         (do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
             : ProbComp (Range × Domain)))
-    (hNF : ∀ (pk : PK) (sk : SK), (pk, sk) ∈ support hr.gen →
-      ∀ (c : Range), NeverFail (psf.trapdoorSample pk sk c))
     (hQ : ∀ pk, signHashQueryBound
       (S' := Salt × Domain) (α := M × (Salt × Domain))
       (oa := adv.main pk) (qSign := qSign) (qHash := qHash)) :

@@ -312,7 +312,6 @@ lemma evalDistEq_embedAtIndex_step_eq_embedTrap
     (hreg : (do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain)) =ᵈ
       (do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
             : ProbComp (Range × Domain)))
-    (hNF : ∀ (c : Range), NeverFail (psf.trapdoorSample pk sk c))
     (t : ((unifSpec + (Salt × M →ₒ Range)) + (M →ₒ (Salt × Domain))).Domain)
     (s : (Salt × M →ₒ Range).QueryCache × ℕ) :
     ((embedAtIndexImpl psf M Salt domainSample pk w y t).run s) =ᵈ
@@ -331,7 +330,7 @@ lemma evalDistEq_embedAtIndex_step_eq_embedTrap
               -- alone, so the first marginal of `hreg` (collapsed by `hNF`) suffices.
               have hfst : ((domainSample pk : ProbComp Domain) >>= fun sd =>
                     (pure (psf.eval pk sd) : ProbComp Range)) =ᵈ ($ᵗ Range : ProbComp Range) :=
-                evalDistEq_eval_domainSample_eq_uniform psf pk sk domainSample hNF hreg
+                evalDistEq_eval_domainSample_eq_uniform psf pk sk domainSample hreg
               calc 𝒮[(fun sd : Domain =>
                       (if s.2 = w then (y, (s.1.cacheQuery q y, s.2 + 1))
                        else (psf.eval pk sd, (s.1.cacheQuery q (psf.eval pk sd), s.2 + 1)) :
@@ -396,7 +395,6 @@ lemma evalDistEq_run_embedAtIndexImpl_eq_embedTrap {β : Type}
     (hreg : (do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain)) =ᵈ
       (do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
             : ProbComp (Range × Domain)))
-    (hNF : ∀ (c : Range), NeverFail (psf.trapdoorSample pk sk c))
     (oa : OracleComp ((unifSpec + (Salt × M →ₒ Range)) + (M →ₒ (Salt × Domain))) β)
     (s : (Salt × M →ₒ Range).QueryCache × ℕ) :
     ((simulateQ (embedAtIndexImpl psf M Salt domainSample pk w y) oa).run s) =ᵈ
@@ -404,7 +402,7 @@ lemma evalDistEq_run_embedAtIndexImpl_eq_embedTrap {β : Type}
   evalDist_simulateQ_run_congr
     (embedAtIndexImpl psf M Salt domainSample pk w y)
     (embedTrapImpl psf M Salt pk sk w y)
-    (evalDistEq_embedAtIndex_step_eq_embedTrap psf M Salt domainSample pk sk w y hreg hNF) oa s
+    (evalDistEq_embedAtIndex_step_eq_embedTrap psf M Salt domainSample pk sk w y hreg) oa s
 
 open Classical in
 /-- **The combined programmed-game ⊕ collision-reduction handler.** A single handler that threads

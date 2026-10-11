@@ -55,7 +55,6 @@ lemma reservoir_embed_commute_winner_floorFree [DecidableEq Domain] [Inhabited R
     (_hreg : (do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain)) =ᵈ
       (do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
             : ProbComp (Range × Domain)))
-    (hNF : ∀ (c : Range), NeverFail (psf.trapdoorSample pk sk c))
     (_hForge : ForgesQueriedPoint psf hr M Salt adv domainSample)
     (_hQ : signHashQueryBound
       (S' := Salt × Domain) (α := M × (Salt × Domain))
@@ -273,7 +272,7 @@ lemma reservoir_embed_commute_winner_floorFree [DecidableEq Domain] [Inhabited R
   -- `freshSig_winnerSlot_deferred_le_embed` (that expectation `≤` the winner-slot-restricted
   -- per-target embedding win).
   refine le_trans (prEvent_mono ?_)
-    (le_trans (trap_freshSig_le_winnerSlot_deferred psf hr M Salt pk sk j adv hNF)
+    (le_trans (trap_freshSig_le_winnerSlot_deferred psf hr M Salt pk sk j adv)
       (freshSig_winnerSlot_deferred_le_embed psf hr M Salt pk sk j adv))
   rintro w - ⟨⟨hflag, htbl⟩, hidx⟩
   refine ⟨⟨?_, htbl⟩, hidx⟩
@@ -307,7 +306,6 @@ lemma reservoir_embed_commute_winner [DecidableEq Domain] [Inhabited Range]
     (hreg : (do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain)) =ᵈ
       (do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
             : ProbComp (Range × Domain)))
-    (hNF : ∀ (c : Range), NeverFail (psf.trapdoorSample pk sk c))
     (hForge : ForgesQueriedPoint psf hr M Salt adv domainSample)
     (hQ : signHashQueryBound
       (S' := Salt × Domain) (α := M × (Salt × Domain))
@@ -350,7 +348,7 @@ lemma reservoir_embed_commute_winner [DecidableEq Domain] [Inhabited Range]
   -- Floor-free per-slot bound (the genuine front-loading commute).
   have hfloorFree : LHS ≤ S :=
     reservoir_embed_commute_winner_floorFree psf hr M Salt domainSample pk sk qSign qHash adv
-      hreg hNF hForge hQ j
+      hreg hForge hQ j
   change LHS ≤ (Q : ENNReal) * Pr{let x ← reservoirWinnerIndex Q}[x = some j] * S
   by_cases hj : j < Q
   · -- Slot `j` is within budget: the winner mass is exactly `Q⁻¹`, so `Q · Q⁻¹ = 1` absorbs the
@@ -411,7 +409,6 @@ lemma reservoir_embed_commute_residual [DecidableEq Domain] [Inhabited Range]
     (hreg : (do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain)) =ᵈ
       (do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
             : ProbComp (Range × Domain)))
-    (hNF : ∀ (c : Range), NeverFail (psf.trapdoorSample pk sk c))
     (hForge : ForgesQueriedPoint psf hr M Salt adv domainSample)
     (hQ : signHashQueryBound
       (S' := Salt × Domain) (α := M × (Salt × Domain))
@@ -509,7 +506,7 @@ lemma reservoir_embed_commute_residual [DecidableEq Domain] [Inhabited Range]
     · -- Per-slot domination: the per-slot front-loading commute.
       intro j
       exact reservoir_embed_commute_winner psf hr M Salt domainSample pk sk qSign qHash
-        adv hreg hNF hForge hQ j
+        adv hreg hForge hQ j
   -- **Reservoir arithmetic.**  Push the budget factor `Q` through the winner sum and bound
   -- the trap partition `g` by the `some j` atoms of the reservoir winner average, discarding the
   -- never-firing `none` atom (`tsum_option`, terms nonnegative).
@@ -564,7 +561,6 @@ lemma reservoir_embed_commute [DecidableEq Domain] [Inhabited Range]
     (hreg : (do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain)) =ᵈ
       (do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
             : ProbComp (Range × Domain)))
-    (hNF : ∀ (c : Range), NeverFail (psf.trapdoorSample pk sk c))
     (hForge : ForgesQueriedPoint psf hr M Salt adv domainSample)
     (hQ : signHashQueryBound
       (S' := Salt × Domain) (α := M × (Salt × Domain))
@@ -589,7 +585,7 @@ lemma reservoir_embed_commute [DecidableEq Domain] [Inhabited Range]
   -- (`reservoir_embed_commute_residual`), then drop the winner-slot restriction
   -- `&& decide (… = some y)` from every per-target win (full win ≥ the restricted win).
   refine le_trans (reservoir_embed_commute_residual psf hr M Salt domainSample pk sk qSign qHash
-    adv hreg hNF hForge hQ) ?_
+    adv hreg hForge hQ) ?_
   gcongr ((qSign + qHash : ℕ) : ENNReal) *
     ∑' wOpt : Option ℕ, Pr{let x ← reservoirWinnerIndex (qSign + qHash)}[x = wOpt] *
       ∑' y : Range, Pr{let x ← ($ᵗ Range : ProbComp Range)}[x = y] * ?_ with wOpt y
@@ -629,7 +625,6 @@ lemma gpv_perKey_exactMatch_le_reservoir [DecidableEq Domain] [Inhabited Range]
     (hreg : (do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain)) =ᵈ
       (do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
             : ProbComp (Range × Domain)))
-    (hNF : ∀ (c : Range), NeverFail (psf.trapdoorSample pk sk c))
     (hForge : ForgesQueriedPoint psf hr M Salt adv domainSample)
     (hQ : signHashQueryBound
       (S' := Salt × Domain) (α := M × (Salt × Domain))
@@ -679,7 +674,7 @@ lemma gpv_perKey_exactMatch_le_reservoir [DecidableEq Domain] [Inhabited Range]
     -- The remaining `run >>= pure ∘ decide` factor is equidistributed under N4.
     rw [evalDist_bind_of_discrete, evalDist_bind_of_discrete,
       evalDistEq_run_embedAtIndexImpl_eq_embedTrap psf M Salt domainSample pk sk
-        (wOpt.getD (qSign + qHash)) y hreg hNF (adv.main pk)
+        (wOpt.getD (qSign + qHash)) y hreg (adv.main pk)
         ((∅ : (Salt × M →ₒ Range).QueryCache), (0 : ℕ))]
   -- **N4 applied.**  Replace every per-target embed run by its all-uniform-cache trap
   -- sibling `embedTrapImpl`, so the goal RHS is the reservoir/target average of the *trap-sibling*
@@ -742,7 +737,7 @@ lemma gpv_perKey_exactMatch_le_reservoir [DecidableEq Domain] [Inhabited Range]
     exact tsum_congr fun wOpt => tsum_congr fun y => by ring
   simp_rw [hpull]
   rw [hrhs]
-  exact reservoir_embed_commute psf hr M Salt domainSample pk sk qSign qHash adv hreg hNF
+  exact reservoir_embed_commute psf hr M Salt domainSample pk sk qSign qHash adv hreg
     hForge hQ
 
 end GPVHashAndSign

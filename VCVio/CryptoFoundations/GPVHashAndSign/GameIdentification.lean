@@ -381,7 +381,6 @@ theorem gpv_realGameVerifyFresh_le_progGameVerifyFresh_add_collisionBound
     (hQ : signHashQueryBound
       (S' := Salt × Domain) (α := M × (Salt × Domain))
       (oa := adv.main pk) (qSign := qSign) (qHash := qHash))
-    (hNF : ∀ c, NeverFail (psf.trapdoorSample pk sk c))
     (hreg : (do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain)) =ᵈ
       (do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
             : ProbComp (Range × Domain))) :
@@ -424,7 +423,7 @@ theorem gpv_realGameVerifyFresh_le_progGameVerifyFresh_add_collisionBound
     tvDist_map_le f runReal runProg
   have hcouple : tvDist runReal runProg ≤ (collisionBound Salt qSign qHash).toReal :=
     gpv_measureTVDist_orig_verify_fresh_le_collisionBound psf hr M Salt pk sk adv domainSample kont
-      qSign qHash hQ (gpvVerifyKont_no_sign psf M Salt pk) hNF hreg
+      qSign qHash hQ (gpvVerifyKont_no_sign psf M Salt pk) hreg
   linarith [le_trans hsub (le_trans hmap hcouple)]
 
 omit [DecidableEq Range] [SampleableType Range] [DecidableEq M] [DecidableEq Salt]
@@ -520,7 +519,6 @@ theorem gpv_measureTVDist_real_programmed_le_collisionBound
     (hQ : signHashQueryBound
       (S' := Salt × Domain) (α := M × (Salt × Domain))
       (oa := adv.main pk) (qSign := qSign) (qHash := qHash))
-    (hNF : ∀ c, NeverFail (psf.trapdoorSample pk sk c))
     (hreg : (do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain)) =ᵈ
       (do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
             : ProbComp (Range × Domain))) :
@@ -533,7 +531,7 @@ theorem gpv_measureTVDist_real_programmed_le_collisionBound
   -- (`gpv_measureTVDist_orig_run_le_prEvent_flag`), which the original-run cardinality telescope `(A2)`
   -- `gpv_orig_flag_le_collisionBound` bounds by `(collisionBound …).toReal`.
   refine le_trans
-    (gpv_measureTVDist_orig_run_le_prEvent_flag psf hr M Salt pk sk adv domainSample hNF hreg) ?_
+    (gpv_measureTVDist_orig_run_le_prEvent_flag psf hr M Salt pk sk adv domainSample hreg) ?_
   exact gpv_orig_flag_le_collisionBound psf hr M Salt pk sk adv qSign qHash hQ
 
 /-! ## State-threading bridge: runtime ↦ bare random oracle
