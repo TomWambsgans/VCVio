@@ -57,7 +57,7 @@ equalities or `tvDist` follows the *Standard proof conversion* table of the road
 | `PFunctor.IsProbabilitySpec`, `PFunctor.IsUniformSpec` | `PFunctor.AnswerMeasure`, `PFunctor.AnswerMeasure.uniformOfFiniteNonempty` |
 | `EvalDistCompatible`, `DiscreteEvalDistCompatible` | no class: from possible outputs to the measure, `evalDist.ae_of_forall_mem_support`; in a general monad the converse (`support` of a lift inside the source's `support`, a positive mass from a possible output) is a hypothesis of the statement that needs it, which holds by `rfl` or by the oracle lemmas at `ProbComp` and `OracleComp spec` |
 | `[MonadLiftT m SPMF] [LawfulMonadLiftT m SPMF]` | `[EvalDistSemantics m]` on definitions, adding `[LawfulEvalDistSemantics m]` on the lemmas that decompose a run (the environment linter rejects an unused one on a definition) |
-| `[MonadLiftT m SetM] [LawfulMonadLiftT m SetM]` for `support` | `[MonadAttach m] [ExactMonadAttach m]` |
+| `[MonadLiftT m SetM] [LawfulMonadLiftT m SetM]` for `support` | `[MonadAttach m]`, with `[LawfulMonadAttach m]` for proofs that eliminate a membership (`LawfulMonadAttach.canReturn_bind_imp'`, `eq_of_canReturn_pure`) and `[ExactMonadAttach m]` for the converse |
 | `open scoped ProbComp.DiscreteCompatibility` | delete it |
 
 `unifSpec` and `coinSpec` carry global uniform measure instances. For a concrete specification
@@ -267,6 +267,10 @@ replaced. The codemod maps both spellings to the final names.
 | a proof turned a measure equation `h : 𝒟[mx] = 𝒟[my]` into an event equation | `(EvalDistEq.of_evalDist_eq h).prEvent_eq p` after `let _ : MeasurableSpace α := ⊤`, or `(evalDistEq_iff_evalDist_eq.mpr h).prEvent_eq p` when `h` is stated under `letI … := ⊤` |
 | `prEvent_mono_of_support _ fun …` reports a type mismatch | the computation and both events are explicit: `prEvent_mono_of_support _ _ _ fun …` |
 | a helper about `Pr{let x ← A >>= K}[x = true]` no longer matches after `simp only [map_bind]` | the goal became the sequence `Pr{let a ← A; let x ← K a}[x = true]`: state the helper in that form, or fold back with `rw [← map_bind (f := fun x => x = true)]` (an unrestricted `← map_bind` also unfolds `set` variables) |
+| `rw [map_eq_bind_pure_comp]` on a `Pr{…}` goal rewrites the event's own map first | rewrite the inner draw with `bind_map_left`, or state the step with `prEvent_map` |
+| `rw` with an `=ᵈ` fact fails | `=ᵈ` is not an equation: transport events with `h.prEvent_eq p`, measures with `h.evalDist_eq`, and chain with `.trans`, `EvalDistEq.bind_left`/`bind_right`/`map` |
+| `𝒟[(liftM mx : m β)] = 𝒟[mx]` for an arbitrary `β` fails to synthesize `MeasurableSpace β` | state the faithfulness of a lift as `(liftM mx : m β) =ᵈ mx` and read events with `(h _).prEvent_eq` |
+| a derivation of a lift's `support` from the equality of its measures no longer typechecks in a general monad | that used the removed compatibility class: take `support (liftM mx : m β) ⊆ support mx` as a hypothesis (it holds by `rfl` at `ProbComp`) |
 | `prEvent_pure_prop` fails to synthesize `Decidable` | it needs a decidable proposition; outputs that hold caches or functions need `classical` first |
 | `simp` loops on `prEvent_bind_eq_tsum_prEvent` | do not put `map_eq_bind_pure_comp` in the same simp set |
 | a lemma that synthesizes a measurable structure on an output (`measureETVDist_map_le`) fails although a `letI : MeasurableSpace X := ⊤` appears in the `have` statement | a `letI` in a statement is inlined: introduce it with `let` in the proof, or pass the type explicitly `(β := X)` |

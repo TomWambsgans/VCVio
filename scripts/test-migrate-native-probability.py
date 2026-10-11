@@ -278,14 +278,20 @@ class EventLemmaTests(unittest.TestCase):
         self.assertEqual(migrate(source)[0], expected)
 
     def test_singleton_shapes(self):
-        self.assertMigrates("rw [probOutput_bind_eq_tsum, tsum_probOutput_eq_one', probOutput_ne_top]",
+        self.assertMigrates("rw [probOutput_bind_eq_tsum, tsum_probOutput_eq_one', "
+                            "probOutput_ne_top]",
                             "rw [OracleComp.prEvent_bind_eq_tsum, OracleComp.tsum_prEvent_eq_one, "
                             "prEvent_ne_top]")
-        self.assertMigrates("probOutput_eq_zero_of_not_mem_support hx, probEvent_le_one, probOutput_pure",
+        self.assertMigrates("probOutput_eq_zero_of_not_mem_support hx, probEvent_le_one, "
+                            "probOutput_pure",
                             "prEvent_eq_zero_of_not_mem_support hx, prEvent_le_one, prEvent_pure")
-        self.assertMigrates("evalSPMF_bind, evalSPMF_map, evalSPMF_bind_congr_left oa f g h",
-                            "evalDist_bind_of_discrete, evalDist_map_of_discrete, "
-                            "EvalDistEq.bind_right oa f g h")
+        self.assertMigrates("evalSPMF_bind, evalSPMF_map",
+                            "evalDist_bind_of_discrete, evalDist_map_of_discrete")
+        # A replacement whose arguments differ is reported, never rewritten: the qualified,
+        # four-argument call would otherwise turn into a name that does not exist.
+        out, items = migrate("OracleComp.DeferredSampling.evalSPMF_bind_congr_left _ _ _ h")
+        self.assertEqual(out, "OracleComp.DeferredSampling.evalSPMF_bind_congr_left _ _ _ h")
+        self.assertIn("EvalDistEq.bind_right mx hfg", items[0][2])
         self.assertMigrates("SPMFSemantics.withStateOracle, SPMFSemantics m, "
                             "evalSPMF_map_eq_of_evalSPMF_eq h f",
                             "SemanticsVia.withStateOracle, SemanticsVia m, EvalDistEq.map h f")
@@ -297,7 +303,8 @@ class EventLemmaTests(unittest.TestCase):
     def test_qualified_occurrences_keep_one_namespace(self):
         self.assertMigrates("OracleComp.probOutput_bind_eq_tsum oa g p",
                             "OracleComp.prEvent_bind_eq_tsum oa g p")
-        self.assertMigrates("OracleComp.tsum_probOutput_bind_mul", "OracleComp.tsum_prEvent_bind_mul")
+        self.assertMigrates("OracleComp.tsum_probOutput_bind_mul",
+                            "OracleComp.tsum_prEvent_bind_mul")
 
     def test_real_total_variation_is_reported(self):
         _, items = migrate("le_trans (tvDist_bind_right_le k a b) (tvDist_nonneg _ _)")
