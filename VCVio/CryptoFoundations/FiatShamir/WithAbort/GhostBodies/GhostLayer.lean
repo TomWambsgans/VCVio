@@ -299,11 +299,11 @@ lemma ghostHybridImpl_agree_good (pk : Stmt) (sk : Wit)
     cases hgh : s.1.2 mc with
     | some v =>
         simp only [↓reduceIte]
-        rw [probOutput_eq_zero_of_not_mem_support (by
+        rw [prEvent_eq_zero_of_not_mem_support (by
             intro h
             rw [support_pure] at h
             simpa using congrArg (fun z : _ × GhostState M Commit Chal => z.2.2) h),
-          probOutput_eq_zero_of_not_mem_support (by
+          prEvent_eq_zero_of_not_mem_support (by
             intro h
             rw [ite_eq_right Bool.false_ne_true, support_map] at h
             obtain ⟨cu, -, hcu⟩ := h

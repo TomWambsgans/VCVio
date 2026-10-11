@@ -201,7 +201,7 @@ lemma deferredDrawReadImpl_step_expected_drawnlist_length_le (pk : Stmt) (sk : W
   rcases t with (n | mc) | msg
   · -- UNIFORM: state untouched, drawn list `s.1.1.2` preserved.
     rw [ite_eq_right (by simp), add_zero]
-    refine le_of_eq (tsum_probOutput_mul_of_const_on_support _ ?_ (by simp [deferredDrawReadImpl]))
+    refine le_of_eq (OracleComp.tsum_prEvent_mul_of_const_on_support _ ?_ (by simp [deferredDrawReadImpl]))
     intro z hz
     have hzs : z ∈ support ((fun u => (u, s)) <$>
         (HasQuery.toQueryImpl (spec := unifSpec) (m := ProbComp)) n) := hz
@@ -209,7 +209,7 @@ lemma deferredDrawReadImpl_step_expected_drawnlist_length_le (pk : Stmt) (sk : W
     obtain ⟨u, _, rfl⟩ := hzs; rfl
   · -- READ: writes only the base cache / bad flag / readlist; drawn list `s.1.1.2` preserved.
     rw [ite_eq_right (by simp), add_zero]
-    refine le_of_eq (tsum_probOutput_mul_of_const_on_support _ ?_ ?_)
+    refine le_of_eq (OracleComp.tsum_prEvent_mul_of_const_on_support _ ?_ ?_)
     · intro z hz
       have hzs : z ∈ support ((fun cu : Chal × (M × Commit →ₒ Chal).QueryCache =>
           (cu.1, ((((cu.2, s.1.1.1.2), s.1.1.2), s.1.2 || decide (mc.2 ∈ s.1.1.2)),
@@ -248,7 +248,7 @@ lemma deferredDrawReadImpl_step_expected_drawnlist_length_le (pk : Stmt) (sk : W
           rw [← ENNReal.tsum_add]; exact tsum_congr fun alc => by rw [mul_add]
       _ ≤ (s.1.1.2.length : ℝ≥0∞) + ENNReal.ofReal (1 / (1 - p_abort)) := by
           refine add_le_add ?_ ?_
-          · rw [ENNReal.tsum_mul_right, tsum_probOutput_eq_one' (by simp), one_mul]
+          · rw [ENNReal.tsum_mul_right, OracleComp.tsum_prEvent_eq_one (by simp), one_mul]
           · exact le_trans (tsum_probOutput_run_ghostSignDrawBody_mul_length_le ids M pk sk msg
               hAbort maxAttempts s.1.1.1.1) (geomAttemptSum_le maxAttempts hp₀ hp)
 
@@ -285,7 +285,7 @@ theorem deferredDrawRead_run_expected_drawnlist_length_le {γ : Type} (pk : Stmt
       have hmass : (∑' x : (((unifSpec + (M × Commit →ₒ Chal)) +
             (M →ₒ Option (Commit × Resp))).Range t) × DeferredReadState M Commit Chal,
           Pr{let y ← (deferredDrawReadImpl ids M maxAttempts pk sk t).run s}[y = x]) = 1 :=
-        tsum_probOutput_eq_one' (by
+        OracleComp.tsum_prEvent_eq_one (by
           rcases t with (n | mc) | msg
           · simp [deferredDrawReadImpl]
           · simp only [deferredDrawReadImpl, StateT.run_mk]
@@ -366,14 +366,14 @@ lemma deferredDrawReadImpl_step_expected_attemptCount_le (pk : Stmt) (sk : Wit)
   classical
   rcases t with (n | mc) | msg
   · rw [ite_eq_right (by simp), add_zero]
-    refine le_of_eq (tsum_probOutput_mul_of_const_on_support _ ?_ (by simp [deferredDrawReadImpl]))
+    refine le_of_eq (OracleComp.tsum_prEvent_mul_of_const_on_support _ ?_ (by simp [deferredDrawReadImpl]))
     intro z hz
     have hzs : z ∈ support ((fun u => (u, s)) <$>
         (HasQuery.toQueryImpl (spec := unifSpec) (m := ProbComp)) n) := hz
     rw [support_map] at hzs
     obtain ⟨u, _, rfl⟩ := hzs; rfl
   · rw [ite_eq_right (by simp), add_zero]
-    refine le_of_eq (tsum_probOutput_mul_of_const_on_support _ ?_ ?_)
+    refine le_of_eq (OracleComp.tsum_prEvent_mul_of_const_on_support _ ?_ ?_)
     · intro z hz
       have hzs : z ∈ support ((fun cu : Chal × (M × Commit →ₒ Chal).QueryCache =>
           (cu.1, ((((cu.2, s.1.1.1.2), s.1.1.2), s.1.2 || decide (mc.2 ∈ s.1.1.2)),
@@ -412,7 +412,7 @@ lemma deferredDrawReadImpl_step_expected_attemptCount_le (pk : Stmt) (sk : Wit)
           rw [← ENNReal.tsum_add]; exact tsum_congr fun alc => by rw [mul_add]
       _ ≤ ((s.1.1.2.length + s.1.1.1.2.length : ℕ) : ℝ≥0∞) +
             ENNReal.ofReal (1 / (1 - p_abort)) := by
-          rw [ENNReal.tsum_mul_right, tsum_probOutput_eq_one' (by simp), one_mul]
+          rw [ENNReal.tsum_mul_right, OracleComp.tsum_prEvent_eq_one (by simp), one_mul]
           rw [add_assoc]
           gcongr
           refine le_trans (add_le_add_right
@@ -457,7 +457,7 @@ theorem deferredDrawRead_run_expected_attemptCount_le {γ : Type} (pk : Stmt) (s
       have hmass : (∑' x : (((unifSpec + (M × Commit →ₒ Chal)) +
             (M →ₒ Option (Commit × Resp))).Range t) × DeferredReadState M Commit Chal,
           Pr{let y ← (deferredDrawReadImpl ids M maxAttempts pk sk t).run s}[y = x]) = 1 :=
-        tsum_probOutput_eq_one' (by
+        OracleComp.tsum_prEvent_eq_one (by
           rcases t with (n | mc) | msg
           · simp [deferredDrawReadImpl]
           · simp only [deferredDrawReadImpl, StateT.run_mk]
@@ -640,7 +640,7 @@ theorem deferredDrawRead_attemptKn_mean_le {γ : Type} (pk : Stmt) (sk : Wit)
     with hrun
   have hmass : (∑' z : γ × DeferredReadState M Commit Chal, Pr{let x ← run}[x = z]) = 1 := by
     rw [hrun]
-    exact tsum_probOutput_eq_one'
+    exact OracleComp.tsum_prEvent_eq_one
       (deferredDrawRead_run_neverFail ids M maxAttempts pk sk oa ((((re, l), []), false), []))
   -- Recover the total combined size by adding back `l.length`; the start drawn list is empty.
   have hsplit : (∑' z : γ × DeferredReadState M Commit Chal, Pr{let x ← run}[x = z] *
@@ -663,7 +663,7 @@ theorem deferredDrawRead_attemptKn_mean_le {γ : Type} (pk : Stmt) (sk : Wit)
       rw [← Nat.cast_add]
       congr 1
       omega
-    · rw [probOutput_eq_zero_of_not_mem_support hz, zero_mul, zero_mul]
+    · rw [prEvent_eq_zero_of_not_mem_support hz, zero_mul, zero_mul]
   -- The total combined size is bounded by `l.length + qSrem/(1-p)`; cancel `l.length`.
   have htot : (∑' z : γ × DeferredReadState M Commit Chal, Pr{let x ← run}[x = z] *
         ((z.2.1.1.2.length + z.2.1.1.1.2.length : ℕ) : ℝ≥0∞))

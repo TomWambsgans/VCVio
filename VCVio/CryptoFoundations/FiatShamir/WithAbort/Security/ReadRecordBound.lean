@@ -115,7 +115,7 @@ theorem readRecord_expected_pairs_nontape_general {γ : Type}
           rw [mul_left_comm (ENNReal.ofReal ε * ((s.2.length + qH : ℕ) : ℝ≥0∞)), ← mul_add]
           gcongr
           exact ih u qH (hQ2' u) s
-        · rw [probOutput_eq_zero_of_not_mem_support hx]; simp
+        · rw [prEvent_eq_zero_of_not_mem_support hx]; simp
       · -- READ: the post-state drawn / signed lists are unchanged; the read list grows by one and
         -- the read budget decrements by one, so the constant `readlist.length + qH` is preserved.
         have hpos : 0 < qH := by
@@ -142,7 +142,7 @@ theorem readRecord_expected_pairs_nontape_general {γ : Type}
           gcongr
           exact ih cu.1 (qH - 1) (hQ2' cu) ((((cu.2, s.1.1.1.2), s.1.1.2),
             s.1.2 || decide (mc.2 ∈ s.1.1.2)), mc.2 :: s.2)
-        · rw [probOutput_eq_zero_of_not_mem_support hx]; simp
+        · rw [prEvent_eq_zero_of_not_mem_support hx]; simp
       · -- SIGN: the body's fresh rejected draws extend the drawn list; the body charge must keep
         -- the body draws *averaged* (a fixed body output lets the adversary target the recorded
         -- value), so the sum over body outputs is retained. The read budget is unchanged (signing
@@ -285,7 +285,7 @@ theorem readRecord_expected_pairs_tape_le {γ : Type}
               (((((re, l), []), false), []), tape))}[x = z] =
         Pr{let x ← ((simulateQ (deferredDrawReadImpl ids M maxAttempts pk sk) oa).run
             ((((re, l), []), false), []))}[x = z] :=
-    fun z => by rw [probOutput_def, probOutput_def, ← hfold]
+    fun z => by rw [prEvent_eq_evalDist_singleton, prEvent_eq_evalDist_singleton, ← hfold]
   simp only [hpr]
   exact readRecord_expected_pairs_nontape_le ids M maxAttempts qH ε p_abort hp₀ hp hε pk sk
     hGuess hAbort oa hQ.2 re l
@@ -359,7 +359,7 @@ theorem readRecord_expected_pairs_le {γ : Type}
                 (p.1, p.2.1)) <$>
               (simulateQ (tapeDrawReadImpl ids M maxAttempts pk sk) oa).run
                 (((((re, l), []), false), []), tape))}[x = z] :=
-    fun z => by rw [probOutput_def, probOutput_def, hfold]
+    fun z => by rw [prEvent_eq_evalDist_singleton, prEvent_eq_evalDist_singleton, hfold]
   simp only [hpr]
   -- The per-pair charge in the tape-factored representation: with `drawnlist = f(tape)` (recorded
   -- rejected tape entries) and `readlist` value-free (`roStep`), each `(read slot, draw slot)` pair

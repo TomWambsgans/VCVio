@@ -377,7 +377,7 @@ lemma hproj2_sign (pk : Stmt) (sk : Wit) (msg : M)
   simp only [map_bind, Functor.map_map, bind_map_left]
   -- Move into `SPMF` (where the map/bind laws apply cleanly, dodging the `OracleComp` `Functor`
   -- vs `Monad` map friction): both sides become `𝒮[firstSome …] >>= (per-output programming)`.
-  simp only [evalSPMF_map, evalSPMF_bind]
+  simp only [evalDist_map_of_discrete, evalDist_bind_of_discrete]
   -- Support-restricted `SPMF` bind congruence (`evalSPMF_bind_congr` with `m := SPMF`, where
   -- `evalSPMF` is the identity): case-split on the accepted transcript, using the no-collision
   -- hypothesis on the `some` branch.
@@ -387,7 +387,7 @@ lemma hproj2_sign (pk : Stmt) (sk : Wit) (msg : M)
   cases a with
   | none =>
       -- The all-abort outcome programs no point on either side; both reduce to `(none, proj2 s)`.
-      simp only [ghostSignProgramCont, StateT.run_pure, simulateQ_pure, evalSPMF_pure, map_pure,
+      simp only [ghostSignProgramCont, StateT.run_pure, simulateQ_pure, evalDist_pure, map_pure,
         proj2, QueryImpl.Stateful.Frame.linkReshape, QueryImpl.Stateful.Frame.prod,
         PFunctor.Lens.State.fst, PFunctor.Lens.State.snd, PFunctor.Lens.State.put,
         PFunctor.Lens.State.mk, Prod.map, id_eq]
@@ -400,7 +400,7 @@ lemma hproj2_sign (pk : Stmt) (sk : Wit) (msg : M)
       conv_rhs => enter [2, 1, 1, 2]; erw [StateT.run_modifyGet]
       rw [simulateQ_pure]
       erw [StateT.run_pure]
-      simp only [evalSPMF_pure, map_pure, proj2, QueryImpl.Stateful.Frame.linkReshape,
+      simp only [evalDist_pure, map_pure, proj2, QueryImpl.Stateful.Frame.linkReshape,
         QueryImpl.Stateful.Frame.prod, PFunctor.Lens.State.fst, PFunctor.Lens.State.snd,
         PFunctor.Lens.State.put, PFunctor.Lens.State.mk]
       simp only [proj2, Prod.map, id_eq]
@@ -835,7 +835,7 @@ lemma hybridSimRun_le_managedRun_verify (pk : Stmt) (sk : Wit) :
         pk sk (adv.main pk) ((∅, ∅), []), hproj2_empty,
         managedRun_eq_link_run ids hr M maxAttempts sim adv pk]
     refine OracleComp.probOutput_congr rfl ?_
-    rw [evalSPMF_bind, evalSPMF_bind, hhead]
+    rw [evalDist_bind_of_discrete, evalDist_bind_of_discrete, hhead]
   -- Assemble: the goal RHS is `nestedManaged >>= K` (`= hRHS`'s LHS, defeq), so rewrite to the
   -- common ghost run, then `probOutput_bind_mono` against the pointwise verify-tail split, gated
   -- by the whole-run ghost-domain invariant.

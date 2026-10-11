@@ -219,7 +219,7 @@ theorem euf_cma_to_nma
         let x ← hr.gen
         hybridExpAtKey ids hr M maxAttempts adv (simSignBody M maxAttempts sim x.1 x.2) x.1)}[y = true] +
         ENNReal.ofReal (perKeyLoss qS qH ε p_abort ζ_zk) + ENNReal.ofReal δ := by
-    simp only [probOutput_bind_eq_tsum]
+    simp only [OracleComp.prEvent_bind_eq_tsum]
     -- Pointwise: split on `Good`. On `Good` use `hperkey`; off `Good` charge the `δ` slot.
     have hpt : ∀ x : Stmt × Wit,
         Pr{let y ← hr.gen}[y = x] * Pr{let y ← (hybridExpAtKey ids hr M maxAttempts adv
@@ -248,9 +248,9 @@ theorem euf_cma_to_nma
                   (realSignBody ids M maxAttempts x.1 x.2) x.1)}[y = true] ≤
               Pr{let y ← hr.gen}[y = x] * (if ¬ Good x.1 x.2 then 1 else 0) := by
             simp only [hg, not_false_eq_true, ite_true]
-            exact mul_le_mul' le_rfl probOutput_le_one
+            exact mul_le_mul' le_rfl prEvent_le_one
           exact le_trans this le_add_self
-      · simp [probOutput_eq_zero_of_not_mem_support hx]
+      · simp [prEvent_eq_zero_of_not_mem_support hx]
     calc ∑' x, Pr{let y ← hr.gen}[y = x] * Pr{let y ← (hybridExpAtKey ids hr M maxAttempts adv
             (realSignBody ids M maxAttempts x.1 x.2) x.1)}[y = true]
         ≤ ∑' x, (Pr{let y ← hr.gen}[y = x] * Pr{let y ← (hybridExpAtKey ids hr M maxAttempts adv
@@ -272,7 +272,7 @@ theorem euf_cma_to_nma
                 = ∑' x, if ¬ Good x.1 x.2 then Pr{let y ← hr.gen}[y = x] else 0 := by
                   refine tsum_congr fun x => ?_; by_cases hg : Good x.1 x.2 <;> simp [hg]
               _ = Pr{let xw ← hr.gen}[¬ Good xw.1 xw.2] := by
-                  rw [probEvent_eq_tsum_ite]
+                  rw [OracleComp.prEvent_eq_tsum_ite]
               _ ≤ ENNReal.ofReal δ := hGood
   -- Final: glue with the NMA bridge and reassociate the loss.
   refine le_trans hbound ?_

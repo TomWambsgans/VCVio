@@ -191,7 +191,7 @@ open scoped Classical in
 draw `oa`. Averaging a functional `F` over the post-step `(output, state)` pair therefore
 collapses the state coordinate to the fixed `p`: the per-`p` inner sum equals the plain
 uniform average of `F (·, p)`. Pure measure-theoretic rearrangement (`ENNReal.tsum_prod'`,
-off-diagonal collapse, `probOutput_map_injective` on the injective `(·, p)`); no
+off-diagonal collapse, `prEvent_map_injective` on the injective `(·, p)`); no
 probabilistic content. -/
 lemma tsum_probOutput_map_state_fixed {R G : Type} (oa : ProbComp R) (p : G)
     (F : R × G → ℝ≥0∞) :
@@ -201,10 +201,10 @@ lemma tsum_probOutput_map_state_fixed {R G : Type} (oa : ProbComp R) (p : G)
   rw [ENNReal.tsum_prod']
   refine tsum_congr fun u => ?_
   rw [tsum_eq_single p ?_]
-  · rw [probOutput_map_injective oa (f := fun u => (u, p))
+  · rw [prEvent_map_injective oa (f := fun u => (u, p))
       (fun a b h => (Prod.ext_iff.mp h).1) u]
   · intro g hg
-    rw [probOutput_eq_zero_of_not_mem_support, zero_mul]
+    rw [prEvent_eq_zero_of_not_mem_support, zero_mul]
     intro hmem
     rw [support_map] at hmem
     obtain ⟨u', _, hu'⟩ := hmem
@@ -230,7 +230,7 @@ lemma ghostHybridImpl_unif_expected_enncard (pk : Stmt) (sk : Wit)
           ((HasQuery.toQueryImpl (spec := unifSpec) (m := ProbComp)) n) p
           (fun z => QueryCache.enncard (z.2.1.1.2))
     _ = QueryCache.enncard (p.1.1.2) := by
-        rw [ENNReal.tsum_mul_right, tsum_probOutput_eq_one' (by simp), one_mul]
+        rw [ENNReal.tsum_mul_right, OracleComp.tsum_prEvent_eq_one (by simp), one_mul]
 
 omit [SampleableType Stmt] in
 /-- Read step preserves the per-state expected ghost size: the eager read writes only the
@@ -264,12 +264,12 @@ lemma ghostHybridImpl_read_expected_enncard (pk : Stmt) (sk : Wit)
     · congr 1
       exact congrArg QueryCache.enncard (hghost z hz)
     · have h0 : Pr{let x ← (ghostHybridImpl ids M maxAttempts true pk sk (.inl (.inr mc))).run p}[x = z]
-          = 0 := probOutput_eq_zero_of_not_mem_support hz
+          = 0 := prEvent_eq_zero_of_not_mem_support hz
       rw [h0, zero_mul, zero_mul]
   rw [hconst, ENNReal.tsum_mul_right]
   have hone : (∑' z : Chal × GhostState M Commit Chal,
       Pr{let x ← (ghostHybridImpl ids M maxAttempts true pk sk (.inl (.inr mc))).run p}[x = z]) = 1 := by
-    refine tsum_probOutput_eq_one' ?_
+    refine OracleComp.tsum_prEvent_eq_one ?_
     simp only [ghostHybridImpl, StateT.run_mk]
     rcases hgh : p.1.1.2 mc with _ | v
     · rcases p.1.1.1 mc with _ | v' <;> simp [roStep]
@@ -329,7 +329,7 @@ lemma ghostHybridImpl_sign_expected_enncard_le (pk : Stmt) (sk : Wit) (msg : M)
           QueryCache.enncard ((g w).2.1.1.2)
         = Pr{let x ← (ghostSignBody ids M pk sk msg maxAttempts).run p.1.1}[x = w] *
           QueryCache.enncard (w.2.2)
-      rw [probOutput_map_injective _ hginj]
+      rw [prEvent_map_injective _ hginj]
   rw [hmap]
   refine le_trans (tsum_probOutput_run_ghostSignBody_mul_ghost_enncard_le ids M pk sk msg
     hAbort maxAttempts p.1.1.1 p.1.1.2) ?_
@@ -370,11 +370,11 @@ lemma ghostHybridImpl_flag_preserved_le {γ : Type}
         refine tsum_congr fun z => ?_
         by_cases hz : z ∈ support run
         · rw [hflag z hz]
-        · rw [probOutput_eq_zero_of_not_mem_support hz, zero_mul, zero_mul]
+        · rw [prEvent_eq_zero_of_not_mem_support hz, zero_mul, zero_mul]
     _ = (∑' z : γ × GhostState M Commit Chal, Pr{let x ← run}[x = z]) * (if p.2 = true then 1 else 0) := by
         rw [ENNReal.tsum_mul_right]
     _ ≤ (if p.2 = true then 1 else 0) :=
-        mul_le_of_le_one_left zero_le tsum_probOutput_le_one
+        mul_le_of_le_one_left zero_le OracleComp.tsum_prEvent_le_one
 
 omit [SampleableType Stmt] in
 /-- Per-state read-step bad-mass bound: the eager read sets the bad flag only on a ghost hit,
@@ -416,13 +416,13 @@ lemma ghostHybridImpl_read_expected_flag_le (pk : Stmt) (sk : Wit)
             (.inl (.inr mc))).run p)
         · gcongr; exact hflag z hz
         · refine le_of_eq (mul_eq_zero.mpr (Or.inl ?_)) |>.trans zero_le
-          exact probOutput_eq_zero_of_not_mem_support hz
+          exact prEvent_eq_zero_of_not_mem_support hz
     _ = (∑' z : Chal × GhostState M Commit Chal,
           Pr{let x ← (ghostHybridImpl ids M maxAttempts true pk sk (.inl (.inr mc))).run p}[x = z]) *
           ((if p.2 = true then 1 else 0) + memCharge M p.1.1.2 mc) := by
         rw [ENNReal.tsum_mul_right]
     _ ≤ (if p.2 = true then 1 else 0) + memCharge M p.1.1.2 mc :=
-        mul_le_of_le_one_left zero_le tsum_probOutput_le_one
+        mul_le_of_le_one_left zero_le OracleComp.tsum_prEvent_le_one
 
 omit [SampleableType Stmt] in
 /-- **`h_carry` premise of the threaded bound for the ghost handler.** The carried bad mass

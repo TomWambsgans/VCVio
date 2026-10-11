@@ -81,17 +81,17 @@ theorem evalSPMF_bind_comm_probComp {α β γ : Type} (oa : ProbComp α) (ob : P
     (oa >>= fun a => ob >>= fun b => k a b) =ᵈ (ob >>= fun b => oa >>= fun a => k a b) := by
   refine SPMF.ext fun x => ?_
   rw [show 𝒮[oa >>= fun a => ob >>= fun b => k a b] x
-        = Pr{let y ← oa >>= fun a => ob >>= fun b => k a b}[y = x] from (probOutput_def _ _).symm,
+        = Pr{let y ← oa >>= fun a => ob >>= fun b => k a b}[y = x] from (prEvent_eq_evalDist_singleton _ _).symm,
     show 𝒮[ob >>= fun b => oa >>= fun a => k a b] x
-        = Pr{let y ← ob >>= fun b => oa >>= fun a => k a b}[y = x] from (probOutput_def _ _).symm]
-  rw [probOutput_bind_eq_tsum]
+        = Pr{let y ← ob >>= fun b => oa >>= fun a => k a b}[y = x] from (prEvent_eq_evalDist_singleton _ _).symm]
+  rw [OracleComp.prEvent_bind_eq_tsum]
   rw [show (∑' a : α, Pr{let x ← oa}[x = a] * Pr{let y ← ob >>= fun b => k a b}[y = x])
       = ∑' (a : α) (b : β), Pr{let x ← oa}[x = a] * (Pr{let x ← ob}[x = b] * Pr{let y ← k a b}[y = x]) from
-    tsum_congr fun a => by rw [probOutput_bind_eq_tsum, ENNReal.tsum_mul_left]]
-  rw [probOutput_bind_eq_tsum]
+    tsum_congr fun a => by rw [OracleComp.prEvent_bind_eq_tsum, ENNReal.tsum_mul_left]]
+  rw [OracleComp.prEvent_bind_eq_tsum]
   rw [show (∑' b : β, Pr{let x ← ob}[x = b] * Pr{let y ← oa >>= fun a => k a b}[y = x])
       = ∑' (b : β) (a : α), Pr{let x ← ob}[x = b] * (Pr{let x ← oa}[x = a] * Pr{let y ← k a b}[y = x]) from
-    tsum_congr fun b => by rw [probOutput_bind_eq_tsum, ENNReal.tsum_mul_left]]
+    tsum_congr fun b => by rw [OracleComp.prEvent_bind_eq_tsum, ENNReal.tsum_mul_left]]
   rw [ENNReal.tsum_comm]
   exact tsum_congr fun a => tsum_congr fun b => by ring
 
@@ -101,15 +101,15 @@ e.g. a `drawList` front block) it can be discarded from the output distribution.
 theorem evalSPMF_bind_const_neverFails {α γ : Type} (od : ProbComp α) (hmass : prFail od = 0)
     (k : ProbComp γ) : (od >>= fun _ => k) =ᵈ k := by
   refine SPMF.ext fun x => ?_
-  rw [show 𝒮[od >>= fun _ => k] x = Pr{let y ← od >>= fun _ => k}[y = x] from (probOutput_def _ _).symm,
-    show 𝒮[k] x = Pr{let y ← k}[y = x] from (probOutput_def _ _).symm]
-  rw [probOutput_bind_const, hmass]; simp
+  rw [show 𝒮[od >>= fun _ => k] x = Pr{let y ← od >>= fun _ => k}[y = x] from (prEvent_eq_evalDist_singleton _ _).symm,
+    show 𝒮[k] x = Pr{let y ← k}[y = x] from (prEvent_eq_evalDist_singleton _ _).symm]
+  rw [prEvent_bind_const, hmass]; simp
 
 /-- **Distribution-level congruence under a leading bind.** If two continuations agree as
 distributions pointwise then the bound computations agree as distributions. -/
-theorem evalSPMF_bind_congr_left {α β : Type} (oa : ProbComp α) (f g : α → ProbComp β)
+theorem EvalDistEq.bind_right {α β : Type} (oa : ProbComp α) (f g : α → ProbComp β)
     (h : ∀ a, f a =ᵈ g a) : (oa >>= f) =ᵈ (oa >>= g) := by
-  rw [evalSPMF_bind, evalSPMF_bind]; exact congrArg _ (funext h)
+  rw [evalDist_bind_of_discrete, evalDist_bind_of_discrete]; exact congrArg _ (funext h)
 
 /-- **Tape-consuming signing body.** Identical to `ghostSignDrawBody` except that each attempt's
 commitment draw `(Commit × PrvState)` is *consumed* from a pre-drawn tape (head-first) instead of
@@ -176,7 +176,7 @@ theorem evalSPMF_ghostSignDrawBody_eq_drawList_tapeSignBody (pk : Stmt) (sk : Wi
   | succ n ih =>
       rw [run_ghostSignDrawBody_succ, OracleComp.drawList]
       simp only [bind_assoc, pure_bind]
-      rw [evalSPMF_bind, evalSPMF_bind]
+      rw [evalDist_bind_of_discrete, evalDist_bind_of_discrete]
       refine congrArg (𝒮[ids.commit pk sk] >>= ·) (funext fun ws => ?_)
       obtain ⟨w, st⟩ := ws
       simp only [run_tapeSignBody_cons]
@@ -195,7 +195,7 @@ theorem evalSPMF_ghostSignDrawBody_eq_drawList_tapeSignBody (pk : Stmt) (sk : Wi
                 | none => (fun rws => ((rws.1.1, w :: rws.1.2), rws.2)) <$>
                     (tapeSignBody ids M pk sk msg rest).run re : ProbComp _)] from
         evalSPMF_bind_comm_probComp dl (uniformSample Chal) _]
-      refine evalSPMF_bind_congr_left (uniformSample Chal) _ _ (fun ch => ?_)
+      refine EvalDistEq.bind_right (uniformSample Chal) _ _ (fun ch => ?_)
       rw [show (𝒮[dl >>= fun rest => ids.respond pk sk st ch >>= fun oz =>
             (match oz with
             | some z => pure ((some (w, z), []), re.cacheQuery (msg, w) ch)
@@ -207,15 +207,15 @@ theorem evalSPMF_ghostSignDrawBody_eq_drawList_tapeSignBody (pk : Stmt) (sk : Wi
               | none => (fun rws => ((rws.1.1, w :: rws.1.2), rws.2)) <$>
                   (tapeSignBody ids M pk sk msg rest).run re : ProbComp _)] from
         evalSPMF_bind_comm_probComp dl (ids.respond pk sk st ch) _]
-      refine evalSPMF_bind_congr_left (ids.respond pk sk st ch) _ _ (fun oz => ?_)
+      refine EvalDistEq.bind_right (ids.respond pk sk st ch) _ _ (fun oz => ?_)
       cases oz with
       | some z => rw [evalSPMF_bind_const_neverFails dl hdlmass]
       | none =>
           change 𝒮[(fun rws => ((rws.1.1, w :: rws.1.2), rws.2)) <$>
             (ghostSignDrawBody ids M pk sk msg n).run re] = _
-          rw [evalSPMF_map_eq_of_evalSPMF_eq (ih re)]
+          rw [EvalDistEq.map (ih re)]
           rw [map_eq_bind_pure_comp, bind_assoc]
-          refine evalSPMF_bind_congr_left dl _ _ (fun rest => ?_)
+          refine EvalDistEq.bind_right dl _ _ (fun rest => ?_)
           rw [map_eq_bind_pure_comp]
 
 omit [SampleableType Stmt] in
@@ -317,16 +317,16 @@ lemma tsum_probOutput_run_ghostSignDrawBody_mul_length_le (pk : Stmt) (sk : Wit)
                         (z.1.2.length : ℝ≥0∞) := by
                       rw [← ENNReal.tsum_add]
                       exact tsum_congr fun z => by rw [mul_add, mul_one]
-                  _ ≤ 1 + S := add_le_add tsum_probOutput_le_one (ih re)
-          refine le_trans (tsum_probOutput_mul_le_add_of_le _ h_oz) ?_
+                  _ ≤ 1 + S := add_le_add OracleComp.tsum_prEvent_le_one (ih re)
+          refine le_trans (OracleComp.tsum_prEvent_mul_le_add_of_le _ h_oz) ?_
           refine add_le_add_right (le_of_eq ?_) _
           rw [tsum_eq_single (none : Option Resp) fun oz hoz => by simp [hoz]]
           simp [mul_comm]
-        refine le_trans (tsum_probOutput_mul_le_add_of_le _ h_ch) ?_
+        refine le_trans (OracleComp.tsum_prEvent_mul_le_add_of_le _ h_ch) ?_
         refine add_le_add_right (le_of_eq ?_) _
-        rw [probOutput_bind_eq_tsum, ← ENNReal.tsum_mul_right]
+        rw [OracleComp.prEvent_bind_eq_tsum, ← ENNReal.tsum_mul_right]
         exact tsum_congr fun ch => (mul_assoc _ _ _).symm
-      refine le_trans (tsum_probOutput_mul_le_add_of_le _ h_ws) ?_
+      refine le_trans (OracleComp.tsum_prEvent_mul_le_add_of_le _ h_ws) ?_
       rw [hSucc]
       gcongr
       calc ∑' ws : Commit × PrvState, Pr{let x ← ids.commit pk sk}[x = ws] *
@@ -445,7 +445,7 @@ lemma tsum_probOutput_run_ghostSignDrawBody_mul_length_le_tight (pk : Stmt) (sk 
                         (z.1.2.length : ℝ≥0∞) := by
                       rw [← ENNReal.tsum_add]
                       exact tsum_congr fun z => by rw [mul_add, mul_one]
-                  _ ≤ 1 + S := add_le_add tsum_probOutput_le_one (ih re)
+                  _ ≤ 1 + S := add_le_add OracleComp.tsum_prEvent_le_one (ih re)
           refine le_trans (ENNReal.tsum_le_tsum fun oz =>
             mul_le_mul_right (h_oz oz) _) ?_
           rw [tsum_eq_single (none : Option Resp) fun oz hoz => by
@@ -453,7 +453,7 @@ lemma tsum_probOutput_run_ghostSignDrawBody_mul_length_le_tight (pk : Stmt) (sk 
           rw [ite_eq_left rfl, mul_comm]
         refine le_trans (ENNReal.tsum_le_tsum fun ch =>
           mul_le_mul_right (h_ch ch) _) ?_
-        rw [probOutput_bind_eq_tsum, ← ENNReal.tsum_mul_right]
+        rw [OracleComp.prEvent_bind_eq_tsum, ← ENNReal.tsum_mul_right]
         exact le_of_eq (tsum_congr fun ch => (mul_assoc _ _ _).symm)
       refine le_trans (ENNReal.tsum_le_tsum fun ws => mul_le_mul_right (h_ws ws) _) ?_
       calc ∑' ws : Commit × PrvState, Pr{let x ← ids.commit pk sk}[x = ws] *
@@ -507,7 +507,7 @@ lemma ghostSignDrawBody_readManyList_le_drawList (pk : Stmt) (sk : Wit) (msg : M
       rw [run_ghostSignDrawBody_succ]
       rw [OracleComp.drawList, bind_assoc, bind_map_left]
       simp only [bind_assoc, pure_bind]
-      rw [probEvent_bind_eq_tsum, probEvent_bind_eq_tsum]
+      rw [OracleComp.prEvent_bind_eq_tsum, OracleComp.prEvent_bind_eq_tsum]
       refine ENNReal.tsum_le_tsum fun ws => ?_
       gcongr
       -- Per commit draw `ws`: name the recursive fresh `n`-draw game and the recursive body-`n`
@@ -517,7 +517,7 @@ lemma ghostSignDrawBody_readManyList_le_drawList (pk : Stmt) (sk : Wit) (msg : M
       by_cases hhead : OracleComp.readMany ws.1 q σ = true
       · -- The head already fires: the RHS `readManyList (ws.1 :: rest)` is always `true`, so the
         -- RHS per-draw marginal is the full mass of `drawList n` = 1 ≥ the LHS.
-        refine le_trans probEvent_le_one (le_of_eq ?_)
+        refine le_trans prEvent_le_one (le_of_eq ?_)
         symm
         have hcongr : (OracleComp.drawList (Prod.fst <$> ids.commit pk sk) n >>= fun rest =>
               pure (OracleComp.readManyList (ws.1 :: rest) q σ))
@@ -525,8 +525,8 @@ lemma ghostSignDrawBody_readManyList_le_drawList (pk : Stmt) (sk : Wit) (msg : M
               (pure true : ProbComp Bool)) := by
           refine bind_congr fun rest => ?_
           rw [OracleComp.readManyList, List.any_cons, hhead, Bool.true_or]
-        rw [hcongr, probEvent_bind_eq_tsum]
-        simp only [probEvent_pure, ite_eq_left]
+        rw [hcongr, OracleComp.prEvent_bind_eq_tsum]
+        simp only [prEvent_pure, ite_eq_left]
         rw [ENNReal.tsum_mul_right, OracleComp.tsum_probOutput_drawList_eq_one, one_mul]
       · -- The head misses: the RHS reduces to the recursive fresh game `RHSinner`, and the LHS is
         -- dominated by the recursive body-`n` game, which is `≤ RHSinner` by `ih`.
@@ -543,8 +543,8 @@ lemma ghostSignDrawBody_readManyList_le_drawList (pk : Stmt) (sk : Wit) (msg : M
         -- test `readMany ws.1 q σ` misses (`hhead`), so its `readManyList (ws.1 :: inner)` reduces
         -- to the body-`n` game's `readManyList inner`.
         refine le_trans ?_ (ih re)
-        refine probEvent_bind_le_of_forall_le fun ch _ => ?_
-        refine probEvent_bind_le_of_forall_le fun oz _ => ?_
+        refine prEvent_bind_le_of_forall_le fun ch _ => ?_
+        refine prEvent_bind_le_of_forall_le fun oz _ => ?_
         cases oz with
         | some z => simp [OracleComp.readManyList]
         | none =>
@@ -591,7 +591,7 @@ lemma deferredDrawImpl_step_expected_length_le (pk : Stmt) (sk : Wit)
   rcases t with (n | mc) | msg
   · -- UNIFORM: state untouched, drawn list `s.1.2` preserved.
     rw [ite_eq_right (by simp), add_zero]
-    refine le_of_eq (tsum_probOutput_mul_of_const_on_support _ ?_ (by simp [deferredDrawImpl]))
+    refine le_of_eq (OracleComp.tsum_prEvent_mul_of_const_on_support _ ?_ (by simp [deferredDrawImpl]))
     intro z hz
     have hzs : z ∈ support ((fun u => (u, s)) <$>
         (HasQuery.toQueryImpl (spec := unifSpec) (m := ProbComp)) n) := hz
@@ -599,7 +599,7 @@ lemma deferredDrawImpl_step_expected_length_le (pk : Stmt) (sk : Wit)
     obtain ⟨u, _, rfl⟩ := hzs; rfl
   · -- READ: writes only the base cache / bad flag; drawn list `s.1.2` preserved.
     rw [ite_eq_right (by simp), add_zero]
-    refine le_of_eq (tsum_probOutput_mul_of_const_on_support _ ?_ ?_)
+    refine le_of_eq (OracleComp.tsum_prEvent_mul_of_const_on_support _ ?_ ?_)
     · intro z hz
       have hzs : z ∈ support ((fun cu : Chal × (M × Commit →ₒ Chal).QueryCache =>
           (cu.1, (((cu.2, s.1.1.2), s.1.2), s.2 || decide (mc.2 ∈ s.1.2)))) <$>
@@ -637,7 +637,7 @@ lemma deferredDrawImpl_step_expected_length_le (pk : Stmt) (sk : Wit)
           rw [← ENNReal.tsum_add]; exact tsum_congr fun alc => by rw [mul_add]
       _ ≤ (s.1.2.length : ℝ≥0∞) + ENNReal.ofReal (1 / (1 - p_abort)) := by
           refine add_le_add ?_ ?_
-          · rw [ENNReal.tsum_mul_right, tsum_probOutput_eq_one' (by simp), one_mul]
+          · rw [ENNReal.tsum_mul_right, OracleComp.tsum_prEvent_eq_one (by simp), one_mul]
           · exact le_trans (tsum_probOutput_run_ghostSignDrawBody_mul_length_le ids M pk sk msg
               hAbort maxAttempts s.1.1.1) (geomAttemptSum_le maxAttempts hp₀ hp)
 

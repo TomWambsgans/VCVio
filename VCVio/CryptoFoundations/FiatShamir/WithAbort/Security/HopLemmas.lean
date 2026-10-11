@@ -593,7 +593,7 @@ lemma probOutput_hybridExpAtKey_real_le_prog
           (realSignBody ids M maxAttempts pk sk) pk)}[x = true]
         = ENNReal.ofReal (Pr{let x ← (hybridExpAtKey ids hr M maxAttempts adv
             (realSignBody ids M maxAttempts pk sk) pk)}[x = true].toReal) :=
-          (ENNReal.ofReal_toReal probOutput_ne_top).symm
+          (ENNReal.ofReal_toReal prEvent_ne_top).symm
       _ ≤ ENNReal.ofReal (Pr{let x ← (hybridExpAtKey ids hr M maxAttempts adv
             (progSignBody ids M pk sk · maxAttempts) pk)}[x = true].toReal +
           tvDist (hybridExpAtKey ids hr M maxAttempts adv
@@ -605,7 +605,7 @@ lemma probOutput_hybridExpAtKey_real_le_prog
             (progSignBody ids M pk sk · maxAttempts) pk)}[x = true] +
           ENNReal.ofReal (tvDist _ _) := by
             rw [ENNReal.ofReal_add ENNReal.toReal_nonneg (tvDist_nonneg _ _),
-              ENNReal.ofReal_toReal probOutput_ne_top]
+              ENNReal.ofReal_toReal prEvent_ne_top]
       _ ≤ Pr{let x ← (hybridExpAtKey ids hr M maxAttempts adv
             (progSignBody ids M pk sk · maxAttempts) pk)}[x = true] + slack :=
           add_le_add le_rfl h_games_tv
@@ -805,7 +805,7 @@ lemma probOutput_hybridExpAtKey_prog_le_trans
       z hz
   -- The two verification continuations agree on the Trans-side support.
   have h_eqT : Pr{let x ← runT >>= gP}[x = true] = Pr{let x ← runT >>= gT}[x = true] := by
-    rw [probOutput_bind_eq_tsum, probOutput_bind_eq_tsum]
+    rw [OracleComp.prEvent_bind_eq_tsum, OracleComp.prEvent_bind_eq_tsum]
     refine tsum_congr fun z => ?_
     by_cases hz : z ∈ support runT
     · congr 1
@@ -824,7 +824,7 @@ lemma probOutput_hybridExpAtKey_prog_le_trans
         rw [hgP, hgT]
         exact congrArg (fun x => Pr{let y ← x}[y = true])
           (hybridVerifyCont_cache_congr ids hr M maxAttempts pk z.1 _ _ z.2.1.2 hagree)
-    · simp [probOutput_eq_zero_of_not_mem_support hz]
+    · simp [prEvent_eq_zero_of_not_mem_support hz]
   -- Combine: TV budget plus the (open) collision charge.
   have h_tv : tvDist (runP >>= gP) (runT >>= gP) ≤ Pbad.toReal :=
     le_trans (tvDist_bind_right_le gP runP runT) h_bad
@@ -837,17 +837,17 @@ lemma probOutput_hybridExpAtKey_prog_le_trans
     have h2 := (abs_le.mp habs).2
     rw [h_eqT] at h2
     linarith [h_tv]
-  have hPbad_ne_top : Pbad ≠ ⊤ := ne_top_of_le_ne_top ENNReal.one_ne_top probEvent_le_one
+  have hPbad_ne_top : Pbad ≠ ⊤ := ne_top_of_le_ne_top ENNReal.one_ne_top prEvent_le_one
   calc Pr{let x ← (hybridExpAtKey ids hr M maxAttempts adv
         (progSignBody ids M pk sk · maxAttempts) pk)}[x = true]
       = Pr{let x ← runP >>= gP}[x = true] := by rw [hGP]
     _ = ENNReal.ofReal (Pr{let x ← runP >>= gP}[x = true].toReal) :=
-        (ENNReal.ofReal_toReal probOutput_ne_top).symm
+        (ENNReal.ofReal_toReal prEvent_ne_top).symm
     _ ≤ ENNReal.ofReal (Pr{let x ← runT >>= gT}[x = true].toReal + Pbad.toReal) :=
         ENNReal.ofReal_le_ofReal h_real
     _ = Pr{let x ← runT >>= gT}[x = true] + Pbad := by
         rw [ENNReal.ofReal_add ENNReal.toReal_nonneg ENNReal.toReal_nonneg,
-          ENNReal.ofReal_toReal probOutput_ne_top, ENNReal.ofReal_toReal hPbad_ne_top]
+          ENNReal.ofReal_toReal prEvent_ne_top, ENNReal.ofReal_toReal hPbad_ne_top]
     _ ≤ Pr{let x ← (hybridExpAtKey ids hr M maxAttempts adv
           (transSignBody ids M maxAttempts pk sk) pk)}[x = true] +
         ENNReal.ofReal (qS * (qH + 1) * ε / (1 - p_abort)) := by
@@ -958,7 +958,7 @@ lemma probOutput_hybridExpAtKey_trans_le_sim
         (transSignBody ids M maxAttempts pk sk) pk)}[x = true]
       = ENNReal.ofReal (Pr{let x ← (hybridExpAtKey ids hr M maxAttempts adv
           (transSignBody ids M maxAttempts pk sk) pk)}[x = true].toReal) :=
-        (ENNReal.ofReal_toReal probOutput_ne_top).symm
+        (ENNReal.ofReal_toReal prEvent_ne_top).symm
     _ ≤ ENNReal.ofReal (Pr{let x ← (hybridExpAtKey ids hr M maxAttempts adv
           (simSignBody M maxAttempts sim pk sk) pk)}[x = true].toReal +
           qS * ζ_zk / (1 - p_abort)) := ENNReal.ofReal_le_ofReal h_real
@@ -966,7 +966,7 @@ lemma probOutput_hybridExpAtKey_trans_le_sim
           (simSignBody M maxAttempts sim pk sk) pk)}[x = true] +
           ENNReal.ofReal (qS * ζ_zk / (1 - p_abort)) := by
         rw [ENNReal.ofReal_add ENNReal.toReal_nonneg h_loss_nonneg,
-          ENNReal.ofReal_toReal probOutput_ne_top]
+          ENNReal.ofReal_toReal prEvent_ne_top]
 
 end scaffold
 

@@ -50,7 +50,7 @@ bound for the reprogramming loop (`tsum_probOutput_run_progSignBody_mul_enncard_
 lemma OracleComp.tsum_prEvent_pure_mul {β : Type} (y : β) (f : β → ℝ≥0∞) :
     ∑' z, Pr{let x ← (pure y : ProbComp β)}[x = z] * f z = f y := by
   rw [tsum_eq_single y fun z hz => by
-    rw [probOutput_eq_zero_of_not_mem_support (by simp [hz]), zero_mul]]
+    rw [prEvent_eq_zero_of_not_mem_support (by simp [hz]), zero_mul]]
   rw [probOutput_pure_self, one_mul]
 
 /-- Tonelli-style rearrangement: the expectation of a nonnegative functional under a
@@ -59,13 +59,13 @@ lemma OracleComp.tsum_prEvent_bind_mul {α β : Type} (oa : ProbComp α)
     (g : α → ProbComp β) (f : β → ℝ≥0∞) :
     ∑' z, Pr{let x ← oa >>= g}[x = z] * f z =
       ∑' x, Pr{let y ← oa}[y = x] * ∑' z, Pr{let y ← g x}[y = z] * f z := by
-  simp_rw [probOutput_bind_eq_tsum, ← ENNReal.tsum_mul_right]
+  simp_rw [OracleComp.prEvent_bind_eq_tsum, ← ENNReal.tsum_mul_right]
   rw [ENNReal.tsum_comm]
   simp_rw [mul_assoc, ENNReal.tsum_mul_left]
 
 /-- Push a constant out of a pointwise expectation bound: a (sub)probability average of
 `f ≤ C + g` is at most `C` plus the average of `g`. -/
-lemma tsum_probOutput_mul_le_add_of_le {α : Type} (oa : ProbComp α)
+lemma OracleComp.tsum_prEvent_mul_le_add_of_le {α : Type} (oa : ProbComp α)
     {f g : α → ℝ≥0∞} {C : ℝ≥0∞} (h : ∀ a, f a ≤ C + g a) :
     ∑' a, Pr{let x ← oa}[x = a] * f a ≤ C + ∑' a, Pr{let x ← oa}[x = a] * g a := by
   calc ∑' a, Pr{let x ← oa}[x = a] * f a
@@ -75,7 +75,7 @@ lemma tsum_probOutput_mul_le_add_of_le {α : Type} (oa : ProbComp α)
         rw [ENNReal.tsum_add, ENNReal.tsum_mul_right]
     _ ≤ 1 * C + ∑' a, Pr{let x ← oa}[x = a] * g a := by
         gcongr
-        exact tsum_probOutput_le_one
+        exact OracleComp.tsum_prEvent_le_one
     _ = C + ∑' a, Pr{let x ← oa}[x = a] * g a := by rw [one_mul]
 
 /-- `ENNReal` form of `tvDist_bind_left_le`: the lifted TV distance of a bind over a
@@ -85,7 +85,7 @@ lemma ofReal_tvDist_bind_le_tsum {α β : Type} (oa : ProbComp α) (f g : α →
       ∑' x, Pr{let y ← oa}[y = x] * ENNReal.ofReal (tvDist (f x) (g x)) := by
   refine le_trans (ENNReal.ofReal_le_ofReal (tvDist_bind_left_le oa f g)) ?_
   have h_sum_ne_top : (∑' x : α, Pr{let y ← oa}[y = x]) ≠ ⊤ :=
-    ne_top_of_le_ne_top ENNReal.one_ne_top tsum_probOutput_le_one
+    ne_top_of_le_ne_top ENNReal.one_ne_top OracleComp.tsum_prEvent_le_one
   have h_summable : Summable fun x : α => Pr{let y ← oa}[y = x].toReal * tvDist (f x) (g x) :=
     Summable.of_nonneg_of_le
       (fun x => mul_nonneg ENNReal.toReal_nonneg (tvDist_nonneg _ _))
@@ -94,7 +94,7 @@ lemma ofReal_tvDist_bind_le_tsum {α β : Type} (oa : ProbComp α) (f g : α →
   rw [ENNReal.ofReal_tsum_of_nonneg
     (fun x => mul_nonneg ENNReal.toReal_nonneg (tvDist_nonneg _ _)) h_summable]
   refine ENNReal.tsum_le_tsum fun x => ?_
-  rw [ENNReal.ofReal_mul ENNReal.toReal_nonneg, ENNReal.ofReal_toReal probOutput_ne_top]
+  rw [ENNReal.ofReal_mul ENNReal.toReal_nonneg, ENNReal.ofReal_toReal prEvent_ne_top]
 
 omit [SampleableType Stmt] in
 /-- One-attempt unfolding of the reprogramming loop's cache-level run. -/
@@ -207,18 +207,18 @@ lemma tsum_probOutput_commit_mul_abort_le (pk : Stmt) (sk : Wit) {p_abort : ℝ}
       ≤ ENNReal.ofReal p_abort := by
   classical
   refine le_trans (le_of_eq ?_) hAbort
-  rw [IdenSchemeWithAbort.honestExecution, probOutput_bind_eq_tsum]
+  rw [IdenSchemeWithAbort.honestExecution, OracleComp.prEvent_bind_eq_tsum]
   refine tsum_congr fun ws => ?_
   obtain ⟨cm, st⟩ := ws
   congr 1
-  rw [probOutput_bind_eq_tsum, probOutput_bind_eq_tsum]
+  rw [OracleComp.prEvent_bind_eq_tsum, OracleComp.prEvent_bind_eq_tsum]
   refine tsum_congr fun ch => ?_
   congr 1
-  rw [probOutput_bind_eq_tsum, tsum_eq_single (none : Option Resp) ?_]
-  · simp [probOutput_pure]
+  rw [OracleComp.prEvent_bind_eq_tsum, tsum_eq_single (none : Option Resp) ?_]
+  · simp [prEvent_pure]
   · rintro (_ | z) hb
     · exact absurd rfl hb
-    · simp [probOutput_pure]
+    · simp [prEvent_pure]
 
 omit [SampleableType Stmt] [SampleableType Chal] [DecidableEq M] [DecidableEq Commit] in
 /-- Commitment-guessing bound for cache hits: under a pointwise commitment-guessing
@@ -318,11 +318,11 @@ that earlier draw is the *same* `Pr[= w']`. The single-pending case of the Fubin
 that moves the sampling site from signing time to read time. -/
 lemma probOutput_lazyGhostFire_one (pk : Stmt) (sk : Wit) (w' : Commit) :
     Pr{let x ← lazyGhostFire ids pk sk w' 1}[x = true] = Pr{let x ← Prod.fst <$> ids.commit pk sk}[x = w'] := by
-  rw [lazyGhostFire_one_eq ids pk sk w', probOutput_bind_eq_tsum]
+  rw [lazyGhostFire_one_eq ids pk sk w', OracleComp.prEvent_bind_eq_tsum]
   rw [tsum_eq_single w' ?_]
-  · simp [probOutput_pure]
+  · simp [prEvent_pure]
   · intro b hb
-    simp [probOutput_pure, hb]
+    simp [prEvent_pure, hb]
 
 omit [SampleableType Stmt] in
 /-- **Eager read bad-fire indicator.** Starting from a state with the bad flag unset, the
@@ -386,7 +386,7 @@ lemma probEvent_ghostHybridImpl_read_bad_single_eq_lazyFire
         intro h; exact hw (by rw [← hmc] at h; exact (Prod.ext_iff.mp h).2.symm)
       simp only [QueryCache.cacheQuery_of_ne _ _ hne]
       simp [hw]
-  rw [probEvent_bind_eq_tsum]
+  rw [OracleComp.prEvent_bind_eq_tsum]
   simp only [probOutput_ghostHybridImpl_read_bad ids M maxAttempts pk sk mc, hind]
   rw [probOutput_lazyGhostFire_one]
   rw [tsum_eq_single mc.2 (by intro w hw; simp [hw])]
@@ -466,14 +466,14 @@ lemma probOutput_eagerMultiReadBad_eq_lazyFire_or
             (Prod.fst <$> ids.commit pk sk) >>= fun w =>
               eagerMultiReadBad ids M pk sk msg mc (re.cacheQuery (msg, w) c) c n
           from rfl]
-      rw [probOutput_bind_eq_tsum]
+      rw [OracleComp.prEvent_bind_eq_tsum]
       -- RHS: `lazyGhostFire (n+1)` draws `w`, then `lazyGhostFire n` and or-s `decide (w = mc.2)`.
       rw [show (lazyGhostFire ids pk sk mc.2 (n + 1) >>= fun b => pure (b || decide (re mc ≠ none)))
             = (Prod.fst <$> ids.commit pk sk) >>= fun w =>
                 (lazyGhostFire ids pk sk mc.2 n >>= fun b =>
                   pure (b || decide ((re.cacheQuery (msg, w) c) mc ≠ none)))
           from ?_]
-      · rw [probOutput_bind_eq_tsum]
+      · rw [OracleComp.prEvent_bind_eq_tsum]
         refine tsum_congr fun w => ?_
         rw [ih (re.cacheQuery (msg, w) c)]
       · -- The two read-time draw shapes agree by `hcache` and Boolean-or associativity.
@@ -536,7 +536,7 @@ lemma probOutput_lazyGhostFire_true_le (pk : Stmt) (sk : Wit) {ε : ℝ}
             Pr{let x ← lazyGhostFire ids pk sk w' n}[x = true] := by
         change Pr{let x ← ((Prod.fst <$> ids.commit pk sk) >>= fun w =>
             lazyGhostFire ids pk sk w' n >>= fun b => pure (decide (w = w') || b))}[x = true] ≤ _
-        rw [probOutput_bind_eq_tsum]
+        rw [OracleComp.prEvent_bind_eq_tsum]
         calc (∑' w : Commit, Pr{let x ← Prod.fst <$> ids.commit pk sk}[x = w] *
               Pr{let x ← (lazyGhostFire ids pk sk w' n >>=
                 fun b => pure (decide (w = w') || b))}[x = true])
@@ -559,7 +559,7 @@ lemma probOutput_lazyGhostFire_true_le (pk : Stmt) (sk : Wit) {ε : ℝ}
                 Pr{let x ← lazyGhostFire ids pk sk w' n}[x = true] := by
               gcongr
               · rw [tsum_eq_single w' (by intro b hb; simp [hb]), ite_eq_left rfl, mul_one]
-              · exact mul_le_of_le_one_left (zero_le) tsum_probOutput_le_one
+              · exact mul_le_of_le_one_left (zero_le) OracleComp.tsum_prEvent_le_one
       refine hbody.trans ?_
       push_cast
       rw [add_mul, one_mul, add_comm]
@@ -846,7 +846,7 @@ lemma ofReal_tvDist_run_fsAbortSignLoop_progSignBody_le (pk : Stmt) (sk : Wit) (
                   ENNReal.tsum_le_tsum fun ch => mul_le_mul_right (hch ch) _
               _ = Pr{let x ← (uniformSample Chal >>= fun ch =>
                     ids.respond pk sk ws.2 ch)}[x = none] * B' := by
-                  rw [probOutput_bind_eq_tsum, ← ENNReal.tsum_mul_right]
+                  rw [OracleComp.prEvent_bind_eq_tsum, ← ENNReal.tsum_mul_right]
                   exact tsum_congr fun ch => (mul_assoc _ _ _).symm
       calc ∑' ws : Commit × PrvState, Pr{let x ← ids.commit pk sk}[x = ws] *
             ENNReal.ofReal (tvDist _ _)
@@ -866,7 +866,7 @@ lemma ofReal_tvDist_run_fsAbortSignLoop_progSignBody_le (pk : Stmt) (sk : Wit) (
             refine add_le_add ?_ ?_
             · refine le_trans (le_of_eq ?_)
                 (probEvent_commit_hit_le ids M pk sk hGuess msg c)
-              rw [probEvent_eq_tsum_ite]
+              rw [OracleComp.prEvent_eq_tsum_ite]
               refine tsum_congr fun ws => ?_
               by_cases h : c (msg, ws.1) = none <;> simp [h]
             · calc ∑' ws : Commit × PrvState, Pr{let x ← ids.commit pk sk}[x = ws] *
@@ -959,15 +959,15 @@ lemma tsum_probOutput_run_progSignBody_mul_enncard_le (pk : Stmt) (sk : Wit) (ms
                 refine le_trans (ih (c.cacheQuery (msg, ws.1) ch)) ?_
                 exact add_le_add_left
                   (QueryCache.enncard_cacheQuery_le c (msg, ws.1) ch) S
-          refine le_trans (tsum_probOutput_mul_le_add_of_le _ h_oz) ?_
+          refine le_trans (OracleComp.tsum_prEvent_mul_le_add_of_le _ h_oz) ?_
           refine add_le_add_right (le_of_eq ?_) _
           rw [tsum_eq_single (none : Option Resp) fun oz hoz => by simp [hoz]]
           simp [mul_comm]
-        refine le_trans (tsum_probOutput_mul_le_add_of_le _ h_ch) ?_
+        refine le_trans (OracleComp.tsum_prEvent_mul_le_add_of_le _ h_ch) ?_
         refine add_le_add_right (le_of_eq ?_) _
-        rw [probOutput_bind_eq_tsum, ← ENNReal.tsum_mul_right]
+        rw [OracleComp.prEvent_bind_eq_tsum, ← ENNReal.tsum_mul_right]
         exact tsum_congr fun ch => (mul_assoc _ _ _).symm
-      refine le_trans (tsum_probOutput_mul_le_add_of_le _ h_ws) ?_
+      refine le_trans (OracleComp.tsum_prEvent_mul_le_add_of_le _ h_ws) ?_
       rw [hSucc]
       have : ∑' ws : Commit × PrvState, Pr{let x ← ids.commit pk sk}[x = ws] *
           (Pr{let x ← (uniformSample Chal >>= fun ch =>
@@ -1107,15 +1107,15 @@ lemma tsum_probOutput_run_ghostSignBody_mul_ghost_enncard_le (pk : Stmt) (sk : W
                 refine le_trans (ih re (gh.cacheQuery (msg, ws.1) ch)) ?_
                 exact add_le_add_left
                   (QueryCache.enncard_cacheQuery_le gh (msg, ws.1) ch) S
-          refine le_trans (tsum_probOutput_mul_le_add_of_le _ h_oz) ?_
+          refine le_trans (OracleComp.tsum_prEvent_mul_le_add_of_le _ h_oz) ?_
           refine add_le_add_right (le_of_eq ?_) _
           rw [tsum_eq_single (none : Option Resp) fun oz hoz => by simp [hoz]]
           simp [mul_comm]
-        refine le_trans (tsum_probOutput_mul_le_add_of_le _ h_ch) ?_
+        refine le_trans (OracleComp.tsum_prEvent_mul_le_add_of_le _ h_ch) ?_
         refine add_le_add_right (le_of_eq ?_) _
-        rw [probOutput_bind_eq_tsum, ← ENNReal.tsum_mul_right]
+        rw [OracleComp.prEvent_bind_eq_tsum, ← ENNReal.tsum_mul_right]
         exact tsum_congr fun ch => (mul_assoc _ _ _).symm
-      refine le_trans (tsum_probOutput_mul_le_add_of_le _ h_ws) ?_
+      refine le_trans (OracleComp.tsum_prEvent_mul_le_add_of_le _ h_ws) ?_
       rw [hSucc]
       have : ∑' ws : Commit × PrvState, Pr{let x ← ids.commit pk sk}[x = ws] *
           (Pr{let x ← (uniformSample Chal >>= fun ch =>
@@ -1313,13 +1313,13 @@ lemma tsum_probOutput_run_ghostSignBody_mul_memCharge_le (pk : Stmt) (sk : Wit) 
                 rw [ite_eq_left rfl]
                 refine le_trans (ih re (gh.cacheQuery (msg, ws.1) ch)) ?_
                 exact add_le_add (memCharge_cacheQuery_le M gh (msg, ws.1) ch mc) le_rfl
-          refine le_trans (tsum_probOutput_mul_le_add_of_le _ h_oz) ?_
+          refine le_trans (OracleComp.tsum_prEvent_mul_le_add_of_le _ h_oz) ?_
           refine add_le_add_right (le_of_eq ?_) _
           rw [tsum_eq_single (none : Option Resp) fun oz hoz => by simp [hoz]]
           simp [mul_comm]
-        refine le_trans (tsum_probOutput_mul_le_add_of_le _ h_ch) ?_
+        refine le_trans (OracleComp.tsum_prEvent_mul_le_add_of_le _ h_ch) ?_
         refine add_le_add_right (le_of_eq ?_) _
-        rw [probOutput_bind_eq_tsum, ← ENNReal.tsum_mul_right]
+        rw [OracleComp.prEvent_bind_eq_tsum, ← ENNReal.tsum_mul_right]
         exact tsum_congr fun ch => (mul_assoc _ _ _).symm
       refine le_trans (ENNReal.tsum_le_tsum fun ws => mul_le_mul_right (h_ws ws) _) ?_
       rw [hSucc]
@@ -1336,7 +1336,7 @@ lemma tsum_probOutput_run_ghostSignBody_mul_memCharge_le (pk : Stmt) (sk : Wit) 
         ENNReal.tsum_add, ENNReal.tsum_add]
       refine add_le_add ?_ (add_le_add ?_ ?_)
       · rw [ENNReal.tsum_mul_right]
-        exact mul_le_of_le_one_left (zero_le) tsum_probOutput_le_one
+        exact mul_le_of_le_one_left (zero_le) OracleComp.tsum_prEvent_le_one
       · exact tsum_probOutput_commit_mul_writeHit_le ids M pk sk msg hGuess mc
       · calc ∑' ws : Commit × PrvState, Pr{let x ← ids.commit pk sk}[x = ws] *
               (Pr{let x ← (uniformSample Chal >>= fun ch =>
@@ -1383,7 +1383,7 @@ lemma tsum_ghostHybridImpl_read_step_charge_le
   cases h : p.1.1.2 mc with
   | some v =>
       rw [ite_eq_right (by simp), add_zero]
-      exact probEvent_le_one
+      exact prEvent_le_one
   | none =>
       rw [ite_eq_left rfl, zero_add]
 

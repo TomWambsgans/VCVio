@@ -174,7 +174,7 @@ theorem drawList_combine_take_drop {δ : Type} (pk : Stmt) (sk : Wit) (q' : ℕ)
   refine evalSPMF_bind_congr (fun blk hblk => ?_)
   have hlen : blk.length = maxAttempts := length_mem_support_drawList_commit ids pk sk _ blk hblk
   rw [bind_assoc]
-  refine evalSPMF_bind_congr_left _ _ _ (fun rest => ?_)
+  refine EvalDistEq.bind_right _ _ _ (fun rest => ?_)
   rw [pure_bind, List.take_left' hlen, List.drop_left' hlen]
 
 omit [SampleableType Stmt] in
@@ -188,9 +188,9 @@ theorem evalSPMF_defSignStep_splice {δ : Type} (pk : Stmt) (sk : Wit) (msg : M)
         (tapeSignBody ids M pk sk msg blk).run s.1.1.1.1 >>= k)
       = (OracleComp.drawList (ids.commit pk sk) maxAttempts >>= fun blk =>
           (tapeSignBody ids M pk sk msg blk).run s.1.1.1.1) >>= k from by rw [bind_assoc]]
-  rw [evalSPMF_bind,
+  rw [evalDist_bind_of_discrete,
     evalSPMF_ghostSignDrawBody_eq_drawList_tapeSignBody ids M pk sk msg maxAttempts s.1.1.1.1,
-    ← evalSPMF_bind]
+    ← evalDist_bind_of_discrete]
 
 omit [SampleableType Stmt] in
 /-- **Sign-step cross-step commute (the crux inductive step).** The deferred-draw sign step,
@@ -259,7 +259,7 @@ theorem evalSPMF_signStep_commute {γ : Type} (pk : Stmt) (sk : Wit) (msg : M)
           (ob alc.1.1)).run
             (((((alc.2, msg :: s.1.1.1.2), s.1.1.2 ++ alc.1.2), s.1.2), s.2), rest))]
   -- Match the RHS: the tape sign step consumes `take maxAttempts` and threads `drop maxAttempts`.
-  refine evalSPMF_bind_congr_left _ _ _ (fun tape => ?_)
+  refine EvalDistEq.bind_right _ _ _ (fun tape => ?_)
   rw [show (tapeDrawReadImpl ids M maxAttempts pk sk (Sum.inr msg)).run (s, tape)
         = (fun alc : (Option (Commit × Resp) × List Commit) × (M × Commit →ₒ Chal).QueryCache =>
             (alc.1.1, (((((alc.2, msg :: s.1.1.1.2), s.1.1.2 ++ alc.1.2), s.1.2), s.2),

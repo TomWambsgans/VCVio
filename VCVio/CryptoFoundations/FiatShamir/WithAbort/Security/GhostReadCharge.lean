@@ -73,7 +73,7 @@ lemma probEvent_bad_bind_eq_tsum_false {γ' σ' δ' τ' : Type}
       = ∑' z : γ' × σ',
           Pr{let x ← oa}[x = (z.1, z.2, false)] * Pr{let w ← k (z.1, z.2, false)}[w.2.2 = true] := by
   classical
-  rw [probEvent_bind_eq_tsum,
+  rw [OracleComp.prEvent_bind_eq_tsum,
     ← (Equiv.prodAssoc γ' σ' Bool).tsum_eq
       (fun w => Pr{let x ← oa}[x = w] * Pr{let y ← k w}[y.2.2 = true]),
     ENNReal.tsum_prod']
@@ -81,7 +81,7 @@ lemma probEvent_bad_bind_eq_tsum_false {γ' σ' δ' τ' : Type}
   rw [tsum_bool]
   simp only [Equiv.prodAssoc_apply]
   have htrue : Pr{let x ← oa}[x = (z.1, z.2, true)] = 0 := by
-    refine probOutput_eq_zero_of_not_mem_support fun hz => ?_
+    refine prEvent_eq_zero_of_not_mem_support fun hz => ?_
     exact absurd (hbf _ hz) (by simp)
   rw [htrue, zero_mul, add_zero]
 
@@ -136,7 +136,7 @@ lemma probEvent_lazyGhostHybridImpl_charged_step (pk : Stmt) (sk : Wit) {ε : �
     rfl
   -- Rewrite both the run-bind and the good-continuation sum into the reduced form, then
   -- expand the bad probability over each run output (`Chal × σ × Bool`).
-  rw [h_run, probEvent_bind_eq_tsum]
+  rw [h_run, OracleComp.prEvent_bind_eq_tsum]
   -- Unfold the `GhostState` abbreviation so the product structure is explicit.
   simp only [GhostState] at *
   -- Split each output sum over its Boolean (bad) coordinate.
@@ -195,7 +195,7 @@ lemma probEvent_lazyGhostHybridImpl_charged_step (pk : Stmt) (sk : Wit) {ε : �
           (((M × Commit →ₒ Chal).QueryCache × (M × Commit →ₒ Chal).QueryCache) × List M),
           Pr{let x ← fire >>= fun fired => (fun cu => (cu.1, (((cu.2, gh), list), fired))) <$> ro}[x = (z.1, z.2, true)] := by
         refine ENNReal.tsum_le_tsum fun z => ?_
-        exact mul_le_of_le_one_right (zero_le) probEvent_le_one
+        exact mul_le_of_le_one_right (zero_le) prEvent_le_one
     _ ≤ Pr{let x ← fire}[x = true] := by
         -- Each output's bad bit equals the fire draw, so the `b = true` outputs carry
         -- at most the fire `true`-mass. Expand each summand over the fire draw, swap the
@@ -205,7 +205,7 @@ lemma probEvent_lazyGhostHybridImpl_charged_step (pk : Stmt) (sk : Wit) {ε : �
             Pr{let x ← fire >>= fun fired => (fun cu => (cu.1, (((cu.2, gh), list), fired))) <$> ro}[x = (z.1, z.2, true)]
             = ∑' fired : Bool, Pr{let x ← fire}[x = fired] *
                 Pr{let x ← (fun cu => (cu.1, (((cu.2, gh), list), fired))) <$> ro}[x = (z.1, z.2, true)] :=
-          fun z => probOutput_bind_eq_tsum fire _ _
+          fun z => OracleComp.prEvent_bind_eq_tsum fire _ _
         rw [tsum_congr h_per_z, ENNReal.tsum_comm]
         -- The inner sum over outputs is `0` for `fired = false` (its outputs carry bad bit
         -- `false`) and `≤ 1` for `fired = true`, giving the bound `≤ Pr{let x ← fire}[x = true]`.
@@ -223,7 +223,7 @@ lemma probEvent_lazyGhostHybridImpl_charged_step (pk : Stmt) (sk : Wit) {ε : �
           | false =>
               rw [ite_eq_right (by decide)]
               refine le_of_eq (ENNReal.tsum_eq_zero.mpr fun z => ?_)
-              refine probOutput_eq_zero_of_not_mem_support ?_
+              refine prEvent_eq_zero_of_not_mem_support ?_
               rw [support_map]
               rintro ⟨cu, _, heq⟩
               simp only [Prod.mk.injEq] at heq
@@ -234,7 +234,7 @@ lemma probEvent_lazyGhostHybridImpl_charged_step (pk : Stmt) (sk : Wit) {ε : �
               -- `z ↦ (z.1, z.2, true)`.
               refine le_trans (ENNReal.tsum_comp_le_tsum_of_injective ?_
                 (fun w => Pr{let x ← (fun cu => (cu.1, (((cu.2, gh), list), true))) <$> ro}[x = w]))
-                tsum_probOutput_le_one
+                OracleComp.tsum_prEvent_le_one
               rintro ⟨a₁, b₁⟩ ⟨a₂, b₂⟩ heq
               simp only [Prod.mk.injEq] at heq
               exact Prod.ext heq.1 heq.2.1
