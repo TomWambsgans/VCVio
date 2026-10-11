@@ -13,8 +13,8 @@ public import VCVio.CryptoFoundations.GPVHashAndSign.AppendQuery
 Two GPV instantiations sharing the deterministic `eval`/`isShort` but differing in the
 probabilistic trapdoor sampler (a *concrete* finite-precision sampler versus an *ideal* one)
 induce EUF-CMA advantages within `qSign · ε` of each other, whenever the two samplers are
-within total-variation distance `ε` at every target — per signing query, uniformly in the
-random-oracle state.
+within total-variation distance `ε` (on the discrete σ-algebra of preimages) at every target — per
+signing query, uniformly in the random-oracle state.
 
 The accumulation is adaptive: the adversary chooses its signing queries as a function of all
 previous oracle answers.  The per-query budget telescopes across the run by the generic
@@ -77,15 +77,22 @@ final packaging is a `map`, so the step-level distance is at most the per-call s
 distance `ε`, uniformly in the starting state. -/
 lemma measureTVDist_run_gpvRealImplFlagFresh_sign_le (pk : PK) (sk : SK)
     {ε : ℝ} (hε : 0 ≤ ε)
-    (hStep : ∀ c, tvDist (psf.trapdoorSample pk sk c) (psf'.trapdoorSample pk sk c) ≤ ε)
+    (hStep : ∀ c, letI : MeasurableSpace Domain := ⊤
+      measureTVDist (psf.trapdoorSample pk sk c) (psf'.trapdoorSample pk sk c) ≤ ε)
     (msg : M) (s : ((Salt × M →ₒ Range).QueryCache × Finset M) × Bool) :
-    tvDist ((gpvRealImplFlagFresh psf hr M Salt pk sk (.inr msg)).run s)
+    letI : MeasurableSpace ((Salt × Domain) × ((Salt × M →ₒ Range).QueryCache × Finset M) × Bool) :=
+      ⊤
+    measureTVDist ((gpvRealImplFlagFresh psf hr M Salt pk sk (.inr msg)).run s)
       ((gpvRealImplFlagFresh psf' hr M Salt pk sk (.inr msg)).run s) ≤ ε := by
+  let : MeasurableSpace Domain := ⊤
+  let : MeasurableSpace
+      (((unifSpec + (Salt × M →ₒ Range)) + (M →ₒ (Salt × Domain))).Range (.inr msg) ×
+        (((Salt × M →ₒ Range).QueryCache × Finset M) × Bool)) := ⊤
   rw [gpvRealImplFlagFresh_run_inr, gpvRealImplFlagFresh_run_inr]
-  refine tvDist_bind_le_of_forall_le _ _ _ ε hε fun r => ?_
-  refine tvDist_bind_le_of_forall_le _ _ _ ε hε fun q => ?_
+  refine OracleComp.measureTVDist_bind_left_le_of_forall_le _ _ _ hε fun r => ?_
+  refine OracleComp.measureTVDist_bind_left_le_of_forall_le _ _ _ hε fun q => ?_
   rw [bind_pure_comp, bind_pure_comp]
-  exact le_trans (tvDist_map_le _ _ _) (hStep q.1)
+  exact le_trans (measureTVDist_map_le _ _ _ Measurable.of_discrete) (hStep q.1)
 
 /-! ## The adaptive run-level accumulation -/
 
@@ -98,17 +105,29 @@ budgets telescope across the adaptively interleaved query stream by
 random-oracle steps. -/
 theorem measureTVDist_run_simulateQ_gpvRealImplFlagFresh_trapdoorSwap_le (pk : PK) (sk : SK)
     {ε : ℝ} (hε : 0 ≤ ε)
-    (hStep : ∀ c, tvDist (psf.trapdoorSample pk sk c) (psf'.trapdoorSample pk sk c) ≤ ε)
+    (hStep : ∀ c, letI : MeasurableSpace Domain := ⊤
+      measureTVDist (psf.trapdoorSample pk sk c) (psf'.trapdoorSample pk sk c) ≤ ε)
     {α : Type}
     (oa : OracleComp ((unifSpec + (Salt × M →ₒ Range)) + (M →ₒ (Salt × Domain))) α)
     {qSign : ℕ} (hqb : oa.IsQueryBoundP (· matches .inr _) qSign)
-    (s₀ : ((Salt × M →ₒ Range).QueryCache × Finset M) × Bool) :
-    tvDist ((simulateQ (gpvRealImplFlagFresh psf hr M Salt pk sk) oa).run s₀)
+    (s₀ : ((Salt × M →ₒ Range).QueryCache × Finset M) × Bool)
+    [MeasurableSpace (α × ((Salt × M →ₒ Range).QueryCache × Finset M) × Bool)] :
+    measureTVDist ((simulateQ (gpvRealImplFlagFresh psf hr M Salt pk sk) oa).run s₀)
       ((simulateQ (gpvRealImplFlagFresh psf' hr M Salt pk sk) oa).run s₀) ≤ qSign * ε := by
-  refine measureETVDist_simulateQ_run_le_queryBoundP_mul _ _ hε (· matches .inr _) ?_ ?_ oa hqb s₀
+  have h := measureETVDist_simulateQ_run_le_queryBoundP_mul
+    (gpvRealImplFlagFresh psf hr M Salt pk sk) (gpvRealImplFlagFresh psf' hr M Salt pk sk)
+    (· matches .inr _) (ε := ENNReal.ofReal ε) ?_ ?_ oa hqb s₀
+  · rw [measureTVDist_eq_toReal_measureETVDist]
+    refine (ENNReal.toReal_mono (ENNReal.mul_ne_top (ENNReal.natCast_ne_top _)
+      ENNReal.ofReal_ne_top) h).trans (le_of_eq ?_)
+    rw [ENNReal.toReal_mul, ENNReal.toReal_ofReal hε, ENNReal.toReal_natCast]
   · rintro (q | msg) hSt s
     · simp at hSt
-    · exact measureTVDist_run_gpvRealImplFlagFresh_sign_le psf psf' hr M Salt pk sk hε hStep msg s
+    · let : MeasurableSpace
+          (((unifSpec + (Salt × M →ₒ Range)) + (M →ₒ (Salt × Domain))).Range (.inr msg) ×
+            (((Salt × M →ₒ Range).QueryCache × Finset M) × Bool)) := ⊤
+      exact (ENNReal.le_ofReal_iff_toReal_le (measureETVDist_ne_top _ _) hε).2
+        (measureTVDist_run_gpvRealImplFlagFresh_sign_le psf psf' hr M Salt pk sk hε hStep msg s)
   · rintro (q | msg) hSt s
     · exact gpvRealImplFlagFresh_run_inl_trapdoorSwap psf psf' hr M Salt pk sk q s
     · simp at hSt
@@ -128,7 +147,8 @@ theorem prEvent_realGameVerifyFresh_le_trapdoorSwap_add
       (GPVHashAndSign (m := OracleComp (unifSpec + (Salt × M →ₒ Range))) psf hr M Salt))
     (pk : PK) (sk : SK)
     {ε : ℝ} (hε : 0 ≤ ε)
-    (hStep : ∀ c, tvDist (psf.trapdoorSample pk sk c) (psf'.trapdoorSample pk sk c) ≤ ε)
+    (hStep : ∀ c, letI : MeasurableSpace Domain := ⊤
+      measureTVDist (psf.trapdoorSample pk sk c) (psf'.trapdoorSample pk sk c) ≤ ε)
     {qSign : ℕ} (hQ : (adv.main pk).IsQueryBoundP (· matches .inr _) qSign) :
     Pr{let x ← realGameVerifyFresh psf hr M Salt adv pk sk}[x = true]
       ≤ Pr{let x ← realGameVerifyFresh psf' hr M Salt ⟨adv.main⟩ pk sk}[x = true]
@@ -141,11 +161,11 @@ theorem prEvent_realGameVerifyFresh_le_trapdoorSwap_add
   -- The psf-side game simulates the common computation `oa`: the verification read is
   -- invariant under the swap.
   have hgame : realGameVerifyFresh psf hr M Salt adv pk sk =
-      𝒮[(fun z : ((M × (Salt × Domain)) × Bool) ×
+      (fun z : ((M × (Salt × Domain)) × Bool) ×
             (((Salt × M →ₒ Range).QueryCache × Finset M) × Bool) =>
           decide (z.1.1.1 ∉ z.2.1.2) && z.1.2) <$>
         (simulateQ (gpvRealImplFlagFresh psf hr M Salt pk sk) oa).run
-          (((∅ : (Salt × M →ₒ Range).QueryCache), (∅ : Finset M)), false)] := by
+          (((∅ : (Salt × M →ₒ Range).QueryCache), (∅ : Finset M)), false) := by
     unfold realGameVerifyFresh
     rw [hoa, show (fun out : M × (Salt × Domain) =>
           (fun v => (out, v)) <$> gpvVerifyRead psf M Salt pk out)
@@ -155,19 +175,21 @@ theorem prEvent_realGameVerifyFresh_le_trapdoorSwap_add
   -- The signing-query budget extends over the appended (signing-free) verification read.
   have hqb : oa.IsQueryBoundP (· matches .inr _) qSign :=
     isQueryBoundP_bind hQ (fun out _ => gpvVerifyKont_no_sign psf' M Salt pk out)
+  let : MeasurableSpace (((M × (Salt × Domain)) × Bool) ×
+    ((Salt × M →ₒ Range).QueryCache × Finset M) × Bool) := ⊤
   have h_run := measureTVDist_run_simulateQ_gpvRealImplFlagFresh_trapdoorSwap_le psf psf' hr M Salt
     pk sk hε hStep oa hqb (((∅ : (Salt × M →ₒ Range).QueryCache), (∅ : Finset M)), false)
   -- Game-level total variation: project the joint run through the winning Bool.
-  have h_tv : SPMF.tvDist (realGameVerifyFresh psf hr M Salt adv pk sk)
+  have h_tv : measureTVDist (realGameVerifyFresh psf hr M Salt adv pk sk)
       (realGameVerifyFresh psf' hr M Salt ⟨adv.main⟩ pk sk) ≤ qSign * ε := by
     rw [hgame]
     unfold realGameVerifyFresh
-    exact le_trans (tvDist_map_le _ _ _) h_run
+    exact le_trans (measureTVDist_map_le _ _ _ Measurable.of_discrete) h_run
   -- Transport through the Bool total-variation bridge into the `ℝ≥0∞` inequality.
   have h_loss_nonneg : (0 : ℝ) ≤ qSign * ε := mul_nonneg (Nat.cast_nonneg _) hε
-  have habs := abs_probOutput_toReal_sub_le_tvDist
+  have habs := abs_prEvent_toReal_sub_le_measureTVDist
     (realGameVerifyFresh psf hr M Salt adv pk sk)
-    (realGameVerifyFresh psf' hr M Salt ⟨adv.main⟩ pk sk)
+    (realGameVerifyFresh psf' hr M Salt ⟨adv.main⟩ pk sk) (· = true) Measurable.of_discrete
   have h_real : Pr{let x ← realGameVerifyFresh psf hr M Salt adv pk sk}[x = true].toReal ≤
       Pr{let x ← realGameVerifyFresh psf' hr M Salt ⟨adv.main⟩ pk sk}[x = true].toReal
         + qSign * ε := by
@@ -176,21 +198,21 @@ theorem prEvent_realGameVerifyFresh_le_trapdoorSwap_add
   calc Pr{let x ← realGameVerifyFresh psf hr M Salt adv pk sk}[x = true]
       = ENNReal.ofReal
           (Pr{let x ← realGameVerifyFresh psf hr M Salt adv pk sk}[x = true].toReal) :=
-        (ENNReal.ofReal_toReal prEvent_ne_top).symm
+        (ENNReal.ofReal_toReal (prEvent_ne_top _)).symm
     _ ≤ ENNReal.ofReal
           (Pr{let x ← realGameVerifyFresh psf' hr M Salt ⟨adv.main⟩ pk sk}[x = true].toReal
             + qSign * ε) := ENNReal.ofReal_le_ofReal h_real
     _ = Pr{let x ← realGameVerifyFresh psf' hr M Salt ⟨adv.main⟩ pk sk}[x = true]
           + ENNReal.ofReal (qSign * ε) := by
         rw [ENNReal.ofReal_add ENNReal.toReal_nonneg h_loss_nonneg,
-          ENNReal.ofReal_toReal prEvent_ne_top]
+          ENNReal.ofReal_toReal (prEvent_ne_top _)]
 
 /-- **Adaptive sampler-transport accumulation for the GPV EUF-CMA advantage.** Swapping the
 trapdoor sampler of the GPV scheme — keeping the deterministic `eval`/`isShort` fixed — costs
 at most `qSign · ε` in EUF-CMA advantage, when the two samplers are within total-variation
-distance `ε` at every target on honestly generated keys and the adversary makes at most
-`qSign` signing queries.  The right-hand adversary is the same `main` repackaged at the
-swapped scheme; both advantages read the shared random-oracle `runtime`.
+distance `ε` (on the discrete σ-algebra of preimages) at every target on honestly generated keys and
+the adversary makes at most `qSign` signing queries. The right-hand adversary is the same `main`
+repackaged at the swapped scheme; both advantages read the shared random-oracle `runtime`.
 
 The proof averages the per-key hop `prEvent_realGameVerifyFresh_le_trapdoorSwap_add` over
 the key generator through the game identification
@@ -200,8 +222,8 @@ theorem advantage_le_advantage_add_of_trapdoorSample_measureTVDist
     (hEval : ∀ pk x, psf.eval pk x = psf'.eval pk x)
     (hShort : ∀ x, psf.isShort x = psf'.isShort x)
     {ε : ℝ} (hε : 0 ≤ ε)
-    (hStep : ∀ pk sk, (pk, sk) ∈ support hr.gen → ∀ c,
-      tvDist (psf.trapdoorSample pk sk c) (psf'.trapdoorSample pk sk c) ≤ ε)
+    (hStep : ∀ pk sk, (pk, sk) ∈ support hr.gen → ∀ c, letI : MeasurableSpace Domain := ⊤
+      measureTVDist (psf.trapdoorSample pk sk c) (psf'.trapdoorSample pk sk c) ≤ ε)
     (qSign : ℕ)
     (adv : SignatureAlg.UnforgeableAdversary
       (GPVHashAndSign (m := OracleComp (unifSpec + (Salt × M →ₒ Range))) psf hr M Salt))
@@ -215,8 +237,8 @@ theorem advantage_le_advantage_add_of_trapdoorSample_measureTVDist
   classical
   rw [advantage_eq_keygen_average_realGameVerifyFresh psf hr M Salt adv,
     advantage_eq_keygen_average_realGameVerifyFresh psf' hr M Salt ⟨adv.main⟩,
-    OracleComp.prEvent_bind_eq_tsum (𝒮[hr.gen] : SPMF (PK × SK)),
-    OracleComp.prEvent_bind_eq_tsum (𝒮[hr.gen] : SPMF (PK × SK))]
+    OracleComp.prEvent_bind_eq_tsum hr.gen,
+    OracleComp.prEvent_bind_eq_tsum hr.gen]
   have hper : ∀ x : PK × SK, x ∈ support hr.gen →
       Pr{let y ← realGameVerifyFresh psf hr M Salt adv x.1 x.2}[y = true] ≤
         Pr{let y ← realGameVerifyFresh psf' hr M Salt ⟨adv.main⟩ x.1 x.2}[y = true]
@@ -224,26 +246,27 @@ theorem advantage_le_advantage_add_of_trapdoorSample_measureTVDist
     prEvent_realGameVerifyFresh_le_trapdoorSwap_add psf psf' hr M Salt hEval hShort adv
       x.1 x.2 hε (hStep x.1 x.2 hx) (hQ x.1)
   calc ∑' x : PK × SK,
-        Pr{let y ← 𝒮[hr.gen]}[y = x] * Pr{let y ← realGameVerifyFresh psf hr M Salt adv x.1 x.2}[y = true]
-      ≤ ∑' x : PK × SK, (Pr{let y ← 𝒮[hr.gen]}[y = x]
+        Pr{let y ← hr.gen}[y = x] * Pr{let y ← realGameVerifyFresh psf hr M Salt adv x.1 x.2}[
+            y = true]
+      ≤ ∑' x : PK × SK, (Pr{let y ← hr.gen}[y = x]
             * Pr{let y ← realGameVerifyFresh psf' hr M Salt ⟨adv.main⟩ x.1 x.2}[y = true]
-          + Pr{let y ← 𝒮[hr.gen]}[y = x] * ENNReal.ofReal (qSign * ε)) :=
+          + Pr{let y ← hr.gen}[y = x] * ENNReal.ofReal (qSign * ε)) :=
         ENNReal.tsum_le_tsum fun x => by
           by_cases hx : x ∈ support hr.gen
           · rw [← mul_add]; gcongr; exact hper x hx
-          · have hzero : Pr{let y ← (𝒮[hr.gen] : SPMF (PK × SK))}[y = x] = 0 :=
-              prEvent_eq_zero_of_not_mem_support (mx := hr.gen) hx
+          · have hzero : Pr{let y ← hr.gen}[y = x] = 0 :=
+              prEvent_eq_zero_of_not_mem_support _ hx
             simp [hzero]
-    _ = ∑' x : PK × SK, (Pr{let y ← 𝒮[hr.gen]}[y = x]
+    _ = ∑' x : PK × SK, (Pr{let y ← hr.gen}[y = x]
             * Pr{let y ← realGameVerifyFresh psf' hr M Salt ⟨adv.main⟩ x.1 x.2}[y = true])
-          + (∑' x : PK × SK, Pr{let y ← 𝒮[hr.gen]}[y = x]) * ENNReal.ofReal (qSign * ε) := by
+          + (∑' x : PK × SK, Pr{let y ← hr.gen}[y = x]) * ENNReal.ofReal (qSign * ε) := by
         rw [ENNReal.tsum_add, ENNReal.tsum_mul_right]
-    _ ≤ ∑' x : PK × SK, (Pr{let y ← 𝒮[hr.gen]}[y = x]
+    _ ≤ ∑' x : PK × SK, (Pr{let y ← hr.gen}[y = x]
             * Pr{let y ← realGameVerifyFresh psf' hr M Salt ⟨adv.main⟩ x.1 x.2}[y = true])
           + 1 * ENNReal.ofReal (qSign * ε) := by
         gcongr
-        exact OracleComp.tsum_prEvent_le_one
-    _ = ∑' x : PK × SK, (Pr{let y ← 𝒮[hr.gen]}[y = x]
+        exact OracleComp.tsum_prEvent_le_one _
+    _ = ∑' x : PK × SK, (Pr{let y ← hr.gen}[y = x]
             * Pr{let y ← realGameVerifyFresh psf' hr M Salt ⟨adv.main⟩ x.1 x.2}[y = true])
           + ENNReal.ofReal (qSign * ε) := by rw [one_mul]
 
@@ -256,8 +279,8 @@ theorem abs_advantage_toReal_sub_le_of_trapdoorSample_measureTVDist
     (hEval : ∀ pk x, psf.eval pk x = psf'.eval pk x)
     (hShort : ∀ x, psf.isShort x = psf'.isShort x)
     {ε : ℝ} (hε : 0 ≤ ε)
-    (hStep : ∀ pk sk, (pk, sk) ∈ support hr.gen → ∀ c,
-      tvDist (psf.trapdoorSample pk sk c) (psf'.trapdoorSample pk sk c) ≤ ε)
+    (hStep : ∀ pk sk, (pk, sk) ∈ support hr.gen → ∀ c, letI : MeasurableSpace Domain := ⊤
+      measureTVDist (psf.trapdoorSample pk sk c) (psf'.trapdoorSample pk sk c) ≤ ε)
     (qSign : ℕ)
     (adv : SignatureAlg.UnforgeableAdversary
       (GPVHashAndSign (m := OracleComp (unifSpec + (Salt × M →ₒ Range))) psf hr M Salt))
@@ -272,8 +295,9 @@ theorem abs_advantage_toReal_sub_le_of_trapdoorSample_measureTVDist
     hEval hShort hε hStep qSign adv hQ
   have h₂ := advantage_le_advantage_add_of_trapdoorSample_measureTVDist psf' psf hr M Salt
     (fun pk x => (hEval pk x).symm) (fun x => (hShort x).symm) hε
-    (fun pk sk hx c => tvDist_comm (psf'.trapdoorSample pk sk c)
-      (psf.trapdoorSample pk sk c) ▸ hStep pk sk hx c)
+    (fun pk sk hx c => by
+      let : MeasurableSpace Domain := ⊤
+      exact (measureTVDist_comm _ _).trans_le (hStep pk sk hx c))
     qSign ⟨adv.main⟩ hQ
   -- Repackaging the same `main` twice returns the original adversary (structure eta).
   have hEta : (⟨(⟨adv.main⟩ : SignatureAlg.UnforgeableAdversary
