@@ -13,7 +13,7 @@ public import VCVio.CryptoFoundations.GPVHashAndSign
 
 The GPV hash-and-sign EUF-CMA bounds (`GPVHashAndSign.forgery_yields_collision_or_exact_match`
 and the `euf_cma_*` corollaries) are stated under side conditions — PSF correctness and regularity,
-a never-failing trapdoor sampler, the random-oracle "forger queries its forgery point" convention
+the random-oracle "forger queries its forgery point" convention
 (`ForgesQueriedPoint`), and a query-count bound (`signHashQueryBound`).  A conditional theorem says
 nothing if its hypotheses are jointly uninhabitable: this file rules that out with a concrete
 instance for which every side condition holds simultaneously.  This is a **logical consistency
@@ -27,10 +27,9 @@ and then forges at that same point, so its forgery key is constant and always ca
 `ForgesQueriedPoint`.
 
 * `bijPSF_correct` / `bijPSF_regularity` — the PSF-side conditions.
-* `bijPSF_neverFail` — the trapdoor sampler never fails.
 * `bijPSF_hForge` — the forger queries its forgery point, for *every* domain sampler.
 * `adv_signHashQueryBound` — the adversary makes `0` signing and `1` random-oracle queries.
-* `gpv188_hyps_inhabited` — all five side conditions hold for the single instance
+* `gpv188_hyps_inhabited` — all four side conditions hold for the single instance
   `(bijPSF, hr, adv)`, in exactly the shape the headline bounds consume them.
 -/
 
@@ -114,39 +113,27 @@ theorem bijPSF_correct : bijPSF.Correct := by
   subst hx
   exact ⟨rfl, rfl⟩
 
-/-- The witness PSF has a never-failing trapdoor sampler: at every key pair and target it is the
-deterministic `pure`, which has no failure branch. -/
-theorem bijPSF_neverFail :
-    ∀ (pk sk : Unit), (pk, sk) ∈ support hr.gen →
-      ∀ c : Bool, NeverFail (bijPSF.trapdoorSample pk sk c) := by
-  intro pk sk _ c
-  change NeverFail (pure c : ProbComp Bool)
-  infer_instance
-
 /-- The witness PSF satisfies GPV regularity with `domainSample = $ᵗ Bool`: forward-sampling a short
 preimage and hashing it forward is identical to sampling a uniform target and inverting it. -/
 theorem bijPSF_regularity : bijPSF.Regularity := by
   refine ⟨domainSample, fun pk sk => ?_⟩
-  simp only [bijPSF, domainSample, pure_bind]
+  simp only [bijPSF, domainSample, pure_bind, EvalDistEq.refl]
 
 /-- **Consistency (inhabitance) witness for the GPV #188 headline hypotheses.** For the concrete
 bijective PSF, the generable relation `hr`, and the query-then-forge adversary `adv`, all the
 standard GPV side conditions hold simultaneously: the forger queries its forgery point for every
 domain sampler (`ForgesQueriedPoint`), the adversary makes `0` signing and `1` random-oracle queries
-(`signHashQueryBound`), the PSF is correct (`Correct`), the trapdoor sampler never fails
-(`NeverFail`), and the PSF is regular (`Regularity`).  Each conjunct is stated in the exact shape
-the headline bounds `GPVHashAndSign.euf_cma_split_bound` and
-`GPVHashAndSign.euf_cma_collision_bound` consume, with `ForgesQueriedPoint` proved for every
-domain sampler, so their hypothesis conjunction is inhabitable.  This witness
-carries no quantitative security content. -/
+(`signHashQueryBound`), the PSF is correct (`Correct`), and the PSF is regular (`Regularity`). Each
+conjunct is stated in the exact shape the headline bounds `GPVHashAndSign.euf_cma_split_bound` and
+`GPVHashAndSign.euf_cma_collision_bound` consume, with `ForgesQueriedPoint` proved for every domain
+sampler, so their hypothesis conjunction is inhabitable. This witness carries no quantitative
+security content. -/
 theorem gpv188_hyps_inhabited :
     (∀ ds : Unit → ProbComp Bool,
       GPVHashAndSign.ForgesQueriedPoint bijPSF hr Unit Unit adv ds) ∧
     (∀ pk : Unit, GPVHashAndSign.signHashQueryBound Unit Unit (adv.main pk) 0 1) ∧
     bijPSF.Correct ∧
-    (∀ (pk sk : Unit), (pk, sk) ∈ support hr.gen →
-      ∀ c : Bool, NeverFail (bijPSF.trapdoorSample pk sk c)) ∧
     bijPSF.Regularity :=
-  ⟨bijPSF_hForge, adv_signHashQueryBound, bijPSF_correct, bijPSF_neverFail, bijPSF_regularity⟩
+  ⟨bijPSF_hForge, adv_signHashQueryBound, bijPSF_correct, bijPSF_regularity⟩
 
 end Examples.GPVNonVacuity
