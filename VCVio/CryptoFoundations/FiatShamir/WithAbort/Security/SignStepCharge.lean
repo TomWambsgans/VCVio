@@ -342,7 +342,8 @@ theorem ghostSignDrawBody_succ_charge {γ : Type}
               congr 1
               exact deferredDrawRead_run_count_dl_invariant ids M maxAttempts pk sk (ob rws.1.1)
                 ws.1 rws.2 sgn rl ((dr ++ [ws.1]) ++ rws.1.2) bad dr bad
-            -- Now `h_oz none` reduces to: `∑' rws, Pr{…}[= rws]·(head + rec) ≤ H ws + L₀·Rr`.
+            -- Now `h_oz none` reduces to
+            -- `∑' rws, Pr{let x ← …}[x = rws]·(head + rec) ≤ H ws + L₀·Rr`.
             simp only [Function.comp]
             simp_rw [hsplit, mul_add]
             rw [ENNReal.tsum_add]
