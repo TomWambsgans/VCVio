@@ -11,6 +11,7 @@ import Interop.Cryptol.Translation.Finite.Loop
 import Interop.Cryptol.Model.ResolvedSequences
 import Interop.Cryptol.Model.Recurrence
 import Interop.Cryptol.Translation.PolymorphicExamples
+import Interop.Cryptol.Model.PolyRenaming
 
 /-!
 # Independent public API consumer
@@ -58,3 +59,10 @@ example {w : Polymorphic.Scope} {Γ : List w.ValueSort}
     (Polymorphic.Term.app (.lam body) value).denote ρ η =
       body.denote ρ (Polymorphic.Env.cons ρ (η, value.denote ρ η)) :=
   Polymorphic.Term.denote_beta ρ body value η
+
+example {w : Polymorphic.Scope} {Γ Δ : List w.ValueSort} {s : w.ValueSort}
+    (t : Polymorphic.Term w Γ s) (r : IPFunctor.ScopedSignature.Renaming Γ Δ)
+    (ρ : w.Assignment) (η : Polymorphic.Env ρ Δ) :
+    Polymorphic.Term.denote (t.rename r) ρ η =
+      t.denote ρ (Polymorphic.Env.rename ρ r η) :=
+  Polymorphic.Term.denote_rename t r ρ η

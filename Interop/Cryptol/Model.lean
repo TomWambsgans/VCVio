@@ -27,6 +27,7 @@ public import Interop.Cryptol.Model.PolyExamples
 public import Interop.Cryptol.Model.PolyLaws
 public import Interop.Cryptol.Model.PolyRecursion
 public import Interop.Cryptol.Model.PolyReindex
+public import Interop.Cryptol.Model.PolyRenaming
 public import Interop.Cryptol.Model.PolyScope
 public import Interop.Cryptol.Model.PolyScopeMaps
 public import Interop.Cryptol.Model.PolySpecialization

@@ -2,7 +2,7 @@
 
 
 The optional [Cryptol model](../README.md) pins the published PolyFun companion
-at `66cc2941b07c86b14ddc9384c2c97e081d4c3cbf`. That development builds on the
+at `9a7e7f78ab2567d4c3c98629a13d31e10726bae1`. That development builds on the
 v4.35 work at `559cd9857da50cf6f4f113c60702bf3176c9541d`
 ([PR 271](https://github.com/Verified-zkEVM/PolyFun/pull/271)). The other dependency
 pins remain Lean `v4.35.0-rc3`, Mathlib

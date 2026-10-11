@@ -80,7 +80,7 @@ idempotent.
   src? := some <| match get_config? polyfunPath with
     | some path => .path (System.FilePath.mk path) false
     | none => .git "https://github.com/Verified-zkEVM/PolyFun"
-        (some "66cc2941b07c86b14ddc9384c2c97e081d4c3cbf") none
+        (some "9a7e7f78ab2567d4c3c98629a13d31e10726bae1") none
 }
 
 require "leanprover-community" / "mathlib" @ git "v4.35.0-rc3"

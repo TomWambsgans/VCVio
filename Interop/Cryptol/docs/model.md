@@ -142,8 +142,12 @@ traversal performs the tree recursion. Instantiating two distinct type
 parameters to the same type preserves the two value-variable positions.
 [`PolySubstitution.lean`](../Model/PolySubstitution.lean) uses that action to
 move value substitutions under parameter binders without capturing variables.
-Its identity law and mixed-binder capture regressions are checked; a general
-whole-language semantic substitution theorem is not yet provided.
+Its identity and renaming-interaction laws follow from the shared PolyFun API.
+[`PolyRenaming.lean`](../Model/PolyRenaming.lean) proves `Term.denote_rename` for
+every current constructor, including numeric/type/proof abstractions, single
+recursion and simultaneous recursive groups. The proof uses positional
+environment transport and whole-group fixed-point naturality. A general
+semantic theorem for parameter and value substitution is not yet provided.
 
 [`PolySyntax.lean`](../Model/PolySyntax.lean) stores finite heads and finitely
 many children. Heads carry checked result annotations separately from their
@@ -406,7 +410,7 @@ upgrade. Probability and security interpretations belong downstream in VCVio.
 
 | Capability | Current evidence | Remaining boundary |
 |---|---|---|
-| Shared syntax | Resolved/native terms use `ScopedSignature`; ordered polymorphic terms use `ScopedFamily`. Generic renaming, traversal composition, relational folds, and positional reindexing | General semantic preservation and normalized composition for polymorphic parameter/value substitution remain to be proved |
+| Shared syntax | Resolved/native terms use `ScopedSignature`; ordered polymorphic terms use `ScopedFamily`. Generic renaming, traversal composition, relational folds, positional reindexing, and semantic renaming for all current polymorphic constructors | General semantic preservation and normalized composition for polymorphic parameter/value substitution remain to be proved |
 | Native semantics | One constructor algebra and generic semantic substitution; source preservation composes with resolved lowering | Native fragment is total and monomorphic |
 | Recurrence compilation | Prefix uniqueness, least-fixed-point agreement, compact singleton extension and a linear syntax-size theorem | No general termination compiler or evaluation-time certificate |
 | Ordered polymorphism | Finite numeric/type/proof syntax, continuous denotation, beta laws, closed embedding, map at finite/infinite lengths, XOR certificate at every finite width | No polymorphic operational adequacy or full upstream `ETAbs`/`ETApp` frontend correspondence |

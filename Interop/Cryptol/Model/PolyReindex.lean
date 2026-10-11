@@ -147,4 +147,12 @@ end Head
     Term.parameters μ (IPFunctor.ScopedFamily.Term.var x) =
       IPFunctor.ScopedFamily.Term.var (x.map μ.sort) := rfl
 
+/-- Numeric and type substitution commutes with renaming local values. -/
+theorem Term.parameters_rename {w z : Scope} (μ : Scope.Map w z)
+    {Γ Δ : List w.ValueSort} {s : w.ValueSort}
+    (ρ : IPFunctor.ScopedSignature.Renaming Γ Δ) (t : Term w Γ s) :
+    Term.parameters μ (t.rename ρ) =
+      (Term.parameters μ t).rename (IPFunctor.ScopedSignature.Renaming.map μ.sort ρ) :=
+  IPFunctor.ScopedFamily.Term.map_rename parameterHom μ ρ t
+
 end Interop.Cryptol.Polymorphic

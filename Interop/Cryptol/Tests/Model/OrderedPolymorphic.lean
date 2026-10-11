@@ -7,6 +7,7 @@ Authors: Devon Tuma
 module
 
 public import Interop.Cryptol.Model.PolyRecursion
+public import Interop.Cryptol.Model.PolyRenaming
 public import Interop.Cryptol.Translation.PolymorphicExamples
 public import PolyFun.IPFunctor.Scoped.FamilySize
 
@@ -122,5 +123,23 @@ example (n : Nat) (x y : BitVec n) :
 
 example : (Finite.PolymorphicExamples.xorCertificate.meaningAt 0).implementation
     ((0 : BitVec 0), (0 : BitVec 0)) = (0 : BitVec 0) := rfl
+
+/-- Renaming an open recursive group retains one simultaneous fixed point. -/
+example {w : Scope} {Γ Δ : List w.ValueSort} {s : w.ValueSort}
+    (bindings : List w.ValueSort)
+    (rhs : (i : Fin bindings.length) → Term w (bindings ++ Γ) bindings[i])
+    (body : Term w (bindings ++ Γ) s) (r : IPFunctor.ScopedSignature.Renaming Γ Δ)
+    (ρ : w.Assignment) (η : Env ρ Δ) :
+    Term.denote ((Term.letRec bindings rhs body).rename r) ρ η =
+      (Term.letRec bindings rhs body).denote ρ (Env.rename ρ r η) :=
+  Term.denote_rename _ r ρ η
+
+/-- The general theorem also covers empty declaration groups. -/
+example {w : Scope} {Γ Δ : List w.ValueSort} {s : w.ValueSort}
+    (body : Term w Γ s) (r : IPFunctor.ScopedSignature.Renaming Γ Δ)
+    (ρ : w.Assignment) (η : Env ρ Δ) :
+    Term.denote ((Term.letRec [] (fun i => Fin.elim0 i) body).rename r) ρ η =
+      (Term.letRec [] (fun i => Fin.elim0 i) body).denote ρ (Env.rename ρ r η) :=
+  Term.denote_rename _ r ρ η
 
 end Interop.Cryptol.Tests.OrderedPolymorphic

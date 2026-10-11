@@ -17,7 +17,7 @@ lake exe cryptol-interop model arx-native 32 8
 ```
 
 The root manifest pins the companion PolyFun development at
-`66cc2941b07c86b14ddc9384c2c97e081d4c3cbf`. The commands above and the separate
+`9a7e7f78ab2567d4c3c98629a13d31e10726bae1`. The commands above and the separate
 `Consumer` use that published dependency; no sibling checkout is required.
 For local development against a different PolyFun checkout:
 
@@ -27,8 +27,10 @@ POLYFUN_PATH=/path/to/PolyFun bash Interop/Cryptol/scripts/validate.sh --lint --
 ```
 
 Keep the resulting local path override out of the committed dependency manifest.
-The optional workflow takes an explicit published PolyFun revision; use the
-manifest's revision to reproduce this development.
+The optional workflow runs on PR changes affecting this project and uses the
+committed PolyFun pin by default. Manual and reusable invocations can supply
+`polyfun_ref` to check a companion revision. External Cryptol and Foundation
+comparisons remain an explicit local validation option.
 
 | Directory | Responsibility | Imports |
 |---|---|---|
