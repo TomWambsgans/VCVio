@@ -147,7 +147,7 @@ theorem prEvent_idealDraw_eq (e : core.SkSeed ≃ core.Y)
          let z ← (simulateQ (SecretEncoding.idealImpl (hashSpec core) (DeriveQuery core) core.Y)
            (unforgeableTranscriptExperiment (deriveAdversary core adv pkSeed))).run (∅, ∅)}[
         P s z] := by
-  simp only [idealDraw, bind_assoc, pure_bind]
+  simp only [idealDraw, prEvent_norm]
 
 /-- **The run against the ideal hidden-seed game.** An event `Q` of the run of SLH-DSA in the
 random-oracle model at public seed `pkSeed` and its final cache has probability at most that, in

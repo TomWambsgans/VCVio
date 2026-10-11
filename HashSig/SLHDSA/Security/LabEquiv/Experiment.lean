@@ -161,8 +161,9 @@ theorem prEvent_eagerImpl_liftComp_eq_labExperiment {e : core.SkSeed ≃ core.Y}
         (liftComp (unforgeableTranscriptExperiment (deriveAdversary core adv pkSeed))
           (labSpec core))).run st}[P z] =
       Pr{let z ← (simulateQ (slhGraph core pkSeed).eagerImpl
-          (labExperiment core adv pkSeed)).run st}[P z] :=
-  congrArg (· {True}) (evalDist_bind_congr_left_of_forall
-    (fun {_} ↦ evalDist_eagerImpl_liftComp_eq_labExperiment core hd pkSeed adv st) _)
+          (labExperiment core adv pkSeed)).run st}[P z] := by
+  let _ : MeasurableSpace (DeriveOutcome core × LabState core) := ⊤
+  exact (EvalDistEq.of_evalDist_eq
+    (evalDist_eagerImpl_liftComp_eq_labExperiment core hd pkSeed adv st)).prEvent_eq P
 
 end SLHDSA.Security

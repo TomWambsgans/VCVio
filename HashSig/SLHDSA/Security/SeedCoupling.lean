@@ -307,6 +307,6 @@ theorem prEvent_romSchemeRun_pure_eq (e : core.SkSeed ≃ core.Y)
            (unforgeableTranscriptExperiment (deriveAdversary core adv pkSeed))).run ∅}[
         Q (DeriveOutcome.fill core s z.1, z.2)] := by
   rw [romSchemeRun_pure_eq]
-  simp only [bind_assoc, pure_bind]
+  simp only [prEvent_norm]
 
 end SLHDSA.Security
