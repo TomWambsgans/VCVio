@@ -1,4 +1,8 @@
 /-
+SUPERSEDED (historical reference): `LatticeCrypto/Falcon/Concrete/NTRUSolver.lean` carries
+working ports of c-fn-dsa's `solve_NTRU_intermediate` and `solve_NTRU_depth0`, and key
+generation matches c-fn-dsa. Do not drop the body below back into it.
+
 WIP (s13) — `solve_NTRU_depth0` port attempt. NOT merged: compiles, but END-TO-END
 VALIDATION FAILS (see findings below). Preserved for the next session to debug from.
 Drop this body back into `LatticeCrypto/Falcon/Concrete/NTRUSolver.lean` (replacing the

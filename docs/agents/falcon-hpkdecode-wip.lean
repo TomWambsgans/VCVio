@@ -1,4 +1,9 @@
 /-
+SUPERSEDED (historical reference): `Falcon.Concrete.pkDecode_pkEncode`,
+`Falcon.Concrete.publicKeyBytes_extract` and `Falcon.Concrete.sigDecode_sigEncode` are proved in
+`LatticeCrypto/Falcon/Concrete/Encoding.lean`, and `Extern/Falcon/VerifyBridge.lean` discharges
+the codec hypotheses of the verify bridge. Nothing below needs to be lifted.
+
 WIP scaffolding for the `hpkDecode` round-trip (`pkDecode_pkEncode`), session 8 (paused).
 
 STATUS: every declaration below is PROVEN, sorry-free, and compiles against the refactored
