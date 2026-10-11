@@ -7,6 +7,7 @@ Authors: Quang Dao, Oleksandr Vovkotrub
 module
 
 public import VCVio.CryptoFoundations.FiatShamir.WithAbort
+public import VCVio.OracleComp.EvalDist.Sum
 
 /-!
 # Ghost-layer machinery for Fiat-Shamir with aborts: Bodies
@@ -94,13 +95,16 @@ independently of the attempt budget.
 This is the distributional core of the `transSignBody`-to-`simSignBody` hop: each
 hybrid step couples one more attempt, and attempt `j` is only reached when the first
 `j` attempts of the second loop all abort. -/
-lemma tvDist_firstSome_le_geometric {α : Type} (a₁ a₂ : ProbComp (Option α))
-    {ζ q : ℝ} (hζ : tvDist a₁ a₂ ≤ ζ) (hq : Pr[= none | a₂].toReal ≤ q) (hq0 : 0 ≤ q) :
-    ∀ n : ℕ, tvDist (firstSome a₁ n) (firstSome a₂ n) ≤ ζ * ∑ j ∈ Finset.range n, q ^ j
+lemma measureTVDist_firstSome_le_geometric {α : Type} [MeasurableSpace (Option α)]
+    [DiscreteMeasurableSpace (Option α)] (a₁ a₂ : ProbComp (Option α))
+    {ζ q : ℝ} (hζ : measureTVDist a₁ a₂ ≤ ζ) (hq : Pr{let x ← a₂}[x = none].toReal ≤ q)
+    (hq0 : 0 ≤ q) :
+    ∀ n : ℕ, measureTVDist (firstSome a₁ n) (firstSome a₂ n) ≤
+      ζ * ∑ j ∈ Finset.range n, q ^ j
   | 0 => by simp [firstSome]
   | (n + 1) => by
-    have hζ0 : 0 ≤ ζ := le_trans (tvDist_nonneg a₁ a₂) hζ
-    have ih := tvDist_firstSome_le_geometric a₁ a₂ hζ hq hq0 n
+    have hζ0 : 0 ≤ ζ := le_trans (measureTVDist_nonneg a₁ a₂) hζ
+    have ih := measureTVDist_firstSome_le_geometric a₁ a₂ hζ hq hq0 n
     have hGeomNonneg : (0 : ℝ) ≤ ∑ j ∈ Finset.range n, q ^ j :=
       Finset.sum_nonneg fun j _ => pow_nonneg hq0 j
     set k₁ : Option α → ProbComp (Option α) := fun r =>
@@ -112,24 +116,25 @@ lemma tvDist_firstSome_le_geometric {α : Type} (a₁ a₂ : ProbComp (Option α
       | some a => pure (some a)
       | none => firstSome a₂ n with hk₂
     have hterm : ∀ b : Option α, b ≠ (none : Option α) →
-        Pr[= b | a₂].toReal * tvDist (k₁ b) (k₂ b) = 0 := by
+        Pr{let x ← a₂}[x = b].toReal * measureTVDist (k₁ b) (k₂ b) = 0 := by
       intro b hb
       match b, hb with
       | some a, _ => simp [hk₁, hk₂]
-    have hStep : tvDist (a₂ >>= k₁) (a₂ >>= k₂) ≤
-        Pr[= none | a₂].toReal * tvDist (firstSome a₁ n) (firstSome a₂ n) := by
-      refine le_trans (tvDist_bind_left_le a₂ k₁ k₂) (le_of_eq ?_)
+    have hStep : measureTVDist (a₂ >>= k₁) (a₂ >>= k₂) ≤
+        Pr{let x ← a₂}[x = none].toReal * measureTVDist (firstSome a₁ n) (firstSome a₂ n) := by
+      refine le_trans (measureTVDist_bind_left_le_tsum a₂ k₁ k₂) (le_of_eq ?_)
       rw [tsum_eq_single (none : Option α) hterm]
     calc
-      tvDist (firstSome a₁ (n + 1)) (firstSome a₂ (n + 1))
-          = tvDist (a₁ >>= k₁) (a₂ >>= k₂) := by
+      measureTVDist (firstSome a₁ (n + 1)) (firstSome a₂ (n + 1))
+          = measureTVDist (a₁ >>= k₁) (a₂ >>= k₂) := by
             rw [firstSome_succ, firstSome_succ]
-      _ ≤ tvDist (a₁ >>= k₁) (a₂ >>= k₁) + tvDist (a₂ >>= k₁) (a₂ >>= k₂) :=
-            tvDist_triangle _ _ _
-      _ ≤ ζ + Pr[= none | a₂].toReal * tvDist (firstSome a₁ n) (firstSome a₂ n) :=
-            add_le_add (le_trans (tvDist_bind_right_le k₁ a₁ a₂) hζ) hStep
+      _ ≤ measureTVDist (a₁ >>= k₁) (a₂ >>= k₁) + measureTVDist (a₂ >>= k₁) (a₂ >>= k₂) :=
+            measureTVDist_triangle _ _ _
+      _ ≤ ζ + Pr{let x ← a₂}[x = none].toReal *
+            measureTVDist (firstSome a₁ n) (firstSome a₂ n) :=
+            add_le_add (le_trans (measureTVDist_bind_right_le a₁ a₂ k₁) hζ) hStep
       _ ≤ ζ + q * (ζ * ∑ j ∈ Finset.range n, q ^ j) :=
-            add_le_add le_rfl (mul_le_mul hq ih (tvDist_nonneg _ _) hq0)
+            add_le_add le_rfl (mul_le_mul hq ih (measureTVDist_nonneg _ _) hq0)
       _ = ζ * ∑ j ∈ Finset.range (n + 1), q ^ j := by
             have hsum : ∑ j ∈ Finset.range (n + 1), q ^ j =
                 q * (∑ j ∈ Finset.range n, q ^ j) + 1 := by
@@ -194,7 +199,7 @@ signature `(w, z)`; an all-abort loop outcome produces no signature and no progr
 
 The continuation is a deterministic function of the loop outcome, so the gap between
 the two hybrids reduces entirely to the gap between their private loops (see
-`tvDist_run_transSignBody_simSignBody_le`). -/
+`measureTVDist_run_transSignBody_simSignBody_le`). -/
 @[expose] noncomputable def signProgramCont (msg : M) :
     Option (Commit × Chal × Resp) →
       StateT ((M × Commit →ₒ Chal).QueryCache) ProbComp (Option (Commit × Resp))

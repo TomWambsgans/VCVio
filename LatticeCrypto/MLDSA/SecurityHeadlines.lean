@@ -84,7 +84,7 @@ theorem nma_security_short
     (hr : GenerableRelation (PublicKey p prims) (SecretKey p)
       (validKeyPairShort p prims))
     (hGen : hr.gen = keygenShort p prims)
-    (εbridge : ℝ)
+    (εbridge : ℝ≥0∞)
     (bridge : (PublicKey p prims →
         OracleComp (unifSpec + (M × Commitment p prims →ₒ CommitHashBytes p))
           (M × Option (Commitment p prims × Response p prims))) →
@@ -100,7 +100,7 @@ theorem nma_security_short
     SignatureAlg.eufNmaAdvantage
         (FiatShamirWithAbort.runtime
           (Commit := Commitment p prims) (Chal := CommitHashBytes p) M) adv ≤
-      ENNReal.ofReal (LearningWithErrors.advantage mlwe (bridge adv.main) + εbridge) +
+      LearningWithErrors.advantage mlwe (bridge adv.main) + εbridge +
         SelfTargetMSIS.advantage (extractorCShort p prims adv.main) := by
   classical
   intro adv
@@ -108,9 +108,9 @@ theorem nma_security_short
   -- The EUF-NMA experiment is the real-`t` short-model NMA game with `main := adv.main`.
   have hadv : SignatureAlg.eufNmaAdvantage (FiatShamirWithAbort.runtime
       (Commit := Commitment p prims) (Chal := CommitHashBytes p) M) adv =
-      nmaAdvantageShort p prims hr maxAttempts (keygenShort p prims) adv.main := by
-    rw [SignatureAlg.eufNmaAdvantage, nmaAdvantageShort, nmaGameShort]
-    rw [SignatureAlg.eufNmaExp]
+      nmaShortAdvantage p prims hr maxAttempts (keygenShort p prims) adv.main := by
+    rw [SignatureAlg.eufNmaAdvantage, nmaShortAdvantage, nmaShortExperiment]
+    rw [SignatureAlg.eufNmaExperiment]
     simp only [FiatShamirWithAbort, hGen]
   rw [hadv]
   -- Bound the two NMA games by the MLWE distinguisher and the STMSIS extractor.
@@ -126,38 +126,31 @@ theorem nma_security_short
         let (msg, σ) ← adv.main pk
         (FiatShamirWithAbort (identificationSchemeShort p prims) hr M maxAttempts).verify
           pk msg σ) : ProbComp Bool) with hpc1
-  have hg0 : nmaAdvantageShort p prims hr maxAttempts (keygenShort p prims) adv.main =
-      Pr[= true | pc0] := by
-    rw [nmaAdvantageShort, nmaGameShort_eq_keygen_bind, evalDist_apply_singleton]
-  have hg1 : nmaAdvantageShort p prims hr maxAttempts (keygenShort1 p prims) adv.main =
-      Pr[= true | pc1] := by
-    rw [nmaAdvantageShort, nmaGameShort_eq_keygen_bind, evalDist_apply_singleton]
-  -- Triangle bound: real game ≤ uniform game + MLWE advantage.
-  have htri := (by simpa only [evalDist_apply_singleton] using
-      ProbComp.evalDist_apply_true_le_add_ofReal_boolDistAdvantage pc0 pc1)
-  rw [hg0]
-  refine le_trans htri ?_
-  -- `pc0.boolDistAdvantage pc1 = |nmaAdv keygenShort - nmaAdv keygenShort1|`, which the exact
-  -- short key-swap hop bounds by the `mldsaMLWEShort` advantage — no statistical slack.
-  have hbias : pc0.boolDistAdvantage pc1 ≤
+  have hg0 : nmaShortAdvantage p prims hr maxAttempts (keygenShort p prims) adv.main =
+      𝒟[pc0] {true} := by
+    rw [nmaShortAdvantage, nmaShortExperiment_eq_keygen_bind]
+  have hg1 : nmaShortAdvantage p prims hr maxAttempts (keygenShort1 p prims) adv.main =
+      𝒟[pc1] {true} := by
+    rw [nmaShortAdvantage, nmaShortExperiment_eq_keygen_bind]
+  -- The Boolean distance of the two games is the real-vs-uniform key gap, which the exact short
+  -- key-swap hop identifies with the `mldsaMLWEShort` advantage — no statistical slack.
+  have hbias : 𝒟[pc0].boolDist 𝒟[pc1] =
       LearningWithErrors.advantage (mldsaMLWEShort p prims)
         (distinguisherBShort p prims hr maxAttempts adv.main) := by
-    have hk := nma_keyswap_hop_short p prims hr maxAttempts (M := M) adv.main
-    rw [ProbComp.boolDistAdvantage, evalDist_apply_singleton, evalDist_apply_singleton,
-      ← hg0, ← hg1]
-    exact hk
+    rw [MeasureTheory.Measure.boolDist, ← hg0, ← hg1]
+    exact nma_keyswap_hop_short p prims hr maxAttempts (M := M) adv.main
   -- STMSIS extraction bound on the uniform game.
   have hstm := nmaAdvantage_keygenShort1_le_stmsis p prims hr maxAttempts (M := M) adv.main
   rw [hg1] at hstm
-  calc Pr[= true | pc1] + ENNReal.ofReal (pc0.boolDistAdvantage pc1)
-      ≤ SelfTargetMSIS.advantage (extractorCShort p prims adv.main) +
-        ENNReal.ofReal (LearningWithErrors.advantage (mldsaMLWEShort p prims)
-          (distinguisherBShort p prims hr maxAttempts adv.main)) :=
-        add_le_add hstm (ENNReal.ofReal_le_ofReal hbias)
+  -- Triangle bound: real game ≤ uniform game + MLWE advantage.
+  rw [hg0]
+  calc 𝒟[pc0] {true} ≤ 𝒟[pc1] {true} + 𝒟[pc0].boolDist 𝒟[pc1] :=
+        MeasureTheory.Measure.apply_true_le_add_boolDist _ _
     _ ≤ SelfTargetMSIS.advantage (extractorCShort p prims adv.main) +
-        ENNReal.ofReal (LearningWithErrors.advantage mlwe (bridge adv.main) + εbridge) :=
-        add_le_add le_rfl (ENNReal.ofReal_le_ofReal hB)
-    _ = ENNReal.ofReal (LearningWithErrors.advantage mlwe (bridge adv.main) + εbridge) +
+        (LearningWithErrors.advantage mlwe (bridge adv.main) + εbridge) := by
+      rw [hbias]
+      exact add_le_add hstm hB
+    _ = LearningWithErrors.advantage mlwe (bridge adv.main) + εbridge +
         SelfTargetMSIS.advantage (extractorCShort p prims adv.main) := add_comm _ _
 
 open scoped Classical in
@@ -189,8 +182,8 @@ theorem nma_security_fips
     (hrS : GenerableRelation (PublicKey p prims) (SecretKey p)
       (validKeyPairShort p prims))
     (hGenS : hrS.gen = keygenShort p prims)
-    (εPRG : ℝ) (hPRG : expandSReplacement p prims εPRG)
-    (εbridge : ℝ)
+    (εPRG : ℝ≥0∞) (hPRG : expandSReplacement p prims εPRG)
+    (εbridge : ℝ≥0∞)
     (bridge : (PublicKey p prims →
         OracleComp (unifSpec + (M × Commitment p prims →ₒ CommitHashBytes p))
           (M × Option (Commitment p prims × Response p prims))) →
@@ -206,9 +199,8 @@ theorem nma_security_fips
     SignatureAlg.eufNmaAdvantage
         (FiatShamirWithAbort.runtime
           (Commit := Commitment p prims) (Chal := CommitHashBytes p) M) adv ≤
-      ENNReal.ofReal (LearningWithErrors.advantage mlwe (bridge adv.main) + εbridge) +
-        SelfTargetMSIS.advantage (extractorCShort p prims adv.main) +
-        ENNReal.ofReal εPRG := by
+      LearningWithErrors.advantage mlwe (bridge adv.main) + εbridge +
+        SelfTargetMSIS.advantage (extractorCShort p prims adv.main) + εPRG := by
   classical
   intro adv
   have hshortBound :=
@@ -217,8 +209,8 @@ theorem nma_security_fips
   have hadv : SignatureAlg.eufNmaAdvantage (FiatShamirWithAbort.runtime
       (Commit := Commitment p prims) (Chal := CommitHashBytes p) M) adv =
       nmaAdvantage p prims hr maxAttempts (keygen0 p prims) adv.main := by
-    rw [SignatureAlg.eufNmaAdvantage, nmaAdvantage, nmaGame]
-    rw [SignatureAlg.eufNmaExp]
+    rw [SignatureAlg.eufNmaAdvantage, nmaAdvantage, nmaExperiment]
+    rw [SignatureAlg.eufNmaExperiment]
     simp only [FiatShamirWithAbort, hGen]
   -- The two NMA games as plain `ProbComp`s over their key generators.
   set pcF := (do
@@ -234,34 +226,34 @@ theorem nma_security_fips
         (FiatShamirWithAbort (identificationSchemeShort p prims) hrS M maxAttempts).verify
           pk msg σ) : ProbComp Bool) with hpcS
   have hgF : nmaAdvantage p prims hr maxAttempts (keygen0 p prims) adv.main =
-      Pr[= true | pcF] := by
-    rw [nmaAdvantage, nmaGame_eq_keygen_bind, evalDist_apply_singleton]
+      𝒟[pcF] {true} := by
+    rw [nmaAdvantage, nmaExperiment_eq_keygen_bind]
   have hgS : SignatureAlg.eufNmaAdvantage (FiatShamirWithAbort.runtime
         (Commit := Commitment p prims) (Chal := CommitHashBytes p) M)
       (⟨adv.main⟩ : SignatureAlg.EufNmaAdversary
         (FiatShamirWithAbort (identificationSchemeShort p prims) hrS M maxAttempts)) =
-      Pr[= true | pcS] := by
+      𝒟[pcS] {true} := by
     have h1 : SignatureAlg.eufNmaAdvantage (FiatShamirWithAbort.runtime
           (Commit := Commitment p prims) (Chal := CommitHashBytes p) M)
         (⟨adv.main⟩ : SignatureAlg.EufNmaAdversary
           (FiatShamirWithAbort (identificationSchemeShort p prims) hrS M maxAttempts)) =
-        nmaAdvantageShort p prims hrS maxAttempts (keygenShort p prims) adv.main := by
-      rw [SignatureAlg.eufNmaAdvantage, nmaAdvantageShort, nmaGameShort]
-      rw [SignatureAlg.eufNmaExp]
+        nmaShortAdvantage p prims hrS maxAttempts (keygenShort p prims) adv.main := by
+      rw [SignatureAlg.eufNmaAdvantage, nmaShortAdvantage, nmaShortExperiment]
+      rw [SignatureAlg.eufNmaExperiment]
       simp only [FiatShamirWithAbort, hGenS]
-    rw [h1, nmaAdvantageShort, nmaGameShort_eq_keygen_bind, evalDist_apply_singleton]
+    rw [h1, nmaShortAdvantage, nmaShortExperiment_eq_keygen_bind]
   -- The PRG hop: the two games are the two branches of `hPRG` at the shared verify tail.
-  have hF : Pr[= true | pcF] = Pr[= true | do
+  have hF : 𝒟[pcF] {true} = 𝒟[do
       let seed ← $ᵗ (Bytes 32)
       let (rho, rhoPrime, _key) := prims.expandSeed seed
       let (s1, s2) := prims.expandS rhoPrime
       simulateToProbComp p prims (M := M) (do
         let d ← adv.main ⟨rho, (prims.power2RoundVec (prims.expandA rho * s1 + s2)).1⟩
         (FiatShamirWithAbort (identificationScheme p prims) hr M maxAttempts).verify
-          ⟨rho, (prims.power2RoundVec (prims.expandA rho * s1 + s2)).1⟩ d.1 d.2)] := by
+          ⟨rho, (prims.power2RoundVec (prims.expandA rho * s1 + s2)).1⟩ d.1 d.2)] {true} := by
     rw [hpcF]
     simp only [keygen0, keyFromMaterial, bind_assoc, pure_bind]
-  have hS : Pr[= true | pcS] = Pr[= true | do
+  have hS : 𝒟[pcS] {true} = 𝒟[do
       let _key ← $ᵗ (Bytes 32)
       let rho ← $ᵗ (Bytes 32)
       let s1 ← sampleShortVec p.l p.eta
@@ -269,26 +261,24 @@ theorem nma_security_fips
       simulateToProbComp p prims (M := M) (do
         let d ← adv.main ⟨rho, (prims.power2RoundVec (prims.expandA rho * s1 + s2)).1⟩
         (FiatShamirWithAbort (identificationScheme p prims) hr M maxAttempts).verify
-          ⟨rho, (prims.power2RoundVec (prims.expandA rho * s1 + s2)).1⟩ d.1 d.2)] := by
+          ⟨rho, (prims.power2RoundVec (prims.expandA rho * s1 + s2)).1⟩ d.1 d.2)] {true} := by
     rw [hpcS]
     simp only [keygenShort, keyFromMaterial, bind_assoc, pure_bind]
     rfl
-  have hbias : pcF.boolDistAdvantage pcS ≤ εPRG := by
-    rw [ProbComp.boolDistAdvantage, evalDist_apply_singleton, evalDist_apply_singleton, hF, hS]
+  have hbias : 𝒟[pcF].boolDist 𝒟[pcS] ≤ εPRG := by
+    rw [MeasureTheory.Measure.boolDist, hF, hS]
     exact hPRG (fun rho _key s1 s2 => simulateToProbComp p prims (M := M) (do
       let d ← adv.main ⟨rho, (prims.power2RoundVec (prims.expandA rho * s1 + s2)).1⟩
       (FiatShamirWithAbort (identificationScheme p prims) hr M maxAttempts).verify
         ⟨rho, (prims.power2RoundVec (prims.expandA rho * s1 + s2)).1⟩ d.1 d.2))
   -- Assemble: FIPS game ≤ short game + εPRG ≤ (MLWE + εbridge) + STMSIS + εPRG.
-  rw [hadv, hgF]
-  refine le_trans ((by simpa only [evalDist_apply_singleton] using
-      ProbComp.evalDist_apply_true_le_add_ofReal_boolDistAdvantage pcF pcS)) ?_
-  have hshort' : Pr[= true | pcS] ≤
-      ENNReal.ofReal (LearningWithErrors.advantage mlwe (bridge adv.main) + εbridge) +
+  have hshort' : 𝒟[pcS] {true} ≤
+      LearningWithErrors.advantage mlwe (bridge adv.main) + εbridge +
         SelfTargetMSIS.advantage (extractorCShort p prims adv.main) := by
     rw [← hgS]
     exact hshortBound
-  exact add_le_add hshort' (ENNReal.ofReal_le_ofReal hbias)
+  rw [hadv, hgF]
+  exact (MeasureTheory.Measure.apply_true_le_add_boolDist _ _).trans (add_le_add hshort' hbias)
 
 open scoped Classical in
 /-- **EUF-CMA security of the commitment-carrying short-key ML-DSA signature.**
@@ -298,11 +288,12 @@ The CMA-to-NMA-to-hardness composition over the idealized short-secret key gener
 signature, the advantage is bounded by the MLWE advantage, the SelfTargetMSIS advantage, and the
 statistical CMA-to-NMA loss `FiatShamirWithAbort.cmaToNmaLoss`. The proof composes three pieces:
 
-1. `FiatShamirWithAbort.euf_cma_to_nma`: `adv.advantage ≤ Pr[managedRoNmaExp simulatedNmaAdv]
-   + cmaToNmaLoss`, under the good-key/commitment-guessing/abort/query hypotheses;
-2. `FiatShamirWithAbort.managedRoNmaExp_simulatedNmaAdv_eq_eufNmaExp` (Option B): the managed-RO
-   NMA success probability equals the plain EUF-NMA advantage of `simulatedEufNmaAdv`, the
-   cache-forgetting reduction;
+1. `FiatShamirWithAbort.euf_cma_to_nma`: the CMA advantage is at most the managed-RO NMA
+   advantage of `simulatedNmaAdv` plus `cmaToNmaLoss`, under the
+   good-key/commitment-guessing/abort/query hypotheses;
+2. `FiatShamirWithAbort.managedRoNmaExperiment_simulatedNmaAdv_eq_eufNmaExperiment` (Option B):
+   the managed-RO NMA experiment equals the plain EUF-NMA experiment of `simulatedEufNmaAdv`,
+   the cache-forgetting reduction;
 3. `nma_security_short` (Lemma 7, short model) applied to `simulatedEufNmaAdv`:
    `≤ MLWE + SelfTargetMSIS`, with no statistical key-swap slack — the short-model hop is exact.
    The reductions are `bridge` and `extractorCShort` applied to the forging strategy of
@@ -318,13 +309,13 @@ The relation of `hr` is the material-based `validKeyPairShort`, so `hGen` is inh
 model the withheld key part `t₀` is not determined by the public key across material-valid
 pairs, so no single simulator is exact-on-accept for every valid pair, and the seed-model
 simulator `hvzkSimulatorReal` (proved HVZK for `identificationScheme` by
-`idsWithAbort_hvzk_real`) does not transport to `identificationSchemeShort`. The only witness
-available today is `ζ_zk = 1` (any simulator, since `tvDist ≤ 1`), at which the loss
-`cmaToNmaLoss` contains `qS · 1 / (1 − p_abort) ≥ 1` and this theorem is trivially true. It is
-therefore a conditional statement until a quantitative short-model HVZK bound accounting for
-the hint mismatch across colliding keys is proved; that bound is a named follow-up. The
-seed-model composition `euf_cma_security_of_nma_fips_hvzkReal` is the headline with a proved
-HVZK witness.
+`idsWithAbort_hvzk`) does not transport to `identificationSchemeShort`. The only witness
+available today is `ζ_zk = 1` (any simulator, since total variation is at most one), at which
+the loss `cmaToNmaLoss` contains `qS · 1 / (1 − p_abort) ≥ 1` and this theorem is trivially
+true. It is therefore a conditional statement until a quantitative short-model HVZK bound
+accounting for the hint mismatch across colliding keys is proved; that bound is a named
+follow-up. The seed-model composition `euf_cma_security_of_nma_fips_hvzkReal` is the headline
+with a proved HVZK witness.
 
 **Scope: commitment-carrying, not yet the end-to-end FIPS CMA headline.** This theorem is
 stated for the standard Fiat-Shamir-with-aborts signature whose commitment is *carried* in the
@@ -344,25 +335,25 @@ theorem euf_cma_security_of_nma_short
     (sim : PublicKey p prims →
       ProbComp (Option (Commitment p prims × CommitHashBytes p × Response p prims)))
     (ζ_zk : ℝ) (hζ : 0 ≤ ζ_zk)
-    (hhvzk : (identificationSchemeShort p prims).HVZK sim ζ_zk)
+    (hhvzk : (identificationSchemeShort p prims).HVZK sim (ENNReal.ofReal ζ_zk))
     (qS qH : ℕ) (ε p_abort δ : ℝ)
     (hε : 0 ≤ ε) (hδ : 0 ≤ δ) (hp₀ : 0 ≤ p_abort) (hp : p_abort < 1)
     (Good : PublicKey p prims → SecretKey p → Prop)
-    (hGood : Pr[ fun xw : PublicKey p prims × SecretKey p => ¬ Good xw.1 xw.2 | hr.gen] ≤
+    (hGood : Pr{let xw ← hr.gen}[¬ Good xw.1 xw.2] ≤
       ENNReal.ofReal δ)
     (hGuess : ∀ pk sk, Good pk sk → ∀ cm : Commitment p prims,
-      Pr[= cm | Prod.fst <$> (identificationSchemeShort p prims).commit pk sk] ≤
+      Pr{let x ← Prod.fst <$> (identificationSchemeShort p prims).commit pk sk}[x = cm] ≤
         ENNReal.ofReal ε)
     (hAbort : ∀ pk sk, Good pk sk →
-      Pr[= none | (identificationSchemeShort p prims).honestExecution pk sk] ≤
+      Pr{let x ← (identificationSchemeShort p prims).honestExecution pk sk}[x = none] ≤
         ENNReal.ofReal p_abort)
     (hAbortSim : ∀ pk sk, Good pk sk →
-      Pr[= none | sim pk] ≤ ENNReal.ofReal p_abort)
+      Pr{let x ← sim pk}[x = none] ≤ ENNReal.ofReal p_abort)
     (adv : SignatureAlg.UnforgeableAdversary
       (FiatShamirWithAbort (identificationSchemeShort p prims) hr M maxAttempts))
     (hQ : ∀ pk, FiatShamir.signHashQueryBound M
       (S' := Option (Commitment p prims × Response p prims)) (oa := adv.main pk) qS qH)
-    (εbridge : ℝ)
+    (εbridge : ℝ≥0∞)
     (bridge : (PublicKey p prims →
         OracleComp (unifSpec + (M × Commitment p prims →ₒ CommitHashBytes p))
           (M × Option (Commitment p prims × Response p prims))) →
@@ -376,9 +367,9 @@ theorem euf_cma_security_of_nma_short
     SignatureAlg.unforgeableAdvantage
         (FiatShamirWithAbort.runtime
           (Commit := Commitment p prims) (Chal := CommitHashBytes p) M) adv ≤
-      ENNReal.ofReal (LearningWithErrors.advantage mlwe
+      LearningWithErrors.advantage mlwe
           (bridge (FiatShamirWithAbort.simulatedEufNmaAdv (identificationSchemeShort p prims) hr M
-            maxAttempts sim adv).main) + εbridge) +
+            maxAttempts sim adv).main) + εbridge +
         SelfTargetMSIS.advantage (extractorCShort p prims
           (FiatShamirWithAbort.simulatedEufNmaAdv (identificationSchemeShort p prims) hr M
             maxAttempts sim adv).main) +
@@ -391,7 +382,7 @@ theorem euf_cma_security_of_nma_short
     hAbort hAbortSim hQ
   -- Step 2 (Option B bridge): managed-RO NMA success = plain EUF-NMA advantage of the
   -- cache-forgetting reduction `simulatedEufNmaAdv`.
-  have hbridge := FiatShamirWithAbort.managedRoNmaExp_simulatedNmaAdv_eq_eufNmaExp
+  have hbridge := FiatShamirWithAbort.managedRoNmaExperiment_simulatedNmaAdv_eq_eufNmaExperiment
     (identificationSchemeShort p prims) hr M maxAttempts sim adv
   -- Step 3 (Lemma 7, short model): the plain EUF-NMA advantage is bounded by MLWE + STMSIS.
   have hnma := nma_security_short p prims mlwe maxAttempts hr hGen εbridge bridge hMlweBridge
@@ -414,12 +405,12 @@ open scoped Classical in
 
 The seed-model counterpart of `euf_cma_security_of_nma_short`: the same three-step
 composition (`FiatShamirWithAbort.euf_cma_to_nma`, the Option-B bridge
-`FiatShamirWithAbort.managedRoNmaExp_simulatedNmaAdv_eq_eufNmaExp`, and the NMA leg), over the
-FIPS-shaped key generation `keygen0` and the seed-tagged scheme `identificationScheme`, with
-`nma_security_fips` as the NMA leg. Relative to the short model the bound gains the PRG term
-`εPRG` of the `ExpandS` replacement hop (`expandSReplacement`); in exchange the HVZK hypothesis
-is about the seed-tagged scheme, for which `idsWithAbort_hvzk_real` supplies a simulator with a
-proved bound — see `euf_cma_security_of_nma_fips_hvzkReal`.
+`FiatShamirWithAbort.managedRoNmaExperiment_simulatedNmaAdv_eq_eufNmaExperiment`, and the
+NMA leg), over the FIPS-shaped key generation `keygen0` and the seed-tagged scheme
+`identificationScheme`, with `nma_security_fips` as the NMA leg. Relative to the short model
+the bound gains the PRG term `εPRG` of the `ExpandS` replacement hop (`expandSReplacement`); in
+exchange the HVZK hypothesis is about the seed-tagged scheme, for which `idsWithAbort_hvzk`
+supplies a simulator with a proved bound — see `euf_cma_security_of_nma_fips_hvzkReal`.
 
 **Scope: commitment-carrying, not yet the end-to-end FIPS CMA headline.** As in the short
 model, the signature carries the commitment; the commitment-recovery bridge to the FIPS-204
@@ -431,29 +422,29 @@ theorem euf_cma_security_of_nma_fips
     (hGen : hr.gen = keygen0 p prims)
     (hrS : GenerableRelation (PublicKey p prims) (SecretKey p) (validKeyPairShort p prims))
     (hGenS : hrS.gen = keygenShort p prims)
-    (εPRG : ℝ) (hPRG : expandSReplacement p prims εPRG)
+    (εPRG : ℝ≥0∞) (hPRG : expandSReplacement p prims εPRG)
     (sim : PublicKey p prims →
       ProbComp (Option (Commitment p prims × CommitHashBytes p × Response p prims)))
     (ζ_zk : ℝ) (hζ : 0 ≤ ζ_zk)
-    (hhvzk : (identificationScheme p prims).HVZK sim ζ_zk)
+    (hhvzk : (identificationScheme p prims).HVZK sim (ENNReal.ofReal ζ_zk))
     (qS qH : ℕ) (ε p_abort δ : ℝ)
     (hε : 0 ≤ ε) (hδ : 0 ≤ δ) (hp₀ : 0 ≤ p_abort) (hp : p_abort < 1)
     (Good : PublicKey p prims → SecretKey p → Prop)
-    (hGood : Pr[ fun xw : PublicKey p prims × SecretKey p => ¬ Good xw.1 xw.2 | hr.gen] ≤
+    (hGood : Pr{let xw ← hr.gen}[¬ Good xw.1 xw.2] ≤
       ENNReal.ofReal δ)
     (hGuess : ∀ pk sk, Good pk sk → ∀ cm : Commitment p prims,
-      Pr[= cm | Prod.fst <$> (identificationScheme p prims).commit pk sk] ≤
+      Pr{let x ← Prod.fst <$> (identificationScheme p prims).commit pk sk}[x = cm] ≤
         ENNReal.ofReal ε)
     (hAbort : ∀ pk sk, Good pk sk →
-      Pr[= none | (identificationScheme p prims).honestExecution pk sk] ≤
+      Pr{let x ← (identificationScheme p prims).honestExecution pk sk}[x = none] ≤
         ENNReal.ofReal p_abort)
     (hAbortSim : ∀ pk sk, Good pk sk →
-      Pr[= none | sim pk] ≤ ENNReal.ofReal p_abort)
+      Pr{let x ← sim pk}[x = none] ≤ ENNReal.ofReal p_abort)
     (adv : SignatureAlg.UnforgeableAdversary
       (FiatShamirWithAbort (identificationScheme p prims) hr M maxAttempts))
     (hQ : ∀ pk, FiatShamir.signHashQueryBound M
       (S' := Option (Commitment p prims × Response p prims)) (oa := adv.main pk) qS qH)
-    (εbridge : ℝ)
+    (εbridge : ℝ≥0∞)
     (bridge : (PublicKey p prims →
         OracleComp (unifSpec + (M × Commitment p prims →ₒ CommitHashBytes p))
           (M × Option (Commitment p prims × Response p prims))) →
@@ -467,13 +458,13 @@ theorem euf_cma_security_of_nma_fips
     SignatureAlg.unforgeableAdvantage
         (FiatShamirWithAbort.runtime
           (Commit := Commitment p prims) (Chal := CommitHashBytes p) M) adv ≤
-      ENNReal.ofReal (LearningWithErrors.advantage mlwe
+      LearningWithErrors.advantage mlwe
           (bridge (FiatShamirWithAbort.simulatedEufNmaAdv (identificationScheme p prims) hr M
-            maxAttempts sim adv).main) + εbridge) +
+            maxAttempts sim adv).main) + εbridge +
         SelfTargetMSIS.advantage (extractorCShort p prims
           (FiatShamirWithAbort.simulatedEufNmaAdv (identificationScheme p prims) hr M
             maxAttempts sim adv).main) +
-        ENNReal.ofReal εPRG +
+        εPRG +
         ENNReal.ofReal
           (FiatShamirWithAbort.cmaToNmaLoss qS qH ε p_abort ζ_zk δ hp) := by
   classical
@@ -482,7 +473,7 @@ theorem euf_cma_security_of_nma_fips
     maxAttempts sim adv ζ_zk hζ hhvzk qS qH ε p_abort δ hε hδ hp₀ hp Good hGood hGuess
     hAbort hAbortSim hQ
   -- Step 2 (Option B bridge): managed-RO NMA success = plain EUF-NMA advantage.
-  have hbridge := FiatShamirWithAbort.managedRoNmaExp_simulatedNmaAdv_eq_eufNmaExp
+  have hbridge := FiatShamirWithAbort.managedRoNmaExperiment_simulatedNmaAdv_eq_eufNmaExperiment
     (identificationScheme p prims) hr M maxAttempts sim adv
   -- Step 3 (seed model): the plain EUF-NMA advantage is bounded by MLWE + STMSIS + PRG.
   have hnma := nma_security_fips p prims mlwe maxAttempts hr hGen hrS hGenS εPRG hPRG εbridge
@@ -502,10 +493,11 @@ theorem euf_cma_security_of_nma_fips
 
 open scoped Classical in
 /-- `euf_cma_security_of_nma_fips` with the HVZK hypothesis discharged by the proved
-seed-model simulator: under the primitive laws `h_laws`, `idsWithAbort_hvzk_real` gives
-`hvzkSimulatorReal` at the bound `hvzkBoundReal`, so the HVZK term of the loss is a proved
-quantity rather than a hypothesis, and the only simulator-side hypothesis left is the abort
-rate `hAbortSim` of `hvzkSimulatorReal` on good keys. -/
+seed-model simulator: under the primitive laws `h_laws`, `idsWithAbort_hvzk` gives
+`hvzkSimulatorReal` at the bound `hvzkBound`, so the HVZK term of the loss is the proved
+quantity `(hvzkBound p prims).toReal` (the bound is a supremum of probabilities, hence finite)
+rather than a hypothesis, and the only simulator-side hypothesis left is the abort rate
+`hAbortSim` of `hvzkSimulatorReal` on good keys. -/
 theorem euf_cma_security_of_nma_fips_hvzkReal
     (h_laws : Primitives.Laws prims nttOps)
     (mlwe : LearningWithErrors.Problem (TqMatrix p.k p.l) (RqVec p.l) (RqVec p.k))
@@ -514,25 +506,25 @@ theorem euf_cma_security_of_nma_fips_hvzkReal
     (hGen : hr.gen = keygen0 p prims)
     (hrS : GenerableRelation (PublicKey p prims) (SecretKey p) (validKeyPairShort p prims))
     (hGenS : hrS.gen = keygenShort p prims)
-    (εPRG : ℝ) (hPRG : expandSReplacement p prims εPRG)
+    (εPRG : ℝ≥0∞) (hPRG : expandSReplacement p prims εPRG)
     (qS qH : ℕ) (ε p_abort δ : ℝ)
     (hε : 0 ≤ ε) (hδ : 0 ≤ δ) (hp₀ : 0 ≤ p_abort) (hp : p_abort < 1)
     (Good : PublicKey p prims → SecretKey p → Prop)
-    (hGood : Pr[ fun xw : PublicKey p prims × SecretKey p => ¬ Good xw.1 xw.2 | hr.gen] ≤
+    (hGood : Pr{let xw ← hr.gen}[¬ Good xw.1 xw.2] ≤
       ENNReal.ofReal δ)
     (hGuess : ∀ pk sk, Good pk sk → ∀ cm : Commitment p prims,
-      Pr[= cm | Prod.fst <$> (identificationScheme p prims).commit pk sk] ≤
+      Pr{let x ← Prod.fst <$> (identificationScheme p prims).commit pk sk}[x = cm] ≤
         ENNReal.ofReal ε)
     (hAbort : ∀ pk sk, Good pk sk →
-      Pr[= none | (identificationScheme p prims).honestExecution pk sk] ≤
+      Pr{let x ← (identificationScheme p prims).honestExecution pk sk}[x = none] ≤
         ENNReal.ofReal p_abort)
     (hAbortSim : ∀ pk sk, Good pk sk →
-      Pr[= none | hvzkSimulatorReal p prims pk] ≤ ENNReal.ofReal p_abort)
+      Pr{let x ← hvzkSimulatorReal p prims pk}[x = none] ≤ ENNReal.ofReal p_abort)
     (adv : SignatureAlg.UnforgeableAdversary
       (FiatShamirWithAbort (identificationScheme p prims) hr M maxAttempts))
     (hQ : ∀ pk, FiatShamir.signHashQueryBound M
       (S' := Option (Commitment p prims × Response p prims)) (oa := adv.main pk) qS qH)
-    (εbridge : ℝ)
+    (εbridge : ℝ≥0∞)
     (bridge : (PublicKey p prims →
         OracleComp (unifSpec + (M × Commitment p prims →ₒ CommitHashBytes p))
           (M × Option (Commitment p prims × Response p prims))) →
@@ -546,19 +538,21 @@ theorem euf_cma_security_of_nma_fips_hvzkReal
     SignatureAlg.unforgeableAdvantage
         (FiatShamirWithAbort.runtime
           (Commit := Commitment p prims) (Chal := CommitHashBytes p) M) adv ≤
-      ENNReal.ofReal (LearningWithErrors.advantage mlwe
+      LearningWithErrors.advantage mlwe
           (bridge (FiatShamirWithAbort.simulatedEufNmaAdv (identificationScheme p prims) hr M
-            maxAttempts (hvzkSimulatorReal p prims) adv).main) + εbridge) +
+            maxAttempts (hvzkSimulatorReal p prims) adv).main) + εbridge +
         SelfTargetMSIS.advantage (extractorCShort p prims
           (FiatShamirWithAbort.simulatedEufNmaAdv (identificationScheme p prims) hr M
             maxAttempts (hvzkSimulatorReal p prims) adv).main) +
-        ENNReal.ofReal εPRG +
-        ENNReal.ofReal
-          (FiatShamirWithAbort.cmaToNmaLoss qS qH ε p_abort (hvzkBoundReal p prims) δ hp) :=
-  euf_cma_security_of_nma_fips p prims mlwe maxAttempts hr hGen hrS hGenS
-    εPRG hPRG (hvzkSimulatorReal p prims) (hvzkBoundReal p prims)
-    (by unfold hvzkBoundReal; exact ENNReal.toReal_nonneg)
-    (idsWithAbort_hvzk p prims h_laws) qS qH ε p_abort δ hε hδ hp₀ hp Good hGood hGuess
+        εPRG +
+        ENNReal.ofReal (FiatShamirWithAbort.cmaToNmaLoss qS qH ε p_abort
+          (hvzkBound p prims).toReal δ hp) := by
+  have hne : hvzkBound p prims ≠ ⊤ :=
+    ne_top_of_le_ne_top one_ne_top (iSup_le fun _ => hvzkBadMass_le_one p prims _ _)
+  exact euf_cma_security_of_nma_fips p prims mlwe maxAttempts hr hGen hrS hGenS
+    εPRG hPRG (hvzkSimulatorReal p prims) (hvzkBound p prims).toReal ENNReal.toReal_nonneg
+    (by rw [ENNReal.ofReal_toReal hne]; exact idsWithAbort_hvzk p prims h_laws)
+    qS qH ε p_abort δ hε hδ hp₀ hp Good hGood hGuess
     hAbort hAbortSim adv hQ εbridge bridge hMlweBridge
 
 /-! ## Numerical EUF-CMA closure under uniform advantage bounds
@@ -728,28 +722,28 @@ theorem euf_cma_security_short_of_uniform_advantage_bounds
       (Option (Commitment (p' n) (prims' n) × CommitHashBytes (p' n) ×
         Response (p' n) (prims' n))))
     (ζ_zk : ℕ → ℝ) (hζ : ∀ n, 0 ≤ ζ_zk n)
-    (hhvzk : ∀ n, (identificationSchemeShort (p' n) (prims' n)).HVZK (sim n) (ζ_zk n))
+    (hhvzk : ∀ n, (identificationSchemeShort (p' n) (prims' n)).HVZK (sim n)
+      (ENNReal.ofReal (ζ_zk n)))
     (qS qH : ℕ → ℕ) (ε δ : ℕ → ℝ) (p_abort : ℝ)
     (hp : p_abort < 1) (hp₀ : 0 ≤ p_abort)
     (hε : ∀ n, 0 ≤ ε n) (hδ : ∀ n, 0 ≤ δ n)
     (Good : ∀ n, PublicKey (p' n) (prims' n) → SecretKey (p' n) → Prop)
-    (hGood : ∀ n, Pr[ fun xw : PublicKey (p' n) (prims' n) × SecretKey (p' n) =>
-        ¬ Good n xw.1 xw.2 | (hr n).gen] ≤ ENNReal.ofReal (δ n))
+    (hGood : ∀ n, Pr{let xw ← (hr n).gen}[¬ Good n xw.1 xw.2] ≤ ENNReal.ofReal (δ n))
     (hGuess : ∀ n, ∀ pk sk, Good n pk sk → ∀ cm : Commitment (p' n) (prims' n),
-      Pr[= cm | Prod.fst <$> (identificationSchemeShort (p' n) (prims' n)).commit pk sk] ≤
+      Pr{let x ← Prod.fst <$> (identificationSchemeShort (p' n) (prims' n)).commit pk sk}[x = cm] ≤
         ENNReal.ofReal (ε n))
     (hAbort : ∀ n, ∀ pk sk, Good n pk sk →
-      Pr[= none | (identificationSchemeShort (p' n) (prims' n)).honestExecution pk sk] ≤
+      Pr{let x ← (identificationSchemeShort (p' n) (prims' n)).honestExecution pk sk}[x = none] ≤
         ENNReal.ofReal p_abort)
     (hAbortSim : ∀ n, ∀ pk sk, Good n pk sk →
-      Pr[= none | sim n pk] ≤ ENNReal.ofReal p_abort)
+      Pr{let x ← sim n pk}[x = none] ≤ ENNReal.ofReal p_abort)
     (adv : ∀ n, SignatureAlg.UnforgeableAdversary
       (FiatShamirWithAbort (identificationSchemeShort (p' n) (prims' n)) (hr n) M'
         (maxAttempts n)))
     (hQ : ∀ n, ∀ pk, FiatShamir.signHashQueryBound M'
       (S' := Option (Commitment (p' n) (prims' n) × Response (p' n) (prims' n)))
       (oa := (adv n).main pk) (qS n) (qH n))
-    (εbridge : ℕ → ℝ)
+    (εbridge : ℕ → ℝ≥0∞)
     (hMlweBridge : ∀ n, ∀ (main : PublicKey (p' n) (prims' n) →
         OracleComp (unifSpec + (M' × Commitment (p' n) (prims' n) →ₒ CommitHashBytes (p' n)))
           (M' × Option (Commitment (p' n) (prims' n) × Response (p' n) (prims' n)))),
@@ -762,10 +756,10 @@ theorem euf_cma_security_short_of_uniform_advantage_bounds
     (mlweAdv stmsisAdv : ℕ → ℝ≥0∞)
     (hmlweNegl : negligible mlweAdv) (hstmsisNegl : negligible stmsisAdv)
     (hMlweBound : ∀ n (B : LearningWithErrors.Adversary (mlwe n)),
-      ENNReal.ofReal (LearningWithErrors.advantage (mlwe n) B) ≤ mlweAdv n)
+      LearningWithErrors.advantage (mlwe n) B ≤ mlweAdv n)
     (hStmsisBound : ∀ n (C : SelfTargetMSIS.Adversary (mldsaSTMSISShort (p' n) (prims' n) M')),
       SelfTargetMSIS.advantage C ≤ stmsisAdv n)
-    (hbridgeNegl : negligible (fun n => ENNReal.ofReal (εbridge n)))
+    (hbridgeNegl : negligible εbridge)
     (hεneg : negligible (fun n => ENNReal.ofReal (ε n)))
     (hδneg : negligible (fun n => ENNReal.ofReal (δ n)))
     (hζneg : negligible (fun n => ENNReal.ofReal (ζ_zk n))) :
@@ -775,7 +769,7 @@ theorem euf_cma_security_short_of_uniform_advantage_bounds
   have hbound : ∀ n, SignatureAlg.unforgeableAdvantage
       (FiatShamirWithAbort.runtime
         (Commit := Commitment (p' n) (prims' n)) (Chal := CommitHashBytes (p' n)) M') (adv n) ≤
-      mlweAdv n + ENNReal.ofReal (εbridge n) + stmsisAdv n +
+      mlweAdv n + εbridge n + stmsisAdv n +
       ENNReal.ofReal (FiatShamirWithAbort.cmaToNmaLoss (qS n) (qH n) (ε n) p_abort
         (ζ_zk n) (δ n) hp) := by
     intro n
@@ -788,8 +782,8 @@ theorem euf_cma_security_short_of_uniform_advantage_bounds
         (qS n) (qH n) (ε n) p_abort (δ n) (hε n) (hδ n) hp₀ hp (Good n) (hGood n) (hGuess n)
         (hAbort n) (hAbortSim n) (adv n) (hQ n) (εbridge n)
         (fun main => (hMlweBridge n main).choose) (fun main => (hMlweBridge n main).choose_spec)
-    refine le_trans hb (add_le_add (add_le_add ?_ (hStmsisBound n _)) le_rfl)
-    exact le_trans ENNReal.ofReal_add_le (add_le_add (hMlweBound n _) le_rfl)
+    exact le_trans hb (add_le_add (add_le_add (add_le_add (hMlweBound n _) le_rfl)
+      (hStmsisBound n _)) le_rfl)
   refine negligible_of_le hbound ?_
   refine negligible_add (negligible_add (negligible_add hmlweNegl hbridgeNegl) hstmsisNegl) ?_
   exact cmaToNmaLoss_negligible qS qH ε ζ_zk δ p_abort hp pS pH hqS hqH hεneg hζneg hδneg
@@ -815,7 +809,7 @@ problems, `hMlweBridge`, the HVZK simulator family, the scheme family, or the ot
 hypotheses of `euf_cma_security_short_of_uniform_advantage_bounds`; it describes the loss
 regime, not the satisfiability of the security theorem. -/
 theorem asymptotic_loss_regime_satisfiable :
-    ∃ (qS qH : ℕ → ℕ) (ε ζ_zk δ εbridge : ℕ → ℝ) (p_abort : ℝ) (hp : p_abort < 1)
+    ∃ (qS qH : ℕ → ℕ) (ε ζ_zk δ : ℕ → ℝ) (εbridge : ℕ → ℝ≥0∞) (p_abort : ℝ) (hp : p_abort < 1)
       (pS pH : Polynomial ℕ) (mlweAdv stmsisAdv : ℕ → ℝ≥0∞),
       (∀ n, qS n ≤ pS.eval n) ∧ (∀ n, qH n ≤ pH.eval n) ∧
       -- the queries genuinely grow (are not the degenerate vanishing-query regime)
@@ -824,8 +818,8 @@ theorem asymptotic_loss_regime_satisfiable :
       negligible (fun n => ENNReal.ofReal (ε n)) ∧
       negligible (fun n => ENNReal.ofReal (ζ_zk n)) ∧
       negligible (fun n => ENNReal.ofReal (δ n)) ∧
-      negligible (fun n => ENNReal.ofReal (εbridge n)) ∧
-      negligible (fun n => mlweAdv n + ENNReal.ofReal (εbridge n) + stmsisAdv n +
+      negligible εbridge ∧
+      negligible (fun n => mlweAdv n + εbridge n + stmsisAdv n +
         ENNReal.ofReal (FiatShamirWithAbort.cmaToNmaLoss (qS n) (qH n) (ε n) p_abort
           (ζ_zk n) (δ n) hp)) := by
   have hgrow : ∀ n : ℕ, n ≤ (Polynomial.X : Polynomial ℕ).eval n := fun n => by simp
@@ -842,8 +836,8 @@ theorem asymptotic_loss_regime_satisfiable :
   refine ⟨fun n => n, fun n => n, fun n => (1 / 2) ^ n, fun n => (1 / 2) ^ n,
     fun n => (1 / 2) ^ n, fun n => (1 / 2) ^ n, 1 / 2, by norm_num, Polynomial.X, Polynomial.X,
     fun n => (1 / 2) ^ n, fun n => (1 / 2) ^ n, hgrow, hgrow, fun _ => rfl, fun _ => rfl,
-    hnegE, hnegE, hneg, hneg, hneg, hneg, ?_⟩
-  refine negligible_add (negligible_add (negligible_add hnegE hneg) hnegE) ?_
+    hnegE, hnegE, hneg, hneg, hneg, hnegE, ?_⟩
+  refine negligible_add (negligible_add (negligible_add hnegE hnegE) hnegE) ?_
   exact cmaToNmaLoss_negligible (fun n => n) (fun n => n) (fun n => (1 / 2) ^ n)
     (fun n => (1 / 2) ^ n) (fun n => (1 / 2) ^ n) (1 / 2) (by norm_num) Polynomial.X Polynomial.X
     hgrow hgrow hneg hneg hneg
@@ -873,7 +867,7 @@ a property of the fixed `prims.expandA`.
 The SelfTargetMSIS leg lands on the *tailored* `mldsaSTMSISShort`, not the standard
 SelfTargetMSIS normal form — that second bridge is follow-up work, so only the MLWE side is
 stated against a standard literature problem here. -/
-theorem nma_security_short_matrix (maxAttempts : ℕ) (εA : ℝ)
+theorem nma_security_short_matrix (maxAttempts : ℕ) (εA : ℝ≥0∞)
     (hA : NMA.expandAIdealization p prims εA)
     (hr : GenerableRelation (PublicKey p prims) (SecretKey p) (validKeyPairShort p prims))
     (hGen : hr.gen = NMA.keygenShort p prims) :
@@ -882,10 +876,9 @@ theorem nma_security_short_matrix (maxAttempts : ℕ) (εA : ℝ)
     SignatureAlg.eufNmaAdvantage
         (FiatShamirWithAbort.runtime
           (Commit := Commitment p prims) (Chal := CommitHashBytes p) M) adv ≤
-      ENNReal.ofReal
-          (LearningWithErrors.advantage (NMA.mldsaMatrixMLWE p)
-            (NMA.matrixLift p prims (NMA.distinguisherBShort p prims hr maxAttempts adv.main)) +
-          εA) +
+      LearningWithErrors.advantage (NMA.mldsaMatrixMLWE p)
+          (NMA.matrixLift p prims (NMA.distinguisherBShort p prims hr maxAttempts adv.main)) +
+        εA +
         SelfTargetMSIS.advantage (NMA.extractorCShort p prims adv.main) :=
   nma_security_short p prims (NMA.mldsaMatrixMLWE p) maxAttempts hr hGen εA
     (fun main => NMA.matrixLift p prims (NMA.distinguisherBShort p prims hr maxAttempts main))

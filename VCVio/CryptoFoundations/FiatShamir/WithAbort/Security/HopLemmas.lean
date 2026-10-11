@@ -53,7 +53,7 @@ event and `δ` enter only once, in the final averaging over `hr.gen`. -/
 omit [SampleableType Stmt] in
 /-- G₀ bridge: at every key pair produced by key generation, the real-signing hybrid
 experiment reproduces the success probability of the standard unforgeability experiment
-`SignatureAlg.unforgeableExp` under `runtime M`.
+`SignatureAlg.unforgeableExperiment` under `runtime M`.
 
 Distributional content: the runtime's `withStateOracle randomOracle` semantics of the
 experiment (with its `WriterT` signing log) coincides with the single-cache-layer
@@ -62,9 +62,10 @@ a `simulateQ` commutation argument in the style of `roSim.run'_liftM_bind` and t
 correctness proof in `FiatShamirWithAbort.correct`. -/
 lemma unforgeableAdvantage_eq_hybridExpAtKey_real :
     SignatureAlg.unforgeableAdvantage (runtime M) adv =
-      Pr[= true | do
+      Pr{let x ← (do
         let (pk, sk) ← hr.gen
-        hybridExpAtKey ids hr M maxAttempts adv (realSignBody ids M maxAttempts pk sk) pk] := by
+        hybridExpAtKey ids hr M maxAttempts adv (realSignBody ids M maxAttempts pk sk)
+            pk)}[x = true] := by
   classical
   set base : QueryImpl (unifSpec + (M × Commit →ₒ Chal))
       (StateT ((M × Commit →ₒ Chal).QueryCache) ProbComp) :=
@@ -74,15 +75,15 @@ lemma unforgeableAdvantage_eq_hybridExpAtKey_real :
   -- `base` matches the runtime's `withStateOracle` interpreter: both lift `unifSpec` by
   -- `liftTarget` (`unifFwdImpl` is exactly that) and use the caching `randomOracle`.
   have hrt : ∀ (oa : OracleComp (unifSpec + (M × Commit →ₒ Chal)) Bool),
-      (runtime M).evalDist oa {true} = Pr[= true | (simulateQ base oa).run' ∅] := fun oa => by
-    rw [runtime_evalDist_eq_simulateQ_run', evalDist_apply_singleton, hbase]
-  unfold SignatureAlg.unforgeableAdvantage SignatureAlg.unforgeableExp
+      (runtime M).evalDist oa {true} = Pr{let x ← (simulateQ base oa).run' ∅}[x = true] :=
+    fun oa => by rw [runtime_evalDist_eq_simulateQ_run', ← prEvent_eq_evalDist_singleton, hbase]
+  unfold SignatureAlg.unforgeableAdvantage SignatureAlg.unforgeableExperiment
   rw [hrt]
   rw [show (FiatShamirWithAbort ids hr M maxAttempts).keygen =
     (liftM hr.gen : OracleComp (unifSpec + (M × Commit →ₒ Chal)) (Stmt × Wit)) from rfl]
   rw [simulateQ_bind, roSim.run'_liftM_bind]
-  refine probOutput_congr rfl ?_
-  refine congrArg _ (bind_congr fun pksk => ?_)
+  refine congrArg (fun mx : ProbComp Bool => Pr{let x ← mx}[x = true])
+    (bind_congr fun pksk => ?_)
   obtain ⟨pk, sk⟩ := pksk
   simp only []
   rw [hybridExpAtKey_eq_run_bind]
@@ -333,7 +334,7 @@ keys, each attempt's commitment is `ε`-guessable (`hGuess`), the cache holds at
 `qH + 1` adversarial entries plus the entries of previous signing attempts, and the
 expected number of attempts per signing query is at most `1/(1-p)` (`hAbort`, via
 `sign_expectedQueries_le_geometric`). Intended vehicle:
-`tvDist_simulateQ_le_probEvent_bad` (the fundamental lemma in
+`measureETVDist_simulateQ_run'_le_prEvent_bad` (the fundamental lemma in
 `ProgramLogic/Relational/SimulateQ.lean`) with the bad event tracked on the hybrid
 state, plus the expected-attempt-count machinery of `WithAbort/ExpectedCost.lean`.
 
@@ -341,18 +342,18 @@ The abort probability is assumed to lie in `[0, 1)` (`hp₀`, `hp`). Nonnegativi
 keeps the geometric factors `1/(1 - p_abort)` at least `1`, so that the claimed loss
 dominates the adversarial-collision gap `qS·qH·ε` already present in an abort-free scheme;
 the bound `0 ≤ p_abort` is available at every call site from the good-key event. -/
-lemma probOutput_hybridExpAtKey_real_le_prog
+lemma prEvent_hybridExpAtKey_real_le_prog
     (qS qH : ℕ) (ε p_abort : ℝ) (hp₀ : 0 ≤ p_abort) (hp : p_abort < 1)
     (hQ : ∀ pk, FiatShamir.signHashQueryBound M
       (S' := Option (Commit × Resp)) (oa := adv.main pk) qS qH)
     (pk : Stmt) (sk : Wit)
     (hGuess : ∀ cm : Commit,
-      Pr[= cm | Prod.fst <$> ids.commit pk sk] ≤ ENNReal.ofReal ε)
-    (hAbort : Pr[= none | ids.honestExecution pk sk] ≤ ENNReal.ofReal p_abort) :
-    Pr[= true | hybridExpAtKey ids hr M maxAttempts adv
-        (realSignBody ids M maxAttempts pk sk) pk] ≤
-      Pr[= true | hybridExpAtKey ids hr M maxAttempts adv
-          (progSignBody ids M pk sk · maxAttempts) pk] +
+      Pr{let x ← Prod.fst <$> ids.commit pk sk}[x = cm] ≤ ENNReal.ofReal ε)
+    (hAbort : Pr{let x ← ids.honestExecution pk sk}[x = none] ≤ ENNReal.ofReal p_abort) :
+    Pr{let x ← (hybridExpAtKey ids hr M maxAttempts adv
+        (realSignBody ids M maxAttempts pk sk) pk)}[x = true] ≤
+      Pr{let x ← (hybridExpAtKey ids hr M maxAttempts adv
+          (progSignBody ids M pk sk · maxAttempts) pk)}[x = true] +
         ENNReal.ofReal (qS * ε * (qS + 1) / (2 * (1 - p_abort) ^ 2) +
           qS * (qH + 1) * ε / (1 - p_abort)) := by
   classical
@@ -375,11 +376,17 @@ lemma probOutput_hybridExpAtKey_real_le_prog
   set g : ℝ≥0∞ := ∑ a ∈ Finset.range maxAttempts, ENNReal.ofReal p_abort ^ a with hg
   set querySlack : σ → ℝ≥0∞ := fun s => ζ + R s * β with hquerySlack
   -- The per-charged-query TV slack: real-vs-prog within a single signing query.
-  have h_step_tv_charged : ∀ (t : _), (· matches .inr _) t → ∀ (s : σ),
-      ENNReal.ofReal (tvDist ((flagLift implProg t).run (s, false))
-          ((flagLift implReal t).run (s, false))) ≤ querySlack s := by
+  have h_step_tv_charged : ∀ (t : ((unifSpec + (M × Commit →ₒ Chal)) +
+        (M →ₒ Option (Commit × Resp))).Domain), (· matches .inr _) t → ∀ (s : σ),
+      letI : MeasurableSpace (((unifSpec + (M × Commit →ₒ Chal)) +
+        (M →ₒ Option (Commit × Resp))).Range t × σ × Bool) := ⊤
+      measureETVDist ((flagLift implProg t).run (s, false))
+          ((flagLift implReal t).run (s, false)) ≤ querySlack s := by
     rintro (t' | msg) hc s
     · exact absurd hc (by simp)
+    let : MeasurableSpace (((unifSpec + (M × Commit →ₒ Chal)) +
+      (M →ₒ Option (Commit × Resp))).Range (Sum.inr msg) × σ × Bool) := ⊤
+    let : MeasurableSpace (Option (Commit × Resp) × (M × Commit →ₒ Chal).QueryCache) := ⊤
     rcases s with ⟨c, l⟩
     -- Both flag-lifted signing runs are a single (shared, injective) map over the
     -- corresponding cache-level signing body; the map drops out of the TV distance,
@@ -403,15 +410,15 @@ lemma probOutput_hybridExpAtKey_real_le_prog
             (ac.1, (ac.2, msg :: l))) <$> (realSignBody ids M maxAttempts pk sk msg).run c) = _
       rw [Functor.map_map]
     rw [hrunProg, hrunReal]
-    refine le_trans (ENNReal.ofReal_le_ofReal
-      (le_trans (tvDist_map_le _ _ _) (le_of_eq (tvDist_comm _ _)))) ?_
-    refine le_trans (ofReal_tvDist_run_fsAbortSignLoop_progSignBody_le
+    refine le_trans ((measureETVDist_map_le _ _ _ Measurable.of_discrete).trans
+      (le_of_eq (measureETVDist_comm _ _))) ?_
+    refine le_trans (measureETVDist_run_fsAbortSignLoop_progSignBody_le
       ids M pk sk msg hGuess hAbort maxAttempts c) ?_
     rw [signCollisionBound_eq, hquerySlack, hζ, hβ, hR]
   -- Uncharged (base) queries: the two handlers coincide.
-  have h_step_eq_uncharged : ∀ (t : _), ¬ (· matches .inr _) t → ∀ (p : σ × Bool),
-      (flagLift implProg t).run p = (flagLift implReal t).run p := by
-    rintro (t' | msg) hnc p
+  have h_step_eq_uncharged : ∀ (t : _), ¬ (· matches .inr _) t → ∀ (s : σ),
+      (flagLift implProg t).run (s, false) = (flagLift implReal t).run (s, false) := by
+    rintro (t' | msg) hnc s
     · rw [flagLift_run, flagLift_run, himplProg, himplReal,
         QueryImpl.add_apply_inl, QueryImpl.add_apply_inl]
     · exact absurd rfl hnc
@@ -424,9 +431,11 @@ lemma probOutput_hybridExpAtKey_real_le_prog
     exact hp2
   -- Expected-resource hypotheses for `expectedQuerySlack_expected_resource_le`.
   have h_charged : ∀ (t : _) (p : σ × Bool), p.2 = false → (· matches .inr _) t →
-      ∑' z : _ × σ × Bool, Pr[= z | (flagLift implProg t).run p] * R z.2.1 ≤ R p.1 + g := by
+      (OracleComp.ProgramLogic.wp ((flagLift implProg t).run p) fun z => R z.2.1) ≤
+        R p.1 + g := by
     rintro (t' | msg) p - hc
     · exact absurd hc (by simp)
+    rw [OracleComp.ProgramLogic.wp_eq_tsum]
     rcases p with ⟨⟨c, l⟩, b⟩
     -- Reduce the flag-lifted signing run to the `progSignBody` cache-growth tsum.
     -- The combined-spec `Range (Sum.inr msg)` index of the tsum is only defeq (not
@@ -443,12 +452,12 @@ lemma probOutput_hybridExpAtKey_real_le_prog
       rw [Functor.map_map]
     rw [hrun]
     change (∑' z : Option (Commit × Resp) × σ × Bool,
-      Pr[= z | (fun x : Option (Commit × Resp) × (M × Commit →ₒ Chal).QueryCache =>
+      Pr{let y ← ((fun x : Option (Commit × Resp) × (M × Commit →ₒ Chal).QueryCache =>
         (x.1, ((x.2, msg :: l), b))) <$>
-          (progSignBody ids M pk sk msg maxAttempts).run c] * R z.2.1) ≤ _
-    rw [map_eq_bind_pure_comp, tsum_probOutput_bind_mul]
-    simp only [Function.comp, tsum_probOutput_pure_mul]
-    exact tsum_probOutput_run_progSignBody_mul_enncard_le ids M pk sk msg hAbort maxAttempts c
+          (progSignBody ids M pk sk msg maxAttempts).run c)}[y = z] * R z.2.1) ≤ _
+    rw [map_eq_bind_pure_comp, OracleComp.tsum_prEvent_bind_mul]
+    simp only [Function.comp, OracleComp.tsum_prEvent_pure_mul]
+    exact tsum_prEvent_run_progSignBody_mul_enncard_le ids M pk sk msg hAbort maxAttempts c
   have h_growth : ∀ (t : _) (p : σ × Bool), p.2 = false →
       ¬ (· matches .inr _) t → (· matches .inl (.inr _)) t →
       ∀ z ∈ support ((flagLift implProg t).run p), R z.2.1 ≤ R p.1 + 1 := by
@@ -494,25 +503,26 @@ lemma probOutput_hybridExpAtKey_real_le_prog
       exact le_rfl
     · exact absurd rfl hng
     · exact absurd rfl hnc
-  -- The bridge: run-level TV ≤ accumulated slack + Pr[bad].
+  -- The bridge: run-level total variation ≤ accumulated slack + bad-flag probability.
+  let : MeasurableSpace ((M × Option (Commit × Resp)) × σ × Bool) := ⊤
   open OracleComp.ProgramLogic.Relational in
   have h_bridge :
-      ENNReal.ofReal (tvDist
+      measureETVDist
           ((simulateQ (flagLift implProg) (adv.main pk)).run ((∅, []), false))
-          ((simulateQ (flagLift implReal) (adv.main pk)).run ((∅, []), false)))
+          ((simulateQ (flagLift implReal) (adv.main pk)).run ((∅, []), false))
         ≤ expectedQuerySlack (flagLift implProg)
             (· matches .inr _) querySlack (adv.main pk) qS (((∅, []) : σ), false)
-          + Pr[fun z : _ × σ × Bool => z.2.2 = true |
-              (simulateQ (flagLift implProg) (adv.main pk)).run (((∅, []) : σ), false)] := by
-    refine ofReal_tvDist_simulateQ_run_le_expectedQuerySlack_plus_probEvent_output_bad
+          + Pr{let z ← (simulateQ (flagLift implProg) (adv.main pk)).run
+                 (((∅, []) : σ), false)}[z.2.2 = true] := by
+    refine measureETVDist_simulateQ_run_le_expectedQuerySlack_add_prEvent_bad
       (flagLift implProg) (flagLift implReal) (· matches .inr _) querySlack
       h_step_tv_charged h_step_eq_uncharged h_mono₁ (adv.main pk)
       (queryBudget := qS) ?_ (((∅, []) : σ), false)
     exact isQueryBoundP_cast_pred (by funext x; rcases x with (_ | _) | _ <;> rfl) (hQ pk).1
   -- The bad-flag probability vanishes: the flag is preserved from `false`.
-  have h_bad_zero : Pr[fun z : _ × σ × Bool => z.2.2 = true |
-      (simulateQ (flagLift implProg) (adv.main pk)).run (((∅, []) : σ), false)] = 0 := by
-    refine probEvent_eq_zero fun z hz hbad => ?_
+  have h_bad_zero : Pr{let z ← (simulateQ (flagLift implProg) (adv.main pk)).run
+                         (((∅, []) : σ), false)}[z.2.2 = true] = 0 := by
+    refine prEvent_eq_zero_of_forall_mem_support _ _ fun z hz hbad => ?_
     have hinv : ∀ y ∈ support ((simulateQ (flagLift implProg) (adv.main pk)).run
         (((∅, []) : σ), false)), y.2.2 = false := by
       refine OracleComp.simulateQ_run_preserves_inv_of_query (flagLift implProg)
@@ -538,9 +548,9 @@ lemma probOutput_hybridExpAtKey_real_le_prog
   set slack : ℝ≥0∞ := (qS : ℝ≥0∞) * ζ +
       ((qS : ℝ≥0∞) * R ((∅, []) : σ) + (qS : ℝ≥0∞) * (qH : ℝ≥0∞)
         + (qS.choose 2 : ℝ≥0∞) * g) * β with hslack
-  have h_flag_tv : ENNReal.ofReal (tvDist
+  have h_flag_tv : measureETVDist
       ((simulateQ (flagLift implProg) (adv.main pk)).run ((∅, []), false))
-      ((simulateQ (flagLift implReal) (adv.main pk)).run ((∅, []), false))) ≤ slack := by
+      ((simulateQ (flagLift implReal) (adv.main pk)).run ((∅, []), false)) ≤ slack := by
     refine le_trans h_bridge ?_
     rw [h_bad_zero, add_zero]
     exact h_slack_le
@@ -568,49 +578,28 @@ lemma probOutput_hybridExpAtKey_real_le_prog
     (OracleComp.map_run_simulateQ_eq_of_query_map_eq (flagLift implReal) implReal
       (Prod.fst : σ × Bool → σ) hprojR (adv.main pk) ((∅, []), false)).symm
   -- Hence the unflagged run TV is also bounded by the slack.
-  have h_run_tv : ENNReal.ofReal (tvDist
+  let : MeasurableSpace ((M × Option (Commit × Resp)) × σ) := ⊤
+  have h_run_tv : measureETVDist
       ((simulateQ implProg (adv.main pk)).run (∅, []))
-      ((simulateQ implReal (adv.main pk)).run (∅, []))) ≤ slack := by
+      ((simulateQ implReal (adv.main pk)).run (∅, [])) ≤ slack := by
     rw [hrunProj_P, hrunProj_R]
-    exact le_trans (ENNReal.ofReal_le_ofReal (tvDist_map_le _ _ _)) h_flag_tv
+    exact le_trans (measureETVDist_map_le _ _ _ Measurable.of_discrete) h_flag_tv
   -- Lift the run-level bound to the games through the shared verification continuation.
-  have h_games_tv : ENNReal.ofReal (tvDist
+  have h_games_tv : measureETVDist
       (hybridExpAtKey ids hr M maxAttempts adv (realSignBody ids M maxAttempts pk sk) pk)
       (hybridExpAtKey ids hr M maxAttempts adv
-        (progSignBody ids M pk sk · maxAttempts) pk)) ≤ slack := by
-    rw [hybridExpAtKey_eq_run_bind, hybridExpAtKey_eq_run_bind, tvDist_comm]
-    refine le_trans (ENNReal.ofReal_le_ofReal (tvDist_bind_right_le _ _ _)) ?_
+        (progSignBody ids M pk sk · maxAttempts) pk) ≤ slack := by
+    rw [hybridExpAtKey_eq_run_bind, hybridExpAtKey_eq_run_bind, measureETVDist_comm]
+    refine le_trans (OracleComp.measureETVDist_bind_right_le _ _ _) ?_
     rw [← himplProg, ← himplReal]
     exact h_run_tv
-  -- Convert the game-level TV bound into the probability-output inequality.
-  have h_prob : Pr[= true | hybridExpAtKey ids hr M maxAttempts adv
-        (realSignBody ids M maxAttempts pk sk) pk] ≤
-      Pr[= true | hybridExpAtKey ids hr M maxAttempts adv
-          (progSignBody ids M pk sk · maxAttempts) pk] + slack := by
-    have habs := abs_probOutput_toReal_sub_le_tvDist
-      (hybridExpAtKey ids hr M maxAttempts adv (realSignBody ids M maxAttempts pk sk) pk)
-      (hybridExpAtKey ids hr M maxAttempts adv (progSignBody ids M pk sk · maxAttempts) pk)
-    have h2 := (abs_le.mp habs).2
-    calc Pr[= true | hybridExpAtKey ids hr M maxAttempts adv
-          (realSignBody ids M maxAttempts pk sk) pk]
-        = ENNReal.ofReal (Pr[= true | hybridExpAtKey ids hr M maxAttempts adv
-            (realSignBody ids M maxAttempts pk sk) pk].toReal) :=
-          (ENNReal.ofReal_toReal probOutput_ne_top).symm
-      _ ≤ ENNReal.ofReal (Pr[= true | hybridExpAtKey ids hr M maxAttempts adv
-            (progSignBody ids M pk sk · maxAttempts) pk].toReal +
-          tvDist (hybridExpAtKey ids hr M maxAttempts adv
-              (realSignBody ids M maxAttempts pk sk) pk)
-            (hybridExpAtKey ids hr M maxAttempts adv
-              (progSignBody ids M pk sk · maxAttempts) pk)) := by
-            refine ENNReal.ofReal_le_ofReal ?_; linarith [h2]
-      _ = Pr[= true | hybridExpAtKey ids hr M maxAttempts adv
-            (progSignBody ids M pk sk · maxAttempts) pk] +
-          ENNReal.ofReal (tvDist _ _) := by
-            rw [ENNReal.ofReal_add ENNReal.toReal_nonneg (tvDist_nonneg _ _),
-              ENNReal.ofReal_toReal probOutput_ne_top]
-      _ ≤ Pr[= true | hybridExpAtKey ids hr M maxAttempts adv
-            (progSignBody ids M pk sk · maxAttempts) pk] + slack :=
-          add_le_add le_rfl h_games_tv
+  -- Convert the game-level total-variation bound into the event inequality.
+  have h_prob : Pr{let x ← (hybridExpAtKey ids hr M maxAttempts adv
+        (realSignBody ids M maxAttempts pk sk) pk)}[x = true] ≤
+      Pr{let x ← (hybridExpAtKey ids hr M maxAttempts adv
+          (progSignBody ids M pk sk · maxAttempts) pk)}[x = true] + slack :=
+    (prEvent_le_prEvent_add_measureETVDist _ _ (· = true) Measurable.of_discrete).trans
+      (add_le_add le_rfl h_games_tv)
   -- Close: `slack ≤ ofReal(target)` via the `ℝ≥0∞` arithmetic.
   refine le_trans h_prob (add_le_add le_rfl ?_)
   rw [hslack]
@@ -717,22 +706,22 @@ routed to the ghost layer. Overlaying the ghost layer recovers the Prog game
 (`ghostHybridImpl_proj_prog`) and forgetting it recovers the Trans game
 (`ghostHybridImpl_proj_trans`) — the deferred-sampling step. The two instrumented
 handlers agree until the adversary reads a ghost point
-(`tvDist_simulateQ_run_le_probEvent_output_bad`), the verification tail agrees by the
+(`measureETVDist_simulateQ_run_le_prEvent_bad`), the verification tail agrees by the
 freshness check and the ghost-domain invariant
 (`ghostHybridImpl_preserves_signed_inv`), and the firing probability is bounded by the
-ghost-read collision charge `probEvent_ghostRead_bad_le`. -/
-lemma probOutput_hybridExpAtKey_prog_le_trans
+ghost-read collision charge `prEvent_ghostRead_bad_le`. -/
+lemma prEvent_hybridExpAtKey_prog_le_trans
     (qS qH : ℕ) (ε p_abort : ℝ) (hp₀ : 0 ≤ p_abort) (hp : p_abort < 1) (hε : 0 ≤ ε)
     (hQ : ∀ pk, FiatShamir.signHashQueryBound M
       (S' := Option (Commit × Resp)) (oa := adv.main pk) qS qH)
     (pk : Stmt) (sk : Wit)
     (hGuess : ∀ cm : Commit,
-      Pr[= cm | Prod.fst <$> ids.commit pk sk] ≤ ENNReal.ofReal ε)
-    (hAbort : Pr[= none | ids.honestExecution pk sk] ≤ ENNReal.ofReal p_abort) :
-    Pr[= true | hybridExpAtKey ids hr M maxAttempts adv
-        (progSignBody ids M pk sk · maxAttempts) pk] ≤
-      Pr[= true | hybridExpAtKey ids hr M maxAttempts adv
-          (transSignBody ids M maxAttempts pk sk) pk] +
+      Pr{let x ← Prod.fst <$> ids.commit pk sk}[x = cm] ≤ ENNReal.ofReal ε)
+    (hAbort : Pr{let x ← ids.honestExecution pk sk}[x = none] ≤ ENNReal.ofReal p_abort) :
+    Pr{let x ← (hybridExpAtKey ids hr M maxAttempts adv
+        (progSignBody ids M pk sk · maxAttempts) pk)}[x = true] ≤
+      Pr{let x ← (hybridExpAtKey ids hr M maxAttempts adv
+          (transSignBody ids M maxAttempts pk sk) pk)}[x = true] +
         ENNReal.ofReal (qS * (qH + 1) * ε / (1 - p_abort)) := by
   classical
   set s₀ : ((M × Commit →ₒ Chal).QueryCache × (M × Commit →ₒ Chal).QueryCache) ×
@@ -784,16 +773,20 @@ lemma probOutput_hybridExpAtKey_prog_le_trans
     rw [← hproj, bind_map_left]
     exact bind_congr fun z => rfl
   -- Identical-until-bad on the instrumented runs.
+  let : MeasurableSpace ((M × Option (Commit × Resp)) × GhostState M Commit Chal) := ⊤
   have h_bad :=
-    OracleComp.ProgramLogic.Relational.tvDist_simulateQ_run_le_probEvent_output_bad
+    OracleComp.ProgramLogic.Relational.measureETVDist_simulateQ_run_le_prEvent_bad
       (ghostHybridImpl ids M maxAttempts true pk sk)
-      (ghostHybridImpl ids M maxAttempts false pk sk)
-      (adv.main pk) s₀
-      (ghostHybridImpl_agree_good ids M maxAttempts pk sk)
+      (ghostHybridImpl ids M maxAttempts false pk sk) (fun p => p.2 = true)
+      (fun t s hs q => by
+        obtain ⟨s, b⟩ := s
+        obtain rfl : b = false := by simpa using hs
+        exact OracleComp.ProgramLogic.Relational.prEvent_and_not_flag_eq_of_forall_prEvent_eq
+          (fun u s' => ghostHybridImpl_agree_good ids M maxAttempts pk sk t s u s') q)
       (ghostHybridImpl_bad_mono ids M maxAttempts true pk sk)
       (ghostHybridImpl_bad_mono ids M maxAttempts false pk sk)
-  set Pbad := Pr[fun z : (M × Option (Commit × Resp)) × GhostState M Commit Chal =>
-    z.2.2 = true | runP] with hPbad
+      (adv.main pk) (s₀, false)
+  set Pbad := Pr{let z ← runP}[z.2.2 = true] with hPbad
   -- Ghost-domain invariant along the Trans-side run.
   have h_inv : ∀ z ∈ support runT,
       ∀ q : M × Commit, z.2.1.1.2 q ≠ none → q.1 ∈ z.2.1.2 := by
@@ -807,16 +800,16 @@ lemma probOutput_hybridExpAtKey_prog_le_trans
       (adv.main pk) (s₀, false) (fun q hq => by simp [hs₀] at hq)
       z hz
   -- The two verification continuations agree on the Trans-side support.
-  have h_eqT : Pr[= true | runT >>= gP] = Pr[= true | runT >>= gT] := by
-    rw [probOutput_bind_eq_tsum, probOutput_bind_eq_tsum]
+  have h_eqT : Pr{let x ← runT >>= gP}[x = true] = Pr{let x ← runT >>= gT}[x = true] := by
+    rw [OracleComp.prEvent_bind_eq_tsum, OracleComp.prEvent_bind_eq_tsum]
     refine tsum_congr fun z => ?_
     by_cases hz : z ∈ support runT
     · congr 1
       by_cases hmem : z.1.1 ∈ z.2.1.2
       · rw [hgP, hgT]
-        rw [probOutput_true_hybridVerifyCont_of_mem ids hr M maxAttempts pk
+        rw [prEvent_true_hybridVerifyCont_of_mem ids hr M maxAttempts pk
             z.1 _ z.2.1.2 hmem,
-          probOutput_true_hybridVerifyCont_of_mem ids hr M maxAttempts pk
+          prEvent_true_hybridVerifyCont_of_mem ids hr M maxAttempts pk
             z.1 _ z.2.1.2 hmem]
       · have hagree : ∀ w : Commit,
             overlayCache M z.2.1.1.1 z.2.1.1.2 (z.1.1, w) = z.2.1.1.1 (z.1.1, w) := by
@@ -825,34 +818,25 @@ lemma probOutput_hybridExpAtKey_prog_le_trans
           by_contra hne
           exact hmem (h_inv z hz (z.1.1, w) hne)
         rw [hgP, hgT]
-        exact congrArg (fun x => Pr[= true | x])
+        exact congrArg (fun x => Pr{let y ← x}[y = true])
           (hybridVerifyCont_cache_congr ids hr M maxAttempts pk z.1 _ _ z.2.1.2 hagree)
-    · simp [probOutput_eq_zero_of_not_mem_support hz]
-  -- Combine: TV budget plus the (open) collision charge.
-  have h_tv : tvDist (runP >>= gP) (runT >>= gP) ≤ Pbad.toReal :=
-    le_trans (tvDist_bind_right_le gP runP runT) h_bad
+    · simp [prEvent_eq_zero_of_not_mem_support _ hz]
+  -- Combine: the total-variation budget plus the collision charge.
+  have h_tv : measureETVDist (runP >>= gP) (runT >>= gP) ≤ Pbad :=
+    le_trans (OracleComp.measureETVDist_bind_right_le runP runT gP) h_bad
   have h_badBound : Pbad ≤ ENNReal.ofReal (qS * (qH + 1) * ε / (1 - p_abort)) :=
-    probEvent_ghostRead_bad_le ids hr M maxAttempts adv qS qH ε p_abort hp₀ hp hε hQ pk sk
+    prEvent_ghostRead_bad_le ids hr M maxAttempts adv qS qH ε p_abort hp₀ hp hε hQ pk sk
       hGuess hAbort
-  have h_real : Pr[= true | runP >>= gP].toReal ≤
-      Pr[= true | runT >>= gT].toReal + Pbad.toReal := by
-    have habs := abs_probOutput_toReal_sub_le_tvDist (runP >>= gP) (runT >>= gP)
-    have h2 := (abs_le.mp habs).2
-    rw [h_eqT] at h2
-    linarith [h_tv]
-  have hPbad_ne_top : Pbad ≠ ⊤ := ne_top_of_le_ne_top ENNReal.one_ne_top probEvent_le_one
-  calc Pr[= true | hybridExpAtKey ids hr M maxAttempts adv
-        (progSignBody ids M pk sk · maxAttempts) pk]
-      = Pr[= true | runP >>= gP] := by rw [hGP]
-    _ = ENNReal.ofReal (Pr[= true | runP >>= gP].toReal) :=
-        (ENNReal.ofReal_toReal probOutput_ne_top).symm
-    _ ≤ ENNReal.ofReal (Pr[= true | runT >>= gT].toReal + Pbad.toReal) :=
-        ENNReal.ofReal_le_ofReal h_real
-    _ = Pr[= true | runT >>= gT] + Pbad := by
-        rw [ENNReal.ofReal_add ENNReal.toReal_nonneg ENNReal.toReal_nonneg,
-          ENNReal.ofReal_toReal probOutput_ne_top, ENNReal.ofReal_toReal hPbad_ne_top]
-    _ ≤ Pr[= true | hybridExpAtKey ids hr M maxAttempts adv
-          (transSignBody ids M maxAttempts pk sk) pk] +
+  calc Pr{let x ← (hybridExpAtKey ids hr M maxAttempts adv
+        (progSignBody ids M pk sk · maxAttempts) pk)}[x = true]
+      = Pr{let x ← runP >>= gP}[x = true] := by rw [hGP]
+    _ ≤ Pr{let x ← runT >>= gP}[x = true] + measureETVDist (runP >>= gP) (runT >>= gP) :=
+        prEvent_le_prEvent_add_measureETVDist _ _ (· = true) Measurable.of_discrete
+    _ ≤ Pr{let x ← runT >>= gT}[x = true] + Pbad := by
+        rw [h_eqT]
+        exact add_le_add le_rfl h_tv
+    _ ≤ Pr{let x ← (hybridExpAtKey ids hr M maxAttempts adv
+          (transSignBody ids M maxAttempts pk sk) pk)}[x = true] +
         ENNReal.ofReal (qS * (qH + 1) * ε / (1 - p_abort)) := by
         rw [hGT]
         exact add_le_add le_rfl h_badBound
@@ -862,38 +846,44 @@ omit [SampleableType Stmt] in
 loop by the per-attempt HVZK simulator loop costs at most `qS·ζ_zk/(1-p)`.
 
 Distributional content: per signing query, `transSignBody` and `simSignBody` differ only
-in the optional sampler driving `firstSome`; `tvDist_firstSome_le_geometric` bounds the
+in the optional sampler driving `firstSome`; `measureTVDist_firstSome_le_geometric` bounds the
 per-query gap by `ζ_zk · (1 + p + ⋯) ≤ ζ_zk/(1-p)` using `ids.HVZK sim ζ_zk` (`hhvzk`)
 and the simulator abort bound (`hAbortSim`), uniformly in the shared starting cache
-(`tvDist_run_transSignBody_simSignBody_le`). The per-query total-variation budget is
+(`measureTVDist_run_transSignBody_simSignBody_le`). The per-query total-variation budget is
 accumulated across the at-most-`qS` signing queries of the adversary run by
-`tvDist_simulateQ_run_le_queryBoundP_mul`, the two hybrid handlers agreeing exactly on
+`measureETVDist_simulateQ_run_le_queryBoundP_mul`, the two hybrid handlers agreeing exactly on
 the base (uniform and random-oracle) component. -/
-lemma probOutput_hybridExpAtKey_trans_le_sim
-    (ζ_zk : ℝ) (hζ : 0 ≤ ζ_zk) (hhvzk : ids.HVZK sim ζ_zk)
+lemma prEvent_hybridExpAtKey_trans_le_sim
+    (ζ_zk : ℝ) (hζ : 0 ≤ ζ_zk) (hhvzk : ids.HVZK sim (ENNReal.ofReal ζ_zk))
     (qS qH : ℕ) (p_abort : ℝ) (hp₀ : 0 ≤ p_abort) (hp : p_abort < 1)
     (hQ : ∀ pk, FiatShamir.signHashQueryBound M
       (S' := Option (Commit × Resp)) (oa := adv.main pk) qS qH)
     (pk : Stmt) (sk : Wit) (hrel : rel pk sk = true)
-    (hAbortSim : Pr[= none | sim pk] ≤ ENNReal.ofReal p_abort) :
-    Pr[= true | hybridExpAtKey ids hr M maxAttempts adv
-        (transSignBody ids M maxAttempts pk sk) pk] ≤
-      Pr[= true | hybridExpAtKey ids hr M maxAttempts adv
-          (simSignBody M maxAttempts sim pk sk) pk] +
+    (hAbortSim : Pr{let x ← sim pk}[x = none] ≤ ENNReal.ofReal p_abort) :
+    Pr{let x ← (hybridExpAtKey ids hr M maxAttempts adv
+        (transSignBody ids M maxAttempts pk sk) pk)}[x = true] ≤
+      Pr{let x ← (hybridExpAtKey ids hr M maxAttempts adv
+          (simSignBody M maxAttempts sim pk sk) pk)}[x = true] +
         ENNReal.ofReal (qS * ζ_zk / (1 - p_abort)) := by
   set ε : ℝ := ζ_zk * ∑ j ∈ Finset.range maxAttempts, p_abort ^ j with hε_def
   have hε_nonneg : 0 ≤ ε :=
     mul_nonneg hζ (Finset.sum_nonneg fun j _ => pow_nonneg hp₀ j)
   have h1p : (0 : ℝ) < 1 - p_abort := by linarith
   -- The simulator abort bound, in real form.
-  have hq_toReal : Pr[= none | sim pk].toReal ≤ p_abort := by
+  have hq_toReal : Pr{let x ← sim pk}[x = none].toReal ≤ p_abort := by
     have h := ENNReal.toReal_mono ENNReal.ofReal_ne_top hAbortSim
     rwa [ENNReal.toReal_ofReal hp₀] at h
   -- Per-signing-query step bound, uniform over the hybrid state.
   have h_step : ∀ (msg : M) (s : (M × Commit →ₒ Chal).QueryCache × List M),
-      tvDist ((hybridSignImpl M (transSignBody ids M maxAttempts pk sk) msg).run s)
-        ((hybridSignImpl M (simSignBody M maxAttempts sim pk sk) msg).run s) ≤ ε := by
+      letI : MeasurableSpace (Option (Commit × Resp) ×
+        ((M × Commit →ₒ Chal).QueryCache × List M)) := ⊤
+      measureETVDist ((hybridSignImpl M (transSignBody ids M maxAttempts pk sk) msg).run s)
+        ((hybridSignImpl M (simSignBody M maxAttempts sim pk sk) msg).run s) ≤
+          ENNReal.ofReal ε := by
     intro msg s
+    let : MeasurableSpace (Option (Commit × Resp) ×
+      ((M × Commit →ₒ Chal).QueryCache × List M)) := ⊤
+    let : MeasurableSpace (Option (Commit × Resp) × (M × Commit →ₒ Chal).QueryCache) := ⊤
     have hrun : ∀ (body : M → StateT ((M × Commit →ₒ Chal).QueryCache) ProbComp
         (Option (Commit × Resp))),
         (hybridSignImpl M body msg).run s =
@@ -902,21 +892,26 @@ lemma probOutput_hybridExpAtKey_trans_le_sim
       intro body
       rfl
     rw [hrun, hrun]
-    exact le_trans (tvDist_map_le _ _ _)
-      (tvDist_run_transSignBody_simSignBody_le ids M maxAttempts sim pk sk hrel msg
-        hhvzk hq_toReal hp₀ s.1)
+    refine (measureETVDist_map_le
+      (β := Option (Commit × Resp) × ((M × Commit →ₒ Chal).QueryCache × List M)) _ _ _
+      Measurable.of_discrete).trans ?_
+    rw [ENNReal.le_ofReal_iff_toReal_le (measureETVDist_ne_top _ _) hε_nonneg,
+      ← measureTVDist_eq_toReal_measureETVDist]
+    exact measureTVDist_run_transSignBody_simSignBody_le ids M maxAttempts sim pk sk hrel msg
+      hζ hhvzk hq_toReal hp₀ s.1
   -- Accumulate the per-query budget across the `qS` signing queries of the run.
-  have h_run : tvDist
+  let : MeasurableSpace ((M × Option (Commit × Resp)) ×
+    ((M × Commit →ₒ Chal).QueryCache × List M)) := ⊤
+  have h_run : measureETVDist
       (StateT.run (simulateQ
         (hybridBaseImpl (Commit := Commit) (Chal := Chal) M +
           hybridSignImpl M (transSignBody ids M maxAttempts pk sk)) (adv.main pk)) (∅, []))
       (StateT.run (simulateQ
         (hybridBaseImpl (Commit := Commit) (Chal := Chal) M +
           hybridSignImpl M (simSignBody M maxAttempts sim pk sk)) (adv.main pk)) (∅, []))
-        ≤ qS * ε := by
-    refine OracleComp.ProgramLogic.Relational.tvDist_simulateQ_run_le_queryBoundP_mul
-      _ _ hε_nonneg
-      (· matches .inr _) ?_ ?_ (adv.main pk) (hQ pk).1 (∅, [])
+        ≤ qS * ENNReal.ofReal ε := by
+    refine OracleComp.ProgramLogic.Relational.measureETVDist_simulateQ_run_le_queryBoundP_mul
+      _ _ (· matches .inr _) ?_ ?_ (adv.main pk) (hQ pk).1 (∅, [])
     · rintro (t | msg) hSt s
       · simp at hSt
       · simpa only [OracleSpec.add_apply_inl, OracleSpec.add_apply_inr,
@@ -925,13 +920,13 @@ lemma probOutput_hybridExpAtKey_trans_le_sim
       · simp only [QueryImpl.add_apply_inl]
       · simp at hSt
   -- The verification continuation is shared, so the games inherit the run-level bound.
-  have h_tv_games : tvDist
+  have h_tv_games : measureETVDist
       (hybridExpAtKey ids hr M maxAttempts adv (transSignBody ids M maxAttempts pk sk) pk)
       (hybridExpAtKey ids hr M maxAttempts adv (simSignBody M maxAttempts sim pk sk) pk)
-        ≤ qS * ε := by
+        ≤ qS * ENNReal.ofReal ε := by
     refine le_trans ?_ h_run
     simp only [hybridExpAtKey]
-    exact tvDist_bind_right_le _ _ _
+    exact OracleComp.measureETVDist_bind_right_le _ _ _
   -- Close the finite geometric sum: `∑_{j<n} p^j ≤ 1/(1-p)`.
   have hsum_le : ∑ j ∈ Finset.range maxAttempts, p_abort ^ j ≤ 1 / (1 - p_abort) := by
     rw [le_div_iff₀ h1p]
@@ -944,32 +939,20 @@ lemma probOutput_hybridExpAtKey_trans_le_sim
           refine mul_le_mul_of_nonneg_left ?_ (Nat.cast_nonneg _)
           exact mul_le_mul_of_nonneg_left hsum_le hζ
       _ = (qS : ℝ) * ζ_zk * (1 / (1 - p_abort)) := by ring
-  have h_loss_nonneg : (0 : ℝ) ≤ qS * ζ_zk / (1 - p_abort) :=
-    div_nonneg (mul_nonneg (Nat.cast_nonneg _) hζ) h1p.le
-  -- Convert the real TV bound into the `ℝ≥0∞` output-probability bound.
-  have h_real : Pr[= true | hybridExpAtKey ids hr M maxAttempts adv
-        (transSignBody ids M maxAttempts pk sk) pk].toReal ≤
-      Pr[= true | hybridExpAtKey ids hr M maxAttempts adv
-        (simSignBody M maxAttempts sim pk sk) pk].toReal +
-        qS * ζ_zk / (1 - p_abort) := by
-    have habs := abs_probOutput_toReal_sub_le_tvDist
-      (hybridExpAtKey ids hr M maxAttempts adv (transSignBody ids M maxAttempts pk sk) pk)
-      (hybridExpAtKey ids hr M maxAttempts adv (simSignBody M maxAttempts sim pk sk) pk)
-    have h_le := (abs_le.mp habs).2
-    linarith [h_tv_games, h_bound]
-  calc Pr[= true | hybridExpAtKey ids hr M maxAttempts adv
-        (transSignBody ids M maxAttempts pk sk) pk]
-      = ENNReal.ofReal (Pr[= true | hybridExpAtKey ids hr M maxAttempts adv
-          (transSignBody ids M maxAttempts pk sk) pk].toReal) :=
-        (ENNReal.ofReal_toReal probOutput_ne_top).symm
-    _ ≤ ENNReal.ofReal (Pr[= true | hybridExpAtKey ids hr M maxAttempts adv
-          (simSignBody M maxAttempts sim pk sk) pk].toReal +
-          qS * ζ_zk / (1 - p_abort)) := ENNReal.ofReal_le_ofReal h_real
-    _ = Pr[= true | hybridExpAtKey ids hr M maxAttempts adv
-          (simSignBody M maxAttempts sim pk sk) pk] +
+  calc Pr{let x ← (hybridExpAtKey ids hr M maxAttempts adv
+        (transSignBody ids M maxAttempts pk sk) pk)}[x = true]
+      ≤ Pr{let x ← (hybridExpAtKey ids hr M maxAttempts adv
+          (simSignBody M maxAttempts sim pk sk) pk)}[x = true] +
+        measureETVDist
+          (hybridExpAtKey ids hr M maxAttempts adv (transSignBody ids M maxAttempts pk sk) pk)
+          (hybridExpAtKey ids hr M maxAttempts adv (simSignBody M maxAttempts sim pk sk) pk) :=
+        prEvent_le_prEvent_add_measureETVDist _ _ (· = true) Measurable.of_discrete
+    _ ≤ Pr{let x ← (hybridExpAtKey ids hr M maxAttempts adv
+          (simSignBody M maxAttempts sim pk sk) pk)}[x = true] +
           ENNReal.ofReal (qS * ζ_zk / (1 - p_abort)) := by
-        rw [ENNReal.ofReal_add ENNReal.toReal_nonneg h_loss_nonneg,
-          ENNReal.ofReal_toReal probOutput_ne_top]
+        refine add_le_add le_rfl (h_tv_games.trans ?_)
+        rw [← ENNReal.ofReal_natCast qS, ← ENNReal.ofReal_mul (Nat.cast_nonneg _)]
+        exact ENNReal.ofReal_le_ofReal h_bound
 
 end scaffold
 

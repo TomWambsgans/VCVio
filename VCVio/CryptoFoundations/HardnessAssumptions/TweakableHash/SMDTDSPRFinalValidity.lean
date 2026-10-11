@@ -6,7 +6,7 @@ Authors: Quang Dao
 
 module
 public import VCVio.CryptoFoundations.HardnessAssumptions.TweakableHash.FinalValidity
-public import VCVio.OracleComp.EvalDist.UniformCompatibility
+public import VCVio.OracleComp.EvalDist.AnswerMeasure
 public import VCVio.OracleComp.SimSemantics.Append
 public import VCVio.OracleComp.SimSemantics.StateT.PreservesInv
 
@@ -216,10 +216,6 @@ theorem valid_eq_decide_valid_of_reachable {prob : Problem ι PkSeed Tweak M Y}
     adv.choose .initial (SourceFinalValidity.invariant_initial _ _) z hz).eq_decide _ _ _
 
 end Reachable
-
--- Declaration-specific naming exceptions for this game's underscore-separated names.
-attribute [nolint defsWithUnderscore]
-  experiment spExperiment advantage
 
 end SM_DT_DSPR_SourceFinalValidity
 

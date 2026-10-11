@@ -153,8 +153,7 @@ theorem idsWithAbort_complete' :
     (identificationScheme p prims).Complete := by
   classical
   intro pk sk hvalid
-  rw [probOutput_eq_one_iff_forall]
-  refine ⟨probFailure_of_liftM_PMF _, fun b hb => ?_⟩
+  refine (OracleComp.prEvent_eq_one_iff _ (· = true)).2 fun b hb => ?_
   rw [support_bind] at hb
   simp only [Set.mem_iUnion] at hb
   obtain ⟨t?, ht?, hb⟩ := hb
@@ -250,7 +249,7 @@ theorem idsWithAbort_complete (h_laws : Primitives.Laws prims nttOps) :
 
 The HVZK theorem `MLDSA.idsWithAbort_hvzk` is proven downstream in
 `LatticeCrypto.MLDSA.SecurityHVZK`, where the concrete simulator `hvzkSimulatorReal` and the
-extra-rejection-mass bound `hvzkBoundReal` are defined. The simulator reproduces the honest
+extra-rejection-mass bound `hvzkBound` are defined. The simulator reproduces the honest
 transcript pointwise on the accept event, so the total-variation distance is bounded by the
 honest prover's extra-rejection mass; see that file for the quantitative statement. -/
 
@@ -304,5 +303,6 @@ reduction (at the loss `cmaToNmaLoss` above) with the EUF-NMA bound:
 
 Both are stated with nonnegativity side conditions on the statistical-loss parameters, so the
 bound cannot collapse. -/
+
 
 end MLDSA

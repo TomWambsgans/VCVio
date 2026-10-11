@@ -13,7 +13,7 @@ public import VCVio.CryptoFoundations.FiatShamir.WithAbort.GhostBodies.Projectio
 # EUF-CMA for Fiat-Shamir with aborts: BodyHops
 
 The per-signing-query core of the Trans → Sim hop
-(`tvDist_run_transSignBody_simSignBody_le`) and the verification-and-freshness
+(`measureTVDist_run_transSignBody_simSignBody_le`) and the verification-and-freshness
 continuation of the hybrid experiment (`hybridVerifyCont`).
 
 Part of the CMA-to-NMA security development for the Fiat-Shamir-with-aborts
@@ -54,28 +54,33 @@ output-and-cache distribution, where `ζ_zk` bounds the per-attempt HVZK error a
 the simulator's per-attempt abort probability.
 
 The cache programming is the same deterministic continuation on both sides
-(`signProgramCont`), so the bound reduces to `tvDist_firstSome_le_geometric` on the
+(`signProgramCont`), so the bound reduces to `measureTVDist_firstSome_le_geometric` on the
 private restart loops. -/
-lemma tvDist_run_transSignBody_simSignBody_le
+lemma measureTVDist_run_transSignBody_simSignBody_le
+    [MeasurableSpace (Option (Commit × Resp) × (M × Commit →ₒ Chal).QueryCache)]
     (pk : Stmt) (sk : Wit) (hrel : rel pk sk = true) (msg : M)
-    {ζ_zk : ℝ} (hhvzk : ids.HVZK sim ζ_zk)
-    {q : ℝ} (hq : Pr[= none | sim pk].toReal ≤ q) (hq0 : 0 ≤ q)
+    {ζ_zk : ℝ} (hζ : 0 ≤ ζ_zk) (hhvzk : ids.HVZK sim (ENNReal.ofReal ζ_zk))
+    {q : ℝ} (hq : Pr{let x ← sim pk}[x = none].toReal ≤ q) (hq0 : 0 ≤ q)
     (s : (M × Commit →ₒ Chal).QueryCache) :
-    tvDist (StateT.run (transSignBody ids M maxAttempts pk sk msg) s)
+    measureTVDist (StateT.run (transSignBody ids M maxAttempts pk sk msg) s)
         (StateT.run (simSignBody M maxAttempts sim pk sk msg) s) ≤
       ζ_zk * ∑ j ∈ Finset.range maxAttempts, q ^ j := by
-  have hcore : tvDist (firstSome (ids.honestExecution pk sk) maxAttempts)
+  let : MeasurableSpace (Option (Commit × Chal × Resp)) := ⊤
+  have hzk : measureTVDist (ids.honestExecution pk sk) (sim pk) ≤ ζ_zk := by
+    rw [measureTVDist_eq_toReal_measureETVDist, ← ENNReal.toReal_ofReal hζ]
+    exact ENNReal.toReal_mono ENNReal.ofReal_ne_top (hhvzk pk sk hrel)
+  have hcore : measureTVDist (firstSome (ids.honestExecution pk sk) maxAttempts)
       (firstSome (sim pk) maxAttempts) ≤
         ζ_zk * ∑ j ∈ Finset.range maxAttempts, q ^ j :=
-    tvDist_firstSome_le_geometric (ids.honestExecution pk sk) (sim pk)
-      (hhvzk pk sk hrel) hq hq0 maxAttempts
+    measureTVDist_firstSome_le_geometric (ids.honestExecution pk sk) (sim pk)
+      hzk hq hq0 maxAttempts
   have hrw : ∀ (loop : ProbComp (Option (Commit × Chal × Resp))),
       StateT.run (liftM loop >>= signProgramCont M msg) s =
         loop >>= fun r => StateT.run (signProgramCont M msg r) s := by
     intro loop
     simp [StateT.run_bind]
   rw [transSignBody, simSignBody, hrw, hrw]
-  exact le_trans (tvDist_bind_right_le _ _ _) hcore
+  exact le_trans (measureTVDist_bind_right_le _ _ _) hcore
 
 /-- The hybrid unforgeability experiment at a fixed key pair: run the adversary with the
 base handlers and the given signing body, then verify the forgery under the final cache
@@ -168,13 +173,13 @@ lemma hybridVerifyCont_cache_congr (pk : Stmt) (ms : M × Option (Commit × Resp
 omit [SampleableType Stmt] in
 /-- When the forged message has already been signed, the freshness conjunct forces the
 game output to `false`, so the success probability vanishes regardless of the cache. -/
-lemma probOutput_true_hybridVerifyCont_of_mem (pk : Stmt)
+lemma prEvent_true_hybridVerifyCont_of_mem (pk : Stmt)
     (ms : M × Option (Commit × Resp))
     (c : (M × Commit →ₒ Chal).QueryCache) (l : List M) (hmem : ms.1 ∈ l) :
-    Pr[= true | hybridVerifyCont ids hr M maxAttempts pk (ms, (c, l))] = 0 := by
-  rw [hybridVerifyCont, probOutput_bind_eq_tsum]
+    Pr{let x ← hybridVerifyCont ids hr M maxAttempts pk (ms, (c, l))}[x = true] = 0 := by
+  rw [hybridVerifyCont, OracleComp.prEvent_bind_eq_tsum]
   refine ENNReal.tsum_eq_zero.mpr fun ok => ?_
-  rw [probOutput_pure, ite_eq_right (by simp [hmem]), mul_zero]
+  rw [prEvent_pure, ite_eq_right (by simp [hmem]), mul_zero]
 
 end scaffold
 

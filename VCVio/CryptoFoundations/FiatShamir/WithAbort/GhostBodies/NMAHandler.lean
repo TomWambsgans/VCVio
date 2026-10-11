@@ -360,9 +360,9 @@ point `(msg, w)` already live in the base layer. Off this event (`base (msg, w) 
 drawn `w`), the sign step's projection *is* a function of the state and the per-step coupling is
 exact. On this event the two runs diverge, and — because the headline bound
 `hybridSimRun_le_managedRun_verify` is an *inequality* (`≤`) — the divergence may be paid on the
-bad side via the commit-guessing charge `probEvent_commit_hit_le` (the base layer's live-read
+bad side via the commit-guessing charge `prEvent_commit_hit_le` (the base layer's live-read
 count times the per-commit guessing bound `ε`), exactly the charge class already used for the
-ghost-read collision in `probEvent_ghostRead_bad_le`. -/
+ghost-read collision in `prEvent_ghostRead_bad_le`. -/
 
 omit [SampleableType Stmt] [SampleableType Chal] in
 /-- The live-read / sign-program collision predicate at a sign step. For a base (live-read)
@@ -372,7 +372,7 @@ commitment landed on a previously live-read random-oracle point). This is the *e
 which the layered NMA run and the linked managed run agree: when `base (msg, w) = none` the
 sign-step projection `proj₂` is a function of the state, so the per-step coupling is an exact
 equality; when it holds the two runs diverge and the gap is charged by
-`probEvent_commit_hit_le`. -/
+`prEvent_commit_hit_le`. -/
 def signLiveCollision (base : (M × Commit →ₒ Chal).QueryCache) (msg : M) (w : Commit) : Prop :=
   base (msg, w) ≠ none
 

@@ -62,6 +62,14 @@ theorem measureETVDist_le_one [EvalDistSemantics m] [MeasurableSpace α] (mx my 
     measureETVDist mx my ≤ 1 :=
   Measure.etvDist_le_one _ _ (evalDist_apply_univ_le_one mx) (evalDist_apply_univ_le_one my)
 
+theorem measureETVDist_ne_top [EvalDistSemantics m] [MeasurableSpace α] (mx my : m α) :
+    measureETVDist mx my ≠ ⊤ :=
+  ne_top_of_le_ne_top ENNReal.one_ne_top (measureETVDist_le_one mx my)
+
+/-- Real total variation is the real part of the extended one. -/
+theorem measureTVDist_eq_toReal_measureETVDist [EvalDistSemantics m] [MeasurableSpace α]
+    (mx my : m α) : measureTVDist mx my = (measureETVDist mx my).toReal := rfl
+
 @[simp]
 theorem measureTVDist_self [EvalDistSemantics m] [MeasurableSpace α] (mx : m α) :
     measureTVDist mx mx = 0 :=
@@ -92,7 +100,7 @@ theorem measureTVDist_eq_zero_iff [EvalDistSemantics m] [MeasurableSpace α]
   Measure.tvDist_eq_zero_iff _ _
     (evalDist_apply_univ_le_one mx) (evalDist_apply_univ_le_one my)
 
-/-- Every measurable-event discrepancy is bounded by measure-native extended TV. -/
+/-- Every measurable-event discrepancy is bounded by the extended TV distance. -/
 theorem measure_absDiff_apply_le_measureETVDist [EvalDistSemantics m] [MeasurableSpace α]
     (mx my : m α) {s : Set α} (hs : MeasurableSet s) :
     ENNReal.absDiff (𝒟[mx] s) (𝒟[my] s) ≤ measureETVDist mx my :=
