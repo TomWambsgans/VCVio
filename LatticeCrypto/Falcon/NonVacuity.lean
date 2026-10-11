@@ -666,11 +666,6 @@ theorem toy_correctAt (pk : PublicKey toyP) (sk : SecretKey toyP)
   obtain ⟨δ, hδ, rfl⟩ := mem_support_condSample hx
   exact ⟨toy_eval_sOf t δ, hδ⟩
 
-/-- `hNeverFail`: the ideal sampler never fails. -/
-theorem toy_neverFail (pk : PublicKey toyP) (sk : SecretKey toyP) (c : Rq toyP.n) :
-    NeverFail (toyIdealPSF.trapdoorSample pk sk c) :=
-  ⟨by simp [toyIdealPSF, condSample]⟩
-
 /-- The domain sampler witnessing regularity: the ideal sampler's own marginal, a uniform target
 followed by a conditional draw. -/
 noncomputable def toyDomainSample : PublicKey toyP → ProbComp (Rq toyP.n × Rq toyP.n) :=
@@ -682,14 +677,15 @@ draw. -/
 theorem toy_hReg :
     ∀ pk sk, (pk, sk) ∈ support toyHr.gen →
       (do let s ← toyDomainSample pk; pure (toyIdealPSF.eval pk s, s)
-            : ProbComp (Rq toyP.n × (Rq toyP.n × Rq toyP.n))) =ᵈ (do let c ← ($ᵗ (Rq toyP.n)); let s ← toyIdealPSF.trapdoorSample pk sk c; pure (c, s)
-            : ProbComp (Rq toyP.n × (Rq toyP.n × Rq toyP.n))) := by
+          : ProbComp (Rq toyP.n × (Rq toyP.n × Rq toyP.n))) =ᵈ
+        (do let c ← ($ᵗ (Rq toyP.n)); let s ← toyIdealPSF.trapdoorSample pk sk c; pure (c, s)
+          : ProbComp (Rq toyP.n × (Rq toyP.n × Rq toyP.n))) := by
   intro pk sk hmem
   unfold toyDomainSample
   obtain ⟨rfl, rfl⟩ := toy_mem_gen hmem
   simp only [bind_assoc]
-  refine evalSPMF_bind_congr' _ fun c => ?_
-  refine evalSPMF_bind_congr fun x hx => ?_
+  refine EvalDistEq.bind_right _ fun c => ?_
+  refine EvalDistEq.bind_congr_of_support _ fun x hx => ?_
   obtain ⟨δ, -, rfl⟩ := mem_support_condSample hx
   rw [show toyIdealPSF.eval toyPk (sOf c δ) = c from toy_eval_sOf c δ]
 
@@ -715,8 +711,9 @@ theorem toy_attemptRejectBound :
   intro pk sk hmem c
   obtain ⟨rfl, rfl⟩ := toy_mem_gen hmem
   rw [toy_signAttempt, prEvent_map]
-  have hle : Pr{let δ ← $ᵗ Box}[(if (falconPSF toyP toyPrims).isShort (sOf c δ) then some (sOf c δ) else none) = none] ≤ Pr{let δ ← $ᵗ Box}[δ ≠ center] := by
-    refine prEvent_mono fun δ _ hδ => ?_
+  have hle : Pr{let δ ← $ᵗ Box}[(if (falconPSF toyP toyPrims).isShort (sOf c δ) then
+      some (sOf c δ) else none) = none] ≤ Pr{let δ ← $ᵗ Box}[δ ≠ center] := by
+    refine prEvent_mono _ _ _ fun δ hδ => ?_
     rintro rfl
     simp [toy_center_accepts c] at hδ
   have hcard : (Finset.univ.filter fun δ : Box => δ ≠ center).card = 80 := by
@@ -724,11 +721,10 @@ theorem toy_attemptRejectBound :
     simp [Fintype.card_prod, Fintype.card_fin]
   have hBox : Fintype.card Box = 81 := by simp [Fintype.card_prod, Fintype.card_fin]
   rw [SampleableType.prEvent_uniformSample (p := fun δ : Box => δ ≠ center), hcard, hBox] at hle
-  calc (Pr{let δ ← $ᵗ Box}[(if (falconPSF toyP toyPrims).isShort (sOf c δ) then some (sOf c δ) else none) = none]).toReal
-      ≤ (((80 : ℕ) : ℝ≥0∞) / ((81 : ℕ) : ℝ≥0∞)).toReal :=
-        ENNReal.toReal_mono (ENNReal.div_ne_top (by simp) (by simp)) hle
-    _ = 80 / 81 := by
-        rw [ENNReal.toReal_div, ENNReal.toReal_natCast, ENNReal.toReal_natCast]; norm_num
+  refine le_trans (ENNReal.toReal_mono (ENNReal.div_ne_top (by simp) (by simp)) hle)
+    (le_of_eq ?_)
+  rw [ENNReal.toReal_div, ENNReal.toReal_natCast, ENNReal.toReal_natCast]
+  norm_num
 
 /-! ## The hypothesis bundle and its numbers -/
 
@@ -739,18 +735,16 @@ theorem falcon_attempt_hyps_inhabited :
     (∀ pk x, toyIdealPSF.eval pk x = (falconPSF toyP toyPrims).eval pk x) ∧
     (∀ x, toyIdealPSF.isShort x = (falconPSF toyP toyPrims).isShort x) ∧
     (∀ pk sk, (pk, sk) ∈ support toyHr.gen → toyIdealPSF.CorrectAt pk sk) ∧
-    (∀ pk sk, (pk, sk) ∈ support toyHr.gen →
-      ∀ c, NeverFail (toyIdealPSF.trapdoorSample pk sk c)) ∧
     (∃ domainSample : PublicKey toyP → ProbComp (Rq toyP.n × Rq toyP.n),
       ∀ pk sk, (pk, sk) ∈ support toyHr.gen →
         (do let s ← domainSample pk; pure (toyIdealPSF.eval pk s, s)
-              : ProbComp (Rq toyP.n × (Rq toyP.n × Rq toyP.n))) =ᵈ (do let c ← ($ᵗ (Rq toyP.n)); let s ← toyIdealPSF.trapdoorSample pk sk c; pure (c, s)
-              : ProbComp (Rq toyP.n × (Rq toyP.n × Rq toyP.n)))) ∧
+            : ProbComp (Rq toyP.n × (Rq toyP.n × Rq toyP.n))) =ᵈ
+          (do let c ← ($ᵗ (Rq toyP.n)); let s ← toyIdealPSF.trapdoorSample pk sk c; pure (c, s)
+            : ProbComp (Rq toyP.n × (Rq toyP.n × Rq toyP.n)))) ∧
     attemptTransport toyP toyPrims toyHr (signAttempt toyP toyPrims) 0 ∧
     attemptRejectBound toyP toyHr (signAttempt toyP toyPrims) (80 / 81) ∧
     idealAttemptResamples toyP toyHr (signAttempt toyP toyPrims) toyIdealPSF :=
-  ⟨fun _ _ => rfl, fun _ => rfl, toy_correctAt, fun pk sk _ c => toy_neverFail pk sk c,
-    ⟨toyDomainSample, toy_hReg⟩,
+  ⟨fun _ _ => rfl, fun _ => rfl, toy_correctAt, ⟨toyDomainSample, toy_hReg⟩,
     toy_attemptTransport, toy_attemptRejectBound, toy_idealAttemptResamples⟩
 
 /-- **The attempt-level sampler loss at Falcon's signing budget.** With `ε_step = 0` and
@@ -891,10 +885,11 @@ theorem toy_mem_gen_self : (toyPk, toySk) ∈ support toyHr.gen := by
 
 /-- **The one-shot acceptance probability at the zero target is `1/9`.** -/
 theorem toy_oneShot_accept_zero :
-    (Pr{let x ← (falconPSF toyP toyPrims).trapdoorSample toyPk toySk 0}[(falconPSF toyP toyPrims).isShort x = true]).toReal = 1 / 9 := by
+    (Pr{let x ← (falconPSF toyP toyPrims).trapdoorSample toyPk toySk 0}[
+      (falconPSF toyP toyPrims).isShort x = true]).toReal = 1 / 9 := by
   rw [toy_trapdoorSample, prEvent_map]
   have hBox : Fintype.card Box = 81 := by simp [Fintype.card_prod, Fintype.card_fin]
-  change (Pr{let x ← $ᵗ Box}[(accepts 0) x]).toReal = 1 / 9
+  change (Pr{let x ← $ᵗ Box}[accepts 0 x]).toReal = 1 / 9
   rw [SampleableType.prEvent_uniformSample, card_accepts_zero, hBox, ENNReal.toReal_div,
     ENNReal.toReal_natCast, ENNReal.toReal_natCast]
   norm_num
@@ -910,12 +905,10 @@ theorem toy_oneShot_epsStep_ge_half
     (ε_step : ℝ)
     (hShort : ∀ x, idealPSF.isShort x = (falconPSF toyP toyPrims).isShort x)
     (hCorrect : ∀ pk sk, (pk, sk) ∈ support toyHr.gen → idealPSF.CorrectAt pk sk)
-    (hNeverFail : ∀ pk sk, (pk, sk) ∈ support toyHr.gen →
-      ∀ c, NeverFail (idealPSF.trapdoorSample pk sk c))
     (hStep : samplerTransport toyP toyPrims toyHr idealPSF ε_step) :
     (1 / 2 : ℝ) ≤ ε_step := by
   have h := oneShot_samplerLoss_one_le_of_samplerTransport toyP toyPrims toyHr idealPSF 2 ε_step
-    hShort hCorrect hNeverFail hStep toyPk toySk toy_mem_gen_self 0
+    hShort hCorrect hStep toyPk toySk toy_mem_gen_self 0
     (by rw [toy_oneShot_accept_zero]; norm_num)
   norm_num at h
   linarith
@@ -928,12 +921,10 @@ theorem toy_oneShot_samplerLoss_one_le
     (ε_step : ℝ)
     (hShort : ∀ x, idealPSF.isShort x = (falconPSF toyP toyPrims).isShort x)
     (hCorrect : ∀ pk sk, (pk, sk) ∈ support toyHr.gen → idealPSF.CorrectAt pk sk)
-    (hNeverFail : ∀ pk sk, (pk, sk) ∈ support toyHr.gen →
-      ∀ c, NeverFail (idealPSF.trapdoorSample pk sk c))
     (hStep : samplerTransport toyP toyPrims toyHr idealPSF ε_step)
     (qSign : ℕ) (hq : 2 ≤ qSign) :
     (1 : ℝ) ≤ (qSign : ℝ) * ε_step := by
-  have h := toy_oneShot_epsStep_ge_half idealPSF ε_step hShort hCorrect hNeverFail hStep
+  have h := toy_oneShot_epsStep_ge_half idealPSF ε_step hShort hCorrect hStep
   have hq' : (2 : ℝ) ≤ qSign := by exact_mod_cast hq
   nlinarith
 
@@ -969,9 +960,8 @@ theorem toy_euf_cma_security
         ENNReal.ofReal (qSign * (80 / 81 : ℝ) ^ maxAttempts) := by
   have h := euf_cma_security toyP toyPrims Salt toyHr qSign qHash maxAttempts 0 (80 / 81)
     le_rfl (by norm_num) (by norm_num) adv (signAttempt toyP toyPrims) toyIdealPSF
-    (fun _ _ => rfl) (fun _ => rfl) toy_correctAt toyDomainSample toy_hReg
-    (fun pk sk _ c => toy_neverFail pk sk c)
-    toy_attemptTransport toy_attemptRejectBound toy_idealAttemptResamples hQ
+    (fun _ _ => rfl) (fun _ => rfl) toy_correctAt toyDomainSample toy_hReg toy_attemptTransport
+    toy_attemptRejectBound toy_idealAttemptResamples hQ
   simpa only [zero_div, zero_add] using h
 
 end Falcon.NonVacuity
