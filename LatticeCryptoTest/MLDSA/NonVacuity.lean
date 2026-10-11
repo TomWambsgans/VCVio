@@ -37,7 +37,7 @@ The witness values are:
   never aborts; `hGood` holds at the trivial regularity budget `δ = 1`.  Whether
   `honestNoAbortGood` is satisfiable at a given parameter set is a quantitative completeness
   question (cf. `idsWithAbort_complete`) that the frontier does not require;
-* `ε = 1` for the commitment-guessing bound (`probOutput_le_one`);
+* `ε = 1` for the commitment-guessing bound (`prEvent_le_one`);
 * the trivial forger `trivialForger` (no queries, immediately returned `none` forgery) with
   `qS = qH = 0`;
 * `mlwe := mldsaMatrixMLWE`, `εbridge = 1`: the proven seed-to-matrix reduction
@@ -79,7 +79,7 @@ budget `δ = 1`.  The frontier does not require the event to be satisfiable; est
 a concrete parameter set is a quantitative completeness fact, not a consistency one. -/
 def honestNoAbortGood : PublicKey p prims → SecretKey p → Prop :=
   fun pk sk =>
-    Pr[= none | (identificationSchemeShort p prims).honestExecution pk sk] = 0
+    Pr{let x ← (identificationSchemeShort p prims).honestExecution pk sk}[x = none] = 0
 
 /-- The trivial CMA forger against the short-model Fiat-Shamir-with-aborts scheme: make no
 oracle queries and immediately return the aborted forgery `(default, none)`.  It witnesses the
@@ -103,8 +103,8 @@ omit nttOps [DecidableEq prims.High]
   [SampleableType (CommitHashBytes p)] in
 /-- The never-aborting simulator indeed never aborts: the probability of `none` is zero. -/
 lemma probOutput_none_neverAbortSim (pk : PublicKey p prims) :
-    Pr[= none | neverAbortSim p prims pk] = 0 :=
-  probOutput_eq_zero_of_not_mem_support (by simp [neverAbortSim])
+    Pr{let x ← neverAbortSim p prims pk}[x = none] = 0 :=
+  prEvent_eq_zero_of_not_mem_support (by simp [neverAbortSim])
 
 omit [DecidableEq M] [Inhabited (Commitment p prims)]
   [Inhabited (Response p prims)]
@@ -126,15 +126,15 @@ witness through the proven reduction `advantage_mldsaMLWEShort_le_matrix`. -/
 lemma expandAIdealization_one : expandAIdealization p prims 1 := by
   intro _ D
   have key : ∀ x y : ProbComp Bool,
-      |(Pr[= true | x]).toReal - (Pr[= true | y]).toReal| ≤ 1 := fun x y => by
-    have hx1 : (Pr[= true | x]).toReal ≤ 1 :=
-      le_trans (ENNReal.toReal_mono ENNReal.one_ne_top probOutput_le_one)
+      |(Pr{let y ← x}[y = true]).toReal - (Pr{let x ← y}[x = true]).toReal| ≤ 1 := fun x y => by
+    have hx1 : (Pr{let y ← x}[y = true]).toReal ≤ 1 :=
+      le_trans (ENNReal.toReal_mono ENNReal.one_ne_top prEvent_le_one)
         (le_of_eq ENNReal.toReal_one)
-    have hy1 : (Pr[= true | y]).toReal ≤ 1 :=
-      le_trans (ENNReal.toReal_mono ENNReal.one_ne_top probOutput_le_one)
+    have hy1 : (Pr{let x ← y}[x = true]).toReal ≤ 1 :=
+      le_trans (ENNReal.toReal_mono ENNReal.one_ne_top prEvent_le_one)
         (le_of_eq ENNReal.toReal_one)
-    have hx0 : (0 : ℝ) ≤ (Pr[= true | x]).toReal := ENNReal.toReal_nonneg
-    have hy0 : (0 : ℝ) ≤ (Pr[= true | y]).toReal := ENNReal.toReal_nonneg
+    have hx0 : (0 : ℝ) ≤ (Pr{let y ← x}[y = true]).toReal := ENNReal.toReal_nonneg
+    have hy0 : (0 : ℝ) ≤ (Pr{let x ← y}[x = true]).toReal := ENNReal.toReal_nonneg
     rw [abs_sub_le_iff]
     exact ⟨by linarith, by linarith⟩
   simp only [evalDist_apply_singleton]
@@ -162,20 +162,19 @@ theorem mldsa_short_cma_hyps_inhabited (maxAttempts : ℕ) :
     -- hε, hδ, hp₀, hp at ε = 1, δ = 1, p_abort = 0
     ((0 : ℝ) ≤ 1 ∧ (0 : ℝ) ≤ 1 ∧ (0 : ℝ) ≤ 0 ∧ (0 : ℝ) < 1) ∧
     -- hGood at δ = 1
-    (Pr[ fun xw : PublicKey p prims × SecretKey p =>
-        ¬ honestNoAbortGood p prims xw.1 xw.2 | (hrShort p prims).gen] ≤
+    (Pr{let xw ← (hrShort p prims).gen}[¬ honestNoAbortGood p prims xw.1 xw.2] ≤
       ENNReal.ofReal 1) ∧
     -- hGuess at ε = 1
     (∀ pk sk, honestNoAbortGood p prims pk sk → ∀ cm : Commitment p prims,
-      Pr[= cm | Prod.fst <$> (identificationSchemeShort p prims).commit pk sk] ≤
+      Pr{let x ← Prod.fst <$> (identificationSchemeShort p prims).commit pk sk}[x = cm] ≤
         ENNReal.ofReal 1) ∧
     -- hAbort at p_abort = 0
     (∀ pk sk, honestNoAbortGood p prims pk sk →
-      Pr[= none | (identificationSchemeShort p prims).honestExecution pk sk] ≤
+      Pr{let x ← (identificationSchemeShort p prims).honestExecution pk sk}[x = none] ≤
         ENNReal.ofReal 0) ∧
     -- hAbortSim at p_abort = 0
     (∀ pk sk, honestNoAbortGood p prims pk sk →
-      Pr[= none | neverAbortSim p prims pk] ≤ ENNReal.ofReal 0) ∧
+      Pr{let x ← neverAbortSim p prims pk}[x = none] ≤ ENNReal.ofReal 0) ∧
     -- hQ at qS = qH = 0
     (∀ pk, FiatShamir.signHashQueryBound M
       (S' := Option (Commitment p prims × Response p prims))
@@ -192,8 +191,8 @@ theorem mldsa_short_cma_hyps_inhabited (maxAttempts : ℕ) :
           1) :=
   ⟨rfl, ⟨zero_le_one, neverAbortSim_hvzk p prims⟩,
     ⟨zero_le_one, zero_le_one, le_rfl, zero_lt_one⟩,
-    by rw [ENNReal.ofReal_one]; exact probEvent_le_one,
-    fun _pk _sk _h _cm => by rw [ENNReal.ofReal_one]; exact probOutput_le_one,
+    by rw [ENNReal.ofReal_one]; exact prEvent_le_one,
+    fun _pk _sk _h _cm => by rw [ENNReal.ofReal_one]; exact prEvent_le_one,
     fun _pk _sk h => by rw [ENNReal.ofReal_zero]; exact h.le,
     fun pk _sk _h => by
       rw [ENNReal.ofReal_zero]; exact (probOutput_none_neverAbortSim p prims pk).le,
@@ -225,8 +224,8 @@ theorem trivial_euf_cma_security_of_nma_short (maxAttempts : ℕ) :
     maxAttempts (hrShort p prims) rfl (neverAbortSim p prims) 1 zero_le_one
     (neverAbortSim_hvzk p prims) 0 0 1 0 1 zero_le_one zero_le_one le_rfl zero_lt_one
     (honestNoAbortGood p prims)
-    (by rw [ENNReal.ofReal_one]; exact probEvent_le_one)
-    (fun _pk _sk _h _cm => by rw [ENNReal.ofReal_one]; exact probOutput_le_one)
+    (by rw [ENNReal.ofReal_one]; exact prEvent_le_one)
+    (fun _pk _sk _h _cm => by rw [ENNReal.ofReal_one]; exact prEvent_le_one)
     (fun _pk _sk h => by rw [ENNReal.ofReal_zero]; exact h.le)
     (fun pk _sk _h => by
       rw [ENNReal.ofReal_zero]; exact (probOutput_none_neverAbortSim p prims pk).le)

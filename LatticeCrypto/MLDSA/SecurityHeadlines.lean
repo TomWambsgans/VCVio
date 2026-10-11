@@ -127,10 +127,10 @@ theorem nma_security_short
         (FiatShamirWithAbort (identificationSchemeShort p prims) hr M maxAttempts).verify
           pk msg σ) : ProbComp Bool) with hpc1
   have hg0 : nmaAdvantageShort p prims hr maxAttempts (keygenShort p prims) adv.main =
-      Pr[= true | pc0] := by
+      Pr{let x ← pc0}[x = true] := by
     rw [nmaAdvantageShort, nmaGameShort_eq_keygen_bind, evalDist_apply_singleton]
   have hg1 : nmaAdvantageShort p prims hr maxAttempts (keygenShort1 p prims) adv.main =
-      Pr[= true | pc1] := by
+      Pr{let x ← pc1}[x = true] := by
     rw [nmaAdvantageShort, nmaGameShort_eq_keygen_bind, evalDist_apply_singleton]
   -- Triangle bound: real game ≤ uniform game + MLWE advantage.
   have htri := (by simpa only [evalDist_apply_singleton] using
@@ -149,7 +149,7 @@ theorem nma_security_short
   -- STMSIS extraction bound on the uniform game.
   have hstm := nmaAdvantage_keygenShort1_le_stmsis p prims hr maxAttempts (M := M) adv.main
   rw [hg1] at hstm
-  calc Pr[= true | pc1] + ENNReal.ofReal (pc0.boolDistAdvantage pc1)
+  calc Pr{let x ← pc1}[x = true] + ENNReal.ofReal (pc0.boolDistAdvantage pc1)
       ≤ SelfTargetMSIS.advantage (extractorCShort p prims adv.main) +
         ENNReal.ofReal (LearningWithErrors.advantage (mldsaMLWEShort p prims)
           (distinguisherBShort p prims hr maxAttempts adv.main)) :=
@@ -234,13 +234,13 @@ theorem nma_security_fips
         (FiatShamirWithAbort (identificationSchemeShort p prims) hrS M maxAttempts).verify
           pk msg σ) : ProbComp Bool) with hpcS
   have hgF : nmaAdvantage p prims hr maxAttempts (keygen0 p prims) adv.main =
-      Pr[= true | pcF] := by
+      Pr{let x ← pcF}[x = true] := by
     rw [nmaAdvantage, nmaGame_eq_keygen_bind, evalDist_apply_singleton]
   have hgS : SignatureAlg.eufNmaAdvantage (FiatShamirWithAbort.runtime
         (Commit := Commitment p prims) (Chal := CommitHashBytes p) M)
       (⟨adv.main⟩ : SignatureAlg.EufNmaAdversary
         (FiatShamirWithAbort (identificationSchemeShort p prims) hrS M maxAttempts)) =
-      Pr[= true | pcS] := by
+      Pr{let x ← pcS}[x = true] := by
     have h1 : SignatureAlg.eufNmaAdvantage (FiatShamirWithAbort.runtime
           (Commit := Commitment p prims) (Chal := CommitHashBytes p) M)
         (⟨adv.main⟩ : SignatureAlg.EufNmaAdversary
@@ -251,17 +251,17 @@ theorem nma_security_fips
       simp only [FiatShamirWithAbort, hGenS]
     rw [h1, nmaAdvantageShort, nmaGameShort_eq_keygen_bind, evalDist_apply_singleton]
   -- The PRG hop: the two games are the two branches of `hPRG` at the shared verify tail.
-  have hF : Pr[= true | pcF] = Pr[= true | do
+  have hF : Pr{let x ← pcF}[x = true] = Pr{let x ← (do
       let seed ← $ᵗ (Bytes 32)
       let (rho, rhoPrime, _key) := prims.expandSeed seed
       let (s1, s2) := prims.expandS rhoPrime
       simulateToProbComp p prims (M := M) (do
         let d ← adv.main ⟨rho, (prims.power2RoundVec (prims.expandA rho * s1 + s2)).1⟩
         (FiatShamirWithAbort (identificationScheme p prims) hr M maxAttempts).verify
-          ⟨rho, (prims.power2RoundVec (prims.expandA rho * s1 + s2)).1⟩ d.1 d.2)] := by
+          ⟨rho, (prims.power2RoundVec (prims.expandA rho * s1 + s2)).1⟩ d.1 d.2))}[x = true] := by
     rw [hpcF]
     simp only [keygen0, keyFromMaterial, bind_assoc, pure_bind]
-  have hS : Pr[= true | pcS] = Pr[= true | do
+  have hS : Pr{let x ← pcS}[x = true] = Pr{let x ← (do
       let _key ← $ᵗ (Bytes 32)
       let rho ← $ᵗ (Bytes 32)
       let s1 ← sampleShortVec p.l p.eta
@@ -269,7 +269,7 @@ theorem nma_security_fips
       simulateToProbComp p prims (M := M) (do
         let d ← adv.main ⟨rho, (prims.power2RoundVec (prims.expandA rho * s1 + s2)).1⟩
         (FiatShamirWithAbort (identificationScheme p prims) hr M maxAttempts).verify
-          ⟨rho, (prims.power2RoundVec (prims.expandA rho * s1 + s2)).1⟩ d.1 d.2)] := by
+          ⟨rho, (prims.power2RoundVec (prims.expandA rho * s1 + s2)).1⟩ d.1 d.2))}[x = true] := by
     rw [hpcS]
     simp only [keygenShort, keyFromMaterial, bind_assoc, pure_bind]
     rfl
@@ -283,7 +283,7 @@ theorem nma_security_fips
   rw [hadv, hgF]
   refine le_trans ((by simpa only [evalDist_apply_singleton] using
       ProbComp.evalDist_apply_true_le_add_ofReal_boolDistAdvantage pcF pcS)) ?_
-  have hshort' : Pr[= true | pcS] ≤
+  have hshort' : Pr{let x ← pcS}[x = true] ≤
       ENNReal.ofReal (LearningWithErrors.advantage mlwe (bridge adv.main) + εbridge) +
         SelfTargetMSIS.advantage (extractorCShort p prims adv.main) := by
     rw [← hgS]
@@ -348,16 +348,16 @@ theorem euf_cma_security_of_nma_short
     (qS qH : ℕ) (ε p_abort δ : ℝ)
     (hε : 0 ≤ ε) (hδ : 0 ≤ δ) (hp₀ : 0 ≤ p_abort) (hp : p_abort < 1)
     (Good : PublicKey p prims → SecretKey p → Prop)
-    (hGood : Pr[ fun xw : PublicKey p prims × SecretKey p => ¬ Good xw.1 xw.2 | hr.gen] ≤
+    (hGood : Pr{let xw ← hr.gen}[¬ Good xw.1 xw.2] ≤
       ENNReal.ofReal δ)
     (hGuess : ∀ pk sk, Good pk sk → ∀ cm : Commitment p prims,
-      Pr[= cm | Prod.fst <$> (identificationSchemeShort p prims).commit pk sk] ≤
+      Pr{let x ← Prod.fst <$> (identificationSchemeShort p prims).commit pk sk}[x = cm] ≤
         ENNReal.ofReal ε)
     (hAbort : ∀ pk sk, Good pk sk →
-      Pr[= none | (identificationSchemeShort p prims).honestExecution pk sk] ≤
+      Pr{let x ← (identificationSchemeShort p prims).honestExecution pk sk}[x = none] ≤
         ENNReal.ofReal p_abort)
     (hAbortSim : ∀ pk sk, Good pk sk →
-      Pr[= none | sim pk] ≤ ENNReal.ofReal p_abort)
+      Pr{let x ← sim pk}[x = none] ≤ ENNReal.ofReal p_abort)
     (adv : SignatureAlg.UnforgeableAdversary
       (FiatShamirWithAbort (identificationSchemeShort p prims) hr M maxAttempts))
     (hQ : ∀ pk, FiatShamir.signHashQueryBound M
@@ -439,16 +439,16 @@ theorem euf_cma_security_of_nma_fips
     (qS qH : ℕ) (ε p_abort δ : ℝ)
     (hε : 0 ≤ ε) (hδ : 0 ≤ δ) (hp₀ : 0 ≤ p_abort) (hp : p_abort < 1)
     (Good : PublicKey p prims → SecretKey p → Prop)
-    (hGood : Pr[ fun xw : PublicKey p prims × SecretKey p => ¬ Good xw.1 xw.2 | hr.gen] ≤
+    (hGood : Pr{let xw ← hr.gen}[¬ Good xw.1 xw.2] ≤
       ENNReal.ofReal δ)
     (hGuess : ∀ pk sk, Good pk sk → ∀ cm : Commitment p prims,
-      Pr[= cm | Prod.fst <$> (identificationScheme p prims).commit pk sk] ≤
+      Pr{let x ← Prod.fst <$> (identificationScheme p prims).commit pk sk}[x = cm] ≤
         ENNReal.ofReal ε)
     (hAbort : ∀ pk sk, Good pk sk →
-      Pr[= none | (identificationScheme p prims).honestExecution pk sk] ≤
+      Pr{let x ← (identificationScheme p prims).honestExecution pk sk}[x = none] ≤
         ENNReal.ofReal p_abort)
     (hAbortSim : ∀ pk sk, Good pk sk →
-      Pr[= none | sim pk] ≤ ENNReal.ofReal p_abort)
+      Pr{let x ← sim pk}[x = none] ≤ ENNReal.ofReal p_abort)
     (adv : SignatureAlg.UnforgeableAdversary
       (FiatShamirWithAbort (identificationScheme p prims) hr M maxAttempts))
     (hQ : ∀ pk, FiatShamir.signHashQueryBound M
@@ -503,7 +503,7 @@ theorem euf_cma_security_of_nma_fips
 open scoped Classical in
 /-- `euf_cma_security_of_nma_fips` with the HVZK hypothesis discharged by the proved
 seed-model simulator: under the primitive laws `h_laws`, `idsWithAbort_hvzk_real` gives
-`hvzkSimulatorReal` at the bound `hvzkBoundReal`, so the HVZK term of the loss is a proved
+`hvzkSimulatorReal` at the bound `hvzkBound`, so the HVZK term of the loss is a proved
 quantity rather than a hypothesis, and the only simulator-side hypothesis left is the abort
 rate `hAbortSim` of `hvzkSimulatorReal` on good keys. -/
 theorem euf_cma_security_of_nma_fips_hvzkReal
@@ -518,16 +518,16 @@ theorem euf_cma_security_of_nma_fips_hvzkReal
     (qS qH : ℕ) (ε p_abort δ : ℝ)
     (hε : 0 ≤ ε) (hδ : 0 ≤ δ) (hp₀ : 0 ≤ p_abort) (hp : p_abort < 1)
     (Good : PublicKey p prims → SecretKey p → Prop)
-    (hGood : Pr[ fun xw : PublicKey p prims × SecretKey p => ¬ Good xw.1 xw.2 | hr.gen] ≤
+    (hGood : Pr{let xw ← hr.gen}[¬ Good xw.1 xw.2] ≤
       ENNReal.ofReal δ)
     (hGuess : ∀ pk sk, Good pk sk → ∀ cm : Commitment p prims,
-      Pr[= cm | Prod.fst <$> (identificationScheme p prims).commit pk sk] ≤
+      Pr{let x ← Prod.fst <$> (identificationScheme p prims).commit pk sk}[x = cm] ≤
         ENNReal.ofReal ε)
     (hAbort : ∀ pk sk, Good pk sk →
-      Pr[= none | (identificationScheme p prims).honestExecution pk sk] ≤
+      Pr{let x ← (identificationScheme p prims).honestExecution pk sk}[x = none] ≤
         ENNReal.ofReal p_abort)
     (hAbortSim : ∀ pk sk, Good pk sk →
-      Pr[= none | hvzkSimulatorReal p prims pk] ≤ ENNReal.ofReal p_abort)
+      Pr{let x ← hvzkSimulatorReal p prims pk}[x = none] ≤ ENNReal.ofReal p_abort)
     (adv : SignatureAlg.UnforgeableAdversary
       (FiatShamirWithAbort (identificationScheme p prims) hr M maxAttempts))
     (hQ : ∀ pk, FiatShamir.signHashQueryBound M
@@ -554,10 +554,10 @@ theorem euf_cma_security_of_nma_fips_hvzkReal
             maxAttempts (hvzkSimulatorReal p prims) adv).main) +
         ENNReal.ofReal εPRG +
         ENNReal.ofReal
-          (FiatShamirWithAbort.cmaToNmaLoss qS qH ε p_abort (hvzkBoundReal p prims) δ hp) :=
+          (FiatShamirWithAbort.cmaToNmaLoss qS qH ε p_abort (hvzkBound p prims) δ hp) :=
   euf_cma_security_of_nma_fips p prims mlwe maxAttempts hr hGen hrS hGenS
-    εPRG hPRG (hvzkSimulatorReal p prims) (hvzkBoundReal p prims)
-    (by unfold hvzkBoundReal; exact ENNReal.toReal_nonneg)
+    εPRG hPRG (hvzkSimulatorReal p prims) (hvzkBound p prims)
+    (by unfold hvzkBound; exact ENNReal.toReal_nonneg)
     (idsWithAbort_hvzk p prims h_laws) qS qH ε p_abort δ hε hδ hp₀ hp Good hGood hGuess
     hAbort hAbortSim adv hQ εbridge bridge hMlweBridge
 
@@ -733,16 +733,15 @@ theorem euf_cma_security_short_of_uniform_advantage_bounds
     (hp : p_abort < 1) (hp₀ : 0 ≤ p_abort)
     (hε : ∀ n, 0 ≤ ε n) (hδ : ∀ n, 0 ≤ δ n)
     (Good : ∀ n, PublicKey (p' n) (prims' n) → SecretKey (p' n) → Prop)
-    (hGood : ∀ n, Pr[ fun xw : PublicKey (p' n) (prims' n) × SecretKey (p' n) =>
-        ¬ Good n xw.1 xw.2 | (hr n).gen] ≤ ENNReal.ofReal (δ n))
+    (hGood : ∀ n, Pr{let xw ← (hr n).gen}[¬ Good n xw.1 xw.2] ≤ ENNReal.ofReal (δ n))
     (hGuess : ∀ n, ∀ pk sk, Good n pk sk → ∀ cm : Commitment (p' n) (prims' n),
-      Pr[= cm | Prod.fst <$> (identificationSchemeShort (p' n) (prims' n)).commit pk sk] ≤
+      Pr{let x ← Prod.fst <$> (identificationSchemeShort (p' n) (prims' n)).commit pk sk}[x = cm] ≤
         ENNReal.ofReal (ε n))
     (hAbort : ∀ n, ∀ pk sk, Good n pk sk →
-      Pr[= none | (identificationSchemeShort (p' n) (prims' n)).honestExecution pk sk] ≤
+      Pr{let x ← (identificationSchemeShort (p' n) (prims' n)).honestExecution pk sk}[x = none] ≤
         ENNReal.ofReal p_abort)
     (hAbortSim : ∀ n, ∀ pk sk, Good n pk sk →
-      Pr[= none | sim n pk] ≤ ENNReal.ofReal p_abort)
+      Pr{let x ← sim n pk}[x = none] ≤ ENNReal.ofReal p_abort)
     (adv : ∀ n, SignatureAlg.UnforgeableAdversary
       (FiatShamirWithAbort (identificationSchemeShort (p' n) (prims' n)) (hr n) M'
         (maxAttempts n)))
