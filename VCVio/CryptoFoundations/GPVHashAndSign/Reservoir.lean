@@ -497,7 +497,7 @@ lemma reservoir_embed_commute_residual [DecidableEq Domain] [Inhabited Range]
       intro w hw hPw
       have hmem : w ∈ support augRun := by
         by_contra hns
-        exact hw (prEvent_eq_zero_of_not_mem_support hns)
+        exact hw (prEvent_eq_zero_of_not_mem_support _ hns)
       have hinv := progGameRunImplCombinedTrapCount_idx_iff_table psf M Salt pk sk
         (adv.main pk) (((((∅ : (Salt × M →ₒ Range).QueryCache), (∅ : Finset M)), false),
           fun _ => none), (fun _ => none), 0) (by intro k; simp) w hmem (w.1.2.1, w.1.1)

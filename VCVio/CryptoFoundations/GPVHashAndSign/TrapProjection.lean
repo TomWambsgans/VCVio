@@ -230,7 +230,7 @@ lemma freshSig_winnerSlot_deferred_le_embed [DecidableEq Domain] [Inhabited Rang
       simp only [Set.indicator_apply, Set.mem_singleton_iff, eq_comm (a := true),
         decide_eq_true_eq, ite_true, Function.const_apply, mul_one]
     · rw [ite_eq_right hWf]; exact zero_le
-  · rw [prEvent_eq_zero_of_not_mem_support hsupp, zero_mul]; exact zero_le
+  · rw [prEvent_eq_zero_of_not_mem_support _ hsupp, zero_mul]; exact zero_le
 
 omit [DecidableEq Range] [Fintype Salt] in
 /-- **The signed set only grows along the trap-count run.**  Every reachable final state's signed
@@ -470,7 +470,7 @@ lemma progGameRunImplCombinedTrapCount_table_frozen_eq (pk : PK) (sk : SK)
     · obtain ⟨-, htbl⟩ := progGameRunImplCombinedTrapCount_frozen psf M Salt pk sk k₀ oa s hs z hz
         hzfresh
       rw [htbl]; ring
-  · rw [prEvent_eq_zero_of_not_mem_support hz]; ring
+  · rw [prEvent_eq_zero_of_not_mem_support _ hz]; ring
 
 open Classical in
 omit [DecidableEq Range] [Fintype Salt] in
@@ -632,7 +632,7 @@ lemma progGameRunImplCombinedTrapCount_table_defer (pk : PK) (sk : SK)
                         sk mc (mx v) _ hpostc z hz hzfresh
                       rw [hzcache]
                       simp only [QueryCache.cacheQuery_self]; ring
-                  · rw [prEvent_eq_zero_of_not_mem_support hz]; ring
+                  · rw [prEvent_eq_zero_of_not_mem_support _ hz]; ring
                 -- **Combine.**  Per `x`, the inner sum is `Pr{let x ← trapdoorSample v}[x = sStar] · Q x` on
                 -- the right and `1_{x = sStar} · Q x` on the left, and `Q` is table-independent
                 -- (`progGameRunImplCombinedTrapCount_table_indep`), so `Q x = Q sStar`; integrating
@@ -703,7 +703,7 @@ lemma progGameRunImplCombinedTrapCount_table_defer (pk : PK) (sk : SK)
               have hmem : k₀.2 ∈ z.2.1.1.1.2 :=
                 hgrow (by simp only [hmsg, Finset.mem_insert, true_or])
               rw [hGfresh z.1 _ hmem]; ring
-            · rw [prEvent_eq_zero_of_not_mem_support hz]; ring
+            · rw [prEvent_eq_zero_of_not_mem_support _ hz]; ring
           · -- `msg ≠ k₀.2` forces `(r, msg) ≠ k₀`, so `cache(k₀)` stays `none`; apply the IH.
             rw [OracleComp.tsum_prEvent_bind_mul,
               OracleComp.tsum_prEvent_bind_mul]
@@ -942,7 +942,7 @@ lemma trap_freshSig_le_winnerSlot_deferred [Inhabited Range]
           (fun k x hx => by simp at hx) z hzrun (z.1.2.1, z.1.1) xv htbleq
         rw [hcache, Option.getD_some]; ring
       · simp only [ite_eq_right hfi, zero_mul, mul_zero]
-    · rw [prEvent_eq_zero_of_not_mem_support hz]; ring
+    · rw [prEvent_eq_zero_of_not_mem_support _ hz]; ring
   -- **Combine.**  `LHS = (hLHSdecomp) ∑∑ indicator = (hbridge) ∑∑ deferred = (hRHSdecomp) RHS`.
   rw [hLHSdecomp]
   rw [show (∑' p : (Salt × M) × Domain, ∑' z, Pr{let x ← run}[x = z] *

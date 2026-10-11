@@ -265,7 +265,7 @@ theorem realGameVerifyFresh_appendForgeQuery (pk : PK) (sk : SK)
 open Classical in
 omit [Fintype Salt] in
 /-- **The GPV EUF-CMA advantage is the keygen-averaged real freshness verify-Bool game.**
-Chains the keygen-averaging peel `probOutput_unforgeableExp_eq_keygen_average` with the per-key
+Chains the keygen-averaging peel `prEvent_unforgeableExp_eq_keygen_average` with the per-key
 WriterT-log → signed-set reconstruction `signedSet_eq_wasQueried`.  This is the equational
 prefix of the game-identification chain, exposed so that game-level identities (such as the
 appended-query absorption `realGameVerifyFresh_appendForgeQuery`) transfer to the headline
@@ -277,7 +277,7 @@ lemma advantage_eq_keygen_average_realGameVerifyFresh
       = Pr{let x ← ((𝒮[hr.gen] : SPMF (PK × SK)) >>= fun pksk =>
           realGameVerifyFresh psf hr M Salt adv pksk.1 pksk.2)}[x = true] := by
   classical
-  rw [probOutput_unforgeableExp_eq_keygen_average psf hr M Salt adv]
+  rw [prEvent_unforgeableExp_eq_keygen_average psf hr M Salt adv]
   rw [show (fun pksk : PK × SK =>
         (SemanticsVia.withStateOracle
           (randomOracle : QueryImpl (Salt × M →ₒ Range)
