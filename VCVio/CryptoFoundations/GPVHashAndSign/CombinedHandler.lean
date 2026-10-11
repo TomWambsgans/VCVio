@@ -306,17 +306,15 @@ discard the drawn image, so they agree.  On a signing step the joint law of the
 `(returned domain component, cached image)` pair is `(s, psf.eval pk s)` for `s ← domainSample pk`
 on the `embedAtIndexImpl` side versus `(psf.trapdoorSample pk sk c, c)` for `c ← $ᵗ Range` on the
 `embedTrapImpl` side — the two sides of `hreg`, mapped through the (deterministic) cache update.
-This is the local hypothesis of `evalSPMF_simulateQ_run_congr`. -/
+This is the local hypothesis of `evalDist_simulateQ_run_congr`. -/
 lemma evalSPMF_embedAtIndex_step_eq_embedTrap
     (domainSample : PK → ProbComp Domain) (pk : PK) (sk : SK) (w : ℕ) (y : Range)
-    (hreg : 𝒮[(do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain))] =
-      𝒮[(do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
-            : ProbComp (Range × Domain))])
+    (hreg : (do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain)) =ᵈ (do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
+            : ProbComp (Range × Domain)))
     (hNF : ∀ (c : Range), NeverFail (psf.trapdoorSample pk sk c))
     (t : ((unifSpec + (Salt × M →ₒ Range)) + (M →ₒ (Salt × Domain))).Domain)
     (s : (Salt × M →ₒ Range).QueryCache × ℕ) :
-    𝒮[(embedAtIndexImpl psf M Salt domainSample pk w y t).run s] =
-      𝒮[(embedTrapImpl psf M Salt pk sk w y t).run s] := by
+    ((embedAtIndexImpl psf M Salt domainSample pk w y t).run s) =ᵈ ((embedTrapImpl psf M Salt pk sk w y t).run s) := by
   cases t with
   | inl q =>
       cases q with
@@ -329,9 +327,8 @@ lemma evalSPMF_embedAtIndex_step_eq_embedTrap
           | none =>
               -- Random-oracle miss: the cached/returned image is a function of `psf.eval pk sd`
               -- alone, so the first marginal of `hreg` (collapsed by `hNF`) suffices.
-              have hfst : 𝒮[(domainSample pk : ProbComp Domain) >>= fun sd =>
-                    (pure (psf.eval pk sd) : ProbComp Range)]
-                  = 𝒮[($ᵗ Range : ProbComp Range)] :=
+              have hfst : ((domainSample pk : ProbComp Domain) >>= fun sd =>
+                    (pure (psf.eval pk sd) : ProbComp Range)) =ᵈ ($ᵗ Range : ProbComp Range) :=
                 evalSPMF_eval_domainSample_eq_uniform psf pk sk domainSample hNF hreg
               calc 𝒮[(fun sd : Domain =>
                       (if s.2 = w then (y, (s.1.cacheQuery q y, s.2 + 1))
@@ -388,21 +385,19 @@ trapdoor-uniform sibling `embedTrapImpl`, under GPV regularity `hreg` and trapdo
 
 The two handlers agree query-by-query as output distributions on the same embed state
 (`evalSPMF_embedAtIndex_step_eq_embedTrap`); the same-state distributional simulation engine
-`evalSPMF_simulateQ_run_congr` threads that per-step equality through the entire
+`evalDist_simulateQ_run_congr` threads that per-step equality through the entire
 adaptive fold.  After this rewrite the embed run is an all-uniform consistent random oracle (modulo
 the embedded target `y` at the winner slot), so its cache marginal coincides with the cache of the
 trapdoor-recording combined run `progGameRunImplCombinedTrap`. -/
 lemma evalSPMF_run_embedAtIndexImpl_eq_embedTrap {β : Type}
     (domainSample : PK → ProbComp Domain) (pk : PK) (sk : SK) (w : ℕ) (y : Range)
-    (hreg : 𝒮[(do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain))] =
-      𝒮[(do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
-            : ProbComp (Range × Domain))])
+    (hreg : (do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain)) =ᵈ (do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
+            : ProbComp (Range × Domain)))
     (hNF : ∀ (c : Range), NeverFail (psf.trapdoorSample pk sk c))
     (oa : OracleComp ((unifSpec + (Salt × M →ₒ Range)) + (M →ₒ (Salt × Domain))) β)
     (s : (Salt × M →ₒ Range).QueryCache × ℕ) :
-    𝒮[(simulateQ (embedAtIndexImpl psf M Salt domainSample pk w y) oa).run s] =
-      𝒮[(simulateQ (embedTrapImpl psf M Salt pk sk w y) oa).run s] :=
-  evalSPMF_simulateQ_run_congr
+    ((simulateQ (embedAtIndexImpl psf M Salt domainSample pk w y) oa).run s) =ᵈ ((simulateQ (embedTrapImpl psf M Salt pk sk w y) oa).run s) :=
+  evalDist_simulateQ_run_congr
     (embedAtIndexImpl psf M Salt domainSample pk w y)
     (embedTrapImpl psf M Salt pk sk w y)
     (evalSPMF_embedAtIndex_step_eq_embedTrap psf M Salt domainSample pk sk w y hreg hNF) oa s
@@ -628,7 +623,7 @@ output *distributions* on the **same** state: the only difference is the joint l
 on one side and `(v, trapdoorSample pk sk v)` for `v ← $ᵗ Range` on the other — exactly the two
 sides of `hreg`.  Mapping `hreg` through the (deterministic) cache/table update establishes the
 per-step distributional equality for *any* update, and the distributional simulation engine
-`evalSPMF_simulateQ_run_congr` threads it through the whole adaptive fold as an
+`evalDist_simulateQ_run_congr` threads it through the whole adaptive fold as an
 exact equidistribution — no pointwise coupling between the two runs' successor states is required.
 
 This is the clean *end-deferral* underlying the GPV Step-2 reservoir close: the recorded preimage is
@@ -722,16 +717,14 @@ a programming step (random-oracle miss or signing) the only difference is the jo
 `sd ← domainSample pk` on the combined side, versus `(v, x)` for `v ← $ᵗ Range`,
 `x ← trapdoorSample pk sk v` on the trapdoor side — the two sides of `hreg`.  Mapping `hreg` through
 the (deterministic) cache/table update yields the per-step equality.  This is the local hypothesis
-of `evalSPMF_simulateQ_run_congr`. -/
+of `evalDist_simulateQ_run_congr`. -/
 lemma evalSPMF_progGameRunImplCombined_step_eq_trap
     (domainSample : PK → ProbComp Domain) (pk : PK) (sk : SK)
-    (hreg : 𝒮[(do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain))] =
-      𝒮[(do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
-            : ProbComp (Range × Domain))])
+    (hreg : (do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain)) =ᵈ (do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
+            : ProbComp (Range × Domain)))
     (t : ((unifSpec + (Salt × M →ₒ Range)) + (M →ₒ (Salt × Domain))).Domain)
     (s : (((Salt × M →ₒ Range).QueryCache × Finset M) × Bool) × ((Salt × M) → Option Domain)) :
-    𝒮[(progGameRunImplCombined psf M Salt domainSample pk t).run s] =
-      𝒮[(progGameRunImplCombinedTrap psf M Salt pk sk t).run s] := by
+    ((progGameRunImplCombined psf M Salt domainSample pk t).run s) =ᵈ ((progGameRunImplCombinedTrap psf M Salt pk sk t).run s) := by
   cases t with
   | inl q =>
       cases q with
@@ -777,7 +770,7 @@ handler `progGameRunImplCombinedTrap`, under GPV regularity `hreg` at `(pk, sk)`
 
 The two handlers agree query-by-query as output distributions on the same state
 (`evalSPMF_progGameRunImplCombined_step_eq_trap`); the distributional simulation engine
-`evalSPMF_simulateQ_run_congr` threads that per-step equality through the entire
+`evalDist_simulateQ_run_congr` threads that per-step equality through the entire
 adaptive fold as an exact equidistribution.  No pointwise relation between the two runs' successor
 states is required: the only per-step difference is the *joint* law of the
 `(cached image, recorded preimage)` pair, which `hreg` equates target-by-target — and because the
@@ -787,14 +780,12 @@ recorded preimage `sd⋆` is re-expressed, run-for-run, as the trapdoor preimage
 image, matching the reservoir reduction's challenger preimage of the embedded uniform target. -/
 lemma evalSPMF_run_progGameRunImplCombinedTrap_eq {β : Type}
     (domainSample : PK → ProbComp Domain) (pk : PK) (sk : SK)
-    (hreg : 𝒮[(do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain))] =
-      𝒮[(do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
-            : ProbComp (Range × Domain))])
+    (hreg : (do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain)) =ᵈ (do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
+            : ProbComp (Range × Domain)))
     (oa : OracleComp ((unifSpec + (Salt × M →ₒ Range)) + (M →ₒ (Salt × Domain))) β)
     (s : (((Salt × M →ₒ Range).QueryCache × Finset M) × Bool) × ((Salt × M) → Option Domain)) :
-    𝒮[(simulateQ (progGameRunImplCombined psf M Salt domainSample pk) oa).run s] =
-      𝒮[(simulateQ (progGameRunImplCombinedTrap psf M Salt pk sk) oa).run s] :=
-  evalSPMF_simulateQ_run_congr
+    ((simulateQ (progGameRunImplCombined psf M Salt domainSample pk) oa).run s) =ᵈ ((simulateQ (progGameRunImplCombinedTrap psf M Salt pk sk) oa).run s) :=
+  evalDist_simulateQ_run_congr
     (progGameRunImplCombined psf M Salt domainSample pk)
     (progGameRunImplCombinedTrap psf M Salt pk sk)
     (evalSPMF_progGameRunImplCombined_step_eq_trap psf M Salt domainSample pk sk hreg) oa s

@@ -382,11 +382,10 @@ theorem gpv_realGameVerifyFresh_le_progGameVerifyFresh_add_collisionBound
       (S' := Salt × Domain) (α := M × (Salt × Domain))
       (oa := adv.main pk) (qSign := qSign) (qHash := qHash))
     (hNF : ∀ c, NeverFail (psf.trapdoorSample pk sk c))
-    (hreg : 𝒮[(do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain))] =
-      𝒮[(do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
-            : ProbComp (Range × Domain))]) :
-    Pr[= true | realGameVerifyFresh psf hr M Salt adv pk sk]
-      ≤ Pr[= true | progGameVerifyFresh psf hr M Salt adv domainSample pk]
+    (hreg : (do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain)) =ᵈ (do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
+            : ProbComp (Range × Domain))) :
+    Pr{let x ← realGameVerifyFresh psf hr M Salt adv pk sk}[x = true]
+      ≤ Pr{let x ← progGameVerifyFresh psf hr M Salt adv domainSample pk}[x = true]
         + collisionBound Salt qSign qHash := by
   classical
   have hcb_lt_top : collisionBound Salt qSign qHash < ⊤ := by
@@ -408,13 +407,13 @@ theorem gpv_realGameVerifyFresh_le_progGameVerifyFresh_add_collisionBound
   let runProg := (simulateQ (progGameRunImplNoRecFlagFresh psf M Salt domainSample pk)
         (adv.main pk >>= kont)).run
         (((∅ : (Salt × M →ₒ Range).QueryCache), (∅ : Finset M)), false)
-  have hgoal : Pr[= true | realGameVerifyFresh psf hr M Salt adv pk sk]
-      = Pr[= true | f <$> runReal] := rfl
-  have hgoalProg : Pr[= true | progGameVerifyFresh psf hr M Salt adv domainSample pk]
-      = Pr[= true | f <$> runProg] := rfl
+  have hgoal : Pr{let x ← realGameVerifyFresh psf hr M Salt adv pk sk}[x = true]
+      = Pr{let x ← f <$> runReal}[x = true] := rfl
+  have hgoalProg : Pr{let x ← progGameVerifyFresh psf hr M Salt adv domainSample pk}[x = true]
+      = Pr{let x ← f <$> runProg}[x = true] := rfl
   rw [hgoal, hgoalProg]
   rw [← ENNReal.ofReal_toReal probOutput_ne_top,
-      ← ENNReal.ofReal_toReal (a := Pr[= true | f <$> runProg]) probOutput_ne_top,
+      ← ENNReal.ofReal_toReal (a := Pr{let x ← f <$> runProg}[x = true]) probOutput_ne_top,
       ← ENNReal.ofReal_toReal hcb_lt_top.ne,
       ← ENNReal.ofReal_add ENNReal.toReal_nonneg ENNReal.toReal_nonneg]
   refine ENNReal.ofReal_le_ofReal ?_
@@ -472,11 +471,11 @@ theorem withStateOracle_evalSPMF_liftM_bind {ι : Type} {hashSpec : OracleSpec �
     (hashImpl : QueryImpl hashSpec (StateT hashSpec.QueryCache ProbComp))
     {α β : Type} (oa : ProbComp α)
     (rest : α → OracleComp (unifSpec + hashSpec) β) :
-    (SPMFSemantics.withStateOracle hashImpl ∅).evalSPMF (liftM oa >>= rest)
+    (SemanticsVia.withStateOracle hashImpl ∅).evalSPMF (liftM oa >>= rest)
       = (𝒮[oa] : SPMF α) >>= fun x =>
-          (SPMFSemantics.withStateOracle hashImpl ∅).evalSPMF (rest x) := by
+          (SemanticsVia.withStateOracle hashImpl ∅).evalSPMF (rest x) := by
   classical
-  unfold SPMFSemantics.evalSPMF SPMFSemantics.withStateOracle
+  unfold SPMFSemantics.evalSPMF SemanticsVia.withStateOracle
   simp only [SemanticsVia.denote]
   rw [simulateQ_bind, StateT.run'_eq, StateT.run_bind]
   rw [show simulateQ ((QueryImpl.ofLift unifSpec ProbComp).liftTarget
@@ -521,9 +520,8 @@ theorem gpv_tvDist_real_programmed_le_collisionBound
       (S' := Salt × Domain) (α := M × (Salt × Domain))
       (oa := adv.main pk) (qSign := qSign) (qHash := qHash))
     (hNF : ∀ c, NeverFail (psf.trapdoorSample pk sk c))
-    (hreg : 𝒮[(do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain))] =
-      𝒮[(do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
-            : ProbComp (Range × Domain))]) :
+    (hreg : (do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain)) =ᵈ (do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
+            : ProbComp (Range × Domain))) :
     SPMF.tvDist (realGameRun psf hr M Salt adv pk sk)
         (progGameRun psf hr M Salt adv domainSample pk)
       ≤ (collisionBound Salt qSign qHash).toReal := by
@@ -566,7 +564,7 @@ theorem runtime_evalSPMF_liftComp {α : Type} (ob : OracleComp (Salt × M →ₒ
           ∅) : SPMF α) := by
   classical
   unfold runtimeSemantics
-  unfold SPMFSemantics.evalSPMF SPMFSemantics.withStateOracle
+  unfold SPMFSemantics.evalSPMF SemanticsVia.withStateOracle
   simp only [SemanticsVia.denote]
   rw [QueryImpl.simulateQ_add_liftComp_right]
 
@@ -609,11 +607,10 @@ theorem tvDist_runtime_real_programmed_le_bad [Finite Range] [Inhabited Range] {
         (liftM (StateT.run'
           (simulateQ (QueryImpl.withProgramming uniformSampleImpl policy) ob) (∅, false))
           : SPMF α)
-      ≤ Pr[fun z : α × (Salt × M →ₒ Range).QueryCache × Bool => z.2.2 = true |
-          (simulateQ (QueryImpl.withProgramming uniformSampleImpl policy) ob).run
-            (∅, false)].toReal := by
+      ≤ Pr{let z ← ((simulateQ (QueryImpl.withProgramming uniformSampleImpl policy) ob).run
+            (∅, false))}[z.2.2 = true].toReal := by
   have : Fintype Range := Fintype.ofFinite Range
-  have : IsUniformSpec (Salt × M →ₒ Range) := IsUniformSpec.ofFintypeInhabited _
+  have : IsUniformSpec (Salt × M →ₒ Range) := UniformAnswerMeasure.ofFiniteNonempty _
   rw [runtime_evalSPMF_liftComp]
   exact tvDist_simulateQ_randomOracle_withProgramming_le_probEvent_bad
     (spec := (Salt × M →ₒ Range)) policy ob ∅
@@ -677,7 +674,7 @@ theorem tvDist_runtime_real_programmed_le_collisionBound_saltInclusive
         (liftM (StateT.run'
           (simulateQ (QueryImpl.withProgramming uniformSampleImpl policy) ob) (∅, false))
           : SPMF α) : ℝ)
-        ≤ (Pr[ (· = true) | saltSeq (Salt := Salt) c qSign]).toReal) :
+        ≤ (Pr{let x ← saltSeq (Salt := Salt) c qSign}[x = true]).toReal) :
     SPMF.tvDist
         ((runtimeSemantics M Salt).evalSPMF
           (OracleComp.liftComp ob (unifSpec + (Salt × M →ₒ Range))))
@@ -709,7 +706,7 @@ headline over the tape is not established.
 `gpv_tvDist_real_programmed_le_collisionBound` to the headline bounds:
 
 1. *Game identification.* The headline LHS `SignatureAlg.unforgeableAdvantage (runtime) adv` is
-   `Pr[= true | unforgeableExperiment (runtime) adv]`, whose body runs `simulateQ impl
+   `Pr{let x ← unforgeableExperiment (runtime) adv}[x = true]`, whose body runs `simulateQ impl
    (adv.main pk)` — the
    signing oracle draws each fresh salt *internally* at an adversary-chosen point over the sum spec
    `unifSpec + (Salt × M →ₒ Range)`. Connecting this to the *pinned* hash-only run `ob` of

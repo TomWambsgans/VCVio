@@ -42,7 +42,7 @@ deferred-sampling joint coupling, structurally identical to the Fiat–Shamir-wi
 *fold-level tape factorization*
 `FiatShamirWithAbort.evalSPMF_deferredDrawRead_eq_drawList_tapeDrawRead` (each signing body's inline
 draws are recast as consumption from a pre-drawn front tape, proved by induction over the
-`simulateQ` fold using `OracleComp.DeferredSampling.evalSPMF_step_commute_tape` for the
+`simulateQ` fold using `OracleComp.DeferredSampling.evalDistEq_step_commute_tape` for the
 answer-irrelevant — here, the adversary hash/uniform — steps and a per-body splice for the drawing
 steps).
 
@@ -78,9 +78,8 @@ This is the GPV-concrete witness for the off-collision branch-agreement hypothes
 `r ∉ c j`, the real and programmed per-signing-step answer handlers agree in distribution. -/
 theorem regularity_signAnswer_agree (hreg : psf.Regularity) (pk : PK) (sk : SK) :
     ∃ domainSample : PK → ProbComp Domain,
-      𝒮[(do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
-          : ProbComp (Range × Domain))]
-        = 𝒮[(do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain))] := by
+      (do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
+          : ProbComp (Range × Domain)) =ᵈ (do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain)) := by
   obtain ⟨domainSample, h⟩ := hreg
   exact ⟨domainSample, (h pk sk).symm⟩
 
@@ -104,7 +103,7 @@ def AdaptiveFactorizesSignRunF {α : Type}
   ∃ (St : Type) (stepReal stepProg : ℕ → St → Salt → ProbComp St)
     (c : ℕ → Finset Salt) (st : St) (g : St × Bool → ProbComp α),
     (∀ n s r, NeverFail (stepReal n s r)) ∧
-    (∀ n s r, r ∉ c n → 𝒮[stepReal n s r] = 𝒮[stepProg n s r]) ∧
+    (∀ n s r, r ∉ c n → stepReal n s r =ᵈ stepProg n s r) ∧
     (∀ j, (c j).card ≤ j + qHash) ∧
     realRun = 𝒮[signRunF (Salt := Salt) stepReal c qSign (st, false) >>= g] ∧
     progRun = 𝒮[signRunF (Salt := Salt) stepProg c qSign (st, false) >>= g]
@@ -205,12 +204,10 @@ the cache update preserves the equality. This agreement is in fact *unconditiona
 not require `r ∉ c n`), which is stronger than the obligation's off-collision conjunct demands. -/
 theorem gpvStep_agree (pk : PK) (sk : SK) (msgs : ℕ → M)
     (domainSample : PK → ProbComp Domain)
-    (hreg : 𝒮[(do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain))] =
-      𝒮[(do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
-            : ProbComp (Range × Domain))])
+    (hreg : (do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain)) =ᵈ (do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
+            : ProbComp (Range × Domain)))
     (n : ℕ) (cache : (Salt × M →ₒ Range).QueryCache) (r : Salt) :
-    𝒮[gpvStepReal psf M Salt pk sk msgs n cache r]
-      = 𝒮[gpvStepProg psf M Salt pk domainSample msgs n cache r] := by
+    gpvStepReal psf M Salt pk sk msgs n cache r =ᵈ gpvStepProg psf M Salt pk domainSample msgs n cache r := by
   unfold gpvStepReal gpvStepProg
   set proj : Range × Domain → (Salt × M →ₒ Range).QueryCache :=
     fun cs => cache.cacheQuery (r, msgs n) cs.1 with hproj
@@ -246,11 +243,10 @@ cache-miss side condition `hmiss` (guaranteed for a fresh salt), and is uncondit
 theorem evalSPMF_gpvSignBody_run_eq_gpvStepReal (pk : PK) (sk : SK) (msgs : ℕ → M) (n : ℕ)
     (cache : (Salt × M →ₒ Range).QueryCache) (r : Salt)
     (hmiss : cache (r, msgs n) = none) :
-    𝒮[(do
+    (do
         let p ← (randomOracle (spec := (Salt × M →ₒ Range)) (r, msgs n)).run cache
         let _s ← psf.trapdoorSample pk sk p.1
-        pure p.2 : ProbComp ((Salt × M →ₒ Range).QueryCache))]
-      = 𝒮[gpvStepReal psf M Salt pk sk msgs n cache r] := by
+        pure p.2 : ProbComp ((Salt × M →ₒ Range).QueryCache)) =ᵈ gpvStepReal psf M Salt pk sk msgs n cache r := by
   unfold gpvStepReal
   rw [show (randomOracle (spec := (Salt × M →ₒ Range)) (r, msgs n)).run cache
         = (fun u => (u, cache.cacheQuery (r, msgs n) u)) <$>
@@ -288,7 +284,7 @@ sign-then-hash hop compares; it is reattached at the run level, not the per-step
 theorem evalSPMF_gpvSignBody_run_eq_gpvStepProg (pk : PK) (domainSample : PK → ProbComp Domain)
     (msgs : ℕ → M) (n : ℕ)
     (cache : (Salt × M →ₒ Range).QueryCache) (pre : (Salt × M) → Option Domain) :
-    𝒮[(do
+    (do
         -- The actual `progGameRun` simulator signing body (`signImpl`), with the fresh salt draw
         -- front-loaded, run on state `(cache, pre)`; project out the random-oracle cache component
         -- (dropping the returned signature and the auxiliary preimage record).
@@ -303,11 +299,10 @@ theorem evalSPMF_gpvSignBody_run_eq_gpvStepProg (pk : PK) (domainSample : PK →
             pure (r, s) :
               StateT ((Salt × M →ₒ Range).QueryCache × ((Salt × M) → Option Domain))
                 ProbComp (Salt × Domain)).run (cache, pre))
-        pure p.2.1 : ProbComp ((Salt × M →ₒ Range).QueryCache))]
-      = 𝒮[(do
+        pure p.2.1 : ProbComp ((Salt × M →ₒ Range).QueryCache)) =ᵈ (do
           let r ← ($ᵗ Salt : ProbComp Salt)
           gpvStepProg psf M Salt pk domainSample msgs n cache r
-            : ProbComp ((Salt × M →ₒ Range).QueryCache))] := by
+            : ProbComp ((Salt × M →ₒ Range).QueryCache)) := by
   unfold gpvStepProg
   simp only [StateT.run_bind, StateT.run_get, StateT.run_monadLift, StateT.run_set,
     StateT.run_map, bind_pure_comp, map_pure, Functor.map_map, monadLift_self]

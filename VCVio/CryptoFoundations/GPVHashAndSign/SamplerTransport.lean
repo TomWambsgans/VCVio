@@ -19,7 +19,7 @@ random-oracle state.
 The accumulation is adaptive: the adversary chooses its signing queries as a function of all
 previous oracle answers.  The per-query budget telescopes across the run by the generic
 selective identical-until-bad lemma
-`OracleComp.ProgramLogic.Relational.tvDist_simulateQ_run_le_queryBoundP_mul`, applied on the
+`OracleComp.ProgramLogic.Relational.measureETVDist_simulateQ_run_le_queryBoundP_mul`, applied on the
 freshness-tracking verify-Bool vehicle (`realGameVerifyFresh`): the signing step of the fresh
 flag handler `gpvRealImplFlagFresh` is the only step touching the trapdoor sampler
 (`tvDist_run_gpvRealImplFlagFresh_sign_le`), while uniform and random-oracle steps are
@@ -95,7 +95,7 @@ computation making at most `qSign` signing queries on the two freshness-tracking
 — identical except for the trapdoor sampler, whose per-call total-variation distance is at
 most `ε` — keeps the joint output-and-state distributions within `qSign · ε`.  The per-query
 budgets telescope across the adaptively interleaved query stream by
-`tvDist_simulateQ_run_le_queryBoundP_mul`, the handlers agreeing exactly on the uniform and
+`measureETVDist_simulateQ_run_le_queryBoundP_mul`, the handlers agreeing exactly on the uniform and
 random-oracle steps. -/
 theorem tvDist_run_simulateQ_gpvRealImplFlagFresh_trapdoorSwap_le (pk : PK) (sk : SK)
     {ε : ℝ} (hε : 0 ≤ ε)
@@ -106,7 +106,7 @@ theorem tvDist_run_simulateQ_gpvRealImplFlagFresh_trapdoorSwap_le (pk : PK) (sk 
     (s₀ : ((Salt × M →ₒ Range).QueryCache × Finset M) × Bool) :
     tvDist ((simulateQ (gpvRealImplFlagFresh psf hr M Salt pk sk) oa).run s₀)
       ((simulateQ (gpvRealImplFlagFresh psf' hr M Salt pk sk) oa).run s₀) ≤ qSign * ε := by
-  refine tvDist_simulateQ_run_le_queryBoundP_mul _ _ hε (· matches .inr _) ?_ ?_ oa hqb s₀
+  refine measureETVDist_simulateQ_run_le_queryBoundP_mul _ _ hε (· matches .inr _) ?_ ?_ oa hqb s₀
   · rintro (q | msg) hSt s
     · simp at hSt
     · exact tvDist_run_gpvRealImplFlagFresh_sign_le psf psf' hr M Salt pk sk hε hStep msg s
@@ -131,8 +131,8 @@ theorem probOutput_realGameVerifyFresh_le_trapdoorSwap_add
     {ε : ℝ} (hε : 0 ≤ ε)
     (hStep : ∀ c, tvDist (psf.trapdoorSample pk sk c) (psf'.trapdoorSample pk sk c) ≤ ε)
     {qSign : ℕ} (hQ : (adv.main pk).IsQueryBoundP (· matches .inr _) qSign) :
-    Pr[= true | realGameVerifyFresh psf hr M Salt adv pk sk]
-      ≤ Pr[= true | realGameVerifyFresh psf' hr M Salt ⟨adv.main⟩ pk sk]
+    Pr{let x ← realGameVerifyFresh psf hr M Salt adv pk sk}[x = true]
+      ≤ Pr{let x ← realGameVerifyFresh psf' hr M Salt ⟨adv.main⟩ pk sk}[x = true]
         + ENNReal.ofReal (qSign * ε) := by
   classical
   set oa : OracleComp ((unifSpec + (Salt × M →ₒ Range)) + (M →ₒ (Salt × Domain)))
@@ -169,19 +169,19 @@ theorem probOutput_realGameVerifyFresh_le_trapdoorSwap_add
   have habs := abs_probOutput_toReal_sub_le_tvDist
     (realGameVerifyFresh psf hr M Salt adv pk sk)
     (realGameVerifyFresh psf' hr M Salt ⟨adv.main⟩ pk sk)
-  have h_real : Pr[= true | realGameVerifyFresh psf hr M Salt adv pk sk].toReal ≤
-      Pr[= true | realGameVerifyFresh psf' hr M Salt ⟨adv.main⟩ pk sk].toReal
+  have h_real : Pr{let x ← realGameVerifyFresh psf hr M Salt adv pk sk}[x = true].toReal ≤
+      Pr{let x ← realGameVerifyFresh psf' hr M Salt ⟨adv.main⟩ pk sk}[x = true].toReal
         + qSign * ε := by
     have h_le := (abs_le.mp habs).2
     linarith [le_trans h_le h_tv]
-  calc Pr[= true | realGameVerifyFresh psf hr M Salt adv pk sk]
+  calc Pr{let x ← realGameVerifyFresh psf hr M Salt adv pk sk}[x = true]
       = ENNReal.ofReal
-          (Pr[= true | realGameVerifyFresh psf hr M Salt adv pk sk].toReal) :=
+          (Pr{let x ← realGameVerifyFresh psf hr M Salt adv pk sk}[x = true].toReal) :=
         (ENNReal.ofReal_toReal probOutput_ne_top).symm
     _ ≤ ENNReal.ofReal
-          (Pr[= true | realGameVerifyFresh psf' hr M Salt ⟨adv.main⟩ pk sk].toReal
+          (Pr{let x ← realGameVerifyFresh psf' hr M Salt ⟨adv.main⟩ pk sk}[x = true].toReal
             + qSign * ε) := ENNReal.ofReal_le_ofReal h_real
-    _ = Pr[= true | realGameVerifyFresh psf' hr M Salt ⟨adv.main⟩ pk sk]
+    _ = Pr{let x ← realGameVerifyFresh psf' hr M Salt ⟨adv.main⟩ pk sk}[x = true]
           + ENNReal.ofReal (qSign * ε) := by
         rw [ENNReal.ofReal_add ENNReal.toReal_nonneg h_loss_nonneg,
           ENNReal.ofReal_toReal probOutput_ne_top]
@@ -219,33 +219,33 @@ theorem advantage_le_advantage_add_of_trapdoorSample_tvDist
     probOutput_bind_eq_tsum (𝒮[hr.gen] : SPMF (PK × SK)),
     probOutput_bind_eq_tsum (𝒮[hr.gen] : SPMF (PK × SK))]
   have hper : ∀ x : PK × SK, x ∈ support hr.gen →
-      Pr[= true | realGameVerifyFresh psf hr M Salt adv x.1 x.2] ≤
-        Pr[= true | realGameVerifyFresh psf' hr M Salt ⟨adv.main⟩ x.1 x.2]
+      Pr{let y ← realGameVerifyFresh psf hr M Salt adv x.1 x.2}[y = true] ≤
+        Pr{let y ← realGameVerifyFresh psf' hr M Salt ⟨adv.main⟩ x.1 x.2}[y = true]
           + ENNReal.ofReal (qSign * ε) := fun x hx =>
     probOutput_realGameVerifyFresh_le_trapdoorSwap_add psf psf' hr M Salt hEval hShort adv
       x.1 x.2 hε (hStep x.1 x.2 hx) (hQ x.1)
   calc ∑' x : PK × SK,
-        Pr[= x | 𝒮[hr.gen]] * Pr[= true | realGameVerifyFresh psf hr M Salt adv x.1 x.2]
-      ≤ ∑' x : PK × SK, (Pr[= x | 𝒮[hr.gen]]
-            * Pr[= true | realGameVerifyFresh psf' hr M Salt ⟨adv.main⟩ x.1 x.2]
-          + Pr[= x | 𝒮[hr.gen]] * ENNReal.ofReal (qSign * ε)) :=
+        Pr{let y ← 𝒮[hr.gen]}[y = x] * Pr{let y ← realGameVerifyFresh psf hr M Salt adv x.1 x.2}[y = true]
+      ≤ ∑' x : PK × SK, (Pr{let y ← 𝒮[hr.gen]}[y = x]
+            * Pr{let y ← realGameVerifyFresh psf' hr M Salt ⟨adv.main⟩ x.1 x.2}[y = true]
+          + Pr{let y ← 𝒮[hr.gen]}[y = x] * ENNReal.ofReal (qSign * ε)) :=
         ENNReal.tsum_le_tsum fun x => by
           by_cases hx : x ∈ support hr.gen
           · rw [← mul_add]; gcongr; exact hper x hx
-          · have hzero : Pr[= x | (𝒮[hr.gen] : SPMF (PK × SK))] = 0 :=
+          · have hzero : Pr{let y ← (𝒮[hr.gen] : SPMF (PK × SK))}[y = x] = 0 :=
               probOutput_eq_zero_of_not_mem_support (mx := hr.gen) hx
             simp [hzero]
-    _ = ∑' x : PK × SK, (Pr[= x | 𝒮[hr.gen]]
-            * Pr[= true | realGameVerifyFresh psf' hr M Salt ⟨adv.main⟩ x.1 x.2])
-          + (∑' x : PK × SK, Pr[= x | 𝒮[hr.gen]]) * ENNReal.ofReal (qSign * ε) := by
+    _ = ∑' x : PK × SK, (Pr{let y ← 𝒮[hr.gen]}[y = x]
+            * Pr{let y ← realGameVerifyFresh psf' hr M Salt ⟨adv.main⟩ x.1 x.2}[y = true])
+          + (∑' x : PK × SK, Pr{let y ← 𝒮[hr.gen]}[y = x]) * ENNReal.ofReal (qSign * ε) := by
         rw [ENNReal.tsum_add, ENNReal.tsum_mul_right]
-    _ ≤ ∑' x : PK × SK, (Pr[= x | 𝒮[hr.gen]]
-            * Pr[= true | realGameVerifyFresh psf' hr M Salt ⟨adv.main⟩ x.1 x.2])
+    _ ≤ ∑' x : PK × SK, (Pr{let y ← 𝒮[hr.gen]}[y = x]
+            * Pr{let y ← realGameVerifyFresh psf' hr M Salt ⟨adv.main⟩ x.1 x.2}[y = true])
           + 1 * ENNReal.ofReal (qSign * ε) := by
         gcongr
         exact tsum_probOutput_le_one
-    _ = ∑' x : PK × SK, (Pr[= x | 𝒮[hr.gen]]
-            * Pr[= true | realGameVerifyFresh psf' hr M Salt ⟨adv.main⟩ x.1 x.2])
+    _ = ∑' x : PK × SK, (Pr{let y ← 𝒮[hr.gen]}[y = x]
+            * Pr{let y ← realGameVerifyFresh psf' hr M Salt ⟨adv.main⟩ x.1 x.2}[y = true])
           + ENNReal.ofReal (qSign * ε) := by rw [one_mul]
 
 /-- **Two-sided sampler-transport accumulation, real form.** The EUF-CMA advantages of the

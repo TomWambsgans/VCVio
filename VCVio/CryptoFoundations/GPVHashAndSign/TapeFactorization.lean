@@ -41,7 +41,7 @@ signing query consumes *exactly one* salt off the tape head, so the front block 
 and the per-signing-query split peels off a single leading salt (`drawList ($ᵗ Salt) 1`). The
 non-signing (uniform / random-oracle-read) steps consume *zero* tape and commute trivially past the
 front block (the generic answer-irrelevant commute
-`OracleComp.DeferredSampling.evalSPMF_step_commute_tape`, fed by the tape↔unified
+`OracleComp.DeferredSampling.evalDistEq_step_commute_tape`, fed by the tape↔unified
 bridges). -/
 
 omit [Fintype Salt] [DecidableEq Salt] in
@@ -81,16 +81,14 @@ theorem evalSPMF_gpvSignStep_commute_real {γ : Type} (pk : PK) (sk : SK) (msg :
     (hcont : ∀ (a : ((unifSpec + (Salt × M →ₒ Range)) + (M →ₒ (Salt × Domain))).Range
           (Sum.inr msg))
         (c' : (Salt × M →ₒ Range).QueryCache),
-      𝒮[(simulateQ (gpvRealImpl psf hr M Salt pk sk) (ob a)).run c'] =
-        𝒮[OracleComp.drawList ($ᵗ Salt : ProbComp Salt) qSrem >>= fun tape =>
+      ((simulateQ (gpvRealImpl psf hr M Salt pk sk) (ob a)).run c') =ᵈ (OracleComp.drawList ($ᵗ Salt : ProbComp Salt) qSrem >>= fun tape =>
             (fun p : γ × ((Salt × M →ₒ Range).QueryCache × List Salt) => (p.1, p.2.1)) <$>
-              (simulateQ (gpvRealImplTape psf M Salt pk sk) (ob a)).run (c', tape)]) :
-    𝒮[(gpvRealImpl psf hr M Salt pk sk (Sum.inr msg)).run cache >>= fun p =>
-        (simulateQ (gpvRealImpl psf hr M Salt pk sk) (ob p.1)).run p.2] =
-      𝒮[OracleComp.drawList ($ᵗ Salt : ProbComp Salt) (qSrem + 1) >>= fun tape =>
+              (simulateQ (gpvRealImplTape psf M Salt pk sk) (ob a)).run (c', tape))) :
+    ((gpvRealImpl psf hr M Salt pk sk (Sum.inr msg)).run cache >>= fun p =>
+        (simulateQ (gpvRealImpl psf hr M Salt pk sk) (ob p.1)).run p.2) =ᵈ (OracleComp.drawList ($ᵗ Salt : ProbComp Salt) (qSrem + 1) >>= fun tape =>
           (fun p : γ × ((Salt × M →ₒ Range).QueryCache × List Salt) => (p.1, p.2.1)) <$>
             ((gpvRealImplTape psf M Salt pk sk (Sum.inr msg)).run (cache, tape) >>= fun p =>
-              (simulateQ (gpvRealImplTape psf M Salt pk sk) (ob p.1)).run p.2)] := by
+              (simulateQ (gpvRealImplTape psf M Salt pk sk) (ob p.1)).run p.2)) := by
   -- Peel the leading salt off both sides: the LHS inline sign body (via `gpvRealImpl_run_sign`)
   -- and the RHS front draw block (via `drawList_salt_succ`) both begin with `r ← $ᵗ Salt`.
   rw [gpvRealImpl_run_sign, drawList_salt_succ]
@@ -178,7 +176,7 @@ where `qSrem` bounds the number of signing queries of `oa` (the `(· matches .in
 `signHashQueryBound`). At a **pure** step the front block is value-irrelevant and discarded
 (never-failing-prefix discard via `OracleComp.probFailure_drawList`); at a **uniform /
 random-oracle-read** step the answer is independent of the tape so the front block commutes
-trivially past the step (`OracleComp.DeferredSampling.evalSPMF_step_commute_tape`, fed by the
+trivially past the step (`OracleComp.DeferredSampling.evalDistEq_step_commute_tape`, fed by the
 tape↔unified bridges); at a **signing** step the leading salt is peeled off and consumed by
 the tape head (`evalSPMF_gpvSignStep_commute_real`).
 
@@ -188,10 +186,9 @@ theorem evalSPMF_gpvRealImpl_eq_drawList_gpvRealImplTape {γ : Type} (pk : PK) (
     (oa : OracleComp ((unifSpec + (Salt × M →ₒ Range)) + (M →ₒ (Salt × Domain))) γ) :
     ∀ (qSrem : ℕ), oa.IsQueryBoundP (· matches Sum.inr _) qSrem →
       ∀ (cache : (Salt × M →ₒ Range).QueryCache),
-        𝒮[(simulateQ (gpvRealImpl psf hr M Salt pk sk) oa).run cache] =
-          𝒮[OracleComp.drawList ($ᵗ Salt : ProbComp Salt) qSrem >>= fun tape =>
+        ((simulateQ (gpvRealImpl psf hr M Salt pk sk) oa).run cache) =ᵈ (OracleComp.drawList ($ᵗ Salt : ProbComp Salt) qSrem >>= fun tape =>
               (fun p : γ × ((Salt × M →ₒ Range).QueryCache × List Salt) => (p.1, p.2.1)) <$>
-                (simulateQ (gpvRealImplTape psf M Salt pk sk) oa).run (cache, tape)] := by
+                (simulateQ (gpvRealImplTape psf M Salt pk sk) oa).run (cache, tape)) := by
   classical
   induction oa using OracleComp.inductionOn with
   | pure a =>
@@ -231,7 +228,7 @@ theorem evalSPMF_gpvRealImpl_eq_drawList_gpvRealImplTape {γ : Type} (pk : PK) (
               rw [gpvRealImplTape_run_unif_eq_gpvRealImpl psf hr M Salt pk sk n cache tape,
                 gpvRealImpl_run_unif]
               rfl]
-        exact OracleComp.DeferredSampling.evalSPMF_step_commute_tape
+        exact OracleComp.DeferredSampling.evalDistEq_step_commute_tape
           ((fun u => (u, cache)) <$> (unifSpec.query n : ProbComp _))
           (OracleComp.drawList ($ᵗ Salt : ProbComp Salt) qSrem)
           (fun p : γ × ((Salt × M →ₒ Range).QueryCache × List Salt) => (p.1, p.2.1))
@@ -264,7 +261,7 @@ theorem evalSPMF_gpvRealImpl_eq_drawList_gpvRealImplTape {γ : Type} (pk : PK) (
               rw [gpvRealImplTape_run_read_eq_gpvRealImpl psf hr M Salt pk sk mc cache tape,
                 gpvRealImpl_run_read]
               rfl]
-        exact OracleComp.DeferredSampling.evalSPMF_step_commute_tape
+        exact OracleComp.DeferredSampling.evalDistEq_step_commute_tape
           ((randomOracle (spec := (Salt × M →ₒ Range)) mc).run cache)
           (OracleComp.drawList ($ᵗ Salt : ProbComp Salt) qSrem)
           (fun p : γ × ((Salt × M →ₒ Range).QueryCache × List Salt) => (p.1, p.2.1))
@@ -311,17 +308,15 @@ theorem evalSPMF_gpvSignStep_commute_prog {γ : Type} (domainSample : PK → Pro
     (hcont : ∀ (a : ((unifSpec + (Salt × M →ₒ Range)) + (M →ₒ (Salt × Domain))).Range
           (Sum.inr msg))
         (c' : (Salt × M →ₒ Range).QueryCache),
-      𝒮[(simulateQ (progGameRunImplNoRec psf M Salt domainSample pk) (ob a)).run c'] =
-        𝒮[OracleComp.drawList ($ᵗ Salt : ProbComp Salt) qSrem >>= fun tape =>
+      ((simulateQ (progGameRunImplNoRec psf M Salt domainSample pk) (ob a)).run c') =ᵈ (OracleComp.drawList ($ᵗ Salt : ProbComp Salt) qSrem >>= fun tape =>
             (fun p : γ × ((Salt × M →ₒ Range).QueryCache × List Salt) => (p.1, p.2.1)) <$>
-              (simulateQ (progGameRunImplTape psf M Salt domainSample pk) (ob a)).run (c', tape)]) :
-    𝒮[(progGameRunImplNoRec psf M Salt domainSample pk (Sum.inr msg)).run cache >>= fun p =>
-        (simulateQ (progGameRunImplNoRec psf M Salt domainSample pk) (ob p.1)).run p.2] =
-      𝒮[OracleComp.drawList ($ᵗ Salt : ProbComp Salt) (qSrem + 1) >>= fun tape =>
+              (simulateQ (progGameRunImplTape psf M Salt domainSample pk) (ob a)).run (c', tape))) :
+    ((progGameRunImplNoRec psf M Salt domainSample pk (Sum.inr msg)).run cache >>= fun p =>
+        (simulateQ (progGameRunImplNoRec psf M Salt domainSample pk) (ob p.1)).run p.2) =ᵈ (OracleComp.drawList ($ᵗ Salt : ProbComp Salt) (qSrem + 1) >>= fun tape =>
           (fun p : γ × ((Salt × M →ₒ Range).QueryCache × List Salt) => (p.1, p.2.1)) <$>
             ((progGameRunImplTape psf M Salt domainSample pk (Sum.inr msg)).run (cache, tape)
               >>= fun p =>
-              (simulateQ (progGameRunImplTape psf M Salt domainSample pk) (ob p.1)).run p.2)] := by
+              (simulateQ (progGameRunImplTape psf M Salt domainSample pk) (ob p.1)).run p.2)) := by
   -- Peel the leading salt off both sides: the LHS inline sign body (via
   -- `progGameRunImplNoRec_run_sign`) and the RHS front draw block (via `drawList_salt_succ`).
   rw [progGameRunImplNoRec_run_sign, drawList_salt_succ]
@@ -375,7 +370,7 @@ output.
 This is the programmed dual of `evalSPMF_gpvRealImpl_eq_drawList_gpvRealImplTape`: pure step
 discards the value-irrelevant front block; uniform / random-oracle-read steps commute the front
 block past the answer-irrelevant step (via the tape↔unified bridges and
-`OracleComp.DeferredSampling.evalSPMF_step_commute_tape`); the signing step peels off and consumes
+`OracleComp.DeferredSampling.evalDistEq_step_commute_tape`); the signing step peels off and consumes
 the leading salt (`evalSPMF_gpvSignStep_commute_prog`). It is *pinned* to the concrete
 `progGameRunImplNoRec` / `progGameRunImplTape` handlers. -/
 theorem evalSPMF_progGameRunImplNoRec_eq_drawList_progGameRunImplTape {γ : Type}
@@ -383,11 +378,10 @@ theorem evalSPMF_progGameRunImplNoRec_eq_drawList_progGameRunImplTape {γ : Type
     (oa : OracleComp ((unifSpec + (Salt × M →ₒ Range)) + (M →ₒ (Salt × Domain))) γ) :
     ∀ (qSrem : ℕ), oa.IsQueryBoundP (· matches Sum.inr _) qSrem →
       ∀ (cache : (Salt × M →ₒ Range).QueryCache),
-        𝒮[(simulateQ (progGameRunImplNoRec psf M Salt domainSample pk) oa).run cache] =
-          𝒮[OracleComp.drawList ($ᵗ Salt : ProbComp Salt) qSrem >>= fun tape =>
+        ((simulateQ (progGameRunImplNoRec psf M Salt domainSample pk) oa).run cache) =ᵈ (OracleComp.drawList ($ᵗ Salt : ProbComp Salt) qSrem >>= fun tape =>
             (fun p : γ × ((Salt × M →ₒ Range).QueryCache × List Salt) => (p.1, p.2.1)) <$>
               (simulateQ (progGameRunImplTape psf M Salt domainSample pk) oa).run
-                (cache, tape)] := by
+                (cache, tape)) := by
   classical
   induction oa using OracleComp.inductionOn with
   | pure a =>
@@ -428,7 +422,7 @@ theorem evalSPMF_progGameRunImplNoRec_eq_drawList_progGameRunImplTape {γ : Type
                   cache tape,
                 progGameRunImplNoRec_run_unif]
               rfl]
-        exact OracleComp.DeferredSampling.evalSPMF_step_commute_tape
+        exact OracleComp.DeferredSampling.evalDistEq_step_commute_tape
           ((fun u => (u, cache)) <$> (unifSpec.query n : ProbComp _))
           (OracleComp.drawList ($ᵗ Salt : ProbComp Salt) qSrem)
           (fun p : γ × ((Salt × M →ₒ Range).QueryCache × List Salt) => (p.1, p.2.1))
@@ -458,7 +452,7 @@ theorem evalSPMF_progGameRunImplNoRec_eq_drawList_progGameRunImplTape {γ : Type
               rw [progGameRunImplTape_run_read_eq_progGameRunImplNoRec psf M Salt domainSample pk mc
                   cache tape]
               rfl]
-        exact OracleComp.DeferredSampling.evalSPMF_step_commute_tape
+        exact OracleComp.DeferredSampling.evalDistEq_step_commute_tape
           ((progGameRunImplNoRec psf M Salt domainSample pk (Sum.inl (Sum.inr mc))).run cache)
           (OracleComp.drawList ($ᵗ Salt : ProbComp Salt) qSrem)
           (fun p : γ × ((Salt × M →ₒ Range).QueryCache × List Salt) => (p.1, p.2.1))
@@ -625,8 +619,8 @@ is the birthday term charged by the data-processing reduction `(C)` against the 
 identical-until-bad coupling `(A)`. -/
 theorem probEvent_tapeCheck_drawList_le_collisionBound (qSign qHash : ℕ)
     (c : ℕ → Finset Salt) (hcache : ∀ j, (c j).card ≤ j + qHash) :
-    Pr[(· = true) | (do let tape ← OracleComp.drawList ($ᵗ Salt : ProbComp Salt) qSign
-                        pure (tapeCheck Salt c qSign tape))]
+    Pr{let x ← (do let tape ← OracleComp.drawList ($ᵗ Salt : ProbComp Salt) qSign
+                        pure (tapeCheck Salt c qSign tape))}[x = true]
       ≤ collisionBound Salt qSign qHash := by
   rw [drawList_tapeCheck_eq_saltSeq]
   exact probEvent_saltSeq_le_collisionBound Salt qSign qHash c hcache
@@ -650,7 +644,7 @@ theorem tvDist_drawList_bind_le {β : Type} (qSign : ℕ) (freal fprog : List Sa
     (hprog : progRun = 𝒮[OracleComp.drawList ($ᵗ Salt : ProbComp Salt) qSign >>= fprog]) :
     SPMF.tvDist realRun progRun
       ≤ ∑' tape : List Salt,
-          Pr[= tape | OracleComp.drawList ($ᵗ Salt : ProbComp Salt) qSign].toReal *
+          Pr{let x ← OracleComp.drawList ($ᵗ Salt : ProbComp Salt) qSign}[x = tape].toReal *
             tvDist (freal tape) (fprog tape) := by
   subst hreal hprog
   exact tvDist_bind_left_le (OracleComp.drawList ($ᵗ Salt : ProbComp Salt) qSign) freal fprog
@@ -675,17 +669,14 @@ machinery consumes as its no-bad-path agreement hypothesis. -/
 theorem evalSPMF_eval_domainSample_eq_uniform (pk : PK) (sk : SK)
     (domainSample : PK → ProbComp Domain)
     (hNF : ∀ c, NeverFail (psf.trapdoorSample pk sk c))
-    (hreg : 𝒮[(do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain))] =
-      𝒮[(do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
-            : ProbComp (Range × Domain))]) :
-    𝒮[(do let s ← domainSample pk; pure (psf.eval pk s) : ProbComp Range)] =
-      𝒮[($ᵗ Range : ProbComp Range)] := by
+    (hreg : (do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain)) =ᵈ (do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
+            : ProbComp (Range × Domain))) :
+    (do let s ← domainSample pk; pure (psf.eval pk s) : ProbComp Range) =ᵈ ($ᵗ Range : ProbComp Range) := by
   have h := congrArg (Functor.map (Prod.fst : Range × Domain → Range)) hreg
   simp only [← evalSPMF_map, map_bind, map_pure] at h
   rw [h]
   have hinner : ∀ a : Range,
-      𝒮[(do let _ ← psf.trapdoorSample pk sk a; pure a : ProbComp Range)] =
-        𝒮[(pure a : ProbComp Range)] := by
+      (do let _ ← psf.trapdoorSample pk sk a; pure a : ProbComp Range) =ᵈ (pure a : ProbComp Range) := by
     intro a
     refine evalSPMF_ext fun y => ?_
     rw [probOutput_bind_const, (hNF a).probFailure_eq_zero]
@@ -752,12 +743,10 @@ theorem evalSPMF_gpvImplTape_run_read_miss_eq (pk : PK) (sk : SK)
     (domainSample : PK → ProbComp Domain) (mc : Salt × M)
     (s : (Salt × M →ₒ Range).QueryCache × List Salt) (hmiss : s.1 mc = none)
     (hNF : ∀ c, NeverFail (psf.trapdoorSample pk sk c))
-    (hreg : 𝒮[(do let sd ← domainSample pk; pure (psf.eval pk sd, sd)
-            : ProbComp (Range × Domain))] =
-      𝒮[(do let c ← ($ᵗ Range); let sd ← psf.trapdoorSample pk sk c; pure (c, sd)
-            : ProbComp (Range × Domain))]) :
-    𝒮[(gpvRealImplTape psf M Salt pk sk (.inl (.inr mc))).run s] =
-      𝒮[(progGameRunImplTape psf M Salt domainSample pk (.inl (.inr mc))).run s] := by
+    (hreg : (do let sd ← domainSample pk; pure (psf.eval pk sd, sd)
+            : ProbComp (Range × Domain)) =ᵈ (do let c ← ($ᵗ Range); let sd ← psf.trapdoorSample pk sk c; pure (c, sd)
+            : ProbComp (Range × Domain))) :
+    ((gpvRealImplTape psf M Salt pk sk (.inl (.inr mc))).run s) =ᵈ ((progGameRunImplTape psf M Salt domainSample pk (.inl (.inr mc))).run s) := by
   rw [gpvRealImplTape_run_read, progGameRunImplTape_run_read, hmiss]
   simp only []
   rw [show (randomOracle (spec := (Salt × M →ₒ Range)) mc).run s.1
@@ -766,12 +755,10 @@ theorem evalSPMF_gpvImplTape_run_read_miss_eq (pk : PK) (sk : SK)
   have hfst := evalSPMF_eval_domainSample_eq_uniform psf pk sk domainSample hNF hreg
   set g : Range → Range × ((Salt × M →ₒ Range).QueryCache × List Salt) :=
     fun u => (u, (s.1.cacheQuery mc u, s.2)) with hg
-  have hLHS : 𝒮[((fun p : Range × (Salt × M →ₒ Range).QueryCache => (p.1, p.2, s.2)) <$>
-            (fun u => (u, s.1.cacheQuery mc u)) <$> ($ᵗ Range : ProbComp Range))]
-        = 𝒮[g <$> ($ᵗ Range : ProbComp Range)] := by rw [Functor.map_map]
-  have hRHS : 𝒮[((fun sd => (psf.eval pk sd, s.1.cacheQuery mc (psf.eval pk sd), s.2)) <$>
-            (domainSample pk : ProbComp Domain))]
-        = 𝒮[g <$> (do let sd ← domainSample pk; pure (psf.eval pk sd) : ProbComp Range)] := by
+  have hLHS : ((fun p : Range × (Salt × M →ₒ Range).QueryCache => (p.1, p.2, s.2)) <$>
+            (fun u => (u, s.1.cacheQuery mc u)) <$> ($ᵗ Range : ProbComp Range)) =ᵈ (g <$> ($ᵗ Range : ProbComp Range)) := by rw [Functor.map_map]
+  have hRHS : ((fun sd => (psf.eval pk sd, s.1.cacheQuery mc (psf.eval pk sd), s.2)) <$>
+            (domainSample pk : ProbComp Domain)) =ᵈ (g <$> (do let sd ← domainSample pk; pure (psf.eval pk sd) : ProbComp Range)) := by
     refine congrArg _ ?_
     rw [map_eq_bind_pure_comp]
     simp only [hg, map_bind, map_pure, Function.comp_def]
@@ -785,7 +772,7 @@ the two flag handlers `gpvRealImplTapeFlag` / `progGameRunImplTapeFlag` assign e
 every *off-bad output* `(u, (s', false))`.
 
 This is the exact `h_agree_good` hypothesis of the framework identical-until-bad lemma
-`tvDist_simulateQ_run_le_probEvent_output_bad`, made **universal** by the empty-tape-fires-the-flag
+`measureETVDist_simulateQ_run_le_prEvent_bad`, made **universal** by the empty-tape-fires-the-flag
 tweak in the flag handlers: the only state where the underlying tape handlers disagree off-flag is
 the *empty-tape signing* state (where the underlying handler falls back to an inline fresh salt
 draw); firing the flag there places that state inside the bad set, so on every off-bad output the
@@ -801,17 +788,15 @@ off-collision no-divergence ingredient the tape-route identical-until-bad coupli
 consume (the cardinality telescope bounds the run-level flag probability by `collisionBound`). -/
 theorem gpvImplTapeFlag_h_agree_good (pk : PK) (sk : SK) (domainSample : PK → ProbComp Domain)
     (hNF : ∀ c, NeverFail (psf.trapdoorSample pk sk c))
-    (hreg : 𝒮[(do let sd ← domainSample pk; pure (psf.eval pk sd, sd)
-            : ProbComp (Range × Domain))] =
-      𝒮[(do let c ← ($ᵗ Range); let sd ← psf.trapdoorSample pk sk c; pure (c, sd)
-            : ProbComp (Range × Domain))])
+    (hreg : (do let sd ← domainSample pk; pure (psf.eval pk sd, sd)
+            : ProbComp (Range × Domain)) =ᵈ (do let c ← ($ᵗ Range); let sd ← psf.trapdoorSample pk sk c; pure (c, sd)
+            : ProbComp (Range × Domain)))
     (t : ((unifSpec + (Salt × M →ₒ Range)) + (M →ₒ (Salt × Domain))).Domain)
     (s : (Salt × M →ₒ Range).QueryCache × List Salt)
     (u : ((unifSpec + (Salt × M →ₒ Range)) + (M →ₒ (Salt × Domain))).Range t)
     (s' : (Salt × M →ₒ Range).QueryCache × List Salt) :
-    Pr[= (u, (s', false)) | (gpvRealImplTapeFlag psf M Salt pk sk t).run (s, false)]
-      = Pr[= (u, (s', false)) |
-          (progGameRunImplTapeFlag psf M Salt domainSample pk t).run (s, false)] := by
+    Pr{let x ← (gpvRealImplTapeFlag psf M Salt pk sk t).run (s, false)}[x = (u, (s', false))]
+      = Pr{let x ← (progGameRunImplTapeFlag psf M Salt domainSample pk t).run (s, false)}[x = (u, (s', false))] := by
   cases t with
   | inl q =>
       -- Non-signing query: flag is passive (`F = false`), reduce to the underlying tape agreement.

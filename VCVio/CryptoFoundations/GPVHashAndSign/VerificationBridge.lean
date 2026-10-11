@@ -52,12 +52,11 @@ theorem gpv_realGameVerify_le_progGameVerify_add_collisionBound
       (S' := Salt × Domain) (α := M × (Salt × Domain))
       (oa := adv.main pk) (qSign := qSign) (qHash := qHash))
     (hNF : ∀ c, NeverFail (psf.trapdoorSample pk sk c))
-    (hreg : 𝒮[(do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain))] =
-      𝒮[(do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
-            : ProbComp (Range × Domain))])
+    (hreg : (do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain)) =ᵈ (do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
+            : ProbComp (Range × Domain)))
     (k : M × (Salt × Domain) → SPMF Bool) :
-    Pr[= true | realGameRun psf hr M Salt adv pk sk >>= k]
-      ≤ Pr[= true | progGameRun psf hr M Salt adv domainSample pk >>= k]
+    Pr{let x ← realGameRun psf hr M Salt adv pk sk >>= k}[x = true]
+      ≤ Pr{let x ← progGameRun psf hr M Salt adv domainSample pk >>= k}[x = true]
         + collisionBound Salt qSign qHash := by
   -- Both probabilities are `< ⊤`, so it suffices to prove the `toReal` inequality.
   have hcb_lt_top : collisionBound Salt qSign qHash < ⊤ := by
@@ -65,7 +64,7 @@ theorem gpv_realGameVerify_le_progGameVerify_add_collisionBound
     · simp
     · simp only [ne_eq, mul_eq_zero, OfNat.ofNat_ne_zero, Nat.cast_eq_zero, false_or]
       exact Fintype.card_ne_zero
-  set pProg := Pr[= true | progGameRun psf hr M Salt adv domainSample pk >>= k] with hpProg
+  set pProg := Pr{let x ← progGameRun psf hr M Salt adv domainSample pk >>= k}[x = true] with hpProg
   rw [← ENNReal.ofReal_toReal probOutput_ne_top,
       ← ENNReal.ofReal_toReal (a := pProg) probOutput_ne_top,
       ← ENNReal.ofReal_toReal hcb_lt_top.ne]
@@ -107,8 +106,8 @@ theorem probOutput_unforgeableExp_eq_keygen_average
     (adv : SignatureAlg.UnforgeableAdversary
       (GPVHashAndSign (m := OracleComp (unifSpec + (Salt × M →ₒ Range))) psf hr M Salt)) :
     SignatureAlg.unforgeableAdvantage (runtime M Salt) adv
-      = Pr[= true | (𝒮[hr.gen] : SPMF (PK × SK)) >>= fun pksk =>
-          (SPMFSemantics.withStateOracle
+      = Pr{let x ← ((𝒮[hr.gen] : SPMF (PK × SK)) >>= fun pksk =>
+          (SemanticsVia.withStateOracle
             (randomOracle : QueryImpl (Salt × M →ₒ Range)
               (StateT ((Salt × M →ₒ Range).QueryCache) ProbComp)) ∅).evalSPMF
             (letI : DecidableEq M := Classical.decEq M
@@ -126,20 +125,20 @@ theorem probOutput_unforgeableExp_eq_keygen_average
               let ((msg, σ), log) ← (simulateQ impl (adv.main pksk.1)).run
               let verified ← (GPVHashAndSign (m := OracleComp (unifSpec + (Salt × M →ₒ Range)))
                 psf hr M Salt).verify pksk.1 msg σ
-              return !log.wasQueried msg && verified)] := by
+              return !log.wasQueried msg && verified))}[x = true] := by
   classical
   rw [SignatureAlg.unforgeableAdvantage, SignatureAlg.unforgeableExperiment,
     runtime_evalDist_singleton]
   rw [show (GPVHashAndSign (m := OracleComp (unifSpec + (Salt × M →ₒ Range)))
         psf hr M Salt).keygen
       = (liftM hr.gen : OracleComp (unifSpec + (Salt × M →ₒ Range)) (PK × SK)) from rfl]
-  refine congrArg (fun d : SPMF Bool => Pr[= true | d]) ?_
+  refine congrArg (fun d : SPMF Bool => Pr{let x ← d}[x = true]) ?_
   rw [GPVHashAndSign.runtimeSemantics]
-  change (SPMFSemantics.withStateOracle
+  change (SemanticsVia.withStateOracle
       (randomOracle : QueryImpl (Salt × M →ₒ Range)
         (StateT ((Salt × M →ₒ Range).QueryCache) ProbComp)) ∅).evalSPMF (liftM hr.gen >>= _)
     = (𝒮[hr.gen] : SPMF (PK × SK)) >>= fun pksk =>
-        (SPMFSemantics.withStateOracle
+        (SemanticsVia.withStateOracle
           (randomOracle : QueryImpl (Salt × M →ₒ Range)
             (StateT ((Salt × M →ₒ Range).QueryCache) ProbComp)) ∅).evalSPMF _
   rw [withStateOracle_evalSPMF_liftM_bind]
@@ -215,7 +214,7 @@ lemma signedSet_eq_wasQueried
     (pk : PK) (sk : SK)
     (adv : SignatureAlg.UnforgeableAdversary
       (GPVHashAndSign (m := OracleComp (unifSpec + (Salt × M →ₒ Range))) psf hr M Salt)) :
-    (SPMFSemantics.withStateOracle
+    (SemanticsVia.withStateOracle
       (randomOracle : QueryImpl (Salt × M →ₒ Range)
         (StateT ((Salt × M →ₒ Range).QueryCache) ProbComp)) ∅).evalSPMF
       (letI : DecidableEq M := Classical.decEq M
@@ -330,22 +329,21 @@ theorem gpv_advantage_le_progGameVerifyFreshAvg_add_collisionBound
       (GPVHashAndSign (m := OracleComp (unifSpec + (Salt × M →ₒ Range))) psf hr M Salt))
     (domainSample : PK → ProbComp Domain)
     (hreg : ∀ (pk : PK) (sk : SK), (pk, sk) ∈ support hr.gen →
-      𝒮[(do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain))] =
-      𝒮[(do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
-            : ProbComp (Range × Domain))])
+      (do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain)) =ᵈ (do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
+            : ProbComp (Range × Domain)))
     (hNF : ∀ (pk : PK) (sk : SK), (pk, sk) ∈ support hr.gen →
       ∀ (c : Range), NeverFail (psf.trapdoorSample pk sk c))
     (hQ : ∀ pk, signHashQueryBound
       (S' := Salt × Domain) (α := M × (Salt × Domain))
       (oa := adv.main pk) (qSign := qSign) (qHash := qHash)) :
     SignatureAlg.unforgeableAdvantage (runtime M Salt) adv ≤
-      Pr[= true | (𝒮[hr.gen] : SPMF (PK × SK)) >>= fun pksk =>
-        progGameVerifyFresh psf hr M Salt adv domainSample pksk.1]
+      Pr{let x ← ((𝒮[hr.gen] : SPMF (PK × SK)) >>= fun pksk =>
+        progGameVerifyFresh psf hr M Salt adv domainSample pksk.1)}[x = true]
         + collisionBound Salt qSign qHash := by
   classical
   rw [probOutput_unforgeableExp_eq_keygen_average psf hr M Salt adv]
   rw [show (fun pksk : PK × SK =>
-        (SPMFSemantics.withStateOracle
+        (SemanticsVia.withStateOracle
           (randomOracle : QueryImpl (Salt × M →ₒ Range)
             (StateT ((Salt × M →ₒ Range).QueryCache) ProbComp)) ∅).evalSPMF
           (letI : DecidableEq M := Classical.decEq M
@@ -369,37 +367,37 @@ theorem gpv_advantage_le_progGameVerifyFreshAvg_add_collisionBound
   rw [probOutput_bind_eq_tsum (𝒮[hr.gen] : SPMF (PK × SK)), probOutput_bind_eq_tsum
     (𝒮[hr.gen] : SPMF (PK × SK))]
   -- Average the per-key coupling hop over `(pk, sk) ← hr.gen`: weight each per-key bound by its
-  -- keygen mass `Pr[= x | 𝒮[hr.gen]]`, pull the constant `collisionBound` out using
-  -- `∑' x, Pr[= x | 𝒮[hr.gen]] ≤ 1`.
+  -- keygen mass `Pr{let y ← 𝒮[hr.gen]}[y = x]`, pull the constant `collisionBound` out using
+  -- `∑' x, Pr{let y ← 𝒮[hr.gen]}[y = x] ≤ 1`.
   have hper : ∀ x ∈ support hr.gen,
-      Pr[= true | realGameVerifyFresh psf hr M Salt adv x.1 x.2] ≤
-        Pr[= true | progGameVerifyFresh psf hr M Salt adv domainSample x.1]
+      Pr{let y ← realGameVerifyFresh psf hr M Salt adv x.1 x.2}[y = true] ≤
+        Pr{let y ← progGameVerifyFresh psf hr M Salt adv domainSample x.1}[y = true]
           + collisionBound Salt qSign qHash := fun x hx =>
     gpv_realGameVerifyFresh_le_progGameVerifyFresh_add_collisionBound psf hr M Salt
       x.1 x.2 adv domainSample qSign qHash (hQ x.1)
       (fun c => hNF x.1 x.2 hx c) (hreg x.1 x.2 hx)
   calc ∑' x : PK × SK,
-        Pr[= x | 𝒮[hr.gen]] * Pr[= true | realGameVerifyFresh psf hr M Salt adv x.1 x.2]
-      ≤ ∑' x : PK × SK, (Pr[= x | 𝒮[hr.gen]]
-            * Pr[= true | progGameVerifyFresh psf hr M Salt adv domainSample x.1]
-          + Pr[= x | 𝒮[hr.gen]] * collisionBound Salt qSign qHash) :=
+        Pr{let y ← 𝒮[hr.gen]}[y = x] * Pr{let y ← realGameVerifyFresh psf hr M Salt adv x.1 x.2}[y = true]
+      ≤ ∑' x : PK × SK, (Pr{let y ← 𝒮[hr.gen]}[y = x]
+            * Pr{let y ← progGameVerifyFresh psf hr M Salt adv domainSample x.1}[y = true]
+          + Pr{let y ← 𝒮[hr.gen]}[y = x] * collisionBound Salt qSign qHash) :=
         ENNReal.tsum_le_tsum fun x => by
           by_cases hx : x ∈ support hr.gen
           · rw [← mul_add]; gcongr; exact hper x hx
-          · have hzero : Pr[= x | (𝒮[hr.gen] : SPMF (PK × SK))] = 0 :=
+          · have hzero : Pr{let y ← (𝒮[hr.gen] : SPMF (PK × SK))}[y = x] = 0 :=
               probOutput_eq_zero_of_not_mem_support (mx := hr.gen) hx
             simp [hzero]
-    _ = ∑' x : PK × SK, (Pr[= x | 𝒮[hr.gen]]
-            * Pr[= true | progGameVerifyFresh psf hr M Salt adv domainSample x.1])
-          + (∑' x : PK × SK, Pr[= x | 𝒮[hr.gen]]) * collisionBound Salt qSign qHash := by
+    _ = ∑' x : PK × SK, (Pr{let y ← 𝒮[hr.gen]}[y = x]
+            * Pr{let y ← progGameVerifyFresh psf hr M Salt adv domainSample x.1}[y = true])
+          + (∑' x : PK × SK, Pr{let y ← 𝒮[hr.gen]}[y = x]) * collisionBound Salt qSign qHash := by
         rw [ENNReal.tsum_add, ENNReal.tsum_mul_right]
-    _ ≤ ∑' x : PK × SK, (Pr[= x | 𝒮[hr.gen]]
-            * Pr[= true | progGameVerifyFresh psf hr M Salt adv domainSample x.1])
+    _ ≤ ∑' x : PK × SK, (Pr{let y ← 𝒮[hr.gen]}[y = x]
+            * Pr{let y ← progGameVerifyFresh psf hr M Salt adv domainSample x.1}[y = true])
           + 1 * collisionBound Salt qSign qHash := by
         gcongr
         exact tsum_probOutput_le_one
-    _ = ∑' x : PK × SK, (Pr[= x | 𝒮[hr.gen]]
-            * Pr[= true | progGameVerifyFresh psf hr M Salt adv domainSample x.1])
+    _ = ∑' x : PK × SK, (Pr{let y ← 𝒮[hr.gen]}[y = x]
+            * Pr{let y ← progGameVerifyFresh psf hr M Salt adv domainSample x.1}[y = true])
           + collisionBound Salt qSign qHash := by rw [one_mul]
 
 open Classical in
@@ -426,7 +424,7 @@ omit [Fintype Salt] in
 probability.** The success probability of the collision reduction in the keyed collision game is
 exactly the chance, over a freshly generated public key `pk` and the reduction's candidate pair
 `(x₁, x₂)`, that the pair is a genuine `psf.eval`-collision of two distinct short preimages.  This
-exposes the collision event as a plain `Pr[= true | …]` so the Step-2 extraction can bound the
+exposes the collision event as a plain `Pr{let x ← …}[x = true]` so the Step-2 extraction can bound the
 programmed game's distinct-collision mass against it. -/
 theorem collisionFindingAdvantage_reduction_eq [DecidableEq Domain]
     (adv : SignatureAlg.UnforgeableAdversary
@@ -434,12 +432,12 @@ theorem collisionFindingAdvantage_reduction_eq [DecidableEq Domain]
     (domainSample : PK → ProbComp Domain) :
     collisionFindingAdvantage (psf := psf) (hr := hr)
         (reduction psf hr M Salt adv domainSample)
-      = Pr[= true | (do
+      = Pr{let x ← (do
           let pk ← (Prod.fst <$> hr.gen : ProbComp PK)
           let xs ← reduction psf hr M Salt adv domainSample pk
           pure (decide (xs.1 ≠ xs.2) &&
             decide (psf.eval pk xs.1 = psf.eval pk xs.2) &&
-            psf.isShort xs.1 && psf.isShort xs.2) : ProbComp Bool)] := by
+            psf.isShort xs.1 && psf.isShort xs.2) : ProbComp Bool)}[x = true] := by
   unfold collisionFindingAdvantage collisionFindingExperiment
   simp only [map_eq_bind_pure_comp, bind_assoc, pure_bind, Function.comp]
 
@@ -456,9 +454,8 @@ preimage recorded at each programmed random-oracle entry by the collision reduct
 lemma isShort_of_mem_support_domainSample
     (domainSample : PK → ProbComp Domain) (pk : PK) (sk : SK)
     (hcorrect : psf.CorrectAt pk sk)
-    (hreg : 𝒮[(do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain))] =
-      𝒮[(do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
-            : ProbComp (Range × Domain))])
+    (hreg : (do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain)) =ᵈ (do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
+            : ProbComp (Range × Domain)))
     (s : Domain) (hs : s ∈ support (domainSample pk)) :
     psf.isShort s = true := by
   classical
@@ -555,22 +552,19 @@ message is fresh (not in the signed set) and the verification Bool is `true`. -/
 lemma progGameVerifyFresh_eq_probEvent_combined (domainSample : PK → ProbComp Domain) (pk : PK)
     (adv : SignatureAlg.UnforgeableAdversary
       (GPVHashAndSign (m := OracleComp (unifSpec + (Salt × M →ₒ Range))) psf hr M Salt)) :
-    Pr[= true | progGameVerifyFresh psf hr M Salt adv domainSample pk]
-      = Pr[fun w : ((M × (Salt × Domain)) × Bool) ×
-            ((((Salt × M →ₒ Range).QueryCache × Finset M) × Bool) × ((Salt × M) → Option Domain)) =>
-              (decide (w.1.1.1 ∉ w.2.1.1.2) && w.1.2) = true |
-          (simulateQ (progGameRunImplCombined psf M Salt domainSample pk)
+    Pr{let x ← progGameVerifyFresh psf hr M Salt adv domainSample pk}[x = true]
+      = Pr{let w ← ((simulateQ (progGameRunImplCombined psf M Salt domainSample pk)
             (adv.main pk >>= fun out =>
               (fun v => (out, v)) <$> gpvVerifyRead psf M Salt pk out)).run
-            ((((∅ : (Salt × M →ₒ Range).QueryCache), (∅ : Finset M)), false), fun _ => none)] := by
-  have hgame : Pr[= true | progGameVerifyFresh psf hr M Salt adv domainSample pk]
-      = Pr[= true | (fun z : ((M × (Salt × Domain)) × Bool) ×
+            ((((∅ : (Salt × M →ₒ Range).QueryCache), (∅ : Finset M)), false), fun _ => none))}[(decide (w.1.1.1 ∉ w.2.1.1.2) && w.1.2) = true] := by
+  have hgame : Pr{let x ← progGameVerifyFresh psf hr M Salt adv domainSample pk}[x = true]
+      = Pr{let x ← ((fun z : ((M × (Salt × Domain)) × Bool) ×
             (((Salt × M →ₒ Range).QueryCache × Finset M) × Bool) =>
             decide (z.1.1.1 ∉ z.2.1.2) && z.1.2) <$>
           (simulateQ (progGameRunImplNoRecFlagFresh psf M Salt domainSample pk)
             (adv.main pk >>= fun out =>
               (fun v => (out, v)) <$> gpvVerifyRead psf M Salt pk out)).run
-            (((∅ : (Salt × M →ₒ Range).QueryCache), (∅ : Finset M)), false)] := rfl
+            (((∅ : (Salt × M →ₒ Range).QueryCache), (∅ : Finset M)), false))}[x = true] := rfl
   rw [hgame, ← map_run_progGameRunImplCombined_proj_table psf M Salt domainSample pk
     (adv.main pk >>= fun out => (fun v => (out, v)) <$> gpvVerifyRead psf M Salt pk out)
     ((((∅ : (Salt × M →ₒ Range).QueryCache), (∅ : Finset M)), false), fun _ => none),
@@ -589,18 +583,15 @@ lemma reduction_collision_eq_probEvent_combined [DecidableEq Domain]
     (domainSample : PK → ProbComp Domain) (pk : PK)
     (adv : SignatureAlg.UnforgeableAdversary
       (GPVHashAndSign (m := OracleComp (unifSpec + (Salt × M →ₒ Range))) psf hr M Salt)) :
-    Pr[= true | (reduction psf hr M Salt adv domainSample pk >>= fun xs =>
+    Pr{let x ← (reduction psf hr M Salt adv domainSample pk >>= fun xs =>
         pure (decide (xs.1 ≠ xs.2) && decide (psf.eval pk xs.1 = psf.eval pk xs.2) &&
-          psf.isShort xs.1 && psf.isShort xs.2) : ProbComp Bool)]
-      = Pr[fun w : (M × (Salt × Domain)) ×
-            ((((Salt × M →ₒ Range).QueryCache × Finset M) × Bool) × ((Salt × M) → Option Domain)) =>
-              ∃ sHidden : Domain, w.2.2 (w.1.2.1, w.1.1) = some sHidden ∧
+          psf.isShort xs.1 && psf.isShort xs.2) : ProbComp Bool)}[x = true]
+      = Pr{let w ← ((simulateQ (progGameRunImplCombined psf M Salt domainSample pk)
+            (adv.main pk)).run
+            ((((∅ : (Salt × M →ₒ Range).QueryCache), (∅ : Finset M)), false), fun _ => none))}[∃ sHidden : Domain, w.2.2 (w.1.2.1, w.1.1) = some sHidden ∧
                 (decide (sHidden ≠ w.1.2.2) &&
                   decide (psf.eval pk sHidden = psf.eval pk w.1.2.2) &&
-                  psf.isShort sHidden && psf.isShort w.1.2.2) = true |
-          (simulateQ (progGameRunImplCombined psf M Salt domainSample pk)
-            (adv.main pk)).run
-            ((((∅ : (Salt × M →ₒ Range).QueryCache), (∅ : Finset M)), false), fun _ => none)] := by
+                  psf.isShort sHidden && psf.isShort w.1.2.2) = true] := by
   rw [reduction_eq_run_reductionImpl psf hr M Salt adv domainSample pk]
   rw [← map_run_progGameRunImplCombined_proj_reduction psf M Salt domainSample pk
     (adv.main pk) ((((∅ : (Salt × M →ₒ Range).QueryCache), (∅ : Finset M)), false),
@@ -631,9 +622,8 @@ the forged point exhibits a hidden preimage `sHidden` with `psf.eval pk sHidden 
 lemma distinct_implies_collision_pointwise [DecidableEq Domain]
     (domainSample : PK → ProbComp Domain) (pk : PK) (sk : SK)
     (hcorrect : psf.CorrectAt pk sk)
-    (hreg : 𝒮[(do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain))] =
-      𝒮[(do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
-            : ProbComp (Range × Domain))])
+    (hreg : (do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain)) =ᵈ (do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
+            : ProbComp (Range × Domain)))
     (adv : SignatureAlg.UnforgeableAdversary
       (GPVHashAndSign (m := OracleComp (unifSpec + (Salt × M →ₒ Range))) psf hr M Salt))
     (hForge : ForgesQueriedPoint psf hr M Salt adv domainSample)
@@ -827,28 +817,21 @@ turns into the table collision. -/
 lemma gpv_perKey_distinct_le_collision [DecidableEq Domain]
     (domainSample : PK → ProbComp Domain) (pk : PK) (sk : SK)
     (hcorrect : psf.CorrectAt pk sk)
-    (hreg : 𝒮[(do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain))] =
-      𝒮[(do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
-            : ProbComp (Range × Domain))])
+    (hreg : (do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain)) =ᵈ (do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
+            : ProbComp (Range × Domain)))
     (adv : SignatureAlg.UnforgeableAdversary
       (GPVHashAndSign (m := OracleComp (unifSpec + (Salt × M →ₒ Range))) psf hr M Salt))
     (hForge : ForgesQueriedPoint psf hr M Salt adv domainSample) :
-    Pr[fun w : ((M × (Salt × Domain)) × Bool) ×
-          ((((Salt × M →ₒ Range).QueryCache × Finset M) × Bool) × ((Salt × M) → Option Domain)) =>
-            (decide (w.1.1.1 ∉ w.2.1.1.2) && w.1.2) = true ∧
-              w.2.2 (w.1.1.2.1, w.1.1.1) ≠ some w.1.1.2.2 |
-        (simulateQ (progGameRunImplCombined psf M Salt domainSample pk)
+    Pr{let w ← ((simulateQ (progGameRunImplCombined psf M Salt domainSample pk)
           (adv.main pk >>= fun out => (fun v => (out, v)) <$> gpvVerifyRead psf M Salt pk out)).run
-          ((((∅ : (Salt × M →ₒ Range).QueryCache), (∅ : Finset M)), false), fun _ => none)]
-      ≤ Pr[fun w : (M × (Salt × Domain)) ×
-            ((((Salt × M →ₒ Range).QueryCache × Finset M) × Bool) × ((Salt × M) → Option Domain)) =>
-              ∃ sHidden : Domain, w.2.2 (w.1.2.1, w.1.1) = some sHidden ∧
+          ((((∅ : (Salt × M →ₒ Range).QueryCache), (∅ : Finset M)), false), fun _ => none))}[(decide (w.1.1.1 ∉ w.2.1.1.2) && w.1.2) = true ∧
+              w.2.2 (w.1.1.2.1, w.1.1.1) ≠ some w.1.1.2.2]
+      ≤ Pr{let w ← ((simulateQ (progGameRunImplCombined psf M Salt domainSample pk)
+            (adv.main pk)).run
+            ((((∅ : (Salt × M →ₒ Range).QueryCache), (∅ : Finset M)), false), fun _ => none))}[∃ sHidden : Domain, w.2.2 (w.1.2.1, w.1.1) = some sHidden ∧
                 (decide (sHidden ≠ w.1.2.2) &&
                   decide (psf.eval pk sHidden = psf.eval pk w.1.2.2) &&
-                  psf.isShort sHidden && psf.isShort w.1.2.2) = true |
-          (simulateQ (progGameRunImplCombined psf M Salt domainSample pk)
-            (adv.main pk)).run
-            ((((∅ : (Salt × M →ₒ Range).QueryCache), (∅ : Finset M)), false), fun _ => none)] := by
+                  psf.isShort sHidden && psf.isShort w.1.2.2) = true] := by
   rw [simulateQ_bind, StateT.run_bind, probEvent_bind_eq_tsum_subtype]
   conv_rhs => rw [← bind_pure ((simulateQ (progGameRunImplCombined psf M Salt domainSample pk)
     (adv.main pk)).run ((((∅ : (Salt × M →ₒ Range).QueryCache), (∅ : Finset M)), false),
@@ -883,7 +866,7 @@ when `b = 0`, i.e. with probability `1 / (k + 1)`.  This is the atomic per-entry
 the reservoir-sampling embedding: summing it telescopes to the uniform `1 / N` over the `N`
 programmed entries that drives the multi-target `qSign + qHash` guessing loss. -/
 lemma probOutput_reservoirStep_win (k : ℕ) :
-    Pr[= (0 : Fin (k + 1)) | ($ᵗ Fin (k + 1) : ProbComp (Fin (k + 1)))]
+    Pr{let x ← ($ᵗ Fin (k + 1) : ProbComp (Fin (k + 1)))}[x = (0 : Fin (k + 1))]
       = ((k : ℝ≥0∞) + 1)⁻¹ := by
   rw [probOutput_uniformSample]
   simp [Fintype.card_fin]
@@ -896,9 +879,9 @@ omit [DecidableEq Range] [SampleableType Range] [DecidableEq M] [DecidableEq Sal
 probability `k / (k + 1)`.  This is the per-entry survival factor whose telescoping product over a
 trace of `N` entries gives each fixed entry the uniform reservoir mass `1 / N`. -/
 lemma probEvent_reservoirStep_miss (k : ℕ) :
-    Pr[(· ≠ (0 : Fin (k + 1))) | ($ᵗ Fin (k + 1) : ProbComp (Fin (k + 1)))]
+    Pr{let x ← ($ᵗ Fin (k + 1) : ProbComp (Fin (k + 1)))}[x ≠ (0 : Fin (k + 1))]
       = (k : ℝ≥0∞) / ((k : ℝ≥0∞) + 1) := by
-  rw [probEvent_uniformSample]
+  rw [SampleableType.prEvent_uniformSample]
   simp only [Fintype.card_fin]
   rw [Finset.filter_ne', Finset.card_erase_of_mem (Finset.mem_univ _)]
   simp [Fintype.card_fin]
@@ -930,9 +913,9 @@ reservoir step is `k / (k + 1)`; this is `probEvent_reservoirStep_miss` rephrase
 per-step survival factor of a fixed prior winner. -/
 lemma tsum_reservoirStep_survival (k : ℕ) :
     (∑' x : Fin (k + 1),
-        (if x ≠ 0 then Pr[= x | ($ᵗ Fin (k + 1) : ProbComp (Fin (k + 1)))] else 0))
+        (if x ≠ 0 then Pr{let y ← ($ᵗ Fin (k + 1) : ProbComp (Fin (k + 1)))}[y = x] else 0))
       = (k : ℝ≥0∞) / ((k : ℝ≥0∞) + 1) := by
-  rw [← probEvent_eq_tsum_ite, probEvent_uniformSample]
+  rw [← probEvent_eq_tsum_ite, SampleableType.prEvent_uniformSample]
   simp only [Fintype.card_fin]
   rw [Finset.filter_ne', Finset.card_erase_of_mem (Finset.mem_univ _)]
   simp [Fintype.card_fin]
@@ -942,15 +925,15 @@ and a target index `j ≠ k`, the step lands on `some j` exactly when the coin m
 the prior winner already equals `some j`; that mass is the survival factor `k / (k + 1)` when
 `w = some j`, and `0` otherwise. -/
 lemma probOutput_reservoirStep_ne (k : ℕ) (w : Option ℕ) (j : ℕ) (hjk : j ≠ k) :
-    Pr[= some j | (($ᵗ Fin (k + 1) : ProbComp (Fin (k + 1))) >>= fun b =>
-        pure (if b = 0 then some k else w) : ProbComp (Option ℕ))]
+    Pr{let x ← (($ᵗ Fin (k + 1) : ProbComp (Fin (k + 1))) >>= fun b =>
+        pure (if b = 0 then some k else w) : ProbComp (Option ℕ))}[x = some j]
       = (if w = some j then ((k : ℝ≥0∞) / ((k : ℝ≥0∞) + 1)) else 0) := by
   rw [probOutput_bind_eq_tsum]
   simp only [probOutput_pure]
   have hrw : ∀ x : Fin (k + 1),
-      Pr[= x | ($ᵗ Fin (k + 1) : ProbComp (Fin (k + 1)))] *
+      Pr{let y ← ($ᵗ Fin (k + 1) : ProbComp (Fin (k + 1)))}[y = x] *
         (if some j = if x = 0 then some k else w then (1 : ℝ≥0∞) else 0)
-        = (if x ≠ 0 then Pr[= x | ($ᵗ Fin (k + 1) : ProbComp (Fin (k + 1)))] else 0) *
+        = (if x ≠ 0 then Pr{let y ← ($ᵗ Fin (k + 1) : ProbComp (Fin (k + 1)))}[y = x] else 0) *
             (if w = some j then (1 : ℝ≥0∞) else 0) := by
     intro x
     by_cases hx : x = 0
@@ -970,15 +953,15 @@ lemma probOutput_reservoirStep_ne (k : ℕ) (w : Option ℕ) (j : ℕ) (hjk : j 
 the step lands on the new entry `some k` exactly when the coin hits (`b = 0`), with probability
 `1 / (k + 1)` (`probOutput_reservoirStep_win`). -/
 lemma probOutput_reservoirStep_eq (k : ℕ) (w : Option ℕ) (hw : w ≠ some k) :
-    Pr[= some k | (($ᵗ Fin (k + 1) : ProbComp (Fin (k + 1))) >>= fun b =>
-        pure (if b = 0 then some k else w) : ProbComp (Option ℕ))]
+    Pr{let x ← (($ᵗ Fin (k + 1) : ProbComp (Fin (k + 1))) >>= fun b =>
+        pure (if b = 0 then some k else w) : ProbComp (Option ℕ))}[x = some k]
       = ((k : ℝ≥0∞) + 1)⁻¹ := by
   rw [probOutput_bind_eq_tsum]
   simp only [probOutput_pure]
   have hrw : ∀ x : Fin (k + 1),
-      Pr[= x | ($ᵗ Fin (k + 1) : ProbComp (Fin (k + 1)))] *
+      Pr{let y ← ($ᵗ Fin (k + 1) : ProbComp (Fin (k + 1)))}[y = x] *
         (if some k = if x = 0 then some k else w then (1 : ℝ≥0∞) else 0)
-        = (if x = 0 then Pr[= x | ($ᵗ Fin (k + 1) : ProbComp (Fin (k + 1)))] else 0) := by
+        = (if x = 0 then Pr{let y ← ($ᵗ Fin (k + 1) : ProbComp (Fin (k + 1)))}[y = x] else 0) := by
     intro x
     by_cases hx : x = 0
     · subst hx
@@ -1024,7 +1007,7 @@ lemma reservoirWinnerIndex_neverFail : ∀ n, NeverFail (reservoirWinnerIndex n)
 /-- The winner marginal of the reservoir process is a genuine distribution: its outputs sum to `1`
 (it never fails), so the per-index probabilities partition the unit mass. -/
 lemma tsum_probOutput_reservoirWinnerIndex (n : ℕ) :
-    ∑' w : Option ℕ, Pr[= w | reservoirWinnerIndex n] = 1 :=
+    ∑' w : Option ℕ, Pr{let x ← reservoirWinnerIndex n}[x = w] = 1 :=
   tsum_probOutput_eq_one' (reservoirWinnerIndex_neverFail n).probFailure_eq_zero
 
 /-- **D2a — reservoir winner uniformity.** After `N` programmed entries, the reservoir winner is
@@ -1036,7 +1019,7 @@ the
 data-independent winner-selection core of the GPV Step-2 reservoir close, separable from the
 embedding-indistinguishability coupling `hreg`. -/
 lemma probOutput_reservoirWinnerIndex_eq :
-    ∀ (N j : ℕ), j < N → Pr[= some j | reservoirWinnerIndex N] = (N : ℝ≥0∞)⁻¹
+    ∀ (N j : ℕ), j < N → Pr{let x ← reservoirWinnerIndex N}[x = some j] = (N : ℝ≥0∞)⁻¹
   | 0, j, hj => absurd hj (by omega)
   | k + 1, j, hj => by
       rw [reservoirWinnerIndex_succ, probOutput_bind_eq_tsum]
@@ -1044,10 +1027,10 @@ lemma probOutput_reservoirWinnerIndex_eq :
       · -- the target is the new entry; every prior winner `w ≠ some j` loses to it
         subst hjk
         have hcongr : ∀ w : Option ℕ,
-            Pr[= w | reservoirWinnerIndex j] *
-              Pr[= some j | (($ᵗ Fin (j + 1) : ProbComp (Fin (j + 1))) >>= fun b =>
-                pure (if b = 0 then some j else w) : ProbComp (Option ℕ))]
-              = Pr[= w | reservoirWinnerIndex j] * ((j : ℝ≥0∞) + 1)⁻¹ := by
+            Pr{let x ← reservoirWinnerIndex j}[x = w] *
+              Pr{let x ← (($ᵗ Fin (j + 1) : ProbComp (Fin (j + 1))) >>= fun b =>
+                pure (if b = 0 then some j else w) : ProbComp (Option ℕ))}[x = some j]
+              = Pr{let x ← reservoirWinnerIndex j}[x = w] * ((j : ℝ≥0∞) + 1)⁻¹ := by
           intro w
           by_cases hw : w ∈ support (reservoirWinnerIndex j)
           · rw [probOutput_reservoirStep_eq j w (fun hwk =>
@@ -1058,10 +1041,10 @@ lemma probOutput_reservoirWinnerIndex_eq :
         push_cast; ring_nf
       · -- the target is an earlier entry `j < k`; it must survive (`b ≠ 0`) and already be `w`
         rw [tsum_congr (fun w => by rw [probOutput_reservoirStep_ne k w j hjk] :
-          ∀ w : Option ℕ, Pr[= w | reservoirWinnerIndex k] *
-              Pr[= some j | (($ᵗ Fin (k + 1) : ProbComp (Fin (k + 1))) >>= fun b =>
-                pure (if b = 0 then some k else w) : ProbComp (Option ℕ))]
-            = Pr[= w | reservoirWinnerIndex k] *
+          ∀ w : Option ℕ, Pr{let x ← reservoirWinnerIndex k}[x = w] *
+              Pr{let x ← (($ᵗ Fin (k + 1) : ProbComp (Fin (k + 1))) >>= fun b =>
+                pure (if b = 0 then some k else w) : ProbComp (Option ℕ))}[x = some j]
+            = Pr{let x ← reservoirWinnerIndex k}[x = w] *
                 (if w = some j then ((k : ℝ≥0∞) / ((k : ℝ≥0∞) + 1)) else 0))]
         rw [tsum_eq_single (some j) (fun w hw => by rw [ite_eq_right (fun h => hw h), mul_zero]),
           ite_eq_left rfl, probOutput_reservoirWinnerIndex_eq k j (by omega)]
@@ -1082,15 +1065,15 @@ partitioning the unit total mass (`tsum_probOutput_reservoirWinnerIndex`) into t
 the `some j` atoms, the latter summing to `∑_{j < N} 1 / N = 1` by D2a together with the support
 bound `reservoirWinnerIndex_support_lt`. -/
 lemma probOutput_reservoirWinnerIndex_none_eq_zero (N : ℕ) (hN : N ≠ 0) :
-    Pr[= (none : Option ℕ) | reservoirWinnerIndex N] = 0 := by
-  have hsplit : ∑' w : Option ℕ, Pr[= w | reservoirWinnerIndex N]
-      = Pr[= (none : Option ℕ) | reservoirWinnerIndex N]
-        + ∑' j : ℕ, Pr[= some j | reservoirWinnerIndex N] := by
+    Pr{let x ← reservoirWinnerIndex N}[x = (none : Option ℕ)] = 0 := by
+  have hsplit : ∑' w : Option ℕ, Pr{let x ← reservoirWinnerIndex N}[x = w]
+      = Pr{let x ← reservoirWinnerIndex N}[x = (none : Option ℕ)]
+        + ∑' j : ℕ, Pr{let x ← reservoirWinnerIndex N}[x = some j] := by
     rw [tsum_option _ ENNReal.summable]
   rw [tsum_probOutput_reservoirWinnerIndex] at hsplit
-  have hsome : ∑' j : ℕ, Pr[= some j | reservoirWinnerIndex N] = 1 := by
+  have hsome : ∑' j : ℕ, Pr{let x ← reservoirWinnerIndex N}[x = some j] = 1 := by
     have hpt : ∀ j : ℕ,
-        Pr[= some j | reservoirWinnerIndex N] = if j < N then (N : ℝ≥0∞)⁻¹ else 0 := by
+        Pr{let x ← reservoirWinnerIndex N}[x = some j] = if j < N then (N : ℝ≥0∞)⁻¹ else 0 := by
       intro j
       by_cases hj : j < N
       · rw [ite_eq_left hj, probOutput_reservoirWinnerIndex_eq N j hj]
@@ -1103,7 +1086,7 @@ lemma probOutput_reservoirWinnerIndex_none_eq_zero (N : ℕ) (hN : N ≠ 0) :
     rw [Finset.sum_const, Finset.card_range, nsmul_eq_mul,
       ENNReal.mul_inv_cancel (by exact_mod_cast hN) (by simp)]
   rw [hsome] at hsplit
-  have h1 : Pr[= (none : Option ℕ) | reservoirWinnerIndex N] + 1 = 0 + 1 := by
+  have h1 : Pr{let x ← reservoirWinnerIndex N}[x = (none : Option ℕ)] + 1 = 0 + 1 := by
     rw [zero_add]; exact hsplit.symm
   exact WithTop.add_right_cancel one_ne_top h1
 
@@ -1116,7 +1099,7 @@ since `N ≤ Q`, `1 / N ≥ 1 / Q`.  Lifting this per-slot bound into the in-fol
 slot identities are adaptive, but always `N ≤ qSign + qHash` by `combined_run_table_card_le`) is the
 data-independent core of the reservoir close. -/
 lemma probOutput_reservoirWinnerIndex_ge (N j Q : ℕ) (hj : j < N) (hNQ : N ≤ Q) :
-    (Q : ℝ≥0∞)⁻¹ ≤ Pr[= some j | reservoirWinnerIndex N] := by
+    (Q : ℝ≥0∞)⁻¹ ≤ Pr{let x ← reservoirWinnerIndex N}[x = some j] := by
   rw [probOutput_reservoirWinnerIndex_eq N j hj]
   exact ENNReal.inv_le_inv.mpr (by exact_mod_cast hNQ)
 
@@ -1159,19 +1142,19 @@ omit [Fintype Salt] in
 success probability of the reduction in the keyed programmed-preimage game equals the chance,
 averaged over a fresh key pair `(pk, sk) ← hr.gen` and a uniform target `y`, that the reduction
 reproduces the challenger's hidden short preimage `x`. Exposes the exact-match event as a plain
-`Pr[= true | …]` bind so the Step-2 extraction can average it against the same keygen mass. -/
+`Pr{let x ← …}[x = true]` bind so the Step-2 extraction can average it against the same keygen mass. -/
 theorem programmedPreimageAdvantage_reduction_eq [DecidableEq Domain]
     (adv : SignatureAlg.UnforgeableAdversary
       (GPVHashAndSign (m := OracleComp (unifSpec + (Salt × M →ₒ Range))) psf hr M Salt))
     (domainSample : PK → ProbComp Domain) (qSign qHash : ℕ) :
     programmedPreimageAdvantage (psf := psf) (hr := hr)
         (programmedPreimageReduction psf hr M Salt adv domainSample qSign qHash)
-      = Pr[= true | (hr.gen >>= fun pksk => (do
+      = Pr{let z ← (hr.gen >>= fun pksk => (do
           let y ← ($ᵗ Range : ProbComp Range)
           let x ← psf.trapdoorSample pksk.1 pksk.2 y
           let x' ← programmedPreimageReduction psf hr M Salt adv domainSample qSign qHash
             pksk.1 y
-          pure (decide (x' = x))) : ProbComp Bool)] := by
+          pure (decide (x' = x))) : ProbComp Bool)}[z = true] := by
   unfold programmedPreimageAdvantage programmedPreimageExperiment
   rfl
 
@@ -1191,20 +1174,20 @@ theorem gpv_progGameVerifyFreshAvg_le_of_perKey [DecidableEq Domain]
       (GPVHashAndSign (m := OracleComp (unifSpec + (Salt × M →ₒ Range))) psf hr M Salt))
     (domainSample : PK → ProbComp Domain)
     (h : ∀ pksk ∈ support hr.gen,
-      Pr[= true | progGameVerifyFresh psf hr M Salt adv domainSample pksk.1]
-        ≤ Pr[= true | (reduction psf hr M Salt adv domainSample pksk.1 >>= fun xs =>
+      Pr{let x ← progGameVerifyFresh psf hr M Salt adv domainSample pksk.1}[x = true]
+        ≤ Pr{let x ← (reduction psf hr M Salt adv domainSample pksk.1 >>= fun xs =>
               pure (decide (xs.1 ≠ xs.2) &&
                 decide (psf.eval pksk.1 xs.1 = psf.eval pksk.1 xs.2) &&
-                psf.isShort xs.1 && psf.isShort xs.2) : ProbComp Bool)]
+                psf.isShort xs.1 && psf.isShort xs.2) : ProbComp Bool)}[x = true]
           + ((qSign + qHash : ℕ) : ENNReal) *
-            Pr[= true | (do
+            Pr{let z ← (do
               let y ← ($ᵗ Range : ProbComp Range)
               let x ← psf.trapdoorSample pksk.1 pksk.2 y
               let x' ← programmedPreimageReduction psf hr M Salt adv domainSample qSign qHash
                 pksk.1 y
-              pure (decide (x' = x)) : ProbComp Bool)]) :
-    Pr[= true | (𝒮[hr.gen] : SPMF (PK × SK)) >>= fun pksk =>
-        progGameVerifyFresh psf hr M Salt adv domainSample pksk.1]
+              pure (decide (x' = x)) : ProbComp Bool)}[z = true]) :
+    Pr{let x ← ((𝒮[hr.gen] : SPMF (PK × SK)) >>= fun pksk =>
+        progGameVerifyFresh psf hr M Salt adv domainSample pksk.1)}[x = true]
       ≤ collisionFindingAdvantage (psf := psf) (hr := hr)
           (reduction psf hr M Salt adv domainSample)
         + ((qSign + qHash : ℕ) : ENNReal) *
@@ -1221,8 +1204,8 @@ theorem gpv_progGameVerifyFreshAvg_le_of_perKey [DecidableEq Domain]
   by_cases hx : x ∈ support hr.gen
   · rw [mul_left_comm (↑(qSign + qHash) : ENNReal), ← mul_add]
     exact mul_le_mul' le_rfl (h x hx)
-  · have hzero : Pr[= x | hr.gen] = 0 := probOutput_eq_zero_of_not_mem_support hx
-    have hzero' : Pr[= x | (𝒮[hr.gen] : SPMF (PK × SK))] = 0 :=
+  · have hzero : Pr{let y ← hr.gen}[y = x] = 0 := probOutput_eq_zero_of_not_mem_support hx
+    have hzero' : Pr{let y ← (𝒮[hr.gen] : SPMF (PK × SK))}[y = x] = 0 :=
       probOutput_eq_zero_of_not_mem_support (mx := hr.gen) hx
     simp [hzero, hzero']
 
@@ -1230,23 +1213,23 @@ omit [Fintype Salt] in
 /-- **D0 — exact-match advantage as a target-averaged reservoir win.** The per-key exact-match term
 of the programmed-preimage reduction expands, over the uniform target draw `y ← $ᵗ Range`, into the
 weighted sum of the reduction's exact-match win probability at each fixed target `y`.  This is the
-entry point for the reservoir analysis: the inner factor `Pr[= true | …]` is the success
+entry point for the reservoir analysis: the inner factor `Pr{let x ← …}[x = true]` is the success
 probability of `programmedPreimageReduction … pk y` reproducing the trapdoor preimage `x` of the
 fixed embedded target `y`, which the reservoir-sampling argument then bounds. -/
 lemma programmedPreimage_perKey_eq_tsum [DecidableEq Domain]
     (domainSample : PK → ProbComp Domain) (pk : PK) (sk : SK) (qSign qHash : ℕ)
     (adv : SignatureAlg.UnforgeableAdversary
       (GPVHashAndSign (m := OracleComp (unifSpec + (Salt × M →ₒ Range))) psf hr M Salt)) :
-    Pr[= true | (do
+    Pr{let z ← (do
         let y ← ($ᵗ Range : ProbComp Range)
         let x ← psf.trapdoorSample pk sk y
         let x' ← programmedPreimageReduction psf hr M Salt adv domainSample qSign qHash pk y
-        pure (decide (x' = x)) : ProbComp Bool)]
-      = ∑' y : Range, Pr[= y | ($ᵗ Range : ProbComp Range)] *
-          Pr[= true | (do
+        pure (decide (x' = x)) : ProbComp Bool)}[z = true]
+      = ∑' y : Range, Pr{let x ← ($ᵗ Range : ProbComp Range)}[x = y] *
+          Pr{let z ← (do
             let x ← psf.trapdoorSample pk sk y
             let x' ← programmedPreimageReduction psf hr M Salt adv domainSample qSign qHash pk y
-            pure (decide (x' = x)) : ProbComp Bool)] := by
+            pure (decide (x' = x)) : ProbComp Bool)}[z = true] := by
   rw [probOutput_bind_eq_tsum]
 
 open Classical in
@@ -1268,23 +1251,17 @@ lemma gpv_perKey_exactMatch_verifyStrip_le
     (adv : SignatureAlg.UnforgeableAdversary
       (GPVHashAndSign (m := OracleComp (unifSpec + (Salt × M →ₒ Range))) psf hr M Salt))
     (hForge : ForgesQueriedPoint psf hr M Salt adv domainSample) :
-    Pr[fun w : ((M × (Salt × Domain)) × Bool) ×
-          ((((Salt × M →ₒ Range).QueryCache × Finset M) × Bool) × ((Salt × M) → Option Domain)) =>
-            (decide (w.1.1.1 ∉ w.2.1.1.2) && w.1.2) = true ∧
-              w.2.2 (w.1.1.2.1, w.1.1.1) = some w.1.1.2.2 |
-        (simulateQ (progGameRunImplCombined psf M Salt domainSample pk)
+    Pr{let w ← ((simulateQ (progGameRunImplCombined psf M Salt domainSample pk)
           (adv.main pk >>= fun out => (fun v => (out, v)) <$> gpvVerifyRead psf M Salt pk out)).run
-          ((((∅ : (Salt × M →ₒ Range).QueryCache), (∅ : Finset M)), false), fun _ => none)]
-      ≤ Pr[fun w : (M × (Salt × Domain)) ×
-            ((((Salt × M →ₒ Range).QueryCache × Finset M) × Bool) × ((Salt × M) → Option Domain)) =>
-              (decide (w.1.1 ∉ w.2.1.1.2) &&
+          ((((∅ : (Salt × M →ₒ Range).QueryCache), (∅ : Finset M)), false), fun _ => none))}[(decide (w.1.1.1 ∉ w.2.1.1.2) && w.1.2) = true ∧
+              w.2.2 (w.1.1.2.1, w.1.1.1) = some w.1.1.2.2]
+      ≤ Pr{let w ← ((simulateQ (progGameRunImplCombined psf M Salt domainSample pk)
+            (adv.main pk)).run
+            ((((∅ : (Salt × M →ₒ Range).QueryCache), (∅ : Finset M)), false), fun _ => none))}[(decide (w.1.1 ∉ w.2.1.1.2) &&
                   (decide (psf.eval pk w.1.2.2 =
                       (w.2.1.1.1 (w.1.2.1, w.1.1)).getD (psf.eval pk w.1.2.2)) &&
                     psf.isShort w.1.2.2)) = true ∧
-                w.2.2 (w.1.2.1, w.1.1) = some w.1.2.2 |
-          (simulateQ (progGameRunImplCombined psf M Salt domainSample pk)
-            (adv.main pk)).run
-            ((((∅ : (Salt × M →ₒ Range).QueryCache), (∅ : Finset M)), false), fun _ => none)] := by
+                w.2.2 (w.1.2.1, w.1.1) = some w.1.2.2] := by
   rw [simulateQ_bind, StateT.run_bind, probEvent_bind_eq_tsum_subtype]
   conv_rhs => rw [← bind_pure ((simulateQ (progGameRunImplCombined psf M Salt domainSample pk)
     (adv.main pk)).run ((((∅ : (Salt × M →ₒ Range).QueryCache), (∅ : Finset M)), false),

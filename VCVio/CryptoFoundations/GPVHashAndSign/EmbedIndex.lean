@@ -386,8 +386,7 @@ lemma evalSPMF_run_embedTrapIdxSigImpl_eq_embedTrapFreshIdxSig_of_lt (pk : PK) (
     {β : Type} (oa : OracleComp ((unifSpec + (Salt × M →ₒ Range)) + (M →ₒ (Salt × Domain))) β) :
     ∀ (s : (((Salt × M →ₒ Range).QueryCache × ℕ) × ((Salt × M) → Option ℕ)) × Finset M),
       j < s.1.1.2 →
-      𝒮[(simulateQ (embedTrapIdxSigImpl psf M Salt pk sk j y) oa).run s] =
-        𝒮[(simulateQ (embedTrapFreshIdxSigImpl psf M Salt pk sk) oa).run s] := by
+      ((simulateQ (embedTrapIdxSigImpl psf M Salt pk sk j y) oa).run s) =ᵈ ((simulateQ (embedTrapFreshIdxSigImpl psf M Salt pk sk) oa).run s) := by
   induction oa using OracleComp.inductionOn with
   | pure a => intro s _; rfl
   | query_bind t ob ih =>
@@ -417,9 +416,8 @@ lemma evalSPMF_frontDraw_embedTrapIdxSigImpl_eq_embedTrapFreshSigImpl
     (pk : PK) (sk : SK) (j : ℕ)
     {β : Type} (oa : OracleComp ((unifSpec + (Salt × M →ₒ Range)) + (M →ₒ (Salt × Domain))) β) :
     ∀ (s : (((Salt × M →ₒ Range).QueryCache × ℕ) × ((Salt × M) → Option ℕ)) × Finset M),
-      𝒮[(($ᵗ Range : ProbComp Range) >>= fun y =>
-          (simulateQ (embedTrapIdxSigImpl psf M Salt pk sk j y) oa).run s)] =
-        𝒮[(simulateQ (embedTrapFreshIdxSigImpl psf M Salt pk sk) oa).run s] := by
+      (($ᵗ Range : ProbComp Range) >>= fun y =>
+          (simulateQ (embedTrapIdxSigImpl psf M Salt pk sk j y) oa).run s) =ᵈ ((simulateQ (embedTrapFreshIdxSigImpl psf M Salt pk sk) oa).run s) := by
   induction oa using OracleComp.inductionOn with
   | pure a =>
       intro s
@@ -480,27 +478,26 @@ lemma evalSPMF_frontDraw_embedTrapIdxSigImpl_eq_embedTrapFreshSigImpl
 omit [DecidableEq Range] [Fintype Salt] in
 /-- **Expected-functional form of the signed-set front-loading lift.**  For any nonnegative output
 functional `F`, the inline-fresh run's expectation equals the front-target-averaged trap-sibling
-run's expectation: `∑' w, Pr[= w | freshSig run] · F w = ∑' y, Pr[= y] · ∑' w, Pr[= w |
-embedTrapIdxSig … j y run] · F w`.  Immediate from
+run's expectation: `∑' w, Pr{let x ← freshSig run}[x = w] · F w = ∑' y, Pr[= y] · ∑' w, Pr{let x ← embedTrapIdxSig … j y run}[x = w] · F w`.  Immediate from
 `evalSPMF_frontDraw_embedTrapIdxSigImpl_eq_embedTrapFreshSigImpl` (the two `evalSPMF`s agree, so
-their expectations of `F` agree) and the Tonelli rearrangement `tsum_probOutput_bind_mul`. -/
+their expectations of `F` agree) and the Tonelli rearrangement `OracleComp.tsum_prEvent_bind_mul`. -/
 lemma tsum_probOutput_embedTrapFreshIdxSig_mul_eq_frontDraw
     (pk : PK) (sk : SK) (j : ℕ)
     {β : Type} (oa : OracleComp ((unifSpec + (Salt × M →ₒ Range)) + (M →ₒ (Salt × Domain))) β)
     (s : (((Salt × M →ₒ Range).QueryCache × ℕ) × ((Salt × M) → Option ℕ)) × Finset M)
     (F : β × ((((Salt × M →ₒ Range).QueryCache × ℕ) × ((Salt × M) → Option ℕ)) × Finset M) →
       ℝ≥0∞) :
-    (∑' w, Pr[= w | (simulateQ (embedTrapFreshIdxSigImpl psf M Salt pk sk) oa).run s] * F w) =
-      ∑' y : Range, Pr[= y | ($ᵗ Range : ProbComp Range)] *
-        ∑' w, Pr[= w | (simulateQ (embedTrapIdxSigImpl psf M Salt pk sk j y) oa).run s] * F w := by
+    (∑' w, Pr{let x ← (simulateQ (embedTrapFreshIdxSigImpl psf M Salt pk sk) oa).run s}[x = w] * F w) =
+      ∑' y : Range, Pr{let x ← ($ᵗ Range : ProbComp Range)}[x = y] *
+        ∑' w, Pr{let x ← (simulateQ (embedTrapIdxSigImpl psf M Salt pk sk j y) oa).run s}[x = w] * F w := by
   have hlift := evalSPMF_frontDraw_embedTrapIdxSigImpl_eq_embedTrapFreshSigImpl psf M Salt pk sk j
     oa s
-  have hF : ∀ w, Pr[= w | (simulateQ (embedTrapFreshIdxSigImpl psf M Salt pk sk) oa).run s] =
-      Pr[= w | (($ᵗ Range : ProbComp Range) >>= fun y =>
-        (simulateQ (embedTrapIdxSigImpl psf M Salt pk sk j y) oa).run s)] :=
+  have hF : ∀ w, Pr{let x ← (simulateQ (embedTrapFreshIdxSigImpl psf M Salt pk sk) oa).run s}[x = w] =
+      Pr{let x ← (($ᵗ Range : ProbComp Range) >>= fun y =>
+        (simulateQ (embedTrapIdxSigImpl psf M Salt pk sk j y) oa).run s)}[x = w] :=
     fun w => by rw [probOutput, probOutput, hlift]
   simp_rw [hF]
-  rw [tsum_probOutput_bind_mul]
+  rw [OracleComp.tsum_prEvent_bind_mul]
 
 omit [DecidableEq Range] [Fintype Salt] in
 /-- **Freshness-confined winner-slot cache invariant (state-general form).** On the

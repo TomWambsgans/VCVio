@@ -153,8 +153,8 @@ This is the per-draw building block of the GPV salt-collision union bound: each 
 sampled uniformly and independently, so the chance it hits any of the previously recorded
 random-oracle inputs is the size of that recorded set over the size of the salt space. -/
 lemma probEvent_mem_uniformSample (cache : Finset Salt) :
-    Pr[(· ∈ cache) | ($ᵗ Salt)] = cache.card / Fintype.card Salt := by
-  rw [probEvent_uniformSample]
+    Pr{let x ← ($ᵗ Salt)}[x ∈ cache] = cache.card / Fintype.card Salt := by
+  rw [SampleableType.prEvent_uniformSample]
   congr 1
   simp
 
@@ -210,7 +210,7 @@ This is the real salt-collision event of the GPV proof (a fresh uniform draw hit
 recorded random-oracle inputs), distinct from a hash-*output* collision over `|Range|`. -/
 lemma probEvent_salt_collision_le_collisionBound (qSign qHash : ℕ)
     (c : ℕ → Finset Salt) (hcache : ∀ j, (c j).card ≤ j + qHash) :
-    (∑ j ∈ Finset.range qSign, Pr[(· ∈ c j) | ($ᵗ Salt)]) ≤ collisionBound Salt qSign qHash := by
+    (∑ j ∈ Finset.range qSign, Pr{let x ← ($ᵗ Salt)}[x ∈ c j]) ≤ collisionBound Salt qSign qHash := by
   refine le_trans (Finset.sum_le_sum ?_) (sum_range_div_card_le_collisionBound Salt qSign qHash)
   intro j _
   rw [probEvent_mem_uniformSample]
@@ -261,7 +261,7 @@ and the remaining `n` draws contribute the inductive tail. The union is assemble
 step (which fires deterministically and cannot be capped below `1`), every step here is averaged
 over its own fresh salt draw, so the small `card / |Salt|` cap is honest. -/
 theorem probEvent_saltSeq_le (c : ℕ → Finset Salt) (n : ℕ) :
-    Pr[(· = true) | saltSeq (Salt := Salt) c n]
+    Pr{let x ← saltSeq (Salt := Salt) c n}[x = true]
       ≤ ∑ j ∈ Finset.range n, ((c j).card : ℝ≥0∞) / (Fintype.card Salt : ℝ≥0∞) := by
   classical
   induction n with
@@ -276,7 +276,7 @@ theorem probEvent_saltSeq_le (c : ℕ → Finset Salt) (n : ℕ) :
         (ε₂ := ∑ j ∈ Finset.range n, ((c j).card : ℝ≥0∞) / (Fintype.card Salt : ℝ≥0∞))
         ?_ ?_
       · simp only [not_not]
-        rw [probEvent_uniformSample]
+        rw [SampleableType.prEvent_uniformSample]
         simp
       · intro r _ hr
         simp only [Bool.not_eq_false]
@@ -296,7 +296,7 @@ This chains `probEvent_saltSeq_le` with the Gauss-sum estimate
 the fresh-salt-draw process, the counterpart of the deterministic fixed-`t` step. -/
 theorem probEvent_saltSeq_le_collisionBound (qSign qHash : ℕ)
     (c : ℕ → Finset Salt) (hcache : ∀ j, (c j).card ≤ j + qHash) :
-    Pr[(· = true) | saltSeq (Salt := Salt) c qSign] ≤ collisionBound Salt qSign qHash := by
+    Pr{let x ← saltSeq (Salt := Salt) c qSign}[x = true] ≤ collisionBound Salt qSign qHash := by
   refine (probEvent_saltSeq_le Salt c qSign).trans ?_
   refine le_trans (Finset.sum_le_sum ?_) (sum_range_div_card_le_collisionBound Salt qSign qHash)
   intro j _
@@ -310,7 +310,7 @@ probability of landing in `s`. This is the inclusion-exclusion kernel underlying
 salt-collision recursion `probEvent_saltSeq_succ` and the per-step charge of the salt-inclusive
 coupling induction `signRunF_tvDist_le_saltSeq`. -/
 theorem tsum_probOutput_uniformSample_ite (s : Finset Salt) (q : ℝ≥0∞) :
-    (∑' x : Salt, Pr[= x | ($ᵗ Salt : ProbComp Salt)] * (if x ∈ s then 1 else q))
+    (∑' x : Salt, Pr{let y ← ($ᵗ Salt : ProbComp Salt)}[y = x] * (if x ∈ s then 1 else q))
       = ((s.card : ℝ≥0∞) / (Fintype.card Salt : ℝ≥0∞))
         + (1 - ((s.card : ℝ≥0∞) / (Fintype.card Salt : ℝ≥0∞))) * q := by
   classical
@@ -318,27 +318,27 @@ theorem tsum_probOutput_uniformSample_ite (s : Finset Salt) (q : ℝ≥0∞) :
   have hp_le : p ≤ 1 := by
     rw [hp, ← probEvent_mem_uniformSample (Salt := Salt) s]
     exact probEvent_le_one
-  have hmem : Pr[(· ∈ s) | ($ᵗ Salt : ProbComp Salt)] = p := by
+  have hmem : Pr{let x ← ($ᵗ Salt : ProbComp Salt)}[x ∈ s] = p := by
     rw [hp]; exact probEvent_mem_uniformSample (Salt := Salt) s
-  have hcompl : Pr[(· ∉ s) | ($ᵗ Salt : ProbComp Salt)] = 1 - p := by
+  have hcompl : Pr{let x ← ($ᵗ Salt : ProbComp Salt)}[x ∉ s] = 1 - p := by
     have hsum := probEvent_compl (mx := ($ᵗ Salt : ProbComp Salt)) (· ∈ s)
     rw [hmem] at hsum
-    have hbot : Pr[⊥ | ($ᵗ Salt : ProbComp Salt)] = 0 := by simp
+    have hbot : prFail ($ᵗ Salt : ProbComp Salt) = 0 := by simp
     rw [hbot, tsub_zero] at hsum
     exact ENNReal.eq_sub_of_add_eq (ne_top_of_le_ne_top one_ne_top hp_le) (by
       rw [add_comm]; exact hsum)
   have hsplit : ∀ x : Salt,
-      Pr[= x | ($ᵗ Salt : ProbComp Salt)] * (if x ∈ s then 1 else q)
-        = (if x ∈ s then Pr[= x | ($ᵗ Salt : ProbComp Salt)] else 0)
-          + (if x ∈ s then 0 else Pr[= x | ($ᵗ Salt : ProbComp Salt)] * q) := by
+      Pr{let y ← ($ᵗ Salt : ProbComp Salt)}[y = x] * (if x ∈ s then 1 else q)
+        = (if x ∈ s then Pr{let y ← ($ᵗ Salt : ProbComp Salt)}[y = x] else 0)
+          + (if x ∈ s then 0 else Pr{let y ← ($ᵗ Salt : ProbComp Salt)}[y = x] * q) := by
     intro x; by_cases hx : x ∈ s <;> simp [hx]
   simp_rw [hsplit]
   rw [ENNReal.tsum_add]
   congr 1
   · rw [← probEvent_eq_tsum_ite]; exact hmem
   · have hre : ∀ x : Salt,
-        (if x ∈ s then 0 else Pr[= x | ($ᵗ Salt : ProbComp Salt)] * q)
-          = (if x ∉ s then Pr[= x | ($ᵗ Salt : ProbComp Salt)] else 0) * q := by
+        (if x ∈ s then 0 else Pr{let y ← ($ᵗ Salt : ProbComp Salt)}[y = x] * q)
+          = (if x ∉ s then Pr{let y ← ($ᵗ Salt : ProbComp Salt)}[y = x] else 0) * q := by
       intro x; by_cases hx : x ∈ s <;> simp [hx]
     simp_rw [hre]
     rw [ENNReal.tsum_mul_right, ← probEvent_eq_tsum_ite (p := (· ∉ s)), hcompl]
@@ -354,19 +354,19 @@ the head-collision probability, the head fires with probability `p`, and otherwi
 This is the tight inclusion-exclusion identity (the head draw and the tail are independent), the
 per-step charge produced by the salt-inclusive coupling induction `signRunF_tvDist_le_saltSeq`. -/
 theorem probEvent_saltSeq_succ (c : ℕ → Finset Salt) (n : ℕ) :
-    Pr[(· = true) | saltSeq (Salt := Salt) c (n + 1)]
+    Pr{let x ← saltSeq (Salt := Salt) c (n + 1)}[x = true]
       = ((c n).card : ℝ≥0∞) / (Fintype.card Salt : ℝ≥0∞)
         + (1 - ((c n).card : ℝ≥0∞) / (Fintype.card Salt : ℝ≥0∞))
-          * Pr[(· = true) | saltSeq (Salt := Salt) c n] := by
+          * Pr{let x ← saltSeq (Salt := Salt) c n}[x = true] := by
   classical
-  set q : ℝ≥0∞ := Pr[(· = true) | saltSeq (Salt := Salt) c n] with hq
+  set q : ℝ≥0∞ := Pr{let x ← saltSeq (Salt := Salt) c n}[x = true] with hq
   -- Expand the head draw.
   conv_lhs => rw [saltSeq]
   rw [probEvent_bind_eq_tsum]
   -- Per-`r` inner probability: `1` if `r ∈ c n`, else `q`.
   have hinner : ∀ r : Salt,
-      Pr[(· = true) | (saltSeq (Salt := Salt) c n >>=
-            fun rest => (pure (decide (r ∈ c n) || rest) : ProbComp Bool))]
+      Pr{let x ← (saltSeq (Salt := Salt) c n >>=
+            fun rest => (pure (decide (r ∈ c n) || rest) : ProbComp Bool))}[x = true]
         = (if r ∈ c n then 1 else q) := by
     intro r
     by_cases hr : r ∈ c n
@@ -469,11 +469,11 @@ averaged over the fresh salt draw. It specializes `tvDist_bind_left_event_le` at
 `signRunF_tvDist_le_saltSeq` accumulates. -/
 theorem tvDist_signStep_real_programmed_le_collision {β : Type}
     (cache : Finset Salt) (freal fprog : Salt → ProbComp β)
-    (h_eq : ∀ r, r ∉ cache → 𝒮[freal r] = 𝒮[fprog r]) :
+    (h_eq : ∀ r, r ∉ cache → freal r =ᵈ fprog r) :
     tvDist
         (do let r ← ($ᵗ Salt : ProbComp Salt); freal r)
         (do let r ← ($ᵗ Salt : ProbComp Salt); fprog r)
-      ≤ (Pr[(· ∈ cache) | ($ᵗ Salt : ProbComp Salt)]).toReal :=
+      ≤ (Pr{let x ← ($ᵗ Salt : ProbComp Salt)}[x ∈ cache]).toReal :=
   tvDist_bind_left_event_le _ freal fprog (· ∈ cache) h_eq
 
 open Classical in
@@ -521,12 +521,12 @@ over-provisioned front salt tape once the genuine content has been spliced out, 
 theorem evalSPMF_signRunF_bind_const {St γ : Type}
     (step : ℕ → St → Salt → ProbComp St) (c : ℕ → Finset Salt)
     [∀ n s r, NeverFail (step n s r)] (n : ℕ) (sb : St × Bool) (k : ProbComp γ) :
-    𝒮[signRunF (Salt := Salt) step c n sb >>= fun _ => k] = 𝒮[k] := by
+    (signRunF (Salt := Salt) step c n sb >>= fun _ => k) =ᵈ k := by
   have := signRunF_neverFail (Salt := Salt) step c n sb
   refine SPMF.ext fun x => ?_
   set sr := signRunF (Salt := Salt) step c n sb with hsr
-  rw [show 𝒮[sr >>= fun _ => k] x = Pr[= x | sr >>= fun _ => k] from (probOutput_def _ _).symm,
-    show 𝒮[k] x = Pr[= x | k] from (probOutput_def _ _).symm,
+  rw [show 𝒮[sr >>= fun _ => k] x = Pr{let y ← sr >>= fun _ => k}[y = x] from (probOutput_def _ _).symm,
+    show 𝒮[k] x = Pr{let y ← k}[y = x] from (probOutput_def _ _).symm,
     probOutput_bind_const, probFailure_eq_zero]
   simp
 
@@ -539,22 +539,22 @@ theorem tvDist_bind_le_of_forall_le {α β : Type} (mx : ProbComp α) (f g : α 
     (δ : ℝ) (hδ : 0 ≤ δ) (h : ∀ a, tvDist (f a) (g a) ≤ δ) :
     tvDist (mx >>= f) (mx >>= g) ≤ δ := by
   refine le_trans (tvDist_bind_left_le mx f g) ?_
-  have hbase : Summable (fun a : α => Pr[= a | mx].toReal) :=
+  have hbase : Summable (fun a : α => Pr{let x ← mx}[x = a].toReal) :=
     ENNReal.summable_toReal (ne_top_of_le_ne_top one_ne_top tsum_probOutput_le_one)
-  have hsum_le_one : ∑' a : α, Pr[= a | mx].toReal ≤ 1 := by
-    have h1 : (∑' a : α, Pr[= a | mx].toReal) = (∑' a : α, Pr[= a | mx]).toReal :=
+  have hsum_le_one : ∑' a : α, Pr{let x ← mx}[x = a].toReal ≤ 1 := by
+    have h1 : (∑' a : α, Pr{let x ← mx}[x = a].toReal) = (∑' a : α, Pr{let x ← mx}[x = a]).toReal :=
       (ENNReal.tsum_toReal_eq (fun a => ne_top_of_le_ne_top one_ne_top probOutput_le_one)).symm
     rw [h1, ← ENNReal.toReal_one]
     exact (ENNReal.toReal_le_toReal (ne_top_of_le_ne_top one_ne_top tsum_probOutput_le_one)
       one_ne_top).2 tsum_probOutput_le_one
-  calc ∑' a, Pr[= a | mx].toReal * tvDist (f a) (g a)
-        ≤ ∑' a, Pr[= a | mx].toReal * δ :=
+  calc ∑' a, Pr{let x ← mx}[x = a].toReal * tvDist (f a) (g a)
+        ≤ ∑' a, Pr{let x ← mx}[x = a].toReal * δ :=
         Summable.tsum_le_tsum
           (fun a => mul_le_mul_of_nonneg_left (h a) ENNReal.toReal_nonneg)
           (Summable.of_nonneg_of_le (fun a => mul_nonneg ENNReal.toReal_nonneg (tvDist_nonneg _ _))
             (fun a => mul_le_mul_of_nonneg_left (h a) ENNReal.toReal_nonneg) (hbase.mul_right δ))
           (hbase.mul_right δ)
-    _ = (∑' a, Pr[= a | mx].toReal) * δ := by rw [tsum_mul_right]
+    _ = (∑' a, Pr{let x ← mx}[x = a].toReal) * δ := by rw [tsum_mul_right]
     _ ≤ 1 * δ := mul_le_mul_of_nonneg_right hsum_le_one hδ
     _ = δ := one_mul δ
 
@@ -581,11 +581,11 @@ state-dependent per-step costs. -/
 theorem signRunF_tvDist_le_saltSeq_aux {St : Type} [Finite Salt]
     (stepReal stepProg : ℕ → St → Salt → ProbComp St)
     (c : ℕ → Finset Salt)
-    (h_step : ∀ n st r, r ∉ c n → 𝒮[stepReal n st r] = 𝒮[stepProg n st r])
+    (h_step : ∀ n st r, r ∉ c n → stepReal n st r =ᵈ stepProg n st r)
     (n : ℕ) (st : St) (b : Bool) :
     tvDist (signRunF (Salt := Salt) stepReal c n (st, b))
         (signRunF (Salt := Salt) stepProg c n (st, b))
-      ≤ (Pr[(· = true) | saltSeq (Salt := Salt) c n]).toReal := by
+      ≤ (Pr{let x ← saltSeq (Salt := Salt) c n}[x = true]).toReal := by
   classical
   have : Fintype Salt := Fintype.ofFinite Salt
   induction n generalizing st b with
@@ -595,7 +595,7 @@ theorem signRunF_tvDist_le_saltSeq_aux {St : Type} [Finite Salt]
       exact ENNReal.toReal_nonneg
   | succ n ih =>
       -- Notation for the per-step head-collision probability `p` and tail probability `q`.
-      set q : ℝ≥0∞ := Pr[(· = true) | saltSeq (Salt := Salt) c n] with hq
+      set q : ℝ≥0∞ := Pr{let x ← saltSeq (Salt := Salt) c n}[x = true] with hq
       set p : ℝ≥0∞ := ((c n).card : ℝ≥0∞) / (Fintype.card Salt : ℝ≥0∞) with hp
       have hp_le : p ≤ 1 := by
         rw [hp, ← probEvent_mem_uniformSample (Salt := Salt) (c n)]
@@ -636,17 +636,17 @@ theorem signRunF_tvDist_le_saltSeq_aux {St : Type} [Finite Salt]
           rw [hhead, add_zero]
           exact htail
       -- Normalize the product projections `(st, b).1`, `(st, b).2` to `st`, `b`.
-      change (∑' a : Salt, Pr[= a | ($ᵗ Salt : ProbComp Salt)].toReal *
+      change (∑' a : Salt, Pr{let x ← ($ᵗ Salt : ProbComp Salt)}[x = a].toReal *
           tvDist (stepReal n st a >>= fun st' =>
               signRunF (Salt := Salt) stepReal c n (st', b || decide (a ∈ c n)))
             (stepProg n st a >>= fun st' =>
               signRunF (Salt := Salt) stepProg c n (st', b || decide (a ∈ c n))))
-        ≤ (Pr[(· = true) | saltSeq (Salt := Salt) c (n + 1)]).toReal
+        ≤ (Pr{let x ← saltSeq (Salt := Salt) c (n + 1)}[x = true]).toReal
       -- `q.toReal ≤ 1` and base summability.
       have hq_toReal_le : q.toReal ≤ 1 := by
         rw [← ENNReal.toReal_one]
         exact (ENNReal.toReal_le_toReal probEvent_ne_top one_ne_top).2 hq_le
-      have hbase : Summable (fun a : Salt => Pr[= a | ($ᵗ Salt : ProbComp Salt)].toReal) :=
+      have hbase : Summable (fun a : Salt => Pr{let x ← ($ᵗ Salt : ProbComp Salt)}[x = a].toReal) :=
         ENNReal.summable_toReal (ne_top_of_le_ne_top one_ne_top tsum_probOutput_le_one)
       have hcap : ∀ a : Salt, (if a ∈ c n then (1 : ℝ) else q.toReal) ≤ 1 := by
         intro a; split_ifs with ha
@@ -656,13 +656,13 @@ theorem signRunF_tvDist_le_saltSeq_aux {St : Type} [Finite Salt]
         intro a; split_ifs <;> [norm_num; exact ENNReal.toReal_nonneg]
       -- Summability of the salt-split bounding sum.
       have hsummable_term : Summable (fun a : Salt =>
-          Pr[= a | ($ᵗ Salt : ProbComp Salt)].toReal * (if a ∈ c n then 1 else q.toReal)) :=
+          Pr{let x ← ($ᵗ Salt : ProbComp Salt)}[x = a].toReal * (if a ∈ c n then 1 else q.toReal)) :=
         Summable.of_nonneg_of_le
           (fun a => mul_nonneg ENNReal.toReal_nonneg (hcap_nonneg a))
           (fun a => mul_le_of_le_one_right ENNReal.toReal_nonneg (hcap a)) hbase
       -- Summability of the actual tvDist-weighted sum.
       have hsummable_tv : Summable (fun a : Salt =>
-          Pr[= a | ($ᵗ Salt : ProbComp Salt)].toReal *
+          Pr{let x ← ($ᵗ Salt : ProbComp Salt)}[x = a].toReal *
             tvDist (stepReal n st a >>= fun st' =>
                 signRunF (Salt := Salt) stepReal c n (st', b || decide (a ∈ c n)))
               (stepProg n st a >>= fun st' =>
@@ -677,8 +677,8 @@ theorem signRunF_tvDist_le_saltSeq_aux {St : Type} [Finite Salt]
       -- Identify the salt-split sum with `Pr[saltSeq c (n+1)].toReal`.
       -- Each real term is the `toReal` of the corresponding `ℝ≥0∞` term.
       have hterm_toReal : ∀ i : Salt,
-          Pr[= i | ($ᵗ Salt : ProbComp Salt)].toReal * (if i ∈ c n then (1 : ℝ) else q.toReal)
-            = (Pr[= i | ($ᵗ Salt : ProbComp Salt)] * (if i ∈ c n then 1 else q)).toReal := by
+          Pr{let x ← ($ᵗ Salt : ProbComp Salt)}[x = i].toReal * (if i ∈ c n then (1 : ℝ) else q.toReal)
+            = (Pr{let x ← ($ᵗ Salt : ProbComp Salt)}[x = i] * (if i ∈ c n then 1 else q)).toReal := by
         intro i
         by_cases hi : i ∈ c n <;> simp [hi]
       simp_rw [hterm_toReal]
@@ -716,11 +716,11 @@ hypothesis `hcouple`, once the GPV reduction handlers and per-step caches `c j` 
 theorem signRunF_tvDist_le_saltSeq {St : Type} [Finite Salt]
     (stepReal stepProg : ℕ → St → Salt → ProbComp St)
     (c : ℕ → Finset Salt)
-    (h_step : ∀ n st r, r ∉ c n → 𝒮[stepReal n st r] = 𝒮[stepProg n st r])
+    (h_step : ∀ n st r, r ∉ c n → stepReal n st r =ᵈ stepProg n st r)
     (n : ℕ) (st : St) :
     tvDist (signRunF (Salt := Salt) stepReal c n (st, false))
         (signRunF (Salt := Salt) stepProg c n (st, false))
-      ≤ (Pr[(· = true) | saltSeq (Salt := Salt) c n]).toReal :=
+      ≤ (Pr{let x ← saltSeq (Salt := Salt) c n}[x = true]).toReal :=
   signRunF_tvDist_le_saltSeq_aux (Salt := Salt) (St := St)
     stepReal stepProg c h_step n st false
 
@@ -755,7 +755,7 @@ below). -/
 theorem signRunF_tvDist_le_collisionBound {St : Type} [Finite Salt] [Nonempty Salt]
     (stepReal stepProg : ℕ → St → Salt → ProbComp St)
     (c : ℕ → Finset Salt)
-    (h_step : ∀ n st r, r ∉ c n → 𝒮[stepReal n st r] = 𝒮[stepProg n st r])
+    (h_step : ∀ n st r, r ∉ c n → stepReal n st r =ᵈ stepProg n st r)
     (qSign qHash : ℕ) (hcache : ∀ j, (c j).card ≤ j + qHash) (st : St) :
     tvDist (signRunF (Salt := Salt) stepReal c qSign (st, false))
         (signRunF (Salt := Salt) stepProg c qSign (st, false))

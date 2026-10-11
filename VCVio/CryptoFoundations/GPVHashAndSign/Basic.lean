@@ -12,7 +12,7 @@ public import VCVio.OracleComp.QueryTracking.RandomOracle.Basic
 public import VCVio.OracleComp.QueryTracking.RandomOracle.Simulation
 public import VCVio.OracleComp.QueryTracking.RandomOracle.DeferredSampling
 public import VCVio.OracleComp.QueryTracking.RandomOracle.ProbeEps
-public import VCVio.OracleComp.Coercions.Add
+public import VCVio.OracleComp.Coercions.Add.Basic
 public import VCVio.OracleComp.SimSemantics.StateT.BundledSemantics
 public import VCVio.ProgramLogic.Relational.ProgrammingOracle
 
@@ -90,9 +90,8 @@ the trapdoor sampler, so it is not vacuously true. -/
     (psf : PreimageSampleableFunction PK SK Domain Range) : Prop :=
   ∃ domainSample : PK → ProbComp Domain,
     ∀ (pk : PK) (sk : SK),
-      𝒮[(do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain))] =
-      𝒮[(do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
-            : ProbComp (Range × Domain))]
+      (do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain)) =ᵈ (do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
+            : ProbComp (Range × Domain))
 
 end PreimageSampleableFunction
 
@@ -152,7 +151,7 @@ measure-valued `runtime` observes the same simulation (`runtime_evalDist_singlet
 hops are stated against this distribution. -/
 @[expose] noncomputable def runtimeSemantics :
     SPMFSemantics (OracleComp (unifSpec + (Salt × M →ₒ Range))) :=
-  SPMFSemantics.withStateOracle
+  SemanticsVia.withStateOracle
     (hashImpl := (randomOracle :
       QueryImpl (Salt × M →ₒ Range) (StateT ((Salt × M →ₒ Range).QueryCache) ProbComp)))
     ∅
@@ -161,7 +160,7 @@ omit [DecidableEq Range] [SampleableType Salt] [Fintype Salt] in
 /-- The point masses of `runtime` are those of `runtimeSemantics`. -/
 theorem runtime_evalDist_singleton {α : Type} [MeasurableSpace α] [MeasurableSingletonClass α]
     (oa : OracleComp (unifSpec + (Salt × M →ₒ Range)) α) (x : α) :
-    (runtime M Salt).evalDist oa {x} = Pr[= x | (runtimeSemantics M Salt).evalSPMF oa] := by
+    (runtime M Salt).evalDist oa {x} = Pr{let y ← (runtimeSemantics M Salt).evalSPMF oa}[y = x] := by
   rw [runtime, ProbCompRuntime.rom_evalDist, evalDist_apply_singleton]
   rfl
 
@@ -199,7 +198,7 @@ abbrev CollisionAdversary := PK → ProbComp (Domain × Domain)
 @[expose] noncomputable def collisionFindingAdvantage [DecidableEq Domain]
     (adversary : CollisionAdversary (PK := PK) (Domain := Domain)) :
     ℝ≥0∞ :=
-  Pr[= true | collisionFindingExperiment (psf := psf) (hr := hr) adversary]
+  Pr{let x ← collisionFindingExperiment (psf := psf) (hr := hr) adversary}[x = true]
 
 /-- A programmed-preimage adversary receives a public key and a programmed target `y`,
 and tries to reproduce the challenger's hidden short preimage sampled for `y`. -/
@@ -225,7 +224,7 @@ succeeds iff it reproduces exactly the hidden programmed preimage `x`. -/
     (adversary : ProgrammedPreimageAdversary
       (PK := PK) (Domain := Domain) (Range := Range)) :
     ℝ≥0∞ :=
-  Pr[= true | programmedPreimageExperiment (psf := psf) (hr := hr) adversary]
+  Pr{let x ← programmedPreimageExperiment (psf := psf) (hr := hr) adversary}[x = true]
 
 
 end GPVHashAndSign

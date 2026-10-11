@@ -37,7 +37,7 @@ omit [Fintype Salt] in
 The *index-tagged* trap-exact-match mass at slot `j` — the trap event on the counter-augmented run
 `progGameRunImplCombinedTrapCount` restricted to the event that the forged point was *programmed at
 counter value `j`* — is bounded by the **floor-free** per-target embedding win
-`S (some j) = ∑' y, Pr[= y | $ᵗ Range] · Pr[win | embedTrapImpl … j y]`, with **no** budget /
+`S (some j) = ∑' y, Pr{let x ← $ᵗ Range}[x = y] · Pr[win | embedTrapImpl … j y]`, with **no** budget /
 reservoir factor.  This is the genuine deferred-sampling content of GPV Step-2: at the fixed slot
 `j` the trap run's inline uniform winner draw `v⋆ ← $ᵗ Range` (drawn *inside* the `simulateQ` fold
 at the adaptively-determined `j`-th programming step) must be pushed to the front and re-expressed
@@ -52,34 +52,29 @@ lemma reservoir_embed_commute_winner_floorFree [DecidableEq Domain] [Inhabited R
     (domainSample : PK → ProbComp Domain) (pk : PK) (sk : SK) (qSign qHash : ℕ)
     (adv : SignatureAlg.UnforgeableAdversary
       (GPVHashAndSign (m := OracleComp (unifSpec + (Salt × M →ₒ Range))) psf hr M Salt))
-    (_hreg : 𝒮[(do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain))] =
-      𝒮[(do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
-            : ProbComp (Range × Domain))])
+    (_hreg : (do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain)) =ᵈ (do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
+            : ProbComp (Range × Domain)))
     (hNF : ∀ (c : Range), NeverFail (psf.trapdoorSample pk sk c))
     (_hForge : ForgesQueriedPoint psf hr M Salt adv domainSample)
     (_hQ : signHashQueryBound
       (S' := Salt × Domain) (α := M × (Salt × Domain))
       (oa := adv.main pk) (qSign := qSign) (qHash := qHash)) (j : ℕ) :
-    Pr[fun w : (M × (Salt × Domain)) ×
-          (((((Salt × M →ₒ Range).QueryCache × Finset M) × Bool) × ((Salt × M) → Option Domain)) ×
-            (((Salt × M) → Option ℕ) × ℕ)) =>
-          ((decide (w.1.1 ∉ w.2.1.1.1.2) &&
+    Pr{let w ← ((simulateQ (progGameRunImplCombinedTrapCount psf M Salt pk sk)
+          (adv.main pk)).run
+          (((((∅ : (Salt × M →ₒ Range).QueryCache), (∅ : Finset M)), false), fun _ => none),
+            (fun _ => none), 0))}[((decide (w.1.1 ∉ w.2.1.1.1.2) &&
               (decide (psf.eval pk w.1.2.2 =
                   (w.2.1.1.1.1 (w.1.2.1, w.1.1)).getD (psf.eval pk w.1.2.2)) &&
                 psf.isShort w.1.2.2)) = true ∧
             w.2.1.2 (w.1.2.1, w.1.1) = some w.1.2.2) ∧
-            w.2.2.1 (w.1.2.1, w.1.1) = some j |
-        (simulateQ (progGameRunImplCombinedTrapCount psf M Salt pk sk)
-          (adv.main pk)).run
-          (((((∅ : (Salt × M →ₒ Range).QueryCache), (∅ : Finset M)), false), fun _ => none),
-            (fun _ => none), 0)]
-      ≤ ∑' y : Range, Pr[= y | ($ᵗ Range : ProbComp Range)] *
-            Pr[= true | (do
+            w.2.2.1 (w.1.2.1, w.1.1) = some j]
+      ≤ ∑' y : Range, Pr{let x ← ($ᵗ Range : ProbComp Range)}[x = y] *
+            Pr{let z ← (do
               let x ← psf.trapdoorSample pk sk y
               let r ← (simulateQ (embedTrapImpl psf M Salt pk sk j y) (adv.main pk)).run
                 ((∅ : (Salt × M →ₒ Range).QueryCache), (0 : ℕ))
               pure (decide (r.1.2.2 = x) &&
-                decide (r.2.1 (r.1.2.1, r.1.1) = some y)) : ProbComp Bool)] := by
+                decide (r.2.1 (r.1.2.1, r.1.1) = some y)) : ProbComp Bool)}[z = true] := by
   -- **The GPV Step-2 per-slot front-loading joint coupling.**
   --
   -- This is the deferred-sampling content.  The left mass lives on the
@@ -91,9 +86,9 @@ lemma reservoir_embed_commute_winner_floorFree [DecidableEq Domain] [Inhabited R
   -- count-`j` random-oracle miss and draws fresh uniform images everywhere else.
   --
   -- **Fold the `y`-average into a single front draw.** The right-hand `∑' y`
-  -- weighted by `Pr[= y | $ᵗ Range]` is exactly the output probability of the bind that draws
+  -- weighted by `Pr{let x ← $ᵗ Range}[x = y]` is exactly the output probability of the bind that draws
   -- `y ← $ᵗ Range` first and then runs the per-target win game (`probOutput_bind_eq_tsum`).  This
-  -- puts the right side in the *front-loaded* form `Pr[= true | y ← $ᵗ Range; …]`, matching the
+  -- puts the right side in the *front-loaded* form `Pr{let x ← y ← $ᵗ Range; …}[x = true]`, matching the
   -- trap run's inline `v⋆ ← $ᵗ Range` up to the adaptive count-`j` position.
   rw [← probOutput_bind_eq_tsum]
   -- **The adaptive count-`j` front-loading, via the front-draw lift.**
@@ -130,7 +125,7 @@ lemma reservoir_embed_commute_winner_floorFree [DecidableEq Domain] [Inhabited R
   -- `table(forged) = trapdoorSample pk sk v` with `idx(forged) = some j`).  Matching the trap event
   -- `table(forged) = trapdoorSample (cache(forged))` to the embed event `output = trapdoorSample
   -- (cache(forged))` is the final N4-style same-randomness coupling
-  -- (`evalSPMF_simulateQ_run_congr` after projecting to the common
+  -- (`evalDist_simulateQ_run_congr` after projecting to the common
   -- `embedTrapFreshImpl` cache/counter state) and the trapdoor draw `x`.
   --
   -- **Commute the trapdoor draw `x` past the embed run.**  The trapdoor
@@ -138,24 +133,24 @@ lemma reservoir_embed_commute_winner_floorFree [DecidableEq Domain] [Inhabited R
   -- feed the embed run `simulateQ (embedTrapImpl … j y)`, which consumes only `y`), so the two
   -- binds exchange at the distribution level (`OracleComp.DeferredSampling.evalSPMF_bind_comm`).
   -- Running the embed first and drawing `x` afterwards leaves the win event — and hence the output
-  -- probability `Pr[= true | …]` — unchanged.  This re-expresses the right-hand game in the
+  -- probability `Pr{let x ← …}[x = true]` — unchanged.  This re-expresses the right-hand game in the
   -- *run-first* form, in which the embed run output `r` is already available when the trapdoor draw
   -- `x` and the win predicate `decide (r.1.2.2 = x) && decide (r.2.1 (forged) = some y)` are
   -- evaluated.
-  rw [show Pr[= true | (do
+  rw [show Pr{let z ← (do
         let y ← ($ᵗ Range : ProbComp Range)
         let x ← psf.trapdoorSample pk sk y
         let r ← (simulateQ (embedTrapImpl psf M Salt pk sk j y) (adv.main pk)).run
           ((∅ : (Salt × M →ₒ Range).QueryCache), (0 : ℕ))
         pure (decide (r.1.2.2 = x) &&
-          decide (r.2.1 (r.1.2.1, r.1.1) = some y)) : ProbComp Bool)]
-      = Pr[= true | (do
+          decide (r.2.1 (r.1.2.1, r.1.1) = some y)) : ProbComp Bool)}[z = true]
+      = Pr{let z ← (do
         let y ← ($ᵗ Range : ProbComp Range)
         let r ← (simulateQ (embedTrapImpl psf M Salt pk sk j y) (adv.main pk)).run
           ((∅ : (Salt × M →ₒ Range).QueryCache), (0 : ℕ))
         let x ← psf.trapdoorSample pk sk y
         pure (decide (r.1.2.2 = x) &&
-          decide (r.2.1 (r.1.2.1, r.1.1) = some y)) : ProbComp Bool)] from by
+          decide (r.2.1 (r.1.2.1, r.1.1) = some y)) : ProbComp Bool)}[z = true] from by
     refine probOutput_congr rfl ?_
     refine evalSPMF_bind_congr' _ (fun y => ?_)
     exact OracleComp.DeferredSampling.evalSPMF_bind_comm (psf.trapdoorSample pk sk y)
@@ -171,20 +166,20 @@ lemma reservoir_embed_commute_winner_floorFree [DecidableEq Domain] [Inhabited R
   -- draw is irrelevant and either target yields the same (constant-`false`) win distribution.
   -- This pins the trapdoor draw to a *run-read* cache value — eliminating the free `y` from the
   -- trapdoor draw, leaving it only in the cache-comparison literal `some y`.
-  rw [show Pr[= true | (do
+  rw [show Pr{let z ← (do
         let y ← ($ᵗ Range : ProbComp Range)
         let r ← (simulateQ (embedTrapImpl psf M Salt pk sk j y) (adv.main pk)).run
           ((∅ : (Salt × M →ₒ Range).QueryCache), (0 : ℕ))
         let x ← psf.trapdoorSample pk sk y
         pure (decide (r.1.2.2 = x) &&
-          decide (r.2.1 (r.1.2.1, r.1.1) = some y)) : ProbComp Bool)]
-      = Pr[= true | (do
+          decide (r.2.1 (r.1.2.1, r.1.1) = some y)) : ProbComp Bool)}[z = true]
+      = Pr{let z ← (do
         let y ← ($ᵗ Range : ProbComp Range)
         let r ← (simulateQ (embedTrapImpl psf M Salt pk sk j y) (adv.main pk)).run
           ((∅ : (Salt × M →ₒ Range).QueryCache), (0 : ℕ))
         let x ← psf.trapdoorSample pk sk ((r.2.1 (r.1.2.1, r.1.1)).getD y)
         pure (decide (r.1.2.2 = x) &&
-          decide (r.2.1 (r.1.2.1, r.1.1) = some y)) : ProbComp Bool)] from by
+          decide (r.2.1 (r.1.2.1, r.1.1) = some y)) : ProbComp Bool)}[z = true] from by
     refine probOutput_congr rfl (evalSPMF_bind_congr' _ (fun y => ?_))
     refine evalSPMF_bind_congr' _ (fun r => ?_)
     rcases hc : r.2.1 (r.1.2.1, r.1.1) with _ | yv
@@ -218,7 +213,7 @@ lemma reservoir_embed_commute_winner_floorFree [DecidableEq Domain] [Inhabited R
   -- Goal here (after the winner-idx monotone step `reservoir_embed_winnerIdx_le`):
   --   ⊢ Pr[fun w => ((fresh w.1.1 ∧ verify ∧ isShort) ∧ table(forged) = some w.1.2.2)
   --        ∧ idx(forged) = some j | (simulateQ progGameRunImplCombinedTrapCount (adv.main pk)).run]
-  --     ≤ ∑'y Pr[= y | $ᵗ Range] ·
+  --     ≤ ∑'y Pr{let x ← $ᵗ Range}[x = y] ·
   --         Pr[= true | r ← (simulateQ (embedTrapIdxImpl … j y) (adv.main pk)).run ((∅, 0), ∅idx);
   --                     x ← trapdoorSample pk sk ((r.2.1.1 (forged)).getD y);
   --                     pure (decide (r.1.2.2 = x) && decide (r.2.1.1 (forged) = some y)
@@ -271,12 +266,12 @@ lemma reservoir_embed_commute_winner_floorFree [DecidableEq Domain] [Inhabited R
   -- cache/idx/signedSet state, carried out in `trap_freshSig_le_winnerSlot_deferred`.
   --
   -- **Assembly.** Drop the verify/isShort conjuncts (they only restrict; FRESH stays) by
-  -- `probEvent_mono`, then chain the trap-side table-defer
+  -- `prEvent_mono`, then chain the trap-side table-defer
   -- `trap_freshSig_le_winnerSlot_deferred` (`G_trap ≤` the freshness-confined deferred functional
   -- expectation over the inline-fresh run) with the embed-side reduction
   -- `freshSig_winnerSlot_deferred_le_embed` (that expectation `≤` the winner-slot-restricted
   -- per-target embedding win).
-  refine le_trans (probEvent_mono ?_)
+  refine le_trans (prEvent_mono ?_)
     (le_trans (trap_freshSig_le_winnerSlot_deferred psf hr M Salt pk sk j adv hNF)
       (freshSig_winnerSlot_deferred_le_embed psf hr M Salt pk sk j adv))
   rintro w - ⟨⟨hflag, htbl⟩, hidx⟩
@@ -294,7 +289,7 @@ For a fixed programmed-entry index `j`, the *index-tagged* trap-exact-match mass
 the counter-augmented run `progGameRunImplCombinedTrapCount` further restricted to the event that
 the forged random-oracle point was *programmed at counter value `j`* (its recorded insertion index
 is `some j`) — is bounded by the budget-scaled reservoir winner mass
-`(qSign + qHash) · Pr[= some j | reservoirWinnerIndex (qSign + qHash)] · S (some j)` at slot `j`,
+`(qSign + qHash) · Pr{let x ← reservoirWinnerIndex (qSign + qHash)}[x = some j] · S (some j)` at slot `j`,
 where `S (some j)` is the
 winner-slot-restricted per-target embedding win of `embedTrapImpl … j y` averaged over `y ← $ᵗ
 Range`.
@@ -309,66 +304,57 @@ lemma reservoir_embed_commute_winner [DecidableEq Domain] [Inhabited Range]
     (domainSample : PK → ProbComp Domain) (pk : PK) (sk : SK) (qSign qHash : ℕ)
     (adv : SignatureAlg.UnforgeableAdversary
       (GPVHashAndSign (m := OracleComp (unifSpec + (Salt × M →ₒ Range))) psf hr M Salt))
-    (hreg : 𝒮[(do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain))] =
-      𝒮[(do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
-            : ProbComp (Range × Domain))])
+    (hreg : (do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain)) =ᵈ (do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
+            : ProbComp (Range × Domain)))
     (hNF : ∀ (c : Range), NeverFail (psf.trapdoorSample pk sk c))
     (hForge : ForgesQueriedPoint psf hr M Salt adv domainSample)
     (hQ : signHashQueryBound
       (S' := Salt × Domain) (α := M × (Salt × Domain))
       (oa := adv.main pk) (qSign := qSign) (qHash := qHash)) (j : ℕ) :
-    Pr[fun w : (M × (Salt × Domain)) ×
-          (((((Salt × M →ₒ Range).QueryCache × Finset M) × Bool) × ((Salt × M) → Option Domain)) ×
-            (((Salt × M) → Option ℕ) × ℕ)) =>
-          ((decide (w.1.1 ∉ w.2.1.1.1.2) &&
+    Pr{let w ← ((simulateQ (progGameRunImplCombinedTrapCount psf M Salt pk sk)
+          (adv.main pk)).run
+          (((((∅ : (Salt × M →ₒ Range).QueryCache), (∅ : Finset M)), false), fun _ => none),
+            (fun _ => none), 0))}[((decide (w.1.1 ∉ w.2.1.1.1.2) &&
               (decide (psf.eval pk w.1.2.2 =
                   (w.2.1.1.1.1 (w.1.2.1, w.1.1)).getD (psf.eval pk w.1.2.2)) &&
                 psf.isShort w.1.2.2)) = true ∧
             w.2.1.2 (w.1.2.1, w.1.1) = some w.1.2.2) ∧
-            w.2.2.1 (w.1.2.1, w.1.1) = some j |
-        (simulateQ (progGameRunImplCombinedTrapCount psf M Salt pk sk)
-          (adv.main pk)).run
-          (((((∅ : (Salt × M →ₒ Range).QueryCache), (∅ : Finset M)), false), fun _ => none),
-            (fun _ => none), 0)]
+            w.2.2.1 (w.1.2.1, w.1.1) = some j]
       ≤ ((qSign + qHash : ℕ) : ENNReal) *
-        Pr[= some j | reservoirWinnerIndex (qSign + qHash)] *
-          ∑' y : Range, Pr[= y | ($ᵗ Range : ProbComp Range)] *
-            Pr[= true | (do
+        Pr{let x ← reservoirWinnerIndex (qSign + qHash)}[x = some j] *
+          ∑' y : Range, Pr{let x ← ($ᵗ Range : ProbComp Range)}[x = y] *
+            Pr{let z ← (do
               let x ← psf.trapdoorSample pk sk y
               let r ← (simulateQ (embedTrapImpl psf M Salt pk sk j y) (adv.main pk)).run
                 ((∅ : (Salt × M →ₒ Range).QueryCache), (0 : ℕ))
               pure (decide (r.1.2.2 = x) &&
-                decide (r.2.1 (r.1.2.1, r.1.1) = some y)) : ProbComp Bool)] := by
+                decide (r.2.1 (r.1.2.1, r.1.1) = some y)) : ProbComp Bool)}[z = true] := by
   set Q := qSign + qHash with hQdef
-  set S : ENNReal := ∑' y : Range, Pr[= y | ($ᵗ Range : ProbComp Range)] *
-      Pr[= true | (do
+  set S : ENNReal := ∑' y : Range, Pr{let x ← ($ᵗ Range : ProbComp Range)}[x = y] *
+      Pr{let z ← (do
         let x ← psf.trapdoorSample pk sk y
         let r ← (simulateQ (embedTrapImpl psf M Salt pk sk j y) (adv.main pk)).run
           ((∅ : (Salt × M →ₒ Range).QueryCache), (0 : ℕ))
         pure (decide (r.1.2.2 = x) &&
-          decide (r.2.1 (r.1.2.1, r.1.1) = some y)) : ProbComp Bool)] with hSdef
-  set LHS : ENNReal := Pr[fun w : (M × (Salt × Domain)) ×
-        (((((Salt × M →ₒ Range).QueryCache × Finset M) × Bool) × ((Salt × M) → Option Domain)) ×
-          (((Salt × M) → Option ℕ) × ℕ)) =>
-        ((decide (w.1.1 ∉ w.2.1.1.1.2) &&
+          decide (r.2.1 (r.1.2.1, r.1.1) = some y)) : ProbComp Bool)}[z = true] with hSdef
+  set LHS : ENNReal := Pr{let w ← ((simulateQ (progGameRunImplCombinedTrapCount psf M Salt pk sk)
+        (adv.main pk)).run
+        (((((∅ : (Salt × M →ₒ Range).QueryCache), (∅ : Finset M)), false), fun _ => none),
+          (fun _ => none), 0))}[((decide (w.1.1 ∉ w.2.1.1.1.2) &&
             (decide (psf.eval pk w.1.2.2 =
                 (w.2.1.1.1.1 (w.1.2.1, w.1.1)).getD (psf.eval pk w.1.2.2)) &&
               psf.isShort w.1.2.2)) = true ∧
           w.2.1.2 (w.1.2.1, w.1.1) = some w.1.2.2) ∧
-          w.2.2.1 (w.1.2.1, w.1.1) = some j |
-      (simulateQ (progGameRunImplCombinedTrapCount psf M Salt pk sk)
-        (adv.main pk)).run
-        (((((∅ : (Salt × M →ₒ Range).QueryCache), (∅ : Finset M)), false), fun _ => none),
-          (fun _ => none), 0)] with hLHSdef
+          w.2.2.1 (w.1.2.1, w.1.1) = some j] with hLHSdef
   -- Floor-free per-slot bound (the genuine front-loading commute).
   have hfloorFree : LHS ≤ S :=
     reservoir_embed_commute_winner_floorFree psf hr M Salt domainSample pk sk qSign qHash adv
       hreg hNF hForge hQ j
-  change LHS ≤ (Q : ENNReal) * Pr[= some j | reservoirWinnerIndex Q] * S
+  change LHS ≤ (Q : ENNReal) * Pr{let x ← reservoirWinnerIndex Q}[x = some j] * S
   by_cases hj : j < Q
   · -- Slot `j` is within budget: the winner mass is exactly `Q⁻¹`, so `Q · Q⁻¹ = 1` absorbs the
     -- budget factor and the floor-free bound passes through.
-    have hres : Pr[= some j | reservoirWinnerIndex Q] = (Q : ℝ≥0∞)⁻¹ :=
+    have hres : Pr{let x ← reservoirWinnerIndex Q}[x = some j] = (Q : ℝ≥0∞)⁻¹ :=
       probOutput_reservoirWinnerIndex_eq Q j hj
     rw [hres]
     have hQne : (Q : ℝ≥0∞) ≠ 0 := by
@@ -421,57 +407,50 @@ lemma reservoir_embed_commute_residual [DecidableEq Domain] [Inhabited Range]
     (domainSample : PK → ProbComp Domain) (pk : PK) (sk : SK) (qSign qHash : ℕ)
     (adv : SignatureAlg.UnforgeableAdversary
       (GPVHashAndSign (m := OracleComp (unifSpec + (Salt × M →ₒ Range))) psf hr M Salt))
-    (hreg : 𝒮[(do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain))] =
-      𝒮[(do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
-            : ProbComp (Range × Domain))])
+    (hreg : (do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain)) =ᵈ (do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
+            : ProbComp (Range × Domain)))
     (hNF : ∀ (c : Range), NeverFail (psf.trapdoorSample pk sk c))
     (hForge : ForgesQueriedPoint psf hr M Salt adv domainSample)
     (hQ : signHashQueryBound
       (S' := Salt × Domain) (α := M × (Salt × Domain))
       (oa := adv.main pk) (qSign := qSign) (qHash := qHash)) :
-    Pr[fun w : (M × (Salt × Domain)) ×
-          ((((Salt × M →ₒ Range).QueryCache × Finset M) × Bool) × ((Salt × M) → Option Domain)) =>
-          (decide (w.1.1 ∉ w.2.1.1.2) &&
+    Pr{let w ← ((simulateQ (progGameRunImplCombinedTrap psf M Salt pk sk)
+          (adv.main pk)).run
+          ((((∅ : (Salt × M →ₒ Range).QueryCache), (∅ : Finset M)), false), fun _ => none))}[(decide (w.1.1 ∉ w.2.1.1.2) &&
               (decide (psf.eval pk w.1.2.2 =
                   (w.2.1.1.1 (w.1.2.1, w.1.1)).getD (psf.eval pk w.1.2.2)) &&
                 psf.isShort w.1.2.2)) = true ∧
-            w.2.2 (w.1.2.1, w.1.1) = some w.1.2.2 |
-        (simulateQ (progGameRunImplCombinedTrap psf M Salt pk sk)
-          (adv.main pk)).run
-          ((((∅ : (Salt × M →ₒ Range).QueryCache), (∅ : Finset M)), false), fun _ => none)]
+            w.2.2 (w.1.2.1, w.1.1) = some w.1.2.2]
       ≤ ((qSign + qHash : ℕ) : ENNReal) *
-        ∑' wOpt : Option ℕ, Pr[= wOpt | reservoirWinnerIndex (qSign + qHash)] *
-          ∑' y : Range, Pr[= y | ($ᵗ Range : ProbComp Range)] *
-            Pr[= true | (do
+        ∑' wOpt : Option ℕ, Pr{let x ← reservoirWinnerIndex (qSign + qHash)}[x = wOpt] *
+          ∑' y : Range, Pr{let x ← ($ᵗ Range : ProbComp Range)}[x = y] *
+            Pr{let z ← (do
               let x ← psf.trapdoorSample pk sk y
               let r ← (simulateQ (embedTrapImpl psf M Salt pk sk
                   (wOpt.getD (qSign + qHash)) y) (adv.main pk)).run
                 ((∅ : (Salt × M →ₒ Range).QueryCache), (0 : ℕ))
               pure (decide (r.1.2.2 = x) &&
-                decide (r.2.1 (r.1.2.1, r.1.1) = some y)) : ProbComp Bool)] := by
+                decide (r.2.1 (r.1.2.1, r.1.1) = some y)) : ProbComp Bool)}[z = true] := by
   -- Abbreviations: `Q` the multi-target budget, `S wOpt` the per-slot averaged restricted embedding
   -- win, `trap` the LHS trap-exact-match mass.
   set Q := qSign + qHash with hQdef
   set S : Option ℕ → ENNReal := fun wOpt =>
-    ∑' y : Range, Pr[= y | ($ᵗ Range : ProbComp Range)] *
-      Pr[= true | (do
+    ∑' y : Range, Pr{let x ← ($ᵗ Range : ProbComp Range)}[x = y] *
+      Pr{let z ← (do
         let x ← psf.trapdoorSample pk sk y
         let r ← (simulateQ (embedTrapImpl psf M Salt pk sk (wOpt.getD Q) y) (adv.main pk)).run
           ((∅ : (Salt × M →ₒ Range).QueryCache), (0 : ℕ))
         pure (decide (r.1.2.2 = x) &&
-          decide (r.2.1 (r.1.2.1, r.1.1) = some y)) : ProbComp Bool)] with hSdef
-  set trap : ENNReal := Pr[fun w : (M × (Salt × Domain)) ×
-        ((((Salt × M →ₒ Range).QueryCache × Finset M) × Bool) × ((Salt × M) → Option Domain)) =>
-        (decide (w.1.1 ∉ w.2.1.1.2) &&
+          decide (r.2.1 (r.1.2.1, r.1.1) = some y)) : ProbComp Bool)}[z = true] with hSdef
+  set trap : ENNReal := Pr{let w ← ((simulateQ (progGameRunImplCombinedTrap psf M Salt pk sk)
+        (adv.main pk)).run
+        ((((∅ : (Salt × M →ₒ Range).QueryCache), (∅ : Finset M)), false), fun _ => none))}[(decide (w.1.1 ∉ w.2.1.1.2) &&
             (decide (psf.eval pk w.1.2.2 =
                 (w.2.1.1.1 (w.1.2.1, w.1.1)).getD (psf.eval pk w.1.2.2)) &&
               psf.isShort w.1.2.2)) = true ∧
-          w.2.2 (w.1.2.1, w.1.1) = some w.1.2.2 |
-      (simulateQ (progGameRunImplCombinedTrap psf M Salt pk sk)
-        (adv.main pk)).run
-        ((((∅ : (Salt × M →ₒ Range).QueryCache), (∅ : Finset M)), false), fun _ => none)]
+          w.2.2 (w.1.2.1, w.1.1) = some w.1.2.2]
     with htrapdef
-  change trap ≤ (Q : ENNReal) * ∑' wOpt : Option ℕ, Pr[= wOpt | reservoirWinnerIndex Q] * S wOpt
+  change trap ≤ (Q : ENNReal) * ∑' wOpt : Option ℕ, Pr{let x ← reservoirWinnerIndex Q}[x = wOpt] * S wOpt
   -- **Per-slot index partition + commute.**  The per-entry mass function `g : ℕ → ENNReal` is the
   -- index-tagged trap-exact-match mass on the counter-augmented run
   -- `progGameRunImplCombinedTrapCount`, restricted to the event that the forged point was
@@ -485,7 +464,7 @@ lemma reservoir_embed_commute_residual [DecidableEq Domain] [Inhabited Range]
   -- (`reservoir_embed_commute_winner`).
   obtain ⟨g, hgsum, hgle⟩ : ∃ g : ℕ → ENNReal,
       (∑' j : ℕ, g j) = trap ∧
-      ∀ j : ℕ, g j ≤ (Q : ENNReal) * Pr[= some j | reservoirWinnerIndex Q] * S (some j) := by
+      ∀ j : ℕ, g j ≤ (Q : ENNReal) * Pr{let x ← reservoirWinnerIndex Q}[x = some j] * S (some j) := by
     -- The counter-augmented run started from the projected empty state.
     set augRun := (simulateQ (progGameRunImplCombinedTrapCount psf M Salt pk sk)
         (adv.main pk)).run
@@ -505,10 +484,10 @@ lemma reservoir_embed_commute_residual [DecidableEq Domain] [Inhabited Range]
         (((((Salt × M →ₒ Range).QueryCache × Finset M) × Bool) × ((Salt × M) → Option Domain)) ×
           (((Salt × M) → Option ℕ) × ℕ)) → Option ℕ := fun w =>
         w.2.2.1 (w.1.2.1, w.1.1) with hIdx
-    refine ⟨fun j => Pr[fun w => Paug w ∧ idx w = some j | augRun], ?_, ?_⟩
+    refine ⟨fun j => Pr{let w ← augRun}[Paug w ∧ idx w = some j], ?_, ?_⟩
     · -- Partition: `∑' j, g j = trap`.
       -- The augmentation is passive, so the augmented trap-event mass equals `trap`.
-      have htrap_eq : trap = Pr[Paug | augRun] := by
+      have htrap_eq : trap = Pr{let x ← augRun}[Paug x] := by
         rw [htrapdef, ← map_run_progGameRunImplCombinedTrapCount_proj psf M Salt pk sk
           (adv.main pk) (((((∅ : (Salt × M →ₒ Range).QueryCache), (∅ : Finset M)), false),
             fun _ => none), (fun _ => none), 0), probEvent_map]
@@ -533,12 +512,12 @@ lemma reservoir_embed_commute_residual [DecidableEq Domain] [Inhabited Range]
   -- the trap partition `g` by the `some j` atoms of the reservoir winner average, discarding the
   -- never-firing `none` atom (`tsum_option`, terms nonnegative).
   calc trap = ∑' j : ℕ, g j := hgsum.symm
-    _ ≤ ∑' j : ℕ, (Q : ENNReal) * Pr[= some j | reservoirWinnerIndex Q] * S (some j) :=
+    _ ≤ ∑' j : ℕ, (Q : ENNReal) * Pr{let x ← reservoirWinnerIndex Q}[x = some j] * S (some j) :=
         ENNReal.tsum_le_tsum hgle
-    _ = ∑' j : ℕ, (Q : ENNReal) * (Pr[= some j | reservoirWinnerIndex Q] * S (some j)) := by
+    _ = ∑' j : ℕ, (Q : ENNReal) * (Pr{let x ← reservoirWinnerIndex Q}[x = some j] * S (some j)) := by
         simp_rw [mul_assoc]
     _ ≤ (Q : ENNReal) *
-        ∑' wOpt : Option ℕ, Pr[= wOpt | reservoirWinnerIndex Q] * S wOpt := by
+        ∑' wOpt : Option ℕ, Pr{let x ← reservoirWinnerIndex Q}[x = wOpt] * S wOpt := by
         rw [ENNReal.tsum_mul_left]
         gcongr
         rw [tsum_option _ ENNReal.summable]
@@ -580,41 +559,37 @@ lemma reservoir_embed_commute [DecidableEq Domain] [Inhabited Range]
     (domainSample : PK → ProbComp Domain) (pk : PK) (sk : SK) (qSign qHash : ℕ)
     (adv : SignatureAlg.UnforgeableAdversary
       (GPVHashAndSign (m := OracleComp (unifSpec + (Salt × M →ₒ Range))) psf hr M Salt))
-    (hreg : 𝒮[(do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain))] =
-      𝒮[(do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
-            : ProbComp (Range × Domain))])
+    (hreg : (do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain)) =ᵈ (do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
+            : ProbComp (Range × Domain)))
     (hNF : ∀ (c : Range), NeverFail (psf.trapdoorSample pk sk c))
     (hForge : ForgesQueriedPoint psf hr M Salt adv domainSample)
     (hQ : signHashQueryBound
       (S' := Salt × Domain) (α := M × (Salt × Domain))
       (oa := adv.main pk) (qSign := qSign) (qHash := qHash)) :
-    Pr[fun w : (M × (Salt × Domain)) ×
-          ((((Salt × M →ₒ Range).QueryCache × Finset M) × Bool) × ((Salt × M) → Option Domain)) =>
-          (decide (w.1.1 ∉ w.2.1.1.2) &&
+    Pr{let w ← ((simulateQ (progGameRunImplCombinedTrap psf M Salt pk sk)
+          (adv.main pk)).run
+          ((((∅ : (Salt × M →ₒ Range).QueryCache), (∅ : Finset M)), false), fun _ => none))}[(decide (w.1.1 ∉ w.2.1.1.2) &&
               (decide (psf.eval pk w.1.2.2 =
                   (w.2.1.1.1 (w.1.2.1, w.1.1)).getD (psf.eval pk w.1.2.2)) &&
                 psf.isShort w.1.2.2)) = true ∧
-            w.2.2 (w.1.2.1, w.1.1) = some w.1.2.2 |
-        (simulateQ (progGameRunImplCombinedTrap psf M Salt pk sk)
-          (adv.main pk)).run
-          ((((∅ : (Salt × M →ₒ Range).QueryCache), (∅ : Finset M)), false), fun _ => none)]
+            w.2.2 (w.1.2.1, w.1.1) = some w.1.2.2]
       ≤ ((qSign + qHash : ℕ) : ENNReal) *
-        ∑' wOpt : Option ℕ, Pr[= wOpt | reservoirWinnerIndex (qSign + qHash)] *
-          ∑' y : Range, Pr[= y | ($ᵗ Range : ProbComp Range)] *
-            Pr[= true | (do
+        ∑' wOpt : Option ℕ, Pr{let x ← reservoirWinnerIndex (qSign + qHash)}[x = wOpt] *
+          ∑' y : Range, Pr{let x ← ($ᵗ Range : ProbComp Range)}[x = y] *
+            Pr{let z ← (do
               let x ← psf.trapdoorSample pk sk y
               let r ← (simulateQ (embedTrapImpl psf M Salt pk sk
                   (wOpt.getD (qSign + qHash)) y) (adv.main pk)).run
                 ((∅ : (Salt × M →ₒ Range).QueryCache), (0 : ℕ))
-              pure (decide (r.1.2.2 = x)) : ProbComp Bool)] := by
+              pure (decide (r.1.2.2 = x)) : ProbComp Bool)}[z = true] := by
   -- M3 from the index-restricted form: bound the trap mass by the winner-slot-restricted RHS
   -- (`reservoir_embed_commute_residual`), then drop the winner-slot restriction
   -- `&& decide (… = some y)` from every per-target win (full win ≥ the restricted win).
   refine le_trans (reservoir_embed_commute_residual psf hr M Salt domainSample pk sk qSign qHash
     adv hreg hNF hForge hQ) ?_
   gcongr ((qSign + qHash : ℕ) : ENNReal) *
-    ∑' wOpt : Option ℕ, Pr[= wOpt | reservoirWinnerIndex (qSign + qHash)] *
-      ∑' y : Range, Pr[= y | ($ᵗ Range : ProbComp Range)] * ?_ with wOpt y
+    ∑' wOpt : Option ℕ, Pr{let x ← reservoirWinnerIndex (qSign + qHash)}[x = wOpt] *
+      ∑' y : Range, Pr{let x ← ($ᵗ Range : ProbComp Range)}[x = y] * ?_ with wOpt y
   -- Per-target: dropping the conjunct `decide (r.2.1 (r.1.2.1, r.1.1) = some y)` only increases
   -- the winning mass (`probOutput` monotone over the conjoined Bool body).
   rw [probOutput_bind_eq_tsum, probOutput_bind_eq_tsum]
@@ -648,27 +623,23 @@ lemma gpv_perKey_exactMatch_le_reservoir [DecidableEq Domain] [Inhabited Range]
     (domainSample : PK → ProbComp Domain) (pk : PK) (sk : SK) (qSign qHash : ℕ)
     (adv : SignatureAlg.UnforgeableAdversary
       (GPVHashAndSign (m := OracleComp (unifSpec + (Salt × M →ₒ Range))) psf hr M Salt))
-    (hreg : 𝒮[(do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain))] =
-      𝒮[(do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
-            : ProbComp (Range × Domain))])
+    (hreg : (do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain)) =ᵈ (do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
+            : ProbComp (Range × Domain)))
     (hNF : ∀ (c : Range), NeverFail (psf.trapdoorSample pk sk c))
     (hForge : ForgesQueriedPoint psf hr M Salt adv domainSample)
     (hQ : signHashQueryBound
       (S' := Salt × Domain) (α := M × (Salt × Domain))
       (oa := adv.main pk) (qSign := qSign) (qHash := qHash)) :
-    Pr[fun w : ((M × (Salt × Domain)) × Bool) ×
-          ((((Salt × M →ₒ Range).QueryCache × Finset M) × Bool) × ((Salt × M) → Option Domain)) =>
-            (decide (w.1.1.1 ∉ w.2.1.1.2) && w.1.2) = true ∧
-              w.2.2 (w.1.1.2.1, w.1.1.1) = some w.1.1.2.2 |
-        (simulateQ (progGameRunImplCombined psf M Salt domainSample pk)
+    Pr{let w ← ((simulateQ (progGameRunImplCombined psf M Salt domainSample pk)
           (adv.main pk >>= fun out => (fun v => (out, v)) <$> gpvVerifyRead psf M Salt pk out)).run
-          ((((∅ : (Salt × M →ₒ Range).QueryCache), (∅ : Finset M)), false), fun _ => none)]
+          ((((∅ : (Salt × M →ₒ Range).QueryCache), (∅ : Finset M)), false), fun _ => none))}[(decide (w.1.1.1 ∉ w.2.1.1.2) && w.1.2) = true ∧
+              w.2.2 (w.1.1.2.1, w.1.1.1) = some w.1.1.2.2]
       ≤ ((qSign + qHash : ℕ) : ENNReal) *
-        Pr[= true | (do
+        Pr{let z ← (do
           let y ← ($ᵗ Range : ProbComp Range)
           let x ← psf.trapdoorSample pk sk y
           let x' ← programmedPreimageReduction psf hr M Salt adv domainSample qSign qHash pk y
-          pure (decide (x' = x)) : ProbComp Bool)] := by
+          pure (decide (x' = x)) : ProbComp Bool)}[z = true] := by
   -- **Step A (verify-strip, reduction-agnostic).**  Strip the verify continuation: on the forced
   -- cache hit at the forged point the verification read is table-passive, so the verify-extended
   -- exact-match mass is bounded by the exact-match event on `adv.main pk`'s combined run alone.
@@ -677,7 +648,7 @@ lemma gpv_perKey_exactMatch_le_reservoir [DecidableEq Domain] [Inhabited Range]
   -- **Step B (target factorization).**  Expand the reduction's averaged exact-match advantage over
   -- the uniform target draw `y ← $ᵗ Range` and push the `(qSign + qHash)` factor inside the sum, so
   -- the goal becomes the verify-stripped LHS bounded by
-  --   `∑' y, (qSign + qHash) * (Pr[= y | $ᵗ Range] * Pr[per-y exact-match win])`.
+  --   `∑' y, (qSign + qHash) * (Pr{let x ← $ᵗ Range}[x = y] * Pr[per-y exact-match win])`.
   rw [programmedPreimage_perKey_eq_tsum psf hr M Salt domainSample pk sk qSign qHash adv,
     ← ENNReal.tsum_mul_left]
   -- **N4 rewrite.**  Inside every per-target factor `P_y`, replace the pre-sampled-index
@@ -685,17 +656,17 @@ lemma gpv_perKey_exactMatch_le_reservoir [DecidableEq Domain] [Inhabited Range]
   -- embed run has an all-uniform cache (modulo `y` at the winner slot), matching the cache marginal
   -- of the trapdoor-recording combined run.
   have hN4 : ∀ y : Range,
-      Pr[= true | (do
+      Pr{let z ← (do
         let x ← psf.trapdoorSample pk sk y
         let x' ← programmedPreimageReduction psf hr M Salt adv domainSample qSign qHash pk y
-        pure (decide (x' = x)) : ProbComp Bool)]
-      = Pr[= true | (do
+        pure (decide (x' = x)) : ProbComp Bool)}[z = true]
+      = Pr{let z ← (do
           let x ← psf.trapdoorSample pk sk y
           let wOpt ← reservoirWinnerIndex (qSign + qHash)
           let r ← (simulateQ (embedTrapImpl psf M Salt pk sk
               (wOpt.getD (qSign + qHash)) y) (adv.main pk)).run
             ((∅ : (Salt × M →ₒ Range).QueryCache), (0 : ℕ))
-          pure (decide (r.1.2.2 = x)) : ProbComp Bool)] := by
+          pure (decide (r.1.2.2 = x)) : ProbComp Bool)}[z = true] := by
     intro y
     refine probOutput_congr rfl ?_
     simp only [programmedPreimageReduction_eq_run, bind_assoc, pure_bind]
@@ -720,20 +691,20 @@ lemma gpv_perKey_exactMatch_le_reservoir [DecidableEq Domain] [Inhabited Range]
   -- swap the target/reservoir averages, fold in the multi-target factor, and discharge the result
   -- against the reservoir↔embedding coupling `reservoir_embed_commute` (M3).
   have hpull : ∀ i : Range,
-      Pr[= true | (do
+      Pr{let y ← (do
         let x ← psf.trapdoorSample pk sk i
         let wOpt ← reservoirWinnerIndex (qSign + qHash)
         let r ← (simulateQ (embedTrapImpl psf M Salt pk sk
             (wOpt.getD (qSign + qHash)) i) (adv.main pk)).run
           ((∅ : (Salt × M →ₒ Range).QueryCache), (0 : ℕ))
-        pure (decide (r.1.2.2 = x)) : ProbComp Bool)]
-      = ∑' wOpt : Option ℕ, Pr[= wOpt | reservoirWinnerIndex (qSign + qHash)] *
-        Pr[= true | (do
+        pure (decide (r.1.2.2 = x)) : ProbComp Bool)}[y = true]
+      = ∑' wOpt : Option ℕ, Pr{let x ← reservoirWinnerIndex (qSign + qHash)}[x = wOpt] *
+        Pr{let y ← (do
           let x ← psf.trapdoorSample pk sk i
           let r ← (simulateQ (embedTrapImpl psf M Salt pk sk
               (wOpt.getD (qSign + qHash)) i) (adv.main pk)).run
             ((∅ : (Salt × M →ₒ Range).QueryCache), (0 : ℕ))
-          pure (decide (r.1.2.2 = x)) : ProbComp Bool)] := by
+          pure (decide (r.1.2.2 = x)) : ProbComp Bool)}[y = true] := by
     intro i
     rw [probOutput_bind_eq_tsum]
     simp_rw [probOutput_bind_eq_tsum (reservoirWinnerIndex (qSign + qHash)),
@@ -744,23 +715,23 @@ lemma gpv_perKey_exactMatch_le_reservoir [DecidableEq Domain] [Inhabited Range]
   -- that `reservoir_embed_commute` equates to the trap exact-match mass.
   have hrhs :
       (∑' i : Range, ((qSign + qHash : ℕ) : ENNReal) *
-          (Pr[= i | ($ᵗ Range : ProbComp Range)] *
-            ∑' wOpt : Option ℕ, Pr[= wOpt | reservoirWinnerIndex (qSign + qHash)] *
-              Pr[= true | (do
+          (Pr{let x ← ($ᵗ Range : ProbComp Range)}[x = i] *
+            ∑' wOpt : Option ℕ, Pr{let x ← reservoirWinnerIndex (qSign + qHash)}[x = wOpt] *
+              Pr{let y ← (do
                 let x ← psf.trapdoorSample pk sk i
                 let r ← (simulateQ (embedTrapImpl psf M Salt pk sk
                     (wOpt.getD (qSign + qHash)) i) (adv.main pk)).run
                   ((∅ : (Salt × M →ₒ Range).QueryCache), (0 : ℕ))
-                pure (decide (r.1.2.2 = x)) : ProbComp Bool)]))
+                pure (decide (r.1.2.2 = x)) : ProbComp Bool)}[y = true]))
         = ((qSign + qHash : ℕ) : ENNReal) *
-          ∑' wOpt : Option ℕ, Pr[= wOpt | reservoirWinnerIndex (qSign + qHash)] *
-            ∑' y : Range, Pr[= y | ($ᵗ Range : ProbComp Range)] *
-              Pr[= true | (do
+          ∑' wOpt : Option ℕ, Pr{let x ← reservoirWinnerIndex (qSign + qHash)}[x = wOpt] *
+            ∑' y : Range, Pr{let x ← ($ᵗ Range : ProbComp Range)}[x = y] *
+              Pr{let z ← (do
                 let x ← psf.trapdoorSample pk sk y
                 let r ← (simulateQ (embedTrapImpl psf M Salt pk sk
                     (wOpt.getD (qSign + qHash)) y) (adv.main pk)).run
                   ((∅ : (Salt × M →ₒ Range).QueryCache), (0 : ℕ))
-                pure (decide (r.1.2.2 = x)) : ProbComp Bool)] := by
+                pure (decide (r.1.2.2 = x)) : ProbComp Bool)}[z = true] := by
     rw [← ENNReal.tsum_mul_left]
     simp_rw [← ENNReal.tsum_mul_left, ← mul_assoc]
     rw [ENNReal.tsum_comm]

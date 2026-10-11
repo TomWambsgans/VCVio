@@ -250,19 +250,19 @@ outcome, the event mass partitions over the index value: `Pr[P] = ∑' j, Pr[P �
 is the abstract index partition behind the GPV Step-2 trap-mass decomposition `∑' j, g j = trap`. -/
 theorem probEvent_eq_tsum_probEvent_index_aux {ι : Type} {m : Type → Type}
     [MonadLiftT m SPMF] (mx : m ι) (P : ι → Prop) (idx : ι → Option ℕ)
-    (hidx : ∀ x, Pr[= x | mx] ≠ 0 → P x → idx x ≠ none) :
-    Pr[P | mx] = ∑' j : ℕ, Pr[fun x => P x ∧ idx x = some j | mx] := by
+    (hidx : ∀ x, Pr{let y ← mx}[y = x] ≠ 0 → P x → idx x ≠ none) :
+    Pr{let x ← mx}[P x] = ∑' j : ℕ, Pr{let x ← mx}[P x ∧ idx x = some j] := by
   classical
   rw [probEvent_eq_tsum_indicator]
   have hcongr : ∀ j : ℕ,
-      Pr[fun x => P x ∧ idx x = some j | mx]
-        = ∑' x : ι, {x | P x ∧ idx x = some j}.indicator (Pr[= · | mx]) x := by
+      Pr{let x ← mx}[P x ∧ idx x = some j]
+        = ∑' x : ι, {x | P x ∧ idx x = some j}.indicator (Pr{let x ← mx}[x = ·]) x := by
     intro j; rw [probEvent_eq_tsum_indicator]
   simp_rw [hcongr]
   rw [ENNReal.tsum_comm]
   refine tsum_congr fun x => ?_
   by_cases hPx : P x
-  · rcases eq_or_ne (Pr[= x | mx]) 0 with hp0 | hp0
+  · rcases eq_or_ne (Pr{let y ← mx}[y = x]) 0 with hp0 | hp0
     · rw [Set.indicator_apply, ite_eq_left (Set.mem_ofPred_eq ▸ hPx), hp0]
       symm
       simp only [Set.indicator_apply, Set.mem_ofPred_eq]
@@ -512,10 +512,9 @@ theorem embedTrapImpl_frontDraw_commute {ρ γ : Type} (pk : PK) (sk : SK) (j : 
     (s : (Salt × M →ₒ Range).QueryCache × ℕ)
     (k : ρ → (((unifSpec + (Salt × M →ₒ Range)) + (M →ₒ (Salt × Domain))).Range t ×
       ((Salt × M →ₒ Range).QueryCache × ℕ)) → ProbComp γ) :
-    𝒮[od >>= fun r =>
-        (embedTrapImpl psf M Salt pk sk j y t).run s >>= fun pq => k r pq] =
-      𝒮[(embedTrapImpl psf M Salt pk sk j y t).run s >>= fun pq =>
-        od >>= fun r => k r pq] :=
+    (od >>= fun r =>
+        (embedTrapImpl psf M Salt pk sk j y t).run s >>= fun pq => k r pq) =ᵈ ((embedTrapImpl psf M Salt pk sk j y t).run s >>= fun pq =>
+        od >>= fun r => k r pq) :=
   OracleComp.DeferredSampling.evalSPMF_bind_comm od
     ((embedTrapImpl psf M Salt pk sk j y t).run s) (fun r pq => k r pq)
 
@@ -680,8 +679,7 @@ The external target `y` is irrelevant past the winner. -/
 lemma evalSPMF_run_embedTrapImpl_eq_embedTrapFresh_of_lt (pk : PK) (sk : SK) (j : ℕ) (y : Range)
     {β : Type} (oa : OracleComp ((unifSpec + (Salt × M →ₒ Range)) + (M →ₒ (Salt × Domain))) β) :
     ∀ (s : (Salt × M →ₒ Range).QueryCache × ℕ), j < s.2 →
-      𝒮[(simulateQ (embedTrapImpl psf M Salt pk sk j y) oa).run s] =
-        𝒮[(simulateQ (embedTrapFreshImpl psf M Salt pk sk) oa).run s] := by
+      ((simulateQ (embedTrapImpl psf M Salt pk sk j y) oa).run s) =ᵈ ((simulateQ (embedTrapFreshImpl psf M Salt pk sk) oa).run s) := by
   induction oa using OracleComp.inductionOn with
   | pure a => intro s _; rfl
   | query_bind t ob ih =>
@@ -726,9 +724,8 @@ lemma evalSPMF_frontDraw_embedTrapImpl_eq_embedTrapFresh
     (pk : PK) (sk : SK) (j : ℕ)
     {β : Type} (oa : OracleComp ((unifSpec + (Salt × M →ₒ Range)) + (M →ₒ (Salt × Domain))) β) :
     ∀ (s : (Salt × M →ₒ Range).QueryCache × ℕ),
-      𝒮[(($ᵗ Range : ProbComp Range) >>= fun y =>
-          (simulateQ (embedTrapImpl psf M Salt pk sk j y) oa).run s)] =
-        𝒮[(simulateQ (embedTrapFreshImpl psf M Salt pk sk) oa).run s] := by
+      (($ᵗ Range : ProbComp Range) >>= fun y =>
+          (simulateQ (embedTrapImpl psf M Salt pk sk j y) oa).run s) =ᵈ ((simulateQ (embedTrapFreshImpl psf M Salt pk sk) oa).run s) := by
   induction oa using OracleComp.inductionOn with
   | pure a =>
       intro s
@@ -1133,8 +1130,7 @@ lemma evalSPMF_run_embedTrapIdxImpl_eq_embedTrapFreshIdx_of_lt (pk : PK) (sk : S
     (y : Range)
     {β : Type} (oa : OracleComp ((unifSpec + (Salt × M →ₒ Range)) + (M →ₒ (Salt × Domain))) β) :
     ∀ (s : ((Salt × M →ₒ Range).QueryCache × ℕ) × ((Salt × M) → Option ℕ)), j < s.1.2 →
-      𝒮[(simulateQ (embedTrapIdxImpl psf M Salt pk sk j y) oa).run s] =
-        𝒮[(simulateQ (embedTrapFreshIdxImpl psf M Salt pk sk) oa).run s] := by
+      ((simulateQ (embedTrapIdxImpl psf M Salt pk sk j y) oa).run s) =ᵈ ((simulateQ (embedTrapFreshIdxImpl psf M Salt pk sk) oa).run s) := by
   induction oa using OracleComp.inductionOn with
   | pure a => intro s _; rfl
   | query_bind t ob ih =>
@@ -1163,9 +1159,8 @@ lemma evalSPMF_frontDraw_embedTrapIdxImpl_eq_embedTrapFreshIdx
     (pk : PK) (sk : SK) (j : ℕ)
     {β : Type} (oa : OracleComp ((unifSpec + (Salt × M →ₒ Range)) + (M →ₒ (Salt × Domain))) β) :
     ∀ (s : ((Salt × M →ₒ Range).QueryCache × ℕ) × ((Salt × M) → Option ℕ)),
-      𝒮[(($ᵗ Range : ProbComp Range) >>= fun y =>
-          (simulateQ (embedTrapIdxImpl psf M Salt pk sk j y) oa).run s)] =
-        𝒮[(simulateQ (embedTrapFreshIdxImpl psf M Salt pk sk) oa).run s] := by
+      (($ᵗ Range : ProbComp Range) >>= fun y =>
+          (simulateQ (embedTrapIdxImpl psf M Salt pk sk j y) oa).run s) =ᵈ ((simulateQ (embedTrapFreshIdxImpl psf M Salt pk sk) oa).run s) := by
   induction oa using OracleComp.inductionOn with
   | pure a =>
       intro s
@@ -1239,20 +1234,20 @@ lemma reservoir_embed_winnerIdx_le [DecidableEq Domain] (pk : PK) (sk : SK)
     (j : ℕ)
     (adv : SignatureAlg.UnforgeableAdversary
       (GPVHashAndSign (m := OracleComp (unifSpec + (Salt × M →ₒ Range))) psf hr M Salt)) :
-    (∑' y : Range, Pr[= y | ($ᵗ Range : ProbComp Range)] *
-        Pr[= true | (do
+    (∑' y : Range, Pr{let x ← ($ᵗ Range : ProbComp Range)}[x = y] *
+        Pr{let z ← (do
           let r ← (simulateQ (embedTrapIdxImpl psf M Salt pk sk j y) (adv.main pk)).run
             (((∅ : (Salt × M →ₒ Range).QueryCache), (0 : ℕ)), (fun _ => none))
           let x ← psf.trapdoorSample pk sk ((r.2.1.1 (r.1.2.1, r.1.1)).getD y)
           pure (decide (r.1.2.2 = x) && decide (r.2.1.1 (r.1.2.1, r.1.1) = some y) &&
-            decide (r.2.2 (r.1.2.1, r.1.1) = some j)) : ProbComp Bool)]) ≤
-      Pr[= true | (do
+            decide (r.2.2 (r.1.2.1, r.1.1) = some j)) : ProbComp Bool)}[z = true]) ≤
+      Pr{let z ← (do
         let y ← ($ᵗ Range : ProbComp Range)
         let r ← (simulateQ (embedTrapImpl psf M Salt pk sk j y) (adv.main pk)).run
           ((∅ : (Salt × M →ₒ Range).QueryCache), (0 : ℕ))
         let x ← psf.trapdoorSample pk sk ((r.2.1 (r.1.2.1, r.1.1)).getD y)
         pure (decide (r.1.2.2 = x) &&
-          decide (r.2.1 (r.1.2.1, r.1.1) = some y)) : ProbComp Bool)] := by
+          decide (r.2.1 (r.1.2.1, r.1.1) = some y)) : ProbComp Bool)}[z = true] := by
   rw [probOutput_bind_eq_tsum]
   refine ENNReal.tsum_le_tsum fun y => ?_
   refine mul_le_mul' le_rfl ?_
