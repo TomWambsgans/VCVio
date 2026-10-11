@@ -180,7 +180,7 @@ lemma reservoir_embed_commute_winner_floorFree [DecidableEq Domain] [Inhabited R
         let x ← psf.trapdoorSample pk sk ((r.2.1 (r.1.2.1, r.1.1)).getD y)
         pure (decide (r.1.2.2 = x) &&
           decide (r.2.1 (r.1.2.1, r.1.1) = some y)) : ProbComp Bool)}[z = true] from by
-    refine probOutput_congr rfl (evalSPMF_bind_congr' _ (fun y => ?_))
+    refine EvalDistEq.prEvent_eq (evalSPMF_bind_congr' _ (fun y => ?_)) _
     refine evalSPMF_bind_congr' _ (fun r => ?_)
     rcases hc : r.2.1 (r.1.2.1, r.1.1) with _ | yv
     · simp only [Option.getD_none]

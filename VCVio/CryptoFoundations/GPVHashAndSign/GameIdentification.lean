@@ -646,7 +646,7 @@ is the correct identical-until-bad statement for the GPV game with bad event = c
 collision (the two runs differ only when a fresh salt collides with a recorded entry). It is
 **true** (it is the real GPV up-to-bad bound, the cache-hit counterpart of the fire-on-miss
 core `measureTVDist_runtime_real_programmed_le_bad`) and **non-vacuous** (`saltSeq c qSign` is a
-genuine probabilistic process whose collision probability `probEvent_saltSeq_le_collisionBound`
+genuine probabilistic process whose collision probability `prEvent_saltSeq_le_collisionBound`
 bounds it strictly by `collisionBound < ⊤`, so `hcouple` is a real inequality between two `< ⊤`
 quantities, not a `≤ ⊤` triviality; and the TV distance it bounds is in general positive, so it is
 not vacuously `0 ≤ _`). Unlike the fire-on-miss route, `hcouple` is *satisfiable* by the GPV policy
@@ -660,7 +660,7 @@ the `saltSeq` process. Once `hcouple` is discharged by the coupling, this lemma 
 `tvDist ≤ (collisionBound Salt qSign qHash).toReal` consumed by the four GPV theorems.
 
 The proof is loss-free: chain `hcouple` (TV distance ≤ `saltSeq` collision) with the
-salt-averaged telescope `probEvent_saltSeq_le_collisionBound` (`saltSeq` collision ≤
+salt-averaged telescope `prEvent_saltSeq_le_collisionBound` (`saltSeq` collision ≤
 `collisionBound`), then move to `ℝ` with `ENNReal.toReal_mono`. -/
 omit [DecidableEq Range] in
 theorem measureTVDist_runtime_real_programmed_le_collisionBound_saltInclusive
@@ -688,7 +688,7 @@ theorem measureTVDist_runtime_real_programmed_le_collisionBound_saltInclusive
       · simp
       · simp only [ne_eq, mul_eq_zero, OfNat.ofNat_ne_zero, Nat.cast_eq_zero, false_or]
         exact Fintype.card_ne_zero)
-    (probEvent_saltSeq_le_collisionBound Salt qSign qHash c hcache))
+    (prEvent_saltSeq_le_collisionBound Salt qSign qHash c hcache))
 
 /-! ## Step 1 and the wiring to the headline bounds
 
