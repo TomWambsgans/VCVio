@@ -85,12 +85,13 @@ lemma measureTVDist_run_gpvRealImplFlagFresh_sign_le (pk : PK) (sk : SK)
     measureTVDist ((gpvRealImplFlagFresh psf hr M Salt pk sk (.inr msg)).run s)
       ((gpvRealImplFlagFresh psf' hr M Salt pk sk (.inr msg)).run s) ≤ ε := by
   let : MeasurableSpace Domain := ⊤
-  let : MeasurableSpace
-      (((unifSpec + (Salt × M →ₒ Range)) + (M →ₒ (Salt × Domain))).Range (.inr msg) ×
-        (((Salt × M →ₒ Range).QueryCache × Finset M) × Bool)) := ⊤
+  let : MeasurableSpace ((Salt × Domain) × ((Salt × M →ₒ Range).QueryCache × Finset M) × Bool) :=
+    ⊤
   rw [gpvRealImplFlagFresh_run_inr, gpvRealImplFlagFresh_run_inr]
-  refine OracleComp.measureTVDist_bind_left_le_of_forall_le _ _ _ hε fun r => ?_
-  refine OracleComp.measureTVDist_bind_left_le_of_forall_le _ _ _ hε fun q => ?_
+  refine OracleComp.measureTVDist_bind_left_le_of_forall_le (β := (Salt × Domain) × _) _ _ _ hε
+    fun r => ?_
+  refine OracleComp.measureTVDist_bind_left_le_of_forall_le (β := (Salt × Domain) × _) _ _ _ hε
+    fun q => ?_
   rw [bind_pure_comp, bind_pure_comp]
   exact le_trans (measureTVDist_map_le _ _ _ Measurable.of_discrete) (hStep q.1)
 
@@ -124,9 +125,9 @@ theorem measureTVDist_run_simulateQ_gpvRealImplFlagFresh_trapdoorSwap_le (pk : P
   · rintro (q | msg) hSt s
     · simp at hSt
     · let : MeasurableSpace
-          (((unifSpec + (Salt × M →ₒ Range)) + (M →ₒ (Salt × Domain))).Range (.inr msg) ×
-            (((Salt × M →ₒ Range).QueryCache × Finset M) × Bool)) := ⊤
-      exact (ENNReal.le_ofReal_iff_toReal_le (measureETVDist_ne_top _ _) hε).2
+          ((Salt × Domain) × ((Salt × M →ₒ Range).QueryCache × Finset M) × Bool) := ⊤
+      exact (ENNReal.le_ofReal_iff_toReal_le
+        (measureETVDist_ne_top (α := (Salt × Domain) × _) _ _) hε).2
         (measureTVDist_run_gpvRealImplFlagFresh_sign_le psf psf' hr M Salt pk sk hε hStep msg s)
   · rintro (q | msg) hSt s
     · exact gpvRealImplFlagFresh_run_inl_trapdoorSwap psf psf' hr M Salt pk sk q s
