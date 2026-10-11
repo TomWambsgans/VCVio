@@ -25,7 +25,7 @@ public section
 namespace Interop.Cryptol.Bridge
 
 open Interop.Cryptol Interop.Cryptol.Finite
-open SLHDSA.Concrete.Sha2
+open VCVio.Algorithms.Sha2
 
 /-- Big sigma one agrees on every input. -/
 theorem sigma256One_eq (x : UInt32) :

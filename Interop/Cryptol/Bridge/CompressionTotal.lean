@@ -8,6 +8,8 @@ module
 
 public import Interop.Cryptol.Bridge.CompressionSemantics
 
+import Mathlib.Tactic.FinCases
+
 /-!
 # Totality and finite recurrence compilation
 

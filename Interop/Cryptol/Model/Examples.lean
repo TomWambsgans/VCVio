@@ -6,7 +6,7 @@ Authors: Devon Tuma
 
 module
 
-public import Interop.Cryptol.Model.Resolved
+public import Interop.Cryptol.Model.ResolvedSequences
 public import Interop.Cryptol.Model.Operational
 
 /-!
@@ -68,6 +68,25 @@ namespace Interop.Cryptol.Examples
   .app (.app (polymorphicMap.instantiate mapArguments)
     (.lam (.intOp .add (.var .zero) (.integer 1)))) naturals
 
+/-- A second generator depends on the first; the body retains both bindings. -/
+@[expose] def dependentRows : Resolved.Term [] (.seq (.finite 4) .integer) :=
+  .flatMap 2 (.lam (.map
+    (.lam (.intOp .add (.var (.succ .zero)) (.var .zero)))
+    (.sequence 2 (fun i => if i.val = 0 then .var .zero
+      else .intOp .add (.var .zero) (.integer 10))))) (.range 0 2)
+
+/-- Parallel generators stop before the unused erroneous tail. -/
+@[expose] def parallelRows : Resolved.Term [] (.seq (.finite 2) .integer) :=
+  .zipWith (.lam (.lam (.intOp .add (.var (.succ .zero)) (.var .zero))))
+    (.range 0 2) (.sequence 3 (fun i => if i.val = 2 then .error (.user "tail")
+      else .integer (10 + (i.val : Int))))
+
+/-- An ignored parallel generator may have an erroneous outer constructor. -/
+@[expose] def ignoredParallel : Resolved.Term [] (.seq (.finite 2) .integer) :=
+  Resolved.Term.zipWith (l := .finite 2) (m := .infinite)
+    (a := .integer) (b := .integer) (.lam (.lam (.integer 23)))
+    (.error (.user "left")) (.error (.user "right"))
+
 /-- A named scalar observation and its expected outcome. -/
 structure Fixture where
   /-- Identifier used by the fixture CLI. -/
@@ -99,6 +118,12 @@ structure Fixture where
 
 /-- The regression corpus shared with the Cryptol executable tests. -/
 @[expose] def fixtures : List Fixture := [
+  ⟨"sequential_generator_first_row", .index dependentRows (.integer 1), some (.ok 10), 2000⟩,
+  ⟨"sequential_generator_second_row", .index dependentRows (.integer 2), some (.ok 2), 2000⟩,
+  ⟨"parallel_generator_prefix", .index parallelRows (.integer 1), some (.ok 12), 1000⟩,
+  ⟨"parallel_generator_bounds", .index parallelRows (.integer 2),
+    some (.error (.invalidIndex 2)), 1000⟩,
+  ⟨"parallel_generator_ignored", .index ignoredParallel (.integer 1), some (.ok 23), 1000⟩,
   Fixture.core "lazy_argument" (.app (.lam (.integer 7)) (.diverge (a := .integer)))
     (some (.ok 7)) 50 (by rfl),
   Fixture.core "lazy_error_argument"

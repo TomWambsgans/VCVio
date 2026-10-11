@@ -33,7 +33,7 @@ parser, name resolver, type inference engine, or constraint solver.
 | Recursion | Least fixed points at every closed type; monomorphic groups use lazy products. Finite polymorphic group syntax takes one fixed point of the whole scheme environment before instantiation. |
 | Failure | Semantic bottom, explicit evaluation error, and returned outer value are distinct |
 | Primitives | Structural zero; lazy finite folds; array arithmetic; Bit/integer operations; partial word logic, lexicographic comparison, modular arithmetic, conversions, dynamic shifts/rotations; structural sequence operations |
-| Derived descriptions | Sequence literals, generators, map, parallel zip, finite-prefix append, observation windows; big-endian literals and finite total descriptions |
+| Derived descriptions | Sequence literals, generators, map, dependent finite sequential generators, parallel zip, finite-prefix append, observation windows; big-endian literals and finite total descriptions |
 
 Products represent tuple spines. Named records, nominal types,
 arbitrary Cryptol type-class constraints, and the full numeric
@@ -140,6 +140,12 @@ that they preserve assumptions. [`PolyReindex.lean`](../Model/PolyReindex.lean)
 implements one constructor-local `ScopedFamily.Hom`; the generic PolyFun
 traversal performs the tree recursion. Instantiating two distinct type
 parameters to the same type preserves the two value-variable positions.
+[`PolyReindexLaws.lean`](../Model/PolyReindexLaws.lean) proves identity and
+composition for constructor heads, including recursive-group schemes and
+constraint evidence. Head equalities allow arbitrary result annotations and
+different parameter scopes; numeric and type lifting preserve identity and
+composition. Whole-term parameter identity/composition still require the
+corresponding child-map coherence proof.
 [`PolySubstitution.lean`](../Model/PolySubstitution.lean) uses that action to
 move value substitutions under parameter binders without capturing variables.
 Its identity and renaming-interaction laws follow from the shared PolyFun API.
@@ -237,11 +243,24 @@ finite implementation with a complete-output equality on represented inputs.
 the recurrence proof. `Recurrence.lean` supplies the constructor-producing,
 strict-prefix fixed-point rule; `Finite/Loop.lean` constructs shared finite
 prefix tables and iterations. `ResolvedSequences.lean` supplies ranges and
-single-generator comprehensions, with partial denotation equations.
+lazy `map`, dependent `flatMap` with finite inner rows, and `zipWith` over
+finite or infinite sources, with partial denotation equations. Sequential
+generators visit each row in source order; parallel generators truncate at the
+shorter length. Both retain suspended arguments. These derived combinators use
+the existing lowering and operational theorems; a general comprehension AST and
+infinite inner sequential generators remain outside this interface.
 
 [`SemanticCertificate.lean`](../Translation/SemanticCertificate.lean) factors
 the representation contract over a semantic computation, independent of which
-syntax denotes it. [`CertifiedFamily.lean`](../Translation/CertifiedFamily.lean)
+syntax denotes it. `CorrespondsOn` records equality on an explicit admissible
+set of inputs. Its `contract_iff` transfers arbitrary preconditions and
+postconditions when the precondition implies admissibility. `property_iff`
+identifies a source Boolean property with a **defined** `true` result, so an
+error or divergence cannot satisfy it. Outside the profile no behavior is
+asserted. Tests include a source that errors outside its admitted domain and
+reject unrestricted correspondence for error and divergent sources.
+
+[`CertifiedFamily.lean`](../Translation/CertifiedFamily.lean)
 retains one finite polymorphic source together with implementations and
 all-input representation proofs for every instance of an explicit
 `FamilyInterface`. Its `contract_iff` pulls or pushes arbitrary preconditions
@@ -295,7 +314,10 @@ The generic additions are reusable outside the model:
 - `PolyFun/IPFunctor/Scoped/Family*.lean`: context-changing finite syntax,
   constructor-local parameter maps, value substitutions, and finite node counts.
   The generic traversal composition and relational fold laws also support the
-  independent polymorphic tutorial in PolyFun.
+  independent polymorphic tutorial in PolyFun. `FamilyMapSubstitution` proves
+  parameter-map/value-substitution fusion from a constructor-local square for
+  reindexing terms; positional lookup and binder lifting are discharged
+  generically. The Cryptol instance of that reindexing square remains open.
 - `PolyFun/Control/Domain/Pointed.lean` and `IPFunctor/Scoped/Domain.lean`:
   bundled domains, continuous heterogeneous environments, and one simultaneous
   least fixed point for a finite binding group.
@@ -314,10 +336,11 @@ the existing generic ITree monadic interpreters remain a separate interface.
 
 ## External evidence and evaluator discrepancies
 
-The corpus has 26 fixtures: lazy errors and divergence, productive and mutual
+The corpus has 31 fixtures: lazy errors and divergence, productive and mutual
 recursion, an instantiated polymorphic map, factorial and higher-order calls,
-empty and out-of-bounds sequences, signed integer arithmetic, and word examples.
-Twenty-five terminating fixtures are compared against **both** external
+empty and out-of-bounds sequences, sequential and parallel comprehension
+binding and demand, signed integer arithmetic, and word examples.
+Thirty terminating fixtures are compared against **both** external
 evaluators. Kernel-checked regression examples also establish semantic claims
 from concrete machine executions.
 
@@ -365,7 +388,13 @@ constant step can also ignore an erroneous accumulator and nonempty sequence.
 Normal evaluation forces the sequence's outer constructor in both cases and
 returns its error. The driver records both differences explicitly, alongside
 structural zero, lazy map, integer comparison error order, and empty-array
-arithmetic demand checks.
+arithmetic demand checks. An ignored parallel generator with an erroneous
+infinite source also differs: `[23 | x <- (error "left" : [2]Integer) |
+y <- (error "right" : [inf]Integer)] @ 1` returns `23` in the reference and
+the right error in normal evaluation. With a finite right source, both return
+`23`. The derived Lean `zipWith` has the reference demand behavior; its export
+uses indexed functions, so the separate handwritten comprehension check also
+tests the frontend's generator handling.
 
 The concatenation difference persists when rotating to its defined bit.
 Constant maps over a finite erroneous source remain lazy in both evaluators.

@@ -35,7 +35,7 @@ public def sampleReport (input : Nat) : Json := Id.run do
     | .inl (.error _) => .mkObj [("status", .str "error")]
     | .inl (.ok (.integer i)) => .mkObj [("status", .str "value"), ("value", toJson i)]
   return .mkObj [("input", toJson x.toNat), ("source", toJson (foundationSigma x).toNat),
-    ("vcvio", toJson (SLHDSA.Concrete.Sha2.bsig0 x).toNat), ("machine", machine),
+    ("vcvio", toJson (VCVio.Algorithms.Sha2.bsig0 x).toNat), ("machine", machine),
     ("steps", toJson steps), ("nodes", toJson term.nodeCount)]
 
 /-- Emit descriptions or run reproducible bridge comparisons. -/
@@ -75,7 +75,7 @@ public def run (args : List String) : IO UInt32 := do
           let run := compressionTerm.denote Finite.Env.empty input
           let compiled := Array.ofFn fun i => (run i).toNat
           let elapsed ← IO.monoMsNow
-          let result := SLHDSA.Concrete.Sha2.compress st m base
+          let result := VCVio.Algorithms.Sha2.compress st m base
           out.putStrLn (Json.mkObj [("compiled", toJson compiled),
             ("vcvio", toJson (result.map UInt32.toNat)),
             ("compiledMilliseconds", toJson (elapsed - start)),
@@ -86,7 +86,7 @@ public def run (args : List String) : IO UInt32 := do
   | "round" :: inputs =>
       match inputs.mapM String.toNat? with
       | some [a, b, c, d, e, f, g, h, kt, wt] =>
-          let s : SLHDSA.Concrete.Sha2.RoundState :=
+          let s : VCVio.Algorithms.Sha2.RoundState :=
             ⟨a.toUInt32, b.toUInt32, c.toUInt32, d.toUInt32, e.toUInt32,
               f.toUInt32, g.toUInt32, h.toUInt32⟩
           let input := (stateBits s, kt.toUInt32.toBitVec, wt.toUInt32.toBitVec)
@@ -110,9 +110,9 @@ public def run (args : List String) : IO UInt32 := do
             Foundation.choose256.denote Finite.Env.empty (x.toBitVec, y.toBitVec, z.toBitVec),
             Foundation.majority256.denote Finite.Env.empty (x.toBitVec, y.toBitVec, z.toBitVec)]
           out.putStrLn (Json.mkObj [("source", toJson (source.map BitVec.toNat)),
-            ("vcvio", toJson (#[SLHDSA.Concrete.Sha2.bsig0 x, SLHDSA.Concrete.Sha2.bsig1 x,
-              SLHDSA.Concrete.Sha2.ssig0 x, SLHDSA.Concrete.Sha2.ssig1 x,
-              SLHDSA.Concrete.Sha2.ch x y z, SLHDSA.Concrete.Sha2.maj x y z].map UInt32.toNat))
+            ("vcvio", toJson (#[VCVio.Algorithms.Sha2.bsig0 x, VCVio.Algorithms.Sha2.bsig1 x,
+              VCVio.Algorithms.Sha2.ssig0 x, VCVio.Algorithms.Sha2.ssig1 x,
+              VCVio.Algorithms.Sha2.ch x y z, VCVio.Algorithms.Sha2.maj x y z].map UInt32.toNat))
             ]).compress
           return 0
       | _, _, _ => err.putStrLn "Expected three natural word inputs"; return 1
@@ -124,7 +124,7 @@ public def run (args : List String) : IO UInt32 := do
       | none => err.putStrLn "Expected a natural input"; return 1
   | ["compress"] =>
       let block := ByteArray.mk (Array.replicate 64 0)
-      let result := SLHDSA.Concrete.Sha2.compress SLHDSA.Concrete.Sha2.iv block 0
+      let result := VCVio.Algorithms.Sha2.compress VCVio.Algorithms.Sha2.iv block 0
       out.putStrLn (toJson (result.map UInt32.toNat)).compress
       return 0
   | _ =>

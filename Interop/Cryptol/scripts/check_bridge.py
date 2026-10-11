@@ -13,6 +13,7 @@ import time
 from pathlib import Path
 
 import extract_foundation as extract
+import coverage_catalogue
 
 ROOT = Path(__file__).resolve().parents[1]
 REPO = ROOT.parents[1]
@@ -269,7 +270,8 @@ def main():
     check_boundaries()
     if args.local_only:
         with tempfile.TemporaryDirectory(prefix="vcvio-cryptol-") as temporary:
-            report = {"rejections": rejection_tests(), "compression": check_compression(
+            report = {"coverage": coverage_catalogue.check(),
+                      "rejections": rejection_tests(), "compression": check_compression(
                 None, None, Path(temporary), random.Random(0xC0DEC))}
             certificate_rejection(Path(temporary))
             report["wrong_certificate_rejected"] = True
@@ -282,7 +284,8 @@ def main():
     cryptol, foundation = args.cryptol.resolve(), args.foundation.resolve()
     for path, expected in extract.extract(cryptol, foundation).items():
         require((ROOT / path).read_text() == expected, "stale extraction artifact: " + path)
-    report = {"rejections": rejection_tests()}
+    report = {"coverage": coverage_catalogue.check(cryptol, foundation),
+              "rejections": rejection_tests()}
     # Constraint erasure is addressed by checking concrete roots with Cryptol first.
     try:
         extract.run(cryptol, foundation, [":load algorithms/SHA2/Notation.cry",

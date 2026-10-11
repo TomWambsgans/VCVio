@@ -7,6 +7,7 @@ Authors: Devon Tuma
 module
 
 public import Interop.Cryptol.Bridge.SourceScalars
+import Mathlib.Tactic.FinCases
 
 /-!
 # Normalization of the preserved Foundation source

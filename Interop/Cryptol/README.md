@@ -36,7 +36,7 @@ comparisons remain an explicit local validation option.
 |---|---|---|
 | `Model` | Types, resolved and ordered polymorphic syntax, lazy domains, monomorphic operational semantics and adequacy, primitive demand rules | PolyFun, CSLib, Mathlib |
 | `Translation` | Native scoped IR, representation relation, source translation, certificates, quotation and export | Model |
-| `Bridge` | Foundation source artifacts, SHA-256 correspondence, byte encoding and VCVio probability theorems | Model, Translation, VCVio, HashSig |
+| `Bridge` | Foundation source artifacts, SHA-256 correspondence, byte encoding and VCVio probability theorems | Model, Translation, VCVio |
 | `Tests` | Public API, semantic and rejection regressions | The three optional libraries |
 | `Consumer` | A separate ordinary-import consumer using the root toolchain and dependencies | The public APIs |
 
@@ -87,3 +87,8 @@ The [coverage and gap ledger](docs/model.md#coverage-and-gap-ledger) separates
 proved capabilities, semantic spikes, and missing language features. In particular,
 the importer still targets the Foundation SHA-256 subset; no general typed-AST
 exporter, full Cryptol soundness theorem, or CRC certificate is claimed.
+
+The [coverage catalogue](docs/coverage.md) separates planned reference coverage,
+external probes and all-input Lean certificates, and records the next semantic
+and algorithm milestones. Shared hashes live in `VCVio/Algorithms/`; conformance
+proofs stay in this optional project.

@@ -66,3 +66,12 @@ example {w : Polymorphic.Scope} {Γ Δ : List w.ValueSort} {s : w.ValueSort}
     Polymorphic.Term.denote (t.rename r) ρ η =
       t.denote ρ (Polymorphic.Env.rename ρ r η) :=
   Polymorphic.Term.denote_rename t r ρ η
+
+example {a b : Finite.Ty} {ha : DataShape a} {hb : DataShape b}
+    {valid : a.Native → Prop} {meaning : Computation (.arrow a.core b.core)}
+    {implementation : a.Native → b.Native}
+    (h : CorrespondsOn ha hb valid meaning implementation)
+    (pre : a.Native → Prop) (post : a.Native → b.Native → Prop)
+    (admissible : ∀ x, pre x → valid x) :
+    DataMeaningContract ha meaning pre post ↔ ∀ x, pre x → post x (implementation x) :=
+  h.contract_iff pre post admissible

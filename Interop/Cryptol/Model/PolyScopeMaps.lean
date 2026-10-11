@@ -96,5 +96,27 @@ theorem comp_assoc {v : Scope} (μ : Map w z) (ν : Map z u) (ξ : Map u v) :
   apply ext
   exact ParameterSubstitution.comp_assoc ..
 
+/-- Numeric lifting preserves the identity checked map. -/
+@[simp] theorem liftNum_id (w : Scope) : (id w).liftNum = id w.bindNum := by
+  apply ext
+  exact ParameterSubstitution.liftNum_id ..
+
+/-- Type lifting preserves the identity checked map. -/
+@[simp] theorem liftType_id (w : Scope) : (id w).liftType = id w.bindType := by
+  apply ext
+  exact ParameterSubstitution.liftType_id ..
+
+/-- Numeric lifting preserves checked composition and its constraint evidence. -/
+theorem liftNum_comp (μ : Map w z) (ν : Map z u) :
+    (μ.comp ν).liftNum = μ.liftNum.comp ν.liftNum := by
+  apply ext
+  exact ParameterSubstitution.liftNum_comp ..
+
+/-- Type lifting preserves checked composition and its constraint evidence. -/
+theorem liftType_comp (μ : Map w z) (ν : Map z u) :
+    (μ.comp ν).liftType = μ.liftType.comp ν.liftType := by
+  apply ext
+  exact ParameterSubstitution.liftType_comp ..
+
 end Map
 end Interop.Cryptol.Polymorphic.Scope

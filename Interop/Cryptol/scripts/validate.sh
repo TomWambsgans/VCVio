@@ -70,5 +70,6 @@ if (( run_axioms )); then
   baseline="${POLYFUN_PATH:-.lake/packages/PolyFun}/scripts/axiom_baseline.json"
   "${lake_cmd[@]}" exe polyfun-axiomsweep --root Interop.Cryptol.Model \
     --root Interop.Cryptol.Translation --root Interop.Cryptol.Bridge \
+    --root VCVio.Algorithms.Sha2 --root VCVio.Algorithms.Keccak --root VCVio.Algorithms.Encoding \
     --baseline "$baseline" --out "$report_dir/axioms.json" --check
 fi

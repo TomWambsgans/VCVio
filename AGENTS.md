@@ -77,7 +77,7 @@ The repo also includes a first-class lattice cryptography library under `Lattice
 
 ## Repo Map
 
-- `VCVio/`: generic oracle-computation framework, program logic, crypto abstractions, and generic reductions.
+- `VCVio/`: the core library, including shared pure algorithms, oracle computations, program logic, crypto abstractions, and generic reductions.
 - `VCVioCslib/`: optional cslib-backed non-uniform P/poly certificates and security-game
   adapters. It is a separate Lake library outside the default targets, so core `VCVio` remains
   backend-neutral, and repository validation builds and checks it.
@@ -95,15 +95,46 @@ The repo also includes a first-class lattice cryptography library under `Lattice
   substrate; it is not part of VCVio's default dependency graph.
 - `Interop/Cryptol/`: one optional root-project development. Model owns language
   semantics; Translation owns native IR, certificates, and export; Bridge owns
-  Foundation, HashSig, and probability correspondences. Imports flow from Bridge
+  Foundation, core-algorithm, and probability correspondences. Imports flow from Bridge
   through Translation to Model. Core libraries never import these modules.
   Use `./scripts/validate.sh --cryptol --lint --test --axioms`; add
   `--cryptol-external` with `CRYPTOL_BINARY=…` and `FOUNDATION_PATH=…` for pinned checks.
   Set `POLYFUN_PATH=…` when using the companion local PolyFun checkout.
+  Use that override for the optional Cryptol driver or `-KpolyfunPath=…` for
+  direct Lake commands. Keep Lake's Git dependency checkout independent: never
+  replace `.lake/packages/PolyFun` with a symlink to a working repository. A
+  plain Lake invocation may check out its pinned revision. Root-wide validation
+  uses the published pin; local overrides need explicit forwarding in each tool.
 - `Examples/`: compact framework examples such as OneTimePad, ElGamal, Schnorr, and program-logic tactic walkthroughs.
 - `Interop/`: experimental bridges to Rust verification frontends (hax, aeneas). **Strict TCB isolation**: nothing in core VCVio depends on it. See `docs/agents/interop.md`.
 - `csrc/`: C FFI shims used for differential testing against native ML-DSA, ML-KEM, and Falcon code.
 - `third_party/`: native backends as git submodules; when they are not checked out (fresh clones, Lake dependency checkouts), the native `extern_lib` targets build as empty stub archives.
+
+## Placement policy
+
+Prefer modules inside the existing `VCVio` library over new peer libraries:
+
+- `VCVio/Algorithms/` owns reusable pure implementations, encodings, specifications,
+  and functional-correctness theorems. SHA2 and Keccak/SHA3/SHAKE live here.
+  This layer imports Mathlib, `ToMathlib`, generic PolyFun/CSLib utilities and
+  sibling algorithms, never oracle/probability layers, schemes or interop.
+- `VCVio/CryptoFoundations/` owns generic cryptographic interfaces, assumptions,
+  games and reductions, not concrete algorithm implementations.
+- `VCVio/Schemes/` is the destination for named constructions and their correctness
+  and security proofs when those modules are introduced or migrated.
+- `Examples/` contains pedagogical consumers. Reusable implementations and theorems
+  currently in examples should move to their owning core layer when touched.
+- `Interop/Cryptol/` owns source-language semantics, imported references and
+  conformance proofs against actual core implementations. Core never imports it.
+
+`HashSig/` and `LatticeCrypto/` are existing peers. Migrate them incrementally in
+slices containing the implementation, proofs, tests and import updates; do not
+copy implementations or create compatibility namespaces. Keep the existing
+FFI/test boundary. Add a separate Lake library only for a concrete dependency,
+trust or build-isolation requirement, not merely to group a new algorithm.
+Algorithm tests belong under `VCVioTest/Algorithms/`; scheme-specific vectors
+remain with their scheme tests. The repository import guard enforces the pure
+algorithm boundary as well as optional interop isolation.
 
 ## Module Layering
 

@@ -80,7 +80,7 @@ idempotent.
   src? := some <| match get_config? polyfunPath with
     | some path => .path (System.FilePath.mk path) false
     | none => .git "https://github.com/Verified-zkEVM/PolyFun"
-        (some "9a7e7f78ab2567d4c3c98629a13d31e10726bae1") none
+        (some "4e015b96a6ac3107c01b64fe43e42757c90f3553") none
 }
 
 require "leanprover-community" / "mathlib" @ git "v4.35.0-rc3"
@@ -104,8 +104,8 @@ those libraries may import `Extern`. -/
 
 /-- Hash-based signatures: SLH-DSA (SPHINCS+, FIPS 205) proof-level specs and security.
 Peer of `LatticeCrypto`; may depend on `VCVio`/`ToMathlib` (and Mathlib), but nothing in
-`VCVio`/`ToMathlib`/`Extern` may import it. The optional Cryptol bridge is a
-downstream consumer of its pure SHA implementation. -/
+`VCVio`/`ToMathlib`/`Extern` may import it. Shared hashes are owned by
+`VCVio.Algorithms`; scheme code and optional conformance proofs consume them. -/
 @[default_target] lean_lib HashSig
 
 /-- Example constructions of cryptographic primitives. -/

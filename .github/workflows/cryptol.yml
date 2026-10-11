@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - 'Interop/Cryptol/**'
+      - 'VCVio/Algorithms/**'
+      - 'VCVioTest/Algorithms/**'
       - 'lakefile.lean'
       - 'lake-manifest.json'
       - 'lean-toolchain'

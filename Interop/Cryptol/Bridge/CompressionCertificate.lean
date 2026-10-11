@@ -83,7 +83,7 @@ structure CompressionRequest where
 
 /-- The actual VCVio implementation at the same byte-facing interface. -/
 @[expose] def nativeCompress (r : CompressionRequest) : Array UInt32 :=
-  SLHDSA.Concrete.Sha2.compress r.state r.bytes r.base
+  VCVio.Algorithms.Sha2.compress r.state r.bytes r.base
 
 /-- The byte implementation equals the certified finite implementation on all valid requests. -/
 theorem compiledCompress_eq (r : CompressionRequest) : compiledCompress r = nativeCompress r := by

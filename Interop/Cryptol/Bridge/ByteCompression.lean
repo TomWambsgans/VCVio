@@ -8,6 +8,7 @@ module
 
 public import Interop.Cryptol.Bridge.Compression
 import Mathlib.Data.List.Range
+import Mathlib.Tactic.FinCases
 
 /-!
 # The imperative byte-array compression boundary
@@ -21,7 +22,7 @@ public section
 
 namespace Interop.Cryptol.Bridge
 
-open SLHDSA.Concrete.Sha2
+open VCVio.Algorithms.Sha2
 open Interop.Cryptol.Finite
 
 private theorem pure_forIn_eq_foldl {A B : Type} (xs : List A) (step : B → A → B) (z : B) :

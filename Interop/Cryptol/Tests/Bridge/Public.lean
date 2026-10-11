@@ -14,26 +14,26 @@ import Interop.Cryptol.Bridge
 
 open Interop.Cryptol.Bridge Interop.Cryptol OracleComp
 
-example (x : UInt32) : foundationSigma x = SLHDSA.Concrete.Sha2.bsig0 x :=
+example (x : UInt32) : foundationSigma x = VCVio.Algorithms.Sha2.bsig0 x :=
   foundationSigma_eq x
 
 example (x : UInt32) :
     (Expr.app Foundation.sigma256Zero.lower (.word x.toBitVec)).denote Environment.empty =
-      .value (wordValue (SLHDSA.Concrete.Sha2.bsig0 x).toBitVec) :=
+      .value (wordValue (VCVio.Algorithms.Sha2.bsig0 x).toBitVec) :=
   sigma256Zero_correct x
 
 example (event : UInt32 × Nat → Prop) :
     Pr{let result ← experiment foundationSigma}[event result] =
-      Pr{let result ← experiment SLHDSA.Concrete.Sha2.bsig0}[event result] :=
+      Pr{let result ← experiment VCVio.Algorithms.Sha2.bsig0}[event result] :=
   experiment_event_eq event
 
 example : KeccakStatement.h2bPrefix (m := 2) (n := 14) (BitVec.ofNat 16 0xA32E) =
     fun i => (BitVec.ofNat 14 0b11000101011101).getMsbD i.val :=
   KeccakStatement.h2bTest
 
-example (s : SLHDSA.Concrete.Sha2.RoundState) (kt wt : UInt32) :
+example (s : VCVio.Algorithms.Sha2.RoundState) (kt wt : UInt32) :
     Foundation.round256.denote Finite.Env.empty (stateBits s, kt.toBitVec, wt.toBitVec) =
-      stateBits (SLHDSA.Concrete.Sha2.round256 s kt wt) := round256_eq s kt wt
+      stateBits (VCVio.Algorithms.Sha2.round256 s kt wt) := round256_eq s kt wt
 
 example (pre : RoundInput.Native → Prop) (post : RoundInput.Native → RoundOutput.Native → Prop) :
     Finite.DataContract roundInputShape (Resolved.lower Foundation.round256.source) pre post ↔

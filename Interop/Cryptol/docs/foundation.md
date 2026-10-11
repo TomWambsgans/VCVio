@@ -1,7 +1,7 @@
 # Foundation / VCVio compression bridge
 
 The optional Cryptol bridge certifies SHA-256 **compression** from a preserved
-Foundation source description to VCVio's actual byte-array `Sha2.compress`.
+Foundation source description to VCVio's actual byte-array `VCVio.Algorithms.Sha2.compress`.
 It accepts any eight-word chaining state and any valid 64-byte window, including
 unaligned nonzero offsets. It also retains the six scalar correspondences,
 round-level contracts, exported linearity property, and Keccak bit-order probe.
@@ -12,7 +12,8 @@ The [single project](../README.md) has separate Model, Translation and Bridge
 libraries in VCVio's root Lake configuration. Model and Translation import no
 probability or cryptography. Bridge owns Foundation extraction, SHA-256
 correspondence, byte encodings and adaptive probability theorems. Core VCVio
-and HashSig never import the bridge.
+and HashSig never import the bridge. SHA2 and Keccak implementations belong to
+`VCVio/Algorithms/`; the bridge has no HashSig dependency.
 
 PolyFun owns generic scoped syntax, folds, continuous domains and prefix
 recurrences. All targets use VCVio's Lean `v4.35.0-rc3` toolchain and common
@@ -112,3 +113,6 @@ Cryptol runtime/resource bound. The adequate call-by-name core machine remains
 a bounded demand probe; full compression uses the finite native interpreter.
 The next broader language task is a reusable checked recurrence/loop compiler
 with an explicit supported-shape certificate, evaluated on a second algorithm.
+
+The [coverage catalogue and next milestones](coverage.md) record the broader
+reference corpus and the distinction between tests and proved correspondence.

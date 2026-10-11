@@ -58,7 +58,7 @@ infrastructure and some tooling and automation remain under active development.
 
 ## Repository Map
 
-- `VCVio/` contains the oracle-computation framework, probability semantics, program logic, and generic crypto abstractions.
+- `VCVio/` contains shared pure algorithms in `Algorithms/` (SHA2 and Keccak/SHA3/SHAKE), the oracle-computation framework, probability semantics, program logic, and generic crypto abstractions.
 - `LatticeCrypto/` contains lattice algebra, hardness assumptions, ML-DSA, ML-KEM, Falcon, and their concrete implementations.
 - `Extern/` contains the native FFI surface: the `@[extern]` bindings and the FFI-backed concrete instances. Its `extern_lib`s build as empty stubs when the `third_party/` submodules are absent.
 - `HashSig/` contains hash-based signatures: proof-level specifications, component-level FIPS 205
@@ -76,8 +76,20 @@ For agent-oriented repo guidance, see [`AGENTS.md`](AGENTS.md) and the focused d
 [`docs/agents/`](docs/agents/), especially [`docs/agents/lattice.md`](docs/agents/lattice.md)
 for lattice-specific entry points and workflows.
 
+The [placement policy](AGENTS.md#placement-policy) keeps reusable algorithms and
+named constructions within the core library, with examples as consumers and
+interop as a downstream conformance layer. Existing scheme libraries migrate in
+dependency-complete slices.
+
 External papers and project references cited in this repo are centralized in
 [`REFERENCES.md`](REFERENCES.md).
+
+The pure hash API is in `VCVio.Algorithms.Sha2` and
+`VCVio.Algorithms.Keccak`. SHA-512/224 and SHA-512/256 are
+`sha512Trunc224` and `sha512Trunc256`; SHA3 variants are
+`sha3Digest224`, `sha3Digest256`, `sha3Digest384`, and `sha3Digest512`.
+The names identify algorithms; Foundation conformance is stated separately
+in the optional [Cryptol coverage catalogue](Interop/Cryptol/docs/coverage.md).
 
 ## End-to-end examples
 

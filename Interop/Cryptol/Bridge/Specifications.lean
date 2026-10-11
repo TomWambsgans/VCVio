@@ -25,8 +25,8 @@ open Interop.Cryptol Interop.Cryptol.Finite
 
 /-- The existing pure VCVio implementation distributes over exclusive-or. -/
 theorem bsig0_xor (x y : UInt32) :
-    SLHDSA.Concrete.Sha2.bsig0 (x ^^^ y) =
-      SLHDSA.Concrete.Sha2.bsig0 x ^^^ SLHDSA.Concrete.Sha2.bsig0 y := by
+    VCVio.Algorithms.Sha2.bsig0 (x ^^^ y) =
+      VCVio.Algorithms.Sha2.bsig0 x ^^^ VCVio.Algorithms.Sha2.bsig0 y := by
   apply UInt32.toBitVec_inj.mp
   change (x.toBitVec ^^^ y.toBitVec).rotateRight 2 ^^^
     (x.toBitVec ^^^ y.toBitVec).rotateRight 13 ^^^
@@ -79,7 +79,7 @@ theorem rotateLaw2_lower_true (x : BitVec 32) :
 /-- Total pre/post specifications transfer in both directions. -/
 theorem sigma_contract_iff (pre : BitVec 32 → Prop) (post : BitVec 32 → BitVec 32 → Prop) :
     TotalContract Foundation.sigma256Zero.lower pre post ↔
-      ∀ x, pre x → post x (SLHDSA.Concrete.Sha2.bsig0 (UInt32.ofBitVec x)).toBitVec := by
+      ∀ x, pre x → post x (VCVio.Algorithms.Sha2.bsig0 (UInt32.ofBitVec x)).toBitVec := by
   apply Term.totalContract_iff
   intro x
   exact congrArg UInt32.toBitVec (foundationSigma_eq (UInt32.ofBitVec x))

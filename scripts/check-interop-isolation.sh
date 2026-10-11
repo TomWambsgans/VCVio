@@ -39,7 +39,7 @@ def imports(text):
     cleaned = ''.join(cleaned)
     commands = {'public', 'meta', 'private', 'import', 'module', 'namespace', 'open',
                 'section', 'end', 'def', 'theorem', 'lemma', 'abbrev', 'inductive',
-                'structure', 'class', 'instance', 'variable', 'universe', 'set_option',
+                'structure', 'class', 'instance', 'example', 'variable', 'universe', 'set_option',
                 'noncomputable', 'initialize', 'attribute', 'export'}
     identifier = re.compile(r"(?:[\w']+|«[^»]+»)(?:\.(?:[\w']+|«[^»]+»))*")
     for match in re.finditer(r'(?m)^[ \t]*(?:(?:public|meta)\s+)*import\s+(?:all\s+)?',
@@ -65,6 +65,8 @@ for path in sorted(paths):
         allowed = True
         if owner in CORE:
             allowed = head not in {'Interop', 'Hax', 'Aeneas'}
+            if path.parts[:2] == ('VCVio', 'Algorithms'):
+                allowed = head in BASE | {'ToMathlib'} or name.startswith('VCVio.Algorithms.')
         elif path.parts[:2] == ('Interop', 'Cryptol'):
             component = path.parts[2].removesuffix('.lean')
             if component == 'Consumer': component = 'Tests'
@@ -75,7 +77,7 @@ for path in sorted(paths):
             allowed = head in BASE
             if name.startswith('Interop.Cryptol.'):
                 allowed = name.split('.')[2] in layers.get(component, set())
-            if component in {'Bridge', 'Tests', 'Main'} and head in {'VCVio', 'ToMathlib', 'HashSig'}:
+            if component in {'Bridge', 'Tests', 'Main'} and head in {'VCVio', 'ToMathlib'}:
                 allowed = True
         else:
             allowed = head not in (CORE - {'VCVio', 'ToMathlib'}) and not name.startswith('Interop.Cryptol')
@@ -83,5 +85,5 @@ for path in sorted(paths):
             violations.append(f'{path}:{line}: forbidden import {name}')
 if violations:
     raise SystemExit('Interop isolation failed:\n' + '\n'.join(violations))
-print('Interop isolation: core, model, translation, bridge, and dormant backend boundaries OK')
+print('Import isolation: pure algorithms, core, model, translation, bridge and dormant backends OK')
 CHECK

@@ -7,7 +7,7 @@ Authors: Devon Tuma
 module
 
 public import Interop.Cryptol.Bridge.Foundation
-public import HashSig.SLHDSA.Concrete.Sha2
+public import VCVio.Algorithms.Sha2
 
 /-!
 # Foundation and VCVio SHA-256 word correspondence
@@ -28,12 +28,12 @@ open Interop.Cryptol Interop.Cryptol.Finite
   UInt32.ofBitVec (Foundation.sigma256Zero.denote Env.empty x.toBitVec)
 
 /-- All 32-bit inputs agree with VCVio's existing implementation. -/
-theorem foundationSigma_eq (x : UInt32) : foundationSigma x = SLHDSA.Concrete.Sha2.bsig0 x := by
+theorem foundationSigma_eq (x : UInt32) : foundationSigma x = VCVio.Algorithms.Sha2.bsig0 x := by
   apply UInt32.toBitVec_inj.mp
   simp only [foundationSigma]
   change x.toBitVec.rotateRight 2 ^^^ x.toBitVec.rotateRight 13 ^^^
     x.toBitVec.rotateRight 22 = _
-  simp only [SLHDSA.Concrete.Sha2.bsig0, SLHDSA.Concrete.Sha2.rotr,
+  simp only [VCVio.Algorithms.Sha2.bsig0, VCVio.Algorithms.Sha2.rotr,
     UInt32.toBitVec_xor, UInt32.toBitVec_or, UInt32.toBitVec_shiftRight,
     UInt32.toBitVec_shiftLeft, BitVec.rotateRight_def]
   rfl
@@ -41,7 +41,7 @@ theorem foundationSigma_eq (x : UInt32) : foundationSigma x = SLHDSA.Concrete.Sh
 /-- Every bit of the lowered Foundation output represents VCVio's result. -/
 theorem sigma256Zero_correct (x : UInt32) :
     (Expr.app Foundation.sigma256Zero.lower (.word x.toBitVec)).denote Environment.empty =
-      .value (wordValue (SLHDSA.Concrete.Sha2.bsig0 x).toBitVec) := by
+      .value (wordValue (VCVio.Algorithms.Sha2.bsig0 x).toBitVec) := by
   rw [Term.denote_apply_word]
   exact congrArg (fun y : UInt32 => DomainResult.value (wordValue y.toBitVec))
     (foundationSigma_eq x)

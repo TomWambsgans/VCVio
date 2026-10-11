@@ -1,7 +1,8 @@
 Examples	63
 Extern	0
-HashSig	46
+HashSig	44
 HashSigTest	3
+Interop/Cryptol	0
 LatticeCrypto	37
 LatticeCryptoTest	0
 ToMathlib	41

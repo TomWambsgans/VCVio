@@ -8,6 +8,8 @@ module
 
 public import Interop.Cryptol.Bridge.CompressionSemantics
 
+import Mathlib.Tactic.FinCases
+
 /-!
 # Scalar equations for the preserved source
 

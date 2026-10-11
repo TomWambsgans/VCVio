@@ -34,15 +34,15 @@ abbrev wordSpec : OracleSpec UInt32 := fun _ => UInt32
 /-- The implementations agree jointly on their response and retained state. -/
 theorem wordHandler_joint_eq (x : UInt32) (state : Nat) :
     (wordHandler foundationSigma x).run state =ᵈ
-      (wordHandler SLHDSA.Concrete.Sha2.bsig0 x).run state := by
+      (wordHandler VCVio.Algorithms.Sha2.bsig0 x).run state := by
   change (pure (foundationSigma x, state + 1) : ProbComp (UInt32 × Nat)) =ᵈ
-    pure (SLHDSA.Concrete.Sha2.bsig0 x, state + 1)
+    pure (VCVio.Algorithms.Sha2.bsig0 x, state + 1)
   rw [foundationSigma_eq]
 
 /-- Any adaptive client may replace one implementation with the other. -/
 theorem simulate_wordHandler_eq {α : Type} (program : OracleComp wordSpec α) (state : Nat) :
     (simulateQ (wordHandler foundationSigma) program).run state =ᵈ
-      (simulateQ (wordHandler SLHDSA.Concrete.Sha2.bsig0) program).run state :=
+      (simulateQ (wordHandler VCVio.Algorithms.Sha2.bsig0) program).run state :=
   evalDistEq_simulateQ_run _ _ wordHandler_joint_eq program state
 
 /-- The second input depends on the first response. -/
@@ -57,13 +57,13 @@ theorem simulate_wordHandler_eq {α : Type} (program : OracleComp wordSpec α) (
 
 /-- The sampled adaptive experiments have equal output distributions. -/
 theorem experiment_eq : experiment foundationSigma =ᵈ
-    experiment SLHDSA.Concrete.Sha2.bsig0 :=
+    experiment VCVio.Algorithms.Sha2.bsig0 :=
   EvalDistEq.bind_right _ fun x => simulate_wordHandler_eq (twoCalls x.val.toUInt32) 0
 
 /-- Event probabilities transfer, including predicates on the retained state. -/
 theorem experiment_event_eq (event : UInt32 × Nat → Prop) :
     Pr{let result ← experiment foundationSigma}[event result] =
-      Pr{let result ← experiment SLHDSA.Concrete.Sha2.bsig0}[event result] :=
+      Pr{let result ← experiment VCVio.Algorithms.Sha2.bsig0}[event result] :=
   experiment_eq.prEvent_eq event
 
 /-- A state/constant/schedule-word service returning the next eight registers. -/

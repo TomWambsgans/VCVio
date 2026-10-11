@@ -208,6 +208,14 @@ def check_reference_demand(cryptol):
     env = dict(os.environ)
     env["PATH"] = str(Path(executable).parent) + os.pathsep + env.get("PATH", "")
     cases = [
+        ('([x + y | x <- [0, 1], y <- [x, x + 10]] : [4]Integer) @ 1', "10", "10"),
+        ('([x + y | x <- [0, 1], y <- [x, x + 10]] : [4]Integer) @ 2', "2", "2"),
+        ('([x + y | x <- [0, 1] | y <- [10, 11, error "tail"]] : [2]Integer) @ 1',
+         "12", "12"),
+        ('([23 | x <- (error "left" : [2]Integer) | '
+         'y <- (error "right" : [inf]Integer)] : [2]Integer) @ 1', "23", "error:right"),
+        ('([23 | x <- (error "left" : [2]Integer) | '
+         'y <- (error "right" : [3]Integer)] : [2]Integer) @ 1', "23", "23"),
         ('([False, error "late"] : [2]) == [True, False]', "False", "error:late"),
         ('update ([False, True] : [2]) (-1 : Integer) True', "1", "invalid"),
         ('toInteger ((0x9 : [4]) <<< (-1 : Integer))', "12", "12"),

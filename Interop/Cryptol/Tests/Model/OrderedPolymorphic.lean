@@ -8,6 +8,7 @@ module
 
 public import Interop.Cryptol.Model.PolyRecursion
 public import Interop.Cryptol.Model.PolyRenaming
+public import Interop.Cryptol.Model.PolyReindexLaws
 public import Interop.Cryptol.Translation.PolymorphicExamples
 public import PolyFun.IPFunctor.Scoped.FamilySize
 
@@ -141,5 +142,15 @@ example {w : Scope} {Γ Δ : List w.ValueSort} {s : w.ValueSort}
     Term.denote ((Term.letRec [] (fun i => Fin.elim0 i) body).rename r) ρ η =
       (Term.letRec [] (fun i => Fin.elim0 i) body).denote ρ (Env.rename ρ r η) :=
   Term.denote_rename _ r ρ η
+
+/-- Result annotations may use an arbitrary equality between different schemes. -/
+example {w : Scope} {s t : w.ValueSort} (e : s = t) (op : Op w s) :
+    HEq ((Head.mk ⟨s, op⟩ e).map (Scope.Map.id w)) (Head.mk ⟨s, op⟩ e) :=
+  Head.map_id_heq _
+
+/-- Head fusion permits different scopes and noninjective symbolic substitutions. -/
+example {w z u : Scope} (μ : Scope.Map w z) (ν : Scope.Map z u)
+    {s : w.ValueSort} (h : Head w s) :
+    HEq ((h.map μ).map ν) (h.map (μ.comp ν)) := Head.map_map_heq μ ν h
 
 end Interop.Cryptol.Tests.OrderedPolymorphic

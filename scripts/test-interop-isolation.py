@@ -23,7 +23,11 @@ class IsolationTests(unittest.TestCase):
                                   text=True, capture_output=True, timeout=10)
 
     def test_forbidden_edges_and_modifiers(self):
-        edges = [("HashSig/X.lean", "Interop.Cryptol.Bridge"),
+        edges = [("VCVio/Algorithms/X.lean", "VCVio.OracleComp"),
+                 ("VCVio/Algorithms/X.lean", "HashSig"),
+                 ("VCVio/Algorithms/X.lean", "Interop.Cryptol.Model"),
+                 ("Interop/Cryptol/Bridge/X.lean", "HashSig"),
+                 ("HashSig/X.lean", "Interop.Cryptol.Bridge"),
                  ("VCVio.lean", "Interop.Cryptol.Model"),
                  ("VCVioTest/X.lean", "Hax"),
                  ("Interop/Cryptol/Model/X.lean", "Interop.Cryptol.Translation"),
@@ -45,11 +49,12 @@ class IsolationTests(unittest.TestCase):
             "Interop/Cryptol/Model/X.lean": "public import PolyFun Cslib\n"
                 "/- outer /- nested -/ public import VCVio -/\n-- import HashSig\n",
             "Interop/Cryptol/Translation/X.lean": "import Interop.Cryptol.Model.X\n",
-            "Interop/Cryptol/Bridge/X.lean": "import HashSig VCVio Interop.Cryptol.Translation.X\n",
-            "Interop/Cryptol/Consumer/Consumer.lean": "import Interop.Cryptol.Bridge\n",
+            "Interop/Cryptol/Bridge/X.lean": "import VCVio Interop.Cryptol.Translation.X\n",
+            "Interop/Cryptol/Consumer/Consumer.lean": "import Interop.Cryptol.Bridge\nexample := True\n",
             "Interop/Cryptol/Consumer/lakefile.lean": "import Lake\n",
             "Interop/Hax/X.lean": "import VCVio ToMathlib\n",
             "HashSig/X.lean": "import VCVio\n",
+            "VCVio/Algorithms/X.lean": "import Mathlib ToMathlib PolyFun VCVio.Algorithms.Y\n",
         })
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         result = self.check({"HashSig/X.lean": "import Mathlib Interop.Cryptol.Model\n"})
