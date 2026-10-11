@@ -100,7 +100,7 @@ noncomputable def ghostRun :
 /-- Both attempts abort with distinct commitments (probability `1/2 · 1/2 · 1/2`): the real
 layer is empty and the ghost layer holds both rejected programmings. -/
 theorem ghostRun_pin_abort_abort :
-    Pr[= (none, ((none, none), (some false, some false))) | ghostRun] = 1 / 8 := by
+    Pr{let x ← ghostRun}[x = (none, ((none, none), (some false, some false)))] = 1 / 8 := by
   refine (ENNReal.toReal_eq_toReal_iff' probOutput_ne_top (by finiteness)).mp ?_
   simp [ghostRun, ghostSignBody, layerView, toyIds, StateT.run_bind, StateT.run_map,
     StateT.run_modify, probOutput_bind_eq_tsum, uncacheQuery, QueryCache.cacheQuery,
@@ -112,7 +112,7 @@ theorem ghostRun_pin_abort_abort :
 `true` (probability `1/16`): the real layer holds the accepted programming at `(true, true)`
 and the ghost layer keeps the rejected one at `(true, false)`. -/
 theorem ghostRun_pin_abort_accept :
-    Pr[= (some (true, true), ((some true, none), (none, some false))) | ghostRun] = 1 / 16 := by
+    Pr{let x ← ghostRun}[x = (some (true, true), ((some true, none), (none, some false)))] = 1 / 16 := by
   refine (ENNReal.toReal_eq_toReal_iff' probOutput_ne_top (by finiteness)).mp ?_
   simp [ghostRun, ghostSignBody, layerView, toyIds, StateT.run_bind, StateT.run_map,
     StateT.run_modify, probOutput_bind_eq_tsum, uncacheQuery, QueryCache.cacheQuery,
@@ -124,7 +124,7 @@ theorem ghostRun_pin_abort_accept :
 attempt succeeds there (`1/4`), or the first aborts there and the second succeeds there, in
 which case the accepted programming uncaches the ghost entry (`1/16`). -/
 theorem ghostRun_pin_accept_clean :
-    Pr[= (some (true, true), ((some true, none), (none, none))) | ghostRun] = 5 / 16 := by
+    Pr{let x ← ghostRun}[x = (some (true, true), ((some true, none), (none, none)))] = 5 / 16 := by
   refine (ENNReal.toReal_eq_toReal_iff' probOutput_ne_top (by finiteness)).mp ?_
   simp [ghostRun, ghostSignBody, layerView, toyIds, StateT.run_bind, StateT.run_map,
     StateT.run_modify, probOutput_bind_eq_tsum, uncacheQuery, QueryCache.cacheQuery,
@@ -201,7 +201,7 @@ noncomputable def probeRun : ProbComp ProbeView :=
 signature, the forgery message is `true` because both hash answers agree, the uniform point
 is not cached, nothing is programmed, and the live read at `(true, false)` is cached. -/
 theorem probeRun_pin_abort :
-    Pr[= ⟨true, none, none, none, none, none, some true⟩ | probeRun] = 1 / 4 := by
+    Pr{let x ← probeRun}[x = ⟨true, none, none, none, none, none, some true⟩] = 1 / 4 := by
   refine (ENNReal.toReal_eq_toReal_iff' probOutput_ne_top (by finiteness)).mp ?_
   simp only [probeRun, simulatedNmaAdv, probeAdv, toySim, toyIds, firstSome, simulateQ_bind,
     simulateQ_query, OracleQuery.input_query, OracleQuery.cont_query, StateT.run_bind,
@@ -217,7 +217,7 @@ theorem probeRun_pin_abort :
 (`1/2`): the transcript is programmed at `(false, true)`, and the forgery point `(true, true)`
 is distinct from the cached live read at `(true, false)`, which survives. -/
 theorem probeRun_pin_sign_true :
-    Pr[= ⟨true, some (true, true), none, some true, none, none, some false⟩ | probeRun]
+    Pr{let x ← probeRun}[x = ⟨true, some (true, true), none, some true, none, none, some false⟩]
       = 1 / 8 := by
   refine (ENNReal.toReal_eq_toReal_iff' probOutput_ne_top (by finiteness)).mp ?_
   simp only [probeRun, simulatedNmaAdv, probeAdv, toySim, toyIds, firstSome, simulateQ_bind,
@@ -235,7 +235,7 @@ theorem probeRun_pin_sign_true :
 `(false, false)`, and the forgery point `(true, false)` coincides with the cached live read,
 which Option B erases regardless of the live answer. -/
 theorem probeRun_pin_sign_false_erases :
-    Pr[= ⟨true, some (false, true), none, none, some true, none, none⟩ | probeRun]
+    Pr{let x ← probeRun}[x = ⟨true, some (false, true), none, none, some true, none, none⟩]
       = 1 / 4 := by
   refine (ENNReal.toReal_eq_toReal_iff' probOutput_ne_top (by finiteness)).mp ?_
   simp only [probeRun, simulatedNmaAdv, probeAdv, toySim, toyIds, firstSome, simulateQ_bind,
@@ -252,9 +252,9 @@ theorem probeRun_pin_sign_false_erases :
 /-- The toy runtime is the caching random oracle over the empty cache. -/
 lemma runtime_evalDist_apply_singleton (oa : OracleComp toySpec Bool) (b : Bool) :
     (runtime (Commit := Bool) (Chal := Bool) Bool).evalDist oa {b} =
-      Pr[= b | (simulateQ (unifFwdImpl (Bool × Bool →ₒ Bool) +
+      Pr{let x ← ((simulateQ (unifFwdImpl (Bool × Bool →ₒ Bool) +
           (randomOracle : QueryImpl (Bool × Bool →ₒ Bool)
-            (StateT (Bool × Bool →ₒ Bool).QueryCache ProbComp))) oa).run' ∅] := by
+            (StateT (Bool × Bool →ₒ Bool).QueryCache ProbComp))) oa).run' ∅)}[x = b] := by
   rw [runtime_evalDist_eq_simulateQ_run', evalDist_apply_singleton]
 
 /-- The replay adversary: request one signature on `true` and return it as the forgery. -/

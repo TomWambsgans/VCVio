@@ -59,7 +59,7 @@ private restart loops. -/
 lemma tvDist_run_transSignBody_simSignBody_le
     (pk : Stmt) (sk : Wit) (hrel : rel pk sk = true) (msg : M)
     {ζ_zk : ℝ} (hhvzk : ids.HVZK sim ζ_zk)
-    {q : ℝ} (hq : Pr[= none | sim pk].toReal ≤ q) (hq0 : 0 ≤ q)
+    {q : ℝ} (hq : Pr{let x ← sim pk}[x = none].toReal ≤ q) (hq0 : 0 ≤ q)
     (s : (M × Commit →ₒ Chal).QueryCache) :
     tvDist (StateT.run (transSignBody ids M maxAttempts pk sk msg) s)
         (StateT.run (simSignBody M maxAttempts sim pk sk msg) s) ≤
@@ -171,7 +171,7 @@ game output to `false`, so the success probability vanishes regardless of the ca
 lemma probOutput_true_hybridVerifyCont_of_mem (pk : Stmt)
     (ms : M × Option (Commit × Resp))
     (c : (M × Commit →ₒ Chal).QueryCache) (l : List M) (hmem : ms.1 ∈ l) :
-    Pr[= true | hybridVerifyCont ids hr M maxAttempts pk (ms, (c, l))] = 0 := by
+    Pr{let x ← hybridVerifyCont ids hr M maxAttempts pk (ms, (c, l))}[x = true] = 0 := by
   rw [hybridVerifyCont, probOutput_bind_eq_tsum]
   refine ENNReal.tsum_eq_zero.mpr fun ok => ?_
   rw [probOutput_pure, ite_eq_right (by simp [hmem]), mul_zero]

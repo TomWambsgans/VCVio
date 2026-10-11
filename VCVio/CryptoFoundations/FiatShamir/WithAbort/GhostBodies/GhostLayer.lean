@@ -234,7 +234,7 @@ The Prog-side handler (`ghostHybridImpl … true`) answers such a query from the
 layer (matching `progSignBody`'s overlaid cache), while the Trans-side handler
 (`ghostHybridImpl … false`) answers it from the real layer (matching `transSignBody`'s
 cache). On every other query the two handlers are literally identical, which is the
-identical-until-bad shape of `tvDist_simulateQ_run_le_probEvent_output_bad`. -/
+identical-until-bad shape of `measureETVDist_simulateQ_run_le_prEvent_bad`. -/
 
 /-- One caching random-oracle step on a bare cache, as a `ProbComp`. Agrees with
 `(randomOracle mc).run re` (see `randomOracle_run_eq_roStep`). -/
@@ -291,10 +291,8 @@ lemma ghostHybridImpl_agree_good (pk : Stmt) (sk : Wit)
     (s : ((M × Commit →ₒ Chal).QueryCache × (M × Commit →ₒ Chal).QueryCache) × List M)
     (u : ((unifSpec + (M × Commit →ₒ Chal)) + (M →ₒ Option (Commit × Resp))).Range t)
     (s' : ((M × Commit →ₒ Chal).QueryCache × (M × Commit →ₒ Chal).QueryCache) × List M) :
-    Pr[= (u, (s', false)) |
-        (ghostHybridImpl ids M maxAttempts true pk sk t).run (s, false)] =
-      Pr[= (u, (s', false)) |
-        (ghostHybridImpl ids M maxAttempts false pk sk t).run (s, false)] := by
+    Pr{let x ← (ghostHybridImpl ids M maxAttempts true pk sk t).run (s, false)}[x = (u, (s', false))] =
+      Pr{let x ← (ghostHybridImpl ids M maxAttempts false pk sk t).run (s, false)}[x = (u, (s', false))] := by
   rcases t with (n | mc) | msg
   · rfl
   · simp only [ghostHybridImpl, StateT.run_mk]
@@ -383,10 +381,8 @@ lemma ghostBlindImpl_agree_good (pk : Stmt) (sk : Wit)
     (s : ((M × Commit →ₒ Chal).QueryCache × (M × Commit →ₒ Chal).QueryCache) × List M)
     (u : ((unifSpec + (M × Commit →ₒ Chal)) + (M →ₒ Option (Commit × Resp))).Range t)
     (s' : ((M × Commit →ₒ Chal).QueryCache × (M × Commit →ₒ Chal).QueryCache) × List M) :
-    Pr[= (u, (s', false)) |
-        (ghostHybridImpl ids M maxAttempts true pk sk t).run (s, false)] =
-      Pr[= (u, (s', false)) |
-        (ghostBlindImpl ids M maxAttempts pk sk t).run (s, false)] :=
+    Pr{let x ← (ghostHybridImpl ids M maxAttempts true pk sk t).run (s, false)}[x = (u, (s', false))] =
+      Pr{let x ← (ghostBlindImpl ids M maxAttempts pk sk t).run (s, false)}[x = (u, (s', false))] :=
   ghostHybridImpl_agree_good ids M maxAttempts pk sk t s u s'
 
 omit [SampleableType Stmt] in

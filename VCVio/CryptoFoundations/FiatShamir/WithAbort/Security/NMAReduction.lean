@@ -351,8 +351,7 @@ support-restricted `SPMF` bind congruence on the accepted transcript then reduce
 matching pure values, closed by the overlay/`baseEmbed` cache algebra above. -/
 lemma hproj2_sign (pk : Stmt) (sk : Wit) (msg : M)
     (s : NmaGhostState M Commit Chal) :
-    𝒮[Prod.map id (proj2 M) <$> (ghostNmaImpl M maxAttempts sim pk sk (.inr msg)).run s] =
-      𝒮[(nmaLinkImpl M maxAttempts sim pk (.inr msg)).run (proj2 M s)] := by
+    (Prod.map id (proj2 M) <$> (ghostNmaImpl M maxAttempts sim pk sk (.inr msg)).run s) =ᵈ ((nmaLinkImpl M maxAttempts sim pk (.inr msg)).run (proj2 M s)) := by
   rw [ghostNmaImpl_run_sign, nmaLinkImpl, QueryImpl.Stateful.link_impl_apply_run]
   -- Reduce the linked RHS's outer step `nmaOuterImpl pk (.inr msg)` to the simulator body
   -- `sigSim msg`: a nested simulation `simulateQ unifSim (firstSome (sim pk) maxAttempts)`
@@ -432,8 +431,7 @@ per-query hypothesis for the whole-run state-projection `relTriple_simulateQ_run
 lemma hproj2_evalSPMF (pk : Stmt) (sk : Wit)
     (t : ((unifSpec + (M × Commit →ₒ Chal)) + (M →ₒ Option (Commit × Resp))).Domain)
     (s : NmaGhostState M Commit Chal) :
-    𝒮[Prod.map id (proj2 M) <$> (ghostNmaImpl M maxAttempts sim pk sk t).run s] =
-      𝒮[(nmaLinkImpl M maxAttempts sim pk t).run (proj2 M s)] := by
+    (Prod.map id (proj2 M) <$> (ghostNmaImpl M maxAttempts sim pk sk t).run s) =ᵈ ((nmaLinkImpl M maxAttempts sim pk t).run (proj2 M s)) := by
   rcases t with (n | mc) | msg
   · exact congrArg _ (hproj2_unif M maxAttempts sim pk sk n s)
   · rcases hgh : s.1.2 mc with _ | v
@@ -445,21 +443,21 @@ lemma hproj2_evalSPMF (pk : Stmt) (sk : Wit)
 
 /-- **Graph coupling along a function.** If pushing `oa` forward through `F` matches `ob` in
 distribution, then `oa` and `ob` are related (as a `RelTriple`) by the graph relation
-`fun a b => F a = b`. This is the reverse direction of `evalSPMF_map_eq_of_relTriple`: the
+`fun a b => F a = b`. This is the reverse direction of `evalDistEq_map_of_relTriple`: the
 witnessing coupling is the deterministic coupling `𝒮[oa] >>= fun a => pure (a, F a)`, whose first
-marginal is `𝒮[oa]` and whose second marginal is `𝒮[F <$> oa] = 𝒮[ob]`, supported on the graph. -/
+marginal is `𝒮[oa]` and whose second marginal is `(F <$> oa) =ᵈ ob`, supported on the graph. -/
 private lemma relTriple_graph_of_evalSPMF_map_eq
     {ι₁ ι₂ : Type} {spec₁ : OracleSpec ι₁} {spec₂ : OracleSpec ι₂}
-    [IsUniformSpec spec₁] [IsUniformSpec spec₂]
+    [OracleSpec.UniformAnswerMeasure spec₁] [OracleSpec.UniformAnswerMeasure spec₂]
     {α' σ' : Type} (F : α' → σ')
     (oa : OracleComp spec₁ α') (ob : OracleComp spec₂ σ')
-    (h : 𝒮[F <$> oa] = 𝒮[ob]) :
+    (h : (F <$> oa) =ᵈ ob) :
     OracleComp.ProgramLogic.Relational.RelTriple oa ob (fun a b => F a = b) := by
   open OracleComp.ProgramLogic.Relational in
   have h0 : RelTriple oa (F <$> oa) (fun a b => F a = b) := by
     simpa using relTriple_map (f := id) (g := F) (R := fun a b => F a = b)
       (relTriple_refl_of_mem_support oa (R := fun a b => F a = F b) fun _ _ => rfl)
-  exact OracleComp.ProgramLogic.Relational.relTriple_of_evalSPMF_eq_right h h0
+  exact OracleComp.ProgramLogic.Relational.relTriple_of_evalDistEq_right h h0
 
 omit [SampleableType Stmt] in
 /-- **Sub-lemma (b), whole-run state projection.** The full layered ghost-tagged NMA run
@@ -473,8 +471,7 @@ lemma evalSPMF_map_run_simulateQ_ghostNmaImpl_proj2 {β : Type} (pk : Stmt) (sk 
     (oa : OracleComp ((unifSpec + (M × Commit →ₒ Chal)) +
       (M →ₒ Option (Commit × Resp))) β)
     (s : NmaGhostState M Commit Chal) :
-    𝒮[Prod.map id (proj2 M) <$> (simulateQ (ghostNmaImpl M maxAttempts sim pk sk) oa).run s] =
-      𝒮[(simulateQ (nmaLinkImpl M maxAttempts sim pk) oa).run (proj2 M s)] := by
+    (Prod.map id (proj2 M) <$> (simulateQ (ghostNmaImpl M maxAttempts sim pk sk) oa).run s) =ᵈ ((simulateQ (nmaLinkImpl M maxAttempts sim pk) oa).run (proj2 M s)) := by
   -- State relation: `s'` and `p` are related iff `p` is the `proj2`-projection of `s'`.
   have hrel := OracleComp.ProgramLogic.Relational.relTriple_simulateQ_run
     (impl₁ := ghostNmaImpl M maxAttempts sim pk sk)
@@ -491,7 +488,7 @@ lemma evalSPMF_map_run_simulateQ_ghostNmaImpl_proj2 {β : Type} (pk : Stmt) (sk 
         (fun p₁ p₂ => Prod.map id (proj2 M) p₁ = p₂) :=
       OracleComp.ProgramLogic.Relational.relTriple_post_mono hrel
         (fun p₁ p₂ ⟨h1, h2⟩ => Prod.ext h1 h2)
-    have := OracleComp.ProgramLogic.Relational.evalSPMF_map_eq_of_relTriple
+    have := OracleComp.ProgramLogic.Relational.evalDistEq_map_of_relTriple
       (f := Prod.map id (proj2 M)) (g := id) hrel'
     simpa using this
   · -- Per-step coupling from the unified per-step `evalSPMF`-map equality, via the graph coupling.
@@ -616,9 +613,9 @@ lemma probOutput_hybridVerifyCont_le_managed_verify (pk : Stmt)
     (ms : M × Option (Commit × Resp)) (base ghost : (M × Commit →ₒ Chal).QueryCache)
     (signed : List M)
     (hinv : ∀ q : M × Commit, ghost q ≠ none → q.1 ∈ signed) :
-    Pr[= true | hybridVerifyCont ids hr M maxAttempts pk
-        (ms, (overlayCache M base ghost, signed))] ≤
-      Pr[= true | (fun x : Bool × _ => x.1) <$>
+    Pr{let x ← (hybridVerifyCont ids hr M maxAttempts pk
+        (ms, (overlayCache M base ghost, signed)))}[x = true] ≤
+      Pr{let y ← ((fun x : Bool × _ => x.1) <$>
         (simulateQ (unifFwdImpl (M × Commit →ₒ Chal) +
             (randomOracle : QueryImpl (M × Commit →ₒ Chal)
               (StateT ((M × Commit →ₒ Chal).QueryCache) ProbComp)))
@@ -627,7 +624,7 @@ lemma probOutput_hybridVerifyCont_le_managed_verify (pk : Stmt)
               | some (w', _) => QueryCache.ofFn (Function.update
                   (baseEmbed M (overlayCache M base ghost)) (Sum.inr (ms.1, w')) none)
               | none => baseEmbed M (overlayCache M base ghost))
-            ((FiatShamirWithAbort ids hr M maxAttempts).verify pk ms.1 ms.2))).run base] := by
+            ((FiatShamirWithAbort ids hr M maxAttempts).verify pk ms.1 ms.2))).run base)}[y = true] := by
   obtain ⟨msg, σ⟩ := ms
   by_cases hmem : msg ∈ signed
   · rw [probOutput_true_hybridVerifyCont_of_mem ids hr M maxAttempts pk (msg, σ)
@@ -675,11 +672,11 @@ programmed challenge that equals the hybrid's cached value, while the freshness 
 out a stale read). Hence the per-forgery success of the hybrid tail is at most that of the
 overlay verification, and the bound follows. -/
 lemma hybridSimRun_le_managedRun_verify (pk : Stmt) (sk : Wit) :
-    Pr[= true | (simulateQ
+    Pr{let x ← ((simulateQ
           (hybridBaseImpl (Commit := Commit) (Chal := Chal) M +
             hybridSignImpl M (simSignBody M maxAttempts sim pk sk))
-          (adv.main pk)).run (∅, []) >>= hybridVerifyCont ids hr M maxAttempts pk] ≤
-      Pr[= true | (fun x : Bool × _ => x.1) <$> do
+          (adv.main pk)).run (∅, []) >>= hybridVerifyCont ids hr M maxAttempts pk)}[x = true] ≤
+      Pr{let y ← ((fun x : Bool × _ => x.1) <$> do
         let p ← (simulateQ (unifFwdImpl (M × Commit →ₒ Chal) +
             (randomOracle : QueryImpl (M × Commit →ₒ Chal)
               (StateT ((M × Commit →ₒ Chal).QueryCache) ProbComp)))
@@ -688,7 +685,7 @@ lemma hybridSimRun_le_managedRun_verify (pk : Stmt) (sk : Wit) :
             (randomOracle : QueryImpl (M × Commit →ₒ Chal)
               (StateT ((M × Commit →ₒ Chal).QueryCache) ProbComp)))
           (withCacheOverlay p.1.2 ((FiatShamirWithAbort ids hr M maxAttempts).verify
-            pk p.1.1.1 p.1.1.2))).run p.2] := by
+            pk p.1.1.1 p.1.1.2))).run p.2)}[y = true] := by
   -- STEP 1 (the link fusion, executed by the `simp only` below): collapse the explicit `.run ∅`
   -- re-simulation boundary on the RHS. Distributing the outer `simulateQ` over
   -- `simulatedNmaAdv`'s post-processing bind (`simulateQ_bind`/`StateT.run_bind`) exposes the
@@ -733,7 +730,7 @@ lemma hybridSimRun_le_managedRun_verify (pk : Stmt) (sk : Wit) :
   -- `map_run_simulateQ_ghostNmaImpl_overlay`/`_empty` (whole run), via
   -- `OracleComp.map_run_simulateQ_eq_of_query_map_eq` with
   -- `proj ((base, ghost), signed) = (overlayCache base ghost, signed)`. So the hybrid LHS equals
-  -- `Pr[= true | (overlay-projected ghostNmaImpl run) >>= …]`.
+  -- `Pr{let x ← (overlay-projected ghostNmaImpl run) >>= …}[x = true]`.
   --
   -- (b) MANAGED SIDE. The *same* layered run projects onto the linked
   -- `(outerCache : spec.QueryCache, innerCache : (M × Commit →ₒ Chal).QueryCache)` pair under
@@ -796,11 +793,11 @@ lemma hybridSimRun_le_managedRun_verify (pk : Stmt) (sk : Wit) :
   -- managed run by `managedRun_eq_link_run` into `linkRun`, then transport `linkRun`'s
   -- distribution back to the layered ghost run by sub-lemma (b).
   have hRHS :
-      Pr[= true | (simulateQ (nmaInnerImpl M)
+      Pr{let x ← ((simulateQ (nmaInnerImpl M)
             ((simulateQ (nmaOuterImpl M maxAttempts sim pk) (adv.main pk)).run ∅)).run ∅ >>=
-          fun a => RHSverify (a.1.1, (a.1.2, a.2))] =
-        Pr[= true | (simulateQ (ghostNmaImpl M maxAttempts sim pk sk) (adv.main pk)).run
-            ((∅, ∅), []) >>= fun g => RHSverify (g.1, proj2 M g.2)] := by
+          fun a => RHSverify (a.1.1, (a.1.2, a.2)))}[x = true] =
+        Pr{let x ← ((simulateQ (ghostNmaImpl M maxAttempts sim pk sk) (adv.main pk)).run
+            ((∅, ∅), []) >>= fun g => RHSverify (g.1, proj2 M g.2))}[x = true] := by
     -- The ghost-side tail factors through `Prod.map id proj2`; the nested-side tail factors
     -- through `linkReshape`. Rewriting both tails as `RHSverify <$> (the projected head)` via
     -- `bind_map_left` lets sub-lemma (b) (`proj2 <$> ghostRun =𝒟 linkRun`) and the fusion
@@ -829,12 +826,11 @@ lemma hybridSimRun_le_managedRun_verify (pk : Stmt) (sk : Wit) :
     rw [hghost, hnested]
     -- Reduce to the head-distribution equality, then bind with `RHSverify`.
     have hhead :
-        𝒮[Prod.map id (proj2 M) <$>
-            (simulateQ (ghostNmaImpl M maxAttempts sim pk sk) (adv.main pk)).run ((∅, ∅), [])] =
-          𝒮[(QueryImpl.Stateful.Frame.prod (unifSpec + (M × Commit →ₒ Chal)).QueryCache
+        (Prod.map id (proj2 M) <$>
+            (simulateQ (ghostNmaImpl M maxAttempts sim pk sk) (adv.main pk)).run ((∅, ∅), [])) =ᵈ ((QueryImpl.Stateful.Frame.prod (unifSpec + (M × Commit →ₒ Chal)).QueryCache
                 ((M × Commit →ₒ Chal).QueryCache)).linkReshape (∅, ∅) <$>
               (simulateQ (nmaInnerImpl M)
-                ((simulateQ (nmaOuterImpl M maxAttempts sim pk) (adv.main pk)).run ∅)).run ∅] := by
+                ((simulateQ (nmaOuterImpl M maxAttempts sim pk) (adv.main pk)).run ∅)).run ∅) := by
       rw [evalSPMF_map_run_simulateQ_ghostNmaImpl_proj2 M maxAttempts sim
         pk sk (adv.main pk) ((∅, ∅), []), hproj2_empty,
         managedRun_eq_link_run ids hr M maxAttempts sim adv pk]
@@ -866,13 +862,13 @@ lemma hybridExp_sim_le_managedRun_perKey
     (ro : QueryImpl (M × Commit →ₒ Chal)
       (StateT ((M × Commit →ₒ Chal).QueryCache) ProbComp))
     (hro : ro = randomOracle) (pk : Stmt) (sk : Wit) :
-    Pr[= true | hybridExpAtKey ids hr M maxAttempts adv
-        (simSignBody M maxAttempts sim pk sk) pk] ≤
-      Pr[= true | (simulateQ (unifFwdImpl (M × Commit →ₒ Chal) + ro)
+    Pr{let x ← (hybridExpAtKey ids hr M maxAttempts adv
+        (simSignBody M maxAttempts sim pk sk) pk)}[x = true] ≤
+      Pr{let x ← ((simulateQ (unifFwdImpl (M × Commit →ₒ Chal) + ro)
         ((simulatedNmaAdv ids hr M maxAttempts sim adv).main pk >>= fun result =>
           withCacheOverlay result.2
             ((FiatShamirWithAbort ids hr M maxAttempts).verify
-              pk result.1.1 result.1.2))).run' ∅] := by
+              pk result.1.1 result.1.2))).run' ∅)}[x = true] := by
   subst hro
   -- Put the hybrid LHS into run-normal-form (`run` of the hybrid handler on `adv.main pk`
   -- followed by the verify-and-freshness tail `hybridVerifyCont`).
@@ -899,9 +895,9 @@ the left-hand side. The matching hash-query-bound transfer is
 `simulatedNmaAdv_nmaHashQueryBound` in `FiatShamir.WithAbort.Security`: the simulated signing
 loop issues no live hash queries, so the NMA adversary keeps the CMA adversary's hash budget. -/
 lemma probOutput_hybridExp_sim_le_managedRoNmaAdvantage :
-    Pr[= true | do
+    Pr{let x ← (do
         let (pk, sk) ← hr.gen
-        hybridExpAtKey ids hr M maxAttempts adv (simSignBody M maxAttempts sim pk sk) pk] ≤
+        hybridExpAtKey ids hr M maxAttempts adv (simSignBody M maxAttempts sim pk sk) pk)}[x = true] ≤
       SignatureAlg.managedRoNmaAdvantage (runtime M)
         (simulatedNmaAdv ids hr M maxAttempts sim adv) := by
   classical
@@ -913,22 +909,22 @@ lemma probOutput_hybridExp_sim_le_managedRoNmaAdvantage :
   -- generation pulls out as an ordinary `ProbComp` bind via `roSim.run'_liftM_bind`.
   have hRHS : SignatureAlg.managedRoNmaAdvantage (runtime M)
         (simulatedNmaAdv ids hr M maxAttempts sim adv) =
-      Pr[= true | hr.gen >>= fun pksk =>
+      Pr{let x ← (hr.gen >>= fun pksk =>
         (simulateQ (unifFwdImpl (M × Commit →ₒ Chal) + ro)
           ((simulatedNmaAdv ids hr M maxAttempts sim adv).main pksk.1 >>= fun result =>
             withCacheOverlay result.2
               ((FiatShamirWithAbort ids hr M maxAttempts).verify
-                pksk.1 result.1.1 result.1.2))).run' ∅] := by
+                pksk.1 result.1.1 result.1.2))).run' ∅)}[x = true] := by
     unfold SignatureAlg.managedRoNmaAdvantage SignatureAlg.managedRoNmaExperiment
     -- Expose the bundled `withStateOracle` semantics as a run-normal-form ProbComp.
     rw [runtime_evalDist_eq_simulateQ_run', evalDist_apply_singleton]
-    change Pr[= true | (simulateQ (unifFwdImpl (M × Commit →ₒ Chal) + ro)
+    change Pr{let x ← ((simulateQ (unifFwdImpl (M × Commit →ₒ Chal) + ro)
         (do
           let (pk, _) ← (FiatShamirWithAbort ids hr M maxAttempts).keygen
           let result ← (simulatedNmaAdv ids hr M maxAttempts sim adv).main pk
           withCacheOverlay result.2
             ((FiatShamirWithAbort ids hr M maxAttempts).verify
-              pk result.1.1 result.1.2))).run' ∅] = _
+              pk result.1.1 result.1.2))).run' ∅)}[x = true] = _
     -- `keygen = monadLift hr.gen`; pull it out of the simulation.
     rw [show (FiatShamirWithAbort ids hr M maxAttempts).keygen =
       (liftM hr.gen : OracleComp (unifSpec + (M × Commit →ₒ Chal)) (Stmt × Wit)) from rfl]

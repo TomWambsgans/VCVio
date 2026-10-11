@@ -211,10 +211,8 @@ theorem ghostBlind_bad_le_deferredDraw {γ : Type}
     (oa : OracleComp ((unifSpec + (M × Commit →ₒ Chal)) + (M →ₒ Option (Commit × Resp))) γ)
     (s₁ : GhostState M Commit Chal) (s₂ : DeferredState M Commit Chal)
     (hinv : deferredCoupleInv M s₁ s₂) :
-    Pr[fun z : γ × GhostState M Commit Chal => z.2.2 = true |
-        (simulateQ (ghostBlindImpl ids M maxAttempts pk sk) oa).run s₁]
-      ≤ Pr[fun z : γ × DeferredState M Commit Chal => z.2.2 = true |
-          (simulateQ (deferredDrawImpl ids M maxAttempts pk sk) oa).run s₂] :=
+    Pr{let z ← (simulateQ (ghostBlindImpl ids M maxAttempts pk sk) oa).run s₁}[z.2.2 = true]
+      ≤ Pr{let z ← (simulateQ (deferredDrawImpl ids M maxAttempts pk sk) oa).run s₂}[z.2.2 = true] :=
   OracleComp.ProgramLogic.Relational.probEvent_le_of_relTriple_imp
     (deferredCouple_run ids M maxAttempts pk sk oa s₁ s₂ hinv)
     (fun _ _ hp => hp.2.2.2)
@@ -308,30 +306,30 @@ signing-query budget `qSrem` telescopes across the fold exactly as in
 `kn` of Piece B inherits. -/
 theorem deferredDraw_run_expected_length_le {γ : Type} (pk : Stmt) (sk : Wit)
     {p_abort : ℝ} (hp₀ : 0 ≤ p_abort) (hp : p_abort < 1)
-    (hAbort : Pr[= none | ids.honestExecution pk sk] ≤ ENNReal.ofReal p_abort)
+    (hAbort : Pr{let x ← ids.honestExecution pk sk}[x = none] ≤ ENNReal.ofReal p_abort)
     (oa : OracleComp ((unifSpec + (M × Commit →ₒ Chal)) + (M →ₒ Option (Commit × Resp))) γ) :
     ∀ (qSrem : ℕ), oa.IsQueryBoundP (· matches Sum.inr _) qSrem →
       ∀ (s : DeferredState M Commit Chal),
         (∑' z : γ × DeferredState M Commit Chal,
-          Pr[= z | (simulateQ (deferredDrawImpl ids M maxAttempts pk sk) oa).run s] *
+          Pr{let x ← (simulateQ (deferredDrawImpl ids M maxAttempts pk sk) oa).run s}[x = z] *
             (z.2.1.2.length : ℝ≥0∞))
           ≤ (s.1.2.length : ℝ≥0∞) + (qSrem : ℝ≥0∞) * ENNReal.ofReal (1 / (1 - p_abort)) := by
   classical
   induction oa using OracleComp.inductionOn with
   | pure a =>
       intro qSrem _ s
-      simp only [simulateQ_pure, StateT.run_pure, tsum_probOutput_pure_mul]
+      simp only [simulateQ_pure, StateT.run_pure, OracleComp.tsum_prEvent_pure_mul]
       exact le_self_add
   | query_bind t ob ih =>
       intro qSrem hQ s
       rw [OracleComp.isQueryBoundP_query_bind_iff] at hQ
       obtain ⟨hQ1, hQ2⟩ := hQ
-      rw [simulateQ_query_bind, StateT.run_bind, tsum_probOutput_bind_mul]
+      rw [simulateQ_query_bind, StateT.run_bind, OracleComp.tsum_prEvent_bind_mul]
       set c : ℝ≥0∞ := ENNReal.ofReal (1 / (1 - p_abort)) with hc
       -- Total mass of one deferred step is `1` (no failure).
       have hmass : (∑' x : (((unifSpec + (M × Commit →ₒ Chal)) +
             (M →ₒ Option (Commit × Resp))).Range t) × DeferredState M Commit Chal,
-          Pr[= x | (deferredDrawImpl ids M maxAttempts pk sk t).run s]) = 1 :=
+          Pr{let y ← (deferredDrawImpl ids M maxAttempts pk sk t).run s}[y = x]) = 1 :=
         tsum_probOutput_eq_one' (by
           rcases t with (n | mc) | msg
           · simp [deferredDrawImpl]
@@ -345,32 +343,32 @@ theorem deferredDraw_run_expected_length_le {γ : Type} (pk : Stmt) (sk : Wit)
           (∀ x : (((unifSpec + (M × Commit →ₒ Chal)) +
               (M →ₒ Option (Commit × Resp))).Range t) × DeferredState M Commit Chal,
             (∑' z : γ × DeferredState M Commit Chal,
-              Pr[= z | (simulateQ (deferredDrawImpl ids M maxAttempts pk sk) (ob x.1)).run x.2] *
+              Pr{let y ← (simulateQ (deferredDrawImpl ids M maxAttempts pk sk) (ob x.1)).run x.2}[y = z] *
                 (z.2.1.2.length : ℝ≥0∞))
               ≤ (x.2.1.2.length : ℝ≥0∞) + (b : ℝ≥0∞) * c) →
-          (∑' x, Pr[= x | (deferredDrawImpl ids M maxAttempts pk sk t).run s] *
+          (∑' x, Pr{let y ← (deferredDrawImpl ids M maxAttempts pk sk t).run s}[y = x] *
             (x.2.1.2.length : ℝ≥0∞)) ≤ (s.1.2.length : ℝ≥0∞) + extra →
           extra + (b : ℝ≥0∞) * c ≤ (qSrem : ℝ≥0∞) * c →
-          (∑' x, Pr[= x | (deferredDrawImpl ids M maxAttempts pk sk t).run s] *
+          (∑' x, Pr{let y ← (deferredDrawImpl ids M maxAttempts pk sk t).run s}[y = x] *
               ∑' z : γ × DeferredState M Commit Chal,
-                Pr[= z | (simulateQ (deferredDrawImpl ids M maxAttempts pk sk) (ob x.1)).run x.2] *
+                Pr{let y ← (simulateQ (deferredDrawImpl ids M maxAttempts pk sk) (ob x.1)).run x.2}[y = z] *
                   (z.2.1.2.length : ℝ≥0∞))
             ≤ (s.1.2.length : ℝ≥0∞) + (qSrem : ℝ≥0∞) * c := by
         intro b extra hcont hstep hbudget
-        calc (∑' x, Pr[= x | (deferredDrawImpl ids M maxAttempts pk sk t).run s] *
+        calc (∑' x, Pr{let y ← (deferredDrawImpl ids M maxAttempts pk sk t).run s}[y = x] *
                 ∑' z : γ × DeferredState M Commit Chal,
-                  Pr[= z | (simulateQ (deferredDrawImpl ids M maxAttempts pk sk)
-                      (ob x.1)).run x.2] * (z.2.1.2.length : ℝ≥0∞))
-            ≤ ∑' x, Pr[= x | (deferredDrawImpl ids M maxAttempts pk sk t).run s] *
+                  Pr{let y ← ((simulateQ (deferredDrawImpl ids M maxAttempts pk sk)
+                      (ob x.1)).run x.2)}[y = z] * (z.2.1.2.length : ℝ≥0∞))
+            ≤ ∑' x, Pr{let y ← (deferredDrawImpl ids M maxAttempts pk sk t).run s}[y = x] *
                 ((x.2.1.2.length : ℝ≥0∞) + (b : ℝ≥0∞) * c) :=
               ENNReal.tsum_le_tsum fun x => by gcongr; exact hcont x
-          _ = (∑' x, Pr[= x | (deferredDrawImpl ids M maxAttempts pk sk t).run s] *
+          _ = (∑' x, Pr{let y ← (deferredDrawImpl ids M maxAttempts pk sk t).run s}[y = x] *
                   (x.2.1.2.length : ℝ≥0∞)) + (b : ℝ≥0∞) * c := by
-              rw [show (∑' x, Pr[= x | (deferredDrawImpl ids M maxAttempts pk sk t).run s] *
+              rw [show (∑' x, Pr{let y ← (deferredDrawImpl ids M maxAttempts pk sk t).run s}[y = x] *
                     ((x.2.1.2.length : ℝ≥0∞) + (b : ℝ≥0∞) * c))
-                  = ∑' x, (Pr[= x | (deferredDrawImpl ids M maxAttempts pk sk t).run s] *
+                  = ∑' x, (Pr{let y ← (deferredDrawImpl ids M maxAttempts pk sk t).run s}[y = x] *
                       (x.2.1.2.length : ℝ≥0∞) +
-                    Pr[= x | (deferredDrawImpl ids M maxAttempts pk sk t).run s] *
+                    Pr{let y ← (deferredDrawImpl ids M maxAttempts pk sk t).run s}[y = x] *
                       ((b : ℝ≥0∞) * c)) from tsum_congr fun x => by rw [mul_add]]
               rw [ENNReal.tsum_add, ENNReal.tsum_mul_right, hmass, one_mul]
           _ ≤ ((s.1.2.length : ℝ≥0∞) + extra) + (b : ℝ≥0∞) * c := by gcongr
@@ -406,7 +404,7 @@ whole `simulateQ` fold has zero failure mass. -/
 theorem deferredDraw_run_neverFail {γ : Type} (pk : Stmt) (sk : Wit)
     (oa : OracleComp ((unifSpec + (M × Commit →ₒ Chal)) + (M →ₒ Option (Commit × Resp))) γ) :
     ∀ (s : DeferredState M Commit Chal),
-      Pr[⊥ | (simulateQ (deferredDrawImpl ids M maxAttempts pk sk) oa).run s] = 0 := by
+      prFail ((simulateQ (deferredDrawImpl ids M maxAttempts pk sk) oa).run s) = 0 := by
   induction oa using OracleComp.inductionOn with
   | pure a => intro s; simp [simulateQ_pure]
   | query_bind t ob ih =>
@@ -429,13 +427,12 @@ the expected total length is bounded by `ws₀.length + qSrem·(1/(1-p))`
 Piece B, discharged for the constructed `kn`. -/
 theorem deferredDraw_kn_mean_le {γ : Type} (pk : Stmt) (sk : Wit)
     {p_abort : ℝ} (hp₀ : 0 ≤ p_abort) (hp : p_abort < 1)
-    (hAbort : Pr[= none | ids.honestExecution pk sk] ≤ ENNReal.ofReal p_abort)
+    (hAbort : Pr{let x ← ids.honestExecution pk sk}[x = none] ≤ ENNReal.ofReal p_abort)
     (oa : OracleComp ((unifSpec + (M × Commit →ₒ Chal)) + (M →ₒ Option (Commit × Resp))) γ)
     (qSrem : ℕ) (hQ : oa.IsQueryBoundP (· matches Sum.inr _) qSrem)
     (re : (M × Commit →ₒ Chal).QueryCache) (l : List M) (ws₀ : List Commit) :
-    (∑' n : ℕ, Pr[= n |
-        (fun z : γ × DeferredState M Commit Chal => z.2.1.2.length - ws₀.length) <$>
-          (simulateQ (deferredDrawImpl ids M maxAttempts pk sk) oa).run (((re, l), ws₀), false)] *
+    (∑' n : ℕ, Pr{let x ← ((fun z : γ × DeferredState M Commit Chal => z.2.1.2.length - ws₀.length) <$>
+          (simulateQ (deferredDrawImpl ids M maxAttempts pk sk) oa).run (((re, l), ws₀), false))}[x = n] *
         (n : ℝ≥0∞))
       ≤ ENNReal.ofReal ((qSrem : ℝ) / (1 - p_abort)) := by
   classical
@@ -443,34 +440,33 @@ theorem deferredDraw_kn_mean_le {γ : Type} (pk : Stmt) (sk : Wit)
   set run : ProbComp (γ × DeferredState M Commit Chal) :=
     (simulateQ (deferredDrawImpl ids M maxAttempts pk sk) oa).run (((re, l), ws₀), false) with hrun
   -- The mean of `kn` equals the run-expectation of the new-draw count.
-  have hmean : (∑' n : ℕ, Pr[= n |
-        (fun z : γ × DeferredState M Commit Chal => z.2.1.2.length - ws₀.length) <$> run] *
+  have hmean : (∑' n : ℕ, Pr{let x ← (fun z : γ × DeferredState M Commit Chal => z.2.1.2.length - ws₀.length) <$> run}[x = n] *
         (n : ℝ≥0∞))
-      = ∑' z : γ × DeferredState M Commit Chal, Pr[= z | run] *
+      = ∑' z : γ × DeferredState M Commit Chal, Pr{let x ← run}[x = z] *
           ((z.2.1.2.length - ws₀.length : ℕ) : ℝ≥0∞) :=
-    tsum_probOutput_map_mul run
+    OracleComp.tsum_prEvent_map_mul run
       (fun z => z.2.1.2.length - ws₀.length) (fun n => (n : ℝ≥0∞))
   rw [hmean]
   -- Add back `ws₀.length` to recover the total-length expectation, bounded by the fold lemma.
-  have hsplit : (∑' z : γ × DeferredState M Commit Chal, Pr[= z | run] *
+  have hsplit : (∑' z : γ × DeferredState M Commit Chal, Pr{let x ← run}[x = z] *
         ((z.2.1.2.length - ws₀.length : ℕ) : ℝ≥0∞)) + (ws₀.length : ℝ≥0∞)
       ≤ (ws₀.length : ℝ≥0∞) + (qSrem : ℝ≥0∞) * ENNReal.ofReal (1 / (1 - p_abort)) := by
-    have hmass : (∑' z : γ × DeferredState M Commit Chal, Pr[= z | run]) = 1 := by
+    have hmass : (∑' z : γ × DeferredState M Commit Chal, Pr{let x ← run}[x = z]) = 1 := by
       rw [hrun]
       exact tsum_probOutput_eq_one'
         (deferredDraw_run_neverFail ids M maxAttempts pk sk oa (((re, l), ws₀), false))
-    calc (∑' z : γ × DeferredState M Commit Chal, Pr[= z | run] *
+    calc (∑' z : γ × DeferredState M Commit Chal, Pr{let x ← run}[x = z] *
             ((z.2.1.2.length - ws₀.length : ℕ) : ℝ≥0∞)) + (ws₀.length : ℝ≥0∞)
-        = ∑' z : γ × DeferredState M Commit Chal, Pr[= z | run] *
+        = ∑' z : γ × DeferredState M Commit Chal, Pr{let x ← run}[x = z] *
             (((z.2.1.2.length - ws₀.length : ℕ) : ℝ≥0∞) + (ws₀.length : ℝ≥0∞)) := by
-          rw [show (∑' z : γ × DeferredState M Commit Chal, Pr[= z | run] *
+          rw [show (∑' z : γ × DeferredState M Commit Chal, Pr{let x ← run}[x = z] *
                 (((z.2.1.2.length - ws₀.length : ℕ) : ℝ≥0∞) + (ws₀.length : ℝ≥0∞)))
-              = (∑' z : γ × DeferredState M Commit Chal, Pr[= z | run] *
+              = (∑' z : γ × DeferredState M Commit Chal, Pr{let x ← run}[x = z] *
                   ((z.2.1.2.length - ws₀.length : ℕ) : ℝ≥0∞)) +
-                ∑' z : γ × DeferredState M Commit Chal, Pr[= z | run] * (ws₀.length : ℝ≥0∞) from by
+                ∑' z : γ × DeferredState M Commit Chal, Pr{let x ← run}[x = z] * (ws₀.length : ℝ≥0∞) from by
               rw [← ENNReal.tsum_add]; exact tsum_congr fun z => by rw [mul_add]]
           rw [ENNReal.tsum_mul_right, hmass, one_mul]
-      _ = ∑' z : γ × DeferredState M Commit Chal, Pr[= z | run] *
+      _ = ∑' z : γ × DeferredState M Commit Chal, Pr{let x ← run}[x = z] *
             (z.2.1.2.length : ℝ≥0∞) := by
           refine tsum_congr fun z => ?_
           by_cases hz : z ∈ support run
@@ -484,7 +480,7 @@ theorem deferredDraw_kn_mean_le {γ : Type} (pk : Stmt) (sk : Wit)
             qSrem hQ (((re, l), ws₀), false)
           rwa [← hrun] at this
   -- Cancel `ws₀.length` (finite) and rewrite `qSrem·ofReal(1/(1-p)) = ofReal(qSrem/(1-p))`.
-  have hcancel : (∑' z : γ × DeferredState M Commit Chal, Pr[= z | run] *
+  have hcancel : (∑' z : γ × DeferredState M Commit Chal, Pr{let x ← run}[x = z] *
         ((z.2.1.2.length - ws₀.length : ℕ) : ℝ≥0∞))
       ≤ (qSrem : ℝ≥0∞) * ENNReal.ofReal (1 / (1 - p_abort)) := by
     rw [add_comm] at hsplit
@@ -519,12 +515,12 @@ and the signed list grows by exactly `1`; their sum is `∑_{a≤maxAttempts} p^
 the per-step charge for the attempt-count law `kn`. -/
 lemma deferredDrawImpl_step_expected_attemptCount_le (pk : Stmt) (sk : Wit)
     {p_abort : ℝ} (hp₀ : 0 ≤ p_abort) (hp : p_abort < 1)
-    (hAbort : Pr[= none | ids.honestExecution pk sk] ≤ ENNReal.ofReal p_abort)
+    (hAbort : Pr{let x ← ids.honestExecution pk sk}[x = none] ≤ ENNReal.ofReal p_abort)
     (t : ((unifSpec + (M × Commit →ₒ Chal)) + (M →ₒ Option (Commit × Resp))).Domain)
     (s : DeferredState M Commit Chal) :
     (∑' z : (((unifSpec + (M × Commit →ₒ Chal)) + (M →ₒ Option (Commit × Resp))).Range t) ×
         DeferredState M Commit Chal,
-      Pr[= z | (deferredDrawImpl ids M maxAttempts pk sk t).run s] *
+      Pr{let x ← (deferredDrawImpl ids M maxAttempts pk sk t).run s}[x = z] *
         ((z.2.1.2.length + z.2.1.1.2.length : ℕ) : ℝ≥0∞))
       ≤ ((s.1.2.length + s.1.1.2.length : ℕ) : ℝ≥0∞) +
           (if (t matches Sum.inr _) then ENNReal.ofReal (1 / (1 - p_abort)) else 0) := by
@@ -556,14 +552,14 @@ lemma deferredDrawImpl_step_expected_attemptCount_le (pk : Stmt) (sk : Wit)
           (alc.1.1, (((alc.2, msg :: s.1.1.2), s.1.2 ++ alc.1.2), s.2))) <$>
           (ghostSignDrawBody ids M pk sk msg maxAttempts).run s.1.1.1 := rfl
     rw [hrun]
-    refine le_of_eq_of_le (tsum_probOutput_map_mul
+    refine le_of_eq_of_le (OracleComp.tsum_prEvent_map_mul
       ((ghostSignDrawBody ids M pk sk msg maxAttempts).run s.1.1.1)
       (fun alc : (Option (Commit × Resp) × List Commit) × (M × Commit →ₒ Chal).QueryCache =>
         (alc.1.1, (((alc.2, msg :: s.1.1.2), s.1.2 ++ alc.1.2), s.2)))
       (fun z => ((z.2.1.2.length + z.2.1.1.2.length : ℕ) : ℝ≥0∞))) ?_
     calc _
         = ∑' alc : (Option (Commit × Resp) × List Commit) × (M × Commit →ₒ Chal).QueryCache,
-            Pr[= alc | (ghostSignDrawBody ids M pk sk msg maxAttempts).run s.1.1.1] *
+            Pr{let x ← (ghostSignDrawBody ids M pk sk msg maxAttempts).run s.1.1.1}[x = alc] *
               (((s.1.2.length + s.1.1.2.length : ℕ) : ℝ≥0∞) + (1 : ℝ≥0∞) +
                 (alc.1.2.length : ℝ≥0∞)) := by
           refine tsum_congr fun alc => ?_
@@ -571,10 +567,10 @@ lemma deferredDrawImpl_step_expected_attemptCount_le (pk : Stmt) (sk : Wit)
           push_cast
           ring
       _ = ((∑' alc : (Option (Commit × Resp) × List Commit) × (M × Commit →ₒ Chal).QueryCache,
-            Pr[= alc | (ghostSignDrawBody ids M pk sk msg maxAttempts).run s.1.1.1] *
+            Pr{let x ← (ghostSignDrawBody ids M pk sk msg maxAttempts).run s.1.1.1}[x = alc] *
               (((s.1.2.length + s.1.1.2.length : ℕ) : ℝ≥0∞) + (1 : ℝ≥0∞))) +
           ∑' alc : (Option (Commit × Resp) × List Commit) × (M × Commit →ₒ Chal).QueryCache,
-            Pr[= alc | (ghostSignDrawBody ids M pk sk msg maxAttempts).run s.1.1.1] *
+            Pr{let x ← (ghostSignDrawBody ids M pk sk msg maxAttempts).run s.1.1.1}[x = alc] *
               (alc.1.2.length : ℝ≥0∞)) := by
           rw [← ENNReal.tsum_add]; exact tsum_congr fun alc => by rw [mul_add]
       _ ≤ ((s.1.2.length + s.1.1.2.length : ℕ) : ℝ≥0∞) + ENNReal.ofReal (1 / (1 - p_abort)) := by
@@ -600,12 +596,12 @@ leave it unchanged; the signing-query budget telescopes across the fold exactly 
 this mean. -/
 theorem deferredDraw_run_expected_attemptCount_le {γ : Type} (pk : Stmt) (sk : Wit)
     {p_abort : ℝ} (hp₀ : 0 ≤ p_abort) (hp : p_abort < 1)
-    (hAbort : Pr[= none | ids.honestExecution pk sk] ≤ ENNReal.ofReal p_abort)
+    (hAbort : Pr{let x ← ids.honestExecution pk sk}[x = none] ≤ ENNReal.ofReal p_abort)
     (oa : OracleComp ((unifSpec + (M × Commit →ₒ Chal)) + (M →ₒ Option (Commit × Resp))) γ) :
     ∀ (qSrem : ℕ), oa.IsQueryBoundP (· matches Sum.inr _) qSrem →
       ∀ (s : DeferredState M Commit Chal),
         (∑' z : γ × DeferredState M Commit Chal,
-          Pr[= z | (simulateQ (deferredDrawImpl ids M maxAttempts pk sk) oa).run s] *
+          Pr{let x ← (simulateQ (deferredDrawImpl ids M maxAttempts pk sk) oa).run s}[x = z] *
             ((z.2.1.2.length + z.2.1.1.2.length : ℕ) : ℝ≥0∞))
           ≤ ((s.1.2.length + s.1.1.2.length : ℕ) : ℝ≥0∞) +
               (qSrem : ℝ≥0∞) * ENNReal.ofReal (1 / (1 - p_abort)) := by
@@ -613,17 +609,17 @@ theorem deferredDraw_run_expected_attemptCount_le {γ : Type} (pk : Stmt) (sk : 
   induction oa using OracleComp.inductionOn with
   | pure a =>
       intro qSrem _ s
-      simp only [simulateQ_pure, StateT.run_pure, tsum_probOutput_pure_mul]
+      simp only [simulateQ_pure, StateT.run_pure, OracleComp.tsum_prEvent_pure_mul]
       exact le_self_add
   | query_bind t ob ih =>
       intro qSrem hQ s
       rw [OracleComp.isQueryBoundP_query_bind_iff] at hQ
       obtain ⟨hQ1, hQ2⟩ := hQ
-      rw [simulateQ_query_bind, StateT.run_bind, tsum_probOutput_bind_mul]
+      rw [simulateQ_query_bind, StateT.run_bind, OracleComp.tsum_prEvent_bind_mul]
       set c : ℝ≥0∞ := ENNReal.ofReal (1 / (1 - p_abort)) with hc
       have hmass : (∑' x : (((unifSpec + (M × Commit →ₒ Chal)) +
             (M →ₒ Option (Commit × Resp))).Range t) × DeferredState M Commit Chal,
-          Pr[= x | (deferredDrawImpl ids M maxAttempts pk sk t).run s]) = 1 :=
+          Pr{let y ← (deferredDrawImpl ids M maxAttempts pk sk t).run s}[y = x]) = 1 :=
         tsum_probOutput_eq_one' (by
           rcases t with (n | mc) | msg
           · simp [deferredDrawImpl]
@@ -634,33 +630,33 @@ theorem deferredDraw_run_expected_attemptCount_le {γ : Type} (pk : Stmt) (sk : 
           (∀ x : (((unifSpec + (M × Commit →ₒ Chal)) +
               (M →ₒ Option (Commit × Resp))).Range t) × DeferredState M Commit Chal,
             (∑' z : γ × DeferredState M Commit Chal,
-              Pr[= z | (simulateQ (deferredDrawImpl ids M maxAttempts pk sk) (ob x.1)).run x.2] *
+              Pr{let y ← (simulateQ (deferredDrawImpl ids M maxAttempts pk sk) (ob x.1)).run x.2}[y = z] *
                 ((z.2.1.2.length + z.2.1.1.2.length : ℕ) : ℝ≥0∞))
               ≤ ((x.2.1.2.length + x.2.1.1.2.length : ℕ) : ℝ≥0∞) + (b : ℝ≥0∞) * c) →
-          (∑' x, Pr[= x | (deferredDrawImpl ids M maxAttempts pk sk t).run s] *
+          (∑' x, Pr{let y ← (deferredDrawImpl ids M maxAttempts pk sk t).run s}[y = x] *
             ((x.2.1.2.length + x.2.1.1.2.length : ℕ) : ℝ≥0∞))
               ≤ ((s.1.2.length + s.1.1.2.length : ℕ) : ℝ≥0∞) + extra →
           extra + (b : ℝ≥0∞) * c ≤ (qSrem : ℝ≥0∞) * c →
-          (∑' x, Pr[= x | (deferredDrawImpl ids M maxAttempts pk sk t).run s] *
+          (∑' x, Pr{let y ← (deferredDrawImpl ids M maxAttempts pk sk t).run s}[y = x] *
               ∑' z : γ × DeferredState M Commit Chal,
-                Pr[= z | (simulateQ (deferredDrawImpl ids M maxAttempts pk sk) (ob x.1)).run x.2] *
+                Pr{let y ← (simulateQ (deferredDrawImpl ids M maxAttempts pk sk) (ob x.1)).run x.2}[y = z] *
                   ((z.2.1.2.length + z.2.1.1.2.length : ℕ) : ℝ≥0∞))
             ≤ ((s.1.2.length + s.1.1.2.length : ℕ) : ℝ≥0∞) + (qSrem : ℝ≥0∞) * c := by
         intro b extra hcont hstep hbudget
-        calc (∑' x, Pr[= x | (deferredDrawImpl ids M maxAttempts pk sk t).run s] *
+        calc (∑' x, Pr{let y ← (deferredDrawImpl ids M maxAttempts pk sk t).run s}[y = x] *
                 ∑' z : γ × DeferredState M Commit Chal,
-                  Pr[= z | (simulateQ (deferredDrawImpl ids M maxAttempts pk sk)
-                      (ob x.1)).run x.2] * ((z.2.1.2.length + z.2.1.1.2.length : ℕ) : ℝ≥0∞))
-            ≤ ∑' x, Pr[= x | (deferredDrawImpl ids M maxAttempts pk sk t).run s] *
+                  Pr{let y ← ((simulateQ (deferredDrawImpl ids M maxAttempts pk sk)
+                      (ob x.1)).run x.2)}[y = z] * ((z.2.1.2.length + z.2.1.1.2.length : ℕ) : ℝ≥0∞))
+            ≤ ∑' x, Pr{let y ← (deferredDrawImpl ids M maxAttempts pk sk t).run s}[y = x] *
                 (((x.2.1.2.length + x.2.1.1.2.length : ℕ) : ℝ≥0∞) + (b : ℝ≥0∞) * c) :=
               ENNReal.tsum_le_tsum fun x => by gcongr; exact hcont x
-          _ = (∑' x, Pr[= x | (deferredDrawImpl ids M maxAttempts pk sk t).run s] *
+          _ = (∑' x, Pr{let y ← (deferredDrawImpl ids M maxAttempts pk sk t).run s}[y = x] *
                   ((x.2.1.2.length + x.2.1.1.2.length : ℕ) : ℝ≥0∞)) + (b : ℝ≥0∞) * c := by
-              rw [show (∑' x, Pr[= x | (deferredDrawImpl ids M maxAttempts pk sk t).run s] *
+              rw [show (∑' x, Pr{let y ← (deferredDrawImpl ids M maxAttempts pk sk t).run s}[y = x] *
                     (((x.2.1.2.length + x.2.1.1.2.length : ℕ) : ℝ≥0∞) + (b : ℝ≥0∞) * c))
-                  = ∑' x, (Pr[= x | (deferredDrawImpl ids M maxAttempts pk sk t).run s] *
+                  = ∑' x, (Pr{let y ← (deferredDrawImpl ids M maxAttempts pk sk t).run s}[y = x] *
                       ((x.2.1.2.length + x.2.1.1.2.length : ℕ) : ℝ≥0∞) +
-                    Pr[= x | (deferredDrawImpl ids M maxAttempts pk sk t).run s] *
+                    Pr{let y ← (deferredDrawImpl ids M maxAttempts pk sk t).run s}[y = x] *
                       ((b : ℝ≥0∞) * c)) from tsum_congr fun x => by rw [mul_add]]
               rw [ENNReal.tsum_add, ENNReal.tsum_mul_right, hmass, one_mul]
           _ ≤ (((s.1.2.length + s.1.1.2.length : ℕ) : ℝ≥0∞) + extra) + (b : ℝ≥0∞) * c := by gcongr
@@ -697,56 +693,54 @@ identical to the loose reject charge — the `+1` is absorbed by tightening the 
 `∑_{a<n} p^a` to `∑_{a<n} p^(a+1)`. -/
 theorem deferredDraw_attemptKn_mean_le {γ : Type} (pk : Stmt) (sk : Wit)
     {p_abort : ℝ} (hp₀ : 0 ≤ p_abort) (hp : p_abort < 1)
-    (hAbort : Pr[= none | ids.honestExecution pk sk] ≤ ENNReal.ofReal p_abort)
+    (hAbort : Pr{let x ← ids.honestExecution pk sk}[x = none] ≤ ENNReal.ofReal p_abort)
     (oa : OracleComp ((unifSpec + (M × Commit →ₒ Chal)) + (M →ₒ Option (Commit × Resp))) γ)
     (qSrem : ℕ) (hQ : oa.IsQueryBoundP (· matches Sum.inr _) qSrem)
     (re : (M × Commit →ₒ Chal).QueryCache) (l : List M) (ws₀ : List Commit) :
-    (∑' n : ℕ, Pr[= n |
-        (fun z : γ × DeferredState M Commit Chal =>
+    (∑' n : ℕ, Pr{let x ← ((fun z : γ × DeferredState M Commit Chal =>
             (z.2.1.2.length - ws₀.length) + (z.2.1.1.2.length - l.length)) <$>
-          (simulateQ (deferredDrawImpl ids M maxAttempts pk sk) oa).run (((re, l), ws₀), false)] *
+          (simulateQ (deferredDrawImpl ids M maxAttempts pk sk) oa).run (((re, l), ws₀), false))}[x = n] *
         (n : ℝ≥0∞))
       ≤ ENNReal.ofReal ((qSrem : ℝ) / (1 - p_abort)) := by
   classical
   have h1p : (0 : ℝ) < 1 - p_abort := by linarith
   set run : ProbComp (γ × DeferredState M Commit Chal) :=
     (simulateQ (deferredDrawImpl ids M maxAttempts pk sk) oa).run (((re, l), ws₀), false) with hrun
-  have hmean : (∑' n : ℕ, Pr[= n |
-        (fun z : γ × DeferredState M Commit Chal =>
-            (z.2.1.2.length - ws₀.length) + (z.2.1.1.2.length - l.length)) <$> run] *
+  have hmean : (∑' n : ℕ, Pr{let x ← ((fun z : γ × DeferredState M Commit Chal =>
+            (z.2.1.2.length - ws₀.length) + (z.2.1.1.2.length - l.length)) <$> run)}[x = n] *
         (n : ℝ≥0∞))
-      = ∑' z : γ × DeferredState M Commit Chal, Pr[= z | run] *
+      = ∑' z : γ × DeferredState M Commit Chal, Pr{let x ← run}[x = z] *
           (((z.2.1.2.length - ws₀.length) + (z.2.1.1.2.length - l.length) : ℕ) : ℝ≥0∞) :=
-    tsum_probOutput_map_mul run
+    OracleComp.tsum_prEvent_map_mul run
       (fun z => (z.2.1.2.length - ws₀.length) + (z.2.1.1.2.length - l.length))
       (fun n => (n : ℝ≥0∞))
   rw [hmean]
   -- Add back `ws₀.length + l.length` to recover the total combined size, bounded by the fold.
-  have hmass : (∑' z : γ × DeferredState M Commit Chal, Pr[= z | run]) = 1 := by
+  have hmass : (∑' z : γ × DeferredState M Commit Chal, Pr{let x ← run}[x = z]) = 1 := by
     rw [hrun]
     exact tsum_probOutput_eq_one'
       (deferredDraw_run_neverFail ids M maxAttempts pk sk oa (((re, l), ws₀), false))
-  have hsplit : (∑' z : γ × DeferredState M Commit Chal, Pr[= z | run] *
+  have hsplit : (∑' z : γ × DeferredState M Commit Chal, Pr{let x ← run}[x = z] *
         (((z.2.1.2.length - ws₀.length) + (z.2.1.1.2.length - l.length) : ℕ) : ℝ≥0∞)) +
         ((ws₀.length + l.length : ℕ) : ℝ≥0∞)
       ≤ ((ws₀.length + l.length : ℕ) : ℝ≥0∞) +
           (qSrem : ℝ≥0∞) * ENNReal.ofReal (1 / (1 - p_abort)) := by
-    calc (∑' z : γ × DeferredState M Commit Chal, Pr[= z | run] *
+    calc (∑' z : γ × DeferredState M Commit Chal, Pr{let x ← run}[x = z] *
             (((z.2.1.2.length - ws₀.length) + (z.2.1.1.2.length - l.length) : ℕ) : ℝ≥0∞)) +
           ((ws₀.length + l.length : ℕ) : ℝ≥0∞)
-        = ∑' z : γ × DeferredState M Commit Chal, Pr[= z | run] *
+        = ∑' z : γ × DeferredState M Commit Chal, Pr{let x ← run}[x = z] *
             ((((z.2.1.2.length - ws₀.length) + (z.2.1.1.2.length - l.length) : ℕ) : ℝ≥0∞) +
               ((ws₀.length + l.length : ℕ) : ℝ≥0∞)) := by
-          rw [show (∑' z : γ × DeferredState M Commit Chal, Pr[= z | run] *
+          rw [show (∑' z : γ × DeferredState M Commit Chal, Pr{let x ← run}[x = z] *
                 ((((z.2.1.2.length - ws₀.length) + (z.2.1.1.2.length - l.length) : ℕ) : ℝ≥0∞) +
                   ((ws₀.length + l.length : ℕ) : ℝ≥0∞)))
-              = (∑' z : γ × DeferredState M Commit Chal, Pr[= z | run] *
+              = (∑' z : γ × DeferredState M Commit Chal, Pr{let x ← run}[x = z] *
                   (((z.2.1.2.length - ws₀.length) + (z.2.1.1.2.length - l.length) : ℕ) : ℝ≥0∞)) +
-                ∑' z : γ × DeferredState M Commit Chal, Pr[= z | run] *
+                ∑' z : γ × DeferredState M Commit Chal, Pr{let x ← run}[x = z] *
                   ((ws₀.length + l.length : ℕ) : ℝ≥0∞) from by
               rw [← ENNReal.tsum_add]; exact tsum_congr fun z => by rw [mul_add]]
           rw [ENNReal.tsum_mul_right, hmass, one_mul]
-      _ = ∑' z : γ × DeferredState M Commit Chal, Pr[= z | run] *
+      _ = ∑' z : γ × DeferredState M Commit Chal, Pr{let x ← run}[x = z] *
             ((z.2.1.2.length + z.2.1.1.2.length : ℕ) : ℝ≥0∞) := by
           refine tsum_congr fun z => ?_
           by_cases hz : z ∈ support run
@@ -764,7 +758,7 @@ theorem deferredDraw_attemptKn_mean_le {γ : Type} (pk : Stmt) (sk : Wit)
           have := deferredDraw_run_expected_attemptCount_le ids M maxAttempts pk sk hp₀ hp hAbort
             oa qSrem hQ (((re, l), ws₀), false)
           rwa [← hrun] at this
-  have hcancel : (∑' z : γ × DeferredState M Commit Chal, Pr[= z | run] *
+  have hcancel : (∑' z : γ × DeferredState M Commit Chal, Pr{let x ← run}[x = z] *
         (((z.2.1.2.length - ws₀.length) + (z.2.1.1.2.length - l.length) : ℕ) : ℝ≥0∞))
       ≤ (qSrem : ℝ≥0∞) * ENNReal.ofReal (1 / (1 - p_abort)) := by
     rw [add_comm] at hsplit

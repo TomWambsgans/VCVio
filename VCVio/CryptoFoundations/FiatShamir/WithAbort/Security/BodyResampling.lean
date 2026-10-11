@@ -55,7 +55,7 @@ read points. The body-level half of that program — recasting one signing body'
 consumption from a *pre-drawn* tape — is proved here as a distributional equality
 `evalSPMF_ghostSignDrawBody_eq_drawList_tapeSignBody`:
 
-`𝒮[(ghostSignDrawBody … n).run re] = 𝒮[drawList (ids.commit pk sk) n >>= tapeSignBody … tape]`.
+`((ghostSignDrawBody … n).run re) =ᵈ (drawList (ids.commit pk sk) n >>= tapeSignBody … tape)`.
 
 Pre-drawing the `n`-block of full `(Commit × PrvState)` commitment draws and consuming them
 head-first (`tapeSignBody`) is distributionally identical to drawing them inline: the control flow
@@ -78,19 +78,19 @@ draws exchange by `ENNReal.tsum_comm`. This is the local resampling step that fr
 output-irrelevant draw past its continuation. -/
 theorem evalSPMF_bind_comm_probComp {α β γ : Type} (oa : ProbComp α) (ob : ProbComp β)
     (k : α → β → ProbComp γ) :
-    𝒮[oa >>= fun a => ob >>= fun b => k a b] = 𝒮[ob >>= fun b => oa >>= fun a => k a b] := by
+    (oa >>= fun a => ob >>= fun b => k a b) =ᵈ (ob >>= fun b => oa >>= fun a => k a b) := by
   refine SPMF.ext fun x => ?_
   rw [show 𝒮[oa >>= fun a => ob >>= fun b => k a b] x
-        = Pr[= x | oa >>= fun a => ob >>= fun b => k a b] from (probOutput_def _ _).symm,
+        = Pr{let y ← oa >>= fun a => ob >>= fun b => k a b}[y = x] from (probOutput_def _ _).symm,
     show 𝒮[ob >>= fun b => oa >>= fun a => k a b] x
-        = Pr[= x | ob >>= fun b => oa >>= fun a => k a b] from (probOutput_def _ _).symm]
+        = Pr{let y ← ob >>= fun b => oa >>= fun a => k a b}[y = x] from (probOutput_def _ _).symm]
   rw [probOutput_bind_eq_tsum]
-  rw [show (∑' a : α, Pr[= a | oa] * Pr[= x | ob >>= fun b => k a b])
-      = ∑' (a : α) (b : β), Pr[= a | oa] * (Pr[= b | ob] * Pr[= x | k a b]) from
+  rw [show (∑' a : α, Pr{let x ← oa}[x = a] * Pr{let y ← ob >>= fun b => k a b}[y = x])
+      = ∑' (a : α) (b : β), Pr{let x ← oa}[x = a] * (Pr{let x ← ob}[x = b] * Pr{let y ← k a b}[y = x]) from
     tsum_congr fun a => by rw [probOutput_bind_eq_tsum, ENNReal.tsum_mul_left]]
   rw [probOutput_bind_eq_tsum]
-  rw [show (∑' b : β, Pr[= b | ob] * Pr[= x | oa >>= fun a => k a b])
-      = ∑' (b : β) (a : α), Pr[= b | ob] * (Pr[= a | oa] * Pr[= x | k a b]) from
+  rw [show (∑' b : β, Pr{let x ← ob}[x = b] * Pr{let y ← oa >>= fun a => k a b}[y = x])
+      = ∑' (b : β) (a : α), Pr{let x ← ob}[x = b] * (Pr{let x ← oa}[x = a] * Pr{let y ← k a b}[y = x]) from
     tsum_congr fun b => by rw [probOutput_bind_eq_tsum, ENNReal.tsum_mul_left]]
   rw [ENNReal.tsum_comm]
   exact tsum_congr fun a => tsum_congr fun b => by ring
@@ -98,17 +98,17 @@ theorem evalSPMF_bind_comm_probComp {α β γ : Type} (oa : ProbComp α) (ob : P
 /-- **Dropping a never-failing prefix at the distribution level.** A leading draw `od` whose
 continuation ignores its value contributes only its total mass; when `od` never fails (mass `1`,
 e.g. a `drawList` front block) it can be discarded from the output distribution. -/
-theorem evalSPMF_bind_const_neverFails {α γ : Type} (od : ProbComp α) (hmass : Pr[⊥ | od] = 0)
-    (k : ProbComp γ) : 𝒮[od >>= fun _ => k] = 𝒮[k] := by
+theorem evalSPMF_bind_const_neverFails {α γ : Type} (od : ProbComp α) (hmass : prFail od = 0)
+    (k : ProbComp γ) : (od >>= fun _ => k) =ᵈ k := by
   refine SPMF.ext fun x => ?_
-  rw [show 𝒮[od >>= fun _ => k] x = Pr[= x | od >>= fun _ => k] from (probOutput_def _ _).symm,
-    show 𝒮[k] x = Pr[= x | k] from (probOutput_def _ _).symm]
+  rw [show 𝒮[od >>= fun _ => k] x = Pr{let y ← od >>= fun _ => k}[y = x] from (probOutput_def _ _).symm,
+    show 𝒮[k] x = Pr{let y ← k}[y = x] from (probOutput_def _ _).symm]
   rw [probOutput_bind_const, hmass]; simp
 
 /-- **Distribution-level congruence under a leading bind.** If two continuations agree as
 distributions pointwise then the bound computations agree as distributions. -/
 theorem evalSPMF_bind_congr_left {α β : Type} (oa : ProbComp α) (f g : α → ProbComp β)
-    (h : ∀ a, 𝒮[f a] = 𝒮[g a]) : 𝒮[oa >>= f] = 𝒮[oa >>= g] := by
+    (h : ∀ a, f a =ᵈ g a) : (oa >>= f) =ᵈ (oa >>= g) := by
   rw [evalSPMF_bind, evalSPMF_bind]; exact congrArg _ (funext h)
 
 /-- **Tape-consuming signing body.** Identical to `ghostSignDrawBody` except that each attempt's
@@ -158,7 +158,7 @@ omit [SampleableType Stmt] in
 commitments inline (`ghostSignDrawBody`) is distributionally identical to pre-drawing the `n`-block
 of full commitment draws into a tape and consuming it head-first (`tapeSignBody`):
 
-`𝒮[(ghostSignDrawBody … n).run re] = 𝒮[drawList (ids.commit pk sk) n >>= tapeSignBody … tape]`.
+`((ghostSignDrawBody … n).run re) =ᵈ (drawList (ids.commit pk sk) n >>= tapeSignBody … tape)`.
 
 The proof inducts on `n`: at each attempt, the recursive front block `drawList n` is commuted past
 the inline `uniformSample`/`respond` draws (the i.i.d. resampling step
@@ -169,9 +169,8 @@ tape factorization; its lift across the opaque adversary fold is
 `evalSPMF_deferredDrawRead_eq_drawList_tapeDrawRead`. -/
 theorem evalSPMF_ghostSignDrawBody_eq_drawList_tapeSignBody (pk : Stmt) (sk : Wit) (msg : M)
     (n : ℕ) (re : (M × Commit →ₒ Chal).QueryCache) :
-    𝒮[(ghostSignDrawBody ids M pk sk msg n).run re] =
-      𝒮[OracleComp.drawList (ids.commit pk sk) n >>= fun tape =>
-          (tapeSignBody ids M pk sk msg tape).run re] := by
+    ((ghostSignDrawBody ids M pk sk msg n).run re) =ᵈ (OracleComp.drawList (ids.commit pk sk) n >>= fun tape =>
+          (tapeSignBody ids M pk sk msg tape).run re) := by
   induction n generalizing re with
   | zero => simp [ghostSignDrawBody, tapeSignBody, OracleComp.drawList]
   | succ n ih =>
@@ -182,7 +181,7 @@ theorem evalSPMF_ghostSignDrawBody_eq_drawList_tapeSignBody (pk : Stmt) (sk : Wi
       obtain ⟨w, st⟩ := ws
       simp only [run_tapeSignBody_cons]
       set dl := OracleComp.drawList (ids.commit pk sk) n with hdl
-      have hdlmass : Pr[⊥ | dl] = 0 := by rw [hdl]; exact OracleComp.probFailure_drawList _ _
+      have hdlmass : prFail dl = 0 := by rw [hdl]; exact OracleComp.probFailure_drawList _ _
       rw [show (𝒮[dl >>= fun rest => uniformSample Chal >>= fun ch =>
             ids.respond pk sk st ch >>= fun oz =>
               (match oz with
@@ -229,16 +228,16 @@ counterpart of `tsum_probOutput_run_ghostSignBody_mul_ghost_enncard_le`: the dra
 the eager ghost layer, so its length plays the role of the ghost-cache size. -/
 lemma tsum_probOutput_run_ghostSignDrawBody_mul_length_le (pk : Stmt) (sk : Wit) (msg : M)
     {p_abort : ℝ}
-    (hAbort : Pr[= none | ids.honestExecution pk sk] ≤ ENNReal.ofReal p_abort) :
+    (hAbort : Pr{let x ← ids.honestExecution pk sk}[x = none] ≤ ENNReal.ofReal p_abort) :
     ∀ (n : ℕ) (re : (M × Commit →ₒ Chal).QueryCache),
       ∑' z : (Option (Commit × Resp) × List Commit) × (M × Commit →ₒ Chal).QueryCache,
-        Pr[= z | (ghostSignDrawBody ids M pk sk msg n).run re] * (z.1.2.length : ℝ≥0∞)
+        Pr{let x ← (ghostSignDrawBody ids M pk sk msg n).run re}[x = z] * (z.1.2.length : ℝ≥0∞)
         ≤ ∑ a ∈ Finset.range n, ENNReal.ofReal p_abort ^ a := by
   intro n
   induction n with
   | zero =>
       intro re
-      simp only [ghostSignDrawBody, StateT.run_pure, tsum_probOutput_pure_mul]
+      simp only [ghostSignDrawBody, StateT.run_pure, OracleComp.tsum_prEvent_pure_mul]
       simp
   | succ n ih =>
       intro re
@@ -250,71 +249,71 @@ lemma tsum_probOutput_run_ghostSignDrawBody_mul_length_le (pk : Stmt) (sk : Wit)
         congr 1
         rw [Finset.mul_sum]
         exact Finset.sum_congr rfl fun a _ => pow_succ' _ _
-      rw [run_ghostSignDrawBody_succ, tsum_probOutput_bind_mul]
+      rw [run_ghostSignDrawBody_succ, OracleComp.tsum_prEvent_bind_mul]
       have h_ws : ∀ ws : Commit × PrvState,
           (∑' z : (Option (Commit × Resp) × List Commit) × (M × Commit →ₒ Chal).QueryCache,
-            Pr[= z | uniformSample Chal >>= fun ch =>
+            Pr{let x ← (uniformSample Chal >>= fun ch =>
               ids.respond pk sk ws.2 ch >>= fun oz =>
                 match oz with
                 | some z => pure ((some (ws.1, z), []), re.cacheQuery (msg, ws.1) ch)
                 | none => (fun rws => ((rws.1.1, ws.1 :: rws.1.2), rws.2)) <$>
-                    (ghostSignDrawBody ids M pk sk msg n).run re] * (z.1.2.length : ℝ≥0∞))
-          ≤ 1 + Pr[= none | uniformSample Chal >>= fun ch => ids.respond pk sk ws.2 ch] * S := by
+                    (ghostSignDrawBody ids M pk sk msg n).run re)}[x = z] * (z.1.2.length : ℝ≥0∞))
+          ≤ 1 + Pr{let x ← uniformSample Chal >>= fun ch => ids.respond pk sk ws.2 ch}[x = none] * S := by
         intro ws
-        rw [tsum_probOutput_bind_mul]
+        rw [OracleComp.tsum_prEvent_bind_mul]
         have h_ch : ∀ ch : Chal,
             (∑' z : (Option (Commit × Resp) × List Commit) × (M × Commit →ₒ Chal).QueryCache,
-              Pr[= z | ids.respond pk sk ws.2 ch >>= fun oz =>
+              Pr{let x ← (ids.respond pk sk ws.2 ch >>= fun oz =>
                 match oz with
                 | some z => pure ((some (ws.1, z), []), re.cacheQuery (msg, ws.1) ch)
                 | none => (fun rws => ((rws.1.1, ws.1 :: rws.1.2), rws.2)) <$>
-                    (ghostSignDrawBody ids M pk sk msg n).run re] * (z.1.2.length : ℝ≥0∞))
-            ≤ 1 + Pr[= none | ids.respond pk sk ws.2 ch] * S := by
+                    (ghostSignDrawBody ids M pk sk msg n).run re)}[x = z] * (z.1.2.length : ℝ≥0∞))
+            ≤ 1 + Pr{let x ← ids.respond pk sk ws.2 ch}[x = none] * S := by
           intro ch
-          rw [tsum_probOutput_bind_mul]
+          rw [OracleComp.tsum_prEvent_bind_mul]
           have h_oz : ∀ oz : Option Resp,
               (∑' z : (Option (Commit × Resp) × List Commit) × (M × Commit →ₒ Chal).QueryCache,
-                Pr[= z | (match oz with
+                Pr{let x ← (match oz with
                   | some z => pure ((some (ws.1, z), []), re.cacheQuery (msg, ws.1) ch)
                   | none => (fun rws => ((rws.1.1, ws.1 :: rws.1.2), rws.2)) <$>
                       (ghostSignDrawBody ids M pk sk msg n).run re :
                   ProbComp ((Option (Commit × Resp) × List Commit) ×
-                    (M × Commit →ₒ Chal).QueryCache))] * (z.1.2.length : ℝ≥0∞))
+                    (M × Commit →ₒ Chal).QueryCache))}[x = z] * (z.1.2.length : ℝ≥0∞))
               ≤ 1 + (if oz = none then S else 0) := by
             intro oz
             cases oz with
             | some z =>
-                rw [ite_eq_right (by simp), add_zero, tsum_probOutput_pure_mul]
+                rw [ite_eq_right (by simp), add_zero, OracleComp.tsum_prEvent_pure_mul]
                 simp
             | none =>
                 rw [ite_eq_left rfl]
                 -- length of `ws.1 :: rws.1.2` is `1 + rws.1.2.length`; rewrite map as bind+pure.
-                rw [map_eq_bind_pure_comp, tsum_probOutput_bind_mul]
+                rw [map_eq_bind_pure_comp, OracleComp.tsum_prEvent_bind_mul]
                 calc (∑' z : (Option (Commit × Resp) × List Commit) ×
                       (M × Commit →ₒ Chal).QueryCache,
-                    Pr[= z | (ghostSignDrawBody ids M pk sk msg n).run re] *
+                    Pr{let x ← (ghostSignDrawBody ids M pk sk msg n).run re}[x = z] *
                       (∑' y : (Option (Commit × Resp) × List Commit) ×
                           (M × Commit →ₒ Chal).QueryCache,
-                        Pr[= y | (pure ((fun rws : (Option (Commit × Resp) × List Commit) ×
+                        Pr{let x ← (pure ((fun rws : (Option (Commit × Resp) × List Commit) ×
                             (M × Commit →ₒ Chal).QueryCache =>
                           ((rws.1.1, ws.1 :: rws.1.2), rws.2)) z) :
                           ProbComp ((Option (Commit × Resp) × List Commit) ×
-                            (M × Commit →ₒ Chal).QueryCache))] * (y.1.2.length : ℝ≥0∞)))
+                            (M × Commit →ₒ Chal).QueryCache))}[x = y] * (y.1.2.length : ℝ≥0∞)))
                     = ∑' z : (Option (Commit × Resp) × List Commit) ×
                         (M × Commit →ₒ Chal).QueryCache,
-                      Pr[= z | (ghostSignDrawBody ids M pk sk msg n).run re] *
+                      Pr{let x ← (ghostSignDrawBody ids M pk sk msg n).run re}[x = z] *
                         (1 + (z.1.2.length : ℝ≥0∞)) := by
                       refine tsum_congr fun z => ?_
-                      rw [tsum_probOutput_pure_mul]
+                      rw [OracleComp.tsum_prEvent_pure_mul]
                       simp only [List.length_cons]
                       push_cast
                       ring_nf
                   _ = (∑' z : (Option (Commit × Resp) × List Commit) ×
                         (M × Commit →ₒ Chal).QueryCache,
-                      Pr[= z | (ghostSignDrawBody ids M pk sk msg n).run re]) +
+                      Pr{let x ← (ghostSignDrawBody ids M pk sk msg n).run re}[x = z]) +
                       ∑' z : (Option (Commit × Resp) × List Commit) ×
                         (M × Commit →ₒ Chal).QueryCache,
-                      Pr[= z | (ghostSignDrawBody ids M pk sk msg n).run re] *
+                      Pr{let x ← (ghostSignDrawBody ids M pk sk msg n).run re}[x = z] *
                         (z.1.2.length : ℝ≥0∞) := by
                       rw [← ENNReal.tsum_add]
                       exact tsum_congr fun z => by rw [mul_add, mul_one]
@@ -330,12 +329,12 @@ lemma tsum_probOutput_run_ghostSignDrawBody_mul_length_le (pk : Stmt) (sk : Wit)
       refine le_trans (tsum_probOutput_mul_le_add_of_le _ h_ws) ?_
       rw [hSucc]
       gcongr
-      calc ∑' ws : Commit × PrvState, Pr[= ws | ids.commit pk sk] *
-            (Pr[= none | uniformSample Chal >>= fun ch =>
-              ids.respond pk sk ws.2 ch] * S)
-          = (∑' ws : Commit × PrvState, Pr[= ws | ids.commit pk sk] *
-              Pr[= none | uniformSample Chal >>= fun ch =>
-                ids.respond pk sk ws.2 ch]) * S := by
+      calc ∑' ws : Commit × PrvState, Pr{let x ← ids.commit pk sk}[x = ws] *
+            (Pr{let x ← (uniformSample Chal >>= fun ch =>
+              ids.respond pk sk ws.2 ch)}[x = none] * S)
+          = (∑' ws : Commit × PrvState, Pr{let x ← ids.commit pk sk}[x = ws] *
+              Pr{let x ← (uniformSample Chal >>= fun ch =>
+                ids.respond pk sk ws.2 ch)}[x = none]) * S := by
             rw [← ENNReal.tsum_mul_right]
             exact tsum_congr fun ws => (mul_assoc _ _ _).symm
         _ ≤ ENNReal.ofReal p_abort * S :=
@@ -354,16 +353,16 @@ loose bound `∑_{a<n} p^a` already saturates `1/(1-p)` for the rejects alone an
 extra `+1`. -/
 lemma tsum_probOutput_run_ghostSignDrawBody_mul_length_le_tight (pk : Stmt) (sk : Wit) (msg : M)
     {p_abort : ℝ}
-    (hAbort : Pr[= none | ids.honestExecution pk sk] ≤ ENNReal.ofReal p_abort) :
+    (hAbort : Pr{let x ← ids.honestExecution pk sk}[x = none] ≤ ENNReal.ofReal p_abort) :
     ∀ (n : ℕ) (re : (M × Commit →ₒ Chal).QueryCache),
       ∑' z : (Option (Commit × Resp) × List Commit) × (M × Commit →ₒ Chal).QueryCache,
-        Pr[= z | (ghostSignDrawBody ids M pk sk msg n).run re] * (z.1.2.length : ℝ≥0∞)
+        Pr{let x ← (ghostSignDrawBody ids M pk sk msg n).run re}[x = z] * (z.1.2.length : ℝ≥0∞)
         ≤ ∑ a ∈ Finset.range n, ENNReal.ofReal p_abort ^ (a + 1) := by
   intro n
   induction n with
   | zero =>
       intro re
-      simp only [ghostSignDrawBody, StateT.run_pure, tsum_probOutput_pure_mul]
+      simp only [ghostSignDrawBody, StateT.run_pure, OracleComp.tsum_prEvent_pure_mul]
       simp
   | succ n ih =>
       intro re
@@ -377,72 +376,72 @@ lemma tsum_probOutput_run_ghostSignDrawBody_mul_length_le_tight (pk : Stmt) (sk 
           one_mul, add_comm]
         congr 1
         exact Finset.sum_congr rfl fun a _ => by rw [← pow_succ']
-      rw [hSucc, run_ghostSignDrawBody_succ, tsum_probOutput_bind_mul]
+      rw [hSucc, run_ghostSignDrawBody_succ, OracleComp.tsum_prEvent_bind_mul]
       -- Per-commit-draw `ws`: the recorded list is empty on accept and `ws.1 :: recursive` on
-      -- reject; reject happens with probability `Pr[= none | uniformSample >>= respond]`.
+      -- reject; reject happens with probability `Pr{let x ← uniformSample >>= respond}[x = none]`.
       have h_ws : ∀ ws : Commit × PrvState,
           (∑' z : (Option (Commit × Resp) × List Commit) × (M × Commit →ₒ Chal).QueryCache,
-            Pr[= z | uniformSample Chal >>= fun ch =>
+            Pr{let x ← (uniformSample Chal >>= fun ch =>
               ids.respond pk sk ws.2 ch >>= fun oz =>
                 match oz with
                 | some z => pure ((some (ws.1, z), []), re.cacheQuery (msg, ws.1) ch)
                 | none => (fun rws => ((rws.1.1, ws.1 :: rws.1.2), rws.2)) <$>
-                    (ghostSignDrawBody ids M pk sk msg n).run re] * (z.1.2.length : ℝ≥0∞))
-          ≤ Pr[= none | uniformSample Chal >>= fun ch => ids.respond pk sk ws.2 ch] * (1 + S) := by
+                    (ghostSignDrawBody ids M pk sk msg n).run re)}[x = z] * (z.1.2.length : ℝ≥0∞))
+          ≤ Pr{let x ← uniformSample Chal >>= fun ch => ids.respond pk sk ws.2 ch}[x = none] * (1 + S) := by
         intro ws
-        rw [tsum_probOutput_bind_mul]
+        rw [OracleComp.tsum_prEvent_bind_mul]
         have h_ch : ∀ ch : Chal,
             (∑' z : (Option (Commit × Resp) × List Commit) × (M × Commit →ₒ Chal).QueryCache,
-              Pr[= z | ids.respond pk sk ws.2 ch >>= fun oz =>
+              Pr{let x ← (ids.respond pk sk ws.2 ch >>= fun oz =>
                 match oz with
                 | some z => pure ((some (ws.1, z), []), re.cacheQuery (msg, ws.1) ch)
                 | none => (fun rws => ((rws.1.1, ws.1 :: rws.1.2), rws.2)) <$>
-                    (ghostSignDrawBody ids M pk sk msg n).run re] * (z.1.2.length : ℝ≥0∞))
-            ≤ Pr[= none | ids.respond pk sk ws.2 ch] * (1 + S) := by
+                    (ghostSignDrawBody ids M pk sk msg n).run re)}[x = z] * (z.1.2.length : ℝ≥0∞))
+            ≤ Pr{let x ← ids.respond pk sk ws.2 ch}[x = none] * (1 + S) := by
           intro ch
-          rw [tsum_probOutput_bind_mul]
+          rw [OracleComp.tsum_prEvent_bind_mul]
           -- Per response `oz`: accept contributes `0`, reject contributes `1 + S`.
           have h_oz : ∀ oz : Option Resp,
               (∑' z : (Option (Commit × Resp) × List Commit) × (M × Commit →ₒ Chal).QueryCache,
-                Pr[= z | (match oz with
+                Pr{let x ← (match oz with
                   | some z => pure ((some (ws.1, z), []), re.cacheQuery (msg, ws.1) ch)
                   | none => (fun rws => ((rws.1.1, ws.1 :: rws.1.2), rws.2)) <$>
                       (ghostSignDrawBody ids M pk sk msg n).run re :
                   ProbComp ((Option (Commit × Resp) × List Commit) ×
-                    (M × Commit →ₒ Chal).QueryCache))] * (z.1.2.length : ℝ≥0∞))
+                    (M × Commit →ₒ Chal).QueryCache))}[x = z] * (z.1.2.length : ℝ≥0∞))
               ≤ (if oz = none then (1 : ℝ≥0∞) + S else 0) := by
             intro oz
             cases oz with
             | some z =>
-                rw [ite_eq_right (by simp), tsum_probOutput_pure_mul]
+                rw [ite_eq_right (by simp), OracleComp.tsum_prEvent_pure_mul]
                 simp [List.length]
             | none =>
-                rw [ite_eq_left rfl, map_eq_bind_pure_comp, tsum_probOutput_bind_mul]
+                rw [ite_eq_left rfl, map_eq_bind_pure_comp, OracleComp.tsum_prEvent_bind_mul]
                 calc (∑' z : (Option (Commit × Resp) × List Commit) ×
                       (M × Commit →ₒ Chal).QueryCache,
-                    Pr[= z | (ghostSignDrawBody ids M pk sk msg n).run re] *
+                    Pr{let x ← (ghostSignDrawBody ids M pk sk msg n).run re}[x = z] *
                       (∑' y : (Option (Commit × Resp) × List Commit) ×
                           (M × Commit →ₒ Chal).QueryCache,
-                        Pr[= y | (pure ((fun rws : (Option (Commit × Resp) × List Commit) ×
+                        Pr{let x ← (pure ((fun rws : (Option (Commit × Resp) × List Commit) ×
                             (M × Commit →ₒ Chal).QueryCache =>
                           ((rws.1.1, ws.1 :: rws.1.2), rws.2)) z) :
                           ProbComp ((Option (Commit × Resp) × List Commit) ×
-                            (M × Commit →ₒ Chal).QueryCache))] * (y.1.2.length : ℝ≥0∞)))
+                            (M × Commit →ₒ Chal).QueryCache))}[x = y] * (y.1.2.length : ℝ≥0∞)))
                     = ∑' z : (Option (Commit × Resp) × List Commit) ×
                         (M × Commit →ₒ Chal).QueryCache,
-                      Pr[= z | (ghostSignDrawBody ids M pk sk msg n).run re] *
+                      Pr{let x ← (ghostSignDrawBody ids M pk sk msg n).run re}[x = z] *
                         (1 + (z.1.2.length : ℝ≥0∞)) := by
                       refine tsum_congr fun z => ?_
-                      rw [tsum_probOutput_pure_mul]
+                      rw [OracleComp.tsum_prEvent_pure_mul]
                       simp only [List.length_cons]
                       push_cast
                       ring_nf
                   _ = (∑' z : (Option (Commit × Resp) × List Commit) ×
                         (M × Commit →ₒ Chal).QueryCache,
-                      Pr[= z | (ghostSignDrawBody ids M pk sk msg n).run re]) +
+                      Pr{let x ← (ghostSignDrawBody ids M pk sk msg n).run re}[x = z]) +
                       ∑' z : (Option (Commit × Resp) × List Commit) ×
                         (M × Commit →ₒ Chal).QueryCache,
-                      Pr[= z | (ghostSignDrawBody ids M pk sk msg n).run re] *
+                      Pr{let x ← (ghostSignDrawBody ids M pk sk msg n).run re}[x = z] *
                         (z.1.2.length : ℝ≥0∞) := by
                       rw [← ENNReal.tsum_add]
                       exact tsum_congr fun z => by rw [mul_add, mul_one]
@@ -457,12 +456,12 @@ lemma tsum_probOutput_run_ghostSignDrawBody_mul_length_le_tight (pk : Stmt) (sk 
         rw [probOutput_bind_eq_tsum, ← ENNReal.tsum_mul_right]
         exact le_of_eq (tsum_congr fun ch => (mul_assoc _ _ _).symm)
       refine le_trans (ENNReal.tsum_le_tsum fun ws => mul_le_mul_right (h_ws ws) _) ?_
-      calc ∑' ws : Commit × PrvState, Pr[= ws | ids.commit pk sk] *
-            (Pr[= none | uniformSample Chal >>= fun ch =>
-              ids.respond pk sk ws.2 ch] * (1 + S))
-          = (∑' ws : Commit × PrvState, Pr[= ws | ids.commit pk sk] *
-              Pr[= none | uniformSample Chal >>= fun ch =>
-                ids.respond pk sk ws.2 ch]) * (1 + S) := by
+      calc ∑' ws : Commit × PrvState, Pr{let x ← ids.commit pk sk}[x = ws] *
+            (Pr{let x ← (uniformSample Chal >>= fun ch =>
+              ids.respond pk sk ws.2 ch)}[x = none] * (1 + S))
+          = (∑' ws : Commit × PrvState, Pr{let x ← ids.commit pk sk}[x = ws] *
+              Pr{let x ← (uniformSample Chal >>= fun ch =>
+                ids.respond pk sk ws.2 ch)}[x = none]) * (1 + S) := by
             rw [← ENNReal.tsum_mul_right]
             exact tsum_congr fun ws => (mul_assoc _ _ _).symm
         _ ≤ ENNReal.ofReal p_abort * (1 + S) :=
@@ -492,12 +491,10 @@ live headline path (which charges the expected coincidence count directly). -/
 lemma ghostSignDrawBody_readManyList_le_drawList (pk : Stmt) (sk : Wit) (msg : M)
     (q : ℕ) (σ : List Bool → Commit) :
     ∀ (n : ℕ) (re : (M × Commit →ₒ Chal).QueryCache),
-      Pr[(fun b : Bool => b = true) |
-          (ghostSignDrawBody ids M pk sk msg n).run re >>= fun rws =>
-            pure (OracleComp.readManyList rws.1.2 q σ)]
-        ≤ Pr[(fun b : Bool => b = true) |
-            OracleComp.drawList (Prod.fst <$> ids.commit pk sk) n >>= fun ws =>
-              pure (OracleComp.readManyList ws q σ)] := by
+      Pr{let b ← ((ghostSignDrawBody ids M pk sk msg n).run re >>= fun rws =>
+            pure (OracleComp.readManyList rws.1.2 q σ))}[b = true]
+        ≤ Pr{let b ← (OracleComp.drawList (Prod.fst <$> ids.commit pk sk) n >>= fun ws =>
+              pure (OracleComp.readManyList ws q σ))}[b = true] := by
   intro n
   induction n with
   | zero =>
@@ -515,9 +512,8 @@ lemma ghostSignDrawBody_readManyList_le_drawList (pk : Stmt) (sk : Wit) (msg : M
       gcongr
       -- Per commit draw `ws`: name the recursive fresh `n`-draw game and the recursive body-`n`
       -- game; the latter is `≤` the former by the inductive hypothesis (`ih`).
-      set RHSinner : ℝ≥0∞ := Pr[(fun b : Bool => b = true) |
-        OracleComp.drawList (Prod.fst <$> ids.commit pk sk) n >>= fun rest =>
-          pure (OracleComp.readManyList rest q σ)] with hRHSinner
+      set RHSinner : ℝ≥0∞ := Pr{let b ← (OracleComp.drawList (Prod.fst <$> ids.commit pk sk) n >>= fun rest =>
+          pure (OracleComp.readManyList rest q σ))}[b = true] with hRHSinner
       by_cases hhead : OracleComp.readMany ws.1 q σ = true
       · -- The head already fires: the RHS `readManyList (ws.1 :: rest)` is always `true`, so the
         -- RHS per-draw marginal is the full mass of `drawList n` = 1 ≥ the LHS.
@@ -535,9 +531,8 @@ lemma ghostSignDrawBody_readManyList_le_drawList (pk : Stmt) (sk : Wit) (msg : M
       · -- The head misses: the RHS reduces to the recursive fresh game `RHSinner`, and the LHS is
         -- dominated by the recursive body-`n` game, which is `≤ RHSinner` by `ih`.
         rw [Bool.not_eq_true] at hhead
-        have hRHS : Pr[(fun b : Bool => b = true) |
-              OracleComp.drawList (Prod.fst <$> ids.commit pk sk) n >>= fun rest =>
-                pure (OracleComp.readManyList (ws.1 :: rest) q σ)] = RHSinner := by
+        have hRHS : Pr{let b ← (OracleComp.drawList (Prod.fst <$> ids.commit pk sk) n >>= fun rest =>
+                pure (OracleComp.readManyList (ws.1 :: rest) q σ))}[b = true] = RHSinner := by
           rw [hRHSinner]
           refine probEvent_bind_congr fun rest _ => ?_
           rw [OracleComp.readManyList, List.any_cons, hhead, Bool.false_or, OracleComp.readManyList]
@@ -584,12 +579,12 @@ folded with `geomAttemptSum_le`. This is the per-step charge that the run-level 
 `deferredDraw_run_expected_length_le` telescopes against `signHashQueryBound`. -/
 lemma deferredDrawImpl_step_expected_length_le (pk : Stmt) (sk : Wit)
     {p_abort : ℝ} (hp₀ : 0 ≤ p_abort) (hp : p_abort < 1)
-    (hAbort : Pr[= none | ids.honestExecution pk sk] ≤ ENNReal.ofReal p_abort)
+    (hAbort : Pr{let x ← ids.honestExecution pk sk}[x = none] ≤ ENNReal.ofReal p_abort)
     (t : ((unifSpec + (M × Commit →ₒ Chal)) + (M →ₒ Option (Commit × Resp))).Domain)
     (s : DeferredState M Commit Chal) :
     (∑' z : (((unifSpec + (M × Commit →ₒ Chal)) + (M →ₒ Option (Commit × Resp))).Range t) ×
         DeferredState M Commit Chal,
-      Pr[= z | (deferredDrawImpl ids M maxAttempts pk sk t).run s] * (z.2.1.2.length : ℝ≥0∞))
+      Pr{let x ← (deferredDrawImpl ids M maxAttempts pk sk t).run s}[x = z] * (z.2.1.2.length : ℝ≥0∞))
       ≤ (s.1.2.length : ℝ≥0∞) +
           (if (t matches Sum.inr _) then ENNReal.ofReal (1 / (1 - p_abort)) else 0) := by
   classical
@@ -620,24 +615,24 @@ lemma deferredDrawImpl_step_expected_length_le (pk : Stmt) (sk : Wit)
           (alc.1.1, (((alc.2, msg :: s.1.1.2), s.1.2 ++ alc.1.2), s.2))) <$>
           (ghostSignDrawBody ids M pk sk msg maxAttempts).run s.1.1.1 := rfl
     rw [hrun]
-    refine le_of_eq_of_le (tsum_probOutput_map_mul
+    refine le_of_eq_of_le (OracleComp.tsum_prEvent_map_mul
       ((ghostSignDrawBody ids M pk sk msg maxAttempts).run s.1.1.1)
       (fun alc : (Option (Commit × Resp) × List Commit) × (M × Commit →ₒ Chal).QueryCache =>
         (alc.1.1, (((alc.2, msg :: s.1.1.2), s.1.2 ++ alc.1.2), s.2)))
       (fun z => (z.2.1.2.length : ℝ≥0∞))) ?_
     calc _
         = ∑' alc : (Option (Commit × Resp) × List Commit) × (M × Commit →ₒ Chal).QueryCache,
-            Pr[= alc | (ghostSignDrawBody ids M pk sk msg maxAttempts).run s.1.1.1] *
+            Pr{let x ← (ghostSignDrawBody ids M pk sk msg maxAttempts).run s.1.1.1}[x = alc] *
               ((s.1.2.length : ℝ≥0∞) + (alc.1.2.length : ℝ≥0∞)) := by
           refine tsum_congr fun alc => ?_
           simp only [List.length_append]
           push_cast
           ring
       _ = (∑' alc : (Option (Commit × Resp) × List Commit) × (M × Commit →ₒ Chal).QueryCache,
-            Pr[= alc | (ghostSignDrawBody ids M pk sk msg maxAttempts).run s.1.1.1] *
+            Pr{let x ← (ghostSignDrawBody ids M pk sk msg maxAttempts).run s.1.1.1}[x = alc] *
               (s.1.2.length : ℝ≥0∞)) +
           ∑' alc : (Option (Commit × Resp) × List Commit) × (M × Commit →ₒ Chal).QueryCache,
-            Pr[= alc | (ghostSignDrawBody ids M pk sk msg maxAttempts).run s.1.1.1] *
+            Pr{let x ← (ghostSignDrawBody ids M pk sk msg maxAttempts).run s.1.1.1}[x = alc] *
               (alc.1.2.length : ℝ≥0∞) := by
           rw [← ENNReal.tsum_add]; exact tsum_congr fun alc => by rw [mul_add]
       _ ≤ (s.1.2.length : ℝ≥0∞) + ENNReal.ofReal (1 / (1 - p_abort)) := by

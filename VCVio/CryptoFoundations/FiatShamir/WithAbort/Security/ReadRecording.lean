@@ -225,10 +225,8 @@ theorem deferredDraw_bad_le_readRecord {γ : Type}
     (oa : OracleComp ((unifSpec + (M × Commit →ₒ Chal)) + (M →ₒ Option (Commit × Resp))) γ)
     (s₁ : DeferredState M Commit Chal) (s₂ : DeferredReadState M Commit Chal)
     (hinv : deferredReadInv M s₁ s₂) :
-    Pr[fun z : γ × DeferredState M Commit Chal => z.2.2 = true |
-        (simulateQ (deferredDrawImpl ids M maxAttempts pk sk) oa).run s₁]
-      ≤ Pr[fun z : γ × DeferredReadState M Commit Chal => ∃ rc ∈ z.2.2, rc ∈ z.2.1.1.2 |
-          (simulateQ (deferredDrawReadImpl ids M maxAttempts pk sk) oa).run s₂] :=
+    Pr{let z ← (simulateQ (deferredDrawImpl ids M maxAttempts pk sk) oa).run s₁}[z.2.2 = true]
+      ≤ Pr{let z ← (simulateQ (deferredDrawReadImpl ids M maxAttempts pk sk) oa).run s₂}[∃ rc ∈ z.2.2, rc ∈ z.2.1.1.2] :=
   OracleComp.ProgramLogic.Relational.probEvent_le_of_relTriple_imp
     (deferredDrawRead_run ids M maxAttempts pk sk oa s₁ s₂ hinv)
     (fun _ _ hp hbad => hp.2 hbad)
@@ -250,10 +248,9 @@ theorem readRecord_pred_le_expected_coincidences {γ : Type}
     (pk : Stmt) (sk : Wit)
     (oa : OracleComp ((unifSpec + (M × Commit →ₒ Chal)) + (M →ₒ Option (Commit × Resp))) γ)
     (s : DeferredReadState M Commit Chal) :
-    Pr[fun z : γ × DeferredReadState M Commit Chal => ∃ rc ∈ z.2.2, rc ∈ z.2.1.1.2 |
-        (simulateQ (deferredDrawReadImpl ids M maxAttempts pk sk) oa).run s]
+    Pr{let z ← (simulateQ (deferredDrawReadImpl ids M maxAttempts pk sk) oa).run s}[∃ rc ∈ z.2.2, rc ∈ z.2.1.1.2]
       ≤ ∑' z : γ × DeferredReadState M Commit Chal,
-          Pr[= z | (simulateQ (deferredDrawReadImpl ids M maxAttempts pk sk) oa).run s] *
+          Pr{let x ← (simulateQ (deferredDrawReadImpl ids M maxAttempts pk sk) oa).run s}[x = z] *
             (z.2.2.countP (fun rc => decide (rc ∈ z.2.1.1.2)) : ℝ≥0∞) := by
   classical
   refine probEvent_le_tsum_probOutput_mul_cost _ _ _ (fun z hz => ?_)

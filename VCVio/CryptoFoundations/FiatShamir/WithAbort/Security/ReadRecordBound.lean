@@ -69,26 +69,26 @@ By induction on `oa`:
 theorem readRecord_expected_pairs_nontape_general {γ : Type}
     (qH : ℕ) (ε p_abort : ℝ) (hp₀ : 0 ≤ p_abort) (hp : p_abort < 1) (hε : 0 ≤ ε)
     (pk : Stmt) (sk : Wit)
-    (hGuess : ∀ cm : Commit, Pr[= cm | Prod.fst <$> ids.commit pk sk] ≤ ENNReal.ofReal ε)
-    (hAbort : Pr[= none | ids.honestExecution pk sk] ≤ ENNReal.ofReal p_abort)
+    (hGuess : ∀ cm : Commit, Pr{let x ← Prod.fst <$> ids.commit pk sk}[x = cm] ≤ ENNReal.ofReal ε)
+    (hAbort : Pr{let x ← ids.honestExecution pk sk}[x = none] ≤ ENNReal.ofReal p_abort)
     (oa : OracleComp ((unifSpec + (M × Commit →ₒ Chal)) + (M →ₒ Option (Commit × Resp))) γ)
     (hQ : oa.IsQueryBoundP (· matches Sum.inl (Sum.inr _)) qH)
     (s : DeferredReadState M Commit Chal) :
     (∑' z : γ × DeferredReadState M Commit Chal,
-        Pr[= z | (simulateQ (deferredDrawReadImpl ids M maxAttempts pk sk) oa).run s] *
+        Pr{let x ← (simulateQ (deferredDrawReadImpl ids M maxAttempts pk sk) oa).run s}[x = z] *
           ((z.2.2.map (fun rc => z.2.1.1.2.count rc)).sum : ℝ≥0∞))
       ≤ (∑' z : γ × DeferredReadState M Commit Chal,
-          Pr[= z | (simulateQ (deferredDrawReadImpl ids M maxAttempts pk sk) oa).run s] *
+          Pr{let x ← (simulateQ (deferredDrawReadImpl ids M maxAttempts pk sk) oa).run s}[x = z] *
             ((z.2.2.map (fun rc => s.1.1.2.count rc)).sum : ℝ≥0∞))
         + ENNReal.ofReal ε * ((s.2.length + qH : ℕ) : ℝ≥0∞) *
           ∑' z : γ × DeferredReadState M Commit Chal,
-            Pr[= z | (simulateQ (deferredDrawReadImpl ids M maxAttempts pk sk) oa).run s] *
+            Pr{let x ← (simulateQ (deferredDrawReadImpl ids M maxAttempts pk sk) oa).run s}[x = z] *
               (((z.2.1.1.2.length - s.1.1.2.length)
                 + (z.2.1.1.1.2.length - s.1.1.1.2.length) : ℕ) : ℝ≥0∞) := by
   classical
   induction oa using OracleComp.inductionOn generalizing s qH with
   | pure a =>
-      simp only [simulateQ_pure, StateT.run_pure, tsum_probOutput_pure_mul]
+      simp only [simulateQ_pure, StateT.run_pure, OracleComp.tsum_prEvent_pure_mul]
       simp only [add_zero, Nat.sub_eq_zero_of_le (le_refl _), Nat.cast_zero, mul_zero, add_zero]
       exact le_refl _
   | query_bind t ob ih =>
@@ -96,7 +96,7 @@ theorem readRecord_expected_pairs_nontape_general {γ : Type}
       obtain ⟨hQ1, hQ2⟩ := hQ
       simp only [simulateQ_bind, simulateQ_query, OracleQuery.input_query, OracleQuery.cont_query,
         id_map, StateT.run_bind]
-      rw [tsum_probOutput_bind_mul, tsum_probOutput_bind_mul, tsum_probOutput_bind_mul,
+      rw [OracleComp.tsum_prEvent_bind_mul, OracleComp.tsum_prEvent_bind_mul, OracleComp.tsum_prEvent_bind_mul,
         ← ENNReal.tsum_mul_left, ← ENNReal.tsum_add]
       rcases t with (n | mc) | msg
       · -- UNIFORM: the step is deterministic in the state (`x.2 = s`); factor per step output and
@@ -179,19 +179,19 @@ infrastructure and are not on the live path. -/
 theorem readRecord_expected_pairs_nontape_le {γ : Type}
     (qH : ℕ) (ε p_abort : ℝ) (hp₀ : 0 ≤ p_abort) (hp : p_abort < 1) (hε : 0 ≤ ε)
     (pk : Stmt) (sk : Wit)
-    (hGuess : ∀ cm : Commit, Pr[= cm | Prod.fst <$> ids.commit pk sk] ≤ ENNReal.ofReal ε)
-    (hAbort : Pr[= none | ids.honestExecution pk sk] ≤ ENNReal.ofReal p_abort)
+    (hGuess : ∀ cm : Commit, Pr{let x ← Prod.fst <$> ids.commit pk sk}[x = cm] ≤ ENNReal.ofReal ε)
+    (hAbort : Pr{let x ← ids.honestExecution pk sk}[x = none] ≤ ENNReal.ofReal p_abort)
     (oa : OracleComp ((unifSpec + (M × Commit →ₒ Chal)) + (M →ₒ Option (Commit × Resp))) γ)
     (hQ : oa.IsQueryBoundP (· matches Sum.inl (Sum.inr _)) qH)
     (re : (M × Commit →ₒ Chal).QueryCache) (l : List M) :
     (∑' z : γ × DeferredReadState M Commit Chal,
-        Pr[= z | (simulateQ (deferredDrawReadImpl ids M maxAttempts pk sk) oa).run
-            ((((re, l), []), false), [])] *
+        Pr{let x ← ((simulateQ (deferredDrawReadImpl ids M maxAttempts pk sk) oa).run
+            ((((re, l), []), false), []))}[x = z] *
           ((z.2.2.map (fun rc => z.2.1.1.2.count rc)).sum : ℝ≥0∞))
       ≤ ENNReal.ofReal ε * ((qH : ℕ) : ℝ≥0∞) *
         ∑' z : γ × DeferredReadState M Commit Chal,
-          Pr[= z | (simulateQ (deferredDrawReadImpl ids M maxAttempts pk sk) oa).run
-              ((((re, l), []), false), [])] *
+          Pr{let x ← ((simulateQ (deferredDrawReadImpl ids M maxAttempts pk sk) oa).run
+              ((((re, l), []), false), []))}[x = z] *
             ((z.2.1.1.2.length + (z.2.1.1.1.2.length - l.length) : ℕ) :
               ℝ≥0∞) := by
   -- Instantiate the general carrier at the empty-drawn-list start state: the pre-existing term
@@ -242,26 +242,26 @@ write-only into the drawn list. On the inline route this same value-substitution
 theorem readRecord_expected_pairs_tape_le {γ : Type}
     (qH : ℕ) (ε p_abort : ℝ) (hp₀ : 0 ≤ p_abort) (hp : p_abort < 1) (hε : 0 ≤ ε)
     (pk : Stmt) (sk : Wit)
-    (hGuess : ∀ cm : Commit, Pr[= cm | Prod.fst <$> ids.commit pk sk] ≤ ENNReal.ofReal ε)
-    (hAbort : Pr[= none | ids.honestExecution pk sk] ≤ ENNReal.ofReal p_abort)
+    (hGuess : ∀ cm : Commit, Pr{let x ← Prod.fst <$> ids.commit pk sk}[x = cm] ≤ ENNReal.ofReal ε)
+    (hAbort : Pr{let x ← ids.honestExecution pk sk}[x = none] ≤ ENNReal.ofReal p_abort)
     (oa : OracleComp ((unifSpec + (M × Commit →ₒ Chal)) + (M →ₒ Option (Commit × Resp))) γ)
     (qSrem : ℕ)
     (hQ : FiatShamir.signHashQueryBound M (S' := Option (Commit × Resp)) (oa := oa) qSrem qH)
     (re : (M × Commit →ₒ Chal).QueryCache) (l : List M) :
     (∑' z : γ × DeferredReadState M Commit Chal,
-        Pr[= z | OracleComp.drawList (ids.commit pk sk) (maxAttempts * qSrem) >>= fun tape =>
+        Pr{let x ← (OracleComp.drawList (ids.commit pk sk) (maxAttempts * qSrem) >>= fun tape =>
             (fun p : γ × (DeferredReadState M Commit Chal × List (Commit × PrvState)) =>
                 (p.1, p.2.1)) <$>
               (simulateQ (tapeDrawReadImpl ids M maxAttempts pk sk) oa).run
-                (((((re, l), []), false), []), tape)] *
+                (((((re, l), []), false), []), tape))}[x = z] *
           ((z.2.2.map (fun rc => z.2.1.1.2.count rc)).sum : ℝ≥0∞))
       ≤ ENNReal.ofReal ε * ((qH : ℕ) : ℝ≥0∞) *
         ∑' z : γ × DeferredReadState M Commit Chal,
-          Pr[= z | OracleComp.drawList (ids.commit pk sk) (maxAttempts * qSrem) >>= fun tape =>
+          Pr{let x ← (OracleComp.drawList (ids.commit pk sk) (maxAttempts * qSrem) >>= fun tape =>
               (fun p : γ × (DeferredReadState M Commit Chal × List (Commit × PrvState)) =>
                   (p.1, p.2.1)) <$>
                 (simulateQ (tapeDrawReadImpl ids M maxAttempts pk sk) oa).run
-                  (((((re, l), []), false), []), tape)] *
+                  (((((re, l), []), false), []), tape))}[x = z] *
             ((z.2.1.1.2.length + (z.2.1.1.1.2.length - l.length) : ℕ) :
               ℝ≥0∞) := by
   -- The content is the per-position value-free charge. The independence it rests on is
@@ -278,13 +278,13 @@ theorem readRecord_expected_pairs_tape_le {γ : Type}
   have hfold := evalSPMF_deferredDrawRead_eq_drawList_tapeDrawRead ids M maxAttempts pk sk oa qSrem
     hQ.1 ((((re, l), []), false), [])
   have hpr : ∀ z : γ × DeferredReadState M Commit Chal,
-      Pr[= z | OracleComp.drawList (ids.commit pk sk) (maxAttempts * qSrem) >>= fun tape =>
+      Pr{let x ← (OracleComp.drawList (ids.commit pk sk) (maxAttempts * qSrem) >>= fun tape =>
           (fun p : γ × (DeferredReadState M Commit Chal × List (Commit × PrvState)) =>
               (p.1, p.2.1)) <$>
             (simulateQ (tapeDrawReadImpl ids M maxAttempts pk sk) oa).run
-              (((((re, l), []), false), []), tape)] =
-        Pr[= z | (simulateQ (deferredDrawReadImpl ids M maxAttempts pk sk) oa).run
-            ((((re, l), []), false), [])] :=
+              (((((re, l), []), false), []), tape))}[x = z] =
+        Pr{let x ← ((simulateQ (deferredDrawReadImpl ids M maxAttempts pk sk) oa).run
+            ((((re, l), []), false), []))}[x = z] :=
     fun z => by rw [probOutput_def, probOutput_def, ← hfold]
   simp only [hpr]
   exact readRecord_expected_pairs_nontape_le ids M maxAttempts qH ε p_abort hp₀ hp hε pk sk
@@ -317,7 +317,7 @@ drawn-value law, established on the inline route by the value-substitution invar
 **Tape factorization.** The same independence is exhibited representationally by the two halves of
 the tape factorization: `evalSPMF_ghostSignDrawBody_eq_drawList_tapeSignBody` recasts one signing
 body's inline attempt draws as consumption from a pre-drawn tape
-(`𝒮[(ghostSignDrawBody … n).run re] = 𝒮[drawList (ids.commit pk sk) n >>= tapeSignBody … tape]`)
+(`((ghostSignDrawBody … n).run re) =ᵈ (drawList (ids.commit pk sk) n >>= tapeSignBody … tape)`)
 via the local i.i.d. resampling commute `evalSPMF_bind_comm_probComp`, and
 `evalSPMF_deferredDrawRead_eq_drawList_tapeDrawRead` lifts that across the `simulateQ (oa)` fold, so
 the per-query tape blocks of every interleaved signing query commute to the very front as a single
@@ -329,20 +329,20 @@ The surrounding reduction is `countP_mem_le_sum_count`, the deterministic readli
 theorem readRecord_expected_pairs_le {γ : Type}
     (qH : ℕ) (ε p_abort : ℝ) (hp₀ : 0 ≤ p_abort) (hp : p_abort < 1) (hε : 0 ≤ ε)
     (pk : Stmt) (sk : Wit)
-    (hGuess : ∀ cm : Commit, Pr[= cm | Prod.fst <$> ids.commit pk sk] ≤ ENNReal.ofReal ε)
-    (hAbort : Pr[= none | ids.honestExecution pk sk] ≤ ENNReal.ofReal p_abort)
+    (hGuess : ∀ cm : Commit, Pr{let x ← Prod.fst <$> ids.commit pk sk}[x = cm] ≤ ENNReal.ofReal ε)
+    (hAbort : Pr{let x ← ids.honestExecution pk sk}[x = none] ≤ ENNReal.ofReal p_abort)
     (oa : OracleComp ((unifSpec + (M × Commit →ₒ Chal)) + (M →ₒ Option (Commit × Resp))) γ)
     (qSrem : ℕ)
     (hQ : FiatShamir.signHashQueryBound M (S' := Option (Commit × Resp)) (oa := oa) qSrem qH)
     (re : (M × Commit →ₒ Chal).QueryCache) (l : List M) :
     (∑' z : γ × DeferredReadState M Commit Chal,
-        Pr[= z | (simulateQ (deferredDrawReadImpl ids M maxAttempts pk sk) oa).run
-            ((((re, l), []), false), [])] *
+        Pr{let x ← ((simulateQ (deferredDrawReadImpl ids M maxAttempts pk sk) oa).run
+            ((((re, l), []), false), []))}[x = z] *
           ((z.2.2.map (fun rc => z.2.1.1.2.count rc)).sum : ℝ≥0∞))
       ≤ ENNReal.ofReal ε * ((qH : ℕ) : ℝ≥0∞) *
         ∑' z : γ × DeferredReadState M Commit Chal,
-          Pr[= z | (simulateQ (deferredDrawReadImpl ids M maxAttempts pk sk) oa).run
-              ((((re, l), []), false), [])] *
+          Pr{let x ← ((simulateQ (deferredDrawReadImpl ids M maxAttempts pk sk) oa).run
+              ((((re, l), []), false), []))}[x = z] *
             ((z.2.1.1.2.length + (z.2.1.1.1.2.length - l.length) : ℕ) :
               ℝ≥0∞) := by
   classical
@@ -352,13 +352,13 @@ theorem readRecord_expected_pairs_le {γ : Type}
   have hfold := evalSPMF_deferredDrawRead_eq_drawList_tapeDrawRead ids M maxAttempts pk sk oa qSrem
     hQ.1 ((((re, l), []), false), [])
   have hpr : ∀ z : γ × DeferredReadState M Commit Chal,
-      Pr[= z | (simulateQ (deferredDrawReadImpl ids M maxAttempts pk sk) oa).run
-          ((((re, l), []), false), [])] =
-        Pr[= z | OracleComp.drawList (ids.commit pk sk) (maxAttempts * qSrem) >>= fun tape =>
+      Pr{let x ← ((simulateQ (deferredDrawReadImpl ids M maxAttempts pk sk) oa).run
+          ((((re, l), []), false), []))}[x = z] =
+        Pr{let x ← (OracleComp.drawList (ids.commit pk sk) (maxAttempts * qSrem) >>= fun tape =>
             (fun p : γ × (DeferredReadState M Commit Chal × List (Commit × PrvState)) =>
                 (p.1, p.2.1)) <$>
               (simulateQ (tapeDrawReadImpl ids M maxAttempts pk sk) oa).run
-                (((((re, l), []), false), []), tape)] :=
+                (((((re, l), []), false), []), tape))}[x = z] :=
     fun z => by rw [probOutput_def, probOutput_def, hfold]
   simp only [hpr]
   -- The per-pair charge in the tape-factored representation: with `drawnlist = f(tape)` (recorded
@@ -421,15 +421,15 @@ start. -/
 theorem readRecord_expected_coincidences_le {γ : Type}
     (qH : ℕ) (ε p_abort : ℝ) (hp₀ : 0 ≤ p_abort) (hp : p_abort < 1) (hε : 0 ≤ ε)
     (pk : Stmt) (sk : Wit)
-    (hGuess : ∀ cm : Commit, Pr[= cm | Prod.fst <$> ids.commit pk sk] ≤ ENNReal.ofReal ε)
-    (hAbort : Pr[= none | ids.honestExecution pk sk] ≤ ENNReal.ofReal p_abort)
+    (hGuess : ∀ cm : Commit, Pr{let x ← Prod.fst <$> ids.commit pk sk}[x = cm] ≤ ENNReal.ofReal ε)
+    (hAbort : Pr{let x ← ids.honestExecution pk sk}[x = none] ≤ ENNReal.ofReal p_abort)
     (oa : OracleComp ((unifSpec + (M × Commit →ₒ Chal)) + (M →ₒ Option (Commit × Resp))) γ)
     (qSrem : ℕ)
     (hQ : FiatShamir.signHashQueryBound M (S' := Option (Commit × Resp)) (oa := oa) qSrem qH)
     (re : (M × Commit →ₒ Chal).QueryCache) (l : List M) :
     (∑' z : γ × DeferredReadState M Commit Chal,
-        Pr[= z | (simulateQ (deferredDrawReadImpl ids M maxAttempts pk sk) oa).run
-            ((((re, l), []), false), [])] *
+        Pr{let x ← ((simulateQ (deferredDrawReadImpl ids M maxAttempts pk sk) oa).run
+            ((((re, l), []), false), []))}[x = z] *
           (z.2.2.countP (fun rc => decide (rc ∈ z.2.1.1.2)) : ℝ≥0∞))
       ≤ ENNReal.ofReal ((qSrem : ℝ) * ((qH : ℝ) + 1) * ε / (1 - p_abort)) := by
   classical
@@ -439,9 +439,9 @@ theorem readRecord_expected_coincidences_le {γ : Type}
     with hrun
   -- Step 1+2: dominate the coincidence count pointwise by the pair count.
   have hstep12 :
-      (∑' z : γ × DeferredReadState M Commit Chal, Pr[= z | run] *
+      (∑' z : γ × DeferredReadState M Commit Chal, Pr{let x ← run}[x = z] *
           (z.2.2.countP (fun rc => decide (rc ∈ z.2.1.1.2)) : ℝ≥0∞))
-        ≤ ∑' z : γ × DeferredReadState M Commit Chal, Pr[= z | run] *
+        ≤ ∑' z : γ × DeferredReadState M Commit Chal, Pr{let x ← run}[x = z] *
             ((z.2.2.map (fun rc => z.2.1.1.2.count rc)).sum : ℝ≥0∞) := by
     refine ENNReal.tsum_le_tsum fun z => ?_
     gcongr
@@ -453,10 +453,10 @@ theorem readRecord_expected_coincidences_le {γ : Type}
   -- is the sound charge: charging per consumed tape position (drop-reject) covers all reached
   -- attempts, which dominates the rejected ones; its mean is the same `qSrem/(1-p)` as the drawn.
   have hatom :
-      (∑' z : γ × DeferredReadState M Commit Chal, Pr[= z | run] *
+      (∑' z : γ × DeferredReadState M Commit Chal, Pr{let x ← run}[x = z] *
           ((z.2.2.map (fun rc => z.2.1.1.2.count rc)).sum : ℝ≥0∞))
         ≤ ENNReal.ofReal ε * ((qH : ℕ) : ℝ≥0∞) *
-          ∑' z : γ × DeferredReadState M Commit Chal, Pr[= z | run] *
+          ∑' z : γ × DeferredReadState M Commit Chal, Pr{let x ← run}[x = z] *
             ((z.2.1.1.2.length + (z.2.1.1.1.2.length - l.length) : ℕ) :
               ℝ≥0∞) := by
     rw [hrun]
@@ -465,7 +465,7 @@ theorem readRecord_expected_coincidences_le {γ : Type}
   -- Step 5: `E[#attempts] ≤ qSrem · (1/(1-p))` (empty start drawnlist;
   -- `deferredDrawRead_attemptKn_mean_le`).
   have hdraw :
-      (∑' z : γ × DeferredReadState M Commit Chal, Pr[= z | run] *
+      (∑' z : γ × DeferredReadState M Commit Chal, Pr{let x ← run}[x = z] *
           ((z.2.1.1.2.length + (z.2.1.1.1.2.length - l.length) : ℕ) : ℝ≥0∞))
         ≤ (qSrem : ℝ≥0∞) * ENNReal.ofReal (1 / (1 - p_abort)) := by
     rw [hrun]
@@ -475,15 +475,15 @@ theorem readRecord_expected_coincidences_le {γ : Type}
   -- the (loose) weakening of the deterministic read-length bound `qH`.
   refine le_trans hstep12 (le_trans hatom ?_)
   have hchain : ENNReal.ofReal ε * ((qH : ℕ) : ℝ≥0∞) *
-        ∑' z : γ × DeferredReadState M Commit Chal, Pr[= z | run] *
+        ∑' z : γ × DeferredReadState M Commit Chal, Pr{let x ← run}[x = z] *
           ((z.2.1.1.2.length + (z.2.1.1.1.2.length - l.length) : ℕ) : ℝ≥0∞)
       ≤ ENNReal.ofReal ε * ((qH : ℝ≥0∞) + 1) * (qSrem : ℝ≥0∞) *
         ENNReal.ofReal (1 / (1 - p_abort)) := by
     calc ENNReal.ofReal ε * ((qH : ℕ) : ℝ≥0∞) *
-            ∑' z : γ × DeferredReadState M Commit Chal, Pr[= z | run] *
+            ∑' z : γ × DeferredReadState M Commit Chal, Pr{let x ← run}[x = z] *
               ((z.2.1.1.2.length + (z.2.1.1.1.2.length - l.length) : ℕ) : ℝ≥0∞)
         ≤ ENNReal.ofReal ε * ((qH : ℝ≥0∞) + 1) *
-            ∑' z : γ × DeferredReadState M Commit Chal, Pr[= z | run] *
+            ∑' z : γ × DeferredReadState M Commit Chal, Pr{let x ← run}[x = z] *
               ((z.2.1.1.2.length + (z.2.1.1.1.2.length - l.length) : ℕ) : ℝ≥0∞) := by
           gcongr
           · exact le_self_add
@@ -518,13 +518,12 @@ theorem probEvent_ghostBlindImpl_bad_le
       (S' := Option (Commit × Resp)) (oa := adv.main pk) qS qH)
     (pk : Stmt) (sk : Wit)
     (hGuess : ∀ cm : Commit,
-      Pr[= cm | Prod.fst <$> ids.commit pk sk] ≤ ENNReal.ofReal ε)
-    (hAbort : Pr[= none | ids.honestExecution pk sk] ≤ ENNReal.ofReal p_abort) :
-    Pr[fun z : (M × Option (Commit × Resp)) × GhostState M Commit Chal => z.2.2 = true |
-        (simulateQ (ghostBlindImpl ids M maxAttempts pk sk) (adv.main pk)).run
+      Pr{let x ← Prod.fst <$> ids.commit pk sk}[x = cm] ≤ ENNReal.ofReal ε)
+    (hAbort : Pr{let x ← ids.honestExecution pk sk}[x = none] ≤ ENNReal.ofReal p_abort) :
+    Pr{let z ← ((simulateQ (ghostBlindImpl ids M maxAttempts pk sk) (adv.main pk)).run
           ((((∅, ∅), []) :
             ((M × Commit →ₒ Chal).QueryCache × (M × Commit →ₒ Chal).QueryCache) ×
-              List M), false)]
+              List M), false))}[z.2.2 = true]
       ≤ ENNReal.ofReal (qS * ((qH : ℝ) + 1) * ε / (1 - p_abort)) := by
   -- The first-moment route: reduce the eager bad mass to the deferred-draw run, then to the
   -- read-recording final-state predicate, then to the expected coincidence count (the Markov
@@ -571,13 +570,12 @@ lemma probEvent_ghostRead_bad_le
       (S' := Option (Commit × Resp)) (oa := adv.main pk) qS qH)
     (pk : Stmt) (sk : Wit)
     (hGuess : ∀ cm : Commit,
-      Pr[= cm | Prod.fst <$> ids.commit pk sk] ≤ ENNReal.ofReal ε)
-    (hAbort : Pr[= none | ids.honestExecution pk sk] ≤ ENNReal.ofReal p_abort) :
-    Pr[fun z : (M × Option (Commit × Resp)) × GhostState M Commit Chal => z.2.2 = true |
-        (simulateQ (ghostHybridImpl ids M maxAttempts true pk sk) (adv.main pk)).run
+      Pr{let x ← Prod.fst <$> ids.commit pk sk}[x = cm] ≤ ENNReal.ofReal ε)
+    (hAbort : Pr{let x ← ids.honestExecution pk sk}[x = none] ≤ ENNReal.ofReal p_abort) :
+    Pr{let z ← ((simulateQ (ghostHybridImpl ids M maxAttempts true pk sk) (adv.main pk)).run
           ((((∅, ∅), []) :
             ((M × Commit →ₒ Chal).QueryCache × (M × Commit →ₒ Chal).QueryCache) ×
-              List M), false)]
+              List M), false))}[z.2.2 = true]
       ≤ ENNReal.ofReal (qS * (qH + 1) * ε / (1 - p_abort)) := by
   -- M1 reduces the eager ghost-read bad mass to the ghost-blind run's bad mass
   -- (`probEvent_ghostHybridImpl_bad_le_ghostBlind`, identical until bad), and the ghost-blind

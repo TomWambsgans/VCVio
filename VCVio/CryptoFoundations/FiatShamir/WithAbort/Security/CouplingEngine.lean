@@ -106,18 +106,14 @@ lemma avgBadM_eager_le_lazy_joint (pk : Stmt) (sk : Wit)
               (lazyGhostHybridImpl ids M maxAttempts pk sk) νl' (cont u)) →
         (∑' p : GhostState M Commit Chal, νe p *
             ∑' z : Chal × GhostState M Commit Chal,
-              Pr[= z | (ghostHybridImpl ids M maxAttempts true pk sk
-                  (Sum.inl (Sum.inr mc))).run p] *
-                Pr[ fun w : (M × Option (Commit × Resp)) × GhostState M Commit Chal =>
-                    w.2.2 = true |
-                  (simulateQ (ghostHybridImpl ids M maxAttempts true pk sk) (cont z.1)).run z.2])
+              Pr{let x ← ((ghostHybridImpl ids M maxAttempts true pk sk
+                  (Sum.inl (Sum.inr mc))).run p)}[x = z] *
+                Pr{let w ← (simulateQ (ghostHybridImpl ids M maxAttempts true pk sk) (cont z.1)).run z.2}[w.2.2 = true])
           ≤ ∑' p : GhostState M Commit Chal, νl p *
             ∑' z : Chal × GhostState M Commit Chal,
-              Pr[= z | (lazyGhostHybridImpl ids M maxAttempts pk sk
-                  (Sum.inl (Sum.inr mc))).run p] *
-                Pr[ fun w : (M × Option (Commit × Resp)) × GhostState M Commit Chal =>
-                    w.2.2 = true |
-                  (simulateQ (lazyGhostHybridImpl ids M maxAttempts pk sk) (cont z.1)).run z.2])
+              Pr{let x ← ((lazyGhostHybridImpl ids M maxAttempts pk sk
+                  (Sum.inl (Sum.inr mc))).run p)}[x = z] *
+                Pr{let w ← (simulateQ (lazyGhostHybridImpl ids M maxAttempts pk sk) (cont z.1)).run z.2}[w.2.2 = true])
     (h_pure : ∀ (νe νl : GhostState M Commit Chal → ℝ≥0∞), Inv νe νl →
       ∀ _x : M × Option (Commit × Resp),
         (∑' p : GhostState M Commit Chal, νe p * (if p.2 = true then 1 else 0))
@@ -169,16 +165,14 @@ only on the already-bad trajectory (where both flags read `true`), the bad margi
 by the exact identical-until-bad bad-event equality
 `probEvent_output_bad_eq'`. -/
 lemma probEvent_ghostHybridImpl_bad_eq_ghostBlind (pk : Stmt) (sk : Wit) :
-    Pr[ fun z : (M × Option (Commit × Resp)) × GhostState M Commit Chal => z.2.2 = true |
-        (simulateQ (ghostHybridImpl ids M maxAttempts true pk sk) (adv.main pk)).run
+    Pr{let z ← ((simulateQ (ghostHybridImpl ids M maxAttempts true pk sk) (adv.main pk)).run
           ((((∅, ∅), []) :
             ((M × Commit →ₒ Chal).QueryCache × (M × Commit →ₒ Chal).QueryCache) ×
-              List M), false)]
-      = Pr[ fun z : (M × Option (Commit × Resp)) × GhostState M Commit Chal => z.2.2 = true |
-        (simulateQ (ghostBlindImpl ids M maxAttempts pk sk) (adv.main pk)).run
+              List M), false))}[z.2.2 = true]
+      = Pr{let z ← ((simulateQ (ghostBlindImpl ids M maxAttempts pk sk) (adv.main pk)).run
           ((((∅, ∅), []) :
             ((M × Commit →ₒ Chal).QueryCache × (M × Commit →ₒ Chal).QueryCache) ×
-              List M), false)] :=
+              List M), false))}[z.2.2 = true] :=
   OracleComp.ProgramLogic.Relational.probEvent_output_bad_eq'
     (ghostHybridImpl ids M maxAttempts true pk sk)
     (ghostBlindImpl ids M maxAttempts pk sk)
@@ -193,16 +187,14 @@ bad mass at the empty-cache Dirac start; immediate from the equality
 `probEvent_ghostHybridImpl_bad_eq_ghostBlind`. This is the reduction the read-bound spine
 chains with M2 (reads ⊥ ghost-key values) and M3 (geometric first-fire charge). -/
 lemma probEvent_ghostHybridImpl_bad_le_ghostBlind (pk : Stmt) (sk : Wit) :
-    Pr[ fun z : (M × Option (Commit × Resp)) × GhostState M Commit Chal => z.2.2 = true |
-        (simulateQ (ghostHybridImpl ids M maxAttempts true pk sk) (adv.main pk)).run
+    Pr{let z ← ((simulateQ (ghostHybridImpl ids M maxAttempts true pk sk) (adv.main pk)).run
           ((((∅, ∅), []) :
             ((M × Commit →ₒ Chal).QueryCache × (M × Commit →ₒ Chal).QueryCache) ×
-              List M), false)]
-      ≤ Pr[ fun z : (M × Option (Commit × Resp)) × GhostState M Commit Chal => z.2.2 = true |
-        (simulateQ (ghostBlindImpl ids M maxAttempts pk sk) (adv.main pk)).run
+              List M), false))}[z.2.2 = true]
+      ≤ Pr{let z ← ((simulateQ (ghostBlindImpl ids M maxAttempts pk sk) (adv.main pk)).run
           ((((∅, ∅), []) :
             ((M × Commit →ₒ Chal).QueryCache × (M × Commit →ₒ Chal).QueryCache) ×
-              List M), false)] :=
+              List M), false))}[z.2.2 = true] :=
   (probEvent_ghostHybridImpl_bad_eq_ghostBlind ids hr M maxAttempts adv pk sk).le
 
 /-! ### M3: the geometric first-fire charge (assembly)
@@ -214,9 +206,9 @@ multi-key hidden-target game `kn >>= hiddenReadList (Prod.fst <$> ids.commit pk 
 all-miss strategy `σ`) — the target bound `qS·(qH+1)·ε/(1-p)` follows by the
 union-bound + geometric-fold pipeline:
 
-* per-target guessing bound `hGuess` (raw `Pr[= w | commit] ≤ ε`) feeds the multi-key
+* per-target guessing bound `hGuess` (raw `Pr{let x ← commit}[x = w] ≤ ε`) feeds the multi-key
   first-fire union bound `OracleComp.probEvent_bind_hiddenReadList_le`, giving
-  `E[n]·((qH+1)·ε)` where `E[n] = ∑' n, Pr[= n | kn]·n` is the expected ghost-key count;
+  `E[n]·((qH+1)·ε)` where `E[n] = ∑' n, Pr{let x ← kn}[x = n]·n` is the expected ghost-key count;
 * the expected-count mean bound `hmean` (`E[n] ≤ qS/(1-p)`, the aggregate of
   `tsum_probOutput_commit_mul_abort_le` over the `qS` signing queries) folds into the target
   via `hiddenReadList_fold_le_target`.
@@ -230,28 +222,25 @@ theorem probEvent_ghostBlind_bad_le_of_fac
     (qS qH : ℕ) (ε p_abort : ℝ) (hp : p_abort < 1)
     (pk : Stmt) (sk : Wit)
     (hGuess : ∀ cm : Commit,
-      Pr[= cm | Prod.fst <$> ids.commit pk sk] ≤ ENNReal.ofReal ε)
+      Pr{let x ← Prod.fst <$> ids.commit pk sk}[x = cm] ≤ ENNReal.ofReal ε)
     (σ : List Bool → Commit) (kn : ProbComp ℕ)
-    (hmean : ∑' n : ℕ, Pr[= n | kn] * (n : ℝ≥0∞)
+    (hmean : ∑' n : ℕ, Pr{let x ← kn}[x = n] * (n : ℝ≥0∞)
       ≤ ENNReal.ofReal ((qS : ℝ) / (1 - p_abort)))
-    (hfac : Pr[fun z : (M × Option (Commit × Resp)) × GhostState M Commit Chal => z.2.2 = true |
-        (simulateQ (ghostBlindImpl ids M maxAttempts pk sk) (adv.main pk)).run
+    (hfac : Pr{let z ← ((simulateQ (ghostBlindImpl ids M maxAttempts pk sk) (adv.main pk)).run
           ((((∅, ∅), []) :
             ((M × Commit →ₒ Chal).QueryCache × (M × Commit →ₒ Chal).QueryCache) ×
-              List M), false)]
-      ≤ Pr[(fun b : Bool => b = true) |
-        kn >>= fun n => OracleComp.hiddenReadList (Prod.fst <$> ids.commit pk sk) (qH + 1) σ n]) :
-    Pr[fun z : (M × Option (Commit × Resp)) × GhostState M Commit Chal => z.2.2 = true |
-        (simulateQ (ghostBlindImpl ids M maxAttempts pk sk) (adv.main pk)).run
+              List M), false))}[z.2.2 = true]
+      ≤ Pr{let b ← kn >>= fun n => OracleComp.hiddenReadList (Prod.fst <$> ids.commit pk sk) (qH + 1) σ n}[b = true]) :
+    Pr{let z ← ((simulateQ (ghostBlindImpl ids M maxAttempts pk sk) (adv.main pk)).run
           ((((∅, ∅), []) :
             ((M × Commit →ₒ Chal).QueryCache × (M × Commit →ₒ Chal).QueryCache) ×
-              List M), false)]
+              List M), false))}[z.2.2 = true]
       ≤ ENNReal.ofReal (qS * ((qH : ℝ) + 1) * ε / (1 - p_abort)) := by
-  refine (OracleComp.probEvent_le_of_eq_bind_hiddenReadList (oa := Prod.fst <$> ids.commit pk sk)
+  refine (OracleComp.prEvent_le_of_eq_bind_hiddenReadList (oa := Prod.fst <$> ids.commit pk sk)
     (ε := ENNReal.ofReal ε) hGuess (qH + 1) σ kn hfac).trans ?_
   -- The averaged union bound `E[n]·((qH+1)·ε)` folds into the target via the geometric fold.
   refine le_trans (le_of_eq ?_)
-    (hiddenReadList_fold_le_target qS qH ε p_abort hp (fun n => Pr[= n | kn]) hmean)
+    (hiddenReadList_fold_le_target qS qH ε p_abort hp (fun n => Pr{let x ← kn}[x = n]) hmean)
   -- Reconcile the `((qH+1)·ofReal ε)` factor shapes: `((qH:ℝ≥0∞)+1)` vs `↑(qH+1)`.
   rw [← ENNReal.tsum_mul_right]
   refine tsum_congr fun n => ?_
@@ -271,8 +260,7 @@ manifest output-irrelevance of `ghostBlindImpl` at the read step — the per-rea
 the M2 factorization reads off as a `hiddenReadList` probe. -/
 lemma probEvent_ghostBlindImpl_read_bad (pk : Stmt) (sk : Wit) (mc : M × Commit)
     (s : ((M × Commit →ₒ Chal).QueryCache × (M × Commit →ₒ Chal).QueryCache) × List M) :
-    Pr[fun z : Chal × GhostState M Commit Chal => z.2.2 = true |
-        (ghostBlindImpl ids M maxAttempts pk sk (.inl (.inr mc))).run (s, false)] =
+    Pr{let z ← (ghostBlindImpl ids M maxAttempts pk sk (.inl (.inr mc))).run (s, false)}[z.2.2 = true] =
       if s.1.2 mc = none then 0 else 1 := by
   rw [ghostBlindImpl_eq_ghostHybridImpl_false]
   cases hgh : s.1.2 mc with
@@ -294,7 +282,7 @@ ghost commitment values never feed back into the ghost-blind run. The two lemmas
   an adversarial read at `mc` fires the bad flag *exactly* when `mc = (msg, w)` — the structural
   read-hit test that `OracleComp.readMany` models for one hidden target.
 * `ghostBlind_singleDraw_fire_le` is the commit-sampler instance of the deferral primitive
-  `OracleComp.probEvent_bind_fire_le_of_gen`: a run that draws one ghost commitment up front and
+  `OracleComp.prEvent_bind_fire_le_of_gen`: a run that draws one ghost commitment up front and
   feeds it *only* through the fixed `q`-read game of a value-free generator fires with probability
   at most `q · ε`. This is the "front-loaded one draw" charge; Stage 3 supplies the value-free
   generator `gen` from `blindStepProj_map_ghostBlindImpl_indep` and folds the `qS` per-query
@@ -309,9 +297,8 @@ ghost-blind handler: the value `w` enters the run *only* through this membership
 the read's answer (which is `roStep` on the real layer — `probEvent_ghostBlindImpl_read_bad`). -/
 lemma ghostBlindImpl_read_singletonGhost_bad (pk : Stmt) (sk : Wit) (mc : M × Commit) (msg : M)
     (w : Commit) (c : Chal) (re : (M × Commit →ₒ Chal).QueryCache) (l : List M) :
-    Pr[fun z : Chal × GhostState M Commit Chal => z.2.2 = true |
-        (ghostBlindImpl ids M maxAttempts pk sk (.inl (.inr mc))).run
-          (((re, (∅ : (M × Commit →ₒ Chal).QueryCache).cacheQuery (msg, w) c), l), false)] =
+    Pr{let z ← ((ghostBlindImpl ids M maxAttempts pk sk (.inl (.inr mc))).run
+          (((re, (∅ : (M × Commit →ₒ Chal).QueryCache).cacheQuery (msg, w) c), l), false))}[z.2.2 = true] =
       if mc = (msg, w) then 1 else 0 := by
   rw [probEvent_ghostBlindImpl_read_bad ids M maxAttempts pk sk mc
     ((re, (∅ : (M × Commit →ₒ Chal).QueryCache).cacheQuery (msg, w) c), l)]
@@ -328,18 +315,18 @@ generator `gen` producing the visible output `p.1` and the `q`-read strategy `p.
 commitment entering *only* through the fixed read game `readMany w q p.2` — fires with probability
 at most `q · ε`.
 
-This is the commit-sampler instance of `OracleComp.probEvent_bind_fire_le_of_gen`. The hypothesis
+This is the commit-sampler instance of `OracleComp.prEvent_bind_fire_le_of_gen`. The hypothesis
 `hk` is exactly the value-freeness supplied by `blindStepProj_map_ghostBlindImpl_indep` (Stage 1):
 because the ghost value never influences the run, the continuation's fire-marginal factors through
 a `w`-free generator with the draw confined to the read-membership test
 (`ghostBlindImpl_read_singletonGhost_bad`). Stage 3 instantiates this once per rejected attempt. -/
 lemma ghostBlind_singleDraw_fire_le {α : Type} (pk : Stmt) (sk : Wit) {ε : ℝ≥0∞}
-    (hGuess : ∀ cm : Commit, Pr[= cm | Prod.fst <$> ids.commit pk sk] ≤ ε)
+    (hGuess : ∀ cm : Commit, Pr{let x ← Prod.fst <$> ids.commit pk sk}[x = cm] ≤ ε)
     (q : ℕ) (gen : ProbComp (α × (List Bool → Commit))) (k : Commit → ProbComp (α × Bool))
     (hk : ∀ w : Commit, k w = gen >>= fun p => pure (p.1, OracleComp.readMany w q p.2)) :
-    Pr[(fun z : α × Bool => z.2 = true) | (Prod.fst <$> ids.commit pk sk) >>= k]
+    Pr{let z ← (Prod.fst <$> ids.commit pk sk) >>= k}[z.2 = true]
       ≤ (q : ℝ≥0∞) * ε :=
-  OracleComp.probEvent_bind_fire_le_of_gen hGuess q gen k hk
+  OracleComp.prEvent_bind_fire_le_of_gen hGuess q gen k hk
 
 /-! ### M2: the deferred-sampling factorization
 

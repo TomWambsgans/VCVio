@@ -95,7 +95,7 @@ This is the distributional core of the `transSignBody`-to-`simSignBody` hop: eac
 hybrid step couples one more attempt, and attempt `j` is only reached when the first
 `j` attempts of the second loop all abort. -/
 lemma tvDist_firstSome_le_geometric {α : Type} (a₁ a₂ : ProbComp (Option α))
-    {ζ q : ℝ} (hζ : tvDist a₁ a₂ ≤ ζ) (hq : Pr[= none | a₂].toReal ≤ q) (hq0 : 0 ≤ q) :
+    {ζ q : ℝ} (hζ : tvDist a₁ a₂ ≤ ζ) (hq : Pr{let x ← a₂}[x = none].toReal ≤ q) (hq0 : 0 ≤ q) :
     ∀ n : ℕ, tvDist (firstSome a₁ n) (firstSome a₂ n) ≤ ζ * ∑ j ∈ Finset.range n, q ^ j
   | 0 => by simp [firstSome]
   | (n + 1) => by
@@ -112,12 +112,12 @@ lemma tvDist_firstSome_le_geometric {α : Type} (a₁ a₂ : ProbComp (Option α
       | some a => pure (some a)
       | none => firstSome a₂ n with hk₂
     have hterm : ∀ b : Option α, b ≠ (none : Option α) →
-        Pr[= b | a₂].toReal * tvDist (k₁ b) (k₂ b) = 0 := by
+        Pr{let x ← a₂}[x = b].toReal * tvDist (k₁ b) (k₂ b) = 0 := by
       intro b hb
       match b, hb with
       | some a, _ => simp [hk₁, hk₂]
     have hStep : tvDist (a₂ >>= k₁) (a₂ >>= k₂) ≤
-        Pr[= none | a₂].toReal * tvDist (firstSome a₁ n) (firstSome a₂ n) := by
+        Pr{let x ← a₂}[x = none].toReal * tvDist (firstSome a₁ n) (firstSome a₂ n) := by
       refine le_trans (tvDist_bind_left_le a₂ k₁ k₂) (le_of_eq ?_)
       rw [tsum_eq_single (none : Option α) hterm]
     calc
@@ -126,7 +126,7 @@ lemma tvDist_firstSome_le_geometric {α : Type} (a₁ a₂ : ProbComp (Option α
             rw [firstSome_succ, firstSome_succ]
       _ ≤ tvDist (a₁ >>= k₁) (a₂ >>= k₁) + tvDist (a₂ >>= k₁) (a₂ >>= k₂) :=
             tvDist_triangle _ _ _
-      _ ≤ ζ + Pr[= none | a₂].toReal * tvDist (firstSome a₁ n) (firstSome a₂ n) :=
+      _ ≤ ζ + Pr{let x ← a₂}[x = none].toReal * tvDist (firstSome a₁ n) (firstSome a₂ n) :=
             add_le_add (le_trans (tvDist_bind_right_le k₁ a₁ a₂) hζ) hStep
       _ ≤ ζ + q * (ζ * ∑ j ∈ Finset.range n, q ^ j) :=
             add_le_add le_rfl (mul_le_mul hq ih (tvDist_nonneg _ _) hq0)

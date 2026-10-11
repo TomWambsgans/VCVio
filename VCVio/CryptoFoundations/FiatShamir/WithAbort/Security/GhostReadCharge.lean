@@ -69,18 +69,18 @@ lemma probEvent_bad_bind_eq_tsum_false {γ' σ' δ' τ' : Type}
     (oa : ProbComp (γ' × σ' × Bool))
     (k : γ' × σ' × Bool → ProbComp (δ' × τ' × Bool))
     (hbf : ∀ z ∈ support oa, z.2.2 = false) :
-    Pr[fun w => w.2.2 = true | oa >>= k]
+    Pr{let w ← oa >>= k}[w.2.2 = true]
       = ∑' z : γ' × σ',
-          Pr[= (z.1, z.2, false) | oa] * Pr[fun w => w.2.2 = true | k (z.1, z.2, false)] := by
+          Pr{let x ← oa}[x = (z.1, z.2, false)] * Pr{let w ← k (z.1, z.2, false)}[w.2.2 = true] := by
   classical
   rw [probEvent_bind_eq_tsum,
     ← (Equiv.prodAssoc γ' σ' Bool).tsum_eq
-      (fun w => Pr[= w | oa] * Pr[fun y => y.2.2 = true | k w]),
+      (fun w => Pr{let x ← oa}[x = w] * Pr{let y ← k w}[y.2.2 = true]),
     ENNReal.tsum_prod']
   refine tsum_congr fun z => ?_
   rw [tsum_bool]
   simp only [Equiv.prodAssoc_apply]
-  have htrue : Pr[= (z.1, z.2, true) | oa] = 0 := by
+  have htrue : Pr{let x ← oa}[x = (z.1, z.2, true)] = 0 := by
     refine probOutput_eq_zero_of_not_mem_support fun hz => ?_
     exact absurd (hbf _ hz) (by simp)
   rw [htrue, zero_mul, add_zero]
@@ -91,12 +91,12 @@ omit [SampleableType Stmt] in
 non-bad state pays the amortizable flip charge `enncard (ghost cache) · ofReal ε` and
 routes any residual bad mass through its `fired = false` (good) outputs. This is exactly
 the `h_charged_step` hypothesis required by
-`probEvent_bad_simulateQ_run_le_expectedQuerySlack`, made true (in contrast to the eager
+`prEvent_bad_simulateQ_run_le_expectedQuerySlack`, made true (in contrast to the eager
 handler's deterministic mass-`1` flip) by the lazy fire draw whose `true` mass is bounded
 by `probOutput_lazyGhostFire_true_le_enncard`. -/
 lemma probEvent_lazyGhostHybridImpl_charged_step (pk : Stmt) (sk : Wit) {ε : ℝ}
     (hGuess : ∀ cm : Commit,
-      Pr[= cm | Prod.fst <$> ids.commit pk sk] ≤ ENNReal.ofReal ε)
+      Pr{let x ← Prod.fst <$> ids.commit pk sk}[x = cm] ≤ ENNReal.ofReal ε)
     (mc : M × Commit)
     (s : ((M × Commit →ₒ Chal).QueryCache × (M × Commit →ₒ Chal).QueryCache) × List M)
     (k : (((unifSpec + (M × Commit →ₒ Chal)) + (M →ₒ Option (Commit × Resp))).Range
@@ -106,21 +106,19 @@ lemma probEvent_lazyGhostHybridImpl_charged_step (pk : Stmt) (sk : Wit) {ε : �
         ProbComp ((M × Option (Commit × Resp)) ×
           (((M × Commit →ₒ Chal).QueryCache × (M × Commit →ₒ Chal).QueryCache) × List M) ×
             Bool)) :
-    Pr[fun z => z.2.2 = true |
-        ((lazyGhostHybridImpl ids M maxAttempts pk sk (.inl (.inr mc))).run (s, false)) >>= k]
+    Pr{let z ← ((lazyGhostHybridImpl ids M maxAttempts pk sk (.inl (.inr mc))).run (s, false)) >>= k}[z.2.2 = true]
       ≤ QueryCache.enncard s.1.2 * ENNReal.ofReal ε +
         ∑' z : (((unifSpec + (M × Commit →ₒ Chal)) + (M →ₒ Option (Commit × Resp))).Range
             (.inl (.inr mc))) ×
           (((M × Commit →ₒ Chal).QueryCache × (M × Commit →ₒ Chal).QueryCache) × List M),
-          Pr[= (z.1, z.2, false) |
-            (lazyGhostHybridImpl ids M maxAttempts pk sk (.inl (.inr mc))).run (s, false)] *
-            Pr[fun w => w.2.2 = true | k (z.1, z.2, false)] := by
+          Pr{let x ← (lazyGhostHybridImpl ids M maxAttempts pk sk (.inl (.inr mc))).run (s, false)}[x = (z.1, z.2, false)] *
+            Pr{let w ← k (z.1, z.2, false)}[w.2.2 = true] := by
   classical
   obtain ⟨⟨re, gh⟩, list⟩ := s
   set fire := lazyGhostFire ids pk sk mc.2 gh.toSet.encard.toNat with hfire
   set ro := roStep M re mc with hro
   -- The lazy-fire `true`-mass is the amortizable flip charge `enncard gh · ofReal ε`.
-  have h_fire_true : Pr[= true | fire] ≤ QueryCache.enncard gh * ENNReal.ofReal ε := by
+  have h_fire_true : Pr{let x ← fire}[x = true] ≤ QueryCache.enncard gh * ENNReal.ofReal ε := by
     rw [hfire]
     refine (probOutput_lazyGhostFire_true_le ids pk sk hGuess mc.2 _).trans ?_
     gcongr
@@ -154,15 +152,12 @@ lemma probEvent_lazyGhostHybridImpl_charged_step (pk : Stmt) (sk : Wit) {ε : �
           (M →ₒ Option (Commit × Resp))).Range (Sum.inl (Sum.inr mc))) ×
         (((M × Commit →ₒ Chal).QueryCache × (M × Commit →ₒ Chal).QueryCache) × List M),
       (∑' b : Bool,
-        Pr[= (z.1, z.2, b) |
-          fire >>= fun fired => (fun cu => (cu.1, (((cu.2, gh), list), fired))) <$> ro] *
-          Pr[fun y => y.2.2 = true | k (z.1, z.2, b)])
-      = Pr[= (z.1, z.2, false) |
-            fire >>= fun fired => (fun cu => (cu.1, (((cu.2, gh), list), fired))) <$> ro] *
-          Pr[fun y => y.2.2 = true | k (z.1, z.2, false)]
-        + Pr[= (z.1, z.2, true) |
-            fire >>= fun fired => (fun cu => (cu.1, (((cu.2, gh), list), fired))) <$> ro] *
-          Pr[fun y => y.2.2 = true | k (z.1, z.2, true)] := by
+        Pr{let x ← fire >>= fun fired => (fun cu => (cu.1, (((cu.2, gh), list), fired))) <$> ro}[x = (z.1, z.2, b)] *
+          Pr{let y ← k (z.1, z.2, b)}[y.2.2 = true])
+      = Pr{let x ← fire >>= fun fired => (fun cu => (cu.1, (((cu.2, gh), list), fired))) <$> ro}[x = (z.1, z.2, false)] *
+          Pr{let y ← k (z.1, z.2, false)}[y.2.2 = true]
+        + Pr{let x ← fire >>= fun fired => (fun cu => (cu.1, (((cu.2, gh), list), fired))) <$> ro}[x = (z.1, z.2, true)] *
+          Pr{let y ← k (z.1, z.2, true)}[y.2.2 = true] := by
     intro z
     rw [tsum_bool, add_comm]
   simp only [Equiv.prodAssoc_apply]
@@ -173,21 +168,18 @@ lemma probEvent_lazyGhostHybridImpl_charged_step (pk : Stmt) (sk : Wit) {ε : �
           (M →ₒ Option (Commit × Resp))).Range (Sum.inl (Sum.inr mc))) ×
           (((M × Commit →ₒ Chal).QueryCache × (M × Commit →ₒ Chal).QueryCache) × List M),
         ∑' b : Bool,
-          Pr[= (a.1, a.2, b) |
-            fire >>= fun fired => (fun cu => (cu.1, (((cu.2, gh), list), fired))) <$> ro] *
-            Pr[fun z => z.2.2 = true | k (a.1, a.2, b)])
+          Pr{let x ← fire >>= fun fired => (fun cu => (cu.1, (((cu.2, gh), list), fired))) <$> ro}[x = (a.1, a.2, b)] *
+            Pr{let z ← k (a.1, a.2, b)}[z.2.2 = true])
       = (∑' a : (((unifSpec + (M × Commit →ₒ Chal)) +
             (M →ₒ Option (Commit × Resp))).Range (Sum.inl (Sum.inr mc))) ×
             (((M × Commit →ₒ Chal).QueryCache × (M × Commit →ₒ Chal).QueryCache) × List M),
-          Pr[= (a.1, a.2, false) |
-            fire >>= fun fired => (fun cu => (cu.1, (((cu.2, gh), list), fired))) <$> ro] *
-            Pr[fun z => z.2.2 = true | k (a.1, a.2, false)])
+          Pr{let x ← fire >>= fun fired => (fun cu => (cu.1, (((cu.2, gh), list), fired))) <$> ro}[x = (a.1, a.2, false)] *
+            Pr{let z ← k (a.1, a.2, false)}[z.2.2 = true])
         + (∑' a : (((unifSpec + (M × Commit →ₒ Chal)) +
             (M →ₒ Option (Commit × Resp))).Range (Sum.inl (Sum.inr mc))) ×
             (((M × Commit →ₒ Chal).QueryCache × (M × Commit →ₒ Chal).QueryCache) × List M),
-          Pr[= (a.1, a.2, true) |
-            fire >>= fun fired => (fun cu => (cu.1, (((cu.2, gh), list), fired))) <$> ro] *
-            Pr[fun z => z.2.2 = true | k (a.1, a.2, true)]) := by
+          Pr{let x ← fire >>= fun fired => (fun cu => (cu.1, (((cu.2, gh), list), fired))) <$> ro}[x = (a.1, a.2, true)] *
+            Pr{let z ← k (a.1, a.2, true)}[z.2.2 = true]) := by
     rw [← ENNReal.tsum_add]
     exact tsum_congr fun a => h_split a
   refine le_trans (le_of_eq hsplit_sum) ?_
@@ -197,37 +189,32 @@ lemma probEvent_lazyGhostHybridImpl_charged_step (pk : Stmt) (sk : Wit) {ε : �
   -- is the fire result, and the continuation contributes at most `1`.
   calc (∑' z : Chal ×
           (((M × Commit →ₒ Chal).QueryCache × (M × Commit →ₒ Chal).QueryCache) × List M),
-        Pr[= (z.1, z.2, true) |
-          fire >>= fun fired => (fun cu => (cu.1, (((cu.2, gh), list), fired))) <$> ro] *
-          Pr[fun y => y.2.2 = true | k (z.1, z.2, true)])
+        Pr{let x ← fire >>= fun fired => (fun cu => (cu.1, (((cu.2, gh), list), fired))) <$> ro}[x = (z.1, z.2, true)] *
+          Pr{let y ← k (z.1, z.2, true)}[y.2.2 = true])
       ≤ ∑' z : Chal ×
           (((M × Commit →ₒ Chal).QueryCache × (M × Commit →ₒ Chal).QueryCache) × List M),
-          Pr[= (z.1, z.2, true) |
-            fire >>= fun fired => (fun cu => (cu.1, (((cu.2, gh), list), fired))) <$> ro] := by
+          Pr{let x ← fire >>= fun fired => (fun cu => (cu.1, (((cu.2, gh), list), fired))) <$> ro}[x = (z.1, z.2, true)] := by
         refine ENNReal.tsum_le_tsum fun z => ?_
         exact mul_le_of_le_one_right (zero_le) probEvent_le_one
-    _ ≤ Pr[= true | fire] := by
+    _ ≤ Pr{let x ← fire}[x = true] := by
         -- Each output's bad bit equals the fire draw, so the `b = true` outputs carry
         -- at most the fire `true`-mass. Expand each summand over the fire draw, swap the
         -- sums, and use that `g_fired <$> ro` outputs bad bit `fired`.
         have h_per_z : ∀ z : Chal ×
             (((M × Commit →ₒ Chal).QueryCache × (M × Commit →ₒ Chal).QueryCache) × List M),
-            Pr[= (z.1, z.2, true) |
-              fire >>= fun fired => (fun cu => (cu.1, (((cu.2, gh), list), fired))) <$> ro]
-            = ∑' fired : Bool, Pr[= fired | fire] *
-                Pr[= (z.1, z.2, true) |
-                  (fun cu => (cu.1, (((cu.2, gh), list), fired))) <$> ro] :=
+            Pr{let x ← fire >>= fun fired => (fun cu => (cu.1, (((cu.2, gh), list), fired))) <$> ro}[x = (z.1, z.2, true)]
+            = ∑' fired : Bool, Pr{let x ← fire}[x = fired] *
+                Pr{let x ← (fun cu => (cu.1, (((cu.2, gh), list), fired))) <$> ro}[x = (z.1, z.2, true)] :=
           fun z => probOutput_bind_eq_tsum fire _ _
         rw [tsum_congr h_per_z, ENNReal.tsum_comm]
         -- The inner sum over outputs is `0` for `fired = false` (its outputs carry bad bit
-        -- `false`) and `≤ 1` for `fired = true`, giving the bound `≤ Pr[= true | fire]`.
+        -- `false`) and `≤ 1` for `fired = true`, giving the bound `≤ Pr{let x ← fire}[x = true]`.
         have h_inner : ∀ fired : Bool,
             (∑' z : Chal ×
               (((M × Commit →ₒ Chal).QueryCache × (M × Commit →ₒ Chal).QueryCache) × List M),
-              Pr[= fired | fire] *
-                Pr[= (z.1, z.2, true) |
-                  (fun cu => (cu.1, (((cu.2, gh), list), fired))) <$> ro])
-              ≤ Pr[= fired | fire] * (if fired then 1 else 0) := by
+              Pr{let x ← fire}[x = fired] *
+                Pr{let x ← (fun cu => (cu.1, (((cu.2, gh), list), fired))) <$> ro}[x = (z.1, z.2, true)])
+              ≤ Pr{let x ← fire}[x = fired] * (if fired then 1 else 0) := by
           intro fired
           rw [ENNReal.tsum_mul_left]
           gcongr ?_ * ?_
@@ -246,7 +233,7 @@ lemma probEvent_lazyGhostHybridImpl_charged_step (pk : Stmt) (sk : Wit) {ε : �
               -- The bad-output mass is a sub-sum of the total mass `≤ 1`, via the injection
               -- `z ↦ (z.1, z.2, true)`.
               refine le_trans (ENNReal.tsum_comp_le_tsum_of_injective ?_
-                (fun w => Pr[= w | (fun cu => (cu.1, (((cu.2, gh), list), true))) <$> ro]))
+                (fun w => Pr{let x ← (fun cu => (cu.1, (((cu.2, gh), list), true))) <$> ro}[x = w]))
                 tsum_probOutput_le_one
               rintro ⟨a₁, b₁⟩ ⟨a₂, b₂⟩ heq
               simp only [Prod.mk.injEq] at heq
@@ -296,7 +283,7 @@ omit [SampleableType Stmt] in
 at most `qS·(qH+1)·ε/(1-p)`.
 
 Assembled from the single-world resource-charged accumulator
-`probEvent_bad_simulateQ_run_le_expectedQuerySlack` (charged step =
+`prEvent_bad_simulateQ_run_le_expectedQuerySlack` (charged step =
 `probEvent_lazyGhostHybridImpl_charged_step`, free step = the bad-flag pass-through of
 non-read queries) chained with the charged-read / expected-growth fold
 `expectedQuerySlack_charged_read_expected_growth_le` (resource `R s := enncard (ghost
@@ -310,19 +297,18 @@ lemma probEvent_lazyGhostHybridImpl_bad_le
       (S' := Option (Commit × Resp)) (oa := adv.main pk) qS qH)
     (pk : Stmt) (sk : Wit)
     (hGuess : ∀ cm : Commit,
-      Pr[= cm | Prod.fst <$> ids.commit pk sk] ≤ ENNReal.ofReal ε)
-    (hAbort : Pr[= none | ids.honestExecution pk sk] ≤ ENNReal.ofReal p_abort) :
-    Pr[fun z : (M × Option (Commit × Resp)) × GhostState M Commit Chal => z.2.2 = true |
-        (simulateQ (lazyGhostHybridImpl ids M maxAttempts pk sk) (adv.main pk)).run
+      Pr{let x ← Prod.fst <$> ids.commit pk sk}[x = cm] ≤ ENNReal.ofReal ε)
+    (hAbort : Pr{let x ← ids.honestExecution pk sk}[x = none] ≤ ENNReal.ofReal p_abort) :
+    Pr{let z ← ((simulateQ (lazyGhostHybridImpl ids M maxAttempts pk sk) (adv.main pk)).run
           ((((∅, ∅), []) :
             ((M × Commit →ₒ Chal).QueryCache × (M × Commit →ₒ Chal).QueryCache) ×
-              List M), false)]
+              List M), false))}[z.2.2 = true]
       ≤ ENNReal.ofReal (qS * (qH + 1) * ε / (1 - p_abort)) := by
   classical
   -- The assembly, in three stages, executed below.
   --
   -- (1) Single-world accumulator
-  --     `OracleComp.ProgramLogic.Relational.probEvent_bad_simulateQ_run_le_expectedQuerySlack`
+  --     `OracleComp.ProgramLogic.Relational.prEvent_bad_simulateQ_run_le_expectedQuerySlack`
   --     at `impl := lazyGhostHybridImpl ids M maxAttempts pk sk`,
   --     `charged := (· matches Sum.inl (Sum.inr _))` (random-oracle reads),
   --     `R s := QueryCache.enncard s.1.2` (the ghost cache size), `ε := ofReal ε`, with
@@ -344,7 +330,7 @@ lemma probEvent_lazyGhostHybridImpl_bad_le
   --         unchanged (output ghost cache `= s.1.2`), so `R z.2.1 ≤ R p.1` (in fact `=`);
   --       * `h_growth`: the ghost-layer growth law
   --         `tsum_probOutput_run_ghostSignBody_mul_ghost_enncard_le ids … hAbort` gives
-  --         `∑ Pr[=z|signing.run]·enncard z.2.2 ≤ enncard gh + ∑_{a} ofReal p^a = R p.1 + g`;
+  --         `∑ Pr{let x ← signing.run}[x = z]·enncard z.2.2 ≤ enncard gh + ∑_{a} ofReal p^a = R p.1 + g`;
   --       * growth budget `qS` from `(hQ pk).1`.
   --     This yields `expectedQuerySlack … (qH+1) (init,false) ≤ (qH+1)·(R init + qS·g)·ofReal ε`.
   --
@@ -355,7 +341,7 @@ lemma probEvent_lazyGhostHybridImpl_bad_le
   --     via `ENNReal.ofReal` push-through (cf. the closing block of
   --     `probEvent_charge_signCollision_le`).
   --
-  refine (OracleComp.ProgramLogic.Relational.probEvent_bad_simulateQ_run_le_expectedQuerySlack
+  refine (OracleComp.ProgramLogic.Relational.prEvent_bad_simulateQ_run_le_expectedQuerySlack
     (impl := lazyGhostHybridImpl ids M maxAttempts pk sk)
     (charged := fun t => t matches Sum.inl (Sum.inr _))
     (R := fun s => QueryCache.enncard s.1.2) (ε := ENNReal.ofReal ε)
@@ -425,14 +411,14 @@ lemma probEvent_lazyGhostHybridImpl_bad_le
           rw [show b = false from hp]
           change ∑' z : (Option (Commit × Resp)) ×
               (((M × Commit →ₒ Chal).QueryCache × (M × Commit →ₒ Chal).QueryCache) × List M) × Bool,
-              Pr[= z | (lazyGhostHybridImpl ids M maxAttempts pk sk (Sum.inr msg)).run
-                (((re, gh), list), false)] * QueryCache.enncard z.2.1.1.2
+              Pr{let x ← ((lazyGhostHybridImpl ids M maxAttempts pk sk (Sum.inr msg)).run
+                (((re, gh), list), false))}[x = z] * QueryCache.enncard z.2.1.1.2
             ≤ QueryCache.enncard gh + g
           rw [show (lazyGhostHybridImpl ids M maxAttempts pk sk (Sum.inr msg)).run
                 (((re, gh), list), false) =
               (ghostSignBody ids M pk sk msg maxAttempts).run (re, gh) >>= fun alc =>
                 pure (alc.1, ((alc.2, msg :: list), false)) from by rw [bind_pure_comp]; rfl]
-          have heq := tsum_probOutput_bind_mul
+          have heq := OracleComp.tsum_prEvent_bind_mul
             ((ghostSignBody ids M pk sk msg maxAttempts).run (re, gh))
             (fun alc => (pure (alc.1, ((alc.2, msg :: list), false)) : ProbComp _))
             (fun z => QueryCache.enncard z.2.1.1.2)
@@ -440,7 +426,7 @@ lemma probEvent_lazyGhostHybridImpl_bad_le
           refine le_trans (ENNReal.tsum_le_tsum fun alc => ?_)
             (tsum_probOutput_run_ghostSignBody_mul_ghost_enncard_le ids M pk sk msg hAbort
               maxAttempts re gh)
-          rw [tsum_probOutput_pure_mul]
+          rw [OracleComp.tsum_prEvent_pure_mul]
       · -- h_free: a uniform query leaves the ghost cache (`R`) unchanged.
         rintro t p hp ht ht2 z hz
         rcases t with (n | mc) | msg
