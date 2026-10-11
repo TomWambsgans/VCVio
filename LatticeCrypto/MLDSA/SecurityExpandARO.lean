@@ -27,12 +27,12 @@ generator `keygenShortRO` obtains `Â = ExpandA(ρ)` by querying it, the honest 
 
 ## Main results
 
-* `romNmaAdvantage_eq_game0`: the ROM EUF-NMA game **is** the real branch of the uniform-matrix
-  Module-LWE game `mldsaMatrixMLWE` against `distinguisherBRom` — an exact identity, since a lazy
-  oracle whose first query at `ρ` returns a fresh uniform matrix is the same as a cache
-  pre-seeded at `ρ` with the challenger's uniform matrix.
-* `game1_le_stmsis_rom`: the uniform branch is bounded by the SelfTargetMSIS advantage of
-  `extractorCRom` against the uniform-matrix tailored problem `mldsaSTMSISMatrix`.
+* `romNmaAdvantage_eq_realExperiment`: the ROM EUF-NMA game **is** the real branch of the
+  uniform-matrix Module-LWE game `mldsaMatrixMLWE` against `distinguisherBRom` — an exact
+  identity, since a lazy oracle whose first query at `ρ` returns a fresh uniform matrix is the
+  same as a cache pre-seeded at `ρ` with the challenger's uniform matrix.
+* `randomExperiment_le_stmsis_rom`: the uniform branch is bounded by the SelfTargetMSIS advantage
+  of `extractorCRom` against the uniform-matrix tailored problem `mldsaSTMSISMatrix`.
 * `nma_security_rom`: for every ROM forger, the uniform-matrix MLWE reduction
   `B = distinguisherBRom` and the uniform-matrix SelfTargetMSIS reduction `C = extractorCRom`
   satisfy
@@ -412,7 +412,7 @@ noncomputable def romNmaGame
 noncomputable def romNmaAdvantage
     (main : PublicKey p prims → OracleComp (RomSpec p prims M)
       (M × Option (Commitment p prims × Response p prims))) : ℝ≥0∞ :=
-  Pr{let x ← romNmaGame p prims main}[x = true]
+  𝒟[romNmaGame p prims main] {true}
 
 /-! ### The reductions -/
 
@@ -490,18 +490,19 @@ lemma simulateToProbComp_liftM_bind {α β : Type} (oa : ProbComp α)
 
 /-- **Verification reads the programmed matrix.** Once the forger has run from the programmed
 cache `{pk.ρ ↦ aHat}`, the oracle verifier's `ExpandA` query is answered by `aHat` — the cache
-only grows — so verifying through the shared oracle is verifying at `aHat`. -/
-lemma probOutput_verifyRO_eq_verifyAtMatrix
+only grows — so verifying through the shared oracle is equal in distribution to verifying at
+`aHat`. -/
+lemma evalDistEq_verifyRO_eq_verifyAtMatrix
     (main : PublicKey p prims → OracleComp (RomSpec p prims M)
       (M × Option (Commitment p prims × Response p prims)))
     (pk : PublicKey p prims) (aHat : TqMatrix p.k p.l) :
-    Pr{let x ← (simulateToProbComp p prims (M := M) (withExpandACache p prims
+    simulateToProbComp p prims (M := M) (withExpandACache p prims
         (programmedAt p pk.rho aHat) (do
           let (msg, σ) ← main pk
-          verifyRO p prims pk msg σ)))}[x = true] =
-      Pr{let x ← (simulateToProbComp p prims (M := M) (do
+          verifyRO p prims pk msg σ)) =ᵈ
+      simulateToProbComp p prims (M := M) (do
           let (msg, σ) ← withExpandACache p prims (programmedAt p pk.rho aHat) (main pk)
-          verifyAtMatrix p prims aHat pk msg σ))}[x = true] := by
+          verifyAtMatrix p prims aHat pk msg σ) := by
   -- Both sides bind over the forger's run from the programmed cache; compare per reachable
   -- forgery-and-cache pair.
   have hsplit : withExpandACache p prims (programmedAt p pk.rho aHat) (do
@@ -519,7 +520,7 @@ lemma probOutput_verifyRO_eq_verifyAtMatrix
       Function.comp_def]
   rw [hsplit, hsplit']
   simp only [simulateToProbComp, simulateQ_bind, StateT.run'_eq, StateT.run_bind, map_bind]
-  refine probOutput_bind_congr fun w hw => ?_
+  refine EvalDistEq.bind_congr_of_support _ fun w hw => ?_
   have hw1 : w.1 ∈ support ((simulateQ (expandARoImpl p prims (M := M)) (main pk)).run
       (programmedAt p pk.rho aHat)) := by
     refine support_simulateQ_run'_subset (n := ProbComp) (roImpl p prims (M := M)) _
@@ -536,13 +537,13 @@ the real branch of the uniform-matrix Module-LWE game against `distinguisherBRom
 honest key generator's first `ExpandA` query at the fresh seed `ρ` draws a uniform matrix and
 caches it, which is the programmed cache `{ρ ↦ Â}` at the challenger's uniform `Â`; the key
 `t = Â·s₁ + s₂` is the real MLWE sample; and verification through the shared oracle is
-verification at `Â` (`probOutput_verifyRO_eq_verifyAtMatrix`). -/
-theorem romNmaAdvantage_eq_game0
+verification at `Â` (`evalDistEq_verifyRO_eq_verifyAtMatrix`). -/
+theorem romNmaAdvantage_eq_realExperiment
     (main : PublicKey p prims → OracleComp (RomSpec p prims M)
       (M × Option (Commitment p prims × Response p prims))) :
     romNmaAdvantage p prims main =
-      Pr{let x ← (LearningWithErrors.game0 (mldsaMatrixMLWE p)
-        (distinguisherBRom p prims main))}[x = true] := by
+      𝒟[LearningWithErrors.realExperiment (mldsaMatrixMLWE p)
+        (distinguisherBRom p prims main)] {true} := by
   -- The honest key generation under the simulator: four samplers pass through, and the single
   -- `ExpandA` query at the fresh seed draws the matrix and programs the cache at `ρ`.
   have hkey : ∀ K : PublicKey p prims × SecretKey p → OracleComp (RomSpec p prims M) Bool,
@@ -560,22 +561,24 @@ theorem romNmaAdvantage_eq_game0
     simp only [expandARoImpl_run_queryExpandA_bind_none p prims _ _ (QueryCache.empty_apply _),
       pure_bind, map_bind]
   rw [romNmaAdvantage, romNmaGame, hkey]
-  simp only [simulateToProbComp_liftM_bind, LearningWithErrors.game0, LearningWithErrors.distr,
-    mldsaMatrixMLWE, distinguisherBRom, bind_assoc, pure_bind, keyFromMaterial]
+  simp only [simulateToProbComp_liftM_bind, LearningWithErrors.realExperiment,
+    LearningWithErrors.distr, mldsaMatrixMLWE, distinguisherBRom, bind_assoc, pure_bind,
+    keyFromMaterial]
+  apply congrArg (fun μ : MeasureTheory.Measure Bool => μ {true})
   -- Strip the unused signing-key draw, then align the draw orders: `ρ` moves inward past
   -- `s₁`, `s₂`, `Â` on the game side and `Â` moves inward past `s₁`, `s₂` on the MLWE side.
-  rw [prEvent_bind_const, probFailure_uniformSample, tsub_zero, one_mul]
-  rw [OracleComp.prEvent_bind_bind_swap ($ᵗ (Bytes 32)) (sampleShortVec p.l p.eta),
-    OracleComp.prEvent_bind_bind_swap ($ᵗ (TqMatrix p.k p.l)) (sampleShortVec p.l p.eta)]
-  refine probOutput_bind_congr' _ true fun s1 => ?_
-  rw [OracleComp.prEvent_bind_bind_swap ($ᵗ (Bytes 32)) (sampleShortVec p.k p.eta),
-    OracleComp.prEvent_bind_bind_swap ($ᵗ (TqMatrix p.k p.l)) (sampleShortVec p.k p.eta)]
-  refine probOutput_bind_congr' _ true fun s2 => ?_
-  rw [OracleComp.prEvent_bind_bind_swap ($ᵗ (Bytes 32)) ($ᵗ (TqMatrix p.k p.l))]
-  refine probOutput_bind_congr' _ true fun aHat => ?_
-  refine probOutput_bind_congr' _ true fun rho => ?_
-  exact probOutput_verifyRO_eq_verifyAtMatrix p prims main
-    ⟨rho, (prims.power2RoundVec (aHat * s1 + s2)).1⟩ aHat
+  rw [OracleComp.evalDist_bind_const]
+  rw [OracleComp.evalDist_bind_bind_swap ($ᵗ (Bytes 32)) (sampleShortVec p.l p.eta),
+    OracleComp.evalDist_bind_bind_swap ($ᵗ (TqMatrix p.k p.l)) (sampleShortVec p.l p.eta)]
+  refine evalDist_bind_congr _ _ _ fun s1 => ?_
+  rw [OracleComp.evalDist_bind_bind_swap ($ᵗ (Bytes 32)) (sampleShortVec p.k p.eta),
+    OracleComp.evalDist_bind_bind_swap ($ᵗ (TqMatrix p.k p.l)) (sampleShortVec p.k p.eta)]
+  refine evalDist_bind_congr _ _ _ fun s2 => ?_
+  rw [OracleComp.evalDist_bind_bind_swap ($ᵗ (Bytes 32)) ($ᵗ (TqMatrix p.k p.l))]
+  refine evalDist_bind_congr _ _ _ fun aHat => ?_
+  refine evalDist_bind_congr _ _ _ fun rho => ?_
+  exact (evalDistEq_verifyRO_eq_verifyAtMatrix p prims main
+    ⟨rho, (prims.power2RoundVec (aHat * s1 + s2)).1⟩ aHat).evalDist_eq
 
 /-- **Per-key STMSIS read-back comparison at an explicit matrix.** For a fixed public key `pk`
 and matrix `aHat`, the forge-and-verify tail at `aHat` (run through `simulateToProbComp`) accepts
@@ -592,35 +595,38 @@ private theorem stmsis_tail_le_matrix
       OracleComp (unifSpec + (M × Commitment p prims →ₒ CommitHashBytes p))
         (M × Option (Commitment p prims × Response p prims)))
     (pk : PublicKey p prims) :
-    Pr{let x ← (simulateToProbComp p prims (M := M) (do
+    𝒟[simulateToProbComp p prims (M := M) (do
         let (msg, σ) ← main pk
-        verifyAtMatrix p prims aHat pk msg σ))}[x = true] ≤
-      Pr{let x ← (do
+        verifyAtMatrix p prims aHat pk msg σ)] {true} ≤
+      𝒟[do
         let ((hashInput, response), cache) ←
           (simulateQ (roImpl p prims (M := M))
             ((extractorC p prims main).run (aHat, pk))).run ∅
         match cache hashInput with
         | some hashOutput =>
             pure ((mldsaSTMSISMatrix p prims M).isValid aHat pk hashInput hashOutput response)
-        | none => pure false)}[x = true] := by
+        | none => pure false] {true} := by
   classical
   -- Decompose both tails over the shared simulation of `main pk` from the empty cache.
   unfold simulateToProbComp extractorC
   simp only [bind_pure_comp, simulateQ_bind, StateT.run_bind, StateT.run'_eq, map_bind,
     bind_assoc]
-  refine probOutput_bind_mono fun a _ => ?_
+  refine OracleComp.evalDist_bind_apply_mono_of_support (spec := unifSpec) _ _ _
+    (measurableSet_singleton true) fun a _ => ?_
   obtain ⟨⟨msg, σ⟩, cache0⟩ := a
   cases σ with
   | none =>
     -- Aborting forgery: the verify tail is deterministically `false`, so it has weight `0`.
-    simp only [verifyAtMatrix, simulateQ_pure, StateT.run_pure, map_pure, prEvent_pure]
+    simp only [verifyAtMatrix, simulateQ_pure, StateT.run_pure, map_pure, evalDist_pure,
+      MeasureTheory.Measure.dirac_apply]
     simp
   | some wzh =>
     obtain ⟨w', z, h⟩ := wzh
     -- Both branches issue the same `H(msg, w')` query on `cache0`; compare per random answer.
     simp only [verifyAtMatrix, simulateQ_map, StateT.run_map, bind_pure_comp]
     simp only [map_eq_bind_pure_comp, Function.comp_def, bind_assoc]
-    refine probOutput_bind_mono fun cc hcc => ?_
+    refine OracleComp.evalDist_bind_apply_mono_of_support (spec := unifSpec) _ _ _
+      (measurableSet_singleton true) fun cc hcc => ?_
     simp only [pure_bind]
     -- The query simulation caches its answer: `cc.2 (msg, w') = some cc.1`.
     have hquery : simulateQ (roImpl p prims (M := M)) (query (msg, w') :
@@ -642,14 +648,14 @@ private theorem stmsis_tail_le_matrix
     rw [hcache]
     -- An accepted forgery is a valid solution: the verifier's middle conjunct identifies the
     -- recomputed commitment with `w'`, which is the commitment component of the preimage.
-    rw [prEvent_pure, prEvent_pure]
+    simp only [evalDist_pure, MeasureTheory.Measure.dirac_apply]
     by_cases hverify : verifyWithMatrix p prims aHat pk w' cc.1 (z, h) = true
     · have hvalid :
           (mldsaSTMSISMatrix p prims M).isValid aHat pk (msg, w') cc.1 (z, h) = true := by
         simp only [mldsaSTMSISMatrix, verifyWithMatrix] at hverify ⊢
         revert hverify
         grind
-      rw [ite_eq_left hverify.symm, ite_eq_left hvalid.symm]
+      simp [hverify, hvalid]
     · simp only [Bool.not_eq_true] at hverify
       rw [hverify]
       simp
@@ -659,22 +665,28 @@ uniform-matrix Module-LWE game against `distinguisherBRom` — a uniform matrix,
 self-chosen seed — is the parameter distribution of `mldsaSTMSISMatrix`, and per parameter the
 forge-and-verify tail at the challenge matrix accepts no more often than the extractor's
 read-back tail (`stmsis_tail_le_matrix`). -/
-theorem game1_le_stmsis_rom [Inhabited (Commitment p prims)] [Inhabited (Response p prims)]
+theorem randomExperiment_le_stmsis_rom
+    [Inhabited (Commitment p prims)] [Inhabited (Response p prims)]
     (main : PublicKey p prims → OracleComp (RomSpec p prims M)
       (M × Option (Commitment p prims × Response p prims))) :
-    Pr{let x ← LearningWithErrors.game1 (mldsaMatrixMLWE p) (distinguisherBRom p prims main)}[x = true] ≤
+    𝒟[LearningWithErrors.randomExperiment (mldsaMatrixMLWE p)
+        (distinguisherBRom p prims main)] {true} ≤
       SelfTargetMSIS.advantage (extractorCRom p prims main) := by
   classical
-  rw [SelfTargetMSIS.advantage, evalDist_apply_singleton, SelfTargetMSIS.experiment]
-  simp only [LearningWithErrors.game1, LearningWithErrors.uniformDistr, mldsaMatrixMLWE,
-    distinguisherBRom, extractorCRom, mldsaSTMSISMatrix, bind_assoc, pure_bind]
-  refine probOutput_bind_mono fun aHat _ => ?_
-  refine probOutput_bind_mono fun t _ => ?_
-  refine probOutput_bind_mono fun rho _ => ?_
+  rw [SelfTargetMSIS.advantage, SelfTargetMSIS.experiment]
+  simp only [LearningWithErrors.randomExperiment, LearningWithErrors.uniformDistr,
+    mldsaMatrixMLWE, distinguisherBRom, extractorCRom, mldsaSTMSISMatrix, bind_assoc, pure_bind]
+  refine OracleComp.evalDist_bind_apply_mono_of_support (spec := unifSpec) _ _ _
+    (measurableSet_singleton true) fun aHat _ => ?_
+  refine OracleComp.evalDist_bind_apply_mono_of_support (spec := unifSpec) _ _ _
+    (measurableSet_singleton true) fun t _ => ?_
+  refine OracleComp.evalDist_bind_apply_mono_of_support (spec := unifSpec) _ _ _
+    (measurableSet_singleton true) fun rho _ => ?_
   convert stmsis_tail_le_matrix p prims aHat
     (fun pk => withExpandACache p prims (programmedAt p pk.rho aHat) (main pk))
     ⟨rho, (prims.power2RoundVec t).1⟩ using 2
-  rw [roImpl]
+  rw [roImpl, OracleSpec.romImpl, unifFwdImpl]
+  apply congrArg (fun mx : ProbComp Bool => 𝒟[mx])
   refine bind_congr fun x => ?_
   obtain ⟨⟨hashInput, response⟩, cache⟩ := x
   dsimp only
@@ -690,26 +702,23 @@ uniform-matrix tailored SelfTargetMSIS reduction `C = extractorCRom main` satisf
 
 Both reductions program the `ExpandA` oracle at a self-chosen seed with the matrix received from
 their challenger and simulate it lazily elsewhere; the forger's view is the honest game's. The
-ROM game is exactly the real MLWE branch (`romNmaAdvantage_eq_game0`), the real branch is at
-most the uniform branch plus the MLWE advantage, and the uniform branch is bounded by the
-SelfTargetMSIS advantage (`game1_le_stmsis_rom`). There is no idealization slack and no
+ROM game is exactly the real MLWE branch (`romNmaAdvantage_eq_realExperiment`), the real branch
+is at most the uniform branch plus the MLWE advantage, and the uniform branch is bounded by the
+SelfTargetMSIS advantage (`randomExperiment_le_stmsis_rom`). There is no idealization slack and no
 hypothesis beyond the forger; the hardness problems are the literature's uniform-matrix MLWE and
 the tailored ML-DSA verifier relation at a uniform matrix. -/
 theorem nma_security_rom [Inhabited (Commitment p prims)] [Inhabited (Response p prims)]
     (main : PublicKey p prims → OracleComp (RomSpec p prims M)
       (M × Option (Commitment p prims × Response p prims))) :
     romNmaAdvantage p prims main ≤
-      ENNReal.ofReal
-          (LearningWithErrors.advantage (mldsaMatrixMLWE p) (distinguisherBRom p prims main)) +
+      LearningWithErrors.advantage (mldsaMatrixMLWE p) (distinguisherBRom p prims main) +
         SelfTargetMSIS.advantage (extractorCRom p prims main) := by
-  rw [romNmaAdvantage_eq_game0, advantage_eq_game_boolDistAdvantage]
-  have hle := ProbComp.evalDist_apply_true_le_add_ofReal_boolDistAdvantage
-    (LearningWithErrors.game0 (mldsaMatrixMLWE p) (distinguisherBRom p prims main))
-    (LearningWithErrors.game1 (mldsaMatrixMLWE p) (distinguisherBRom p prims main))
-  simp only [evalDist_apply_singleton] at hle
-  refine le_trans hle ?_
+  rw [romNmaAdvantage_eq_realExperiment, NoisyLearning.advantage_eq_boolDist]
+  refine (MeasureTheory.Measure.apply_true_le_add_boolDist _
+    𝒟[LearningWithErrors.randomExperiment (mldsaMatrixMLWE p)
+      (distinguisherBRom p prims main)]).trans ?_
   rw [add_comm]
-  exact add_le_add le_rfl (game1_le_stmsis_rom p prims main)
+  exact add_le_add le_rfl (randomExperiment_le_stmsis_rom p prims main)
 
 end ExpandAOracle
 
