@@ -490,7 +490,8 @@ LEGACY_TOKENS: list[tuple[str, str]] = [
     (r"EvalDistCompatible", "operational support lemmas; see *Classes and binders*"),
     (r"PFunctor\.IsProbabilitySpec|PFunctor\.IsUniformSpec",
      "`PFunctor.AnswerMeasure`; see *Classes and binders*"),
-    (r"MeasurableSpace\s*\([^\n]*?\.Range\b",
+    # A binder on answer types; a local `let`/`letI` discrete structure inside a proof is the fix.
+    (r"(?m)^(?![ \t]*(?:let|letI|haveI)\b)[^\n]*?(?P<tok>MeasurableSpace\s*\([^\n]*?\.Range\b)",
      "answer measures are discrete; see *Classes and binders*"),
     (r"@(?:OracleSpec\.)?UniformAnswerMeasure\.ofFiniteNonempty\b",
      "takes the specification and its `Finite` and `Nonempty` instances only"),
@@ -1003,10 +1004,12 @@ def report_legacy(text: str, report: Report, path: str) -> None:
     spans = comment_spans(text)
     for regex, hint in LEGACY_TOKENS:
         for m in re.finditer(regex, text):
-            if not in_spans(m.start(), spans):
-                name = m.group(0).rsplit(".", 1)[-1]
-                report.add(path, text, m.start(),
-                           f"`{m.group(0)}`: {LEGACY_HINTS.get(name, hint)}")
+            # A pattern names the reported token `tok` when it also matches context.
+            tok = "tok" if "tok" in m.re.groupindex else 0
+            if not in_spans(m.start(tok), spans):
+                name = m.group(tok).rsplit(".", 1)[-1]
+                report.add(path, text, m.start(tok),
+                           f"`{m.group(tok)}`: {LEGACY_HINTS.get(name, hint)}")
     for name, hint in REPORT_NAMES.items():
         for m in rename_pattern(name).finditer(text):
             if name == "prEvent_le_one" and re.match(r"prEvent_le_one _(?![\w' ]*_)",

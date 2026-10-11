@@ -303,6 +303,13 @@ class EventLemmaTests(unittest.TestCase):
                                  "`tvDist_nonneg`: `measureTVDist_nonneg` (real); `measureETVDist` "
                                  "is `ℝ≥0∞`-valued"]))
 
+    def test_local_discrete_answer_structure_is_not_reported(self):
+        _, items = migrate("theorem t [MeasurableSpace (spec.Range u)] : True := by\n"
+                           "  let _ : MeasurableSpace (spec.Range u) := ⊤\n"
+                           "  letI : MeasurableSpace (unifSpec.Range n) := ⊤\n  trivial")
+        self.assertEqual([(line, msg.split(":")[0]) for _, line, msg in items],
+                         [(1, "`MeasurableSpace (spec.Range`")])
+
     def test_no_name_is_both_renamed_and_reported(self):
         self.assertEqual([k for k in codemod.RENAMES if k in codemod.LEGACY_HINTS], [])
         self.assertEqual([k for k in codemod.RENAMES if k in codemod.REPORT_NAMES], [])
