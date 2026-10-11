@@ -217,21 +217,10 @@ theorem advantage_le_ntruSISProblemKeyed
   have hsamp : (ntruSISProblemKeyed p hr).sampleChallenge
       = (ntruPSFCollisionProblem p prims hr).sampleChallenge := rfl
   unfold SIS.advantage SIS.experiment collisionToKernelAdv
-  rw [evalDist_apply_singleton, evalDist_apply_singleton, hsamp]
-  simp only [map_eq_bind_pure_comp, bind_assoc, pure_bind, Function.comp_apply]
-  rw [OracleComp.prEvent_bind_eq_tsum, OracleComp.prEvent_bind_eq_tsum]
-  refine ENNReal.tsum_le_tsum fun pk => ?_
-  gcongr
-  rw [OracleComp.prEvent_bind_eq_tsum, OracleComp.prEvent_bind_eq_tsum]
-  refine ENNReal.tsum_le_tsum fun xs => ?_
-  gcongr
-  by_cases hval : (ntruPSFCollisionProblem p prims hr).isValid pk xs = true
-  · have h2 : (ntruSISProblemKeyed p hr).isValid pk (xs.1.1 - xs.2.1, xs.1.2 - xs.2.2) = true :=
-      ntruSISProblem_isValid_sub p prims hr pk xs hval
-    rw [hval, h2]
-  · rw [Bool.not_eq_true] at hval
-    rw [hval]
-    simp
+  rw [← prEvent_eq_evalDist_singleton, ← prEvent_eq_evalDist_singleton, hsamp]
+  simp only [prEvent_norm]
+  refine prEvent_bind_mono_of_support _ _ _ fun pk _ => ?_
+  exact prEvent_mono _ _ _ fun xs hval => ntruSISProblem_isValid_sub p prims hr pk xs hval
 
 
 /-! ## The EUF-CMA bound in NTRU-SIS terms -/
@@ -258,10 +247,9 @@ theorem euf_cma_security_oneShot_ntruSIS
     (domainSample : PublicKey p → ProbComp (Rq p.n × Rq p.n))
     (hReg : ∀ pk sk, (pk, sk) ∈ support hr.gen →
         (do let s ← domainSample pk; pure (idealPSF.eval pk s, s)
-              : ProbComp (Rq p.n × (Rq p.n × Rq p.n))) =ᵈ (do let c ← ($ᵗ (Rq p.n)); let s ← idealPSF.trapdoorSample pk sk c; pure (c, s)
-              : ProbComp (Rq p.n × (Rq p.n × Rq p.n))))
-    (hNeverFail : ∀ pk sk, (pk, sk) ∈ support hr.gen →
-      ∀ c, NeverFail (idealPSF.trapdoorSample pk sk c))
+            : ProbComp (Rq p.n × (Rq p.n × Rq p.n))) =ᵈ
+          (do let c ← ($ᵗ (Rq p.n)); let s ← idealPSF.trapdoorSample pk sk c; pure (c, s)
+            : ProbComp (Rq p.n × (Rq p.n × Rq p.n))))
     (adv' : SignatureAlg.UnforgeableAdversary
       (GPVHashAndSign idealPSF hr (List Byte) Salt))
     (hTransport : SignatureAlg.unforgeableAdvantage
@@ -286,7 +274,7 @@ theorem euf_cma_security_oneShot_ntruSIS
         GPVHashAndSign.collisionBound Salt qSign qHash +
         samplerLoss := by
   refine le_trans (euf_cma_security_oneShot p prims Salt hr qSign qHash samplerLoss adv idealPSF
-    hEval hShort hCorrect domainSample hReg hNeverFail adv' hTransport hForge' hQ') ?_
+    hEval hShort hCorrect domainSample hReg adv' hTransport hForge' hQ') ?_
   gcongr
   exact advantage_le_ntruSISProblemKeyed p prims hr _
 
@@ -330,10 +318,9 @@ theorem euf_cma_collision_security_ntruSIS
     (domainSample : PublicKey p → ProbComp (Rq p.n × Rq p.n))
     (hReg : ∀ pk sk, (pk, sk) ∈ support hr.gen →
         (do let s ← domainSample pk; pure (idealPSF.eval pk s, s)
-              : ProbComp (Rq p.n × (Rq p.n × Rq p.n))) =ᵈ (do let c ← ($ᵗ (Rq p.n)); let s ← idealPSF.trapdoorSample pk sk c; pure (c, s)
-              : ProbComp (Rq p.n × (Rq p.n × Rq p.n))))
-    (hNeverFail : ∀ pk sk, (pk, sk) ∈ support hr.gen →
-      ∀ c, NeverFail (idealPSF.trapdoorSample pk sk c))
+            : ProbComp (Rq p.n × (Rq p.n × Rq p.n))) =ᵈ
+          (do let c ← ($ᵗ (Rq p.n)); let s ← idealPSF.trapdoorSample pk sk c; pure (c, s)
+            : ProbComp (Rq p.n × (Rq p.n × Rq p.n))))
     (hAttempt : attemptTransport p prims hr idealAttempt ε_step)
     (hRej : attemptRejectBound p hr idealAttempt pRej)
     (hRes : idealAttemptResamples p hr idealAttempt idealPSF)
@@ -355,7 +342,7 @@ theorem euf_cma_collision_security_ntruSIS
         ENNReal.ofReal (qSign * (ε_step / (1 - pRej) + pRej ^ maxAttempts)) := by
   refine le_trans (euf_cma_collision_security p prims Salt hr qSign qHash maxAttempts
     ε_step pRej hε hRej0 hRej1 εpp adv idealAttempt idealPSF hEval hShort hCorrect domainSample
-    hReg hNeverFail hAttempt hRej hRes hQ hGuess) ?_
+    hReg hAttempt hRej hRes hQ hGuess) ?_
   gcongr
   exact advantage_le_ntruSISProblemKeyed p prims hr _
 
