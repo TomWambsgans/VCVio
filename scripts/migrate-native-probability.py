@@ -167,7 +167,6 @@ RENAMES: dict[str, str] = {
         "cmaReal_cmaSim_measureETVDist_sign_le_cmaSignEpsCore_of_valid",
     "cmaReal_cmaSim_tv_costly_le_cmaSignEpsCore_of_valid":
         "cmaReal_cmaSim_measureETVDist_costly_le_cmaSignEpsCore_of_valid",
-    "hvzkBoundReal": "hvzkBound",
     "evalSPMF_uniform_add_right_swap": "uniform_add_right_swap_evalDistEq",
     "evalSPMF_honest_pregate": "honest_pregate_evalDistEq",
     "evalSPMF_honestExecution_eq_gated": "honestExecution_evalDistEq_gated",
@@ -277,14 +276,8 @@ RENAMES: dict[str, str] = {
     "probEvent_bind_eq_tsum": "OracleComp.prEvent_bind_eq_tsum",
     "tsum_probOutput_eq_one": "OracleComp.tsum_prEvent_eq_one",
     "tsum_probOutput_eq_one'": "OracleComp.tsum_prEvent_eq_one",
-    "tsum_probOutput_le_one": "OracleComp.tsum_prEvent_le_one",
     "tsum_probOutput_mul_of_const_on_support": "OracleComp.tsum_prEvent_mul_of_const_on_support",
     "tsum_probOutput_mul_le_add_of_le": "OracleComp.tsum_prEvent_mul_le_add_of_le",
-    "probOutput_eq_zero_of_not_mem_support": "prEvent_eq_zero_of_not_mem_support",
-    "probOutput_ne_top": "prEvent_ne_top",
-    "probEvent_ne_top": "prEvent_ne_top",
-    "probOutput_le_one": "prEvent_le_one",
-    "probEvent_le_one": "prEvent_le_one",
     "probOutput_pure": "prEvent_pure",
     "probEvent_pure": "prEvent_pure",
     "probOutput_map": "prEvent_map",
@@ -307,8 +300,25 @@ RENAMES: dict[str, str] = {
     "probEvent_le_of_relTriple_imp": "prEvent_le_of_relTriple",
 }
 
+# Renames whose replacement takes the computation explicitly where the removed lemma left every
+# argument implicit: an occurrence becomes `(new _)`, so `le_antisymm probEvent_le_one h` and
+# `probEvent_le_one.trans h` keep their meaning; a code span in prose keeps the bare name.
+EXPLICIT_COMPUTATION_RENAMES: dict[str, str] = {
+    "probOutput_ne_top": "prEvent_ne_top",
+    "probEvent_ne_top": "prEvent_ne_top",
+    "probOutput_le_one": "prEvent_le_one",
+    "probEvent_le_one": "prEvent_le_one",
+    "probOutput_eq_zero_of_not_mem_support": "prEvent_eq_zero_of_not_mem_support",
+    "tsum_probOutput_le_one": "OracleComp.tsum_prEvent_le_one",
+    "probOutput_bind_eq_sum_fintype": "prEvent_bind_eq_sum_fintype",
+}
+
 # Declarations whose replacement changes the argument shape; reported, not rewritten.
 REPORT_NAMES: dict[str, str] = {
+    "evalDist_apply_true_le_add_ofReal_boolDistAdvantage":
+        "`MeasureTheory.Measure.apply_true_le_add_boolDist 𝒟[pc₀] 𝒟[pc₁]`, in `ℝ≥0∞`",
+    "hvzkBoundReal": "the bound is `hvzkBound` in `ℝ≥0∞`; a real bound is `(hvzkBound p prims).toReal` "
+        "(`ENNReal.ofReal_toReal` returns, given `hvzkBound p prims ≠ ⊤`)",
     "prEvent_congr_of_evalDist_eq":
         "use `(EvalDistEq.of_evalDist_eq h).prEvent_eq p`",
     "evalDist_bind_congr_of_evalDist_eq":
@@ -434,7 +444,8 @@ LEGACY_HINTS: dict[str, str] = {
     "probEvent_bind_eq_expectedValue": "`prEvent_bind_eq_lintegral`",
     "probEvent_def": "`prEvent_def`",
     "evalSPMF_def": "`𝒟[mx]` is primitive; unfold events with `prEvent_def`",
-    "evalSPMF_ext": "`EvalDistEq.of_forall_prEvent_eq`, or `Measure.ext` on `𝒟[…]`",
+    "evalSPMF_ext":
+        "`OracleComp.evalDistEq_of_forall_prEvent_eq_output` pointwise, or `EvalDistEq.of_forall_prEvent_eq`",
     "evalSPMF_eq_of_evalDist_eq":
         "state the result with `𝒟[…]` or `=ᵈ` (`EvalDistEq.of_evalDist_eq`)",
     "probEvent_eq_eq_probOutput":
@@ -510,6 +521,8 @@ LEGACY_HINTS: dict[str, str] = {
     "mem_support_evalSPMF_iff": "`support_eq_of_evalDistEq` from an `=ᵈ` hypothesis",
     "tvDist_bind_le_of_forall_le": "`OracleComp.measureTVDist_bind_left_le_of_forall_le`",
     "probEvent_bind_le_add": "`prEvent_bind_le_prEvent_add_of_support`",
+    "probEvent_eq_one": "`prEvent_eq_one_of_forall_mem_support _ _ h`; the never-fail half goes",
+    "one_le_probEvent_iff": "`le_antisymm (prEvent_le_one _)`",
 }
 
 # Legacy forms left for a person, with the guide section that converts them.
@@ -983,14 +996,25 @@ NAMESPACE_PREFIXES = sorted({new.rsplit(".", 1)[0] + "." for new in RENAMES.valu
                             key=len, reverse=True)
 
 
+EXPLICIT_COMPUTATION_PATTERNS = [(rename_pattern(old), new)
+                                 for old, new in EXPLICIT_COMPUTATION_RENAMES.items()]
+
+
 def rewrite_names(text: str) -> str:
     for pattern, new in RENAME_PATTERNS:
         text = pattern.sub(new, text)
+    for pattern, new in EXPLICIT_COMPUTATION_PATTERNS:
+        text = pattern.sub(lambda m, new=new: new if text_at(m, "`") else f"({new} _)", text)
     for prefix in NAMESPACE_PREFIXES:
         text = text.replace(prefix + prefix, prefix)
     # `prEvent_le_one` takes the event computation alone.
     text = re.sub(r"(?<![\w'.])prEvent_le_one _ _(?![\w'])", "prEvent_le_one _", text)
     return text.replace("≡ₚ", "=ᵈ")
+
+
+def text_at(m: re.Match[str], ch: str) -> bool:
+    """Whether the character right after a match is `ch`."""
+    return m.string[m.end():m.end() + 1] == ch
 
 
 IMPORT_LINE = re.compile(r"(?m)^((?:public\s+)?(?:meta\s+)?import(?:\s+all)?\s+)(\S+)[ \t]*$")

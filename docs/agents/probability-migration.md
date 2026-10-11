@@ -141,6 +141,13 @@ the output type. The sum forms follow from it:
 - `tvDist_bind_left_le` → `measureETVDist_bind_left_le_tsum`, where `measureETVDist` takes the
   place of `ENNReal.ofReal (tvDist …)`, or `measureTVDist_bind_left_le_tsum` for a real bound.
 
+`prEvent_le_one`, `prEvent_ne_top`, `prEvent_eq_zero_of_not_mem_support` and the oracle-computation
+sums `tsum_prEvent_le_one` and `tsum_prEvent_eq_one` take the computation explicitly where the
+removed lemmas left it implicit; the codemod writes `(prEvent_le_one _)`, and a never-fail argument
+of the removed form is dropped. A real-valued distance inside a definition needs its discrete
+structure in the body (`letI : MeasurableSpace X := ⊤; measureTVDist …`), and so does every term
+that inhabits it.
+
 Real-valued total variation keeps the real arithmetic of a proof: `tvDist_bind_right_le` →
 `measureTVDist_bind_right_le` (`measureETVDist_bind_right_le` in `ℝ≥0∞`; `measureTVDist_bind_le`
 for a measurable continuation in any monad), `tvDist_map_le` → `measureTVDist_map_le`,

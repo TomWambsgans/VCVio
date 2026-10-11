@@ -281,10 +281,18 @@ class EventLemmaTests(unittest.TestCase):
         self.assertMigrates("rw [probOutput_bind_eq_tsum, tsum_probOutput_eq_one', "
                             "probOutput_ne_top]",
                             "rw [OracleComp.prEvent_bind_eq_tsum, OracleComp.tsum_prEvent_eq_one, "
-                            "prEvent_ne_top]")
+                            "(prEvent_ne_top _)]")
         self.assertMigrates("probOutput_eq_zero_of_not_mem_support hx, probEvent_le_one, "
                             "probOutput_pure",
-                            "prEvent_eq_zero_of_not_mem_support hx, prEvent_le_one, prEvent_pure")
+                            "(prEvent_eq_zero_of_not_mem_support _) hx, (prEvent_le_one _), "
+                            "prEvent_pure")
+
+    def test_explicit_computation_renames(self):
+        self.assertMigrates("exact le_antisymm probEvent_le_one h",
+                            "exact le_antisymm (prEvent_le_one _) h")
+        self.assertMigrates("probEvent_le_one.trans h", "(prEvent_le_one _).trans h")
+        self.assertMigrates("-- see `probOutput_ne_top`", "-- see `prEvent_ne_top`")
+        self.assertMigrates("rw [probOutput_bind_eq_sum_fintype]", "rw [(prEvent_bind_eq_sum_fintype _)]")
         self.assertMigrates("evalSPMF_bind, evalSPMF_map",
                             "evalDist_bind_of_discrete, evalDist_map_of_discrete")
         # A replacement whose arguments differ is reported, never rewritten: the qualified,
@@ -327,8 +335,12 @@ class EventLemmaTests(unittest.TestCase):
         self.assertEqual(items, [])
 
     def test_no_name_is_both_renamed_and_reported(self):
-        self.assertEqual([k for k in codemod.RENAMES if k in codemod.LEGACY_HINTS], [])
-        self.assertEqual([k for k in codemod.RENAMES if k in codemod.REPORT_NAMES], [])
+        renamed = {**codemod.RENAMES, **codemod.EXPLICIT_COMPUTATION_RENAMES}
+        self.assertEqual(len(renamed),
+                         len(codemod.RENAMES) + len(codemod.EXPLICIT_COMPUTATION_RENAMES))
+        self.assertEqual([k for k in renamed if k in codemod.LEGACY_HINTS], [])
+        self.assertEqual([k for k in renamed if k in codemod.REPORT_NAMES], [])
+        self.assertEqual([k for k, v in renamed.items() if v in renamed], [])
 
 
 class RepositoryTests(unittest.TestCase):
