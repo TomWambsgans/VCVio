@@ -6,7 +6,7 @@ Authors: Alexander Hicks
 
 module
 public import VCVio.OracleComp.QueryTracking.RandomOracle.Defer
-import VCVio.OracleComp.Constructions.SampleableType.NativeMeasure
+import VCVio.OracleComp.Constructions.SampleableType.Measure
 
 /-!
 # Touch deferral on a one-node graph

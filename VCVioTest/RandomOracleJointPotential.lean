@@ -6,7 +6,7 @@ Authors: Alexander Hicks
 
 module
 public import VCVio.OracleComp.QueryTracking.RandomOracle.JointPotential
-import VCVio.OracleComp.Constructions.SampleableType.NativeMeasure
+import VCVio.OracleComp.Constructions.SampleableType.Measure
 
 /-!
 # The joint potential on a one-node graph

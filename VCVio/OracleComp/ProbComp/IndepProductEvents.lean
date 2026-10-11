@@ -7,7 +7,7 @@ Authors: Alexander Hicks
 module
 
 public import VCVio.EvalDist.IndepProductMeasure
-public import VCVio.OracleComp.Constructions.SampleableType.NativeMeasure
+public import VCVio.OracleComp.Constructions.SampleableType.Measure
 public import VCVio.OracleComp.ProbComp.Basic
 import VCVio.EvalDist.Monad.Measure
 

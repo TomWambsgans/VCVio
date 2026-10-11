@@ -8,7 +8,7 @@ module
 
 public import VCVio.OracleComp.QueryTracking.QueryBound.Counter
 public import VCVio.OracleComp.QueryTracking.RandomOracle.Basic
-import VCVio.OracleComp.Constructions.SampleableType.NativeMeasure
+import VCVio.OracleComp.Constructions.SampleableType.Measure
 
 /-!
 # Cached points of a lazy random oracle against its query budget

@@ -6,7 +6,7 @@ Authors: Alexander Hicks
 
 module
 public import VCVio.OracleComp.QueryTracking.ExpectedQueryCount
-public import VCVio.OracleComp.Constructions.SampleableType.NativeMeasure
+public import VCVio.OracleComp.Constructions.SampleableType.Measure
 
 /-!
 # The budgeted expected-potential bound on small instances

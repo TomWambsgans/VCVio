@@ -6,7 +6,7 @@ Authors: Alexander Hicks
 
 module
 public import VCVio.OracleComp.QueryTracking.RandomOracle.Relabel
-import VCVio.OracleComp.Constructions.SampleableType.NativeMeasure
+import VCVio.OracleComp.Constructions.SampleableType.Measure
 
 /-!
 # Canonical relabelling on a one-node graph

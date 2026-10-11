@@ -6,7 +6,7 @@ Authors: Alexander Hicks
 
 module
 
-public import VCVio.OracleComp.QueryTracking.LoggingOracle
+public import VCVio.OracleComp.QueryTracking.LoggingOracle.Core
 
 /-!
 # An invariant of a logged run that needs the allowed-query restriction

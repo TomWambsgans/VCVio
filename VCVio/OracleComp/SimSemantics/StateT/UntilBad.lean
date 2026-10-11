@@ -262,7 +262,7 @@ theorem prEvent_simulateQ_run_bad_eq (h : AgreeUntilBad impl₁ impl₂ bad)
     fun z ↦ bad z.2
   rw [prEvent_true_eq_one, hgood] at e₁
   rw [prEvent_true_eq_one] at e₂
-  exact (ENNReal.add_left_inj (ne_top_of_le_ne_top ENNReal.one_ne_top (prEvent_le_one _ _))).1
+  exact (ENNReal.add_left_inj (ne_top_of_le_ne_top ENNReal.one_ne_top (prEvent_le_one _))).1
     (e₁.trans e₂.symm)
 
 /-- If two handlers agree until `bad` and the first preserves `bad`, an event of the first run

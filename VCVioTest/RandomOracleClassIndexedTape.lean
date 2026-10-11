@@ -114,7 +114,7 @@ theorem prEvent_cache_le :
           obtain rfl : n = 0 := by simpa using hn
           exact ⟨(), Finset.mem_singleton_self _, by simpa using hval, trivial⟩
       | true => exact absurd hn (Nat.not_lt_zero n))
-    (fun _ _ _ _ => prEvent_le_one _ _)
+    (fun _ _ _ _ => prEvent_le_one _)
   simpa using key
 
 /-- The tape class of a query is the queried point, whichever copy it comes through. -/

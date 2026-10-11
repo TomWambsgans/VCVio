@@ -87,7 +87,7 @@ theorem frame (h : EqDistTriple r P mx my Q) {F : σ → Prop} (hF : ∀ s s', r
 outcomes of the left-hand program also satisfy the support condition. -/
 theorem symm (h : EqDistTriple r P mx my Q) : EqDistTriple r P my mx Q := fun s hs ↦
   ⟨fun {_} ↦ (h s hs).1.symm,
-    fun z hz ↦ (h s hs).2 z ((support_eq_of_evalDist_eq (h s hs).1).subset hz)⟩
+    fun z hz ↦ (h s hs).2 z ((support_eq_of_evalDistEq (h s hs).1).subset hz)⟩
 
 /-- A program forms a triple with itself when its outcomes from every state satisfying `P`
 move the state along `r` and satisfy `Q`. -/

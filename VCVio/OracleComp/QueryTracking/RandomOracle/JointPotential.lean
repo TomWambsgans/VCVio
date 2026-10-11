@@ -9,7 +9,7 @@ module
 public import VCVio.OracleComp.QueryTracking.RandomOracle.Defer
 public import VCVio.OracleComp.QueryTracking.RandomOracle.FreshAnswer
 import ToMathlib.Data.List.MapM
-import VCVio.OracleComp.Constructions.SampleableType.NativeMeasure
+import VCVio.OracleComp.Constructions.SampleableType.Measure
 
 /-!
 # The joint potential of conflicts and target collisions in the deferred game

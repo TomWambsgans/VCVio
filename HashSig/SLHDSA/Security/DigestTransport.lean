@@ -11,7 +11,7 @@ public import HashSig.SLHDSA.Fors
 public import HashSig.SLHDSA.Position
 public import HashSig.SLHDSA.Security.CanonicalGames
 public import VCVio.CryptoFoundations.HardnessAssumptions.KeyedHash.Covering
-public import VCVio.OracleComp.EvalDist.MeasureSpec
+public import VCVio.OracleComp.EvalDist.AnswerMeasure
 
 /-!
 # Byte-level transport of the interleaved-target coverage model

@@ -7,7 +7,7 @@ Authors: Alexander Hicks
 module
 
 public import VCVio.OracleComp.QueryTracking.RandomOracle.HiddenSeed
-import VCVio.OracleComp.Constructions.SampleableType.NativeMeasure
+import VCVio.OracleComp.Constructions.SampleableType.Measure
 import ToMathlib.Data.List.MapM
 
 /-!

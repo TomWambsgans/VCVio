@@ -7,7 +7,7 @@ Authors: Alexander Hicks
 module
 
 public import VCVio.OracleComp.QueryTracking.RandomOracle.ClassIndexedTape.HitPotential
-import VCVio.OracleComp.Constructions.SampleableType.NativeMeasure
+import VCVio.OracleComp.Constructions.SampleableType.Measure
 
 /-!
 # Hit potential checks

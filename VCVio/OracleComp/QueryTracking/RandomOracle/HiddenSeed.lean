@@ -13,7 +13,7 @@ public import VCVio.OracleComp.QueryTracking.QueryBound.Basic
 public import VCVio.OracleComp.QueryTracking.ExpectedQueryCount
 public import VCVio.OracleComp.QueryTracking.RandomOracle.Simulation
 public import VCVio.OracleComp.QueryTracking.QueryBound.Counter
-import VCVio.OracleComp.Constructions.SampleableType.NativeMeasure
+import VCVio.OracleComp.Constructions.SampleableType.Measure
 import VCVio.OracleComp.EvalDist.Measure
 
 /-!

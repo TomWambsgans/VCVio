@@ -107,7 +107,7 @@ variable {ι : Type} {spec : OracleSpec ι} {σ₁ σ₂ : Type}
 /-- A probabilistic state map `fill` intertwines `impl₁` with `impl₂`: from every state, a step
 of `impl₁` followed by `fill` of its post-state has, before any continuation, the distribution of
 `fill` followed by the step of `impl₂`. With `fill = pure` this is the equality of step measures
-of `OracleComp.evalDist_simulateQ_run_congr_of_forall`. -/
+of `OracleComp.evalDist_simulateQ_run_congr`. -/
 @[expose] def Intertwines (fill : σ₁ → ProbComp σ₂)
     (impl₁ : QueryImpl spec (StateT σ₁ ProbComp)) (impl₂ : QueryImpl spec (StateT σ₂ ProbComp)) :
     Prop :=
