@@ -55,8 +55,8 @@ equalities or `tvDist` follows the *Standard proof conversion* table of the road
 | `OracleSpec.addRangeMeasurableSpace`, `OracleSpec.addRangeDiscreteMeasurableSpace` | delete them; no replacement is needed |
 | `IsUniformSpec.ofFintypeInhabited spec` | `UniformAnswerMeasure.ofFiniteNonempty spec`, as a local instance; it needs only `Finite` and `Nonempty` answers |
 | `PFunctor.IsProbabilitySpec`, `PFunctor.IsUniformSpec` | `PFunctor.AnswerMeasure`, `PFunctor.AnswerMeasure.uniformOfFiniteNonempty` |
-| `EvalDistCompatible`, `DiscreteEvalDistCompatible` | operational support lemmas and the `𝒟` equations; no class |
-| `[MonadLiftT m SPMF] [LawfulMonadLiftT m SPMF]` | `[EvalDistSemantics m] [LawfulEvalDistSemantics m]` |
+| `EvalDistCompatible`, `DiscreteEvalDistCompatible` | no class: from possible outputs to the measure, `evalDist.ae_of_forall_mem_support`; in a general monad the converse (`support` of a lift inside the source's `support`, a positive mass from a possible output) is a hypothesis of the statement that needs it, which holds by `rfl` or by the oracle lemmas at `ProbComp` and `OracleComp spec` |
+| `[MonadLiftT m SPMF] [LawfulMonadLiftT m SPMF]` | `[EvalDistSemantics m]` on definitions, adding `[LawfulEvalDistSemantics m]` on the lemmas that decompose a run (the environment linter rejects an unused one on a definition) |
 | `[MonadLiftT m SetM] [LawfulMonadLiftT m SetM]` for `support` | `[MonadAttach m] [ExactMonadAttach m]` |
 | `open scoped ProbComp.DiscreteCompatibility` | delete it |
 
