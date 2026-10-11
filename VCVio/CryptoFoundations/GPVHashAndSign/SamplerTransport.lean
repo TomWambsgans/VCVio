@@ -177,14 +177,14 @@ theorem probOutput_realGameVerifyFresh_le_trapdoorSwap_add
   calc Pr{let x ← realGameVerifyFresh psf hr M Salt adv pk sk}[x = true]
       = ENNReal.ofReal
           (Pr{let x ← realGameVerifyFresh psf hr M Salt adv pk sk}[x = true].toReal) :=
-        (ENNReal.ofReal_toReal probOutput_ne_top).symm
+        (ENNReal.ofReal_toReal prEvent_ne_top).symm
     _ ≤ ENNReal.ofReal
           (Pr{let x ← realGameVerifyFresh psf' hr M Salt ⟨adv.main⟩ pk sk}[x = true].toReal
             + qSign * ε) := ENNReal.ofReal_le_ofReal h_real
     _ = Pr{let x ← realGameVerifyFresh psf' hr M Salt ⟨adv.main⟩ pk sk}[x = true]
           + ENNReal.ofReal (qSign * ε) := by
         rw [ENNReal.ofReal_add ENNReal.toReal_nonneg h_loss_nonneg,
-          ENNReal.ofReal_toReal probOutput_ne_top]
+          ENNReal.ofReal_toReal prEvent_ne_top]
 
 /-- **Adaptive sampler-transport accumulation for the GPV EUF-CMA advantage.** Swapping the
 trapdoor sampler of the GPV scheme — keeping the deterministic `eval`/`isShort` fixed — costs
@@ -216,8 +216,8 @@ theorem advantage_le_advantage_add_of_trapdoorSample_tvDist
   classical
   rw [advantage_eq_keygen_average_realGameVerifyFresh psf hr M Salt adv,
     advantage_eq_keygen_average_realGameVerifyFresh psf' hr M Salt ⟨adv.main⟩,
-    probOutput_bind_eq_tsum (𝒮[hr.gen] : SPMF (PK × SK)),
-    probOutput_bind_eq_tsum (𝒮[hr.gen] : SPMF (PK × SK))]
+    OracleComp.prEvent_bind_eq_tsum (𝒮[hr.gen] : SPMF (PK × SK)),
+    OracleComp.prEvent_bind_eq_tsum (𝒮[hr.gen] : SPMF (PK × SK))]
   have hper : ∀ x : PK × SK, x ∈ support hr.gen →
       Pr{let y ← realGameVerifyFresh psf hr M Salt adv x.1 x.2}[y = true] ≤
         Pr{let y ← realGameVerifyFresh psf' hr M Salt ⟨adv.main⟩ x.1 x.2}[y = true]
@@ -233,7 +233,7 @@ theorem advantage_le_advantage_add_of_trapdoorSample_tvDist
           by_cases hx : x ∈ support hr.gen
           · rw [← mul_add]; gcongr; exact hper x hx
           · have hzero : Pr{let y ← (𝒮[hr.gen] : SPMF (PK × SK))}[y = x] = 0 :=
-              probOutput_eq_zero_of_not_mem_support (mx := hr.gen) hx
+              prEvent_eq_zero_of_not_mem_support (mx := hr.gen) hx
             simp [hzero]
     _ = ∑' x : PK × SK, (Pr{let y ← 𝒮[hr.gen]}[y = x]
             * Pr{let y ← realGameVerifyFresh psf' hr M Salt ⟨adv.main⟩ x.1 x.2}[y = true])
@@ -243,7 +243,7 @@ theorem advantage_le_advantage_add_of_trapdoorSample_tvDist
             * Pr{let y ← realGameVerifyFresh psf' hr M Salt ⟨adv.main⟩ x.1 x.2}[y = true])
           + 1 * ENNReal.ofReal (qSign * ε) := by
         gcongr
-        exact tsum_probOutput_le_one
+        exact OracleComp.tsum_prEvent_le_one
     _ = ∑' x : PK × SK, (Pr{let y ← 𝒮[hr.gen]}[y = x]
             * Pr{let y ← realGameVerifyFresh psf' hr M Salt ⟨adv.main⟩ x.1 x.2}[y = true])
           + ENNReal.ofReal (qSign * ε) := by rw [one_mul]

@@ -222,7 +222,7 @@ theorem gpvStep_agree (pk : PK) (sk : SK) (msgs : ℕ → M)
   change 𝒮[(($ᵗ Range) >>= fun c => psf.trapdoorSample pk sk c >>=
               fun _s => pure (cache.cacheQuery (r, msgs n) c))] = _
   rw [hR, hP]
-  simp only [evalSPMF_bind, hreg]
+  simp only [evalDist_bind_of_discrete, hreg]
 
 omit [DecidableEq Range] [SampleableType Salt] [Fintype Salt] in
 /-- **Real GPV signing-body cache splice (cache-miss key).** One real signing-query body, run

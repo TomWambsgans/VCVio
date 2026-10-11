@@ -348,7 +348,7 @@ lemma evalSPMF_embedAtIndex_step_eq_embedTrap
                        else (v, (s.1.cacheQuery q v, s.2 + 1)) :
                         Range × ((Salt × M →ₒ Range).QueryCache × ℕ)))
                     <$> ($ᵗ Range : ProbComp Range)] := by
-                      rw [evalSPMF_map, evalSPMF_map, hfst]
+                      rw [evalDist_map_of_discrete, evalDist_map_of_discrete, hfst]
   | inr msg =>
       rw [embedAtIndexImpl_run_inr, embedTrapImpl_run_inr]
       refine evalSPMF_bind_congr fun r _ => ?_
@@ -358,7 +358,7 @@ lemma evalSPMF_embedAtIndex_step_eq_embedTrap
         (fun p : Range × Domain =>
           ((r, p.2), (s.1.cacheQuery (r, msg) p.1, s.2 + 1)) :
             Range × Domain → (Salt × Domain) × ((Salt × M →ₒ Range).QueryCache × ℕ))) hreg
-      simp only [← evalSPMF_map, map_bind, map_pure] at h
+      simp only [← evalDist_map_of_discrete, map_bind, map_pure] at h
       calc 𝒮[(fun sd : Domain =>
               ((r, sd), (s.1.cacheQuery (r, msg) (psf.eval pk sd), s.2 + 1)) :
                 Domain → (Salt × Domain) × ((Salt × M →ₒ Range).QueryCache × ℕ))
@@ -744,7 +744,7 @@ lemma evalSPMF_progGameRunImplCombined_step_eq_trap
                     : Range × Domain →
                       Range × ((((Salt × M →ₒ Range).QueryCache × Finset M) × Bool) ×
                         ((Salt × M) → Option Domain)))) hreg
-              simpa only [OracleSpec.add_apply_inl, OracleSpec.add_apply_inr, ← evalSPMF_map,
+              simpa only [OracleSpec.add_apply_inl, OracleSpec.add_apply_inr, ← evalDist_map_of_discrete,
                 map_bind, map_pure, bind_assoc] using h
   | inr msg =>
       rw [progGameRunImplCombined_run_inr, progGameRunImplCombinedTrap_run_inr]
@@ -759,7 +759,7 @@ lemma evalSPMF_progGameRunImplCombined_step_eq_trap
             : Range × Domain →
               (Salt × Domain) × ((((Salt × M →ₒ Range).QueryCache × Finset M) × Bool) ×
                 ((Salt × M) → Option Domain)))) hreg
-      simpa only [OracleSpec.add_apply_inl, OracleSpec.add_apply_inr, ← evalSPMF_map,
+      simpa only [OracleSpec.add_apply_inl, OracleSpec.add_apply_inr, ← evalDist_map_of_discrete,
                 map_bind, map_pure, bind_assoc] using h
 
 omit [DecidableEq Range] [Fintype Salt] in

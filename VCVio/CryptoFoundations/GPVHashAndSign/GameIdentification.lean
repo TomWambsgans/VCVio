@@ -412,8 +412,8 @@ theorem gpv_realGameVerifyFresh_le_progGameVerifyFresh_add_collisionBound
   have hgoalProg : Pr{let x ← progGameVerifyFresh psf hr M Salt adv domainSample pk}[x = true]
       = Pr{let x ← f <$> runProg}[x = true] := rfl
   rw [hgoal, hgoalProg]
-  rw [← ENNReal.ofReal_toReal probOutput_ne_top,
-      ← ENNReal.ofReal_toReal (a := Pr{let x ← f <$> runProg}[x = true]) probOutput_ne_top,
+  rw [← ENNReal.ofReal_toReal prEvent_ne_top,
+      ← ENNReal.ofReal_toReal (a := Pr{let x ← f <$> runProg}[x = true]) prEvent_ne_top,
       ← ENNReal.ofReal_toReal hcb_lt_top.ne,
       ← ENNReal.ofReal_add ENNReal.toReal_nonneg ENNReal.toReal_nonneg]
   refine ENNReal.ofReal_le_ofReal ?_
@@ -475,7 +475,7 @@ theorem withStateOracle_evalSPMF_liftM_bind {ι : Type} {hashSpec : OracleSpec �
       = (𝒮[oa] : SPMF α) >>= fun x =>
           (SemanticsVia.withStateOracle hashImpl ∅).evalSPMF (rest x) := by
   classical
-  unfold SPMFSemantics.evalSPMF SemanticsVia.withStateOracle
+  unfold SemanticsVia.evalSPMF SemanticsVia.withStateOracle
   simp only [SemanticsVia.denote]
   rw [simulateQ_bind, StateT.run'_eq, StateT.run_bind]
   rw [show simulateQ ((QueryImpl.ofLift unifSpec ProbComp).liftTarget
@@ -564,7 +564,7 @@ theorem runtime_evalSPMF_liftComp {α : Type} (ob : OracleComp (Salt × M →ₒ
           ∅) : SPMF α) := by
   classical
   unfold runtimeSemantics
-  unfold SPMFSemantics.evalSPMF SemanticsVia.withStateOracle
+  unfold SemanticsVia.evalSPMF SemanticsVia.withStateOracle
   simp only [SemanticsVia.denote]
   rw [QueryImpl.simulateQ_add_liftComp_right]
 

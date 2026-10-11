@@ -87,10 +87,10 @@ lemma reservoir_embed_commute_winner_floorFree [DecidableEq Domain] [Inhabited R
   --
   -- **Fold the `y`-average into a single front draw.** The right-hand `∑' y`
   -- weighted by `Pr{let x ← $ᵗ Range}[x = y]` is exactly the output probability of the bind that draws
-  -- `y ← $ᵗ Range` first and then runs the per-target win game (`probOutput_bind_eq_tsum`).  This
+  -- `y ← $ᵗ Range` first and then runs the per-target win game (`OracleComp.prEvent_bind_eq_tsum`).  This
   -- puts the right side in the *front-loaded* form `Pr{let x ← y ← $ᵗ Range; …}[x = true]`, matching the
   -- trap run's inline `v⋆ ← $ᵗ Range` up to the adaptive count-`j` position.
-  rw [← probOutput_bind_eq_tsum]
+  rw [← OracleComp.prEvent_bind_eq_tsum]
   -- **The adaptive count-`j` front-loading, via the front-draw lift.**
   --
   -- The goal is now `LHS_trap ≤ Pr[= true | y ← $ᵗ Range; x ← trapdoorSample pk sk y;
@@ -189,9 +189,9 @@ lemma reservoir_embed_commute_winner_floorFree [DecidableEq Domain] [Inhabited R
       · rw [hy]
       · simp only [Option.some.injEq, hy, decide_false, Bool.and_false]
         rw [OracleComp.DeferredSampling.evalSPMF_bind_const_neverFails _
-            ((hNF y).probFailure_eq_zero),
+            ((hNF y).OracleComp.prFail_eq_zero),
           OracleComp.DeferredSampling.evalSPMF_bind_const_neverFails _
-            ((hNF yv).probFailure_eq_zero)]]
+            ((hNF yv).OracleComp.prFail_eq_zero)]]
   -- **Index-augment the embed run and restrict the win to the winner slot.**
   -- The win predicate `decide (r.1.2.2 = x) && decide (r.2.1 (forged) = some y)` reads only the
   -- embed run *output* `r.1.2.2` and *cache* `r.2.1`, both of which are recovered from the
@@ -490,7 +490,7 @@ lemma reservoir_embed_commute_residual [DecidableEq Domain] [Inhabited Range]
       have htrap_eq : trap = Pr{let x ← augRun}[Paug x] := by
         rw [htrapdef, ← map_run_progGameRunImplCombinedTrapCount_proj psf M Salt pk sk
           (adv.main pk) (((((∅ : (Salt × M →ₒ Range).QueryCache), (∅ : Finset M)), false),
-            fun _ => none), (fun _ => none), 0), probEvent_map]
+            fun _ => none), (fun _ => none), 0), prEvent_map]
         rfl
       rw [htrap_eq]
       -- Every positive-probability trap outcome has a recorded forged-point index.
@@ -498,7 +498,7 @@ lemma reservoir_embed_commute_residual [DecidableEq Domain] [Inhabited Range]
       intro w hw hPw
       have hmem : w ∈ support augRun := by
         by_contra hns
-        exact hw (probOutput_eq_zero_of_not_mem_support hns)
+        exact hw (prEvent_eq_zero_of_not_mem_support hns)
       have hinv := progGameRunImplCombinedTrapCount_idx_iff_table psf M Salt pk sk
         (adv.main pk) (((((∅ : (Salt × M →ₒ Range).QueryCache), (∅ : Finset M)), false),
           fun _ => none), (fun _ => none), 0) (by intro k; simp) w hmem (w.1.2.1, w.1.1)
@@ -592,13 +592,13 @@ lemma reservoir_embed_commute [DecidableEq Domain] [Inhabited Range]
       ∑' y : Range, Pr{let x ← ($ᵗ Range : ProbComp Range)}[x = y] * ?_ with wOpt y
   -- Per-target: dropping the conjunct `decide (r.2.1 (r.1.2.1, r.1.1) = some y)` only increases
   -- the winning mass (`probOutput` monotone over the conjoined Bool body).
-  rw [probOutput_bind_eq_tsum, probOutput_bind_eq_tsum]
+  rw [OracleComp.prEvent_bind_eq_tsum, OracleComp.prEvent_bind_eq_tsum]
   refine ENNReal.tsum_le_tsum fun x => ?_
   gcongr
-  rw [probOutput_bind_eq_tsum, probOutput_bind_eq_tsum]
+  rw [OracleComp.prEvent_bind_eq_tsum, OracleComp.prEvent_bind_eq_tsum]
   refine ENNReal.tsum_le_tsum fun r => ?_
   gcongr
-  rw [probOutput_pure, probOutput_pure]
+  rw [prEvent_pure, prEvent_pure]
   by_cases hxr : r.1.2.2 = x
   · simp only [hxr, decide_true, Bool.true_and]
     split <;> simp
@@ -673,7 +673,7 @@ lemma gpv_perKey_exactMatch_le_reservoir [DecidableEq Domain] [Inhabited Range]
     refine evalSPMF_bind_congr fun x _ => ?_
     refine evalSPMF_bind_congr fun wOpt _ => ?_
     -- The remaining `run >>= pure ∘ decide` factor is equidistributed under N4.
-    rw [evalSPMF_bind, evalSPMF_bind,
+    rw [evalDist_bind_of_discrete, evalDist_bind_of_discrete,
       evalSPMF_run_embedAtIndexImpl_eq_embedTrap psf M Salt domainSample pk sk
         (wOpt.getD (qSign + qHash)) y hreg hNF (adv.main pk)
         ((∅ : (Salt × M →ₒ Range).QueryCache), (0 : ℕ))]
@@ -706,9 +706,9 @@ lemma gpv_perKey_exactMatch_le_reservoir [DecidableEq Domain] [Inhabited Range]
             ((∅ : (Salt × M →ₒ Range).QueryCache), (0 : ℕ))
           pure (decide (r.1.2.2 = x)) : ProbComp Bool)}[y = true] := by
     intro i
-    rw [probOutput_bind_eq_tsum]
-    simp_rw [probOutput_bind_eq_tsum (reservoirWinnerIndex (qSign + qHash)),
-      probOutput_bind_eq_tsum (psf.trapdoorSample pk sk i), ← ENNReal.tsum_mul_left, ← mul_assoc]
+    rw [OracleComp.prEvent_bind_eq_tsum]
+    simp_rw [OracleComp.prEvent_bind_eq_tsum (reservoirWinnerIndex (qSign + qHash)),
+      OracleComp.prEvent_bind_eq_tsum (psf.trapdoorSample pk sk i), ← ENNReal.tsum_mul_left, ← mul_assoc]
     rw [ENNReal.tsum_comm]
     exact tsum_congr fun wOpt => tsum_congr fun x => by ring
   -- Reassociate the per-target sum into the multi-target factor times the reservoir/target average

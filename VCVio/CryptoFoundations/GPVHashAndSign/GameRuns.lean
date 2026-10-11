@@ -172,7 +172,7 @@ theorem withStateOracle_evalSPMF_eq {ι : Type} {hashSpec : OracleSpec ι} {σ :
           (simulateQ
             ((QueryImpl.ofLift unifSpec ProbComp).liftTarget (StateT σ ProbComp) + hashImpl)
             mx) s) : SPMF α) := by
-  unfold SPMFSemantics.evalSPMF SemanticsVia.withStateOracle
+  unfold SemanticsVia.evalSPMF SemanticsVia.withStateOracle
   simp only [SemanticsVia.denote]
 
 /-- **WriterT-log discard across a substituting oracle (general).**
@@ -342,7 +342,7 @@ theorem realGameRun_eq_simulateQ_run
                 psf hr M Salt).signingOracle pk sk))
             (adv.main pk)).run >>= fun p => pure p.1) from rfl]
   rw [GPVHashAndSign.runtimeSemantics]
-  rw [SPMFSemantics.withStateOracle_evalSPMF_bind_pure]
+  rw [SemanticsVia.withStateOracle_evalSPMF_bind_pure]
 
 open Classical in
 omit [Fintype Salt] in
@@ -373,7 +373,7 @@ theorem realGameRun_eq_withStateOracle_implNoLog
         (randomOracle : QueryImpl (Salt × M →ₒ Range)
           (StateT ((Salt × M →ₒ Range).QueryCache) ProbComp)) ∅).evalSPMF
         (simulateQ (realGameRunImplNoLog psf hr M Salt pk sk) (adv.main pk)) := by
-  rw [realGameRun_eq_simulateQ_run, ← SPMFSemantics.withStateOracle_evalSPMF_map,
+  rw [realGameRun_eq_simulateQ_run, ← SemanticsVia.withStateOracle_evalSPMF_map,
     realGameRun_writerLog_discard]
 
 /-! ### Dropping the preimage-record component of `progGameRun`
@@ -762,7 +762,7 @@ theorem evalSPMF_gpvImplTape_run_sign_miss_eq (pk : PK) (sk : SK)
               : ProbComp (Range × Domain))) := by
     simp only [hg, map_eq_bind_pure_comp, bind_assoc, pure_bind, Function.comp_def]
   refine hLHS.trans (Eq.trans ?_ hRHS.symm)
-  exact evalSPMF_map_eq_of_evalSPMF_eq hreg.symm g
+  exact EvalDistEq.map hreg.symm g
 
 /-! ### Flag-instrumented tape handlers (the identical-until-bad collision flag)
 
@@ -1043,7 +1043,7 @@ theorem evalSPMF_gpvImplTapeFlag_run_sign_offbad_eq (pk : PK) (sk : SK)
   -- The flag post-processing is the same `false`-OR on both sides: simplify it away.
   simp only [Bool.false_or, hkey]
   -- Both reduce to the flag-tagging map applied to the agreeing underlying signing steps.
-  exact evalSPMF_map_eq_of_evalSPMF_eq
+  exact EvalDistEq.map
     (evalSPMF_gpvImplTape_run_sign_miss_eq psf M Salt pk sk domainSample msg r tl cache hmiss hreg)
     _
 

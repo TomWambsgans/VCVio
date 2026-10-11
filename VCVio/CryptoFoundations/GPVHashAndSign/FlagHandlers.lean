@@ -293,7 +293,7 @@ theorem evalSPMF_gpvImplFlag_run_sign_offbad_eq (pk : PK) (sk : SK)
               : ProbComp (Range × Domain))) := by
     simp only [hg, map_eq_bind_pure_comp, bind_assoc, pure_bind, Function.comp_def]
   refine hLHS.trans (Eq.trans ?_ hRHS.symm)
-  exact evalSPMF_map_eq_of_evalSPMF_eq hreg.symm g
+  exact EvalDistEq.map hreg.symm g
 
 omit [Fintype Salt] in
 open Classical in
@@ -324,7 +324,7 @@ theorem evalSPMF_gpvImpl_run_read_eq (pk : PK) (sk : SK) (domainSample : PK → 
         = 𝒮[(fun w : Range => (w, cache.cacheQuery mc w)) <$> ($ᵗ Range : ProbComp Range)] := rfl
       _ = 𝒮[(fun w : Range => (w, cache.cacheQuery mc w)) <$>
             (do let sd ← domainSample pk; pure (psf.eval pk sd) : ProbComp Range)] :=
-          evalSPMF_map_eq_of_evalSPMF_eq hfst.symm _
+          EvalDistEq.map hfst.symm _
       _ = 𝒮[(fun sd : Domain => (psf.eval pk sd, cache.cacheQuery mc (psf.eval pk sd))) <$>
             (domainSample pk : ProbComp Domain)] := by
           simp only [map_eq_bind_pure_comp, bind_assoc, pure_bind, Function.comp_def]
@@ -378,7 +378,7 @@ theorem gpvImplFlag_h_agree_good (pk : PK) (sk : SK) (domainSample : PK → Prob
       -- unkeyed `r` ⇒ flag stays `false` ⇒ bodies agree by the inline-salt signing-miss bridge.
       rw [gpvRealImplFlag_run_inr, progGameRunImplNoRecFlag_run_inr]
       simp only [Bool.false_or]
-      rw [probOutput_bind_eq_tsum, probOutput_bind_eq_tsum]
+      rw [OracleComp.prEvent_bind_eq_tsum, OracleComp.prEvent_bind_eq_tsum]
       refine tsum_congr (fun r => ?_)
       refine congrArg _ ?_
       rcases hkey : saltKeyed M Salt s r with _ | _
@@ -388,7 +388,7 @@ theorem gpvImplFlag_h_agree_good (pk : PK) (sk : SK) (domainSample : PK → Prob
           (evalSPMF_gpvImplFlag_run_sign_offbad_eq psf M Salt pk sk domainSample
             msg r s hmiss hreg)
       · -- Keyed salt `r`: the flag fires (`true`); the `false`-flag output has probability `0`.
-        rw [probOutput_eq_zero_of_not_mem_support, probOutput_eq_zero_of_not_mem_support]
+        rw [prEvent_eq_zero_of_not_mem_support, prEvent_eq_zero_of_not_mem_support]
         · -- Real side support: every output carries flag `true`.
           intro hmem
           simp only [support_bind, support_pure, Set.mem_iUnion, Set.mem_singleton_iff,
@@ -562,7 +562,7 @@ theorem gpv_orig_flag_le_collisionBound_aux
         simp only [OracleQuery.input_query, monadLift_self,
           gpvRealImplFlag_run_inl, gpvRealImpl_run_unif, map_eq_bind_pure_comp, bind_assoc,
           Function.comp_apply, pure_bind]
-        refine probEvent_bind_le_of_forall_le (fun x hx => ?_)
+        refine prEvent_bind_le_of_forall_le (fun x hx => ?_)
         exact ih _ cache m qS qH (by simpa using hQS2 _) (by simpa using hQH2 _) hcard
       · -- random-oracle read: flag untouched, cache slice grows ≤ 1
         have hqH : 0 < qH := by
@@ -570,7 +570,7 @@ theorem gpv_orig_flag_le_collisionBound_aux
         simp only [OracleQuery.input_query, monadLift_self,
           gpvRealImplFlag_run_inl, gpvRealImpl_run_read]
         rw [map_eq_bind_pure_comp, bind_assoc]
-        refine probEvent_bind_le_of_forall_le (fun p hp => ?_)
+        refine prEvent_bind_le_of_forall_le (fun p hp => ?_)
         simp only [Function.comp_apply, pure_bind]
         have hbS := hQS2 p.1
         have hbH := hQH2 p.1
@@ -622,9 +622,9 @@ theorem gpv_orig_flag_le_collisionBound_aux
             (fun z _ => by cases h : z.2.2 <;> simp) rfl)) ?_
           -- Bound the continuation pointwise over the signing-step outputs.
           rw [bind_assoc]
-          refine probEvent_bind_le_of_forall_le (fun p hp => ?_)
+          refine prEvent_bind_le_of_forall_le (fun p hp => ?_)
           rw [bind_assoc]
-          refine probEvent_bind_le_of_forall_le (fun sgn _ => ?_)
+          refine prEvent_bind_le_of_forall_le (fun sgn _ => ?_)
           rw [pure_bind]
           -- On the off-collision branch the flag stays false; the cache `p.2` grew by ≤ 1.
           simp only [hr, Bool.or_false]
@@ -765,14 +765,14 @@ theorem probEvent_flag_bind_no_sign_le (pk : PK) (sk : SK)
       ≤ Pr{let w ← (simulateQ (gpvRealImplFlag psf hr M Salt pk sk) oa).run (cache, b)}[w.2.2 = true] := by
   classical
   rw [simulateQ_bind, StateT.run_bind]
-  rw [probEvent_bind_eq_tsum, probEvent_eq_tsum_ite]
+  rw [OracleComp.prEvent_bind_eq_tsum, OracleComp.prEvent_eq_tsum_ite]
   refine ENNReal.tsum_le_tsum fun w => ?_
   -- Inner event probability is `≤ 1{w.2.2 = true}`: on every support point the flag equals `w.2.2`.
   have hinner :
       Pr{let z ← (simulateQ (gpvRealImplFlag psf hr M Salt pk sk) (kont w.1)).run w.2}[z.2.2 = true]
         ≤ (if w.2.2 = true then 1 else 0) := by
     by_cases hw : w.2.2 = true
-    · rw [ite_eq_left hw]; exact probEvent_le_one
+    · rw [ite_eq_left hw]; exact prEvent_le_one
     · rw [ite_eq_right hw]
       refine le_of_eq (probEvent_eq_zero_iff.2 (fun z hz => ?_))
       obtain ⟨a, c', b'⟩ := w
@@ -842,7 +842,7 @@ theorem gpv_tvDist_orig_verify_le_collisionBound [Nonempty Salt]
     have hne : (collisionBound Salt qSign qHash) ≠ ⊤ := by
       unfold collisionBound
       exact ENNReal.div_ne_top (by simp) (by simp [Fintype.card_ne_zero])
-    exact (ENNReal.toReal_le_toReal probEvent_ne_top hne).mp hreal
+    exact (ENNReal.toReal_le_toReal prEvent_ne_top hne).mp hreal
 
 /-! ### Freshness-tracking vehicle (the signed-set product factor)
 
@@ -1124,7 +1124,7 @@ theorem evalSPMF_gpvImplFlagFresh_run_sign_offbad_eq (pk : PK) (sk : SK)
               (Salt × Domain) × ((Salt × M →ₒ Range).QueryCache × Bool)))) := by
     simp only [hg, map_bind, map_pure]
   rw [hL, hR]
-  exact evalSPMF_map_eq_of_evalSPMF_eq hbase g
+  exact EvalDistEq.map hbase g
 
 omit [Fintype Salt] in
 open Classical in
@@ -1168,7 +1168,7 @@ theorem gpvImplFlagFresh_h_agree_good (pk : PK) (sk : SK) (domainSample : PK →
       -- unkeyed `r` ⇒ flag stays `false`, signed-set inserts `msg`, bodies agree.
       rw [gpvRealImplFlagFresh_run_inr, progGameRunImplNoRecFlagFresh_run_inr]
       simp only [Bool.false_or]
-      rw [probOutput_bind_eq_tsum, probOutput_bind_eq_tsum]
+      rw [OracleComp.prEvent_bind_eq_tsum, OracleComp.prEvent_bind_eq_tsum]
       refine tsum_congr (fun r => ?_)
       refine congrArg _ ?_
       rcases hkey : saltKeyed M Salt s.1 r with _ | _
@@ -1178,7 +1178,7 @@ theorem gpvImplFlagFresh_h_agree_good (pk : PK) (sk : SK) (domainSample : PK →
           (evalSPMF_gpvImplFlagFresh_run_sign_offbad_eq psf M Salt pk sk domainSample
             msg r s.2 s.1 hmiss hreg)
       · -- Keyed salt `r`: the flag fires (`true`); the `false`-flag output has probability `0`.
-        rw [probOutput_eq_zero_of_not_mem_support, probOutput_eq_zero_of_not_mem_support]
+        rw [prEvent_eq_zero_of_not_mem_support, prEvent_eq_zero_of_not_mem_support]
         · intro hmem
           simp only [support_bind, support_pure, Set.mem_iUnion, Set.mem_singleton_iff,
             Prod.mk.injEq] at hmem
@@ -1207,7 +1207,7 @@ lemma probEvent_flag_gpvRealImplFlagFresh_eq (pk : PK) (sk : SK)
             (fun s : ((Salt × M →ₒ Range).QueryCache × Finset M) × Bool => (s.1.1, s.2))) <$>
             (simulateQ (gpvRealImplFlagFresh psf hr M Salt pk sk) oa).run
               ((cache, sgnSet), b))}[w.2.2 = true] := by
-        rw [probEvent_map]; rfl
+        rw [prEvent_map]; rfl
     _ = Pr{let w ← (simulateQ (gpvRealImplFlag psf hr M Salt pk sk) oa).run (cache, b)}[w.2.2 = true] := by
         rw [hmap]
 
@@ -1274,7 +1274,7 @@ theorem gpv_tvDist_orig_verify_fresh_le_collisionBound [Nonempty Salt]
     have hne : (collisionBound Salt qSign qHash) ≠ ⊤ := by
       unfold collisionBound
       exact ENNReal.div_ne_top (by simp) (by simp [Fintype.card_ne_zero])
-    exact (ENNReal.toReal_le_toReal probEvent_ne_top hne).mp hreal
+    exact (ENNReal.toReal_le_toReal prEvent_ne_top hne).mp hreal
 
 open Classical in
 /-- **Flag-free freshness-tracking real handler.** `gpvRealImplFlagFresh` with the passive

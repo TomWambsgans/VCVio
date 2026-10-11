@@ -317,7 +317,7 @@ theorem tsum_probOutput_uniformSample_ite (s : Finset Salt) (q : ℝ≥0∞) :
   set p : ℝ≥0∞ := ((s.card : ℝ≥0∞) / (Fintype.card Salt : ℝ≥0∞)) with hp
   have hp_le : p ≤ 1 := by
     rw [hp, ← probEvent_mem_uniformSample (Salt := Salt) s]
-    exact probEvent_le_one
+    exact prEvent_le_one
   have hmem : Pr{let x ← ($ᵗ Salt : ProbComp Salt)}[x ∈ s] = p := by
     rw [hp]; exact probEvent_mem_uniformSample (Salt := Salt) s
   have hcompl : Pr{let x ← ($ᵗ Salt : ProbComp Salt)}[x ∉ s] = 1 - p := by
@@ -335,13 +335,13 @@ theorem tsum_probOutput_uniformSample_ite (s : Finset Salt) (q : ℝ≥0∞) :
   simp_rw [hsplit]
   rw [ENNReal.tsum_add]
   congr 1
-  · rw [← probEvent_eq_tsum_ite]; exact hmem
+  · rw [← OracleComp.prEvent_eq_tsum_ite]; exact hmem
   · have hre : ∀ x : Salt,
         (if x ∈ s then 0 else Pr{let y ← ($ᵗ Salt : ProbComp Salt)}[y = x] * q)
           = (if x ∉ s then Pr{let y ← ($ᵗ Salt : ProbComp Salt)}[y = x] else 0) * q := by
       intro x; by_cases hx : x ∈ s <;> simp [hx]
     simp_rw [hre]
-    rw [ENNReal.tsum_mul_right, ← probEvent_eq_tsum_ite (p := (· ∉ s)), hcompl]
+    rw [ENNReal.tsum_mul_right, ← OracleComp.prEvent_eq_tsum_ite (p := (· ∉ s)), hcompl]
 
 open Classical in
 /-- **Exact one-step recursion of the salt-collision probability.** The probability that the
@@ -362,7 +362,7 @@ theorem probEvent_saltSeq_succ (c : ℕ → Finset Salt) (n : ℕ) :
   set q : ℝ≥0∞ := Pr{let x ← saltSeq (Salt := Salt) c n}[x = true] with hq
   -- Expand the head draw.
   conv_lhs => rw [saltSeq]
-  rw [probEvent_bind_eq_tsum]
+  rw [OracleComp.prEvent_bind_eq_tsum]
   -- Per-`r` inner probability: `1` if `r ∈ c n`, else `q`.
   have hinner : ∀ r : Salt,
       Pr{let x ← (saltSeq (Salt := Salt) c n >>=
@@ -525,9 +525,9 @@ theorem evalSPMF_signRunF_bind_const {St γ : Type}
   have := signRunF_neverFail (Salt := Salt) step c n sb
   refine SPMF.ext fun x => ?_
   set sr := signRunF (Salt := Salt) step c n sb with hsr
-  rw [show 𝒮[sr >>= fun _ => k] x = Pr{let y ← sr >>= fun _ => k}[y = x] from (probOutput_def _ _).symm,
-    show 𝒮[k] x = Pr{let y ← k}[y = x] from (probOutput_def _ _).symm,
-    probOutput_bind_const, probFailure_eq_zero]
+  rw [show 𝒮[sr >>= fun _ => k] x = Pr{let y ← sr >>= fun _ => k}[y = x] from (prEvent_eq_evalDist_singleton _ _).symm,
+    show 𝒮[k] x = Pr{let y ← k}[y = x] from (prEvent_eq_evalDist_singleton _ _).symm,
+    prEvent_bind_const, OracleComp.prFail_eq_zero]
   simp
 
 omit [DecidableEq Salt] [SampleableType Salt] [Fintype Salt] in
@@ -540,13 +540,13 @@ theorem tvDist_bind_le_of_forall_le {α β : Type} (mx : ProbComp α) (f g : α 
     tvDist (mx >>= f) (mx >>= g) ≤ δ := by
   refine le_trans (tvDist_bind_left_le mx f g) ?_
   have hbase : Summable (fun a : α => Pr{let x ← mx}[x = a].toReal) :=
-    ENNReal.summable_toReal (ne_top_of_le_ne_top one_ne_top tsum_probOutput_le_one)
+    ENNReal.summable_toReal (ne_top_of_le_ne_top one_ne_top OracleComp.tsum_prEvent_le_one)
   have hsum_le_one : ∑' a : α, Pr{let x ← mx}[x = a].toReal ≤ 1 := by
     have h1 : (∑' a : α, Pr{let x ← mx}[x = a].toReal) = (∑' a : α, Pr{let x ← mx}[x = a]).toReal :=
-      (ENNReal.tsum_toReal_eq (fun a => ne_top_of_le_ne_top one_ne_top probOutput_le_one)).symm
+      (ENNReal.tsum_toReal_eq (fun a => ne_top_of_le_ne_top one_ne_top prEvent_le_one)).symm
     rw [h1, ← ENNReal.toReal_one]
-    exact (ENNReal.toReal_le_toReal (ne_top_of_le_ne_top one_ne_top tsum_probOutput_le_one)
-      one_ne_top).2 tsum_probOutput_le_one
+    exact (ENNReal.toReal_le_toReal (ne_top_of_le_ne_top one_ne_top OracleComp.tsum_prEvent_le_one)
+      one_ne_top).2 OracleComp.tsum_prEvent_le_one
   calc ∑' a, Pr{let x ← mx}[x = a].toReal * tvDist (f a) (g a)
         ≤ ∑' a, Pr{let x ← mx}[x = a].toReal * δ :=
         Summable.tsum_le_tsum
@@ -599,8 +599,8 @@ theorem signRunF_tvDist_le_saltSeq_aux {St : Type} [Finite Salt]
       set p : ℝ≥0∞ := ((c n).card : ℝ≥0∞) / (Fintype.card Salt : ℝ≥0∞) with hp
       have hp_le : p ≤ 1 := by
         rw [hp, ← probEvent_mem_uniformSample (Salt := Salt) (c n)]
-        exact probEvent_le_one
-      have hq_le : q ≤ 1 := by rw [hq]; exact probEvent_le_one
+        exact prEvent_le_one
+      have hq_le : q ≤ 1 := by rw [hq]; exact prEvent_le_one
       -- Unfold one step on both sides; the salt draw `r ← $ᵗ Salt` is shared.
       rw [signRunF, signRunF]
       -- Per-`r` continuation bound.
@@ -632,7 +632,7 @@ theorem signRunF_tvDist_le_saltSeq_aux {St : Type} [Finite Salt]
               (stepProg n st r >>= fun st' =>
                 signRunF (Salt := Salt) stepProg c n (st', b || decide (r ∈ c n)))
               = 0 := by
-            rw [tvDist_eq_zero_iff, evalSPMF_bind, evalSPMF_bind, h_step n st r hr]
+            rw [tvDist_eq_zero_iff, evalDist_bind_of_discrete, evalDist_bind_of_discrete, h_step n st r hr]
           rw [hhead, add_zero]
           exact htail
       -- Normalize the product projections `(st, b).1`, `(st, b).2` to `st`, `b`.
@@ -645,9 +645,9 @@ theorem signRunF_tvDist_le_saltSeq_aux {St : Type} [Finite Salt]
       -- `q.toReal ≤ 1` and base summability.
       have hq_toReal_le : q.toReal ≤ 1 := by
         rw [← ENNReal.toReal_one]
-        exact (ENNReal.toReal_le_toReal probEvent_ne_top one_ne_top).2 hq_le
+        exact (ENNReal.toReal_le_toReal prEvent_ne_top one_ne_top).2 hq_le
       have hbase : Summable (fun a : Salt => Pr{let x ← ($ᵗ Salt : ProbComp Salt)}[x = a].toReal) :=
-        ENNReal.summable_toReal (ne_top_of_le_ne_top one_ne_top tsum_probOutput_le_one)
+        ENNReal.summable_toReal (ne_top_of_le_ne_top one_ne_top OracleComp.tsum_prEvent_le_one)
       have hcap : ∀ a : Salt, (if a ∈ c n then (1 : ℝ) else q.toReal) ≤ 1 := by
         intro a; split_ifs with ha
         · exact le_refl 1
@@ -684,8 +684,8 @@ theorem signRunF_tvDist_le_saltSeq_aux {St : Type} [Finite Salt]
       simp_rw [hterm_toReal]
       -- Pull the `toReal` out of the sum (each term is finite), evaluate, and identify.
       rw [← ENNReal.tsum_toReal_eq (fun i => ENNReal.mul_ne_top
-        (ne_top_of_le_ne_top one_ne_top probOutput_le_one) (by
-          split_ifs <;> [exact one_ne_top; exact probEvent_ne_top])),
+        (ne_top_of_le_ne_top one_ne_top prEvent_le_one) (by
+          split_ifs <;> [exact one_ne_top; exact prEvent_ne_top])),
         tsum_probOutput_uniformSample_ite (Salt := Salt) (c n) q, ← probEvent_saltSeq_succ]
 
 omit [Fintype Salt] in

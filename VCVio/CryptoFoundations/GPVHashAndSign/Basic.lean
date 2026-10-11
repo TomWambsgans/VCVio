@@ -150,7 +150,7 @@ forwarded and hash queries are answered by the lazy random oracle from the empty
 measure-valued `runtime` observes the same simulation (`runtime_evalDist_singleton`); the game
 hops are stated against this distribution. -/
 @[expose] noncomputable def runtimeSemantics :
-    SPMFSemantics (OracleComp (unifSpec + (Salt × M →ₒ Range))) :=
+    SemanticsVia (OracleComp (unifSpec + (Salt × M →ₒ Range))) :=
   SemanticsVia.withStateOracle
     (hashImpl := (randomOracle :
       QueryImpl (Salt × M →ₒ Range) (StateT ((Salt × M →ₒ Range).QueryCache) ProbComp)))

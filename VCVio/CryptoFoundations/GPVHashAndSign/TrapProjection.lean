@@ -72,7 +72,7 @@ theorem evalSPMF_map_run_simulateQ_eq_of_query_evalSPMF_map_eq
             = ((Prod.map id proj <$> (impl₁ t).run s) >>= fun x =>
                 (simulateQ impl₂ (oa x.1)).run x.2) from by
         rw [bind_map_left]; rfl]
-      rw [evalSPMF_bind, hproj t s, ← evalSPMF_bind]
+      rw [evalDist_bind_of_discrete, hproj t s, ← evalDist_bind_of_discrete]
 
 omit [DecidableEq Range] [Fintype Salt] in
 /-- **Per-query trap-count → fresh-sig distribution projection.** Dropping the freshness Bool flag
@@ -110,7 +110,7 @@ lemma progGameRunImplCombinedTrapCount_freshSig_proj (pk : PK) (sk : SK)
               rw [map_eq_bind_pure_comp]
               refine evalSPMF_bind_congr' _ (fun v => ?_)
               rw [OracleComp.DeferredSampling.evalSPMF_bind_const_neverFails
-                (psf.trapdoorSample pk sk v) (hNF v).probFailure_eq_zero _]
+                (psf.trapdoorSample pk sk v) (hNF v).OracleComp.prFail_eq_zero _]
               rfl
           | some v => simp [Prod.map]
   | inr msg =>
@@ -199,7 +199,7 @@ lemma freshSig_winnerSlot_deferred_le_embed [DecidableEq Domain] [Inhabited Rang
       ((((∅, 0), fun _ => none), ∅))).symm]
   rw [bind_map_left]
   -- Express the win mass as a `tsum` over the Sig run output and compare termwise.
-  rw [probOutput_bind_eq_tsum]
+  rw [OracleComp.prEvent_bind_eq_tsum]
   refine ENNReal.tsum_le_tsum fun w => ?_
   simp only [Prod.map, id_eq]
   -- Compare `Pr{let x ← run}[x = w] · Wf w ≤ Pr{let x ← run}[x = w] · winContinuation w`; off-support both vanish,
@@ -216,7 +216,7 @@ lemma freshSig_winnerSlot_deferred_le_embed [DecidableEq Domain] [Inhabited Rang
       have hcache : w.2.1.1.1 (w.1.2.1, w.1.1) = some y :=
         embedTrapIdxSigImpl_fresh_idx_cache_eq psf M Salt pk sk j y (adv.main pk) w hsupp
           (w.1.2.1, w.1.1) hidx hfresh
-      rw [ite_eq_left ⟨hfresh, hidx⟩, probOutput_bind_eq_tsum]
+      rw [ite_eq_left ⟨hfresh, hidx⟩, OracleComp.prEvent_bind_eq_tsum]
       -- The continuation `pure (decide (dom = x) && decide (cache = some y) && decide (idx = j))`
       -- has both run-only literals `true`; it reduces to matching `dom = x`, so the `tsum` over `x`
       -- collapses to the single diagonal term at `x = dom`.
@@ -230,7 +230,7 @@ lemma freshSig_winnerSlot_deferred_le_embed [DecidableEq Domain] [Inhabited Rang
       simp only [Set.indicator_apply, Set.mem_singleton_iff, eq_comm (a := true),
         decide_eq_true_eq, ite_true, Function.const_apply, mul_one]
     · rw [ite_eq_right hWf]; exact zero_le
-  · rw [probOutput_eq_zero_of_not_mem_support hsupp, zero_mul]; exact zero_le
+  · rw [prEvent_eq_zero_of_not_mem_support hsupp, zero_mul]; exact zero_le
 
 omit [DecidableEq Range] [Fintype Salt] in
 /-- **The signed set only grows along the trap-count run.**  Every reachable final state's signed
@@ -470,7 +470,7 @@ lemma progGameRunImplCombinedTrapCount_table_frozen_eq (pk : PK) (sk : SK)
     · obtain ⟨-, htbl⟩ := progGameRunImplCombinedTrapCount_frozen psf M Salt pk sk k₀ oa s hs z hz
         hzfresh
       rw [htbl]; ring
-  · rw [probOutput_eq_zero_of_not_mem_support hz]; ring
+  · rw [prEvent_eq_zero_of_not_mem_support hz]; ring
 
 open Classical in
 omit [DecidableEq Range] [Fintype Salt] in
@@ -633,7 +633,7 @@ lemma progGameRunImplCombinedTrapCount_table_defer (pk : PK) (sk : SK)
                         sk mc (mx v) _ hpostc z hz hzfresh
                       rw [hzcache]
                       simp only [QueryCache.cacheQuery_self]; ring
-                  · rw [probOutput_eq_zero_of_not_mem_support hz]; ring
+                  · rw [prEvent_eq_zero_of_not_mem_support hz]; ring
                 -- **Combine.**  Per `x`, the inner sum is `Pr{let x ← trapdoorSample v}[x = sStar] · Q x` on
                 -- the right and `1_{x = sStar} · Q x` on the left, and `Q` is table-independent
                 -- (`progGameRunImplCombinedTrapCount_table_indep`), so `Q x = Q sStar`; integrating
@@ -656,7 +656,7 @@ lemma progGameRunImplCombinedTrapCount_table_defer (pk : PK) (sk : SK)
                     rw [ite_eq_left rfl, one_mul]]
                 -- RHS: `∑' x, Pr[= x] · (Pr{let x ← trapdoor v}[x = sStar] · Q sStar) = 1 · (… · Q)`.
                 rw [ENNReal.tsum_mul_right,
-                  tsum_probOutput_eq_one' (hNF v).probFailure_eq_zero, one_mul]
+                  OracleComp.tsum_prEvent_eq_one (hNF v).OracleComp.prFail_eq_zero, one_mul]
               · -- Miss at `mc ≠ k₀`: `cache(k₀)` stays `none`; apply the IH at the post-state.
                 rw [OracleComp.tsum_prEvent_bind_mul,
                   OracleComp.tsum_prEvent_bind_mul]
@@ -704,7 +704,7 @@ lemma progGameRunImplCombinedTrapCount_table_defer (pk : PK) (sk : SK)
               have hmem : k₀.2 ∈ z.2.1.1.1.2 :=
                 hgrow (by simp only [hmsg, Finset.mem_insert, true_or])
               rw [hGfresh z.1 _ hmem]; ring
-            · rw [probOutput_eq_zero_of_not_mem_support hz]; ring
+            · rw [prEvent_eq_zero_of_not_mem_support hz]; ring
           · -- `msg ≠ k₀.2` forces `(r, msg) ≠ k₀`, so `cache(k₀)` stays `none`; apply the IH.
             rw [OracleComp.tsum_prEvent_bind_mul,
               OracleComp.tsum_prEvent_bind_mul]
@@ -835,7 +835,7 @@ lemma trap_freshSig_le_winnerSlot_deferred [Inhabited Range]
   -- draw via `evalSPMF_bind_const_neverFails`; the defer-to-end induction over the trap run that
   -- keeps the deferred draw is `progGameRunImplCombinedTrapCount_table_defer`.  Below the FRESH
   -- conjunct `w.1.1 ∉ w.2.1.1.1.2` is carried throughout.
-  rw [probEvent_eq_tsum_ite]
+  rw [OracleComp.prEvent_eq_tsum_ite]
   refine le_of_eq ?_
   classical
   -- Decompose the output-dependent forged-key indicator over a fixed key/value pair `p`, swap the
@@ -944,7 +944,7 @@ lemma trap_freshSig_le_winnerSlot_deferred [Inhabited Range]
           (fun k x hx => by simp at hx) z hzrun (z.1.2.1, z.1.1) xv htbleq
         rw [hcache, Option.getD_some]; ring
       · simp only [ite_eq_right hfi, zero_mul, mul_zero]
-    · rw [probOutput_eq_zero_of_not_mem_support hz]; ring
+    · rw [prEvent_eq_zero_of_not_mem_support hz]; ring
   -- **Combine.**  `LHS = (hLHSdecomp) ∑∑ indicator = (hbridge) ∑∑ deferred = (hRHSdecomp) RHS`.
   rw [hLHSdecomp]
   rw [show (∑' p : (Salt × M) × Domain, ∑' z, Pr{let x ← run}[x = z] *

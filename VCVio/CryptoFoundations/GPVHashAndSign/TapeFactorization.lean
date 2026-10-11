@@ -93,7 +93,7 @@ theorem evalSPMF_gpvSignStep_commute_real {γ : Type} (pk : PK) (sk : SK) (msg :
   -- and the RHS front draw block (via `drawList_salt_succ`) both begin with `r ← $ᵗ Salt`.
   rw [gpvRealImpl_run_sign, drawList_salt_succ]
   simp only [bind_assoc, map_bind, pure_bind]
-  refine OracleComp.DeferredSampling.evalSPMF_bind_congr_left _ _ _ (fun r => ?_)
+  refine OracleComp.DeferredSampling.EvalDistEq.bind_right _ _ _ (fun r => ?_)
   -- Both sides reduce to a common middle form: draw the `qSrem` salt tape, then the random-oracle
   -- answer and the trapdoor preimage `s`, then run the tape continuation `ob (r, s)`.
   -- LHS reaches it by applying `hcont` under the two leading draws and commuting the front block to
@@ -114,8 +114,8 @@ theorem evalSPMF_gpvSignStep_commute_real {γ : Type} (pk : PK) (sk : SK) (msg :
             OracleComp.drawList ($ᵗ Salt : ProbComp Salt) qSrem >>= fun tl =>
               (fun pp : γ × ((Salt × M →ₒ Range).QueryCache × List Salt) => (pp.1, pp.2.1)) <$>
                 (simulateQ (gpvRealImplTape psf M Salt pk sk) (ob (r, s))).run (p.2, tl)]
-      from OracleComp.DeferredSampling.evalSPMF_bind_congr_left _ _ _ (fun p =>
-        OracleComp.DeferredSampling.evalSPMF_bind_congr_left _ _ _ (fun s => hcont (r, s) p.2))]
+      from OracleComp.DeferredSampling.EvalDistEq.bind_right _ _ _ (fun p =>
+        OracleComp.DeferredSampling.EvalDistEq.bind_right _ _ _ (fun s => hcont (r, s) p.2))]
     -- Commute the innermost `drawList qSrem` past the trapdoor draw (under the random-oracle bind).
     rw [show 𝒮[(randomOracle (spec := (Salt × M →ₒ Range)) (r, msg)).run cache >>= fun p =>
           psf.trapdoorSample pk sk p.1 >>= fun s =>
@@ -127,7 +127,7 @@ theorem evalSPMF_gpvSignStep_commute_real {γ : Type} (pk : PK) (sk : SK) (msg :
             psf.trapdoorSample pk sk p.1 >>= fun s =>
               (fun pp : γ × ((Salt × M →ₒ Range).QueryCache × List Salt) => (pp.1, pp.2.1)) <$>
                 (simulateQ (gpvRealImplTape psf M Salt pk sk) (ob (r, s))).run (p.2, tl)]
-      from OracleComp.DeferredSampling.evalSPMF_bind_congr_left _ _ _ (fun p =>
+      from OracleComp.DeferredSampling.EvalDistEq.bind_right _ _ _ (fun p =>
         OracleComp.DeferredSampling.evalSPMF_bind_comm
           (psf.trapdoorSample pk sk p.1)
           (OracleComp.drawList ($ᵗ Salt : ProbComp Salt) qSrem)
@@ -159,7 +159,7 @@ theorem evalSPMF_gpvSignStep_commute_real {γ : Type} (pk : PK) (sk : SK) (msg :
               (simulateQ (gpvRealImplTape psf M Salt pk sk) (ob (r, s))).run (p.2, tl)) := by
       intro tl; simp only [bind_assoc, pure_bind]
     simp only [gpvRealImplTape_run_sign_cons, map_bind, map_pure]
-    exact OracleComp.DeferredSampling.evalSPMF_bind_congr_left _ _ _
+    exact OracleComp.DeferredSampling.EvalDistEq.bind_right _ _ _
       (fun tl => congrArg _ (hflat tl))
 
 omit [Fintype Salt] in
@@ -321,7 +321,7 @@ theorem evalSPMF_gpvSignStep_commute_prog {γ : Type} (domainSample : PK → Pro
   -- `progGameRunImplNoRec_run_sign`) and the RHS front draw block (via `drawList_salt_succ`).
   rw [progGameRunImplNoRec_run_sign, drawList_salt_succ]
   simp only [bind_assoc, map_bind, pure_bind]
-  refine OracleComp.DeferredSampling.evalSPMF_bind_congr_left _ _ _ (fun r => ?_)
+  refine OracleComp.DeferredSampling.EvalDistEq.bind_right _ _ _ (fun r => ?_)
   -- Both sides reduce to the drawList-outermost middle form. LHS: apply `hcont` under the
   -- `domainSample` draw, then commute the resulting `drawList qSrem` block to the front. RHS:
   -- flatten the consumed tape head (no reordering).
@@ -341,7 +341,7 @@ theorem evalSPMF_gpvSignStep_commute_prog {γ : Type} (domainSample : PK → Pro
             (fun pp : γ × ((Salt × M →ₒ Range).QueryCache × List Salt) => (pp.1, pp.2.1)) <$>
               (simulateQ (progGameRunImplTape psf M Salt domainSample pk) (ob (r, s))).run
                 (cache.cacheQuery (r, msg) (psf.eval pk s), tl)]
-      from OracleComp.DeferredSampling.evalSPMF_bind_congr_left _ _ _
+      from OracleComp.DeferredSampling.EvalDistEq.bind_right _ _ _
         (fun s => hcont (r, s) (cache.cacheQuery (r, msg) (psf.eval pk s)))]
     rw [OracleComp.DeferredSampling.evalSPMF_bind_comm
       (domainSample pk : ProbComp Domain)
@@ -352,7 +352,7 @@ theorem evalSPMF_gpvSignStep_commute_prog {γ : Type} (domainSample : PK → Pro
             (cache.cacheQuery (r, msg) (psf.eval pk s), tl))]
   · -- middle → RHS: flatten the consumed tape head `r :: tl` (no reordering needed).
     symm
-    refine OracleComp.DeferredSampling.evalSPMF_bind_congr_left _ _ _ (fun tl => ?_)
+    refine OracleComp.DeferredSampling.EvalDistEq.bind_right _ _ _ (fun tl => ?_)
     rw [progGameRunImplTape_run_sign_cons]
     exact congrArg _ (bind_map_left
       (fun sd => ((r, sd), cache.cacheQuery (r, msg) (psf.eval pk sd), tl))
@@ -509,7 +509,7 @@ theorem realGameRun_eq_drawList_gpvRealImplTape (pk : PK) (sk : SK)
   classical
   rw [realGameRun_eq_run'_implReal]
   rw [StateT.run']
-  refine (evalSPMF_map_eq_of_evalSPMF_eq
+  refine (EvalDistEq.map
     (evalSPMF_gpvRealImpl_eq_drawList_gpvRealImplTape psf hr M Salt pk sk (adv.main pk) qSign hQ.1
       (∅ : (Salt × M →ₒ Range).QueryCache)) Prod.fst).trans ?_
   rw [map_bind]
@@ -544,7 +544,7 @@ theorem progGameRun_eq_drawList_progGameRunImplTape (pk : PK)
   classical
   rw [progGameRun_eq_run'_implNoRec]
   rw [StateT.run']
-  refine (evalSPMF_map_eq_of_evalSPMF_eq
+  refine (EvalDistEq.map
     (evalSPMF_progGameRunImplNoRec_eq_drawList_progGameRunImplTape psf M Salt domainSample pk
       (adv.main pk) qSign hQ.1 (∅ : (Salt × M →ₒ Range).QueryCache)) Prod.fst).trans ?_
   rw [map_bind]
@@ -673,13 +673,13 @@ theorem evalSPMF_eval_domainSample_eq_uniform (pk : PK) (sk : SK)
             : ProbComp (Range × Domain))) :
     (do let s ← domainSample pk; pure (psf.eval pk s) : ProbComp Range) =ᵈ ($ᵗ Range : ProbComp Range) := by
   have h := congrArg (Functor.map (Prod.fst : Range × Domain → Range)) hreg
-  simp only [← evalSPMF_map, map_bind, map_pure] at h
+  simp only [← evalDist_map_of_discrete, map_bind, map_pure] at h
   rw [h]
   have hinner : ∀ a : Range,
       (do let _ ← psf.trapdoorSample pk sk a; pure a : ProbComp Range) =ᵈ (pure a : ProbComp Range) := by
     intro a
     refine evalSPMF_ext fun y => ?_
-    rw [probOutput_bind_const, (hNF a).probFailure_eq_zero]
+    rw [prEvent_bind_const, (hNF a).OracleComp.prFail_eq_zero]
     simp
   calc 𝒮[(do let a ← ($ᵗ Range); let _ ← psf.trapdoorSample pk sk a; pure a : ProbComp Range)]
       = 𝒮[((($ᵗ Range) >>= pure) : ProbComp Range)] :=
@@ -762,7 +762,7 @@ theorem evalSPMF_gpvImplTape_run_read_miss_eq (pk : PK) (sk : SK)
     refine congrArg _ ?_
     rw [map_eq_bind_pure_comp]
     simp only [hg, map_bind, map_pure, Function.comp_def]
-  exact hLHS.trans ((evalSPMF_map_eq_of_evalSPMF_eq hfst.symm g).trans hRHS.symm)
+  exact hLHS.trans ((EvalDistEq.map hfst.symm g).trans hRHS.symm)
 
 omit [DecidableEq Range] [Fintype Salt] in
 open Classical in
