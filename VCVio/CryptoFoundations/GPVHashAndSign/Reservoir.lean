@@ -125,7 +125,7 @@ lemma reservoir_embed_commute_winner_floorFree [DecidableEq Domain] [Inhabited R
   -- `table(forged) = trapdoorSample pk sk v` with `idx(forged) = some j`).  Matching the trap event
   -- `table(forged) = trapdoorSample (cache(forged))` to the embed event `output = trapdoorSample
   -- (cache(forged))` is the final N4-style same-randomness coupling
-  -- (`evalDist_simulateQ_run_congr` after projecting to the common
+  -- (`evalDistEq_simulateQ_run` after projecting to the common
   -- `embedTrapFreshImpl` cache/counter state) and the trapdoor draw `x`.
   --
   -- **Commute the trapdoor draw `x` past the embed run.**  The trapdoor
