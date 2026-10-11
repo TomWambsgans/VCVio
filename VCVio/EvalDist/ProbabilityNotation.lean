@@ -473,8 +473,9 @@ theorem prEvent_bind_bind_eq_lintegral_of_discrete
     {α β : Type} [MeasurableSpace α] [DiscreteMeasurableSpace α]
     (mx : m α) (f : α → m β) (p : α → β → Prop) :
     Pr{let x ← mx; let y ← f x}[p x y] = ∫⁻ x, Pr{let y ← f x}[p x y] ∂𝒟[mx] := by
-  simpa only [id_eq, bind_pure] using
-    prEvent_bind_eq_lintegral_of_discrete mx (fun x ↦ do let y ← f x; return p x y) id
+  have key := prEvent_bind_eq_lintegral_of_discrete mx (fun x ↦ (fun y ↦ p x y) <$> f x) id
+  simp only [id_map, Functor.map_map, id_eq] at key
+  exact key
 
 /-- An output map composes the final event with that map. -/
 @[grind norm]

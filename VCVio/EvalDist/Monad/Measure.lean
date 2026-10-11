@@ -212,11 +212,13 @@ theorem prEvent_le_lintegral_id_evalDist_map {m : Type → Type v} [Monad m] [La
 
 /-- Independent draws commute inside an event when the first draw has a countable output type.
 The second output type is arbitrary and needs no measurable structure. -/
-theorem prEvent_bind_bind_swap_of_countable_left {m : Type → Type v} [Monad m]
+theorem prEvent_bind_bind_swap_of_countable_left {m : Type → Type v} [Monad m] [LawfulMonad m]
     [EvalDistSemantics m] [LawfulEvalDistSemantics m] {α β : Type} [Countable α] (mx : m α)
     (my : m β) (p : α → β → Prop) :
     Pr{let a ← mx; let b ← my}[p a b] = Pr{let b ← my; let a ← mx}[p a b] := by
   let _ : MeasurableSpace α := ⊤
   let _ : MeasurableSpace β := ⊤
+  rw [prEvent_def, prEvent_def]
+  simp only [← bind_pure_comp]
   exact congrArg (· {True}) <| evalDist_bind_bind_swap mx my (fun a b ↦ pure (p a b))
     (measurable_from_prod_countable_right fun _ ↦ Measurable.of_discrete)
