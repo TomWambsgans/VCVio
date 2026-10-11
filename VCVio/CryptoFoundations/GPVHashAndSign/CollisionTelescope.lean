@@ -426,14 +426,14 @@ The coupling is built on a *salt-inclusive* signing process `signRunF`, where th
 explicit and the salt-collision averaging is structurally visible. This section establishes the
 identical-until-bad primitives for that process.
 
-`tvDist_signStep_real_programmed_le_collision` is the per-step core: a single combined "draw a fresh
-salt `r`, then answer" step, where the *real* branch answers with the lazy random-oracle value and
-the *programmed* branch answers with the regularity-supplied value. Off the per-step salt collision
-`r ∈ cache`, regularity makes the two answer branches agree in distribution (`h_eq`), so the
-total-variation distance of the combined step is bounded by exactly the salt collision probability
-`card cache / |Salt|`. This is the single-step instance of the fundamental-lemma-of-game-playing,
-with the bad event averaged over the fresh salt draw. It specializes
-`tvDist_bind_left_event_le`.
+`measureTVDist_signStep_real_programmed_le_collision` is the per-step core: a single combined "draw
+a fresh salt `r`, then answer" step, where the *real* branch answers with the lazy random-oracle
+value and the *programmed* branch answers with the regularity-supplied value. Off the per-step salt
+collision `r ∈ cache`, regularity makes the two answer branches agree in distribution (`h_eq`), so
+the total-variation distance of the combined step is bounded by exactly the salt collision
+probability `card cache / |Salt|`. This is the single-step instance of the
+fundamental-lemma-of-game-playing, with the bad event averaged over the fresh salt draw. It
+specializes `OracleComp.measureTVDist_bind_left_le_prEvent_of_evalDistEq`.
 
 `signRunF` is the flag-carrying sequenced signing process: it draws `qSign` fresh salts in turn,
 applies a per-step answer handler `step n state r`, and sets a Boolean flag the first time a drawn
