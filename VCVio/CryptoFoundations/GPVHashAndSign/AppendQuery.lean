@@ -274,14 +274,12 @@ lemma advantage_eq_keygen_average_realGameVerifyFresh
     (adv : SignatureAlg.UnforgeableAdversary
       (GPVHashAndSign (m := OracleComp (unifSpec + (Salt × M →ₒ Range))) psf hr M Salt)) :
     SignatureAlg.unforgeableAdvantage (runtime M Salt) adv
-      = Pr{let x ← ((𝒮[hr.gen] : SPMF (PK × SK)) >>= fun pksk =>
+      = Pr{let x ← (hr.gen >>= fun pksk =>
           realGameVerifyFresh psf hr M Salt adv pksk.1 pksk.2)}[x = true] := by
   classical
   rw [prEvent_unforgeableExp_eq_keygen_average psf hr M Salt adv]
   rw [show (fun pksk : PK × SK =>
-        (SemanticsVia.withStateOracle
-          (randomOracle : QueryImpl (Salt × M →ₒ Range)
-            (StateT ((Salt × M →ₒ Range).QueryCache) ProbComp)) ∅).evalSPMF
+        runtimeRun M Salt
           (letI : DecidableEq M := Classical.decEq M
            letI : DecidableEq (Salt × Domain) := Classical.decEq (Salt × Domain)
            do
@@ -314,7 +312,7 @@ theorem advantage_appendForgeQuery
   rw [advantage_eq_keygen_average_realGameVerifyFresh psf hr M Salt
       (appendForgeQuery psf hr M Salt adv),
     advantage_eq_keygen_average_realGameVerifyFresh psf hr M Salt adv]
-  exact congrArg (fun d : SPMF Bool => Pr{let x ← d}[x = true])
+  exact congrArg (fun d : ProbComp Bool => Pr{let x ← d}[x = true])
     (bind_congr fun pksk =>
       realGameVerifyFresh_appendForgeQuery psf hr M Salt pksk.1 pksk.2 adv)
 
