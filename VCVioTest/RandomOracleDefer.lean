@@ -103,7 +103,7 @@ theorem prEvent_deferredImpl_endFill (E : RelabelState (Bool →ₒ Bool) Unit U
     Pr{let z ← (simulateQ G.deferredImpl touchThenGuess).run ((∅, ∅), [])
        let st ← RelabelState.endFill z.2}[E st] = Pr{let st ← deferredFinal}[E st] := by
   simp only [deferredImpl_run_touchThenGuess, bind_map_left, endFill_touched, deferredFinal,
-    bind_assoc, pure_bind]
+    prEvent_norm]
 
 /-- In the deferred game the label of the node is never drawn. -/
 theorem prEvent_deferredImpl_label :
@@ -134,7 +134,7 @@ theorem prEvent_deferredImpl_conflict :
     · subst hv
       simp [G]
   rw [prEvent_deferredImpl_endFill]
-  simp only [deferredFinal, bind_assoc, pure_bind, hconf]
+  simp only [deferredFinal, prEvent_norm, hconf]
   let _ : MeasurableSpace Bool := ⊤
   rw [prEvent_bind_bind_eq_lintegral_of_discrete]
   simp only [lintegral_const, evalDist_apply_univ_eq_one, mul_one]
@@ -189,8 +189,8 @@ theorem prEvent_eagerImpl_label :
     intro v u
     cases v <;> simp [eagerFinal, QueryCache.empty_apply]
   rw [eagerImpl_run_touchThenGuess]
-  simp only [bind_assoc, pure_bind, hlabel]
-  rw [prEvent_bind_bind_swap ($ᵗ Bool) ($ᵗ Bool) fun v _ ↦ v = true]
+  simp only [prEvent_norm, hlabel]
+  rw [OracleComp.prEvent_bind_map_swap ($ᵗ Bool) ($ᵗ Bool) fun v _ ↦ v = true]
   let _ : MeasurableSpace Bool := ⊤
   rw [prEvent_bind_bind_eq_lintegral_of_discrete]
   simp only [lintegral_const, evalDist_apply_univ_eq_one, mul_one]

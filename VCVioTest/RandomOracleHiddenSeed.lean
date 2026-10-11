@@ -71,8 +71,11 @@ theorem prEvent_flaggedIdealImpl_eq :
         obtain ⟨_, -, rfl⟩ := hz
         rw [Bool.false_or, E.encodedQuery_eq_true_iff]
         simp only [Sum.inl.injEq, Sum.inr.injEq, E, exists_const]
-    _ = Pr{let s ← $ᵗ Bool}[s = true] := congrArg (· {True}) <|
-        evalDist_bind_congr_of_support _ _ _ fun _ _ ↦ evalDist_bind_const _ _
+    _ = Pr{let s ← $ᵗ Bool}[s = true] := by
+        have h := EvalDistEq.bind_right ($ᵗ Bool) fun s ↦ OracleComp.EvalDistEq.map_const
+          ((simulateQ (E.flaggedIdealImpl s) prog).run ((∅, ∅), false)) (s = true)
+        rw [bind_pure_comp] at h
+        rw [prEvent_def, prEvent_def, h.evalDist_eq]
     _ = 2⁻¹ := by
         rw [SampleableType.prEvent_uniformSample_eq_singleton, Fintype.card_bool, Nat.cast_ofNat]
 
