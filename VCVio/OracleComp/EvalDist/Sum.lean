@@ -38,6 +38,18 @@ theorem evalDist_ae_mem_support [MeasurableSpace α] [DiscreteMeasurableSpace α
     (oa : OracleComp spec α) : ∀ᵐ x ∂𝒟[oa], x ∈ support oa :=
   evalDist.ae_of_forall_mem_support oa (· ∈ support oa) MeasurableSet.of_discrete fun _ h ↦ h
 
+/-- A common continuation contracts extended total variation; the prefix type is discrete. -/
+theorem measureETVDist_bind_right_le [MeasurableSpace α] [DiscreteMeasurableSpace α]
+    [MeasurableSpace β] (oa ob : OracleComp spec α) (f : α → OracleComp spec β) :
+    measureETVDist (oa >>= f) (ob >>= f) ≤ measureETVDist oa ob :=
+  measureETVDist_bind_le oa ob f .of_discrete
+
+/-- A common continuation contracts real total variation; the prefix type is discrete. -/
+theorem measureTVDist_bind_right_le [MeasurableSpace α] [DiscreteMeasurableSpace α]
+    [MeasurableSpace β] (oa ob : OracleComp spec α) (f : α → OracleComp spec β) :
+    measureTVDist (oa >>= f) (ob >>= f) ≤ measureTVDist oa ob :=
+  measureTVDist_bind_le oa ob f .of_discrete
+
 variable [∀ t, Finite (spec.Range t)]
 
 /-- An integral against the output measure is the sum of the singleton masses times the
@@ -174,17 +186,5 @@ theorem measureTVDist_bind_left_le_tsum [MeasurableSpace β] (oa : OracleComp sp
         rw [ENNReal.tsum_toReal_eq fun x ↦
           ENNReal.mul_ne_top (prEvent_ne_top _) (measureETVDist_ne_top _ _)]
         simp only [ENNReal.toReal_mul, measureTVDist_eq_toReal_measureETVDist]
-
-/-- A common continuation contracts extended total variation; the prefix type is discrete. -/
-theorem measureETVDist_bind_right_le [MeasurableSpace α] [DiscreteMeasurableSpace α]
-    [MeasurableSpace β] (oa ob : OracleComp spec α) (f : α → OracleComp spec β) :
-    measureETVDist (oa >>= f) (ob >>= f) ≤ measureETVDist oa ob :=
-  measureETVDist_bind_le oa ob f .of_discrete
-
-/-- A common continuation contracts real total variation; the prefix type is discrete. -/
-theorem measureTVDist_bind_right_le [MeasurableSpace α] [DiscreteMeasurableSpace α]
-    [MeasurableSpace β] (oa ob : OracleComp spec α) (f : α → OracleComp spec β) :
-    measureTVDist (oa >>= f) (ob >>= f) ≤ measureTVDist oa ob :=
-  measureTVDist_bind_le oa ob f .of_discrete
 
 end OracleComp
