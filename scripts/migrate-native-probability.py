@@ -306,6 +306,7 @@ RENAMES: dict[str, str] = {
     "evalSPMF_bind_congr_left": "EvalDistEq.bind_right",
     "evalDist_bind_congr_left": "EvalDistEq.bind_right",
     "SPMFSemantics": "SemanticsVia",
+    "probEvent_le_of_relTriple_imp": "prEvent_le_of_relTriple",
 }
 
 # Declarations whose replacement changes the argument shape; reported, not rewritten.
@@ -465,7 +466,8 @@ LEGACY_HINTS: dict[str, str] = {
         "`OracleComp.measureTVDist_bind_right_le` (real) or `OracleComp.measureETVDist_bind_right_le`",
     "abs_probOutput_toReal_sub_le_tvDist": "`abs_prEvent_toReal_sub_le_measureTVDist`",
     "probOutput_bind_mono":
-        "`OracleComp.prEvent_bind_mono_of_support` on the continuations' events",
+        "`prEvent_bind_mono_of_forall_le_of_support`, or `OracleComp.prEvent_bind_mono_of_support` "
+        "once the event is inside the bind",
     "probEvent_bind_eq_tsum_subtype": "`OracleComp.prEvent_bind_eq_tsum`, then `tsum_subtype`",
     "probEvent_eq_zero": "`prEvent_eq_zero_of_forall_mem_support`",
     "probEvent_compl": "`OracleComp.prEvent_not_eq_one_sub`",
@@ -477,6 +479,18 @@ LEGACY_HINTS: dict[str, str] = {
     "neverFail_bind_iff": "delete: `OracleComp` never fails",
     "neverFail_iff": "delete: `OracleComp` never fails",
     "NeverFail.bind_of_forall": "delete: `OracleComp` never fails",
+    "tsum_probOutput_drawList_eq_one": "`OracleComp.tsum_prEvent_eq_one`",
+    "tsum_probOutput_of_liftM_PMF": "`OracleComp.tsum_prEvent_eq_one`",
+    "tsum_probOutput_fresh_mul_count_le":
+        "`DeferredSampling.lintegral_count_le`, then `lintegral_evalDist_eq_tsum` and "
+        "`OracleComp.tsum_prEvent_map_mul`",
+    "evalSPMF_bind_comm_probComp": "`OracleComp.EvalDistEq.bind_bind_swap`",
+    "evalSPMF_bind_comm": "`OracleComp.EvalDistEq.bind_bind_swap`",
+    "evalSPMF_bind_const_neverFails": "`OracleComp.EvalDistEq.bind_const`",
+    "probEvent_output_bad_eq":
+        "`prEvent_simulateQ_run_bad_eq` with the flag event `fun p => p.2 = true` and start state "
+        "`(s₀, false)`",
+    "probEvent_bind_congr": "`OracleComp.prEvent_bind_congr_of_support`, or `congr 2` and `bind_congr`",
 }
 
 # Legacy forms left for a person, with the guide section that converts them.

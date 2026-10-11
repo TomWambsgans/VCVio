@@ -290,6 +290,10 @@ class EventLemmaTests(unittest.TestCase):
                             "evalSPMF_map_eq_of_evalSPMF_eq h f",
                             "SemanticsVia.withStateOracle, SemanticsVia m, EvalDistEq.map h f")
 
+    def test_relational_event_bound(self):
+        self.assertMigrates("probEvent_le_of_relTriple_imp h himp",
+                            "prEvent_le_of_relTriple h himp")
+
     def test_qualified_occurrences_keep_one_namespace(self):
         self.assertMigrates("OracleComp.probOutput_bind_eq_tsum oa g p",
                             "OracleComp.prEvent_bind_eq_tsum oa g p")

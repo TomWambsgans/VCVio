@@ -266,6 +266,11 @@ replaced. The codemod maps both spellings to the final names.
 | `prEvent_bind_bind_swap` does not match a two-draw event `Pr{let a ← mx; let b ← my}[p a b]` | `OracleComp.prEvent_bind_map_swap`, its statement in the event normal form |
 | a proof turned a measure equation `h : 𝒟[mx] = 𝒟[my]` into an event equation | `(EvalDistEq.of_evalDist_eq h).prEvent_eq p` after `let _ : MeasurableSpace α := ⊤`, or `(evalDistEq_iff_evalDist_eq.mpr h).prEvent_eq p` when `h` is stated under `letI … := ⊤` |
 | `prEvent_mono_of_support _ fun …` reports a type mismatch | the computation and both events are explicit: `prEvent_mono_of_support _ _ _ fun …` |
+| a helper about `Pr{let x ← A >>= K}[x = true]` no longer matches after `simp only [map_bind]` | the goal became the sequence `Pr{let a ← A; let x ← K a}[x = true]`: state the helper in that form, or fold back with `rw [← map_bind (f := fun x => x = true)]` (an unrestricted `← map_bind` also unfolds `set` variables) |
+| `prEvent_pure_prop` fails to synthesize `Decidable` | it needs a decidable proposition; outputs that hold caches or functions need `classical` first |
+| `simp` loops on `prEvent_bind_eq_tsum_prEvent` | do not put `map_eq_bind_pure_comp` in the same simp set |
+| a lemma that synthesizes a measurable structure on an output (`measureETVDist_map_le`) fails although a `letI : MeasurableSpace X := ⊤` appears in the `have` statement | a `letI` in a statement is inlined: introduce it with `let` in the proof, or pass the type explicitly `(β := X)` |
+| the oracle-computation `tsum` lemmas (`tsum_prEvent_eq_one`, `tsum_prEvent_mul_of_const_on_support`) ask for the computation and no never-fail proof | they take the computation explicitly; drop the old `(by simp)` never-fail argument and its second bullet |
 | a lemma about `Pr{let y ← mx >>= f}[q y]` no longer matches after `simp` pushed the event into the bind | apply the lemma before `simp`, or state it for `prEvent (mx >>= g)` with `g : α → m Prop` |
 | a proof relied on `Pr{…}[…]` unfolding to `𝒟[… >>= fun x => pure …] {True}` | `simp only [prEvent_def, map_eq_bind_pure_comp, Function.comp_def]` recovers that form; better, use the laws keyed on `prEvent` |
 | `simp [prEvent_def]` loops | `simp` rewrites `𝒟[mx] {True}` back to `prEvent mx`; use `rw [prEvent_def]` or `simp only` |
