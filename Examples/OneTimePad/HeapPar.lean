@@ -3,8 +3,10 @@ Copyright (c) 2026 Quang Dao. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Quang Dao
 -/
-import Examples.OneTimePad.HeapBasic
-import VCVio.StateSeparating.DistEquiv
+
+module
+public import Examples.OneTimePad.HeapBasic
+public import VCVio.StateSeparating.DistEquiv
 
 /-!
 # Two parallel OTP channels via `QueryImpl.Stateful.parSum`
@@ -32,7 +34,7 @@ threads each channel's uniform sampling through its own slot.
 * `pairRealImpl_distEquiv_pairIdealImpl` is the headline two-channel
   *unconditional* distributional equivalence, proved by feeding the
   per-(query, heap) handler equality from
-  `realImpl_impl_evalDist_idealImpl` (HeapBasic.lean) into
+  `realImpl_impl_evalDistEq_idealImpl` (HeapBasic.lean) into
   `QueryImpl.Stateful.DistEquiv.parSum_congr` once per channel.
 * `evalDist_run_encOncePair_eq` is the corollary on the canonical
   two-call adversary, a one-line specialisation via
@@ -48,11 +50,11 @@ reproved the OTP cryptographic core (XOR with uniform is uniform)
 inside the `parSum`-composite, which scales poorly to deeper
 compositions and is unnecessary now that:
 
-* `realImpl_impl_evalDist_idealImpl` (in `HeapBasic.lean`) handlers
+* `realImpl_impl_evalDistEq_idealImpl` (in `HeapBasic.lean`) handlers
   the OTP cryptographic core as a *per-(query, heap) handler
   equality* between the gated real and ideal single-channel
   handlers, and
-* `QueryImpl.Stateful.DistEquiv.parSum_congr` (in `VCVio.state-separating.DistEquiv`)
+* `QueryImpl.Stateful.DistEquiv.parSum_congr` (in `VCVio.StateSeparating.DistEquiv`)
   lifts a pair of such per-handler equalities to a `≡ᵈ`-hop on the
   parallel composite, without any operational `liftComp`
   bookkeeping.
@@ -71,6 +73,8 @@ channel handlers each touch only one half of the heap, with the
 other half threaded through opaquely, and frame reasoning reduces
 to `Heap.split.symm ∘ Heap.split = id` (definitional).
 -/
+
+@[expose] public section
 
 open OracleSpec OracleComp ENNReal
 open scoped QueryImpl.Stateful
@@ -129,10 +133,10 @@ def encOncePair (sp : ℕ) (m₁ m₂ : BitVec sp) :
 
 Both ingredients live one layer below:
 
-* `realImpl_impl_evalDist_idealImpl` (HeapBasic.lean): per-(query,
-  heap) handler `evalDist`-equality at the single-channel layer.
-* `QueryImpl.Stateful.DistEquiv.parSum_congr` (VCVio.state-separating.DistEquiv): lift
-  per-handler `evalDist`-equalities on each factor to a `≡ᵈ`-hop on
+* `realImpl_impl_evalDistEq_idealImpl` (HeapBasic.lean): per-(query,
+  heap) handler equality in distribution at the single-channel layer.
+* `QueryImpl.Stateful.DistEquiv.parSum_congr` (VCVio.StateSeparating.DistEquiv): lift
+  per-handler measure equalities on each factor to a `≡ᵈ`-hop on
   the parallel composite.
 
 Stitching them gives the two-channel statement against *every*
@@ -144,16 +148,15 @@ The parallel real and ideal handlers produce identical output
 distributions against every two-channel adversary.
 
 Proof: feed the per-(query, heap) handler equality from
-`realImpl_impl_evalDist_idealImpl` into `parSum_congr` twice, once per
+`realImpl_impl_evalDistEq_idealImpl` into `parSum_congr` twice, once per
 channel, from the default heap state on each side. -/
 theorem pairRealImpl_distEquiv_pairIdealImpl (sp : ℕ) :
     pairRealImpl sp ≡ᵈ₀ pairIdealImpl sp :=
   QueryImpl.Stateful.DistEquiv.parSum_congr
     (h₁ := realImpl sp) (h₁' := idealImpl sp)
     (h₂ := realImpl sp) (h₂' := idealImpl sp)
-    (s₁ := (default : Heap UsedFlag)) (s₂ := (default : Heap UsedFlag))
-    (hh₁ := realImpl_impl_evalDist_idealImpl sp)
-    (hh₂ := realImpl_impl_evalDist_idealImpl sp)
+    (realImpl_impl_evalDistEq_idealImpl sp) (realImpl_impl_evalDistEq_idealImpl sp)
+    (default : Heap UsedFlag) (default : Heap UsedFlag)
 
 /-- **OTP two-channel indistinguishability on `encOncePair`.** The
 parallel real and ideal handlers agree on output distribution for
@@ -163,7 +166,6 @@ the canonical two-call adversary, recovered from the universal
 theorem evalDist_run_encOncePair_eq (sp : ℕ) (m₁ m₂ : BitVec sp) :
     𝒟[(pairRealImpl sp).run₀ (encOncePair sp m₁ m₂)] =
       𝒟[(pairIdealImpl sp).run₀ (encOncePair sp m₁ m₂)] :=
-  QueryImpl.Stateful.DistEquiv.run₀_evalDist_eq
-    (pairRealImpl_distEquiv_pairIdealImpl sp) (encOncePair sp m₁ m₂)
+  pairRealImpl_distEquiv_pairIdealImpl sp (encOncePair sp m₁ m₂)
 
 end VCVio.StateSeparating.OneTimePad

@@ -3,7 +3,10 @@ Copyright (c) 2024 Devon Tuma. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Devon Tuma
 -/
-import VCVio.OracleComp.ProbComp
+
+module
+public import VCVio.OracleComp.ProbComp.Basic
+public import VCVio.OracleComp.SimSemantics.SimulateQ
 
 /-!
 # Executing Computations
@@ -11,6 +14,8 @@ import VCVio.OracleComp.ProbComp
 This file defines a function `runIO` for executing a `ProbComp` in the `IO` monad.
 We add this embedding as a `MonadLift` instance, so `#eval` notation works.
 -/
+
+@[expose] public section
 
 open OracleSpec
 

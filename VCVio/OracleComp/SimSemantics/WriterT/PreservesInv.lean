@@ -3,14 +3,16 @@ Copyright (c) 2026 VCVio Contributors. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Quang Dao
 -/
-import VCVio.OracleComp.SimSemantics.WriterT.Basic
+
+module
+public import VCVio.OracleComp.SimSemantics.WriterT.Core
 
 /-!
 # `WriterT ω` Invariant Theory
 
 Support-based invariant reasoning for query-implementations that accumulate a writer
 log in a monoid `ω` (as opposed to threading state through `StateT`). Typical
-use-cases include `countingOracle` (with `ω = QueryCount ι`) and `costOracle`
+use-cases include `countingOracle` (with `ω = Multiplicative (QueryCount ι)`) and `costOracle`
 (with an arbitrary `Monoid ω`).
 
 These statements mirror `QueryImpl.PreservesInv` /
@@ -28,6 +30,8 @@ the threaded state.
   accumulated writer value
 -/
 
+@[expose] public section
+
 noncomputable section
 
 open OracleComp OracleSpec
@@ -39,17 +43,17 @@ namespace QueryImpl
 /-- `WriterPreservesInv impl Inv` means every oracle query implementation step preserves
 `Inv` on the accumulated writer: starting from any `s₀` satisfying `Inv`, every reachable
 post-writer `s₀ * w` (for `(a, w)` in the support of `(impl t).run`) also satisfies `Inv`. -/
-def WriterPreservesInv {ι : Type} {spec : OracleSpec ι} [IsUniformSpec spec] {ω : Type} [Monoid ω]
+def WriterPreservesInv {ι : Type} {spec : OracleSpec ι} {ω : Type} [Monoid ω]
     (impl : QueryImpl spec (WriterT ω (OracleComp spec))) (Inv : ω → Prop) : Prop :=
   ∀ t s₀, Inv s₀ → ∀ z ∈ support (impl t).run, Inv (s₀ * z.2)
 
-lemma WriterPreservesInv.trivial {ι : Type} {spec : OracleSpec ι} [IsUniformSpec spec] {ω : Type}
+lemma WriterPreservesInv.trivial {ι : Type} {spec : OracleSpec ι} {ω : Type}
     [Monoid ω] (impl : QueryImpl spec (WriterT ω (OracleComp spec))) :
     WriterPreservesInv impl (fun _ => True) :=
   fun _ _ _ _ _ => True.intro
 
 lemma WriterPreservesInv.and
-    {ι : Type} {spec : OracleSpec ι} [IsUniformSpec spec] {ω : Type} [Monoid ω]
+    {ι : Type} {spec : OracleSpec ι} {ω : Type} [Monoid ω]
     {impl : QueryImpl spec (WriterT ω (OracleComp spec))} {P Q : ω → Prop}
     (hP : WriterPreservesInv impl P) (hQ : WriterPreservesInv impl Q) :
     WriterPreservesInv impl (fun s => P s ∧ Q s) :=
@@ -60,7 +64,7 @@ to `PreservesInv.of_forall`: if every reachable increment `z.2` satisfies
 `Inv (s₀ * z.2)` for *any* starting `s₀` regardless of whether `Inv s₀`
 holds, then `Inv` is preserved. -/
 lemma WriterPreservesInv.of_forall
-    {ι : Type} {spec : OracleSpec ι} [IsUniformSpec spec] {ω : Type} [Monoid ω]
+    {ι : Type} {spec : OracleSpec ι} {ω : Type} [Monoid ω]
     {impl : QueryImpl spec (WriterT ω (OracleComp spec))} {Inv : ω → Prop}
     (h : ∀ t s₀ z, z ∈ support (impl t).run → Inv (s₀ * z.2)) :
     WriterPreservesInv impl Inv :=
@@ -73,7 +77,7 @@ If `Inv` holds on every writer increment `w` produced by a single query
 preserved across the whole simulation. This is the canonical builder for
 writer invariants: pick a submonoid-like predicate, show every per-query
 increment lands in it, and you're done. -/
-lemma WriterPreservesInv.of_mul_closed {ι : Type} {spec : OracleSpec ι} [IsUniformSpec spec]
+lemma WriterPreservesInv.of_mul_closed {ι : Type} {spec : OracleSpec ι}
     {ω : Type} [Monoid ω] {impl : QueryImpl spec (WriterT ω (OracleComp spec))} {Inv : ω → Prop}
     (hClosed : ∀ a b, Inv a → Inv b → Inv (a * b))
     (hPerQuery : ∀ t z, z ∈ support (impl t).run → Inv z.2) :
@@ -98,7 +102,7 @@ open QueryImpl
 /-- If `impl` preserves the writer invariant `Inv`, then simulating *any* oracle computation
 with `simulateQ impl` preserves `Inv` on the final accumulated writer (support-wise). -/
 theorem simulateQ_run_writerPreservesInv
-    {ι : Type} {spec : OracleSpec ι} [IsUniformSpec spec] {ω α : Type} [Monoid ω]
+    {ι : Type} {spec : OracleSpec ι} {ω α : Type} [Monoid ω]
     (impl : QueryImpl spec (WriterT ω (OracleComp spec))) (Inv : ω → Prop)
     (himpl : QueryImpl.WriterPreservesInv impl Inv) :
     ∀ oa : OracleComp spec α,
@@ -112,8 +116,7 @@ theorem simulateQ_run_writerPreservesInv
       simpa only [mul_one] using hs₀
   | query_bind t oa ih =>
       intro s₀ hs₀ z hz
-      simp only [OracleSpec.query_def, ofPFunctor_toPFunctor, simulateQ_bind, simulateQ_query,
-        OracleQuery.input_apply, OracleQuery.cont_apply, id_map, WriterT.run_bind, support_bind,
+      simp only [simulateQ_bind, simulateQ_spec_query, WriterT.run_bind, support_bind,
         support_map, Set.mem_iUnion, Set.mem_image, Prod.exists, exists_prop] at hz
       obtain ⟨u, w, hus, v, w', hvs, rfl⟩ := hz
       simpa only [mul_assoc] using ih u (s₀ * w) (himpl t s₀ hs₀ (u, w) hus) (v, w') hvs

@@ -4,14 +4,19 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Quang Dao, Oleksandr Vovkotrub
 -/
 
-import VCVio.CryptoFoundations.SignatureAlg
-import VCVio.CryptoFoundations.HardnessAssumptions.HardRelation
-import VCVio.OracleComp.QueryTracking.RandomOracle.Basic
-import VCVio.OracleComp.QueryTracking.RandomOracle.DeferredSampling
-import VCVio.OracleComp.QueryTracking.RandomOracle.ProbeEps
-import VCVio.OracleComp.Coercions.Add
-import VCVio.OracleComp.SimSemantics.StateT.BundledSemantics
-import VCVio.ProgramLogic.Relational.ProgrammingOracle
+module
+
+public import VCVio.CryptoFoundations.SignatureAlg
+public import VCVio.CryptoFoundations.HardnessAssumptions.HardRelation
+public import VCVio.OracleComp.QueryTracking.RandomOracle.Basic
+public import VCVio.OracleComp.QueryTracking.RandomOracle.Simulation
+public import VCVio.OracleComp.QueryTracking.RandomOracle.DeferredSampling
+public import VCVio.OracleComp.QueryTracking.RandomOracle.ProbeEps
+public import VCVio.OracleComp.Coercions.Add.Basic
+public import VCVio.OracleComp.ProbCompLift
+public import VCVio.EvalDist.Defs.Semantics.Core
+public import VCVio.OracleComp.SimSemantics.StateT.BundledSemantics
+public import VCVio.ProgramLogic.Relational.ProgrammingOracle
 
 /-! # GPV Hash-and-Sign: Preimage Sampleable Functions and the Scheme
 
@@ -20,6 +25,8 @@ signature construction in the random-oracle model, its runtime bundle, the
 structural query-bound predicates, and the collision-finding and
 programmed-preimage adversary interfaces with their experiments.
 -/
+
+public section
 
 universe v
 
@@ -48,7 +55,7 @@ variable {PK SK Domain Range : Type}
 
 /-- A PSF is correct if the trapdoor sampler always produces a valid preimage that is
 accepted by the shortness predicate. -/
-def Correct (psf : PreimageSampleableFunction PK SK Domain Range) : Prop :=
+@[expose] def Correct (psf : PreimageSampleableFunction PK SK Domain Range) : Prop :=
   ∀ pk sk t, ∀ x ∈ support (psf.trapdoorSample pk sk t),
     psf.eval pk x = t ∧
       psf.isShort x = true
@@ -56,6 +63,7 @@ def Correct (psf : PreimageSampleableFunction PK SK Domain Range) : Prop :=
 /-- A PSF is correct *at a fixed key pair* `(pk, sk)` if the trapdoor sampler at that key always
 produces a valid preimage that is accepted by the shortness predicate. This is the per-key slice of
 `Correct`: `Correct psf` is definitionally `∀ pk sk, psf.CorrectAt pk sk`. -/
+@[expose]
 def CorrectAt (psf : PreimageSampleableFunction PK SK Domain Range) (pk : PK) (sk : SK) : Prop :=
   ∀ (t : Range) (x : Domain), x ∈ support (psf.trapdoorSample pk sk t) →
     psf.eval pk x = t ∧ psf.isShort x = true
@@ -80,13 +88,13 @@ The property is satisfiable in principle: when `eval pk` is a bijection,
 `trapdoorSample pk sk c := pure ((eval pk)⁻¹ c)` and `domainSample pk := $ᵗ Domain` realize
 the equality. It is also non-trivial: the equation genuinely constrains `domainSample` against
 the trapdoor sampler, so it is not vacuously true. -/
-def Regularity [SampleableType Range]
+@[expose] def Regularity [SampleableType Range]
     (psf : PreimageSampleableFunction PK SK Domain Range) : Prop :=
   ∃ domainSample : PK → ProbComp Domain,
     ∀ (pk : PK) (sk : SK),
-      𝒟[(do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain))] =
-      𝒟[(do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
-            : ProbComp (Range × Domain))]
+      (do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain)) =ᵈ
+        (do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
+            : ProbComp (Range × Domain))
 
 end PreimageSampleableFunction
 
@@ -105,7 +113,7 @@ Given a preimage sampleable function `psf`, a generable key relation `hr`, and a
 
 The signature type is `Salt × Domain` (salt paired with the short preimage).
 The oracle spec is `unifSpec + (Salt × M →ₒ Range)` (uniform sampling + random oracle). -/
-def GPVHashAndSign
+@[expose] def GPVHashAndSign
     {m : Type → Type v} [Monad m]
     {PK SK Domain Range : Type}
     (psf : PreimageSampleableFunction PK SK Domain Range)
@@ -136,13 +144,48 @@ variable {PK SK Domain Range : Type}
   (M Salt : Type) [DecidableEq M] [DecidableEq Salt] [SampleableType Salt] [Fintype Salt]
 
 /-- Runtime bundle for the GPV hash-and-sign random-oracle world. -/
-noncomputable def runtime :
-    ProbCompRuntime (OracleComp (unifSpec + (Salt × M →ₒ Range))) where
-  toSPMFSemantics := SPMFSemantics.withStateOracle
+@[expose] noncomputable def runtime :
+    ProbCompRuntime (OracleComp (unifSpec + (Salt × M →ₒ Range))) :=
+  ProbCompRuntime.rom (Salt × M →ₒ Range)
+
+/-- The GPV random-oracle world as a bundled measure semantics: public randomness is forwarded
+and hash queries are answered by the lazy random oracle from the empty cache. The runtime
+bundle `runtime` observes the same simulation (`runtime_evalDist`); the game hops are stated
+against the `ProbComp` run `runtimeRun` of this semantics. -/
+@[expose] noncomputable def runtimeSemantics :
+    SemanticsVia (OracleComp (unifSpec + (Salt × M →ₒ Range))) :=
+  SemanticsVia.withStateOracle
     (hashImpl := (randomOracle :
       QueryImpl (Salt × M →ₒ Range) (StateT ((Salt × M →ₒ Range).QueryCache) ProbComp)))
     ∅
-  toProbCompLift := ProbCompLift.ofMonadLift _
+
+/-- The GPV random-oracle world run as a `ProbComp` program: the computation is interpreted by
+`runtimeSemantics` and the lazy random oracle's cache is run from `∅`. Its output measure is the
+measure of `runtimeSemantics` (`evalDist_runtimeRun`). -/
+@[expose] noncomputable def runtimeRun {α : Type}
+    (oa : OracleComp (unifSpec + (Salt × M →ₒ Range)) α) : ProbComp α :=
+  ((runtimeSemantics M Salt).interpret oa).run' ∅
+
+omit [DecidableEq Range] [SampleableType Salt] [Fintype Salt] in
+/-- The measure of `runtimeSemantics` is the measure of its `ProbComp` run. -/
+theorem evalDist_runtimeRun {α : Type} [MeasurableSpace α]
+    (oa : OracleComp (unifSpec + (Salt × M →ₒ Range)) α) :
+    𝒟[runtimeRun M Salt oa] = (runtimeSemantics M Salt).evalDist oa :=
+  rfl
+
+omit [DecidableEq Range] [SampleableType Salt] [Fintype Salt] in
+/-- The measures of `runtime` are those of `runtimeSemantics`. -/
+theorem runtime_evalDist {α : Type} [MeasurableSpace α]
+    (oa : OracleComp (unifSpec + (Salt × M →ₒ Range)) α) :
+    (runtime M Salt).evalDist oa = (runtimeSemantics M Salt).evalDist oa :=
+  rfl
+
+omit [DecidableEq Range] [SampleableType Salt] [Fintype Salt] in
+/-- The point masses of `runtime` are the output probabilities of `runtimeRun`. -/
+theorem runtime_evalDist_singleton {α : Type} [MeasurableSpace α] [MeasurableSingletonClass α]
+    (oa : OracleComp (unifSpec + (Salt × M →ₒ Range)) α) (x : α) :
+    (runtime M Salt).evalDist oa {x} = Pr{let y ← runtimeRun M Salt oa}[y = x] := by
+  rw [runtime_evalDist, ← evalDist_runtimeRun, prEvent_eq_evalDist_singleton]
 
 /-- Structural query bound for GPV EUF-CMA adversaries that tracks both signing-oracle
 queries (`qSign`) and random-oracle queries (`qHash`). Uniform-sampling queries are
@@ -151,7 +194,7 @@ unrestricted.
 Defined as the conjunction of two predicate-targeted query bounds `IsQueryBoundP`, one per
 counted oracle. Because the two index predicates are disjoint, the conjunction is
 equivalent to the prior single-vector `IsQueryBound` formulation. -/
-def signHashQueryBound {S' α : Type}
+@[expose] def signHashQueryBound {S' α : Type}
     (oa : OracleComp ((unifSpec + (Salt × M →ₒ Range)) + (M →ₒ S')) α)
     (qSign qHash : ℕ) : Prop :=
   oa.IsQueryBoundP (· matches .inr _) qSign ∧
@@ -162,7 +205,7 @@ short preimages with the same image under `psf.eval`. -/
 abbrev CollisionAdversary := PK → ProbComp (Domain × Domain)
 
 /-- Keyed collision-finding experiment for a preimage sampleable function. -/
-def collisionFindingExp [DecidableEq Domain]
+@[expose] def collisionFindingExperiment [DecidableEq Domain]
     (adversary : CollisionAdversary (PK := PK) (Domain := Domain)) :
     ProbComp Bool := do
   let pk ← do
@@ -175,10 +218,10 @@ def collisionFindingExp [DecidableEq Domain]
     psf.isShort x₂
 
 /-- Success probability in the keyed collision-finding experiment. -/
-noncomputable def collisionFindingAdvantage [DecidableEq Domain]
+@[expose] noncomputable def collisionFindingAdvantage [DecidableEq Domain]
     (adversary : CollisionAdversary (PK := PK) (Domain := Domain)) :
     ℝ≥0∞ :=
-  Pr[= true | collisionFindingExp (psf := psf) (hr := hr) adversary]
+  𝒟[collisionFindingExperiment (psf := psf) (hr := hr) adversary] {true}
 
 /-- A programmed-preimage adversary receives a public key and a programmed target `y`,
 and tries to reproduce the challenger's hidden short preimage sampled for `y`. -/
@@ -189,7 +232,7 @@ abbrev ProgrammedPreimageAdversary := PK → Range → ProbComp Domain
 The challenger samples an honest key pair, then chooses a uniformly random target `y` and a
 hidden short preimage `x ← trapdoorSample pk sk y`. The adversary sees only `(pk, y)` and
 succeeds iff it reproduces exactly the hidden programmed preimage `x`. -/
-def programmedPreimageExp [DecidableEq Domain]
+@[expose] def programmedPreimageExperiment [DecidableEq Domain]
     (adversary : ProgrammedPreimageAdversary
       (PK := PK) (Domain := Domain) (Range := Range)) :
     ProbComp Bool := do
@@ -200,11 +243,11 @@ def programmedPreimageExp [DecidableEq Domain]
   return decide (x' = x)
 
 /-- Success probability in the exact-match programmed-preimage experiment. -/
-noncomputable def programmedPreimageAdvantage [DecidableEq Domain]
+@[expose] noncomputable def programmedPreimageAdvantage [DecidableEq Domain]
     (adversary : ProgrammedPreimageAdversary
       (PK := PK) (Domain := Domain) (Range := Range)) :
     ℝ≥0∞ :=
-  Pr[= true | programmedPreimageExp (psf := psf) (hr := hr) adversary]
+  𝒟[programmedPreimageExperiment (psf := psf) (hr := hr) adversary] {true}
 
 
 end GPVHashAndSign

@@ -3,15 +3,23 @@ Copyright (c) 2025 Quang Dao. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Quang Dao
 -/
-import VCVio.OracleComp.EvalDist
-import VCVio.EvalDist.Instances.FinRatPMF
+
+module
+public import VCVio.OracleComp.Support
+public import VCVio.OracleComp.SimSemantics.SimulateQ
+public import VCVio.EvalDist.Defs.Measure.FinRatPMF
+public import VCVio.OracleComp.EvalDist.AnswerMeasure
+public import VCVio.EvalDist.ProbabilityNotation
 
 /-!
 # Executable `FinRatPMF` Semantics for `OracleComp`
 
-This file provides a computable oracle evaluator using `FinRatPMF.Raw` and proves that its
-denotational semantics agree with the existing `evalDist` semantics of `OracleComp`.
+The computable oracle evaluator uses `FinRatPMF.Raw`. Its output measure agrees with uniform
+oracle semantics, and its positive-weight outputs are exactly the oracle program's structurally
+reachable outputs.
 -/
+
+@[expose] public section
 
 open OracleSpec OracleComp
 
@@ -22,55 +30,68 @@ namespace FinRatPMF
 variable {ι : Type u} {spec : OracleSpec ι}
 
 /-- Computable query implementation using the executable `FinRatPMF.Raw` monad. -/
-def finRatImpl [spec.Inhabited] [∀ t : spec.Domain, FinEnum (spec.Range t)] :
+def finRatImpl [∀ t, Inhabited (spec.Range t)] [∀ t : spec.Domain, FinEnum (spec.Range t)] :
     QueryImpl spec Raw :=
   fun t => Raw.uniform (α := spec.Range t)
 
 namespace finRatImpl
 
-variable [spec.Inhabited] [∀ t : spec.Domain, FinEnum (spec.Range t)]
+variable [∀ t, Inhabited (spec.Range t)] [∀ t : spec.Domain, FinEnum (spec.Range t)]
 
-local instance instSpecFintypeOfFinEnum : spec.Fintype where
-  fintype_B _ := inferInstance
+section Measure
 
-noncomputable local instance instIsUniformSpec : IsUniformSpec spec :=
-  IsUniformSpec.ofFintypeInhabited _
+/-- Executable query sampling has the uniform response measure. -/
+@[simp]
+lemma evalDist_apply (t : spec.Domain) [MeasurableSpace (spec.Range t)]
+    [MeasurableSingletonClass (spec.Range t)] :
+    𝒟[finRatImpl (spec := spec) t] = ProbabilityTheory.uniformOn Set.univ :=
+  Raw.evalDist_uniform
 
-@[simp] lemma toPMF_apply (t : spec.Domain) :
-    @Raw.toPMF _ (Classical.decEq _) (finRatImpl (spec := spec) t) =
-      PMF.uniformOfFintype (spec.Range t) := by
-  convert Raw.toPMF_uniform (α := spec.Range t) using 2
+variable [UniformAnswerMeasure spec]
 
-@[simp] lemma evalDist_apply (t : spec.Domain) :
-    𝒟[finRatImpl (spec := spec) t] = liftM (PMF.uniformOfFintype (spec.Range t)) := by
-  change (liftM (@Raw.toPMF _ (Classical.decEq _) (finRatImpl (spec := spec) t)) : SPMF _) = _
-  rw [toPMF_apply]
-
-@[simp] lemma evalDist_simulateQ {α : Type v} (oa : OracleComp spec α) :
+/-- The executable evaluator preserves the uniform oracle measure. -/
+@[simp]
+lemma evalDist_simulateQ {α : Type v} [MeasurableSpace α] (oa : OracleComp spec α) :
     𝒟[simulateQ (finRatImpl (spec := spec)) oa] = 𝒟[oa] := by
   induction oa using OracleComp.inductionOn with
   | pure x => simp
-  | query_bind t mx h => simp [evalDist_apply, OracleComp.evalDist_query, h]
+  | query_bind t mx ih =>
+      let : MeasurableSpace (spec.Range t) := ⊤
+      simp only [simulateQ_bind, simulateQ_spec_query]
+      rw [evalDist_bind_of_discrete, evalDist_bind_of_discrete]
+      simp_rw [ih]
+      rw [evalDist_apply, OracleComp.evalDist_liftM_query_uniform]
 
-@[simp] lemma probOutput_simulateQ {α : Type v}
-    (oa : OracleComp spec α) (x : α) :
-    Pr[= x | simulateQ (finRatImpl (spec := spec)) oa] = Pr[= x | oa] :=
-  congrFun (congrArg DFunLike.coe (evalDist_simulateQ (spec := spec) oa)) x
+end Measure
 
-@[simp] lemma probEvent_simulateQ {α : Type v}
-    (oa : OracleComp spec α) (p : α → Prop) :
-    Pr[ p | simulateQ (finRatImpl (spec := spec)) oa] = Pr[ p | oa] := by
-  simp only [probEvent_eq_tsum_indicator, probOutput_simulateQ]
+@[simp] lemma support_simulateQ {α : Type v} [DecidableEq α] (oa : OracleComp spec α) :
+    (simulateQ (finRatImpl (spec := spec)) oa).support = support oa := by
+  induction oa using OracleComp.inductionOn with
+  | pure x => simp
+  | query_bind t mx ih =>
+      have hsupport : (finRatImpl (spec := spec) t).support = Finset.univ :=
+        Raw.support_uniform
+      simp [Raw.support_bind, hsupport, ih]
 
-@[simp] lemma support_simulateQ {α : Type v} (oa : OracleComp spec α) :
-    support (simulateQ (finRatImpl (spec := spec)) oa) = support oa :=
-  Set.ext fun x => mem_support_iff_of_evalDist_eq (evalDist_simulateQ (spec := spec) oa) x
-
-@[simp] lemma finSupport_simulateQ {α : Type v} [DecidableEq α]
+lemma finSupport_simulateQ {α : Type v} [DecidableEq α]
     (oa : OracleComp spec α) :
-    finSupport (simulateQ (finRatImpl (spec := spec)) oa) = finSupport oa := by
+    (simulateQ (finRatImpl (spec := spec)) oa).support = finSupport oa := by
   apply Finset.coe_injective
-  rw [coe_finSupport, coe_finSupport, support_simulateQ]
+  rw [coe_finSupport, support_simulateQ]
+
+end finRatImpl
+
+namespace finRatImpl
+
+/-- Final event checks have the same probability under executable and oracle evaluation. -/
+lemma prEvent_simulateQ {ι : Type u} {spec : OracleSpec.{u, 0} ι}
+    [UniformAnswerMeasure spec] [∀ t, Inhabited (spec.Range t)]
+    [∀ t : spec.Domain, FinEnum (spec.Range t)]
+    {α : Type} (oa : OracleComp spec α) (p : α → Prop) :
+    Pr{let x ← simulateQ (finRatImpl (spec := spec)) oa}[p x] = Pr{let x ← oa}[p x] := by
+  rw [prEvent_def, prEvent_def, ← simulateQ_map]
+  exact congrArg (fun μ : MeasureTheory.Measure Prop => μ {True})
+    (evalDist_simulateQ (spec := spec) (p <$> oa))
 
 end finRatImpl
 

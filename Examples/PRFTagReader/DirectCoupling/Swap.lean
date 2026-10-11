@@ -4,7 +4,9 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Oleksandr Vovkotrub
 -/
 
-import Examples.PRFTagReader.Table
+module
+
+public import Examples.PRFTagReader.Table
 
 /-!
 # PRF Tag/Reader Protocol — Cell-Swap Permutations and the Swap-Bridge
@@ -18,7 +20,7 @@ and the cache-extension swap-bridge for `singleTableHandler`.
 tables differ only by a swap of values at the cells `((tag, 0), n)` and `((tag, slotK), n)`,
 the `singleTableHandler` simulateQ outputs are pointwise identical
 (`singleTableHandler_simulateQ_swap_invariant`). Together these give the swap-bridge
-`singleTableHandler_cache_swap_eq`: under a cache with no slot-positive entries and a fresh
+`evalDist_singleTableHandler_cache_swap_eq`: under a cache with no slot-positive entries and a fresh
 slot-0 cell, the cache extensions at `(tag, 0)` and `(tag, slotK)` produce the same output
 distribution over a uniform table draw.
 
@@ -27,21 +29,19 @@ distribution over a uniform table draw.
 * `cellSwap` — the two-cell swap involution, with `cellSwap_involution`, `cellSwap_bijective`,
   `cellSwap_right`, and `cellSwap_of_ne`.
 * `evalDist_uniformSample_bind_cellSwap` — bind-level measure preservation of the swap.
-* `singleTableHandler_cache_swap_eq` — the cache-extension swap-bridge for the slot-positive
-  Case M-miss of the direct-coupling aux.
+* `evalDist_singleTableHandler_cache_swap_eq` — the cache-extension swap-bridge for the
+  slot-positive Case M-miss of the direct-coupling aux.
 -/
 
-open OracleComp OracleSpec ENNReal
+@[expose] public section
+
+open OracleComp OracleSpec ENNReal MeasureTheory ProbabilityTheory
 
 namespace PRFTagReader
 
 section DirectCouplingSwap
 
-variable {TagId Nonce Digest : Type}
-  [DecidableEq TagId] [Fintype TagId] [Nonempty TagId]
-  [DecidableEq Nonce] [SampleableType Nonce]
-  [DecidableEq Digest] [SampleableType Digest]
-  {sessionsPerTag : ℕ} [NeZero sessionsPerTag]
+variable {TagId Nonce Digest : Type} {sessionsPerTag : ℕ}
 
 namespace UnlinkReduction
 
@@ -50,15 +50,12 @@ namespace UnlinkReduction
 The permutation argument for the swap-bridge needs a concrete bijection that swaps two cells of
 the table domain. `cellSwap a b` is the involution on `D` that swaps `a` and `b` (identity if
 `a = b`). Its key properties: bijective (involution), and composing a uniform table with it
-preserves the distribution (`evalDist_map_bijective_uniform_cross`). -/
+preserves the distribution (`evalDist_uniformSample_comp_cellSwap`). -/
 
 /-- Swap two elements of a type with decidable equality. Identity if `a = b`. -/
 def cellSwap {D : Type} [DecidableEq D] (a b : D) : D → D := fun x =>
   if x = a then b else if x = b then a else x
 
-omit [DecidableEq TagId] [Fintype TagId] [Nonempty TagId] [DecidableEq Nonce]
-    [SampleableType Nonce] [DecidableEq Digest] [SampleableType Digest]
-    [NeZero sessionsPerTag] in
 /-- `cellSwap a b` is an involution: applying it twice returns the original. -/
 lemma cellSwap_involution {D : Type} [DecidableEq D] (a b : D) (x : D) :
     cellSwap a b (cellSwap a b x) = x := by
@@ -73,9 +70,6 @@ lemma cellSwap_involution {D : Type} [DecidableEq D] (a b : D) (x : D) :
     · rw [hxb]; simp
     · simp [hxa, hxb]
 
-omit [DecidableEq TagId] [Fintype TagId] [Nonempty TagId] [DecidableEq Nonce]
-    [SampleableType Nonce] [DecidableEq Digest] [SampleableType Digest]
-    [NeZero sessionsPerTag] in
 /-- `cellSwap a b` is bijective. -/
 lemma cellSwap_bijective {D : Type} [DecidableEq D] (a b : D) :
     Function.Bijective (cellSwap a b) := by
@@ -87,29 +81,28 @@ lemma cellSwap_bijective {D : Type} [DecidableEq D] (a b : D) :
   · intro y
     exact ⟨cellSwap a b y, cellSwap_involution a b y⟩
 
-omit [DecidableEq TagId] [Fintype TagId] [Nonempty TagId] [DecidableEq Nonce]
-    [SampleableType Nonce] [DecidableEq Digest] [SampleableType Digest]
-    [NeZero sessionsPerTag] in
 /-- `cellSwap a b` sends `b` to `a`. -/
 @[simp] lemma cellSwap_right {D : Type} [DecidableEq D] (a b : D) : cellSwap a b b = a := by
   unfold cellSwap
   by_cases hab : b = a <;> simp [hab]
 
-omit [DecidableEq TagId] [Fintype TagId] [Nonempty TagId] [DecidableEq Nonce]
-    [SampleableType Nonce] [DecidableEq Digest] [SampleableType Digest]
-    [NeZero sessionsPerTag] in
 /-- `cellSwap a b` fixes any element distinct from both `a` and `b`. -/
 lemma cellSwap_of_ne {D : Type} [DecidableEq D] (a b : D) {x : D} (hxa : x ≠ a) (hxb : x ≠ b) :
     cellSwap a b x = x := by
   simp [cellSwap, hxa, hxb]
 
-omit [Nonempty TagId] [SampleableType Nonce] [DecidableEq Digest] [NeZero sessionsPerTag] in
+variable [DecidableEq TagId] [Fintype TagId]
+
 /-- **Measure-preservation of cell-swap permutation.** Drawing a uniform table `gS` and
 post-composing with `cellSwap a b` (which is a bijection on the domain) yields the same
 distribution as drawing `gS` directly. The key measure-preserving step underlying the
 swap-bridge: averaging any continuation `F` over a uniform `gS` is invariant under
 `gS ↦ gS ∘ cellSwap a b`. -/
-lemma evalDist_uniformSample_comp_cellSwap [Fintype Nonce]
+lemma evalDist_uniformSample_comp_cellSwap [DecidableEq Nonce] [SampleableType Digest]
+    [Fintype Nonce]
+    [MeasurableSpace Digest] [MeasurableSingletonClass Digest]
+    [EvalDistSemantics ProbComp] [LawfulEvalDistSemantics ProbComp]
+    (hTable : 𝒟[$ᵗ ((TagId × Fin sessionsPerTag) × Nonce → Digest)] = uniformOn Set.univ)
     (a b : (TagId × Fin sessionsPerTag) × Nonce) :
     𝒟[(fun gS : (TagId × Fin sessionsPerTag) × Nonce → Digest =>
         gS ∘ cellSwap a b) <$> ($ᵗ ((TagId × Fin sessionsPerTag) × Nonce → Digest))] =
@@ -129,18 +122,19 @@ lemma evalDist_uniformSample_comp_cellSwap [Fintype Nonce]
       refine ⟨h ∘ cellSwap a b, ?_⟩
       funext x
       simp [Function.comp, cellSwap_involution]
-  exact evalDist_map_bijective_uniform_cross
-    (α := (TagId × Fin sessionsPerTag) × Nonce → Digest)
-    (β := (TagId × Fin sessionsPerTag) × Nonce → Digest)
-    (fun gS => gS ∘ cellSwap a b) hbij
+  rw [evalDist_map_of_discrete, hTable]
+  exact uniformOn_univ_map_equiv (Equiv.ofBijective _ hbij)
 
-omit [Nonempty TagId] [SampleableType Nonce] [DecidableEq Digest] [NeZero sessionsPerTag] in
 /-- **Bind-level measure-preservation via `cellSwap`.** For any continuation
 `F : (table) → ProbComp α`, drawing a uniform `gS` and applying `F` to `gS` has the same
 distribution as drawing a uniform `gS` and applying `F` to `gS ∘ cellSwap a b`. Direct
 consequence of `evalDist_uniformSample_comp_cellSwap` combined with `map_bind`. -/
-lemma evalDist_uniformSample_bind_cellSwap [Fintype Nonce]
-    {α : Type} (a b : (TagId × Fin sessionsPerTag) × Nonce)
+lemma evalDist_uniformSample_bind_cellSwap [DecidableEq Nonce] [SampleableType Digest]
+    [Fintype Nonce]
+    [MeasurableSpace Digest] [MeasurableSingletonClass Digest]
+    [EvalDistSemantics ProbComp] [LawfulEvalDistSemantics ProbComp]
+    (hTable : 𝒟[$ᵗ ((TagId × Fin sessionsPerTag) × Nonce → Digest)] = uniformOn Set.univ)
+    {α : Type} [MeasurableSpace α] (a b : (TagId × Fin sessionsPerTag) × Nonce)
     (F : ((TagId × Fin sessionsPerTag) × Nonce → Digest) → ProbComp α) :
     𝒟[(do let gS ← $ᵗ ((TagId × Fin sessionsPerTag) × Nonce → Digest); F gS)] =
       𝒟[(do let gS ← $ᵗ ((TagId × Fin sessionsPerTag) × Nonce → Digest);
@@ -152,9 +146,11 @@ lemma evalDist_uniformSample_bind_cellSwap [Fintype Nonce]
       (do let gS ← $ᵗ ((TagId × Fin sessionsPerTag) × Nonce → Digest);
           F (gS ∘ cellSwap a b)) := by
     simp [map_eq_bind_pure_comp, bind_assoc, Function.comp]
-  rw [← hMapBind, evalDist_bind, evalDist_bind,
+  rw [← hMapBind, evalDist_bind_of_discrete _ F, evalDist_bind_of_discrete _ F,
       evalDist_uniformSample_comp_cellSwap (TagId := TagId) (Nonce := Nonce) (Digest := Digest)
-        (sessionsPerTag := sessionsPerTag) a b]
+        (sessionsPerTag := sessionsPerTag) hTable a b]
+
+variable [SampleableType Nonce] [DecidableEq Digest] [NeZero sessionsPerTag]
 
 /-! ### Multiset-invariance of `singleTableHandler` under cell-value swap
 
@@ -169,7 +165,6 @@ the `singleTableHandler` simulateQ outputs are IDENTICAL (not just distributiona
   at two positions doesn't change the set of values present, so the existential value (mass
   bound by `V`) is the same on both sides. -/
 
-omit [Nonempty TagId] [DecidableEq Nonce] [SampleableType Digest] in
 private lemma singleTableHandler_simulateQ_swap_invariant
     (tag : TagId) (slotK : Fin sessionsPerTag) (hslotK : slotK ≠ 0)
     (n : Nonce)
@@ -181,10 +176,8 @@ private lemma singleTableHandler_simulateQ_swap_invariant
         g₁ x = g₂ x)
     (hswap_0 : g₁ ((tag, (0 : Fin sessionsPerTag)), n) = g₂ ((tag, slotK), n))
     (hswap_K : g₁ ((tag, slotK), n) = g₂ ((tag, (0 : Fin sessionsPerTag)), n)) :
-    (simulateQ (singleTableHandler (TagId := TagId) (Nonce := Nonce) (Digest := Digest)
-        (sessionsPerTag := sessionsPerTag) g₁) oa).run' s
-    = (simulateQ (singleTableHandler (TagId := TagId) (Nonce := Nonce) (Digest := Digest)
-        (sessionsPerTag := sessionsPerTag) g₂) oa).run' s := by
+    (simulateQ (singleTableHandler g₁) oa).run' s
+    = (simulateQ (singleTableHandler g₂) oa).run' s := by
   classical
   induction oa using OracleComp.inductionOn generalizing s with
   | pure b =>
@@ -247,7 +240,7 @@ private lemma singleTableHandler_simulateQ_swap_invariant
              ($ᵗ Nonce >>= fun nonce => pure _) >>= _
         rw [bind_assoc, bind_assoc]
         refine bind_congr fun nonce => ?_
-        rw [pure_bind, pure_bind, hcell_eq nonce]
+        simp only [unlinkOracleSpec_range_inl, pure_bind, hcell_eq nonce]
         refine ih _ _ ?_
         -- Post-step state preserves hAdv: sessionsUsed tag either unchanged (T ≠ tag) or
         -- increased by 1 (T = tag); in either case ≥ s.sessionsUsed tag > slotK.
@@ -287,16 +280,17 @@ private lemma singleTableHandler_simulateQ_swap_invariant
           set tagOut : TagId := tag with htag_def
           unfold unlinkReaderAccepts tagAccepts
           rw [decide_eq_decide]
-          simp only [decide_eq_true_iff, singlePattern]
+          simp only [singlePattern]
           constructor
-          · rintro ⟨T', sid', hsid'⟩
+          · rintro ⟨T', hT'⟩
+            obtain ⟨sid', hsid'⟩ := of_decide_eq_true hT'
             by_cases hCase0 : (T', sid') = (tagOut, (0 : Fin sessionsPerTag))
             · obtain ⟨rfl, rfl⟩ : T' = tagOut ∧ sid' = 0 := Prod.mk.inj hCase0
-              exact ⟨tagOut, slotK, hswap_0 ▸ hsid'⟩
+              exact ⟨tagOut, decide_eq_true ⟨slotK, hswap_0 ▸ hsid'⟩⟩
             · by_cases hCaseK : (T', sid') = (tagOut, slotK)
               · obtain ⟨rfl, rfl⟩ : T' = tagOut ∧ sid' = slotK := Prod.mk.inj hCaseK
-                exact ⟨tagOut, 0, hswap_K ▸ hsid'⟩
-              · refine ⟨T', sid', ?_⟩
+                exact ⟨tagOut, decide_eq_true ⟨0, hswap_K ▸ hsid'⟩⟩
+              · refine ⟨T', decide_eq_true ⟨sid', ?_⟩⟩
                 have h_g_eq : g₁ ((T', sid'), transcript.nonce) =
                     g₂ ((T', sid'), transcript.nonce) := by
                   refine heq ((T', sid'), transcript.nonce) ?_ ?_
@@ -305,14 +299,15 @@ private lemma singleTableHandler_simulateQ_swap_invariant
                   · intro h
                     exact hCaseK (congrArg (fun p => p.1) h)
                 exact h_g_eq ▸ hsid'
-          · rintro ⟨T', sid', hsid'⟩
+          · rintro ⟨T', hT'⟩
+            obtain ⟨sid', hsid'⟩ := of_decide_eq_true hT'
             by_cases hCase0 : (T', sid') = (tagOut, (0 : Fin sessionsPerTag))
             · obtain ⟨rfl, rfl⟩ : T' = tagOut ∧ sid' = 0 := Prod.mk.inj hCase0
-              exact ⟨tagOut, slotK, hswap_K ▸ hsid'⟩
+              exact ⟨tagOut, decide_eq_true ⟨slotK, hswap_K ▸ hsid'⟩⟩
             · by_cases hCaseK : (T', sid') = (tagOut, slotK)
               · obtain ⟨rfl, rfl⟩ : T' = tagOut ∧ sid' = slotK := Prod.mk.inj hCaseK
-                exact ⟨tagOut, 0, hswap_0 ▸ hsid'⟩
-              · refine ⟨T', sid', ?_⟩
+                exact ⟨tagOut, decide_eq_true ⟨0, hswap_0 ▸ hsid'⟩⟩
+              · refine ⟨T', decide_eq_true ⟨sid', ?_⟩⟩
                 have h_g_eq : g₁ ((T', sid'), transcript.nonce) =
                     g₂ ((T', sid'), transcript.nonce) := by
                   refine heq ((T', sid'), transcript.nonce) ?_ ?_
@@ -345,6 +340,8 @@ private lemma singleTableHandler_simulateQ_swap_invariant
              = (simulateQ (singleTableHandler g₂) (k _)).run' s
         exact ih _ s hAdv
 
+variable [DecidableEq Nonce] [SampleableType Digest]
+
 /-! ### Swap-bridge for `singleTableHandler` cache extensions
 
 The slot-positive case's Case M-miss needs to bridge between two cache extensions of
@@ -356,7 +353,6 @@ Under `hcInv` (`c` has no slot-positive entries) and the post-step invariant
 `hAdv : slotK.val < s.sessionsUsed tag`, these two cache extensions produce
 **distributionally equal** computation outputs. -/
 
-omit [Nonempty TagId] in
 /-- **Swap-bridge for `singleTableHandler`.** Under `hcInv` (no slot-positive cache entries),
 `hc0` (slot-0 cell of `c` at `n` uncached), and `hAdv` (`sessionsUsed tag` advanced past `slotK`),
 the cache extensions at `(tag, 0)` and `(tag, slotK)` produce the same distribution of `oa`
@@ -376,7 +372,10 @@ POINTWISE equality between the rewritten LHS body and the RHS body, because:
 * `((tag, 0), n)`: both tables cache `u`.
 * `((tag, slotK), n)`: T_L(gS ∘ φ) exposes `gS((tag, 0), n)` (φ swaps these); T_R(gS) exposes
   `gS((tag, 0), n)` (uncached by `hc0`). -/
-lemma singleTableHandler_cache_swap_eq [Fintype Nonce]
+lemma evalDist_singleTableHandler_cache_swap_eq [Fintype Nonce]
+    [MeasurableSpace Digest] [MeasurableSingletonClass Digest]
+    [EvalDistSemantics ProbComp] [LawfulEvalDistSemantics ProbComp]
+    (hTable : 𝒟[$ᵗ ((TagId × Fin sessionsPerTag) × Nonce → Digest)] = uniformOn Set.univ)
     (s : UnlinkState TagId)
     (c : (((TagId × Fin sessionsPerTag) × Nonce) →ₒ Digest).QueryCache)
     (tag : TagId) (slotK : Fin sessionsPerTag) (hslotK : slotK ≠ 0)
@@ -387,14 +386,10 @@ lemma singleTableHandler_cache_swap_eq [Fintype Nonce]
     (hAdv : slotK.val < s.sessionsUsed tag)
     (oa : OracleComp (UnlinkOracleSpec TagId Nonce Digest) Bool) :
     𝒟[do let gS ← $ᵗ ((TagId × Fin sessionsPerTag) × Nonce → Digest)
-         (simulateQ (singleTableHandler (TagId := TagId) (Nonce := Nonce) (Digest := Digest)
-            (sessionsPerTag := sessionsPerTag)
-            (OracleComp.tableExtending
+         (simulateQ (singleTableHandler (OracleComp.tableExtending
               (c.cacheQuery ((tag, (0 : Fin sessionsPerTag)), n) u) gS)) oa).run' s]
     = 𝒟[do let gS ← $ᵗ ((TagId × Fin sessionsPerTag) × Nonce → Digest)
-           (simulateQ (singleTableHandler (TagId := TagId) (Nonce := Nonce) (Digest := Digest)
-              (sessionsPerTag := sessionsPerTag)
-              (OracleComp.tableExtending
+           (simulateQ (singleTableHandler (OracleComp.tableExtending
                 (c.cacheQuery ((tag, slotK), n) u) gS)) oa).run' s] := by
   classical
   -- **Permutation argument**: let `φ := cellSwap ((tag, 0), n) ((tag, slotK), n)`. φ is
@@ -405,7 +400,8 @@ lemma singleTableHandler_cache_swap_eq [Fintype Nonce]
     cellSwap ((tag, (0 : Fin sessionsPerTag)), n) ((tag, slotK), n) with hφ
   -- Step 1: apply `evalDist_uniformSample_bind_cellSwap` to rewrite LHS with `gS ↦ gS ∘ φ`.
   rw [evalDist_uniformSample_bind_cellSwap (TagId := TagId) (Nonce := Nonce) (Digest := Digest)
-        (sessionsPerTag := sessionsPerTag) ((tag, (0 : Fin sessionsPerTag)), n) ((tag, slotK), n)]
+        (sessionsPerTag := sessionsPerTag) hTable
+        ((tag, (0 : Fin sessionsPerTag)), n) ((tag, slotK), n)]
   -- Step 2: pointwise — show the bodies are equal as functions of gS.
   refine congrArg evalDist (bind_congr fun gS => ?_)
   -- For each fixed `gS`, apply the swap-invariance lemma with the two tables.

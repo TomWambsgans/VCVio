@@ -4,13 +4,17 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Quang Dao
 -/
 
-import VCVio.ProgramLogic.Tactics.Unary.Internals
+module
+
+public meta import VCVio.ProgramLogic.Tactics.Unary.Internals
 
 /-!
 # Unary VC Tactics
 
 User-facing unary VCGen tactics and finish passes.
 -/
+
+public meta section
 
 open Lean Elab Tactic Meta
 
@@ -26,7 +30,7 @@ private def binderIdentsToNames (ids : Syntax.TSepArray `Lean.binderIdent ",") :
 private def runVCGenFinish : TacticM Unit := do
   unless (← getGoals).isEmpty do
     -- Only `wp_*`, `propInd_*`, and `game_rule` are kept here; generic ring/if normalization
-    -- (`one_mul`, `zero_add`, `ite_true`, `if_false`, `dite_true`, …) is already in Mathlib's
+    -- (`one_mul`, `zero_add`, `ite_true`, `ite_false`, `dite_true`, …) is already in Mathlib's
     -- default simp-set and was rarely firing on the Triple/wp-shaped goals that reach this
     -- finish pass — building those extra simp entries on every `vcgen` invocation was a
     -- constant tax without an observed win.
@@ -43,7 +47,7 @@ private def runVCGenFinish : TacticM Unit := do
   unless (← getGoals).isEmpty do
     discard <| tryEvalTacticSyntax
       (← `(tactic| all_goals try
-        (refine Std.Do'.Triple.iff.mpr ?_
+        (refine Std.Internal.Do.Triple.intro ?_
          repeat intro _
          simp [Lean.Order.PartialOrder.rel,
            MonadStateOf.get, MonadStateOf.set, MonadReaderOf.read, MonadWriter.tell,
@@ -52,16 +56,16 @@ private def runVCGenFinish : TacticM Unit := do
            StateT.run_lift, StateT.run_map,
            ReaderT.run_bind, ReaderT.run_pure, ReaderT.run_monadLift, ReaderT.run_read,
            ReaderT.run_map,
-           Std.Do'.WriterT.apply_wp,
-           OracleComp.ProgramLogic.Loom.WriterT.wp_bind,
-           OracleComp.ProgramLogic.Loom.WriterT.wp_pure,
-           OracleComp.ProgramLogic.Loom.WriterT.wp_tell,
-           OracleComp.ProgramLogic.Loom.WriterT.wp_monadLift,
-           OracleComp.ProgramLogic.Loom.WriterT.wp_map,
+           WriterT.wp_apply_eq,
+           OracleComp.Lower.WriterT.wp_bind,
+           OracleComp.Lower.WriterT.wp_pure,
+           OracleComp.Lower.WriterT.wp_tell,
+           OracleComp.Lower.WriterT.wp_monadLift,
+           OracleComp.Lower.WriterT.wp_map,
            WriterT.run_bind, WriterT.run_pure, WriterT.run_tell, WriterT.run_map,
            MAlgOrdered.wp_bind, MAlgOrdered.wp_pure, MAlgOrdered.wp_map,
-           OracleComp.ProgramLogic.Loom.wp_eq_mAlgOrdered_wp,
-           OracleComp.ProgramLogic.Loom.wp_eq_mAlgOrdered_wp_epost,
+           OracleComp.Lower.wp_eq_mAlgOrdered_wp,
+           OracleComp.Lower.wp_eq_mAlgOrdered_wp_epost,
            MonadLift.monadLift, pure_bind, bind_assoc, map_pure, Functor.map_map,
            one_mul, mul_one, mul_assoc]
          try exact le_rfl)))
@@ -77,12 +81,12 @@ private def runVCGenFinish : TacticM Unit := do
            ReaderT.run, ReaderT.run_read, ReaderT.run_pure, ReaderT.run_monadLift,
            TacticInternals.Unary.wp_ReaderT_run_read_layer,
            TacticInternals.Unary.wp_ReaderT_run_read_layer',
-           Std.Do'.WriterT.apply_wp,
-           OracleComp.ProgramLogic.Loom.WriterT.wp_tell,
-           OracleComp.ProgramLogic.Loom.WriterT.wp_monadLift,
+           WriterT.wp_apply_eq,
+           OracleComp.Lower.WriterT.wp_tell,
+           OracleComp.Lower.WriterT.wp_monadLift,
            WriterT.run_tell, WriterT.run_pure, WriterT.run_monadLift, WriterT.run_map,
-           OracleComp.ProgramLogic.Loom.wp_eq_mAlgOrdered_wp,
-           OracleComp.ProgramLogic.Loom.wp_eq_mAlgOrdered_wp_epost,
+           OracleComp.Lower.wp_eq_mAlgOrdered_wp,
+           OracleComp.Lower.wp_eq_mAlgOrdered_wp_epost,
            MAlgOrdered.wp_bind, MAlgOrdered.wp_pure, MAlgOrdered.wp_map,
            MonadLift.monadLift, pure_bind, bind_assoc, map_pure, Functor.map_map,
            one_mul, mul_one, mul_assoc]
@@ -101,12 +105,12 @@ private def runVCGenFinish : TacticM Unit := do
            ReaderT.run, ReaderT.run_read, ReaderT.run_pure, ReaderT.run_monadLift,
            TacticInternals.Unary.wp_ReaderT_run_read_layer,
            TacticInternals.Unary.wp_ReaderT_run_read_layer',
-           Std.Do'.WriterT.apply_wp,
-           OracleComp.ProgramLogic.Loom.WriterT.wp_tell,
-           OracleComp.ProgramLogic.Loom.WriterT.wp_monadLift,
+           WriterT.wp_apply_eq,
+           OracleComp.Lower.WriterT.wp_tell,
+           OracleComp.Lower.WriterT.wp_monadLift,
            WriterT.run_tell, WriterT.run_pure, WriterT.run_monadLift, WriterT.run_map,
-           OracleComp.ProgramLogic.Loom.wp_eq_mAlgOrdered_wp,
-           OracleComp.ProgramLogic.Loom.wp_eq_mAlgOrdered_wp_epost,
+           OracleComp.Lower.wp_eq_mAlgOrdered_wp,
+           OracleComp.Lower.wp_eq_mAlgOrdered_wp_epost,
            MAlgOrdered.wp_bind, MAlgOrdered.wp_pure, MAlgOrdered.wp_map,
            MonadLift.monadLift, pure_bind, bind_assoc, map_pure, Functor.map_map,
            one_mul, mul_one, mul_assoc]
@@ -156,16 +160,17 @@ from context, and WP-rule unfolding, including `simulateQ ... run'`.
 After the built-in leaf rules, it may also use user-authored `@[vcspec]` lemmas whose
 registered head symbol matches the current computation.
 
-For `Pr[ ...] = 1` and lower-bound goals such as `r ≤ Pr[ p | oa]`: automatically lowers the
-goal into a `Triple` form.
+For `Pr{…}[…] = 1` and lower-bound goals such as `r ≤ Pr{let x ← oa}[p x]`: automatically lowers
+the goal into a `Triple` form.
 
-For `Pr[ ...] = Pr[ ...]` goals: tries bind-swap (`probEvent_bind_bind_swap`), bind
-congruence (`probOutput_bind_congr` / `probEvent_bind_congr`), swap-then-congr,
-or an exact-`probOutput` bridge into relational VCGen.
-Handles up to 2 layers of tsum peeling for nested swaps.
+For equalities of events or output measures, such as `Pr{…}[…] = Pr{…}[…]` or
+`𝒟[oa] = 𝒟[ob]`: tries bind-swap (`OracleComp.prEvent_bind_bind_swap`,
+`OracleComp.evalDist_bind_bind_swap`), bind congruence on the support of the shared prefix
+(`OracleComp.prEvent_bind_congr_of_support`, `OracleComp.evalDist_bind_congr_of_support`), and
+swap-then-congr.
 
-For other general `Pr[ ...]` goals: rewrites to raw `wp` form and keeps stepping structurally
-when a `wp` rule applies, rather than immediately exiting the VCGen pipeline.
+For other `Pr{…}[…]` goals: rewrites to raw `wp` form and keeps stepping structurally when a `wp`
+rule applies, rather than immediately exiting the VCGen pipeline.
 
 Variants:
 - `vcstep using cut` for an explicit intermediate postcondition.
@@ -179,10 +184,15 @@ Variants:
 
 Use `@[vcspec]` on unary `Triple` or raw `wp` theorems to opt them into bounded lookup. -/
 syntax "vcstep" ("using" term)? : tactic
+@[inherit_doc tacticVcstepUsing_, tactic_alt tacticVcstepUsing_]
 syntax "vcstep" "with" term : tactic
+@[inherit_doc tacticVcstepUsing_, tactic_alt tacticVcstepUsing_]
 syntax "vcstep" "as" "⟨" binderIdent,* "⟩" : tactic
+@[inherit_doc tacticVcstepUsing_, tactic_alt tacticVcstepUsing_]
 syntax "vcstep" "using" term "as" "⟨" binderIdent,* "⟩" : tactic
+@[inherit_doc tacticVcstepUsing_, tactic_alt tacticVcstepUsing_]
 syntax "vcstep" "with" term "as" "⟨" binderIdent,* "⟩" : tactic
+@[inherit_doc tacticVcstepUsing_, tactic_alt tacticVcstepUsing_]
 syntax "vcstep?" : tactic
 
 elab_rules : tactic
@@ -216,14 +226,23 @@ elab_rules : tactic
       addTryThisTextSuggestion (← getRef) step.replayText
       logPlannerNotes #[step]
 
+@[inherit_doc tacticVcstepUsing_, tactic_alt tacticVcstepUsing_]
 syntax "vcstep" &"rw" : tactic
+@[inherit_doc tacticVcstepUsing_, tactic_alt tacticVcstepUsing_]
 syntax "vcstep" &"rw" " under " num : tactic
+@[inherit_doc tacticVcstepUsing_, tactic_alt tacticVcstepUsing_]
 syntax "vcstep" &"rw" &"normalize" : tactic
+@[inherit_doc tacticVcstepUsing_, tactic_alt tacticVcstepUsing_]
 syntax "vcstep" &"rw" &"congr" : tactic
+@[inherit_doc tacticVcstepUsing_, tactic_alt tacticVcstepUsing_]
 syntax "vcstep" &"rw" &"congr'" : tactic
+@[inherit_doc tacticVcstepUsing_, tactic_alt tacticVcstepUsing_]
 syntax "vcstep" &"rw" "as" "⟨" binderIdent,* "⟩" : tactic
+@[inherit_doc tacticVcstepUsing_, tactic_alt tacticVcstepUsing_]
 syntax "vcstep" &"rw" " under " num "as" "⟨" binderIdent,* "⟩" : tactic
+@[inherit_doc tacticVcstepUsing_, tactic_alt tacticVcstepUsing_]
 syntax "vcstep" &"rw" &"congr" "as" "⟨" binderIdent,* "⟩" : tactic
+@[inherit_doc tacticVcstepUsing_, tactic_alt tacticVcstepUsing_]
 syntax "vcstep" &"rw" &"congr'" "as" "⟨" binderIdent,* "⟩" : tactic
 
 elab_rules : tactic
@@ -267,7 +286,9 @@ elab_rules : tactic
       if ← TacticInternals.Unary.runProbEqAction .congrNoSupport then return
       TacticInternals.Unary.throwVCGenStepRwCongrError false
 
+@[inherit_doc tacticVcstepUsing_, tactic_alt tacticVcstepUsing_]
 syntax "vcstep" &"inv" term : tactic
+@[inherit_doc tacticVcstepUsing_, tactic_alt tacticVcstepUsing_]
 syntax "vcstep" &"inv" term "as" "⟨" binderIdent,* "⟩" : tactic
 
 elab_rules : tactic
@@ -290,12 +311,11 @@ elab_rules : tactic
 with spec-aware stepping.
 
 Accepts `Triple` goals, raw `wp` goals, lower-bound / exact probability goals, and
-`Pr[ ...] = Pr[ ...]` equality goals. Probability goals are automatically lowered or
+`Pr{…}[…] = Pr{…}[…]` equality goals. Probability goals are automatically lowered or
 dispatched (swap/congr) before structural decomposition continues.
 
 Enhancements over simple structural decomposition:
-- Lowers `Pr[ ...]` goals into `Triple` or raw `wp` form before decomposition
-- Bridges exact `Pr[= x | oa] = Pr[= x | ob]` goals into relational VCGen when helpful
+- Lowers `Pr{…}[…]` goals into `Triple` or raw `wp` form before decomposition
 - After bind decomposition, tries to close spec subgoals from local context
 - Falls back to backward WP (`triple_bind_wp`) when no spec is available
 - Splits `ite`/`dite` conditionals into branch goals with hypotheses
@@ -314,30 +334,23 @@ Variants:
   then continues with exhaustive decomposition on all resulting goals.
 - `vcgen inv I` applies an explicit loop invariant `I` to the first `replicate`/`foldlM`/`mapM`
   goal, then continues with exhaustive decomposition. -/
-syntax "vcgen" ("using" term)? : tactic
-syntax "vcgen" &"inv" term : tactic
-syntax "vcgen?" : tactic
+tactic_extension Lean.Parser.Tactic.vcgenMacro
 
-elab_rules : tactic
+@[tactic_alt Lean.Parser.Tactic.vcgenMacro]
+syntax (name := vcgenBasic) "vcgen" : tactic
+@[tactic_alt Lean.Parser.Tactic.vcgenMacro]
+syntax (name := vcgenUsing) "vcgen" "using" term : tactic
+@[tactic_alt Lean.Parser.Tactic.vcgenMacro]
+syntax (name := vcgenInv) "vcgen" &"inv" term : tactic
+@[tactic_alt Lean.Parser.Tactic.vcgenMacro]
+syntax (name := vcgenSuggestion) "vcgen?" : tactic
+
+elab_rules (kind := vcgenBasic) : tactic
   | `(tactic| vcgen) => withVCGenRunTiming "vcgen" do
       discard <| runBoundedPasses "vcgen" TacticInternals.Unary.runVCGenPass
       withVCGenFinishTiming runVCGenFinish
-  | `(tactic| vcgen using $cut) => withVCGenRunTiming "vcgen" do
-      discard <| TacticInternals.Unary.tryLowerProbGoal
-      if ← TacticInternals.Unary.runHoareStepRuleUsing cut then
-        discard <| runBoundedPasses "vcgen" TacticInternals.Unary.runVCGenPass
-        withVCGenFinishTiming runVCGenFinish
-      else
-        TacticInternals.Unary.throwVCGenStepError
-  | `(tactic| vcgen inv $inv) => withVCGenRunTiming "vcgen" do
-      discard <| TacticInternals.Unary.tryLowerProbGoal
-      if ← TacticInternals.Unary.runLoopInvExplicit inv then
-        discard <| runBoundedPasses "vcgen" TacticInternals.Unary.runVCGenPass
-        withVCGenFinishTiming runVCGenFinish
-      else
-        throwError
-          "vcgen inv: expected a `Triple` goal about `replicate`, `List.foldlM`, \
-          or `List.mapM`."
+
+elab_rules (kind := vcgenSuggestion) : tactic
   | `(tactic| vcgen?) => withVCGenRunTiming "vcgen?" do
       let batches ← runBoundedPassesCollect "vcgen?" TacticInternals.Unary.runVCGenPassPlanned
       let needsFinish := !(← getGoals).isEmpty
@@ -355,7 +368,7 @@ elab_rules : tactic
             "OracleComp.ProgramLogic.wp_map, OracleComp.ProgramLogic.wp_uniformSample, ",
             "OracleComp.ProgramLogic.wp_const, OracleComp.ProgramLogic.propInd_true, ",
             "OracleComp.ProgramLogic.propInd_false, OracleComp.ProgramLogic.propInd_eq_ite, ",
-            "ite_true, ite_false, if_true, if_false, dite_true, dite_false, ",
+            "ite_true, ite_false, ite_true, ite_false, dite_true, dite_false, ",
             "one_mul, mul_one, zero_mul, mul_zero, zero_add, add_zero, game_rule]",
           ],
           String.intercalate "" [
@@ -363,8 +376,7 @@ elab_rules : tactic
             "exact OracleComp.ProgramLogic.triple_zero _ _ | ",
             "(classical exact OracleComp.ProgramLogic.triple_support _) | ",
             "(exact OracleComp.ProgramLogic.triple_propInd_of_support _ _ (by assumption)) | ",
-            "(exact OracleComp.ProgramLogic.triple_probEvent_eq_one _ _ (by assumption)) | ",
-            "(exact OracleComp.ProgramLogic.triple_probOutput_eq_one _ _ (by assumption)) | ",
+            "(exact OracleComp.ProgramLogic.triple_prEvent_eq_one _ _ (by assumption)) | ",
             "exact le_refl _ | (repeat intro; simp only [OracleComp.ProgramLogic.Triple] at *; ",
             "solve_by_elim (maxDepth := 6) [OracleComp.ProgramLogic.wp_mono, le_trans])",
           ]
@@ -373,11 +385,31 @@ elab_rules : tactic
         lines := ["vcgen"]
       addTryThisTextSuggestion (← getRef) <| String.intercalate "\n" lines
 
+elab_rules (kind := vcgenUsing) : tactic
+  | `(tactic| vcgen using $cut) => withVCGenRunTiming "vcgen" do
+      discard <| TacticInternals.Unary.tryLowerProbGoal
+      if ← TacticInternals.Unary.runHoareStepRuleUsing cut then
+        discard <| runBoundedPasses "vcgen" TacticInternals.Unary.runVCGenPass
+        withVCGenFinishTiming runVCGenFinish
+      else
+        TacticInternals.Unary.throwVCGenStepError
+
+elab_rules (kind := vcgenInv) : tactic
+  | `(tactic| vcgen inv $inv) => withVCGenRunTiming "vcgen" do
+      discard <| TacticInternals.Unary.tryLowerProbGoal
+      if ← TacticInternals.Unary.runLoopInvExplicit inv then
+        discard <| runBoundedPasses "vcgen" TacticInternals.Unary.runVCGenPass
+        withVCGenFinishTiming runVCGenFinish
+      else
+        throwError
+          "vcgen inv: expected a `Triple` goal about `replicate`, `List.foldlM`, \
+          or `List.mapM`."
+
 /-- `exp_norm` normalizes expectation / indicator arithmetic in the current goal.
 
 Rewrites using linearity of expectation (`wp_add`, `wp_mul_const`), indicator algebra
 (`propInd_true`, `propInd_false`, `propInd_and`), and standard WP step rules. -/
-macro "exp_norm" : tactic =>
+macro (name := expNorm) "exp_norm" : tactic =>
   `(tactic| simp only [
     OracleComp.ProgramLogic.propInd_true, OracleComp.ProgramLogic.propInd_false,
     OracleComp.ProgramLogic.propInd_and, OracleComp.ProgramLogic.propInd_eq_ite,
@@ -388,15 +420,15 @@ macro "exp_norm" : tactic =>
     OracleComp.ProgramLogic.wp_pure, OracleComp.ProgramLogic.wp_bind,
     OracleComp.ProgramLogic.wp_map, OracleComp.ProgramLogic.wp_ite,
     OracleComp.ProgramLogic.wp_dite,
-    ite_true, ite_false, if_true, if_false, dite_true, dite_false,
+    ite_true, ite_false, ite_true, ite_false, dite_true, dite_false,
     one_mul, mul_one, zero_mul, mul_zero, zero_add, add_zero,
     game_rule])
 
 /-- `by_hoare` transforms a probability goal into a quantitative WP goal. -/
-macro "by_hoare" : tactic =>
+macro (name := byHoare) "by_hoare" : tactic =>
   `(tactic|
-    first
-      | rw [OracleComp.ProgramLogic.probEvent_eq_wp_indicator]
-      | rw [OracleComp.ProgramLogic.probOutput_eq_wp_indicator])
+    simp only [prEvent_ite, prEvent_dite, evalDist_ite_apply, evalDist_dite_apply,
+      OracleComp.ProgramLogic.prEvent_eq_wp_propInd,
+      ← OracleComp.ProgramLogic.propInd_eq_ite])
 
 end OracleComp.ProgramLogic

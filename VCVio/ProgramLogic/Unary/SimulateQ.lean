@@ -4,10 +4,13 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Quang Dao
 -/
 
-import VCVio.ProgramLogic.Unary.HoareTriple
-import VCVio.OracleComp.SimSemantics.SimulateQ
-import VCVio.OracleComp.SimSemantics.StateT.Basic
-import VCVio.OracleComp.Coercions.SubSpec
+module
+
+public import VCVio.ProgramLogic.Unary.HoareTriple
+public import VCVio.OracleComp.SimSemantics.SimulateQ
+public import VCVio.OracleComp.SimSemantics.StateT.Basic
+public import VCVio.OracleComp.Coercions.SubSpec.Measure
+public import ToMathlib.MeasureTheory.Measure.UniformTable
 
 /-!
 # Oracle-Aware Unary WP Rules
@@ -23,57 +26,97 @@ providing rules that let program logic proofs pass through oracle simulation bou
   preserve `wp`.
 -/
 
-open ENNReal OracleSpec OracleComp
+@[expose] public section
+
+open ENNReal OracleSpec OracleComp MeasureTheory
 
 open scoped OracleSpec.PrimitiveQuery
 
 namespace OracleComp.ProgramLogic
 
 variable {ι : Type*} {spec : OracleSpec ι}
-variable [IsUniformSpec spec]
 variable {α : Type}
+
+section answerMeasure
+
+variable [OracleSpec.AnswerMeasure spec]
 
 /-- If every oracle query in `impl` has the same evaluation distribution as the original query,
 then `wp` of the simulated computation equals `wp` of the original. -/
 @[game_rule] theorem wp_simulateQ_eq
     (impl : QueryImpl spec (OracleComp spec))
     (hImpl : ∀ (t : spec.Domain),
-      𝒟[impl t] = 𝒟[(liftM (query t) : OracleComp spec (spec.Range t))])
+      impl t =ᵈ (liftM (OracleSpec.query t) : OracleComp spec (spec.Range t)))
     (oa : OracleComp spec α) (post : α → ℝ≥0∞) :
     wp (simulateQ impl oa) post =
       wp oa post := by
   induction oa using OracleComp.inductionOn with
   | pure x => simp
   | query_bind t oa ih =>
+    let : MeasurableSpace (spec.Range t) := ⊤
     simp only [simulateQ_bind, simulateQ_query, OracleQuery.cont_query, id_map,
       OracleQuery.input_query]
     rw [wp_bind, wp_bind]
     simp_rw [ih]
-    exact wp_congr_evalDist (hImpl t) _
+    exact wp_congr_evalDist (hImpl t).evalDist_eq _ Measurable.of_discrete
 
-/-- Lifting a computation to a larger oracle spec via `liftComp` preserves `wp`. -/
-@[game_rule] theorem wp_liftComp {ι' : Type*} {superSpec : OracleSpec ι'}
-    [IsUniformSpec superSpec]
-    [h : spec ⊂ₒ superSpec] [spec ˡ⊂ₒ superSpec]
+/-- A distribution-preserving signature inclusion preserves quantitative WP. -/
+theorem wp_liftComp_of_evalDistEq {ι' : Type*} {superSpec : OracleSpec ι'}
+    [OracleSpec.AnswerMeasure superSpec]
+    [h : spec ⊂ₒ superSpec]
+    (hMeasure : ∀ t, (liftM (spec.query t) : OracleComp superSpec (spec.Range t)) =ᵈ
+      (liftM (spec.query t) : OracleComp spec (spec.Range t)))
     (mx : OracleComp spec α) (post : α → ℝ≥0∞) :
-    wp (liftComp mx superSpec) post =
-      wp mx post := by
-  change @μ _ superSpec _ (liftComp mx superSpec >>= fun a => pure (post a)) =
-       μ (mx >>= fun a => pure (post a))
-  exact μ_cross_congr_evalDist
-    (by simp only [evalDist_bind, evalDist_liftComp, evalDist_pure])
+    wp (liftComp mx superSpec) post = wp mx post := by
+  induction mx using OracleComp.inductionOn with
+  | pure x => simp
+  | query_bind t k ih =>
+    let : MeasurableSpace (spec.Range t) := ⊤
+    simp only [liftComp_bind, liftComp_query, OracleQuery.cont_query, id_map,
+      OracleQuery.input_query, wp_bind]
+    simp_rw [ih]
+    rw [wp_eq_lintegral _ _ Measurable.of_discrete, (hMeasure t).evalDist_eq,
+      ← wp_eq_lintegral _ _ Measurable.of_discrete]
 
-/-- If a stateful oracle implementation preserves distributions (each query produces a uniform
-distribution after discarding state), then `wp` of `simulateQ ... run'` equals `wp` of the
-original computation. -/
+end answerMeasure
+
+/-- Cartesian lifting between uniform specifications preserves quantitative WP. -/
+@[game_rule] theorem wp_liftComp [OracleSpec.UniformAnswerMeasure spec]
+    {ι' : Type*} {superSpec : OracleSpec ι'}
+    [OracleSpec.UniformAnswerMeasure superSpec] [spec ⊂ₒ superSpec] [spec ˡ⊂ₒ superSpec]
+    (mx : OracleComp spec α) (post : α → ℝ≥0∞) :
+    wp (liftComp mx superSpec) post = wp mx post :=
+  wp_liftComp_of_evalDistEq (fun t ↦ evalDistEq_liftM_query_uniform t) mx post
+
+section answerMeasure
+
+variable [OracleSpec.AnswerMeasure spec]
+
+/-- A stateful implementation preserving each configured answer measure preserves WP
+after its state is discarded. The hidden state needs no measurable-space instance. -/
 @[game_rule] theorem wp_simulateQ_run'_eq {σ : Type}
     (impl : QueryImpl spec (StateT σ (OracleComp spec)))
     (hImpl : ∀ (t : spec.Domain) (s : σ),
-      𝒟[(impl t).run' s] =
-        OptionT.lift (PMF.uniformOfFintype (spec.Range t)))
+      (impl t).run' s =ᵈ (liftM (OracleSpec.query t) : OracleComp spec (spec.Range t)))
     (oa : OracleComp spec α) (s : σ) (post : α → ℝ≥0∞) :
     wp ((simulateQ impl oa).run' s) post =
-      wp oa post :=
-  wp_congr_evalDist (evalDist_simulateQ_run'_eq_evalDist impl hImpl s oa) post
+      wp oa post := by
+  induction oa using OracleComp.inductionOn generalizing s with
+  | pure x => simp
+  | query_bind t k ih =>
+    let : MeasurableSpace (spec.Range t) := ⊤
+    simp only [simulateQ_bind, simulateQ_query, OracleQuery.cont_query, id_map,
+      OracleQuery.input_query, StateT.run'_bind', wp_bind]
+    simp_rw [ih]
+    calc
+      _ = wp ((impl t).run' s) (fun u ↦ wp (k u) post) := by
+        simpa only [StateT.run'_eq, Function.comp_def] using
+          (wp_map Prod.fst ((impl t).run s) (fun u ↦ wp (k u) post)).symm
+      _ = _ := by
+        rw [wp_eq_lintegral _ _ Measurable.of_discrete, (hImpl t s).evalDist_eq,
+          ← wp_eq_lintegral _ _ Measurable.of_discrete]
+
+
+end answerMeasure
 
 end OracleComp.ProgramLogic

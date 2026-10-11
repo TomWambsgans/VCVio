@@ -4,7 +4,7 @@ name: Interop TCB Isolation
 # `docs/agents/interop.md`: core VCVio libraries must not import from
 # `Interop.…`, `Hax.…`, or `Aeneas.…`, and `Interop/**` must not depend on
 # downstream libraries (`LatticeCrypto`, `Examples`, `LatticeCryptoTest`,
-# `FFI`, `VCVioWidgets`, `VCVioTest`).
+# `Extern`, `VCVioWidgets`, `VCVioTest`).
 #
 # Runs on every PR and on pushes to `main`. The check is fast
 # (a handful of `rg` invocations) and runs without a Lean toolchain.
@@ -13,6 +13,8 @@ on:
   push:
     branches: [main]
   pull_request:
+  merge_group:
+    types: [checks_requested]
   workflow_dispatch:
 
 concurrency:
@@ -24,7 +26,9 @@ jobs:
     name: Check Interop TCB Isolation
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Run isolation check
         run: bash scripts/check-interop-isolation.sh
+
+      - name: Run Extern isolation check
+        run: bash scripts/check-extern-isolation.sh

@@ -3,8 +3,12 @@ Copyright (c) 2026 Quang Dao. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Quang Dao
 -/
-import VCVio.EvalDist.TVDist
-import VCVio.OracleComp.Constructions.SampleableType
+
+module
+public import VCVio.EvalDist.MeasureTVDist.Basic
+public import VCVio.EvalDist.EvalDistEq
+public import VCVio.OracleComp.EvalDist.Measure
+public import VCVio.OracleComp.Constructions.SampleableType
 
 /-!
 # Identification Scheme with Aborts
@@ -42,7 +46,10 @@ The structure follows the EasyCrypt formalization in `IDSabort.ec` (formosa-cryp
 - EasyCrypt `IDSabort.ec`
 -/
 
+@[expose] public section
+
 open OracleSpec OracleComp
+open scoped ENNReal
 
 /-- An identification scheme with aborts for statements in `Stmt` and witnesses in `Wit`, where
 `rel : Stmt → Wit → Bool` is the proven relation. The prover's commitment is split into a public
@@ -70,7 +77,7 @@ variable {Stmt Wit Commit PrvState Chal Resp : Type} {rel : Stmt → Wit → Boo
 
 section HonestExecution
 
-variable [SampleableType Chal] [IsUniformSpec unifSpec]
+variable [SampleableType Chal]
 
 /-- A single honest execution producing an optional transcript `(Commit, Chal, Resp)`.
 Returns `none` if the prover aborts. -/
@@ -86,18 +93,17 @@ end HonestExecution
 
 section Completeness
 
-variable [SampleableType Chal] [IsUniformSpec unifSpec]
+variable [SampleableType Chal]
 
 /-- An identification scheme with aborts is complete if: whenever the prover does not abort,
 the verifier always accepts. -/
 def Complete (ids : IdenSchemeWithAbort Stmt Wit Commit PrvState Chal Resp rel) : Prop :=
   ∀ s w, rel s w = true →
-    Pr[= true | do
+    Pr{let x ← (do
       let t? ← ids.honestExecution s w
       return match t? with
         | some (cm, c, z) => ids.verify s cm c z
-        | none => true
-    ] = 1
+        | none => true)}[x = true] = 1
 
 /-- Support-level consequence of completeness: any non-aborting honest transcript in the
 support has an accepting verification. -/
@@ -106,33 +112,33 @@ lemma verify_of_complete (ids : IdenSchemeWithAbort Stmt Wit Commit PrvState Cha
     {cm : Commit} {c : Chal} {z : Resp}
     (h_mem : some (cm, c, z) ∈ support (ids.honestExecution s w)) :
     ids.verify s cm c z = true :=
-  ((probOutput_eq_one_iff_forall _ _).1 (hc s w hrel)).2 _
+  (OracleComp.prEvent_eq_one_iff _ _).1 (hc s w hrel) _
     ((mem_support_bind_iff _ _ _).2 ⟨_, h_mem, by simp⟩)
 
 end Completeness
 
 section HVZK
 
-variable [SampleableType Chal] [IsUniformSpec unifSpec]
+variable [SampleableType Chal]
 
 /-- Approximate honest-verifier zero-knowledge for an identification scheme with aborts:
 the transcript distribution produced by the honest prover is within total variation
-distance `ζ_zk` of the distribution produced by the simulator.
+distance `ζ_zk` of the distribution produced by the simulator, measured in the discrete
+structure on transcripts.
 
 Both distributions are over `Option (Commit × Chal × Resp)`, where `none` represents an abort.
 The parameter `ζ_zk` captures both transcript mismatch and abort-probability mismatch. -/
 def HVZK (ids : IdenSchemeWithAbort Stmt Wit Commit PrvState Chal Resp rel)
-    (sim : Stmt → ProbComp (Option (Commit × Chal × Resp))) (ζ_zk : ℝ) : Prop :=
+    (sim : Stmt → ProbComp (Option (Commit × Chal × Resp))) (ζ_zk : ℝ≥0∞) : Prop :=
   ∀ s w, rel s w = true →
-    tvDist (ids.honestExecution s w) (sim s) ≤ ζ_zk
+    letI : MeasurableSpace (Option (Commit × Chal × Resp)) := ⊤
+    measureETVDist (ids.honestExecution s w) (sim s) ≤ ζ_zk
 
 /-- Exact honest-verifier zero-knowledge for an identification scheme with aborts:
-the transcript distribution produced by the honest prover exactly matches the
-distribution produced by the simulator. -/
+the honest prover's transcript is equal in distribution to the simulator's. -/
 def PerfectHVZK (ids : IdenSchemeWithAbort Stmt Wit Commit PrvState Chal Resp rel)
     (sim : Stmt → ProbComp (Option (Commit × Chal × Resp))) : Prop :=
-  ∀ s w, rel s w = true →
-    𝒟[ids.honestExecution s w] = 𝒟[sim s]
+  ∀ s w, rel s w = true → ids.honestExecution s w =ᵈ sim s
 
 /-- The perfect HVZK property is equivalent to the approximate HVZK property with `ζ_zk = 0`. -/
 @[grind =]
@@ -140,7 +146,8 @@ lemma perfectHVZK_iff_hvzk_zero
     (ids : IdenSchemeWithAbort Stmt Wit Commit PrvState Chal Resp rel)
     (sim : Stmt → ProbComp (Option (Commit × Chal × Resp))) :
     ids.PerfectHVZK sim ↔ ids.HVZK sim 0 := by
-  simp [PerfectHVZK, HVZK, ← tvDist_eq_zero_iff, le_antisymm_iff, tvDist_nonneg]
+  simp only [PerfectHVZK, HVZK, evalDistEq_iff_evalDist_eq, nonpos_iff_eq_zero,
+    measureETVDist_eq_zero_iff]
 
 end HVZK
 
@@ -164,17 +171,19 @@ section Impersonation
 /-- An adversary for the impersonation game against an identification scheme with aborts.
 The adversary sees the public key (statement), produces a commitment together with an
 internal state, and then responds to a challenge using that state. -/
-structure ImpAdv (ids : IdenSchemeWithAbort Stmt Wit Commit PrvState Chal Resp rel)
+structure ImpAdversary (ids : IdenSchemeWithAbort Stmt Wit Commit PrvState Chal Resp rel)
     (AdvSt : Type) where
+  /-- Given the statement, produce a commitment and the adversary's internal state. -/
   commit (s : Stmt) : ProbComp (Commit × AdvSt)
+  /-- Given the statement, the challenge and the internal state, produce a response. -/
   respond (s : Stmt) (c : Chal) (st : AdvSt) : ProbComp Resp
 
-variable [SampleableType Chal] [IsUniformSpec unifSpec]
+variable [SampleableType Chal]
 
 /-- The impersonation experiment: the adversary tries to produce a valid transcript
 without knowing the witness, against a fixed statement `s`. -/
-def impExp {ids : IdenSchemeWithAbort Stmt Wit Commit PrvState Chal Resp rel}
-    {AdvSt : Type} (adv : ImpAdv ids AdvSt) (s : Stmt) : ProbComp Bool := do
+def impExperiment {ids : IdenSchemeWithAbort Stmt Wit Commit PrvState Chal Resp rel}
+    {AdvSt : Type} (adv : ImpAdversary ids AdvSt) (s : Stmt) : ProbComp Bool := do
   let (cm, st) ← adv.commit s
   let c ← $ᵗ Chal
   let z ← adv.respond s c st

@@ -3,11 +3,15 @@ Copyright (c) 2024 Devon Tuma. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Devon Tuma
 -/
-import VCVio.OracleComp.ProbComp
-import VCVio.OracleComp.EvalDist
-import VCVio.EvalDist.List
-import VCVio.OracleComp.Constructions.SampleableType
-import Init.Data.Vector.Lemmas
+
+module
+public import VCVio.OracleComp.Constructions.Replicate.Basic
+public import VCVio.OracleComp.ProbComp.Basic
+public import VCVio.OracleComp.Constructions.UniformFinMeasure
+public import VCVio.OracleComp.EvalDist
+public import VCVio.EvalDist.List
+public import VCVio.OracleComp.Constructions.SampleableType.Basic
+public import Init.Data.Vector.Lemmas
 
 /-!
 # Running a Computation Multiple Times
@@ -18,100 +22,17 @@ returning the result as a list of length `n`.
 Note that while the executions are independent, they may no longer be after calling `simulate`.
 -/
 
+@[expose] public section
+
 open OracleSpec
 
 universe u v w
 
 namespace OracleComp
 
-/-- Run the computation `oa` repeatedly `n` times to get a list of `n` results. -/
-def replicate {ι} {spec : OracleSpec ι} {α : Type v}
-    (n : ℕ) (oa : OracleComp spec α) : OracleComp spec (List α) :=
-  match n with
-  | 0 => pure []
-  | n + 1 => do
-      let x ← oa
-      let xs ← replicate n oa
-      pure (x :: xs)
-
-/-- Tail-recursive variant of `replicate`, running `oa` for each entry of a length-`n` list
-built by `List.replicateTR`. Agrees with `replicate` via `replicateTR_eq_replicate`. -/
-def replicateTR {ι} {spec : OracleSpec ι} {α : Type v}
-    (n : ℕ) (oa : OracleComp spec α) : OracleComp spec (List α) :=
-  (List.replicateTR n ()).mapM fun () => oa
-
 variable {ι} {spec : OracleSpec ι} {α β : Type v}
   (oa : OracleComp spec α) (n : ℕ)
 
-@[simp]
-lemma replicate_zero : replicate 0 oa = return [] := rfl
-
-@[simp]
-lemma replicateTR_zero : replicateTR 0 oa = return [] := rfl
-
-/-- Bind-style unfolding of `replicate`, convenient for program-logic proofs. -/
-@[simp]
-lemma replicate_succ_bind :
-    replicate (n + 1) oa = (do
-      let x ← oa
-      let xs ← replicate n oa
-      pure (x :: xs)) := rfl
-
-/-- The tail-recursive `replicateTR` agrees with the recursive `replicate`. The
-`@[simp]` annotation lets every later proof about `replicateTR` reduce to the
-recursive form automatically. -/
-@[simp]
-lemma replicateTR_eq_replicate : replicateTR n oa = replicate n oa := by
-  simp only [replicateTR, ← List.replicate_eq_replicateTR]
-  induction n with
-  | zero => simp
-  | succ n ih => simp [List.replicate, List.mapM_cons, ih]
-
-lemma replicate_succ : replicate (n + 1) oa = List.cons <$> oa <*> replicate n oa := by
-  simp [replicate_succ_bind, monad_norm, Function.comp]
-
-@[simp]
-lemma replicate_pure (x : α) :
-    (pure x : OracleComp spec α).replicate n = pure (List.replicate n x) := by
-  induction n with
-  | zero => rfl
-  | succ n hn => simp [hn, List.replicate]
-
-variable [IsUniformSpec spec]
-
-lemma probFailure_replicate :
-    Pr[⊥ | oa.replicate n] = 1 - (1 - Pr[⊥ | oa]) ^ n := by
-  induction n with
-  | zero => simp
-  | succ n ih => simp
-
-/-- The probability of getting a list from `replicate` is the product of the chances of
-getting each of the individual elements. -/
-@[simp]
-lemma probOutput_replicate (xs : List α) :
-    Pr[= xs | oa.replicate n] = if xs.length = n then (xs.map (Pr[= · | oa])).prod else 0 := by
-  have : DecidableEq α := Classical.decEq α
-  induction n generalizing xs with
-  | zero => cases xs <;> simp [probOutput_eq_zero_of_not_mem_support]
-  | succ n ih =>
-    cases xs with
-    | nil => simp
-    | cons y ys =>
-      rw [replicate_succ, probOutput_cons_seq_map_cons_eq_mul oa (replicate n oa) y ys, ih]
-      simp
-
-lemma probEvent_replicate_of_probEvent_cons
-    (p : List α → Prop) (hp : p []) (q : α → Prop) (hq : ∀ x xs, p (x :: xs) ↔ q x ∧ p xs) :
-    Pr[ p | oa.replicate n] = Pr[ q | oa] ^ n := by
-  induction n with
-  | zero => simp [hp]
-  | succ n ih =>
-    rw [replicate_succ,
-      probEvent_seq_map_eq_mul oa (replicate n oa) List.cons p q p
-        (fun x _ xs _ => hq x xs),
-      ih, pow_succ, mul_comm]
-
-omit [IsUniformSpec spec] in
 /-- Possible outputs of `replicate n oa` are lists of length `n` where
 each element in the list is a possible output of `oa`. -/
 @[simp]
@@ -127,18 +48,10 @@ lemma support_replicate :
     | cons x xs => rw [cons_mem_support_seq_map_cons_iff, ih]; aesop
 
 @[simp]
-lemma mem_finSupport_replicate [spec.DecidableEq] [DecidableEq α]
+lemma mem_finSupport_replicate [∀ t, Fintype (spec.Range t)] [DecidableEq α]
     (xs : List α) : xs ∈ finSupport (oa.replicate n) ↔
       xs.length = n ∧ ∀ x ∈ xs, x ∈ finSupport oa := by
   simp [mem_finSupport_iff_mem_support]
-
-lemma probOutput_replicate_uniformSample {α : Type} [Fintype α] [SampleableType α]
-    {n : ℕ} {xs : List α} (hlen : xs.length = n) :
-    Pr[= xs | replicate n ($ᵗ α)] = (↑(Fintype.card α ^ n) : ENNReal)⁻¹ := by
-  simp only [probOutput_replicate, hlen, ite_true, probOutput_uniformSample]
-  rw [List.prod_map_const, hlen]
-  simpa [Nat.cast_pow] using
-    (ENNReal.inv_pow (a := (Fintype.card α : ENNReal)) (n := n)).symm
 
 /-! ## SimulateQ distributivity -/
 
@@ -147,7 +60,6 @@ section SimulateQ
 variable {ι'} {spec' : OracleSpec ι'} {r : Type v → Type*}
   [Monad r] [LawfulMonad r] (impl : QueryImpl spec r)
 
-omit [IsUniformSpec spec] in
 /-- `simulateQ` distributes over `replicate`: simulating a replicated computation
 equals running the simulated body `n` times via monadic recursion. -/
 lemma simulateQ_replicate :

@@ -3,10 +3,14 @@ Copyright (c) 2026 Quang Dao. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Quang Dao
 -/
-import VCVio.OracleComp.ProbComp
-import VCVio.OracleComp.EvalDist
-import VCVio.OracleComp.Constructions.SampleableType
-import VCVio.ProgramLogic.Tactics.Relational
+
+module
+public import VCVio.OracleComp.ProbComp.Basic
+public import VCVio.OracleComp.Constructions.UniformFinMeasure
+public import VCVio.OracleComp.EvalDist.Measure
+public import VCVio.OracleComp.Constructions.SampleableType.Basic
+public import VCVio.OracleComp.Constructions.SampleableType.Measure
+public import VCVio.ProgramLogic.Tactics.Relational
 
 /-!
 # Information-Theoretic Private Information Retrieval (PIR)
@@ -36,6 +40,8 @@ regardless of `i₀`. So the distribution of `s` alone reveals nothing about `i�
 
 Port of EasyCrypt's `PIR.ec`.
 -/
+
+@[expose] public section
 
 open OracleComp OracleSpec ENNReal
 
@@ -71,16 +77,28 @@ def pirQuery (i₀ : Fin N) : ProbComp (List (Fin N) × List (Fin N)) :=
 /-- The imperative-style `pirQuery'` (using `for`/`let mut`) and the functional-style
 `pirQuery` (using `List.foldlM`) compute exactly the same oracle computation.
 
-Uses the general `List.forIn_mprod_yield_eq_foldlM` bridge from `ToMathlib.General`
-to convert the `for`/`let mut` desugaring (which uses `forIn` + `MProd` state +
-`ForInStep.yield`) into the direct `foldlM` formulation. The only proof obligation
-is showing that each branch of the loop body wraps its result in `ForInStep.yield`. -/
+Uses Lean's `List.forIn_yield_eq_foldlM` bridge to convert the `for`/`let mut`
+desugaring (which uses `forIn` with product state and `ForInStep.yield`) into the
+direct `foldlM` formulation. The local `ite` lemmas normalize the elaborator's
+branchwise `pure`/`yield` terms to the form expected by that bridge. -/
 theorem pirQuery'_eq_pirQuery (i₀ : Fin N) : pirQuery' i₀ = pirQuery i₀ := by
-  simp only [pirQuery', pirQuery, monad_norm]
-  exact List.forIn_mprod_yield_eq_foldlM _ _ _ _ _ (fun j b c => by
-    simp only [monad_norm]
-    congr 1; ext b₁
-    split <;> split <;> simp)
+  simp only [pirQuery', pirQuery, monad_norm, Prod.eta, bind_pure]
+  have ite_pure {α : Type} (p : Prop) [Decidable p] (x y : α) :
+      (if p then pure x else pure y : ProbComp α) = pure (if p then x else y) := by
+    split <;> rfl
+  have ite_yield {α : Type} (p : Prop) [Decidable p] (x y : α) :
+      (if p then ForInStep.yield x else .yield y) = .yield (if p then x else y) := by
+    split <;> rfl
+  simp only [ite_pure, ite_yield]
+  simpa only [map_eq_pure_bind] using
+    (List.forIn_yield_eq_foldlM
+      (l := List.finRange N)
+      (f := fun _ _ => ($ᵗ Bool))
+      (g := fun j acc b =>
+        if j = i₀ then
+          if b then (j :: acc.1, acc.2) else (acc.1, j :: acc.2)
+        else if b then (j :: acc.1, j :: acc.2) else acc)
+      (init := ([], [])))
 
 /-! ## Response computation and main protocol -/
 
@@ -166,7 +184,7 @@ in `s` plus the XOR of entries in `s'` equals the sum of `a[k]` for all
 `k ≤ j` in the symmetric difference of `s` and `s'`, which is `{i₀} ∩ {0..j}`. -/
 theorem pir_correct (hchar : ∀ x : W, x + x = 0)
     (a : Fin N → W) (i₀ : Fin N) :
-    Pr[= a i₀ | pirMain a i₀] = 1 := by
+    Pr{let y ← pirMain a i₀}[y = a i₀] = 1 := by
   -- Every output of pirMain a i₀ equals a i₀
   have huniq : ∀ y ∈ support (pirMain a i₀), y = a i₀ := by
     intro y hy
@@ -178,8 +196,7 @@ theorem pir_correct (hchar : ∀ x : W, x + x = 0)
       (List.nodup_finRange N) ([], []) ss hss
     simp only [pirResponse, List.foldl_nil, add_zero, List.mem_finRange, ↓reduceIte, zero_add] at h
     exact hy.trans h
-  exact probOutput_eq_one_of_support_subset_singleton
-    (NeverFail.probFailure_eq_zero (mx := pirMain a i₀)) huniq
+  exact prEvent_eq_one_of_forall_mem_support _ _ huniq
 
 /-- Privacy of the first server view: the distribution of the first query set `s`
 is independent of which index is being queried. Intuitively, each index `j` appears in `s` with
@@ -190,8 +207,7 @@ probability 1/2 regardless of whether `j = i₀` or not:
 This is one half of the information-theoretic privacy guarantee; the second
 server view is handled by `pir_private_snd`. -/
 theorem pir_private (i₁ i₂ : Fin N) :
-    𝒟[Prod.fst <$> pirQuery i₁] =
-    𝒟[Prod.fst <$> pirQuery i₂] := by
+    Prod.fst <$> pirQuery i₁ =ᵈ Prod.fst <$> pirQuery i₂ := by
   simp only [pirQuery]
   by_equiv
   rvcstep -- handle map
@@ -218,8 +234,7 @@ The proof uses a coupling argument with four cases depending on whether `j` equa
 both, or neither. When `j` equals exactly one of them, the coupling negates the coin (`b ↦ !b`),
 exploiting the symmetry of the uniform distribution on `Bool`. -/
 theorem pir_private_snd (i₁ i₂ : Fin N) :
-    𝒟[Prod.snd <$> pirQuery i₁] =
-    𝒟[Prod.snd <$> pirQuery i₂] := by
+    Prod.snd <$> pirQuery i₁ =ᵈ Prod.snd <$> pirQuery i₂ := by
   simp only [pirQuery]
   by_equiv
   rvcstep -- handle map

@@ -3,9 +3,12 @@ Copyright (c) 2026 Quang Dao. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Quang Dao
 -/
-import LatticeCrypto.MLKEM.Params
-import LatticeCrypto.Ring.SchoolbookCert
-import LatticeCrypto.Ring.Transform
+
+module
+public import LatticeCrypto.MLKEM.Params
+public import LatticeCrypto.Ring.Sampling
+public import LatticeCrypto.Ring.SchoolbookCert
+public import LatticeCrypto.Ring.Transform
 
 /-!
 # ML-KEM Arithmetic Assembly
@@ -23,17 +26,30 @@ Provides:
   quotient embedding.
 - `NTTRingOps` / `NTTRingLaws`: transform-domain interface and law aliases.
 
+The `NeZero modulus` instance makes `Coeff` finite and sampleable, so the generic
+`LatticeCrypto.Ring.Sampling` instances give `Fintype` and `SampleableType` on `Rq`, `Tq`,
+and their `RqVec` / `TqVec` / `TqMatrix` containers.
+
 ML-KEM does not use rounding or norm bundles at the arithmetic layer.
 
 This module is mixed: the executable aliases are computable, while
 `coeffSemantics` and `quotientOfRq` are `noncomputable`.
 -/
 
+@[expose] public section
+
 
 namespace MLKEM
 
 /-- Coefficients in the ML-KEM base ring. -/
 abbrev Coeff := ZMod modulus
+
+/-- The FIPS 203 modulus `q = 3329` is nonzero, so `Coeff = ZMod modulus` is a finite,
+sampleable type. -/
+instance : NeZero modulus := ⟨by
+  unfold modulus
+  decide
+⟩
 
 /-- The canonical bundled coefficient-domain ring used by the current ML-KEM development. -/
 abbrev coeffRing : LatticeCrypto.NegacyclicRing Coeff :=

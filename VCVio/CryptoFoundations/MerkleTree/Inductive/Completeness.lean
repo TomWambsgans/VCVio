@@ -4,8 +4,10 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Quang Dao
 -/
 
-import VCVio.CryptoFoundations.MerkleTree.Inductive.Defs
-import VCVio.OracleComp.QueryTracking.RandomOracle.Simulation
+module
+
+public import VCVio.CryptoFoundations.MerkleTree.Inductive.Defs
+public import VCVio.OracleComp.QueryTracking.RandomOracle.Simulation
 
 /-!
 # Completeness of Inductive Merkle Trees
@@ -23,6 +25,8 @@ The proof is split into two pieces:
   monadic API by reducing through `simulateQ`.
 -/
 
+@[expose] public section
+
 namespace InductiveMerkleTree
 
 open List OracleSpec OracleComp BinaryTree
@@ -33,7 +37,7 @@ variable {α : Type _}
 A functional form of the completeness theorem for Merkle trees.
 This references the functional versions of `getPutativeRoot` and `buildMerkleTreeWithHash`
 -/
-@[simp, grind =]
+@[grind =]
 theorem functional_completeness {s : Skeleton}
     (idx : SkeletonLeafIndex s)
     (leaf_data_tree : LeafData α s)
@@ -54,17 +58,16 @@ The proof proceeds by reducing to the functional completeness theorem by a theor
 the OracleComp monad,
 and then applying the functional version of the completeness theorem.
 -/
-@[simp]
-theorem completeness [DecidableEq α] [Inhabited α] [SampleableType α] {s}
+theorem completeness [DecidableEq α] [SampleableType α] {s}
     (leaf_data_tree : LeafData α s) (idx : BinaryTree.SkeletonLeafIndex s)
     (preexisting_cache : (spec α).QueryCache) :
-    Pr[fun v => v.1 = true | (simulateQ (spec α).randomOracle (do
+    Pr{let v ← (simulateQ (spec α).randomOracle (do
       let cache ← buildMerkleTree leaf_data_tree
       let proof := generateProof cache idx
       let verified ← (verifyProof (m := OracleComp (spec α)) idx (leaf_data_tree.get idx)
         (cache.getRootValue) proof)
-      return verified)).run preexisting_cache] = 1 := by
-  refine (probEvent_eq_one_simulateQ_randomOracle_run_iff (spec := spec α)
+      return verified)).run preexisting_cache}[v.1 = true] = 1 := by
+  refine (prEvent_eq_one_simulateQ_randomOracle_run_iff (spec := spec α)
     (p := fun b : Bool => b = true) _ _).mpr ?_
   intro f _hf
   simp only [evalWithAnswerFn, verifyProof, simulateQ_bind, simulateQ_pure,

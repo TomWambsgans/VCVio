@@ -4,10 +4,12 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Quang Dao
 -/
 
-import Examples.PRFTagReader.Defs
-import Examples.PRFTagReader.Auth
-import Examples.PRFTagReader.Collision
-import Examples.PRFTagReader.BadEvent
+module
+
+public import Examples.PRFTagReader.Defs
+public import Examples.PRFTagReader.Auth
+public import Examples.PRFTagReader.Collision
+public import Examples.PRFTagReader.BadEvent
 
 /-!
 # PRF Tag/Reader Protocol
@@ -18,10 +20,10 @@ transcript `(n, a)` whenever some registered tag secret makes `a` equal to `F(se
 
 The development defines:
 
-- an active authentication game, where the adversary wins by making the reader accept a transcript
-  that was not previously emitted by the honest tag oracle;
-- a multiple-session unlinkability game, where all sessions of a tag reuse the same per-tag secret;
-- a single-session unlinkability game, where each session uses an independent per-session secret;
+- an active authentication experiment, where the adversary wins by making the reader accept a
+  transcript that was not previously emitted by the honest tag oracle;
+- a multiple-session unlinkability world, where all sessions of a tag reuse the same per-tag secret;
+- a single-session unlinkability world, where each session uses an independent per-session secret;
 - an intermediate bad-event world that records nonce collisions across repeated sessions.
 
 The theorem statements package the intended security story: authentication reduces to PRF security
@@ -32,8 +34,10 @@ The content is split across the `Examples.PRFTagReader.*` modules:
 
 - `Defs`: protocol definitions, game states, oracle specs, experiments;
 - `Auth`: the auth→PRF reduction and authentication security
-  (`authExp_le_prfAdvantage_add_authRF`, `authIdealExp_eq_zero`,
-  `authRFExp_eq_authRFDirectExp`);
+  (`authRealExperiment_le_prfAdvantage_add_authRF`, `authIdealExperiment_eq_zero`,
+  `authRFExperiment_eq_authRFDirectExperiment`);
 - `Collision`: the random-oracle infrastructure and collision-bound theorems;
 - `BadEvent`: the bad-event world and the session collision bound.
 -/
+
+@[expose] public section

@@ -8,18 +8,24 @@ namespace VCVioWidgets
 
 open Lean Server
 
+/-- Properties of a clickable widget that reveals a source range in the editor. -/
 structure RevealLocationProps where
+  /-- URI of the source document to reveal. -/
   uri : Lsp.DocumentUri
+  /-- Source range to reveal and select. -/
   range : Lsp.Range
+  /-- Optional tooltip shown over the clickable content. -/
   title? : Option String := none
+  /-- Render a block container instead of an inline container. -/
   block : Bool := false
   deriving RpcEncodable
 
+/-- Clickable component that reveals its configured source range in the editor. -/
 @[widget_module]
 def RevealLocation : ProofWidgets.Component RevealLocationProps where
   javascript := "
-import * as React from 'react';
-import { EditorContext } from '@leanprover/infoview';
+public import * as React from 'react';
+public import { EditorContext } from '@leanprover/infoview';
 
 export default function(props) {
   const ec = React.useContext(EditorContext);

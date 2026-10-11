@@ -4,7 +4,9 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Quang Dao, Oleksandr Vovkotrub
 -/
 
-import VCVio.CryptoFoundations.GPVHashAndSign.CombinedHandler
+module
+
+public import VCVio.CryptoFoundations.GPVHashAndSign.CombinedHandler
 
 /-! # GPV Hash-and-Sign: Game Identification
 
@@ -13,6 +15,8 @@ games on the freshness-tracking vehicle, the state-threading bridge from the
 runtime to the bare random oracle, the U2 sign-then-hash hop up to the
 programming bad event, and the Step-1 wiring toward the headline bounds.
 -/
+
+public section
 
 open OracleComp OracleSpec ENNReal OracleComp.ProgramLogic.Relational
 
@@ -33,8 +37,8 @@ The unforgeability experiment runs the adversary under the WriterT signing-log h
 `!log.wasQueried msg` off the WriterT log.  The freshness vehicle `gpvRealImplFresh` instead
 threads a `Finset M` signed-set through the random-oracle `StateT QueryCache ProbComp` surface.
 The lemmas in this block reconstruct the WriterT log as that signed-set, identifying the two runs
-across the WriterT/StateT monad divide.  The route mirrors the FiatShamir kernel inside
-`FiatShamirWithAbort.probOutput_unforgeableExp_eq_hybridExpAtKey_real`: fuse the inner WriterT pass
+across the WriterT/StateT monad divide.  The route mirrors the Fiat–Shamir-with-abort
+unforgeability-to-hybrid kernel: fuse the inner WriterT pass
 with the outer cache simulation (`writerTMapBase`), replay the WriterT log into a `StateT (List M)`
 input log (`appendInputLog`), flatten the nested `StateT` (`flattenStateT`), and project the
 flattened handler onto `gpvRealImplFresh` with the signed-set reconstructed as the logged messages'
@@ -46,7 +50,7 @@ unforgeability experiment, with the public/random-oracle base simulated by the r
 is the GPV analogue of FiatShamir's fused `base.writerTMapBase implW`: it equals
 `baseW + withLogging signBody`, where `signBody msg = gpvRealImpl … (Sum.inr msg)` is the real GPV
 signing body run on the cache (`reconstructImplW_eq`). -/
-noncomputable def gpvOuter :
+@[expose] noncomputable def gpvOuter :
     QueryImpl (unifSpec + (Salt × M →ₒ Range))
       (StateT ((Salt × M →ₒ Range).QueryCache) ProbComp) :=
   (QueryImpl.ofLift unifSpec ProbComp).liftTarget
@@ -185,9 +189,10 @@ freshness vehicle `gpvRealImplFresh` run started from `(∅, ∅), false`, proje
 collision flag.
 
 This is the kernel of the freshness game-identification (N)(a): it identifies the WriterT signing
-log of `unforgeableExp` with the `Finset M` signed-set carried by `gpvRealImplFresh`, across the
+log of `unforgeableExperiment` with the `Finset M` signed-set carried by `gpvRealImplFresh`,
+across the
 WriterT/StateT monad divide.  The proof chains the reconstruction pieces, mirroring the
-FiatShamir `probOutput_unforgeableExp_eq_hybridExpAtKey_real` kernel:
+Fiat–Shamir-with-abort unforgeability-to-hybrid kernel:
 `simulateQ_writerTMapBase_run` + `gpvOuter_writerTMapBase_implW` (fuse the inner WriterT pass with
 the outer cache simulation into `baseW' + withLogging signBody`),
 `map_run_withLogging_inputs_eq_run_appendInputLog` (replay the WriterT log into a `StateT (List M)`
@@ -214,7 +219,7 @@ lemma map_simulateQ_gpvOuter_writerLog_eq_gpvRealImplFresh (pk : PK) (sk : SK) {
   classical
   -- The fused base `gpvOuter.liftTarget (WriterT …)` is `(HasQuery.toQueryImpl).liftTarget` for the
   -- `HasQuery` instance `gpvOuter.toHasQuery`; provide it so the replay lemma's `baseW` matches.
-  letI hq : HasQuery (unifSpec + (Salt × M →ₒ Range))
+  let hq : HasQuery (unifSpec + (Salt × M →ₒ Range))
       (StateT ((Salt × M →ₒ Range).QueryCache) ProbComp) := (gpvOuter M Salt).toHasQuery
   -- (1) Fuse the inner WriterT pass with the outer cache simulation `gpvOuter` via
   -- `writerTMapBase`, and rewrite the fused handler as `baseW' + withLogging signBody`.
@@ -272,15 +277,15 @@ freshness-tracking vehicle, it reads against the *shared* random-oracle cache (s
 cached programmed point is observed) and the resulting state still carries the signed-set, so the
 winning Bool can apply the EUF-CMA freshness mask (the forged message not being among the signed
 messages).  These are the two
-`SPMF Bool` games the fresh verify-Bool coupling `gpv_tvDist_orig_verify_fresh_le_collisionBound`
-relates within `collisionBound`. -/
+`ProbComp Bool` games the fresh verify-Bool coupling
+`gpv_measureTVDist_orig_verify_fresh_le_collisionBound` relates within `collisionBound`. -/
 
 /-- **GPV verification read (sum-spec, signing-free).** On a forgery `out = (msg, (r, s))`, query
 the random oracle at `(r, msg)` and return `eval pk s = c ∧ isShort s` — the `verify` body of the
 GPV scheme phrased as a single random-oracle query into the sum spec.  It issues exactly one
 random-oracle query and *no* signing query, so it is a valid signing-free continuation for the
 verify-Bool coupling. -/
-def gpvVerifyRead (pk : PK) (out : M × (Salt × Domain)) :
+@[expose] def gpvVerifyRead (pk : PK) (out : M × (Salt × Domain)) :
     OracleComp ((unifSpec + (Salt × M →ₒ Range)) + (M →ₒ (Salt × Domain))) Bool :=
   let (msg, (r, s)) := out
   (liftM (((unifSpec + (Salt × M →ₒ Range)) + (M →ₒ (Salt × Domain))).query
@@ -304,33 +309,33 @@ open Classical in
 followed by the verification read, simulated on the *real* fresh flag handler from the empty cache,
 empty signed-set, and unset flag; the winning Bool combines the verification result `z.1.2` with the
 EUF-CMA freshness mask `z.1.1.1 ∉ z.2.1.2` (the forged message is not among the signed messages). -/
-noncomputable def realGameVerifyFresh
-    (adv : SignatureAlg.unforgeableAdv
+@[expose] noncomputable def realGameVerifyFresh
+    (adv : SignatureAlg.UnforgeableAdversary
       (GPVHashAndSign (m := OracleComp (unifSpec + (Salt × M →ₒ Range))) psf hr M Salt))
-    (pk : PK) (sk : SK) : SPMF Bool :=
-  𝒟[(fun z : ((M × (Salt × Domain)) × Bool) ×
+    (pk : PK) (sk : SK) : ProbComp Bool :=
+  (fun z : ((M × (Salt × Domain)) × Bool) ×
         (((Salt × M →ₒ Range).QueryCache × Finset M) × Bool) =>
         decide (z.1.1.1 ∉ z.2.1.2) && z.1.2) <$>
       (simulateQ (gpvRealImplFlagFresh psf hr M Salt pk sk)
         (adv.main pk >>= fun out =>
           (fun v => (out, v)) <$> gpvVerifyRead psf M Salt pk out)).run
-        (((∅ : (Salt × M →ₒ Range).QueryCache), (∅ : Finset M)), false)]
+        (((∅ : (Salt × M →ₒ Range).QueryCache), (∅ : Finset M)), false)
 
 open Classical in
 /-- **Programmed verify-Bool game on the freshness-tracking vehicle.** The programmed dual of
 `realGameVerifyFresh`: the same adversary-plus-verification computation simulated on the
 *programmed* fresh flag handler. -/
-noncomputable def progGameVerifyFresh
-    (adv : SignatureAlg.unforgeableAdv
+@[expose] noncomputable def progGameVerifyFresh
+    (adv : SignatureAlg.UnforgeableAdversary
       (GPVHashAndSign (m := OracleComp (unifSpec + (Salt × M →ₒ Range))) psf hr M Salt))
-    (domainSample : PK → ProbComp Domain) (pk : PK) : SPMF Bool :=
-  𝒟[(fun z : ((M × (Salt × Domain)) × Bool) ×
+    (domainSample : PK → ProbComp Domain) (pk : PK) : ProbComp Bool :=
+  (fun z : ((M × (Salt × Domain)) × Bool) ×
         (((Salt × M →ₒ Range).QueryCache × Finset M) × Bool) =>
         decide (z.1.1.1 ∉ z.2.1.2) && z.1.2) <$>
       (simulateQ (progGameRunImplNoRecFlagFresh psf M Salt domainSample pk)
         (adv.main pk >>= fun out =>
           (fun v => (out, v)) <$> gpvVerifyRead psf M Salt pk out)).run
-        (((∅ : (Salt × M →ₒ Range).QueryCache), (∅ : Finset M)), false)]
+        (((∅ : (Salt × M →ₒ Range).QueryCache), (∅ : Finset M)), false)
 
 omit [SampleableType Range] [DecidableEq M] [DecidableEq Salt] [SampleableType Salt]
   [Fintype Salt] in
@@ -351,7 +356,7 @@ message is fresh iff it is not among the logged signing inputs. This is the poin
 lets the WriterT-log-keyed mask of the unforgeability experiment be read off the `Finset M`
 signed-set carried by `gpvRealImplFlagFresh`. -/
 lemma not_wasQueried_eq_decide_not_mem_toFinset {κ : Type} {spec : OracleSpec κ}
-    [spec.DecidableEq] (log : QueryLog spec) (t : spec.Domain) :
+    [DecidableEq κ] (log : QueryLog spec) (t : spec.Domain) :
     (!log.wasQueried t) = decide (t ∉ (log.map (fun e => e.1)).toFinset) := by
   rw [QueryLog.wasQueried_eq_decide_mem_map_fst]
   simp only [List.mem_toFinset, decide_not]
@@ -360,28 +365,27 @@ lemma not_wasQueried_eq_decide_not_mem_toFinset {κ : Type} {spec : OracleSpec �
 game's success probability is bounded by the programmed one plus `collisionBound`.
 
 This is the bool-valued, data-processed shadow of the fresh verify-Bool coupling
-`gpv_tvDist_orig_verify_fresh_le_collisionBound`: both `realGameVerifyFresh` and
+`gpv_measureTVDist_orig_verify_fresh_le_collisionBound`: both `realGameVerifyFresh` and
 `progGameVerifyFresh` are the *same* `decide (·.1.1.1 ∉ ·.2.1.2) && ·.1.2`-map of the two
 vehicle runs of `adv.main pk >>= verify` on the real / programmed fresh flag handlers, so the
-total-variation contraction `tvDist_map_le` reduces their bool TV to the run-level TV, which the
-fresh coupling (with the signing-free verification continuation, `gpvVerifyKont_no_sign`)
+total-variation contraction `measureTVDist_map_le` reduces their bool TV to the run-level TV, which
+the fresh coupling (with the signing-free verification continuation, `gpvVerifyKont_no_sign`)
 bounds by `(collisionBound …).toReal`.  Transporting through the bool-valued bridge
-`abs_probOutput_toReal_sub_le_tvDist` gives the `ℝ≥0∞` inequality. -/
+`abs_prEvent_toReal_sub_le_measureTVDist` gives the `ℝ≥0∞` inequality. -/
 theorem gpv_realGameVerifyFresh_le_progGameVerifyFresh_add_collisionBound
-    [Finite Range] [Inhabited Range] [Nonempty Salt]
+    [Nonempty Salt]
     (pk : PK) (sk : SK)
-    (adv : SignatureAlg.unforgeableAdv
+    (adv : SignatureAlg.UnforgeableAdversary
       (GPVHashAndSign (m := OracleComp (unifSpec + (Salt × M →ₒ Range))) psf hr M Salt))
     (domainSample : PK → ProbComp Domain) (qSign qHash : ℕ)
     (hQ : signHashQueryBound
       (S' := Salt × Domain) (α := M × (Salt × Domain))
       (oa := adv.main pk) (qSign := qSign) (qHash := qHash))
-    (hNF : ∀ c, NeverFail (psf.trapdoorSample pk sk c))
-    (hreg : 𝒟[(do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain))] =
-      𝒟[(do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
-            : ProbComp (Range × Domain))]) :
-    Pr[= true | realGameVerifyFresh psf hr M Salt adv pk sk]
-      ≤ Pr[= true | progGameVerifyFresh psf hr M Salt adv domainSample pk]
+    (hreg : (do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain)) =ᵈ
+      (do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
+            : ProbComp (Range × Domain))) :
+    Pr{let x ← realGameVerifyFresh psf hr M Salt adv pk sk}[x = true]
+      ≤ Pr{let x ← progGameVerifyFresh psf hr M Salt adv domainSample pk}[x = true]
         + collisionBound Salt qSign qHash := by
   classical
   have hcb_lt_top : collisionBound Salt qSign qHash < ⊤ := by
@@ -389,8 +393,8 @@ theorem gpv_realGameVerifyFresh_le_progGameVerifyFresh_add_collisionBound
     · simp
     · simp only [ne_eq, mul_eq_zero, OfNat.ofNat_ne_zero, Nat.cast_eq_zero, false_or]
       exact Fintype.card_ne_zero
-  -- The two games are the same `decide (·) && ·`-map of the two vehicle runs; `tvDist_map_le`
-  -- reduces their bool TV to the run-level TV bounded by the fresh coupling.
+  -- The two games are the same `decide (·) && ·`-map of the two vehicle runs;
+  -- `measureTVDist_map_le` reduces their bool TV to the run-level TV bounded by the fresh coupling.
   let f : ((M × (Salt × Domain)) × Bool) ×
         (((Salt × M →ₒ Range).QueryCache × Finset M) × Bool) → Bool :=
     fun z => decide (z.1.1.1 ∉ z.2.1.2) && z.1.2
@@ -403,23 +407,26 @@ theorem gpv_realGameVerifyFresh_le_progGameVerifyFresh_add_collisionBound
   let runProg := (simulateQ (progGameRunImplNoRecFlagFresh psf M Salt domainSample pk)
         (adv.main pk >>= kont)).run
         (((∅ : (Salt × M →ₒ Range).QueryCache), (∅ : Finset M)), false)
-  have hgoal : Pr[= true | realGameVerifyFresh psf hr M Salt adv pk sk]
-      = Pr[= true | f <$> runReal] := rfl
-  have hgoalProg : Pr[= true | progGameVerifyFresh psf hr M Salt adv domainSample pk]
-      = Pr[= true | f <$> runProg] := rfl
+  have hgoal : Pr{let x ← realGameVerifyFresh psf hr M Salt adv pk sk}[x = true]
+      = Pr{let x ← f <$> runReal}[x = true] := rfl
+  have hgoalProg : Pr{let x ← progGameVerifyFresh psf hr M Salt adv domainSample pk}[x = true]
+      = Pr{let x ← f <$> runProg}[x = true] := rfl
   rw [hgoal, hgoalProg]
-  rw [← ENNReal.ofReal_toReal probOutput_ne_top,
-      ← ENNReal.ofReal_toReal (a := Pr[= true | f <$> runProg]) probOutput_ne_top,
+  rw [← ENNReal.ofReal_toReal (prEvent_ne_top _),
+      ← ENNReal.ofReal_toReal (a := Pr{let x ← f <$> runProg}[x = true]) (prEvent_ne_top _),
       ← ENNReal.ofReal_toReal hcb_lt_top.ne,
       ← ENNReal.ofReal_add ENNReal.toReal_nonneg ENNReal.toReal_nonneg]
   refine ENNReal.ofReal_le_ofReal ?_
-  have hbridge := abs_probOutput_toReal_sub_le_tvDist (f <$> runReal) (f <$> runProg)
+  let : MeasurableSpace (((M × (Salt × Domain)) × Bool) ×
+    (((Salt × M →ₒ Range).QueryCache × Finset M) × Bool)) := ⊤
+  have hbridge := abs_prEvent_toReal_sub_le_measureTVDist (f <$> runReal) (f <$> runProg)
+    (· = true) Measurable.of_discrete
   have hsub := (abs_le.mp hbridge).2
-  have hmap : tvDist (f <$> runReal) (f <$> runProg) ≤ tvDist runReal runProg :=
-    tvDist_map_le f runReal runProg
-  have hcouple : tvDist runReal runProg ≤ (collisionBound Salt qSign qHash).toReal :=
-    gpv_tvDist_orig_verify_fresh_le_collisionBound psf hr M Salt pk sk adv domainSample kont
-      qSign qHash hQ (gpvVerifyKont_no_sign psf M Salt pk) hNF hreg
+  have hmap : measureTVDist (f <$> runReal) (f <$> runProg) ≤ measureTVDist runReal runProg :=
+    measureTVDist_map_le runReal runProg f Measurable.of_discrete
+  have hcouple : measureTVDist runReal runProg ≤ (collisionBound Salt qSign qHash).toReal :=
+    gpv_measureTVDist_orig_verify_fresh_le_collisionBound psf hr M Salt pk sk adv domainSample kont
+      qSign qHash hQ (gpvVerifyKont_no_sign psf M Salt pk) hreg
   linarith [le_trans hsub (le_trans hmap hcouple)]
 
 omit [DecidableEq Range] [SampleableType Range] [DecidableEq M] [DecidableEq Salt]
@@ -453,33 +460,30 @@ theorem simulateQ_ofLift_liftTarget_run {σ : Type} {α : Type} (oa : ProbComp �
 /-- **Keygen-averaging peel for the bundled `withStateOracle` semantics (reconstruction piece of the
 game-identification (N)(a)).** A surface computation that begins by lifting a public-randomness
 `ProbComp` prefix `oa` (e.g. the GPV key generation `liftM hr.gen`) into the oracle world and then
-continues with `rest` factors, under the bundled `withStateOracle hashImpl ∅` `SPMF` semantics, as
-the `SPMF`-average over `𝒟[oa]` of the semantics of the continuation.
+continues with `rest` runs, under the bundled `withStateOracle hashImpl ∅` semantics from the
+empty cache, as `oa` followed by the run of the continuation.
 
 The public-randomness prefix touches neither the random-oracle cache nor the hidden state: it is
 simulated by the lifted identity implementation (`QueryImpl.simulateQ_add_liftComp_left` drops the
-`hashImpl` summand on the lifted sub-computation, `unifFwdImpl.simulateQ_run` runs it as
+`hashImpl` summand on the lifted sub-computation, `simulateQ_ofLift_liftTarget_run` runs it as
 `(·, ∅) <$> oa`), so its draws commute straight out of the bundle. This is the GPV-runtime keygen
 peel of the game-identification (N)(a) — the analogue of the FiatShamir
-`roSim.run'_liftM_bind`-style averaging step that opens
-`probOutput_unforgeableExp_eq_hybridExpAtKey_real`. -/
-theorem withStateOracle_evalDist_liftM_bind {ι : Type} {hashSpec : OracleSpec ι}
+`roSim.run'_liftM_bind`-style averaging step. -/
+theorem withStateOracle_run'_liftM_bind {ι : Type} {hashSpec : OracleSpec ι}
     (hashImpl : QueryImpl hashSpec (StateT hashSpec.QueryCache ProbComp))
     {α β : Type} (oa : ProbComp α)
     (rest : α → OracleComp (unifSpec + hashSpec) β) :
-    (SPMFSemantics.withStateOracle hashImpl ∅).evalDist (liftM oa >>= rest)
-      = (𝒟[oa] : SPMF α) >>= fun x =>
-          (SPMFSemantics.withStateOracle hashImpl ∅).evalDist (rest x) := by
+    ((SemanticsVia.withStateOracle hashImpl ∅).interpret (liftM oa >>= rest)).run' ∅
+      = oa >>= fun x => ((SemanticsVia.withStateOracle hashImpl ∅).interpret (rest x)).run' ∅ := by
   classical
-  unfold SPMFSemantics.evalDist SPMFSemantics.withStateOracle
-  simp only [SemanticsVia.denote]
+  simp only [SemanticsVia.withStateOracle]
   rw [simulateQ_bind, StateT.run'_eq, StateT.run_bind]
   rw [show simulateQ ((QueryImpl.ofLift unifSpec ProbComp).liftTarget
         (StateT hashSpec.QueryCache ProbComp) + hashImpl) (liftM oa)
       = simulateQ ((QueryImpl.ofLift unifSpec ProbComp).liftTarget
         (StateT hashSpec.QueryCache ProbComp)) oa
       from QueryImpl.simulateQ_add_liftComp_left _ hashImpl oa]
-  rw [simulateQ_ofLift_liftTarget_run oa ∅, map_bind, bind_map_left, liftM_bind]
+  rw [simulateQ_ofLift_liftTarget_run oa ∅, map_bind, bind_map_left]
   rfl
 
 /-- **Step 1 (sign-then-hash ≡ real) TV bound, over the pinned GPV game runs.**
@@ -489,46 +493,45 @@ coupling supplied by the original-run cardinality telescope `(A2)`
 `gpv_orig_flag_le_collisionBound`.
 The real run `realGameRun … adv pk sk` (the real EUF-CMA game) and the programmed run
 `progGameRun … adv domainSample pk` (the randomized sign-then-hash game of the collision reduction)
-are the two distributions of the sign-then-hash hop; given the query bound `hQ`, the trapdoor
-totality `hNF`, and PSF regularity `hreg`, their total-variation distance is bounded by
-`(collisionBound Salt qSign qHash).toReal`.
+are the two distributions of the sign-then-hash hop; given the query bound `hQ` and PSF regularity
+`hreg`, their total-variation distance is bounded by
+`(collisionBound Salt qSign qHash).toReal` on any σ-algebra of the forgeries.
 
 It is the GPV instance of the U2 surface
-`tvDist_runtime_real_programmed_le_collisionBound_saltInclusive`, but unconditional and over the
-actual game run.
+`measureTVDist_runtime_real_programmed_le_collisionBound_saltInclusive`, but unconditional and over
+the actual game run.
 
 **Proof route (original-run, inline salt).** The proof chains the identical-until-bad
-reduction `gpv_tvDist_orig_run_le_probEvent_flag` — which bounds the Step-1 TV directly by the
+reduction `gpv_measureTVDist_orig_run_le_prEvent_flag` — which bounds the Step-1 TV directly by the
 run-level collision-flag probability of the flag-instrumented *original* (inline-salt) real handler
 `gpvRealImplFlag` (consuming the universal off-bad agreement `gpvImplFlag_h_agree_good` and the
 bad-monotonicity `h_mono`s) — with the original-run cardinality telescope `(A2)`
 `gpv_orig_flag_le_collisionBound`, which bounds that flag probability by
 `(collisionBound …).toReal`.  Because each signing salt is drawn inline at its step, this route
-avoids the upfront-tape re-interleaving that the front-tape coupling
-`gpv_tvDist_tape_runs_le_collisionBound` `(A)` requires. -/
-theorem gpv_tvDist_real_programmed_le_collisionBound
-    [Finite Range] [Inhabited Range] [Nonempty Salt]
+avoids the upfront-tape re-interleaving that a coupling over the front-loaded salt tape
+(`TapeFactorization.lean`) would require; that tape-route coupling is not established here. -/
+theorem gpv_measureTVDist_real_programmed_le_collisionBound
+    [Nonempty Salt] [MeasurableSpace (M × (Salt × Domain))]
     (pk : PK) (sk : SK)
-    (adv : SignatureAlg.unforgeableAdv
+    (adv : SignatureAlg.UnforgeableAdversary
       (GPVHashAndSign (m := OracleComp (unifSpec + (Salt × M →ₒ Range))) psf hr M Salt))
     (domainSample : PK → ProbComp Domain) (qSign qHash : ℕ)
     (hQ : signHashQueryBound
       (S' := Salt × Domain) (α := M × (Salt × Domain))
       (oa := adv.main pk) (qSign := qSign) (qHash := qHash))
-    (hNF : ∀ c, NeverFail (psf.trapdoorSample pk sk c))
-    (hreg : 𝒟[(do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain))] =
-      𝒟[(do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
-            : ProbComp (Range × Domain))]) :
-    SPMF.tvDist (realGameRun psf hr M Salt adv pk sk)
+    (hreg : (do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain)) =ᵈ
+      (do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
+            : ProbComp (Range × Domain))) :
+    measureTVDist (realGameRun psf hr M Salt adv pk sk)
         (progGameRun psf hr M Salt adv domainSample pk)
       ≤ (collisionBound Salt qSign qHash).toReal := by
   classical
   -- Original-run route: the identical-until-bad reduction bounds the Step-1 TV by the
   -- run-level collision-flag probability of the inline-salt flag handler
-  -- (`gpv_tvDist_orig_run_le_probEvent_flag`), which the original-run cardinality telescope `(A2)`
-  -- `gpv_orig_flag_le_collisionBound` bounds by `(collisionBound …).toReal`.
+  -- (`gpv_measureTVDist_orig_run_le_prEvent_flag`), which the original-run cardinality telescope
+  -- `(A2)` `gpv_orig_flag_le_collisionBound` bounds by `(collisionBound …).toReal`.
   refine le_trans
-    (gpv_tvDist_orig_run_le_probEvent_flag psf hr M Salt pk sk adv domainSample hNF hreg) ?_
+    (gpv_measureTVDist_orig_run_le_prEvent_flag psf hr M Salt pk sk adv domainSample hreg) ?_
   exact gpv_orig_flag_le_collisionBound psf hr M Salt pk sk adv qSign qHash hQ
 
 /-! ## State-threading bridge: runtime ↦ bare random oracle
@@ -537,34 +540,29 @@ The GPV `runtime` interprets the surface program over the *sum* spec
 `unifSpec + (Salt × M →ₒ Range)` via
 `simulateQ' ((QueryImpl.ofLift unifSpec ProbComp).liftTarget _ + randomOracle)`. The reusable
 state-threading bridge in `ProgramLogic/Relational/ProgrammingOracle.lean`
-(`tvDist_simulateQ_randomOracle_withProgramming_le_probEvent_bad`) is instead stated for the bare
+(`measureETVDist_simulateQ_randomOracle_withProgramming_le_prEvent_bad`) is instead stated for the
+bare
 single-spec lazy random oracle `simulateQ randomOracle`. The lemma
-`runtime_evalDist_liftComp` is the missing reduction connecting the two: on a sub-computation that
+`runtimeRun_liftComp` is the missing reduction connecting the two: on a sub-computation that
 only touches the random oracle (a hash-only `OracleComp (Salt × M →ₒ Range)` lifted into the sum),
-the runtime's bundled `SPMF` semantics collapse to the bare `randomOracle` run from the empty
-cache. -/
+the runtime's `ProbComp` run collapses to the bare `randomOracle` run from the empty cache. -/
 
 omit [DecidableEq Range] [SampleableType Salt] [Fintype Salt] in
 /-- **Pre-bridge.** On a random-oracle-only sub-computation `ob` lifted into the sum spec, the GPV
-runtime's `SPMF` semantics equal the externally observed bare lazy random-oracle run from the empty
-cache.
+runtime's `ProbComp` run equals the bare lazy random-oracle run from the empty cache.
 
 This is the reduction from the runtime's sum-spec `simulateQ'` interpreter down to the bare
 `simulateQ randomOracle` form expected by the random-oracle state-threading bridge. It is
 proved by unfolding `withStateOracle` and applying `QueryImpl.simulateQ_add_liftComp_right`, which
 discards the (lifted-identity) uniform-sampling handler on a computation that never queries it. -/
-theorem runtime_evalDist_liftComp {α : Type} (ob : OracleComp (Salt × M →ₒ Range) α) :
-    (runtime M Salt).evalDist (OracleComp.liftComp ob (unifSpec + (Salt × M →ₒ Range)))
-      = (liftM (StateT.run'
+theorem runtimeRun_liftComp {α : Type} (ob : OracleComp (Salt × M →ₒ Range) α) :
+    runtimeRun M Salt (OracleComp.liftComp ob (unifSpec + (Salt × M →ₒ Range)))
+      = StateT.run'
           (simulateQ (randomOracle :
             QueryImpl (Salt × M →ₒ Range) (StateT ((Salt × M →ₒ Range).QueryCache) ProbComp)) ob)
-          ∅) : SPMF α) := by
+          ∅ := by
   classical
-  unfold ProbCompRuntime.evalDist runtime
-  change (SPMFSemantics.withStateOracle _ ∅).evalDist _ = _
-  unfold SPMFSemantics.evalDist SPMFSemantics.withStateOracle
-  simp only [SemanticsVia.denote]
-  rw [QueryImpl.simulateQ_add_liftComp_right]
+  rw [runtimeRun_eq_run'_simulateQ, QueryImpl.simulateQ_add_liftComp_right]
 
 /-! ## U2: sign-then-hash ≡ real, up to the programming bad event
 
@@ -572,12 +570,9 @@ The "sign-then-hash ≡ real" hop replaces the real lazy random oracle by a `pol
 (the simulator programs each fresh signing target with `psf.eval pk s` for a freshly sampled short
 preimage `s`). This is **not** an exact distributional equality: it is exact up to the
 *programming bad event*, namely that a freshly sampled signing salt collides with an entry already
-present in the random-oracle cache. `tvDist_runtime_real_programmed_le_bad` is the exact
+present in the random-oracle cache. `measureTVDist_runtime_real_programmed_le_bad` is the exact
 core of the hop: the total-variation distance between the real-runtime output and the
-programmed-run output is bounded by the probability that the programming bad flag fires.
-
-The `Fintype Range`/`Inhabited Range` hypotheses supply the `IsUniformSpec (Salt × M →ₒ Range)`
-instance required by the state-threading bridge; they are mild for a hash range. -/
+programmed-run output is bounded by the probability that the programming bad flag fires. -/
 
 omit [DecidableEq Range] [SampleableType Salt] [Fintype Salt] in
 /-- **U2 core: sign-then-hash up-to-bad TV bound.**
@@ -588,99 +583,60 @@ bounded by the probability that the programming bad flag fires during the progra
 
 This is the exact, statistical-distance form of the sign-then-hash hop: it is one TV bound, **not**
 an exact equality (stating it as equality would be false, since a fresh salt can collide with a
-cached entry). It combines the pre-bridge `runtime_evalDist_liftComp` with
-`tvDist_simulateQ_randomOracle_withProgramming_le_probEvent_bad`. The downstream task is to bound
-the right-hand bad-event probability by `collisionBound Salt qSign qHash` using regularity `hreg`
-(to align the programmed value `psf.eval pk s` with the real uniform answer) and the salt-collision
-union bound `probEvent_salt_collision_le_collisionBound`.
-
-The `Finite Range`/`Inhabited Range` hypotheses supply the `IsUniformSpec (Salt × M →ₒ Range)`
-instance required by the state-threading bridge; they are mild for a hash range. -/
-theorem tvDist_runtime_real_programmed_le_bad [Finite Range] [Inhabited Range] {α : Type}
+cached entry). It combines the pre-bridge `runtimeRun_liftComp` with
+`measureETVDist_simulateQ_randomOracle_withProgramming_le_prEvent_bad`. The downstream task is to
+bound the right-hand bad-event probability by `collisionBound Salt qSign qHash` using regularity
+`hreg` (to align the programmed value `psf.eval pk s` with the real uniform answer) and the
+salt-collision union bound `prEvent_salt_collision_le_collisionBound`. -/
+theorem measureTVDist_runtime_real_programmed_le_bad {α : Type} [MeasurableSpace α]
     (policy : OracleSpec.ProgrammingPolicy (Salt × M →ₒ Range))
     (ob : OracleComp (Salt × M →ₒ Range) α) :
-    SPMF.tvDist
-        ((runtime M Salt).evalDist (OracleComp.liftComp ob (unifSpec + (Salt × M →ₒ Range))))
-        (liftM (StateT.run'
+    measureTVDist
+        (runtimeRun M Salt (OracleComp.liftComp ob (unifSpec + (Salt × M →ₒ Range))))
+        (StateT.run'
           (simulateQ (QueryImpl.withProgramming uniformSampleImpl policy) ob) (∅, false))
-          : SPMF α)
-      ≤ Pr[fun z : α × (Salt × M →ₒ Range).QueryCache × Bool => z.2.2 = true |
-          (simulateQ (QueryImpl.withProgramming uniformSampleImpl policy) ob).run
-            (∅, false)].toReal := by
-  haveI : Fintype Range := Fintype.ofFinite Range
-  haveI : IsUniformSpec (Salt × M →ₒ Range) := IsUniformSpec.ofFintypeInhabited _
-  rw [runtime_evalDist_liftComp]
-  exact tvDist_simulateQ_randomOracle_withProgramming_le_probEvent_bad
-    (spec := (Salt × M →ₒ Range)) policy ob ∅
-
-omit [DecidableEq Range] [SampleableType Salt] in
-/-- **U2 headline (conditional on the bad-event bound).**
-
-The sign-then-hash hop is correct up to the salt-collision birthday bound: if the programming bad
-event of `policy` on the run `ob` is bounded by `collisionBound Salt qSign qHash` (the Part-C
-obligation discharged by regularity + the salt-collision union bound
-`probEvent_salt_collision_le_collisionBound`), then the total-variation distance between the real
-GPV runtime output and the programmed (sign-then-hash) output is at most
-`(collisionBound Salt qSign qHash).toReal`.
-
-This packages the full U2 statement with the bad-event obligation taken as the
-hypothesis `hbad`. The proof chains the up-to-bad core
-`tvDist_runtime_real_programmed_le_bad` with `hbad`. -/
-theorem tvDist_runtime_real_programmed_le_collisionBound [Finite Range] [Inhabited Range]
-    [Nonempty Salt] {α : Type} (qSign qHash : ℕ)
-    (policy : OracleSpec.ProgrammingPolicy (Salt × M →ₒ Range))
-    (ob : OracleComp (Salt × M →ₒ Range) α)
-    (hbad : Pr[ fun z : α × (Salt × M →ₒ Range).QueryCache × Bool => z.2.2 = true |
-        (simulateQ (QueryImpl.withProgramming uniformSampleImpl policy) ob).run (∅, false)]
-        ≤ collisionBound Salt qSign qHash) :
-    SPMF.tvDist
-        ((runtime M Salt).evalDist (OracleComp.liftComp ob (unifSpec + (Salt × M →ₒ Range))))
-        (liftM (StateT.run'
-          (simulateQ (QueryImpl.withProgramming uniformSampleImpl policy) ob) (∅, false))
-          : SPMF α)
-      ≤ (collisionBound Salt qSign qHash).toReal := by
-  refine (tvDist_runtime_real_programmed_le_bad M Salt policy ob).trans ?_
-  refine ENNReal.toReal_mono ?_ hbad
-  refine (ENNReal.div_lt_top ?_ ?_).ne
-  · simp
-  · simp only [ne_eq, mul_eq_zero, OfNat.ofNat_ne_zero, Nat.cast_eq_zero, false_or]
-    exact Fintype.card_ne_zero
+      ≤ (Pr{let z ← (simulateQ (QueryImpl.withProgramming uniformSampleImpl policy) ob).run
+                (∅, false)}[z.2.2 = true]).toReal := by
+  rw [runtimeRun_liftComp, measureTVDist_eq_toReal_measureETVDist]
+  exact ENNReal.toReal_mono (prEvent_ne_top _)
+    (measureETVDist_simulateQ_randomOracle_withProgramming_le_prEvent_bad
+      (spec := (Salt × M →ₒ Range)) policy ob ∅)
 
 /-! ## U2 (re-stated, salt-inclusive cache-hit bad event)
 
-The headline `tvDist_runtime_real_programmed_le_collisionBound` above bounds the sign-then-hash TV
+The up-to-bad core `measureTVDist_runtime_real_programmed_le_bad` above bounds the sign-then-hash TV
 distance by the `withProgramming` *fire-on-miss* bad event over the random-oracle-only computation
 `ob`. As the *salt-collision coupling and the hash-only granularity* section records, that bad event
 is the wrong shape for GPV: the fire-on-miss flag is set the **first** time the policy fires on an
 uncached point, so for the GPV
 simulator (which programs at every fresh signing point) it fires *deterministically* — its
-probability is near `1`, not `collisionBound`. Concretely, routing the salt-collision through the
-fire-on-miss `hbad` is **unsound**: the genuine salt-collision probability is
-`≈ collisionBound ≪ 1` while the fire-on-miss probability is `≈ 1`, so the inequality
-"fire-on-miss ≤ salt-collision" needed to reuse the headline is *false* for the GPV policy. Moreover
+probability is near `1`, not `collisionBound`. Closing the core against `collisionBound` by way of
+the fire-on-miss flag would therefore need the inequality "fire-on-miss ≤ salt-collision", which is
+*false* for the GPV policy: the genuine salt-collision probability is `≈ collisionBound ≪ 1` while
+the fire-on-miss probability is `≈ 1`. Moreover
 the fresh signing salts — drawn in `unifSpec`, one step *before* each random-oracle query — are
 invisible at `ob`'s granularity, so the `card / |Salt|` averaging is structurally absent from the
 fire-on-miss flag.
 
-`tvDist_runtime_real_programmed_le_collisionBound_saltInclusive` re-states U2 so its bad event is
-the genuine GPV salt-collision: a fresh signing salt drawn in `unifSpec` landing in the recorded
-random-oracle cache restricted to its message slice (a cache *hit* at a programmed point), modelled
-by the salt-averaged process `saltSeq c qSign` of the telescope section. The per-step caches `c j`
-are the recorded random-oracle inputs seen by the `j`-th signing query; the standard GPV
-cache-growth bound `card (c j) ≤ j + qHash` (the `j` prior signing salts plus the up to `qHash`
+`measureTVDist_runtime_real_programmed_le_collisionBound_saltInclusive` re-states U2 so its bad
+event is the genuine GPV salt-collision: a fresh signing salt drawn in `unifSpec` landing in the
+recorded random-oracle cache restricted to its message slice (a cache *hit* at a programmed point),
+modelled by the salt-averaged process `saltSeq c qSign` of the telescope section. The per-step
+caches `c j` are the recorded random-oracle inputs seen by the `j`-th signing query; the standard
+GPV cache-growth bound `card (c j) ≤ j + qHash` (the `j` prior signing salts plus the up to `qHash`
 adversary hash queries) is supplied as `hcache`.
 
-Crucially, the lemma does **not** route through the headline U2's fire-on-miss `hbad`; it takes the
+Crucially, the lemma does **not** route through the fire-on-miss bad event; it takes the
 genuine *up-to-bad* coupling directly as `hcouple`: the total-variation distance between the real
 and programmed runs is bounded by the salt-collision probability `Pr[saltSeq c qSign = true]`. This
 is the correct identical-until-bad statement for the GPV game with bad event = cache-HIT salt
 collision (the two runs differ only when a fresh salt collides with a recorded entry). It is
 **true** (it is the real GPV up-to-bad bound, the cache-hit counterpart of the fire-on-miss
-core `tvDist_runtime_real_programmed_le_bad`) and **non-vacuous** (`saltSeq c qSign` is a genuine
-probabilistic process whose collision probability `probEvent_saltSeq_le_collisionBound` bounds it
-strictly by `collisionBound < ⊤`, so `hcouple` is a real inequality between two `< ⊤` quantities,
-not a `≤ ⊤` triviality; and the TV distance it bounds is in general positive, so it is not
-vacuously `0 ≤ _`). Unlike the fire-on-miss route, `hcouple` is *satisfiable* by the GPV policy
+core `measureTVDist_runtime_real_programmed_le_bad`) and **non-vacuous** (`saltSeq c qSign` is a
+genuine probabilistic process whose collision probability `prEvent_saltSeq_le_collisionBound`
+bounds it strictly by `collisionBound < ⊤`, so `hcouple` is a real inequality between two `< ⊤`
+quantities, not a `≤ ⊤` triviality; and the TV distance it bounds is in general positive, so it is
+not vacuously `0 ≤ _`). Unlike the fire-on-miss route, `hcouple` is *satisfiable* by the GPV policy
 precisely because its bad event is the small cache-hit collision rather than the deterministic
 fire-on-miss.
 
@@ -688,28 +644,26 @@ fire-on-miss.
 salt-draw / random-oracle-query streams of the salt-inclusive signing run: each of the `qSign`
 fresh salts is checked against the recorded cache slice of size `≤ j + qHash`, which is precisely
 the `saltSeq` process. Once `hcouple` is discharged by the coupling, this lemma yields the loss-free
-`tvDist ≤ (collisionBound Salt qSign qHash).toReal` consumed by the four GPV theorems.
+`measureTVDist ≤ (collisionBound Salt qSign qHash).toReal` consumed by the four GPV theorems.
 
 The proof is loss-free: chain `hcouple` (TV distance ≤ `saltSeq` collision) with the
-salt-averaged telescope `probEvent_saltSeq_le_collisionBound` (`saltSeq` collision ≤
+salt-averaged telescope `prEvent_saltSeq_le_collisionBound` (`saltSeq` collision ≤
 `collisionBound`), then move to `ℝ` with `ENNReal.toReal_mono`. -/
 omit [DecidableEq Range] in
-theorem tvDist_runtime_real_programmed_le_collisionBound_saltInclusive
-    [Finite Range] [Inhabited Range] [Nonempty Salt] {α : Type} (qSign qHash : ℕ)
+theorem measureTVDist_runtime_real_programmed_le_collisionBound_saltInclusive
+    [Nonempty Salt] {α : Type} [MeasurableSpace α] (qSign qHash : ℕ)
     (policy : OracleSpec.ProgrammingPolicy (Salt × M →ₒ Range))
     (ob : OracleComp (Salt × M →ₒ Range) α)
     (c : ℕ → Finset Salt) (hcache : ∀ j, (c j).card ≤ j + qHash)
-    (hcouple : (SPMF.tvDist
-        ((runtime M Salt).evalDist (OracleComp.liftComp ob (unifSpec + (Salt × M →ₒ Range))))
-        (liftM (StateT.run'
+    (hcouple : measureTVDist
+        (runtimeRun M Salt (OracleComp.liftComp ob (unifSpec + (Salt × M →ₒ Range))))
+        (StateT.run'
           (simulateQ (QueryImpl.withProgramming uniformSampleImpl policy) ob) (∅, false))
-          : SPMF α) : ℝ)
-        ≤ (Pr[ (· = true) | saltSeq (Salt := Salt) c qSign]).toReal) :
-    SPMF.tvDist
-        ((runtime M Salt).evalDist (OracleComp.liftComp ob (unifSpec + (Salt × M →ₒ Range))))
-        (liftM (StateT.run'
+        ≤ (Pr{let x ← saltSeq (Salt := Salt) c qSign}[x = true]).toReal) :
+    measureTVDist
+        (runtimeRun M Salt (OracleComp.liftComp ob (unifSpec + (Salt × M →ₒ Range))))
+        (StateT.run'
           (simulateQ (QueryImpl.withProgramming uniformSampleImpl policy) ob) (∅, false))
-          : SPMF α)
       ≤ (collisionBound Salt qSign qHash).toReal :=
   hcouple.trans (ENNReal.toReal_mono
     (by
@@ -717,30 +671,35 @@ theorem tvDist_runtime_real_programmed_le_collisionBound_saltInclusive
       · simp
       · simp only [ne_eq, mul_eq_zero, OfNat.ofNat_ne_zero, Nat.cast_eq_zero, false_or]
         exact Fintype.card_ne_zero)
-    (probEvent_saltSeq_le_collisionBound Salt qSign qHash c hcache))
+    (prEvent_saltSeq_le_collisionBound Salt qSign qHash c hcache))
 
 /-! ## Step 1 and the wiring to the headline bounds
 
-**Step 1 (sign-then-hash ≡ real).** `gpv_tvDist_real_programmed_le_collisionBound` *consumes* the
-direct front-tape coupling `gpv_tvDist_tape_runs_le_collisionBound`: after the front-tape
-factorization bridges put both pinned GPV game runs into `drawList ($ᵗ Salt) qSign >>= tape-run`
-shape, the per-tape identical-until-bad coupling `(A)` and the front-tape birthday bound `(B)`
-discharge the salt-inclusive sign-then-hash hop `tvDist realRun progRun ≤ collisionBound`. The
-front-tape coupling is invoked on the Step-1 path.
+**Step 1 (sign-then-hash ≡ real).** `gpv_measureTVDist_real_programmed_le_collisionBound` is proved
+by the *original-run* route, with every signing salt drawn inline at its step: the
+identical-until-bad reduction `gpv_measureTVDist_orig_run_le_prEvent_flag` bounds the salt-inclusive
+sign-then-hash hop `measureTVDist realRun progRun` by the run-level collision-flag probability of
+the flag-instrumented real handler `gpvRealImplFlag`, and the original-run cardinality telescope
+`(A2)` `gpv_orig_flag_le_collisionBound` bounds that flag probability by `collisionBound`. The
+front-tape factorization of `TapeFactorization.lean` (both game runs as `drawList ($ᵗ Salt) qSign`
+followed by a tape-consuming run) is not on this path: it is reusable infrastructure whose own
+coupling headline over the tape is not established.
 
 **Wiring Step 1 to the headline bounds.** Two facts connect
-`gpv_tvDist_real_programmed_le_collisionBound` to the headline bounds:
+`gpv_measureTVDist_real_programmed_le_collisionBound` to the headline bounds:
 
-1. *Game identification.* The headline LHS `adv.advantage (runtime)` is
-   `Pr[= true | unforgeableExp (runtime) adv]`, whose body runs `simulateQ impl (adv.main pk)` — the
+1. *Game identification.* The headline LHS `SignatureAlg.unforgeableAdvantage (runtime) adv` is
+   `Pr{let x ← unforgeableExperiment (runtime) adv}[x = true]`, whose body runs `simulateQ impl
+   (adv.main pk)` — the
    signing oracle draws each fresh salt *internally* at an adversary-chosen point over the sum spec
    `unifSpec + (Salt × M →ₒ Range)`. Connecting this to the *pinned* hash-only run `ob` of
-   `gpv_tvDist_real_programmed_le_collisionBound` (so that `abs_probOutput_toReal_sub_le_tvDist`
-   converts the run-level `tvDist ≤ collisionBound` into `realAdv ≤ progAdv + collisionBound`) is
-   the same deferred-sampling factorization as the front-tape coupling, now over the adversary's
-   *adaptive* control flow rather than a fixed `ob`.
-2. *Step 2 (collision extraction).* In the programmed sign-then-hash game every random-oracle entry
-   carries the simulator's hidden short preimage; a fresh forgery on a programmed point with a
+   `gpv_measureTVDist_real_programmed_le_collisionBound` (so that
+   `abs_prEvent_toReal_sub_le_measureTVDist` converts the run-level
+   `measureTVDist ≤ collisionBound` into
+   `realAdv ≤ progAdv + collisionBound`) is the same deferred-sampling factorization as the
+   front-tape coupling, now over the adversary's *adaptive* control flow rather than a fixed `ob`.
+   2. *Step 2 (collision extraction).* In the programmed sign-then-hash game every random-oracle
+   entry carries the simulator's hidden short preimage; a fresh forgery on a programmed point with a
    *distinct* preimage is a collision under `psf.eval`, bounding `progAdv` by
    `collisionFindingAdvantage (reduction …)`. This is stated *pinned and true* over the concrete
    programmed forgery game and the concrete `reduction` body, with the exact-match branch handled by

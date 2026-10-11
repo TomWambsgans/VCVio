@@ -3,7 +3,10 @@ Copyright (c) 2024 Devon Tuma. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Devon Tuma
 -/
-import VCVio.OracleComp.ProbComp
+
+module
+public import VCVio.OracleComp.ProbComp.Basic
+public import VCVio.OracleComp.Constructions.UniformFinMeasure
 
 /-!
 # Hard Relations
@@ -20,6 +23,8 @@ This is a simplified version without the asymptotic security parameter framework
 A full asymptotic version needs `OracleAlg` to be redesigned.
 -/
 
+@[expose] public section
+
 open OracleSpec OracleComp ENNReal
 
 /-- A relation `r` is generable if there is an efficient algorithm `gen`
@@ -32,7 +37,7 @@ structure GenerableRelation
   gen_sound (x : X) (w : W) : (x, w) ∈ support gen → r x w
 
 /-- Experiment for checking whether an adversary can find a witness for a generated instance. -/
-def hardRelationExp {X W : Type} {r : X → W → Bool} (hr : GenerableRelation X W r)
+def hardRelationExperiment {X W : Type} {r : X → W → Bool} (hr : GenerableRelation X W r)
     (adversary : X → ProbComp W) : ProbComp Bool := do
   let ⟨x, _⟩ ← hr.gen
   let w ← adversary x

@@ -3,10 +3,12 @@ Copyright (c) 2026 Quang Dao. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Quang Dao
 -/
-import LatticeCrypto.MLDSA.Scheme
-import VCVio.CryptoFoundations.FiatShamir.WithAbort.Security
-import LatticeCrypto.HardnessAssumptions.ShortIntegerSolution
-import LatticeCrypto.HardnessAssumptions.LearningWithErrors
+
+module
+public import LatticeCrypto.MLDSA.Scheme
+public import VCVio.CryptoFoundations.FiatShamir.WithAbort.Security
+public import LatticeCrypto.HardnessAssumptions.ShortIntegerSolution
+public import LatticeCrypto.HardnessAssumptions.LearningWithErrors
 
 /-!
 # ML-DSA Security
@@ -45,19 +47,86 @@ The proof follows the structure:
 - EasyCrypt `FSabort.eca`, `HVZK_FSa.ec`, `SimplifiedScheme.ec` (formosa-crypto/dilithium)
 -/
 
+@[expose] public section
+
 
 open OracleComp OracleSpec ENNReal
 open LatticeCrypto TransformOps
 
 namespace MLDSA
 
-variable (p : Params) (prims : Primitives p) [nttOps : NTTRingOps]
-  [DecidableEq prims.High]
+variable (p : Params) (prims : Primitives p)
 
 section Properties
 
-variable [SampleableType (RqVec p.l)] [SampleableType (CommitHashBytes p)]
-  [IsUniformSpec unifSpec]
+/-! ### Componentwise algebra on `Rq` -/
+
+private lemma neg_rq_get (f : Rq) (i : Fin ringDegree) : (-f).get i = -(f.get i) := by
+  change (coeffRing.neg f).get i = _
+  simp
+
+private lemma polyNorm_neg (f : Rq) : polyNorm (-f) = polyNorm f := by
+  unfold polyNorm normOps
+  simp only [LatticeCrypto.zmodPolyNormOps, LatticeCrypto.normOpsOfCenteredView]
+  unfold LatticeCrypto.cInfNormOf
+  apply Finset.sup_congr rfl
+  intro i _
+  simp only [LatticeCrypto.zmodCenteredCoeffView, coeffRing.coeff_neg]
+  exact LatticeCrypto.centeredRepr_natAbs_neg _
+
+variable [nttOps : NTTRingOps]
+
+/-! ### Hint recovery -/
+
+/-- Vector form of `useHint_makeHint`: `UseHint(MakeHint(z, r), r) = HighBits(r + z)`
+componentwise, when each component of `z` is bounded by `γ₂`. -/
+theorem useHintVec_makeHintVec (h_laws : Primitives.Laws prims nttOps) {k : ℕ}
+    (z r : RqVec k) (hz : ∀ j : Fin k, polyNorm (z.get j) ≤ p.gamma2) :
+    prims.useHintVec (prims.makeHintVec z r) r = prims.highBitsVec (r + z) := by
+  apply Vector.ext; intro i hi
+  simp only [Primitives.useHintVec, Primitives.makeHintVec, Primitives.highBitsVec,
+    Vector.getElem_zipWith, Vector.getElem_map, Vector.getElem_add]
+  have hzi := hz ⟨i, hi⟩
+  rw [Vector.get_eq_getElem] at hzi
+  exact h_laws.useHint_makeHint z[i] r[i] hzi
+
+/-- Vector form of `hide_low`: a small additive perturbation does not change the high bits. -/
+theorem hide_lowVec (h_laws : Primitives.Laws prims nttOps) {k : ℕ}
+    (r s : RqVec k) (b : ℕ)
+    (hs : ∀ j : Fin k, polyNorm (s.get j) ≤ b)
+    (hr : ∀ j : Fin k, polyNorm (prims.lowBits (r.get j)) + b < p.gamma2) :
+    prims.highBitsVec (r + s) = prims.highBitsVec r := by
+  apply Vector.ext; intro i hi
+  simp only [Primitives.highBitsVec, Vector.getElem_map, Vector.getElem_add]
+  have hsi := hs ⟨i, hi⟩
+  have hri := hr ⟨i, hi⟩
+  rw [Vector.get_eq_getElem] at hsi hri
+  exact h_laws.hide_low r[i] s[i] b hsi hri
+
+variable [DecidableEq prims.High]
+
+/-- Commitment recoverability for ML-DSA: the public commitment `w₁` can be reconstructed
+from `(pk, c̃, (z, h))` alone using `UseHint(h, Az - ct₁·2^d)`. This is the key property
+enabling the CMA-to-NMA reduction in the security proof.
+
+In our formalization, this is directly enforced by the `verify` function: it checks
+`UseHint(h, w'_Approx) = w₁`, so any accepted transcript necessarily satisfies
+commitment recoverability. -/
+theorem idsWithAbort_commitment_recoverable :
+    ∃ recover, (identificationScheme p prims).CommitmentRecoverable recover := by
+  classical
+  refine ⟨fun pk cTilde (z, h) =>
+    prims.useHintVec h (computeWApprox p prims (prims.expandA pk.rho)
+      (prims.sampleInBall cTilde) z pk.t1), ?_⟩
+  rintro s w' c ⟨z, h⟩ hverify
+  unfold identificationScheme at hverify
+  grind
+
+/-! ### Completeness -/
+
+variable [SampleableType (CommitHashBytes p)]
+
+section conditional
 
 -- The algebraic core of completeness: whenever `respond` produces `some (z, h)`, the
 -- `verify` function accepts. This follows from the key generation relationship
@@ -82,8 +151,7 @@ theorem idsWithAbort_complete' :
     (identificationScheme p prims).Complete := by
   classical
   intro pk sk hvalid
-  rw [probOutput_eq_one_iff_forall]
-  refine ⟨probFailure_of_liftM_PMF _, fun b hb => ?_⟩
+  refine (OracleComp.prEvent_eq_one_iff _ (· = true)).2 fun b hb => ?_
   rw [support_bind] at hb
   simp only [Set.mem_iUnion] at hb
   obtain ⟨t?, ht?, hb⟩ := hb
@@ -103,50 +171,7 @@ theorem idsWithAbort_complete' :
       obtain ⟨rfl, rfl, rfl⟩ := heq
       exact hRespondVerify pk sk hvalid w1 st cTilde hw1st _ hoz
 
-omit hRespondVerify
-
-omit nttOps [DecidableEq prims.High] [SampleableType (RqVec p.l)]
-  [SampleableType (CommitHashBytes p)] [IsUniformSpec unifSpec] in
-private lemma neg_rq_get (f : Rq) (i : Fin ringDegree) : (-f).get i = -(f.get i) := by
-  change (coeffRing.neg f).get i = _
-  simp [LatticeCrypto.vectorNegacyclicRing]
-
-omit nttOps [DecidableEq prims.High] [SampleableType (RqVec p.l)]
-  [SampleableType (CommitHashBytes p)] [IsUniformSpec unifSpec] in
-private lemma polyNorm_neg (f : Rq) : polyNorm (-f) = polyNorm f := by
-  unfold polyNorm normOps
-  simp only [LatticeCrypto.zmodPolyNormOps, LatticeCrypto.normOpsOfCenteredView]
-  unfold LatticeCrypto.cInfNormOf
-  apply Finset.sup_congr rfl
-  intro i _
-  simp only [LatticeCrypto.zmodCenteredCoeffView, polyBackend,
-    LatticeCrypto.vectorNegacyclicRing, LatticeCrypto.vectorBackend]
-  rw [neg_rq_get]
-  exact LatticeCrypto.centeredRepr_natAbs_neg _
-
-omit [DecidableEq prims.High] [SampleableType (RqVec p.l)]
-  [SampleableType (CommitHashBytes p)] [IsUniformSpec unifSpec] in
-/-- Vector form of `useHint_makeHint`: `UseHint(MakeHint(z, r), r) = HighBits(r + z)`
-componentwise, when each component of `z` is bounded by `γ₂`. -/
-theorem useHintVec_makeHintVec (h_laws : Primitives.Laws prims nttOps) {k : ℕ}
-    (z r : RqVec k) (hz : ∀ j : Fin k, polyNorm (z.get j) ≤ p.gamma2) :
-    prims.useHintVec (prims.makeHintVec z r) r = prims.highBitsVec (r + z) := by
-  apply Vector.ext; intro i hi
-  simp only [Primitives.useHintVec, Primitives.makeHintVec, Primitives.highBitsVec,
-    Vector.getElem_zipWith, Vector.getElem_map, Vector.getElem_add]
-  exact h_laws.useHint_makeHint z[i] r[i] (by simpa using hz ⟨i, hi⟩)
-
-omit [DecidableEq prims.High] [SampleableType (RqVec p.l)]
-  [SampleableType (CommitHashBytes p)] [IsUniformSpec unifSpec] in
-/-- Vector form of `hide_low`: a small additive perturbation does not change the high bits. -/
-theorem hide_lowVec (h_laws : Primitives.Laws prims nttOps) {k : ℕ}
-    (r s : RqVec k) (b : ℕ)
-    (hs : ∀ j : Fin k, polyNorm (s.get j) ≤ b)
-    (hr : ∀ j : Fin k, polyNorm (prims.lowBits (r.get j)) + b < p.gamma2) :
-    prims.highBitsVec (r + s) = prims.highBitsVec r := by
-  apply Vector.ext; intro i hi
-  simp only [Primitives.highBitsVec, Vector.getElem_map, Vector.getElem_add]
-  exact h_laws.hide_low r[i] s[i] b (by simpa using hs ⟨i, hi⟩) (by simpa using hr ⟨i, hi⟩)
+end conditional
 
 /-- The ML-DSA identification scheme is complete: whenever the honest prover does not abort,
 the verifier always accepts. This follows from the correctness of the rounding operations
@@ -222,37 +247,17 @@ theorem idsWithAbort_complete (h_laws : Primitives.Laws prims nttOps) :
 
 The HVZK theorem `MLDSA.idsWithAbort_hvzk` is proven downstream in
 `LatticeCrypto.MLDSA.SecurityHVZK`, where the concrete simulator `hvzkSimulatorReal` and the
-extra-rejection-mass bound `hvzkBoundReal` are defined. The simulator reproduces the honest
+extra-rejection-mass bound `hvzkBound` are defined. The simulator reproduces the honest
 transcript pointwise on the accept event, so the total-variation distance is bounded by the
-honest prover's extra-rejection mass; see that file for the quantitative statement
-`idsWithAbort_hvzk_real` and the existential form `idsWithAbort_hvzk`. -/
-
-omit [SampleableType (CommitHashBytes p)] [IsUniformSpec unifSpec]
-/-- Commitment recoverability for ML-DSA: the public commitment `w₁` can be reconstructed
-from `(pk, c̃, (z, h))` alone using `UseHint(h, Az - ct₁·2^d)`. This is the key property
-enabling the CMA-to-NMA reduction in the security proof.
-
-In our formalization, this is directly enforced by the `verify` function: it checks
-`UseHint(h, w'_Approx) = w₁`, so any accepted transcript necessarily satisfies
-commitment recoverability. -/
-theorem idsWithAbort_commitment_recoverable :
-    ∃ recover, (identificationScheme p prims).CommitmentRecoverable recover := by
-  classical
-  refine ⟨fun pk cTilde (z, h) =>
-    prims.useHintVec h (computeWApprox p prims (prims.expandA pk.rho)
-      (prims.sampleInBall cTilde) z pk.t1), ?_⟩
-  rintro s w' c ⟨z, h⟩ hverify
-  unfold identificationScheme at hverify
-  grind
+honest prover's extra-rejection mass; see that file for the quantitative statement. -/
 
 end Properties
 
 /-! ### EUF-NMA Security (Lemma 7)
 
-The EUF-NMA security theorem `MLDSA.nma_security` is assembled downstream in
-`LatticeCrypto.MLDSA.SecurityNMA`, where the concrete MLWE key-swap distinguisher and the
-SelfTargetMSIS extractor are defined. It composes the MLWE key-swap hop with the SelfTargetMSIS
-extraction bound; see that file for the statement and proof. -/
+The EUF-NMA reduction infrastructure — the concrete MLWE key-swap distinguisher and the
+SelfTargetMSIS extractor — is assembled downstream in `LatticeCrypto.MLDSA.SecurityNMA`, together
+with the SelfTargetMSIS extraction bound; see that file for the definitions and proofs. -/
 
 /-! ### CMA-to-NMA Statistical Loss (Theorem 4) -/
 
@@ -286,32 +291,81 @@ end CMAtoNMA
 
 section MainTheorem
 
-variable {M : Type}
-  [SampleableType (RqVec p.l)] [SampleableType (CommitHashBytes p)]
-  [IsUniformSpec unifSpec]
+variable [nttOps : NTTRingOps] [DecidableEq prims.High] {M : Type}
+  [SampleableType (CommitHashBytes p)]
+
+open scoped Classical in
+/-- MLWE distinguisher of the ML-DSA EUF-CMA reduction (Theorem 4 with Lemma 7, CRYPTO 2023).
+
+**Placeholder.** The intended construction answers the adversary's signing queries with the HVZK
+simulator `sim` (the with-aborts CMA-to-NMA step) and feeds the resulting NMA forger to the key-swap
+distinguisher `distinguisherBShort` of `LatticeCrypto.MLDSA.SecurityNMA`. That construction is
+typed against the concrete problem `mldsaMLWEShort`, so the problem argument here will be
+specialized once the with-aborts CMA-to-NMA simulator exists. -/
+noncomputable def eufCmaMLWEReduction
+    (mlwe : LearningWithErrors.Problem (TqMatrix p.k p.l) (RqVec p.l) (RqVec p.k))
+    (maxAttempts : ℕ)
+    (hr : GenerableRelation (PublicKey p prims) (SecretKey p) (validKeyPair p prims))
+    (sim : PublicKey p prims →
+      ProbComp (Option (Commitment p prims × CommitHashBytes p × Response p prims)))
+    (adv : SignatureAlg.UnforgeableAdversary
+      (FiatShamirWithAbort
+        (m := OracleComp (unifSpec + (M × Commitment p prims →ₒ CommitHashBytes p)))
+        (identificationScheme p prims) hr M maxAttempts)) :
+    LearningWithErrors.Adversary mlwe :=
+  sorry
+
+open scoped Classical in
+/-- SelfTargetMSIS adversary of the ML-DSA EUF-CMA reduction (Theorem 4 with Lemma 7,
+CRYPTO 2023).
+
+**Placeholder.** The intended construction answers the adversary's signing queries with the HVZK
+simulator `sim` (the with-aborts CMA-to-NMA step) and runs the extractor `extractorC` of
+`LatticeCrypto.MLDSA.SecurityNMA` on the resulting NMA forger. That extractor is typed against the
+concrete problem `mldsaSTMSIS`, so the problem argument here will be specialized once the
+with-aborts CMA-to-NMA simulator exists. -/
+noncomputable def eufCmaSTMSISReduction
+    (stmsis : SelfTargetMSIS.Problem
+      (TqMatrix p.k p.l) (Response p prims)
+      (PublicKey p prims) (M × Commitment p prims) (CommitHashBytes p))
+    (maxAttempts : ℕ)
+    (hr : GenerableRelation (PublicKey p prims) (SecretKey p) (validKeyPair p prims))
+    (sim : PublicKey p prims →
+      ProbComp (Option (Commitment p prims × CommitHashBytes p × Response p prims)))
+    (adv : SignatureAlg.UnforgeableAdversary
+      (FiatShamirWithAbort
+        (m := OracleComp (unifSpec + (M × Commitment p prims →ₒ CommitHashBytes p)))
+        (identificationScheme p prims) hr M maxAttempts)) :
+    SelfTargetMSIS.Adversary stmsis :=
+  sorry
 
 open scoped Classical in
 /-- **Main Security Theorem (EUF-CMA, Theorem 4, CRYPTO 2023).**
 
-**WARNING: this is a placeholder statement, not the final theorem.** The current shape is
-unsound as written: `ε`, `p_abort`, and `δ : ℝ` are unconstrained signed reals (only
-`hp : p_abort < 1` is assumed). Inherited from
-`FiatShamirWithAbort.cmaToNmaLoss`, the loss term
-`2qS(qH+1)ε/(1-p) + qS·ε(qS+1)/(2(1-p)²) + qS·ζ_zk + δ` can be made arbitrarily negative
-by taking `ε`, `δ` very negative; `ENNReal.ofReal` then clamps it to `0`, collapsing the
-bound to `adv.advantage ≤ Adv^MLWE + Adv^SelfTargetMSIS` with no statistical slack, which
-is generally false. In the final statement `ε`, `p_abort`, `δ` should be nonnegative
-(e.g. `ℝ≥0` or constrained by `0 ≤ ε`, `0 ≤ p_abort`, `0 ≤ δ` hypotheses) and identified
-with the concrete commitment guessing probability, abort probability, and regularity
-failure probability of the ML-DSA identification scheme.
+**WARNING: this is a placeholder statement with no security content.** Two defects must be
+fixed before it is proved:
+
+1. The bound is stated for the named reductions `eufCmaMLWEReduction` and
+   `eufCmaSTMSISReduction`, which are `sorry` placeholders over arbitrary MLWE and
+   SelfTargetMSIS problems. The final statement must specialize the problems to `mldsaMLWEShort`
+   and `mldsaSTMSIS` of `LatticeCrypto.MLDSA.SecurityNMA` and define the reductions as
+   `distinguisherBShort` and `extractorC` applied to an explicit with-aborts CMA-to-NMA
+   simulator, which does not exist yet.
+2. `ε`, `p_abort`, and `δ : ℝ` are unconstrained signed reals (only `hp : p_abort < 1` is
+   assumed). Inherited from `FiatShamirWithAbort.cmaToNmaLoss`, the loss term
+   `2qS(qH+1)ε/(1-p) + qS·ε(qS+1)/(2(1-p)²) + qS·ζ_zk + δ` can be made arbitrarily negative
+   by taking `ε`, `δ` very negative; `ENNReal.ofReal` then clamps it to `0`. In the final
+   statement `ε`, `p_abort`, `δ` should be nonnegative and identified with the concrete
+   commitment guessing probability, abort probability, and regularity failure probability of
+   the ML-DSA identification scheme.
 
 The proof is intentionally deferred. The statement also needs to be specialized to the
 actual ML-DSA parameters (eliminating the explicit quantitative HVZK simulator hypothesis)
 once that derivation is finalized.
 
 For any classical EUF-CMA adversary `A` making at most `qS` signing queries and `qH` random
-oracle queries, and for the adversaries `B` (against MLWE) and `C` (against SelfTargetMSIS)
-constructed in the proof of Lemma 7:
+oracle queries, with `B := eufCmaMLWEReduction … A` (against MLWE) and
+`C := eufCmaSTMSISReduction … A` (against SelfTargetMSIS):
 
   `Adv^{EUF-CMA}_{ML-DSA}(A) ≤ Adv^{MLWE}_{k,l,Sη}(B) + Adv^{SelfTargetMSIS}_{G,k,l+1,ζ}(C) + L`
 
@@ -321,9 +375,12 @@ where:
 - `ε` is the commitment guessing probability
 - `p` is the effective abort probability
 - `sim` is an HVZK simulator for the underlying identification scheme
-- `ζ_zk` is a nonnegative bound such that `HVZK sim ζ_zk`
+- `ζ_zk` is a nonnegative bound such that `HVZK sim (ENNReal.ofReal ζ_zk)`
 - `δ` is the regularity failure probability
 - `ζ = max(γ₁ - β, 2γ₂ + 1 + τ · 2^{d-1})`
+
+The MLWE advantage is the Boolean bias `LearningWithErrors.advantage`; the SelfTargetMSIS
+advantage is a success probability. Both are `ℝ≥0∞`-valued.
 
 The proof composes:
 1. **CMA → NMA** (Theorem 3): the Fiat-Shamir with aborts CMA-to-NMA reduction, using the
@@ -344,18 +401,17 @@ theorem euf_cma_security
     (sim : PublicKey p prims →
       ProbComp (Option (Commitment p prims × CommitHashBytes p × Response p prims)))
     (ζ_zk : ℝ) (_hζ : 0 ≤ ζ_zk)
-    (_hhvzk : (identificationScheme p prims).HVZK sim ζ_zk)
+    (_hhvzk : (identificationScheme p prims).HVZK sim (ENNReal.ofReal ζ_zk))
     (qS qH : ℕ) (ε p_abort δ : ℝ) (hp : p_abort < 1) :
-    ∀ (adv : SignatureAlg.unforgeableAdv
+    ∀ (adv : SignatureAlg.UnforgeableAdversary
       (FiatShamirWithAbort (identificationScheme p prims)
         hr M maxAttempts)),
-    ∃ (mlweReduction : LearningWithErrors.Adversary mlwe)
-      (stmsisReduction : SelfTargetMSIS.Adversary stmsis),
-      adv.advantage
+      SignatureAlg.unforgeableAdvantage
           (FiatShamirWithAbort.runtime
-            (Commit := Commitment p prims) (Chal := CommitHashBytes p) M) ≤
-        ENNReal.ofReal (LearningWithErrors.advantage mlwe mlweReduction) +
-        SelfTargetMSIS.advantage stmsisReduction +
+            (Commit := Commitment p prims) (Chal := CommitHashBytes p) M) adv ≤
+        LearningWithErrors.advantage mlwe
+          (eufCmaMLWEReduction p prims mlwe maxAttempts hr sim adv) +
+        SelfTargetMSIS.advantage (eufCmaSTMSISReduction p prims stmsis maxAttempts hr sim adv) +
         ENNReal.ofReal (cmaToNmaLoss qS qH ε p_abort ζ_zk δ hp) := by
   sorry
 

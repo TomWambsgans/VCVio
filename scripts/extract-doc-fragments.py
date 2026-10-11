@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Extract structured documentation fragments from the VCV-io codebase.
+"""Extract structured documentation fragments from the VCVio codebase.
 
 Generates markdown tables for:
 1. Tactic declarations (from ProgramLogic/)
@@ -10,6 +10,8 @@ Usage:
   python scripts/extract-doc-fragments.py           # print fragments
   python scripts/extract-doc-fragments.py --check    # check if docs are up to date
 """
+
+from __future__ import annotations
 
 import re
 import sys

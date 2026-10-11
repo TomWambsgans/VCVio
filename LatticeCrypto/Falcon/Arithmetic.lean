@@ -3,11 +3,14 @@ Copyright (c) 2026 Quang Dao. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Quang Dao
 -/
-import LatticeCrypto.Falcon.Params
-import LatticeCrypto.Ring.SchoolbookCert
-import LatticeCrypto.Ring.Transform
-import LatticeCrypto.Ring.Norms
-import LatticeCrypto.Ring.IntegralLift
+
+module
+public import LatticeCrypto.Falcon.Params
+public import LatticeCrypto.Ring.Sampling
+public import LatticeCrypto.Ring.SchoolbookCert
+public import LatticeCrypto.Ring.Transform
+public import LatticeCrypto.Ring.Norms
+public import LatticeCrypto.Ring.IntegralLift
 
 /-!
 # Falcon Arithmetic Assembly
@@ -33,6 +36,8 @@ Provides:
 This module is mixed: the executable aliases are computable, while
 `coeffSemantics` and `quotientOfRq` are `noncomputable`.
 -/
+
+@[expose] public section
 
 
 namespace Falcon
@@ -79,14 +84,8 @@ instance {n : ℕ} : DecidableEq (Rq n) := by
   change DecidableEq (LatticeCrypto.Poly Coeff n)
   infer_instance
 
-instance {n : ℕ} : Fintype (Rq n) :=
-  inferInstanceAs (Fintype (Vector Coeff n))
-
 instance {n : ℕ} : Inhabited (Rq n) :=
   inferInstanceAs (Inhabited (Vector Coeff n))
-
-instance {n : ℕ} : SampleableType (Rq n) :=
-  inferInstanceAs (SampleableType (Vector Coeff n))
 
 instance {n : ℕ} : DecidableEq (Tq n) := by
   change DecidableEq (LatticeCrypto.TransformPoly (coeffRing n))

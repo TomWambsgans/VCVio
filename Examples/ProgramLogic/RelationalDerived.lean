@@ -4,7 +4,12 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Quang Dao
 -/
 
-import VCVio.ProgramLogic.Tactics.Relational
+module
+
+public import VCVio.OracleComp.OracleSpec
+public import Cslib.Foundations.Data.PFunctor.Free
+
+public import VCVio.ProgramLogic.Tactics.Relational
 
 /-!
 # Derived Relational Tactic Examples
@@ -12,16 +17,19 @@ import VCVio.ProgramLogic.Tactics.Relational
 This file validates relational consequence, inlining, and `@[vcspec]` lookup.
 -/
 
+@[expose] public section
+
 open ENNReal OracleSpec OracleComp
 open OracleComp.ProgramLogic
 open OracleComp.ProgramLogic.Relational
 open Lean.Order
-open scoped OracleComp.ProgramLogic
+open scoped OracleComp.ProgramLogic OracleComp.Rel.Quantitative
 
 universe u
 
 variable {ι : Type u} {spec : OracleSpec ι}
-variable [IsUniformSpec spec]
+variable [∀ t, Finite (spec.Range t)]
+variable [OracleSpec.AnswerMeasure spec]
 variable {α β γ : Type}
 
 /-! ## `rel_conseq` / `rel_inline` / `rel_dist` -/
@@ -87,14 +95,15 @@ example :
 @[local vcspec] theorem rawRWP_wrappedTruePair :
     (1 : ℝ≥0∞) ⊑
       rwp⟦wrappedTrueLeft (spec := spec) ~ wrappedTrueRight (spec := spec) |
-        (fun x y => if x = y then (1 : ℝ≥0∞) else 0); epost⟨⟩, epost⟨⟩⟧ := by
+        (fun x y => if x = y then (1 : ℝ≥0∞) else 0);
+        Std.Internal.Do.EPost.Nil.mk, Std.Internal.Do.EPost.Nil.mk⟧ := by
   unfold wrappedTrueLeft wrappedTrueRight
   rvcstep
 
 example :
     (1 : ℝ≥0∞) ⊑
       rwp⟦wrappedTrueLeft (spec := spec) ~ wrappedTrueRight (spec := spec) |
-        (fun _ _ => (1 : ℝ≥0∞)); epost⟨⟩, epost⟨⟩⟧ := by
+        (fun _ _ => (1 : ℝ≥0∞)); Std.Internal.Do.EPost.Nil.mk, Std.Internal.Do.EPost.Nil.mk⟧ := by
   rvcstep
   intro a b
   split_ifs <;> simp
@@ -105,14 +114,15 @@ example :
 @[local vcspec] theorem rawRWP_wrappedAuxPairStep (_haux : True) :
     (1 : ℝ≥0∞) ⊑
       rwp⟦rawAuxLeft (spec := spec) ~ rawAuxRight (spec := spec) |
-        (fun x y => if x = y then (1 : ℝ≥0∞) else 0); epost⟨⟩, epost⟨⟩⟧ := by
+        (fun x y => if x = y then (1 : ℝ≥0∞) else 0);
+        Std.Internal.Do.EPost.Nil.mk, Std.Internal.Do.EPost.Nil.mk⟧ := by
   unfold rawAuxLeft rawAuxRight
   rvcstep
 
 example :
     (1 : ℝ≥0∞) ⊑
       rwp⟦rawAuxLeft (spec := spec) ~ rawAuxRight (spec := spec) |
-        (fun _ _ => (1 : ℝ≥0∞)); epost⟨⟩, epost⟨⟩⟧ := by
+        (fun _ _ => (1 : ℝ≥0∞)); Std.Internal.Do.EPost.Nil.mk, Std.Internal.Do.EPost.Nil.mk⟧ := by
   rvcstep
   intro a b
   split_ifs <;> simp

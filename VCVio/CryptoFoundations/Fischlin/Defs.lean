@@ -4,21 +4,24 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Oleksandr Vovkotrub
 -/
 
-import VCVio.CryptoFoundations.SigmaProtocol
-import VCVio.CryptoFoundations.SignatureAlg
-import VCVio.CryptoFoundations.HardnessAssumptions.HardRelation
-import VCVio.OracleComp.SimSemantics.QueryImpl.Basic
-import VCVio.OracleComp.QueryTracking.RandomOracle.Basic
-import VCVio.OracleComp.QueryTracking.RandomOracle.Simulation
-import VCVio.OracleComp.QueryTracking.LoggingOracle
-import VCVio.OracleComp.QueryTracking.QueryCost
-import VCVio.OracleComp.Coercions.Add
-import VCVio.OracleComp.SimSemantics.StateT.BundledSemantics
-import Mathlib.Data.FinEnum
-import Mathlib.Data.Nat.Choose.Basic
-import Mathlib.Order.Interval.Finset.Fin
-import Mathlib.Data.Sym.Card
-import Mathlib.Algebra.Order.Antidiag.Pi
+module
+
+public import VCVio.CryptoFoundations.SigmaProtocol
+public import VCVio.CryptoFoundations.SignatureAlg
+public import VCVio.CryptoFoundations.HardnessAssumptions.HardRelation
+public import VCVio.OracleComp.SimSemantics.QueryImpl.Basic
+public import VCVio.OracleComp.QueryTracking.RandomOracle.Basic
+public import VCVio.OracleComp.QueryTracking.RandomOracle.Simulation
+public import VCVio.OracleComp.QueryTracking.LoggingOracle.Core
+public import VCVio.OracleComp.QueryTracking.QueryCost
+public import VCVio.OracleComp.Coercions.Add.Basic
+public import VCVio.OracleComp.ProbCompLift
+public import VCVio.EvalDist.Defs.Semantics.Core
+public import Mathlib.Data.FinEnum
+public import Mathlib.Data.Nat.Choose.Basic
+public import Mathlib.Order.Interval.Finset.Fin
+public import Mathlib.Data.Sym.Card
+public import Mathlib.Algebra.Order.Antidiag.Pi
 
 /-!
 # Fischlin Transform: Core Definitions
@@ -60,6 +63,8 @@ The development is split across the sibling modules under `Fischlin/`:
 * Marc Fischlin, "Communication-Efficient Non-Interactive Proofs of Knowledge
   with Online Extractors", CRYPTO 2005.
 -/
+
+@[expose] public section
 
 universe u v
 
@@ -189,13 +194,8 @@ variable [DecidableEq Stmt] [DecidableEq Commit] [DecidableEq Chal] [DecidableEq
 /-- Runtime bundle for the Fischlin random-oracle world. -/
 noncomputable def runtime
     (ρ b : ℕ) (M : Type) [DecidableEq M] :
-    ProbCompRuntime (OracleComp (unifSpec + fischlinROSpec Stmt Commit Chal Resp ρ b M)) where
-  toSPMFSemantics := SPMFSemantics.withStateOracle
-    (hashImpl := (randomOracle :
-      QueryImpl (fischlinROSpec Stmt Commit Chal Resp ρ b M)
-        (StateT (fischlinROSpec Stmt Commit Chal Resp ρ b M).QueryCache ProbComp)))
-    ∅
-  toProbCompLift := ProbCompLift.ofMonadLift _
+    ProbCompRuntime (OracleComp (unifSpec + fischlinROSpec Stmt Commit Chal Resp ρ b M)) :=
+  ProbCompRuntime.rom (fischlinROSpec Stmt Commit Chal Resp ρ b M)
 
 end runtime
 

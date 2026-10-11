@@ -3,9 +3,11 @@ Copyright (c) 2026 Quang Dao. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Quang Dao
 -/
-import LatticeCrypto.Falcon.Arithmetic
-import LatticeCrypto.DiscreteGaussian
-import Mathlib.Analysis.SpecialFunctions.Trigonometric.Basic
+
+module
+public import LatticeCrypto.Falcon.Arithmetic
+public import LatticeCrypto.DiscreteGaussian
+public import Mathlib.Analysis.SpecialFunctions.Trigonometric.Basic
 
 /-!
 # Falcon Primitive Interfaces
@@ -17,7 +19,8 @@ parameters use `ℝ` (Mathlib Real), matching the exact-arithmetic specification
 ## Design Decisions
 
 - **`SamplerZ : ℝ → ℝ → ProbComp ℤ`** takes a real center `μ` and real standard deviation
-  `σ'`, producing an integer sample from the discrete Gaussian `D_{ℤ,σ',μ}`.
+  `σ'`, producing a finite-support integer sample intended to approximate the discrete
+  Gaussian `D_{ℤ,σ',μ}`. Accuracy or point-mass bounds are separate hypotheses.
 - **`FalconTree`** is a binary tree whose leaves carry the bottom `2 × 2` LDL block
   (two `σ` values plus the off-diagonal `l01`) and whose internal nodes carry an
   `ℝ`-polynomial `ℓ` from the LDL decomposition.
@@ -33,6 +36,8 @@ The `Float` type is intentionally avoided; see the plan for rationale.
 - Falcon specification v1.2, Section 3.9 (Algorithms 10–13)
 - Falcon specification v1.2, Section 3.8 (Algorithm 9: ffLDL*)
 -/
+
+@[expose] public section
 
 
 open OracleComp
@@ -73,16 +78,43 @@ namespace RealFFTPoly
 
 end RealFFTPoly
 
+/-- The root angle of packed coordinate `j` at recursion level `k`.
+
+A packed Falcon FFT polynomial of length `2 * 2^k` stores the values of a real polynomial of
+degree `2 * 2^k` at one root of `X^(2 · 2^k) + 1` from each conjugate pair; `rootAngle k j` is
+the argument of the root of coordinate `j`. Level `0` stores the single evaluation at
+`exp(π/2 · I) = I`. Splitting `f = f₀(X²) + X · f₁(X²)` places `f(ω)` and `f(-ω)` at the adjacent
+coordinates `2i` and `2i + 1`, where `ω²` is the level-`k` root of coordinate `i`, so
+
+- `rootAngle (k + 1) (2 * i) = rootAngle k i / 2`,
+- `rootAngle (k + 1) (2 * i + 1) = rootAngle k i / 2 + π`.
+
+This is the bit-reversed root order of Falcon's `fpoly_FFT` and of its twiddle table
+(`GM_TAB[m] = exp(π · bitrev₁₀(m) / 1024 · I)`): in closed form
+`rootAngle k j = (4 · bitrev_k j + 1) π / 2^(k+1)`. Indices `j ≥ 2^k` are never used. -/
+noncomputable def rootAngle : ℕ → ℕ → ℝ
+  | 0, _ => Real.pi / 2
+  | k + 1, j => rootAngle k (j / 2) / 2 + ((j % 2 : ℕ) : ℝ) * Real.pi
+
+@[simp] theorem rootAngle_zero (j : ℕ) : rootAngle 0 j = Real.pi / 2 := rfl
+
+theorem rootAngle_two_mul (k i : ℕ) : rootAngle (k + 1) (2 * i) = rootAngle k i / 2 := by
+  simp [rootAngle]
+
+theorem rootAngle_two_mul_add_one (k i : ℕ) :
+    rootAngle (k + 1) (2 * i + 1) = rootAngle k i / 2 + Real.pi := by
+  simp [rootAngle, Nat.mul_add_div]
+
 /-- The Falcon tree (LDL tree), a binary tree used by `ffSampling` (Algorithm 11).
 
 - At level 0 (leaves): stores the bottom `2 × 2` LDL block — two **standard deviations**
   `σ₀, σ₁ > 0` (for the `t₀`- and `t₁`-coordinates) and the off-diagonal `L` entry
-  `l01 = (l01Re, l01Im)`. These are the *true* stddevs `σ₀ = σ / √d00`, `σ₁ = σ / √d11`
-  (with `l01 = conj(g01 / g00)`), passed directly to `samplerZ`, which by its
+  `l01 = (l01Re, l01Im)`. These are the *true* standard deviations `σ₀ = σ / √d00`,
+  `σ₁ = σ / √d11` (with `l01 = conj(g01 / g00)`), passed directly to `samplerZ`, which by its
   `Primitives.Laws.samplerZ_correct` contract takes a standard deviation. **Convention note:**
-  the concrete `Falcon.Concrete.FFT.ffsampFFTDeepest` instead passes the *reciprocal*
-  `isigma = √d11 · (1/σ) = 1/σ₁` to its `SamplerZ`; the two agree up to that inversion.
-  A single shared `σ` with no `l01` would be unfaithful: a
+  the deepest level of the concrete sampler (`ffsampFFTDeepest` in `Extern/Falcon/FFT.lean`)
+  instead passes the *reciprocal* `√d11 · (1/σ) = 1/σ₁` to its `samplerZ`; the two agree up to
+  that inversion. A single shared `σ` with no `l01` would be unfaithful: a
   depth-`(logn − 1)` tree has `2^(logn − 1)` leaves, exactly one per bottom `2 × 2` block,
   each with its own `l01` — there are only `2^(logn − 2)` level-`1` nodes, too few to carry them.
 - At level `k + 1` (internal nodes): stores a polynomial `ℓ` in FFT representation
@@ -103,8 +135,9 @@ structure Primitives (p : Params) where
   salt-message pair together with the external verification-key bytes to a polynomial in `R_q`
   with coefficients uniform in `[0, q-1]`. -/
   hashToPoint : Bytes 40 → ByteArray → List Byte → Rq p.n
-  /-- `SamplerZ(μ, σ')` (Algorithm 12): sample an integer `z` from the discrete Gaussian
-  distribution `D_{ℤ,σ',μ}` centered at `μ ∈ ℝ` with standard deviation `σ' ∈ ℝ`. -/
+  /-- `SamplerZ(μ, σ')` (Algorithm 12): a finite-support integer sampler intended to
+  approximate the discrete Gaussian centered at `μ ∈ ℝ` with standard deviation `σ' ∈ ℝ`.
+  The interface alone supplies no accuracy or point-mass guarantee. -/
   samplerZ : ℝ → ℝ → ProbComp ℤ
   /-- Convert a target polynomial in `R_q` to Falcon's packed FFT representation.
 
@@ -132,14 +165,16 @@ namespace Primitives
 
 variable {p : Params} (prims : Primitives p)
 
-/-- The canonical split angle for the proof-level Falcon FFT specification.
+/-- The split angle of the proof-level Falcon FFT at level `k`: half the root angle of
+packed coordinate `i`.
 
-For `splitFFT` on a packed Falcon FFT polynomial of length `2 * 2^(k+1)`, we follow the
-implementation order used by Falcon's `fpoly_split_fft` and `fpoly_merge_fft`: the adjacent
-packed coordinates `(2i, 2i+1)` form the pair `f(ωᵢ), f(-ωᵢ)` where
-`ωᵢ = exp(((2i + 1)π / 2^(k+2)) · I)`. -/
+For `splitFFT` on a packed Falcon FFT polynomial of length `2 * 2^(k+1)`, the adjacent packed
+coordinates `(2i, 2i+1)` form the pair `f(ωᵢ), f(-ωᵢ)` with `ωᵢ = exp(splitAngle i · I)`, and
+`ωᵢ² = exp(rootAngle k i · I)` is the root of coordinate `i` one level down. This is what makes
+the split/merge recursion a consistent evaluation map (`RealFFTPoly.re_ofCoeffs`), and it is the
+implementation order of Falcon's `fpoly_split_fft` and `fpoly_merge_fft`. -/
 @[inline] noncomputable def splitAngle {k : ℕ} (i : Fin (2 ^ k)) : ℝ :=
-  (((2 * i.1 + 1 : ℕ) : ℝ) * Real.pi) / (((2 ^ (k + 2) : ℕ) : ℝ))
+  rootAngle k i.1 / 2
 
 /-- Hash a message using the verification-key bytes derived from `pk`. -/
 @[inline] def hashToPointForPublicKey (pk : Rq p.n) (salt : Bytes 40) (msg : List Byte) :
@@ -163,8 +198,7 @@ def mulFFT {k : ℕ} (a b : RealFFTPoly k) : RealFFTPoly k :=
 /-- Split a packed Falcon FFT polynomial into its even and odd parts.
 
 If `f = f₀(x²) + x · f₁(x²)` and the adjacent packed coordinates of `f` encode
-`a = f(ωᵢ)`, `b = f(-ωᵢ)` for the canonical implementation-order roots
-`ωᵢ = exp(((2i + 1)π / 2^(k+2)) · I)`, then
+`a = f(ωᵢ)`, `b = f(-ωᵢ)` for the implementation-order roots `ωᵢ = exp(splitAngle i · I)`, then
 
 - `f₀(ωᵢ²) = (a + b) / 2`
 - `f₁(ωᵢ²) = (a - b) / (2ωᵢ)`
@@ -207,7 +241,7 @@ noncomputable def splitFFT {k : ℕ}
 /-- Merge two half-size Falcon FFT polynomials into a full-size one.
 
 This inverts `splitFFT`: if `f = f₀(x²) + x · f₁(x²)`, then for each implementation-order
-root `ωᵢ = exp(((2i + 1)π / 2^(k+2)) · I)` we reconstruct the adjacent packed pair
+root `ωᵢ = exp(splitAngle i · I)` we reconstruct the adjacent packed pair
 
 - `f(ωᵢ) = f₀(ωᵢ²) + ωᵢ · f₁(ωᵢ²)`
 - `f(-ωᵢ) = f₀(ωᵢ²) - ωᵢ · f₁(ωᵢ²)` -/
@@ -252,7 +286,8 @@ and `(t - z)` is short relative to the Gram-Schmidt data encoded by `T`.
 The algorithm recurses on the tree structure:
 - **Leaf** (`κ = 0`): the bottom `2 × 2` LDL block. Sample the `t₁`-coordinate (real and
   imaginary parts) at `σ₁`, correct the target by `l01 · (t₁ - z₁)`, then sample the corrected
-  `t₀`-coordinate at `σ₀` (mirrors `Falcon.Concrete.FFT.ffsampFFTDeepest`).
+  `t₀`-coordinate at `σ₀` (the deepest level of the concrete sampler in
+  `Extern/Falcon/FFT.lean` does the same).
 - **Node** (`κ + 1`): split `t₁`, recurse on the right subtree, merge to obtain `z₁`,
   compute `t_b0 = t₀ + ℓ · (t₁ - z₁)`, split `t_b0`, recurse on the left subtree, then
   merge to obtain `z₀`. -/
@@ -260,9 +295,8 @@ noncomputable def ffSampling (κ : ℕ) (t : FFTPair κ)
     (tree : FalconTree κ) : ProbComp (FFTPair κ) :=
   match κ, t, tree with
   | 0, (t₀, t₁), .leaf σ₀ σ₁ l01Re l01Im => do
-    -- Bottom `2 × 2` LDL sampling, mirroring `Falcon.Concrete.FFT.ffsampFFTDeepest`:
-    -- sample the `t₁`-coordinate first at `σ₁`, correct `t₀` by the off-diagonal
-    -- `l01 · (t₁ - z₁)`, then sample the corrected `t₀`-coordinate at `σ₀`.
+    -- Bottom `2 × 2` LDL sampling: sample the `t₁`-coordinate first at `σ₁`, correct `t₀` by
+    -- the off-diagonal `l01 · (t₁ - z₁)`, then sample the corrected `t₀`-coordinate at `σ₀`.
     let t₁Re := RealFFTPoly.re t₁ ⟨0, by omega⟩
     let t₁Im := RealFFTPoly.im t₁ ⟨0, by omega⟩
     let z₁Re ← prims.samplerZ t₁Re σ₁
@@ -299,7 +333,7 @@ structure Primitives.Laws {p : Params} (prims : Primitives p) : Prop where
   /-- The discrete Gaussian sampler produces output distributed according to the ideal
   discrete Gaussian PMF `D_{ℤ,σ',μ}`. -/
   samplerZ_correct : ∀ (μ σ' : ℝ) (_hσ : 0 < σ'),
-    ∀ z : ℤ, Pr[= z | prims.samplerZ μ σ'] =
+    ∀ z : ℤ, Pr{let x ← prims.samplerZ μ σ'}[x = z] =
       ENNReal.ofReal (LatticeCrypto.discreteGaussianPMF σ' μ z)
   /-- Compress/decompress roundtrip: decompressing a compressed polynomial recovers
   the original. -/

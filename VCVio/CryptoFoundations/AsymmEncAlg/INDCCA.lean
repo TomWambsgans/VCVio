@@ -4,18 +4,25 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Devon Tuma, Quang Dao
 -/
 
-import VCVio.CryptoFoundations.AsymmEncAlg.Defs
-import VCVio.OracleComp.SimSemantics.QueryImpl.Basic
-import VCVio.OracleComp.Coercions.SubSpec
-import VCVio.OracleComp.ProbComp
-import VCVio.OracleComp.SimSemantics.Append
-import VCVio.CryptoFoundations.SecExp
+module
+
+public import VCVio.CryptoFoundations.AsymmEncAlg.Defs
+public import VCVio.OracleComp.SimSemantics.QueryImpl.Basic
+public import VCVio.OracleComp.Coercions.SubSpec.Basic
+public import VCVio.OracleComp.Coercions.SubSpec.Measure
+public import VCVio.OracleComp.ProbComp.Basic
+public import VCVio.OracleComp.Constructions.UniformFinMeasure
+public import VCVio.OracleComp.SimSemantics.Append
+public import VCVio.CryptoFoundations.SecExp.Measure
+public import VCVio.OracleComp.QueryTracking.QueryBound
 
 /-!
 # Asymmetric Encryption Schemes: IND-CCA
 
 IND-CCA interfaces and games for asymmetric encryption schemes.
 -/
+
+@[expose] public section
 
 open OracleSpec OracleComp ENNReal
 
@@ -51,38 +58,38 @@ structure IND_CCA_Adversary (encAlg : AsymmEncAlg (OracleComp spec) M PK SK C) w
 /-- Pre-challenge decryption oracle for the IND-CCA game. -/
 def IND_CCA_preChallengeImpl (encAlg : AsymmEncAlg (OracleComp spec) M PK SK C)
     (sk : SK) : QueryImpl (IND_CCA_oracleSpec encAlg) (OracleComp spec) :=
-  (HasQuery.toQueryImpl (spec := spec) (m := OracleComp spec)) + fun c => encAlg.decrypt sk c
+  QueryImpl.add spec.passthrough
+    fun c => encAlg.decrypt sk c
 
 /-- Post-challenge decryption oracle for the IND-CCA game.
 The challenge ciphertext itself is answered with `none`, while all other ciphertexts are
 decrypted normally. -/
 def IND_CCA_postChallengeImpl (encAlg : AsymmEncAlg (OracleComp spec) M PK SK C)
     (sk : SK) (cStar : C) : QueryImpl (IND_CCA_oracleSpec encAlg) (OracleComp spec) :=
-  (HasQuery.toQueryImpl (spec := spec) (m := OracleComp spec)) + fun c =>
+  QueryImpl.add spec.passthrough fun c =>
     if c = cStar then return none else encAlg.decrypt sk c
 
 /-- IND-CCA security game in the standard two-phase form.
 The adversary chooses challenge messages with access to the decryption oracle, then receives
 the challenge ciphertext and continues interacting with a decryption oracle that returns `none`
 on the challenge ciphertext. -/
-def IND_CCA_Game {encAlg : AsymmEncAlg (OracleComp spec) M PK SK C}
+noncomputable def IND_CCA_Game {encAlg : AsymmEncAlg (OracleComp spec) M PK SK C}
     (runtime : ProbCompRuntime (OracleComp spec))
-    (adversary : encAlg.IND_CCA_Adversary) : SPMF Bool :=
-  runtime.evalDist do
-    let (pk, sk) ← encAlg.keygen
-    let (m₀, m₁, st) ← simulateQ (encAlg.IND_CCA_preChallengeImpl sk)
-      (adversary.chooseMessages pk)
-    let b ← runtime.liftProbComp ($ᵗ Bool)
-    let cStar ← encAlg.encrypt pk (if b then m₀ else m₁)
-    let b' ← simulateQ (encAlg.IND_CCA_postChallengeImpl sk cStar)
-      (adversary.distinguish st cStar)
-    return (b == b')
+    (adversary : encAlg.IND_CCA_Adversary) : OracleComp spec Bool := do
+  let (pk, sk) ← encAlg.keygen
+  let (m₀, m₁, st) ← simulateQ (encAlg.IND_CCA_preChallengeImpl sk)
+    (adversary.chooseMessages pk)
+  let b ← runtime.liftProbComp ($ᵗ Bool)
+  let cStar ← encAlg.encrypt pk (if b then m₀ else m₁)
+  let b' ← simulateQ (encAlg.IND_CCA_postChallengeImpl sk cStar)
+    (adversary.distinguish st cStar)
+  return (b == b')
 
-/-- Real-valued IND-CCA advantage, expressed as the Boolean bias of the IND-CCA game. -/
+/-- IND-CCA advantage: the Boolean bias of the IND-CCA game under `runtime`. -/
 noncomputable def IND_CCA_Advantage {encAlg : AsymmEncAlg (OracleComp spec) M PK SK C}
     (runtime : ProbCompRuntime (OracleComp spec))
-    (adversary : encAlg.IND_CCA_Adversary) : ℝ :=
-  (IND_CCA_Game runtime adversary).boolBiasAdvantage
+    (adversary : encAlg.IND_CCA_Adversary) : ℝ≥0∞ :=
+  (runtime.evalDist (IND_CCA_Game runtime adversary)).boolBias
 
 end IND_CCA
 

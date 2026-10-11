@@ -3,11 +3,13 @@ Copyright (c) 2026 Quang Dao. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Quang Dao
 -/
-import LatticeCrypto.Falcon.Primitives
-import VCVio.CryptoFoundations.GPVHashAndSign
-import VCVio.CryptoFoundations.HardnessAssumptions.HardRelation
-import VCVio.OracleComp.QueryTracking.RandomOracle.Basic
-import VCVio.OracleComp.Coercions.Add
+
+module
+public import LatticeCrypto.Falcon.Primitives
+public import VCVio.CryptoFoundations.GPVHashAndSign
+public import VCVio.CryptoFoundations.HardnessAssumptions.HardRelation
+public import VCVio.OracleComp.QueryTracking.RandomOracle.Basic
+public import VCVio.OracleComp.Coercions.Add.Basic
 
 /-!
 # Falcon Signature Scheme
@@ -41,6 +43,8 @@ matching the concrete executable signer in `LatticeCrypto.Falcon.Concrete.Sign`.
 - FIPS 206 (FN-DSA) draft
 - GPV08: Gentry, Peikert, Vaikuntanathan. STOC 2008.
 -/
+
+@[expose] public section
 
 
 open OracleComp OracleSpec
@@ -133,24 +137,23 @@ noncomputable def toFFTTarget (c : Rq p.n) (sk : SecretKey p) :
 
 /-- Convert the ffSampling output back to a pair `(s₁, s₂) ∈ R_q × R_q`.
 
-Given the hash target `c`, the public key, the secret basis, and the sampled FFT-domain
-vector `z`, this reconstructs `s₂` from the basis (inverse-transform and round), then sets
+Given the hash target `c`, the secret basis, and the sampled FFT-domain vector `z`, this
+reconstructs the lattice point `v = z · [[g, -f], [G, -F]]`, inverse-transforms and rounds
+it to coefficients, then returns
 
-- `s₂ = -v₁`  where  `v₁ = round(IFFT(-(f·z₀ + F·z₁)))`
-- `s₁ = c - s₂ · h`
+- `s₁ = c - v₀`
+- `s₂ = -v₁`
 
-`s₁` is recomputed from `s₂` (rather than from an independently-rounded `v₀`), so the PSF
-identity `s₁ + s₂ · h = c` holds **exactly**. This matches `Falcon.verify` — which stores only
-`s₂` and recomputes `s₁` — and the real Falcon / FN-DSA signing flow, and is what makes
-`falconPSF.eval (trapdoorSample …) = c` (see `falconPSF_eval_trapdoorSample`). Independent
-rounding of a separate `v₀` would break the identity (the rounded `v₀ + v₁ · h ≢ 0 mod q`). -/
-noncomputable def fromFFTPreimage (c : Rq p.n) (pk : PublicKey p) (sk : SecretKey p)
+This matches the post-sampling basis application in Falcon's reference signing flow. -/
+noncomputable def fromFFTPreimage (c : Rq p.n) (sk : SecretKey p)
     (z : FFTPair p.fftDepth) : Rq p.n × Rq p.n :=
+  let v₀FFT := Primitives.mulFFT z.1 (prims.fftInt sk.g) +
+    Primitives.mulFFT z.2 (prims.fftInt sk.capG)
   let v₁FFT := -(Primitives.mulFFT z.1 (prims.fftInt sk.f) +
     Primitives.mulFFT z.2 (prims.fftInt sk.capF))
-  let s₂ := -IntPoly.toRq (prims.ifftRound v₁FFT)
-  let s₁ := c - negacyclicMul s₂ pk.h
-  (s₁, s₂)
+  let v₀ := IntPoly.toRq (prims.ifftRound v₀FFT)
+  let v₁ := IntPoly.toRq (prims.ifftRound v₁FFT)
+  (c - v₀, -v₁)
 
 /-- Falcon as a `PreimageSampleableFunction`.
 
@@ -174,39 +177,11 @@ to the ideal discrete Gaussian over the NTRU lattice coset. -/
 noncomputable def falconPSF : PreimageSampleableFunction
     (PublicKey p) (SecretKey p) (Rq p.n × Rq p.n) (Rq p.n) where
   eval pk x := x.1 + negacyclicMul x.2 pk.h
-  trapdoorSample pk sk c := do
+  trapdoorSample _pk sk c := do
     let t := toFFTTarget p prims c sk
     let z ← Primitives.ffSampling prims p.fftDepth t sk.tree
-    return fromFFTPreimage p prims c pk sk z
+    return fromFFTPreimage p prims c sk z
   isShort x := decide (pairL2NormSq x.1 x.2 ≤ p.betaSquared)
-
-/-- The `eval`-half of `PreimageSampleableFunction.Correct` for the Falcon PSF: every output
-of `trapdoorSample` is an exact preimage, `eval pk x = c`. This holds *by construction* because
-`fromFFTPreimage` sets `s₁ := c - s₂ · h`, so `eval pk (s₁, s₂) = s₁ + s₂ · h = c`.
-
-(The full `Correct` predicate also requires `isShort x = true` for every output; that half is
-**not** provable for the raw sampler — `ffSampling` can occasionally produce an over-long vector,
-which is why real Falcon retries. Establishing it needs a rejection/retry model for
-`trapdoorSample`; see B2 in `docs/agents/falcon-review.md`.) -/
-theorem falconPSF_eval_trapdoorSample (pk : PublicKey p) (sk : SecretKey p) (c : Rq p.n) :
-    ∀ x ∈ support ((falconPSF p prims).trapdoorSample pk sk c),
-      (falconPSF p prims).eval pk x = c := by
-  -- For any `s₂`, evaluating the recomputed pair `(c - s₂·h, s₂)` returns `c`.
-  have eval_pair : ∀ s₂ : Rq p.n,
-      (falconPSF p prims).eval pk (c - negacyclicMul s₂ pk.h, s₂) = c := by
-    intro s₂
-    change (c - negacyclicMul s₂ pk.h) + negacyclicMul s₂ pk.h = c
-    -- `Rq` equalities are coefficient-wise (the bespoke `Sub`/`Add` make `ring`/`abel`
-    -- inapplicable on `Rq` directly); reduce to `ZMod` and cancel there.
-    ext i
-    simp only [LatticeCrypto.NegacyclicRing.coeff_add, LatticeCrypto.NegacyclicRing.coeff_sub]
-    ring
-  intro x hx
-  simp only [falconPSF, support_bind, support_pure, Set.mem_iUnion, Set.mem_singleton_iff,
-    exists_prop] at hx
-  obtain ⟨z, _, rfl⟩ := hx
-  -- `fromFFTPreimage … z` is definitionally `(c - negacyclicMul s₂ pk.h, s₂)`.
-  exact eval_pair _
 
 /-! ### One-Shot Signing -/
 
@@ -228,45 +203,41 @@ noncomputable def signAttempt (pk : PublicKey p) (sk : SecretKey p) (c : Rq p.n)
   else
     return none
 
-/-- Centered integer lift of an `R_q` element (coefficients in `[-(q-1)/2, (q-1)/2]`), the
-coefficient-wise inverse of `IntPoly.toRq`. Used to feed the signature compressor, which
-consumes an `IntPoly`. -/
-def rqToIntPolyCentered {n : ℕ} (f : Rq n) : IntPoly n :=
-  let a := f.toArray
-  Vector.ofFn fun i : Fin n => centeredRepr (a.getD i.1 0)
+/-- The centered integer lift of an element of `R_q`: coefficientwise the representative in
+`(-q/2, q/2]`. This is the polynomial the signer hands to `compress`. -/
+noncomputable def rqToIntPolyCentered {n : ℕ} (f : Rq n) : IntPoly n :=
+  LatticeCrypto.Poly.ofPi fun i => LatticeCrypto.centeredRepr (f.get i)
 
-/-- `IntPoly.toRq` is a left inverse of `rqToIntPolyCentered`: reducing the centered integer
-lift of `f ∈ R_q` back mod `q` recovers `f`. Coefficient-wise, `rqToIntPolyCentered` stores the
-centered representative `centeredRepr (f[i])` and `IntPoly.toRq` casts it back into `ZMod q`;
-`LatticeCrypto.centeredRepr_intCast` shows this cast is the identity on `ZMod q`. This closes the
-compress/decompress roundtrip in `verify_sign_correct`, where `verify` recomputes
-`s₂ = IntPoly.toRq (rqToIntPolyCentered s₂)`. -/
+/-- The coefficients of the reduction of an integer polynomial modulo `q`. -/
+theorem toRq_get {n : ℕ} (a : IntPoly n) (i : Fin n) :
+    (IntPoly.toRq a : Rq n).get i = ((a.get i : ℤ) : Coeff) := by
+  simp [IntPoly.toRq, integralLift, LatticeCrypto.vectorIntegralLift,
+    LatticeCrypto.PolyBackend.mapCoeffs, LatticeCrypto.vectorBackend]
+
+/-- Reducing the centered integer lift modulo `q` recovers the original element. -/
 theorem toRq_rqToIntPolyCentered {n : ℕ} (f : Rq n) :
     IntPoly.toRq (rqToIntPolyCentered f) = f := by
   apply LatticeCrypto.Poly.ext_get_eq
   intro i
-  unfold IntPoly.toRq integralLift rqToIntPolyCentered
-  simp only [LatticeCrypto.vectorIntegralLift, LatticeCrypto.PolyBackend.mapCoeffs,
-    LatticeCrypto.vectorBackend, Vector.get_ofFn]
-  have hget : f.toArray.getD i.1 0 = f.get i := by
-    simp [Array.getD_eq_getD_getElem?, Vector.get]
-  rw [hget]
-  change (↑(LatticeCrypto.centeredRepr (f.get i)) : Coeff) = f.get i
+  rw [toRq_get, rqToIntPolyCentered, LatticeCrypto.Poly.get_ofPi]
   exact (LatticeCrypto.centeredRepr_intCast (f.get i)).symm
 
 /-- Falcon signing (Falcon+, Algorithm 10), as a fuel-bounded rejection loop.
 
-Mirrors `FiatShamir.WithAbort.fsAbortSignLoop` and the concrete `Concrete.Sign.concreteSign`:
-on each of up to `maxAttempts` attempts, sample a fresh 40-byte salt `r`, hash
-`c = HashToPoint(r, pk, message)`, and run `signAttempt`. On a short preimage `(_, s₂)` that
-also compresses within `p.sbytelen`, return `some ⟨r, compress s₂⟩`; otherwise retry with a
-fresh salt. Returns `none` if all `maxAttempts` attempts abort.
+On each of up to `maxAttempts` attempts:
+1. Sample a fresh 40-byte salt `r`.
+2. Hash `c = HashToPoint(r, pk, message)` to get the target in `R_q`.
+3. Use the secret key to sample a short preimage `(s₁, s₂)` via `signAttempt`.
+4. If the norm check passes and compression succeeds, return `some (r, compress(s₂))`.
+5. Otherwise retry with a new salt.
 
-The `Option` result mirrors the `FiatShamirWithAbort` convention: the acceptance + compression
-check cannot hold by construction (a vector can pass the `ℓ₂` `isShort` bound yet have a
-coefficient too large for `compress`), so loop *productivity* is probabilistic — the `none`
-branch handles exhaustion. The compression length is exactly `p.sbytelen`, matching `verify`'s
-`decompress … p.sbytelen` so the `compress_decompress` roundtrip chains. -/
+Returns `none` once the attempt budget is exhausted. Compression is a separate gate from
+the norm check: a preimage can pass the `ℓ₂` bound and still have a coefficient too large for
+`compress` at `p.sbytelen`, so the loop retries on either failure. The compression length is
+`p.sbytelen`, the length `verify` decompresses at.
+
+The fresh-salt-per-retry structure matches the Falcon+ convention and the concrete
+executable signer in `Extern.Falcon.Sign`. -/
 noncomputable def sign (pk : PublicKey p) (sk : SecretKey p) (msg : List Byte) :
     ℕ → ProbComp (Option Signature)
   | 0 => return none
@@ -313,7 +284,6 @@ The Falcon specification uses `Salt = Bytes 40` (40 random bytes = 320 bits),
 chosen as `λ + log₂(Q_s)` for `λ = 256` and `Q_s = 2^64` (Section 2.2.2). -/
 noncomputable def falconSignatureAlg
     (Salt : Type) [DecidableEq Salt] [SampleableType Salt]
-    [SampleableType (Rq p.n)]
     [DecidableEq (Rq p.n)]
     (hr : GenerableRelation (PublicKey p) (SecretKey p)
       (validKeyPair p)) :

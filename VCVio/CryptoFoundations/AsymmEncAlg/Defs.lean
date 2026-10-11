@@ -3,16 +3,20 @@ Copyright (c) 2024 Devon Tuma. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Devon Tuma, Quang Dao
 -/
-import VCVio.EvalDist.Defs.Instances
-import VCVio.OracleComp.Constructions.SampleableType
-import VCVio.OracleComp.ProbCompLift
-import PolyFun.Control.Monad.Hom
+
+module
+public import VCVio.EvalDist.Defs.Measure.Deterministic
+public import VCVio.OracleComp.Constructions.SampleableType.Measure
+public import VCVio.OracleComp.ProbCompLift
+public import PolyFun.Control.Monad.Hom
 
 /-!
 # Asymmetric Encryption Schemes
 
 Core definitions for asymmetric encryption schemes and correctness.
 -/
+
+@[expose] public section
 
 open OracleSpec OracleComp ENNReal
 
@@ -77,7 +81,7 @@ variable [DecidableEq M]
 
 The game returns a `Bool` directly rather than using `guard`, so it does not require
 `AlternativeMonad`. -/
-def CorrectExp (msg : M) : m Bool := do
+def correctnessExperiment (msg : M) : m Bool := do
   let (pk, sk) ← encAlg.keygen
   let c ← encAlg.encrypt pk msg
   let msg' ← encAlg.decrypt sk c
@@ -86,7 +90,7 @@ def CorrectExp (msg : M) : m Bool := do
 /-- An asymmetric encryption scheme is perfectly correct under the given runtime when decrypting a
 fresh encryption of any message succeeds with probability `1`. -/
 def PerfectlyCorrect (runtime : ProbCompRuntime m) : Prop :=
-  ∀ (msg : M), Pr[= true | runtime.evalDist (encAlg.CorrectExp msg)] = 1
+  ∀ (msg : M), runtime.evalDist (encAlg.correctnessExperiment msg) {true} = 1
 
 end Correct
 

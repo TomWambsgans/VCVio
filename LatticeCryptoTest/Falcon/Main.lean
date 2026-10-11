@@ -3,8 +3,11 @@ Copyright (c) 2026 Quang Dao. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Quang Dao
 -/
-import LatticeCryptoTest.Falcon.Helpers
-import LatticeCryptoTest.Falcon.TestVectors
+
+module
+public import LatticeCryptoTest.Falcon.Helpers
+public import LatticeCryptoTest.Falcon.TestVectors
+public import LatticeCryptoTest.Falcon.KeyGenDiff
 
 /-!
 # Falcon Test Runner
@@ -23,7 +26,7 @@ lake build falcon_test
 ```
 -/
 
-set_option maxRecDepth 2048
+public section
 
 open Falcon Falcon.Concrete Falcon.Concrete.FPR Falcon.Concrete.SamplerZ
      Falcon.Concrete.FFTOps Falcon.Concrete.Sign Falcon.Test
@@ -74,11 +77,9 @@ private def prngNextSalt (s : PRNGState) : Bytes 40 × PRNGState := Id.run do
     st := s'
   return (Vector.ofFn fun ⟨i, _⟩ => bytes.getD i 0, st)
 
-def main : IO Unit := do
-  let st ← IO.mkRef ({} : TestState)
-  IO.println "=== Falcon Correctness Tests ==="
-  IO.println ""
-  flush
+-- Keep the test groups in separate opaque declarations. Lean's compiler `simp`
+-- pass scales poorly when all of these tests are generated from one large `do` block.
+def runFalconProtocolTests (st : IO.Ref TestState) : IO Unit := do
   -- ── 1. NTT roundtrip ──────────────────────────
   IO.println "1. NTT roundtrip (invNTT ∘ NTT = id) for Falcon"
   do
@@ -119,7 +120,9 @@ def main : IO Unit := do
     | some bytes =>
       match decompress n bytes 666 with
       | none => check st "decompress should succeed" false
-      | some s' => check st "decompress(compress(s)) = s" (s == s')
+      | some s' =>
+        check st "decompress(compress(s)) = s" (s == s')
+        check st "decompress rejects trailing bytes" ((decompress n (bytes ++ [0]) 666).isNone)
   IO.println ""
   -- ── 4. Public key encode/decode roundtrip ─────
   IO.println "4. Public key encode/decode roundtrip"
@@ -287,6 +290,43 @@ def main : IO Unit := do
     let prng2 := PRNGState.init seed
     let (accept1, _) := berExp prng2 zero half
     check st s!"berExp(zero, half) likely accepts (got {accept1})" accept1
+    -- `berExpReduce` must land `r` in `[0, log 2)`: `expm_p63` reads only `|r|`, so a
+    -- negative `r` is evaluated as `exp |r|` and inflates the acceptance weight by up to
+    -- `2x`. Rounding the quotient to nearest instead of toward `-∞` puts `r` below zero for
+    -- about half of all inputs, and `k / 32` catches it at 100 of the 199 points below.
+    let log2Bound : FPR := 0x3FE62E42FEFA39F7  -- `log 2`, rounded up by 8 ulp
+    let mut redBad : Nat := 0
+    let mut redCount : Nat := 0
+    for k in [1:200] do
+      let (_, r) := berExpReduce (scaled (Int64.ofNat k) (-5))
+      if (r >>> 63) != 0 || r > log2Bound then
+        redBad := if redBad == 0 then k else redBad
+        redCount := redCount + 1
+    check st s!"berExpReduce(k/32) ∈ [0, log 2] for k < 200" (redCount == 0)
+      s!"{redCount} of 199 outside, first at k={redBad}"
+    check st "berExpReduce(0) = (0, 0)"
+      (berExpReduce (F := FPR) zero == (0, zero))
+    -- `berExp` needs `x ≥ 0`, and `samplerZLoop` supplies it from the key-generation
+    -- invariant `σ ≤ σ₀`. In floating point that margin is exactly zero, so pin both sides:
+    -- `isigmaHi` is the representable `1/σ` just above `1/σ₀`, and `isigmaLo` is one ulp
+    -- down, where `σ` passes `σ₀` and `x` goes negative. The pair is what makes this a test
+    -- rather than a restatement.
+    let inv2s0 : FPR := scaled 5435486223186882 (-55)
+    let isigmaHi : FPR := scaled 4947651334655860 (-53)  -- σ = 1.8204999999999998 ≤ σ₀
+    let isigmaLo : FPR := scaled 4947651334655859 (-53)  -- σ = 1.8205000000000002 > σ₀
+    let xAt (isig : FPR) (z0 : Nat) : FPR :=
+      let dss := mul (mul isig isig) half
+      let diff := sub zero (ofInt (Int64.ofNat z0))  -- z = -z0 for b = 0, centre r = 0
+      sub (mul (mul diff diff) dss) (mul (ofInt (Int64.ofNat (z0 * z0))) inv2s0)
+    let mut hiNeg : Nat := 0
+    let mut loNeg : Nat := 0
+    for z0 in [0:26] do
+      if (xAt isigmaHi z0) >>> 63 != 0 then hiNeg := hiNeg + 1
+      if (xAt isigmaLo z0) >>> 63 != 0 then loNeg := loNeg + 1
+    check st "samplerZ x ≥ 0 for σ ≤ σ₀ (berExp's precondition)" (hiNeg == 0)
+      s!"{hiNeg} of 26 negative"
+    check st "samplerZ x < 0 one ulp past σ₀ (the margin is exactly zero)" (loNeg > 0)
+      s!"{loNeg} of 26 negative"
   IO.println ""
   -- ── 13. Falcon-1024 FFI end-to-end ─────────────
   IO.println "13. Falcon-1024 FFI end-to-end"
@@ -363,6 +403,8 @@ def main : IO Unit := do
       check st s!"Falcon-{paramName} wrong key: FFI rejects" (verCross == 0)
   IO.println ""
   flush
+
+def runFalconFloatingPointTests (st : IO.Ref TestState) : IO Unit := do
   -- ── 16. FloatLike Float arithmetic ──────────────
   IO.println "16. FloatLike Float arithmetic (native IEEE-754)"
   do
@@ -517,6 +559,8 @@ def main : IO Unit := do
       FPR.rint (aFFT.getD i 0) == FPR.rint (diff.getD i 0)
     check st "fpolyAdd then fpolySub ≈ identity" addSubOk
   IO.println ""
+
+def runFalconLowLevelTests (st : IO.Ref TestState) : IO Unit := do
   -- ── 23. BigInt31 basic ops ──────────────────────
   IO.println "23. BigInt31 basic ops"
   do
@@ -596,28 +640,49 @@ def main : IO Unit := do
   -- ── 26. FXR basic ops ───────────────────────────
   IO.println "26. FXR basic arithmetic (32.32 fixed-point)"
   do
-    let one := Falcon.Concrete.FXR.fxr_of 1
-    let two := Falcon.Concrete.FXR.fxr_of 2
-    let three := Falcon.Concrete.FXR.fxr_of 3
-    let six := Falcon.Concrete.FXR.fxr_of 6
+    let one := Falcon.Concrete.FXR.fxrOf 1
+    let two := Falcon.Concrete.FXR.fxrOf 2
+    let three := Falcon.Concrete.FXR.fxrOf 3
+    let six := Falcon.Concrete.FXR.fxrOf 6
     check st "fxr_of(1) = 1<<32"
       (one == ((1 : UInt64) <<< 32))
     check st "fxr_add(1, 2) = 3"
-      (Falcon.Concrete.FXR.fxr_add one two == three)
+      (Falcon.Concrete.FXR.fxrAdd one two == three)
     check st "fxr_sub(3, 1) = 2"
-      (Falcon.Concrete.FXR.fxr_sub three one == two)
+      (Falcon.Concrete.FXR.fxrSub three one == two)
     check st "fxr_mul(2, 3) = 6"
-      (Falcon.Concrete.FXR.fxr_mul two three == six)
+      (Falcon.Concrete.FXR.fxrMul two three == six)
     check st "fxr_div(6, 3) = 2"
-      (Falcon.Concrete.FXR.fxr_div six three == two)
+      (Falcon.Concrete.FXR.fxrDiv six three == two)
     check st "fxr_neg(1) + 1 = 0"
-      (Falcon.Concrete.FXR.fxr_add (Falcon.Concrete.FXR.fxr_neg one) one == 0)
+      (Falcon.Concrete.FXR.fxrAdd (Falcon.Concrete.FXR.fxrNeg one) one == 0)
     check st "fxr_round(1) = 1"
-      (Falcon.Concrete.FXR.fxr_round one == (1 : Int32))
+      (Falcon.Concrete.FXR.fxrRound one == (1 : Int32))
     check st "fxr_double(1) = 2"
-      (Falcon.Concrete.FXR.fxr_double one == two)
+      (Falcon.Concrete.FXR.fxrDouble one == two)
     check st "fxr_half(2) = 1"
-      (Falcon.Concrete.FXR.fxr_half two == one)
+      (Falcon.Concrete.FXR.fxrHalf two == one)
+    -- Signed operands: `fxrMul` and `fxrSqr` are the floor of the exact product in 32.32
+    -- units, as in the reference (`int128` product shifted right by 32).
+    let exactMul (x y : UInt64) : UInt64 :=
+      (Int64.ofInt ((x.toInt64.toInt * y.toInt64.toInt) >>> 32)).toUInt64
+    check st "fxr_mul(-1.0, 0.5) = -0.5"
+      (Falcon.Concrete.FXR.fxrMul 0xFFFFFFFF00000000 0x80000000 == 0xFFFFFFFF80000000)
+    check st "fxr_mul(0.5, -1.0) = -0.5"
+      (Falcon.Concrete.FXR.fxrMul 0x80000000 0xFFFFFFFF00000000 == 0xFFFFFFFF80000000)
+    check st "fxr_sqr(-1.25) = 1.5625"
+      (Falcon.Concrete.FXR.fxrSqr 0xFFFFFFFEC0000000 == 0x190000000)
+    let signedVals : List UInt64 :=
+      [0xFFFFFFFC40000000, 0xFFFFFFFEC0000000, 0xFFFFFFFF00000000, 0xFFFFFFFF80000000, 0,
+        0x80000000, 0x100000000, 0x140000000, 0x280000000, 0x7FFFFFFF00000000]
+    let mut mulOk := true
+    let mut sqrOk := true
+    for x in signedVals do
+      sqrOk := sqrOk && (Falcon.Concrete.FXR.fxrSqr x == exactMul x x)
+      for y in signedVals do
+        mulOk := mulOk && (Falcon.Concrete.FXR.fxrMul x y == exactMul x y)
+    check st "fxr_mul = floor(x·y / 2^32) on a signed grid" mulOk
+    check st "fxr_sqr = floor(x² / 2^32) on a signed grid" sqrOk
   IO.println ""
   flush
   -- ── 27. Diagnostic: target vector & NTRU relation check ──────────
@@ -691,6 +756,8 @@ def main : IO Unit := do
       IO.println s!"  logn={logn}: selfadj split f0 size={sa0.size}, f1 size={sa1.size}"
   IO.println ""
   IO.println ""
+
+def runFalconSigningTests (st : IO.Ref TestState) : IO Unit := do
   -- ── 28. Pure-Lean signing smoke test ────────────
   IO.println "28. Pure-Lean signing smoke test (Float)"
   do
@@ -770,6 +837,17 @@ def main : IO Unit := do
           let lv3 := concreteVerify testFalcon512 pk2 msg.toList sig
           check st "wrong pk: Lean verify rejects pure-Lean sig" (!lv3)
   IO.println ""
+
+def main : IO Unit := do
+  let st ← IO.mkRef ({} : TestState)
+  IO.println "=== Falcon Correctness Tests ==="
+  IO.println ""
+  flush
+  runFalconProtocolTests st
+  runFalconFloatingPointTests st
+  runFalconLowLevelTests st
+  runFalconSigningTests st
+  Falcon.Test.KeyGenDiff.runFalconKeyGenDiffTests st
   -- ── Summary ────────────────────────────────────
   let s ← st.get
   IO.println s!"=== {s.passed} passed, {s.failed} failed ==="

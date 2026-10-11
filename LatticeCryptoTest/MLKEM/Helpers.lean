@@ -3,8 +3,11 @@ Copyright (c) 2026 Quang Dao. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Quang Dao
 -/
-import LatticeCrypto.MLKEM.Internal
-import LatticeCrypto.MLKEM.Concrete.Instance
+
+module
+public import LatticeCrypto.MLKEM.Internal
+public import LatticeCrypto.MLKEM.KEM
+public import Extern.MLKEM.Instance
 
 /-!
 # ML-KEM Test Helpers
@@ -13,27 +16,34 @@ Shared test infrastructure: pass/fail counter, hex formatting, and FIPS 203 seri
 helpers used by the ML-KEM test suite.
 -/
 
+public section
+
 
 open MLKEM MLKEM.Concrete
 
-/-- Decidable equality for ML-KEM-768 encoded `u` components. -/
-instance : DecidableEq (MLKEM.Concrete.mlkem768Encoding).EncodedU :=
-  inferInstanceAs (DecidableEq ByteArray)
-/-- Decidable equality for ML-KEM-768 encoded `v` components. -/
-instance : DecidableEq (MLKEM.Concrete.mlkem768Encoding).EncodedV :=
-  inferInstanceAs (DecidableEq ByteArray)
-/-- Decidable equality for ML-KEM-512 encoded `u` components. -/
-instance : DecidableEq (MLKEM.Concrete.mlkem512Encoding).EncodedU :=
-  inferInstanceAs (DecidableEq ByteArray)
-/-- Decidable equality for ML-KEM-512 encoded `v` components. -/
-instance : DecidableEq (MLKEM.Concrete.mlkem512Encoding).EncodedV :=
-  inferInstanceAs (DecidableEq ByteArray)
-/-- Decidable equality for ML-KEM-1024 encoded `u` components. -/
-instance : DecidableEq (MLKEM.Concrete.mlkem1024Encoding).EncodedU :=
-  inferInstanceAs (DecidableEq ByteArray)
-/-- Decidable equality for ML-KEM-1024 encoded `v` components. -/
-instance : DecidableEq (MLKEM.Concrete.mlkem1024Encoding).EncodedV :=
-  inferInstanceAs (DecidableEq ByteArray)
+/-! ## Instance-resolution canaries
+
+The concrete encoded types carry generic `DecidableEq` instances stated on
+`concreteEncoding`; the per-parameter aliases `mlkemNNNEncoding` are reducible so those
+instances reach them. These compile-only checks guard that path: an `abbrev` → `def`
+regression on the aliases fails here at build time. -/
+
+example : DecidableEq mlkem512Encoding.EncodedTHat := inferInstance
+example : DecidableEq mlkem512Encoding.EncodedU := inferInstance
+example : DecidableEq mlkem512Encoding.EncodedV := inferInstance
+example : DecidableEq mlkem768Encoding.EncodedTHat := inferInstance
+example : DecidableEq mlkem768Encoding.EncodedU := inferInstance
+example : DecidableEq mlkem768Encoding.EncodedV := inferInstance
+example : DecidableEq mlkem1024Encoding.EncodedTHat := inferInstance
+example : DecidableEq mlkem1024Encoding.EncodedU := inferInstance
+example : DecidableEq mlkem1024Encoding.EncodedV := inferInstance
+
+-- The concrete ML-KEM-768 KEM elaborates with no local `DecidableEq` instances.
+noncomputable example := MLKEM.asKEMScheme concreteNTTRingOps mlkem768Encoding mlkem768Primitives
+
+example (v : Rq) : (mlkem768Encoding.byteEncodeDV v : ByteArray).size = 128 := by
+  rw [concreteEncoding_byteEncodeDV_size]
+  rfl
 
 namespace MLKEM.Test
 

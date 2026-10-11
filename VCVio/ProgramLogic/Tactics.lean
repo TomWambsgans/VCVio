@@ -4,9 +4,12 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Quang Dao
 -/
 
-import VCVio.ProgramLogic.Tactics.Handler
-import VCVio.ProgramLogic.Tactics.Unary
-import VCVio.ProgramLogic.Tactics.Relational
+module
+
+public meta import VCVio.ProgramLogic.Tactics.Handler
+public meta import VCVio.EvalDist.MeasureTVDist.Positivity
+public meta import VCVio.ProgramLogic.Tactics.Unary
+public meta import VCVio.ProgramLogic.Tactics.Relational
 
 /-!
 # VCGen Tactics for Probabilistic Program Logic
@@ -33,3 +36,5 @@ For tactic-choice debugging, enable `set_option vcvio.vcgen.traceSteps true`.
 For normal proof work, import `VCVio.ProgramLogic.Tactics` and treat it as the default
 interactive tactic surface.
 -/
+
+public meta section

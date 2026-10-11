@@ -3,8 +3,13 @@ Copyright (c) 2026 Quang Dao. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Quang Dao
 -/
-import Batteries.Data.Vector.Lemmas
-import LatticeCrypto.Ring.Kernel
+
+module
+
+import all Init.Data.Vector.Algebra
+
+public import Batteries.Data.Vector.Lemmas
+public import LatticeCrypto.Ring.Kernel
 
 /-!
 # Generic Transform Layer For Negacyclic Rings
@@ -24,6 +29,8 @@ coefficient-domain `NegacyclicRing`. Defines:
 Scheme-specific concrete NTTs (under `Concrete/NTT.lean`) provide executable
 `TransformOps` instances. Proof-oriented uses consume `TransformOps.Laws`.
 -/
+
+@[expose] public section
 
 
 universe u v
@@ -70,6 +77,27 @@ def toArray (fHat : TransformPoly ring) : Array Coeff :=
 
 instance : Coe (TransformPoly ring) ring.Poly :=
   ⟨TransformPoly.toPoly⟩
+
+/-- The transform-domain tag is a bijection with the underlying coefficient-domain carrier. -/
+def equivPoly (ring : NegacyclicRing Coeff) : TransformPoly ring ≃ ring.Poly where
+  toFun := coeffs
+  invFun := mk
+  left_inv _ := rfl
+  right_inv _ := rfl
+
+/-- `equivPoly` forgets the transform-domain tag. -/
+@[simp] theorem equivPoly_apply (fHat : TransformPoly ring) :
+    equivPoly ring fHat = fHat.coeffs :=
+  rfl
+
+/-- The inverse of `equivPoly` attaches the transform-domain tag. -/
+@[simp] theorem equivPoly_symm_apply (f : ring.Poly) :
+    (equivPoly ring).symm f = ⟨f⟩ :=
+  rfl
+
+/-- The transform-domain carrier is finite whenever the coefficient type is, via `equivPoly`. -/
+instance [Fintype Coeff] : Fintype (TransformPoly ring) :=
+  Fintype.ofEquiv ring.Poly (equivPoly ring).symm
 
 instance : Zero (TransformPoly ring) :=
   ⟨⟨ring.zero⟩⟩
@@ -291,7 +319,7 @@ private theorem foldl_distribute {k} (a b : PolyVec Hat k) :
     subst a b
     simp only [Vector.eq_empty, Vector.foldl_empty, add_zero]
   | succ n ih =>
-    haveI : NeZero (n + 1) := ⟨Nat.succ_ne_zero n⟩
+    have : NeZero (n + 1) := ⟨Nat.succ_ne_zero n⟩
     rw [← Vector.push_pop_back a, ← Vector.push_pop_back b]
     set sum_a := a.pop.foldl (· + ·) 0
     set sum_b := b.pop.foldl (· + ·) 0
@@ -355,6 +383,14 @@ theorem coeffScalarVecMul_add {k} (c : ring.Poly)
              Vector.getElem_map, Vector.getElem_add]
   rw [laws.toHat_add u[i] v[i], laws.mul_add, fromHat_addHat ops]
 
+/-- Coefficient-domain scalar-vector multiplication acts component-wise as the underlying
+ring multiplication: the `j`-th entry of `coeffScalarVecMul c v` is `c * v.get j`. Follows from
+the transform being a ring isomorphism (`toHat_mul` and `fromHat_toHat`). -/
+theorem coeffScalarVecMul_get {k} (c : ring.Poly) (v : PolyVec ring.Poly k) (j : Fin k) :
+    (ops.coeffScalarVecMul c v).get j = c * (v.get j) := by
+  simp only [coeffScalarVecMul, unhatVec_get, scalarVecMul, hatVec_get, Vector.get_map]
+  rw [← laws.toHat_mul, laws.fromHat_toHat]
+
 theorem dot_scalar_right {k} (cHat : Hat)
     (row v : PolyVec Hat k) :
     ops.dot row (ops.scalarVecMul cHat v) = ops.mulHat cHat (ops.dot row v) := by
@@ -368,7 +404,7 @@ theorem dot_scalar_right {k} (cHat : Hat)
     simp only [sub_self] at h
     rw[h]
   | succ n ih =>
-    haveI : NeZero (n + 1) := ⟨Nat.succ_ne_zero n⟩
+    have : NeZero (n + 1) := ⟨Nat.succ_ne_zero n⟩
     rw [← Vector.push_pop_back row, ← Vector.push_pop_back v]
     change ops.dot (row.pop.push row.back) (ops.scalarVecMul cHat (v.pop.push v.back)) =
       ops.mulHat cHat (ops.dot (row.pop.push row.back) (v.pop.push v.back))

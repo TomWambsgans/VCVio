@@ -4,13 +4,17 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Quang Dao, Oleksandr Vovkotrub
 -/
 
-import VCVio.CryptoFoundations.GPVHashAndSign.VerificationBridge
+module
+
+public import VCVio.CryptoFoundations.GPVHashAndSign.VerificationBridge
 
 /-! # GPV Hash-and-Sign: The Counter-Augmented Trap Run
 
 The N5 counter-augmented trap run tagging the forged point with its programming
 index, and its agreement with the untagged run.
 -/
+
+public section
 
 open OracleComp OracleSpec ENNReal OracleComp.ProgramLogic.Relational
 
@@ -46,7 +50,7 @@ open Classical in
 `(Salt × M) → Option ℕ`.  At each programming event (random-oracle miss or signing step) it records
 the current counter value into the index table at the freshly written key and increments the
 counter; on uniform queries and random-oracle cache hits the instrument is left untouched. -/
-noncomputable def progGameRunImplCombinedTrapCount (pk : PK) (sk : SK) :
+@[expose] noncomputable def progGameRunImplCombinedTrapCount (pk : PK) (sk : SK) :
     QueryImpl ((unifSpec + (Salt × M →ₒ Range)) + (M →ₒ (Salt × Domain)))
       (StateT (((((Salt × M →ₒ Range).QueryCache × Finset M) × Bool) ×
         ((Salt × M) → Option Domain)) × (((Salt × M) → Option ℕ) × ℕ)) ProbComp) :=
@@ -226,7 +230,7 @@ lemma progGameRunImplCombinedTrapCount_idx_iff_table (pk : PK) (sk : SK) :
             rw [hpst]
             by_cases hk : k = mc
             · subst hk; simp
-            · simp only [if_neg hk]; exact hs k
+            · simp only [ite_eq_right hk]; exact hs k
       · -- signing query: writes both keys together
         rw [progGameRunImplCombinedTrapCount_run_inr] at hps
         simp only [support_bind, support_pure, Set.mem_iUnion, Set.mem_singleton_iff,
@@ -237,48 +241,38 @@ lemma progGameRunImplCombinedTrapCount_idx_iff_table (pk : PK) (sk : SK) :
         rw [hpst]
         by_cases hk : k = (r, msg)
         · subst hk; simp
-        · simp only [if_neg hk]; exact hs k
+        · simp only [ite_eq_right hk]; exact hs k
 
 /-- **Deterministic `Option ℕ`-index partition of an event.** For a computation `mx`, an event `P`,
 and an `Option ℕ`-valued index `idx` that is recorded (`≠ none`) on every positive-probability `P`
 outcome, the event mass partitions over the index value: `Pr[P] = ∑' j, Pr[P ∧ idx = some j]`.  The
 `some j` atoms tile the event, with the index of each `P`-outcome read off the outcome itself.  This
 is the abstract index partition behind the GPV Step-2 trap-mass decomposition `∑' j, g j = trap`. -/
-theorem probEvent_eq_tsum_probEvent_index_aux {ι : Type} {m : Type → Type} [Monad m]
-    [MonadLiftT m SPMF] (mx : m ι) (P : ι → Prop) (idx : ι → Option ℕ)
-    (hidx : ∀ x, Pr[= x | mx] ≠ 0 → P x → idx x ≠ none) :
-    Pr[P | mx] = ∑' j : ℕ, Pr[fun x => P x ∧ idx x = some j | mx] := by
+theorem prEvent_eq_tsum_prEvent_index_aux {ι : Type} (mx : ProbComp ι) (P : ι → Prop)
+    (idx : ι → Option ℕ)
+    (hidx : ∀ x, Pr{let y ← mx}[y = x] ≠ 0 → P x → idx x ≠ none) :
+    Pr{let x ← mx}[P x] = ∑' j : ℕ, Pr{let x ← mx}[P x ∧ idx x = some j] := by
   classical
-  rw [probEvent_eq_tsum_indicator]
-  have hcongr : ∀ j : ℕ,
-      Pr[fun x => P x ∧ idx x = some j | mx]
-        = ∑' x : ι, {x | P x ∧ idx x = some j}.indicator (Pr[= · | mx]) x := by
-    intro j; rw [probEvent_eq_tsum_indicator]
+  rw [OracleComp.prEvent_eq_tsum_ite]
+  have hcongr : ∀ j : ℕ, Pr{let x ← mx}[P x ∧ idx x = some j]
+      = ∑' x : ι, if P x ∧ idx x = some j then Pr{let y ← mx}[y = x] else 0 := fun j =>
+    OracleComp.prEvent_eq_tsum_ite mx _
   simp_rw [hcongr]
   rw [ENNReal.tsum_comm]
   refine tsum_congr fun x => ?_
   by_cases hPx : P x
-  · rcases eq_or_ne (Pr[= x | mx]) 0 with hp0 | hp0
-    · rw [Set.indicator_apply, if_pos (Set.mem_setOf_eq ▸ hPx), hp0]
-      symm
-      simp only [Set.indicator_apply, Set.mem_setOf_eq]
-      refine ENNReal.tsum_eq_zero.mpr fun j => ?_
-      by_cases hc : P x ∧ idx x = some j
-      · rw [if_pos hc, hp0]
-      · rw [if_neg hc]
+  · rcases eq_or_ne (Pr{let y ← mx}[y = x]) 0 with hp0 | hp0
+    · simp [hp0]
     · obtain ⟨j₀, hj₀⟩ := Option.ne_none_iff_exists'.mp (hidx x hp0 hPx)
-      rw [Set.indicator_of_mem (Set.mem_setOf_eq ▸ hPx)]
-      rw [tsum_eq_single j₀]
-      · rw [Set.indicator_of_mem (Set.mem_setOf_eq ▸ ⟨hPx, hj₀⟩)]
+      rw [ite_eq_left hPx, tsum_eq_single j₀]
+      · rw [ite_eq_left ⟨hPx, hj₀⟩]
       · intro j hj
-        rw [Set.indicator_of_notMem]
+        rw [ite_eq_right]
         rintro ⟨-, hjeq⟩
         exact hj (by rw [hj₀] at hjeq; exact (Option.some.inj hjeq).symm)
-  · rw [Set.indicator_of_notMem (show x ∉ {x | P x} from hPx)]
+  · rw [ite_eq_right hPx]
     symm
-    simp only [Set.indicator_apply, Set.mem_setOf_eq]
-    refine ENNReal.tsum_eq_zero.mpr fun j => ?_
-    rw [if_neg (fun h => hPx h.1)]
+    exact ENNReal.tsum_eq_zero.mpr fun j => ite_eq_right (fun h => hPx h.1)
 
 omit [DecidableEq Range] [Fintype Salt] in
 /-- **N5 counter bound.** From any start state, every final state of the counter-augmented trap run
@@ -413,9 +407,9 @@ lemma progGameRunImplCombinedTrapCount_idx_lt_count (pk : PK) (sk : SK) :
             rw [hcnt]
             rw [hidx] at hki
             by_cases hk : k = mc
-            · subst hk; simp only [if_true] at hki
+            · subst hk; simp only [ite_true] at hki
               rw [Option.some.injEq] at hki; omega
-            · simp only [if_neg hk] at hki
+            · simp only [ite_eq_right hk] at hki
               exact Nat.lt_succ_of_lt (hs k i hki)
       · -- signing query: records `counter` and increments
         rw [progGameRunImplCombinedTrapCount_run_inr] at hps
@@ -430,9 +424,9 @@ lemma progGameRunImplCombinedTrapCount_idx_lt_count (pk : PK) (sk : SK) :
         rw [hcnt]
         rw [hidx] at hki
         by_cases hk : k = (r, msg)
-        · subst hk; simp only [if_true] at hki
+        · subst hk; simp only [ite_true] at hki
           rw [Option.some.injEq] at hki; omega
-        · simp only [if_neg hk] at hki
+        · simp only [ite_eq_right hk] at hki
           exact Nat.lt_succ_of_lt (hs k i hki)
 
 omit [DecidableEq Range] [Fintype Salt] in
@@ -471,7 +465,7 @@ hit, returning the cached value) with no reference to `y`.
 This is the structural foundation of the GPV Step-2 front-loading commute: it is what lets the
 externally-averaged target `y ← $ᵗ Range` be pushed *past* every non-winner step of the
 `simulateQ (embedTrapImpl … j y)` fold (each such step commutes with the front draw by
-`OracleComp.DeferredSampling.evalDist_bind_comm`), leaving only the single count-`j` miss at which
+`EvalDistEq.bind_bind_swap`), leaving only the single count-`j` miss at which
 `y` is consumed — the slot the inline trap winner draw `v⋆ ← $ᵗ Range` must be coupled to. -/
 lemma embedTrapImpl_run_step_indep_of_target (pk : PK) (sk : SK) (j : ℕ) (y₁ y₂ : Range)
     (t : ((unifSpec + (Salt × M →ₒ Range)) + (M →ₒ (Salt × Domain))).Domain)
@@ -487,14 +481,14 @@ lemma embedTrapImpl_run_step_indep_of_target (pk : PK) (sk : SK) (j : ℕ) (y₁
           rw [embedTrapImpl_run_inl_inr, embedTrapImpl_run_inl_inr]
           cases hq : s.1 q with
           | some v => rfl
-          | none => simp only [if_neg (hoff q rfl hq)]
+          | none => simp only [ite_eq_right (hoff q rfl hq)]
   | inr msg => rw [embedTrapImpl_run_inr, embedTrapImpl_run_inr]
 
 omit [DecidableEq Range] [Fintype Salt] in
 /-- **Front-draw commute past one trap-sibling embed step (the answer-irrelevant case).** A leading
 independent draw `od : ProbComp ρ` feeding a continuation that runs one `embedTrapImpl … j y` step
 and then consumes `od`'s value commutes past that step: the step's answer draw and `od` are
-independent `ProbComp`s, so they may be drawn in either order (`evalDist_bind_comm`).
+independent `ProbComp`s, so they may be drawn in either order (`EvalDistEq.bind_bind_swap`).
 
 This is the distribution-level building block of the GPV Step-2 embed-side front-loading: it is what
 lets the externally-averaged target `y ← $ᵗ Range` be pushed *past* each non-winner step of the
@@ -508,11 +502,11 @@ theorem embedTrapImpl_frontDraw_commute {ρ γ : Type} (pk : PK) (sk : SK) (j : 
     (s : (Salt × M →ₒ Range).QueryCache × ℕ)
     (k : ρ → (((unifSpec + (Salt × M →ₒ Range)) + (M →ₒ (Salt × Domain))).Range t ×
       ((Salt × M →ₒ Range).QueryCache × ℕ)) → ProbComp γ) :
-    𝒟[od >>= fun r =>
-        (embedTrapImpl psf M Salt pk sk j y t).run s >>= fun pq => k r pq] =
-      𝒟[(embedTrapImpl psf M Salt pk sk j y t).run s >>= fun pq =>
-        od >>= fun r => k r pq] :=
-  OracleComp.DeferredSampling.evalDist_bind_comm od
+    (od >>= fun r =>
+        (embedTrapImpl psf M Salt pk sk j y t).run s >>= fun pq => k r pq) =ᵈ
+          ((embedTrapImpl psf M Salt pk sk j y t).run s >>= fun pq =>
+        od >>= fun r => k r pq) :=
+  EvalDistEq.bind_bind_swap od
     ((embedTrapImpl psf M Salt pk sk j y t).run s) (fun r pq => k r pq)
 
 /-- **Inline-fresh sibling of the trap-sibling embed handler.** Identical state `cache × ℕ`,
@@ -524,10 +518,10 @@ counter (with the same trapdoor-recording signing step as `embedTrapImpl`).
 
 The point of this handler is the GPV Step-2 front-loading: averaging `embedTrapImpl … w y` over an
 external target draw `y ← $ᵗ Range` *equals* this inline-fresh run distributionally
-(`evalDist_frontDraw_embedTrapImpl_eq_embedTrapFresh`), because the count-`w` miss happens at most
+(`evalDistEq_frontDraw_embedTrapImpl_eq_embedTrapFresh`), because the count-`w` miss happens at most
 once and there caching a front-loaded `y` versus an inline-fresh `v` is the same uniform draw, while
 every other step is literally independent of `y` (`embedTrapImpl_run_step_indep_of_target`). -/
-noncomputable def embedTrapFreshImpl (pk : PK) (sk : SK) :
+@[expose] noncomputable def embedTrapFreshImpl (pk : PK) (sk : SK) :
     QueryImpl ((unifSpec + (Salt × M →ₒ Range)) + (M →ₒ (Salt × Domain)))
       (StateT ((Salt × M →ₒ Range).QueryCache × ℕ) ProbComp) :=
   let State := (Salt × M →ₒ Range).QueryCache × ℕ
@@ -605,7 +599,7 @@ off-`j` random-oracle miss (`s.2 ≠ j`), and every signing step — `embedTrapI
 `embedTrapFreshImpl` run *literally identically*: the only place `embedTrapImpl`'s special winner
 branch (`if st.2 = j then embed y`) fires is the count-`j` miss, and there both handlers otherwise
 draw a fresh uniform and cache it.  This is the per-step bridge through which the front-loading lift
-`evalDist_frontDraw_embedTrapImpl_eq_embedTrapFresh` commutes the front target draw past every
+`evalDistEq_frontDraw_embedTrapImpl_eq_embedTrapFresh` commutes the front target draw past every
 non-winner step. -/
 lemma embedTrapImpl_run_step_eq_embedTrapFresh (pk : PK) (sk : SK) (j : ℕ) (y : Range)
     (t : ((unifSpec + (Salt × M →ₒ Range)) + (M →ₒ (Salt × Domain))).Domain)
@@ -621,7 +615,7 @@ lemma embedTrapImpl_run_step_eq_embedTrapFresh (pk : PK) (sk : SK) (j : ℕ) (y 
           rw [embedTrapImpl_run_inl_inr, embedTrapFreshImpl_run_inl_inr]
           cases hq : s.1 q with
           | some v => rfl
-          | none => simp only [if_neg (hoff q rfl hq)]
+          | none => simp only [ite_eq_right (hoff q rfl hq)]
   | inr msg => rw [embedTrapImpl_run_inr, embedTrapFreshImpl_run_inr]
 
 omit [DecidableEq Range] [Fintype Salt] in
@@ -673,11 +667,11 @@ omit [DecidableEq Range] [Fintype Salt] in
 the counter only increases (`embedTrapImpl_run_step_count_le`), so it never returns to `j`, hence
 the winner branch never fires and every step agrees (`embedTrapImpl_run_step_eq_embedTrapFresh`).
 The external target `y` is irrelevant past the winner. -/
-lemma evalDist_run_embedTrapImpl_eq_embedTrapFresh_of_lt (pk : PK) (sk : SK) (j : ℕ) (y : Range)
+lemma evalDistEq_run_embedTrapImpl_eq_embedTrapFresh_of_lt (pk : PK) (sk : SK) (j : ℕ) (y : Range)
     {β : Type} (oa : OracleComp ((unifSpec + (Salt × M →ₒ Range)) + (M →ₒ (Salt × Domain))) β) :
     ∀ (s : (Salt × M →ₒ Range).QueryCache × ℕ), j < s.2 →
-      𝒟[(simulateQ (embedTrapImpl psf M Salt pk sk j y) oa).run s] =
-        𝒟[(simulateQ (embedTrapFreshImpl psf M Salt pk sk) oa).run s] := by
+      ((simulateQ (embedTrapImpl psf M Salt pk sk j y) oa).run s) =ᵈ
+        ((simulateQ (embedTrapFreshImpl psf M Salt pk sk) oa).run s) := by
   induction oa using OracleComp.inductionOn with
   | pure a => intro s _; rfl
   | query_bind t ob ih =>
@@ -689,7 +683,7 @@ lemma evalDist_run_embedTrapImpl_eq_embedTrapFresh_of_lt (pk : PK) (sk : SK) (j 
         embedTrapImpl_run_step_eq_embedTrapFresh psf M Salt pk sk j y t s
           (fun q _ _ => by omega)
       rw [hstep]
-      refine evalDist_bind_congr (fun p hp => ?_)
+      refine EvalDistEq.bind_congr_of_support _ (fun p hp => ?_)
       have hcount : s.2 ≤ p.2.2 :=
         embedTrapImpl_run_step_count_le psf M Salt pk sk j y t s p (by rw [hstep]; exact hp)
       exact ih p.1 p.2 (by omega)
@@ -700,8 +694,8 @@ target draw `y ← $ᵗ Range` (drawn before the fold) equals the inline-fresh r
 (which draws a fresh uniform at *every* random-oracle miss, including the winner slot), at any start
 state `s`:
 
-`𝒟[y ← $ᵗ Range; (simulateQ (embedTrapImpl … j y) oa).run s]`
-`  = 𝒟[(simulateQ embedTrapFreshImpl oa).run s]`.
+`(do let y ← $ᵗ Range; (simulateQ (embedTrapImpl … j y) oa).run s)`
+`  =ᵈ (simulateQ embedTrapFreshImpl oa).run s`.
 
 This is the distribution-level front-loading equality the one-step commute
 `embedTrapImpl_frontDraw_commute` lifts across the whole adaptive fold.  Proof by induction on `oa`,
@@ -710,27 +704,26 @@ threading the start state (hence the running counter):
 * **Pre-winner / off-winner step** (the step is not the count-`j` random-oracle miss — uniform
   query, cache hit, off-`j` miss, or signing): the step is literally `y`-independent and equal to
   the inline-fresh step (`embedTrapImpl_run_step_eq_embedTrapFresh`), so the front `y` draw commutes
-  past it (`OracleComp.DeferredSampling.evalDist_bind_comm`); the inductive hypothesis rewrites the
+  past it (`EvalDistEq.bind_bind_swap`); the inductive hypothesis rewrites the
   continuation.
 * **Winner step** (count-`j` random-oracle miss): the front `y` is the immediately consumed draw —
   `embedTrapImpl … j y` caches and returns `y` while discarding its own fresh draw, so
   `y ← $ᵗ Range; (cache y; return y)` *is* the inline-fresh draw `v ← $ᵗ Range; (cache v; return v)`
-  (the discarded draw collapses by `probFailure_uniformSample`).  After this step the counter is
+  (the discarded draw is a lossless prefix, `EvalDistEq.bind_const`). After this step the counter is
   `j + 1 > j`, so the trap-sibling and inline-fresh continuations coincide
-  (`evalDist_run_embedTrapImpl_eq_embedTrapFresh_of_lt`). -/
-lemma evalDist_frontDraw_embedTrapImpl_eq_embedTrapFresh [Inhabited Range]
+  (`evalDistEq_run_embedTrapImpl_eq_embedTrapFresh_of_lt`). -/
+lemma evalDistEq_frontDraw_embedTrapImpl_eq_embedTrapFresh
     (pk : PK) (sk : SK) (j : ℕ)
     {β : Type} (oa : OracleComp ((unifSpec + (Salt × M →ₒ Range)) + (M →ₒ (Salt × Domain))) β) :
     ∀ (s : (Salt × M →ₒ Range).QueryCache × ℕ),
-      𝒟[(($ᵗ Range : ProbComp Range) >>= fun y =>
-          (simulateQ (embedTrapImpl psf M Salt pk sk j y) oa).run s)] =
-        𝒟[(simulateQ (embedTrapFreshImpl psf M Salt pk sk) oa).run s] := by
+      (($ᵗ Range : ProbComp Range) >>= fun y =>
+          (simulateQ (embedTrapImpl psf M Salt pk sk j y) oa).run s) =ᵈ
+            ((simulateQ (embedTrapFreshImpl psf M Salt pk sk) oa).run s) := by
   induction oa using OracleComp.inductionOn with
   | pure a =>
       intro s
       simp only [simulateQ_pure, StateT.run_pure]
-      rw [OracleComp.DeferredSampling.evalDist_bind_const_neverFails _
-        (probFailure_uniformSample Range)]
+      exact EvalDistEq.bind_const _ _
   | query_bind t ob ih =>
       intro s
       simp only [simulateQ_bind, simulateQ_query, OracleQuery.input_query, OracleQuery.cont_query,
@@ -759,10 +752,8 @@ lemma evalDist_frontDraw_embedTrapImpl_eq_embedTrapFresh [Inhabited Range]
           rw [embedTrapFreshImpl_run_inl_inr, hmiss]
           simp only [map_eq_bind_pure_comp, bind_assoc, pure_bind, Function.comp_apply]]
         -- Drop the discarded inner draw on the left, then apply post-winner coincidence per `y`.
-        refine evalDist_bind_congr' _ (fun y => ?_)
-        rw [OracleComp.DeferredSampling.evalDist_bind_const_neverFails _
-          (probFailure_uniformSample Range)]
-        exact evalDist_run_embedTrapImpl_eq_embedTrapFresh_of_lt psf M Salt pk sk j y (ob y)
+        refine EvalDistEq.bind_right _ (fun y => (EvalDistEq.bind_const _ _).trans ?_)
+        exact evalDistEq_run_embedTrapImpl_eq_embedTrapFresh_of_lt psf M Salt pk sk j y (ob y)
           (s.1.cacheQuery q y, s.2 + 1) (by omega)
       · -- **Off-winner step.** The step is `y`-independent; commute the front `y` past it.
         push Not at hwin
@@ -777,11 +768,11 @@ lemma evalDist_frontDraw_embedTrapImpl_eq_embedTrapFresh [Inhabited Range]
           funext y
           rw [embedTrapImpl_run_step_eq_embedTrapFresh psf M Salt pk sk j y t s hoff]]
         -- commute the front `y` past the now-`y`-free fresh step
-        rw [OracleComp.DeferredSampling.evalDist_bind_comm ($ᵗ Range : ProbComp Range)
+        refine (EvalDistEq.bind_bind_swap ($ᵗ Range : ProbComp Range)
           ((embedTrapFreshImpl psf M Salt pk sk t).run s)
-          (fun y p => (simulateQ (embedTrapImpl psf M Salt pk sk j y) (ob p.1)).run p.2)]
+          (fun y p => (simulateQ (embedTrapImpl psf M Salt pk sk j y) (ob p.1)).run p.2)).trans ?_
         -- the continuation is the front-loaded run; the inductive hypothesis rewrites it
-        refine evalDist_bind_congr' _ (fun p => ?_)
+        refine EvalDistEq.bind_right _ (fun p => ?_)
         exact ih p.1 p.2
 
 /-- **Index-augmented trap-sibling embed handler.** Identical to `embedTrapImpl … j y` on its
@@ -794,7 +785,7 @@ passive: projecting it away recovers `embedTrapImpl … j y` exactly (`embedTrap
 The point of the augmentation is that at the count-`j` winner random-oracle miss the cached image is
 `y` *and* the recorded index is `j`: this is the run-only witness that the forged point being the
 embedded winner slot (`cache(forged) = some y`) coincides with `idx(forged) = some j`. -/
-noncomputable def embedTrapIdxImpl (pk : PK) (sk : SK) (j : ℕ) (y : Range) :
+@[expose] noncomputable def embedTrapIdxImpl (pk : PK) (sk : SK) (j : ℕ) (y : Range) :
     QueryImpl ((unifSpec + (Salt × M →ₒ Range)) + (M →ₒ (Salt × Domain)))
       (StateT (((Salt × M →ₒ Range).QueryCache × ℕ) × ((Salt × M) → Option ℕ)) ProbComp) :=
   let State := ((Salt × M →ₒ Range).QueryCache × ℕ) × ((Salt × M) → Option ℕ)
@@ -937,7 +928,7 @@ This is the embed-side mirror of `progGameRunImplCombinedTrapCount`'s index inst
 at each fresh random-oracle miss, the running counter value into an index table keyed at the missed
 point.  It is the run-only bookkeeping that replaces the `y`-reading win literal
 `cache(forged) = some y` of `embedTrapImpl` by the run-only predicate `idx(forged) = some j`. -/
-noncomputable def embedTrapFreshIdxImpl (pk : PK) (sk : SK) :
+@[expose] noncomputable def embedTrapFreshIdxImpl (pk : PK) (sk : SK) :
     QueryImpl ((unifSpec + (Salt × M →ₒ Range)) + (M →ₒ (Salt × Domain)))
       (StateT (((Salt × M →ₒ Range).QueryCache × ℕ) × ((Salt × M) → Option ℕ)) ProbComp) :=
   let State := ((Salt × M →ₒ Range).QueryCache × ℕ) × ((Salt × M) → Option ℕ)
@@ -1078,7 +1069,7 @@ lemma embedTrapIdxImpl_run_step_eq_embedTrapFreshIdx (pk : PK) (sk : SK) (j : �
           rw [embedTrapIdxImpl_run_inl_inr, embedTrapFreshIdxImpl_run_inl_inr]
           cases hq : s.1.1 q with
           | some v => rfl
-          | none => simp only [if_neg (hoff q rfl hq)]
+          | none => simp only [ite_eq_right (hoff q rfl hq)]
   | inr msg => rw [embedTrapIdxImpl_run_inr, embedTrapFreshIdxImpl_run_inr]
 
 omit [DecidableEq Range] [Fintype Salt] in
@@ -1124,13 +1115,13 @@ omit [DecidableEq Range] [Fintype Salt] in
 /-- **Post-winner coincidence (idx-augmented).** Once the running counter has passed the winner slot
 (`j < s.1.2`), `embedTrapIdxImpl … j y` and `embedTrapFreshIdxImpl` produce identical output
 distributions over any `oa`.  Idx-augmented mirror of
-`evalDist_run_embedTrapImpl_eq_embedTrapFresh_of_lt`. -/
-lemma evalDist_run_embedTrapIdxImpl_eq_embedTrapFreshIdx_of_lt (pk : PK) (sk : SK) (j : ℕ)
+`evalDistEq_run_embedTrapImpl_eq_embedTrapFresh_of_lt`. -/
+lemma evalDistEq_run_embedTrapIdxImpl_eq_embedTrapFreshIdx_of_lt (pk : PK) (sk : SK) (j : ℕ)
     (y : Range)
     {β : Type} (oa : OracleComp ((unifSpec + (Salt × M →ₒ Range)) + (M →ₒ (Salt × Domain))) β) :
     ∀ (s : ((Salt × M →ₒ Range).QueryCache × ℕ) × ((Salt × M) → Option ℕ)), j < s.1.2 →
-      𝒟[(simulateQ (embedTrapIdxImpl psf M Salt pk sk j y) oa).run s] =
-        𝒟[(simulateQ (embedTrapFreshIdxImpl psf M Salt pk sk) oa).run s] := by
+      ((simulateQ (embedTrapIdxImpl psf M Salt pk sk j y) oa).run s) =ᵈ
+        ((simulateQ (embedTrapFreshIdxImpl psf M Salt pk sk) oa).run s) := by
   induction oa using OracleComp.inductionOn with
   | pure a => intro s _; rfl
   | query_bind t ob ih =>
@@ -1142,7 +1133,7 @@ lemma evalDist_run_embedTrapIdxImpl_eq_embedTrapFreshIdx_of_lt (pk : PK) (sk : S
         embedTrapIdxImpl_run_step_eq_embedTrapFreshIdx psf M Salt pk sk j y t s
           (fun q _ _ => by omega)
       rw [hstep]
-      refine evalDist_bind_congr (fun p hp => ?_)
+      refine EvalDistEq.bind_congr_of_support _ (fun p hp => ?_)
       have hcount : s.1.2 ≤ p.2.1.2 :=
         embedTrapIdxImpl_run_step_count_le psf M Salt pk sk j y t s p (by rw [hstep]; exact hp)
       exact ih p.1 p.2 (by omega)
@@ -1151,23 +1142,22 @@ omit [DecidableEq Range] [Fintype Salt] in
 /-- **The idx-augmented GPV Step-2 front-loading lift.** Averaging the idx-augmented trap-sibling
 embed run over an external target draw `y ← $ᵗ Range` equals the idx-augmented inline-fresh run
 `embedTrapFreshIdxImpl`.  Idx-augmented mirror of
-`evalDist_frontDraw_embedTrapImpl_eq_embedTrapFresh`: off-winner steps commute the front `y` past
+`evalDistEq_frontDraw_embedTrapImpl_eq_embedTrapFresh`: off-winner steps commute the front `y` past
 `y`-independent steps; at the count-`j` winner miss the front `y` is the immediately consumed draw
 (cached at the slot tagged `idx = some j`), so the front `y` *is* the inline-fresh winner draw, and
-post-winner the two runs coincide (`evalDist_run_embedTrapIdxImpl_eq_embedTrapFreshIdx_of_lt`). -/
-lemma evalDist_frontDraw_embedTrapIdxImpl_eq_embedTrapFreshIdx [Inhabited Range]
+post-winner the two runs coincide (`evalDistEq_run_embedTrapIdxImpl_eq_embedTrapFreshIdx_of_lt`). -/
+lemma evalDistEq_frontDraw_embedTrapIdxImpl_eq_embedTrapFreshIdx
     (pk : PK) (sk : SK) (j : ℕ)
     {β : Type} (oa : OracleComp ((unifSpec + (Salt × M →ₒ Range)) + (M →ₒ (Salt × Domain))) β) :
     ∀ (s : ((Salt × M →ₒ Range).QueryCache × ℕ) × ((Salt × M) → Option ℕ)),
-      𝒟[(($ᵗ Range : ProbComp Range) >>= fun y =>
-          (simulateQ (embedTrapIdxImpl psf M Salt pk sk j y) oa).run s)] =
-        𝒟[(simulateQ (embedTrapFreshIdxImpl psf M Salt pk sk) oa).run s] := by
+      (($ᵗ Range : ProbComp Range) >>= fun y =>
+          (simulateQ (embedTrapIdxImpl psf M Salt pk sk j y) oa).run s) =ᵈ
+            ((simulateQ (embedTrapFreshIdxImpl psf M Salt pk sk) oa).run s) := by
   induction oa using OracleComp.inductionOn with
   | pure a =>
       intro s
       simp only [simulateQ_pure, StateT.run_pure]
-      rw [OracleComp.DeferredSampling.evalDist_bind_const_neverFails _
-        (probFailure_uniformSample Range)]
+      exact EvalDistEq.bind_const _ _
   | query_bind t ob ih =>
       intro s
       simp only [simulateQ_bind, simulateQ_query, OracleQuery.input_query, OracleQuery.cont_query,
@@ -1194,10 +1184,8 @@ lemma evalDist_frontDraw_embedTrapIdxImpl_eq_embedTrapFreshIdx [Inhabited Range]
                       fun t' => if t' = q then some s.1.2 else s.2 t')) from by
           rw [embedTrapFreshIdxImpl_run_inl_inr, hmiss]
           simp only [map_eq_bind_pure_comp, bind_assoc, pure_bind, Function.comp_apply]]
-        refine evalDist_bind_congr' _ (fun y => ?_)
-        rw [OracleComp.DeferredSampling.evalDist_bind_const_neverFails _
-          (probFailure_uniformSample Range)]
-        exact evalDist_run_embedTrapIdxImpl_eq_embedTrapFreshIdx_of_lt psf M Salt pk sk j y (ob y)
+        refine EvalDistEq.bind_right _ (fun y => (EvalDistEq.bind_const _ _).trans ?_)
+        exact evalDistEq_run_embedTrapIdxImpl_eq_embedTrapFreshIdx_of_lt psf M Salt pk sk j y (ob y)
           ((s.1.1.cacheQuery q y, s.1.2 + 1),
             fun t' => if t' = q then some s.1.2 else s.2 t') (by simp only [hcount]; omega)
       · -- **Off-winner step.** The step is `y`-independent; commute the front `y` past it.
@@ -1211,10 +1199,11 @@ lemma evalDist_frontDraw_embedTrapIdxImpl_eq_embedTrapFreshIdx [Inhabited Range]
                 (simulateQ (embedTrapIdxImpl psf M Salt pk sk j y) (ob p.1)).run p.2) from by
           funext y
           rw [embedTrapIdxImpl_run_step_eq_embedTrapFreshIdx psf M Salt pk sk j y t s hoff]]
-        rw [OracleComp.DeferredSampling.evalDist_bind_comm ($ᵗ Range : ProbComp Range)
+        refine (EvalDistEq.bind_bind_swap ($ᵗ Range : ProbComp Range)
           ((embedTrapFreshIdxImpl psf M Salt pk sk t).run s)
-          (fun y p => (simulateQ (embedTrapIdxImpl psf M Salt pk sk j y) (ob p.1)).run p.2)]
-        refine evalDist_bind_congr' _ (fun p => ?_)
+          (fun y p => (simulateQ (embedTrapIdxImpl psf M Salt pk sk j y) (ob p.1)).run p.2)).trans
+            ?_
+        refine EvalDistEq.bind_right _ (fun p => ?_)
         exact ih p.1 p.2
 
 open Classical in
@@ -1227,29 +1216,30 @@ win mass relative to the un-augmented per-target win on `embedTrapImpl … j y`:
 * the index table is passive, so the augmented run projects onto the un-augmented run
   (`map_run_embedTrapIdxImpl_proj`) — the win predicate and the trapdoor draw read only the shared
   output/cache components;
-* the extra conjunct `idx(forged) = some j` only restricts the event (`probOutput_bind_mono`).
+* the extra conjunct `idx(forged) = some j` only restricts the event
+  (`prEvent_bind_mono_of_forall_le_of_support`).
 
 Averaged over the front target `y ← $ᵗ Range` this gives the winner-slot-restricted lower bound
 that the trap-count run's index-tagged trap mass couples to. -/
-lemma reservoir_embed_winnerIdx_le [DecidableEq Domain] [Inhabited Range] (pk : PK) (sk : SK)
+lemma reservoir_embed_winnerIdx_le [DecidableEq Domain] (pk : PK) (sk : SK)
     (j : ℕ)
-    (adv : SignatureAlg.unforgeableAdv
+    (adv : SignatureAlg.UnforgeableAdversary
       (GPVHashAndSign (m := OracleComp (unifSpec + (Salt × M →ₒ Range))) psf hr M Salt)) :
-    (∑' y : Range, Pr[= y | ($ᵗ Range : ProbComp Range)] *
-        Pr[= true | (do
+    (∑' y : Range, Pr{let x ← ($ᵗ Range : ProbComp Range)}[x = y] *
+        Pr{let z ← (do
           let r ← (simulateQ (embedTrapIdxImpl psf M Salt pk sk j y) (adv.main pk)).run
             (((∅ : (Salt × M →ₒ Range).QueryCache), (0 : ℕ)), (fun _ => none))
           let x ← psf.trapdoorSample pk sk ((r.2.1.1 (r.1.2.1, r.1.1)).getD y)
           pure (decide (r.1.2.2 = x) && decide (r.2.1.1 (r.1.2.1, r.1.1) = some y) &&
-            decide (r.2.2 (r.1.2.1, r.1.1) = some j)) : ProbComp Bool)]) ≤
-      Pr[= true | (do
+            decide (r.2.2 (r.1.2.1, r.1.1) = some j)) : ProbComp Bool)}[z = true]) ≤
+      Pr{let z ← (do
         let y ← ($ᵗ Range : ProbComp Range)
         let r ← (simulateQ (embedTrapImpl psf M Salt pk sk j y) (adv.main pk)).run
           ((∅ : (Salt × M →ₒ Range).QueryCache), (0 : ℕ))
         let x ← psf.trapdoorSample pk sk ((r.2.1 (r.1.2.1, r.1.1)).getD y)
         pure (decide (r.1.2.2 = x) &&
-          decide (r.2.1 (r.1.2.1, r.1.1) = some y)) : ProbComp Bool)] := by
-  rw [probOutput_bind_eq_tsum]
+          decide (r.2.1 (r.1.2.1, r.1.1) = some y)) : ProbComp Bool)}[z = true] := by
+  rw [OracleComp.prEvent_bind_eq_tsum]
   refine ENNReal.tsum_le_tsum fun y => ?_
   refine mul_le_mul' le_rfl ?_
   -- Rewrite the un-augmented embed run as the projection of the index-augmented run.
@@ -1263,12 +1253,12 @@ lemma reservoir_embed_winnerIdx_le [DecidableEq Domain] [Inhabited Range] (pk : 
       (((∅ : (Salt × M →ₒ Range).QueryCache), (0 : ℕ)), (fun _ => none))).symm]
   rw [bind_map_left]
   -- Both sides now share the index-augmented run; compare per output `r`.
-  refine probOutput_bind_mono (fun r _ => ?_)
+  refine prEvent_bind_mono_of_forall_le_of_support _ _ _ _ _ (fun r _ => ?_)
   simp only [Prod.map, id_eq]
   -- Per output `r` the trapdoor draws agree; the augmented win adds the conjunct
   -- `idx(forged) = some j`, which can only restrict.
-  refine probOutput_bind_mono (fun x _ => ?_)
-  simp only [probOutput_pure]
+  refine prEvent_bind_mono_of_forall_le_of_support _ _ _ _ _ (fun x _ => ?_)
+  simp only [prEvent_pure]
   split_ifs with h1 h2 <;> first | rfl | simp_all
 
 omit [DecidableEq Range] [Fintype Salt] in
@@ -1322,7 +1312,7 @@ lemma embedTrapIdxImpl_idx_iff_cache (pk : PK) (sk : SK) (j : ℕ) (y : Range) :
                   else s.1.1.cacheQuery mc v, s.1.2 + 1),
                 fun t' => if t' = mc then some s.1.2 else s.2 t') := by
               have h2 := (Prod.ext_iff.mp hh).2
-              by_cases hb : s.1.2 = j <;> simp only [hb, if_true, if_false] at h2 ⊢ <;>
+              by_cases hb : s.1.2 = j <;> simp only [hb, ite_true, ite_false] at h2 ⊢ <;>
                 exact h2
             refine ih pv pst ?_ z hz2
             intro k
@@ -1331,7 +1321,7 @@ lemma embedTrapIdxImpl_idx_iff_cache (pk : PK) (sk : SK) (j : ℕ) (y : Range) :
             · subst hk
               by_cases hb : s.1.2 = j <;> simp [hb, QueryCache.cacheQuery_self]
             · by_cases hb : s.1.2 = j <;>
-                simp only [hb, if_true, if_false, if_neg hk,
+                simp only [hb, ite_true, ite_false, ite_eq_right hk,
                   QueryCache.cacheQuery_of_ne _ _ hk] <;> exact hs k
       · rw [embedTrapIdxImpl_run_inr] at hps
         obtain ⟨r, -, hps⟩ := (mem_support_bind_iff _ _ _).1 hps
@@ -1346,6 +1336,6 @@ lemma embedTrapIdxImpl_idx_iff_cache (pk : PK) (sk : SK) (j : ℕ) (y : Range) :
         rw [hps']
         by_cases hk : k = (r, msg)
         · subst hk; simp [QueryCache.cacheQuery_self]
-        · simp only [if_neg hk, QueryCache.cacheQuery_of_ne _ _ hk]; exact hs k
+        · simp only [ite_eq_right hk, QueryCache.cacheQuery_of_ne _ _ hk]; exact hs k
 
 end GPVHashAndSign

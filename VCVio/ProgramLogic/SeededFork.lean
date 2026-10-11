@@ -3,8 +3,10 @@ Copyright (c) 2026 Quang Dao. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Quang Dao
 -/
-import VCVio.CryptoFoundations.SeededFork
-import VCVio.ProgramLogic.Unary.HoareTriple
+
+module
+public import VCVio.CryptoFoundations.SeededFork
+public import VCVio.ProgramLogic.Unary.HoareTriple
 
 /-!
 # Seed-Based Forking Lemma — Program Logic Bridge
@@ -14,29 +16,32 @@ Wraps the probabilistic seeded forking lemma bounds from
 program logic framework.
 -/
 
+@[expose] public section
+
 open OracleSpec OracleComp ENNReal
 
 namespace OracleComp.ProgramLogic
 
 variable {ι : Type} [DecidableEq ι] {spec : OracleSpec ι}
-  [∀ i, SampleableType (spec.Range i)] [spec.DecidableEq] [unifSpec ⊂ₒ spec]
+  [∀ i, SampleableType (spec.Range i)] [∀ i, DecidableEq (spec.Range i)] [unifSpec ⊂ₒ spec]
   {α : Type}
 
 variable (main : OracleComp spec α) (qb : ι → ℕ)
     (js : List ι) (i : ι) (cf : α → Option (Fin (qb i + 1)))
-    [IsUniformSpec spec] [unifSpec ˡ⊂ₒ spec]
+    [unifSpec ˡ⊂ₒ spec]
+    [OracleSpec.UniformAnswerMeasure spec]
 
 /-- Seeded forking lemma as a quantitative Hoare triple for the fork-success event. -/
-theorem triple_seededFork :
+theorem triple_seededFork [Fintype (spec.Range i)] :
     Triple (spec := spec)
-      (let acc : ℝ≥0∞ := ∑ s, Pr[= some s | cf <$> main]
+      (let acc : ℝ≥0∞ := ∑ s, Pr{let x ← main}[cf x = some s]
        let h : ℝ≥0∞ := Fintype.card (spec.Range i)
        let q := qb i + 1
        acc * (acc / q - h⁻¹))
       (seededFork main qb js i cf)
       (fun r => if r.isSome then 1 else 0) :=
   triple_ofLE <| le_trans
-    (OracleComp.le_probEvent_isSome_seededFork main qb js i cf)
-    (triple_toLE (triple_probEvent_indicator (seededFork main qb js i cf) fun r => r.isSome))
+    (OracleComp.le_prEvent_isSome_seededFork main qb js i cf)
+    (triple_toLE (triple_prEvent_indicator (seededFork main qb js i cf) fun r ↦ r.isSome))
 
 end OracleComp.ProgramLogic

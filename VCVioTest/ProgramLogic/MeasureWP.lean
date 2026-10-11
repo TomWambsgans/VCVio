@@ -1,0 +1,84 @@
+/-
+Copyright (c) 2026 Devon Tuma. All rights reserved.
+Released under Apache 2.0 license as described in the file LICENSE.
+Authors: Devon Tuma
+-/
+
+module
+public import VCVio.ProgramLogic.Unary.WP.Measure
+public import VCVio.EvalDist.Defs.Measure.Deterministic
+public import Mathlib.Tactic.GRewrite
+
+/-!
+# Expectation WP canaries
+
+The quantitative carrier is chosen explicitly. Lawful measure semantics are sufficient for
+expectation reasoning, including monads with unsuccessful runs. These examples check mass
+factors, generalized congruence, directional rewriting, and core triples through ordinary imports.
+-/
+
+public section
+
+open MeasureTheory Std.Internal.Do
+open scoped ENNReal
+
+run_cmd do
+  let env ← Lean.getEnv
+  if env.contains `PMF then
+    throwError "expectation WP unexpectedly imports PMF"
+
+namespace VCVioTest.ProgramLogic.MeasureWP
+
+example : True := by
+  fail_if_success let _ := inferInstanceAs (WPMonad Option ENNReal EPost.Nil)
+  trivial
+
+open scoped ExpectationWP.Lower
+
+example (c : ENNReal) : MAlgOrdered.wp (none : Option Nat) (fun _ ↦ c) = 0 := by simp
+
+example (c : ENNReal) : MAlgOrdered.wp (some 7 : Option Nat) (fun _ ↦ c) = c := by simp
+
+noncomputable example : WPMonad Option ENNReal EPost.Nil := inferInstance
+
+example : Triple (none : Option Nat) (0 : ENNReal) (fun _ : Nat ↦ (1 : ENNReal))
+    (Lean.Order.bot : EPost.Nil) := by
+  exact Triple.intro (by simp)
+
+universe v
+
+variable {m : Type → Type v} [Monad m] [LawfulMonad m]
+  [EvalDistSemantics m] [LawfulEvalDistSemantics m]
+  {α : Type} [MeasurableSpace α]
+
+example (mx : m α) (f g : α → ENNReal) (hfg : ∀ x, f x ≤ g x) :
+    MAlgOrdered.wp mx f ≤ MAlgOrdered.wp mx g := by
+  gcongr with x
+  exact hfg x
+
+example (mx : m α) (f g : α → ENNReal) (hfg : ∀ x, f x ≤ g x) :
+    MAlgOrdered.wp mx f ≤ MAlgOrdered.wp mx g := by
+  grw [hfg]
+
+example (mx : m α) (f g : α → ENNReal) (c : ENNReal)
+    (hf : Measurable f) (hg : Measurable g) :
+    MAlgOrdered.wp mx (fun x ↦ c + f x + g x) =
+      c * 𝒟[mx] Set.univ + MAlgOrdered.wp mx f + MAlgOrdered.wp mx g := by
+  simp only [ExpectationWP.Lower.wp_add mx (fun x ↦ c + f x) g
+      (measurable_const.add hf) hg,
+    ExpectationWP.Lower.wp_add mx (fun _ ↦ c) f measurable_const hf,
+    ExpectationWP.Lower.wp_const]
+
+example (mx : m α) (f g : α → ENNReal) (c : ENNReal)
+    (hf : Measurable f) (hg : Measurable g)
+    (hfg : ∀ᵐ x ∂𝒟[mx], f x ≤ c + g x) :
+    MAlgOrdered.wp mx f ≤ c * 𝒟[mx] Set.univ + MAlgOrdered.wp mx g :=
+  ExpectationWP.Lower.wp_le_const_mul_mass_add mx hf hg hfg
+
+example (mx : m α) (f g : α → ENNReal) (c : ENNReal) [IsProbabilityMeasure 𝒟[mx]]
+    (hf : Measurable f) (hg : Measurable g)
+    (hfg : ∀ᵐ x ∂𝒟[mx], f x ≤ c + g x) :
+    MAlgOrdered.wp mx f ≤ c + MAlgOrdered.wp mx g := by
+  simpa using ExpectationWP.Lower.wp_le_const_mul_mass_add mx hf hg hfg
+
+end VCVioTest.ProgramLogic.MeasureWP

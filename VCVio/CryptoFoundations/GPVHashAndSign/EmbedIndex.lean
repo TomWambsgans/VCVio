@@ -4,13 +4,17 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Quang Dao, Oleksandr Vovkotrub
 -/
 
-import VCVio.CryptoFoundations.GPVHashAndSign.TrapCount
+module
+
+public import VCVio.CryptoFoundations.GPVHashAndSign.TrapCount
 
 /-! # GPV Hash-and-Sign: Index-Embedding Handlers
 
 The signed-set-augmented index embed handlers realizing the pre-sampled
 embed-index programming of the random oracle.
 -/
+
+public section
 
 open OracleComp OracleSpec ENNReal OracleComp.ProgramLogic.Relational
 
@@ -41,7 +45,7 @@ the signing branch inserts the queried message; random-oracle misses and uniform
 signed set unchanged.  The signed set is never *read* during the run, so it is distributionally
 passive: projecting it away recovers `embedTrapIdxImpl … j y` exactly
 (`embedTrapIdxSigImpl_proj`). -/
-noncomputable def embedTrapIdxSigImpl (pk : PK) (sk : SK) (j : ℕ) (y : Range) :
+@[expose] noncomputable def embedTrapIdxSigImpl (pk : PK) (sk : SK) (j : ℕ) (y : Range) :
     QueryImpl ((unifSpec + (Salt × M →ₒ Range)) + (M →ₒ (Salt × Domain)))
       (StateT ((((Salt × M →ₒ Range).QueryCache × ℕ) × ((Salt × M) → Option ℕ)) × Finset M)
         ProbComp) :=
@@ -186,7 +190,7 @@ passive signed-set `Finset M`: the signing branch inserts the queried message; r
 and uniform queries leave the signed set unchanged.  The signed set is never *read* during the run,
 so it is distributionally passive: projecting it away recovers `embedTrapFreshIdxImpl` exactly
 (`embedTrapFreshIdxSigImpl_proj`). -/
-noncomputable def embedTrapFreshIdxSigImpl (pk : PK) (sk : SK) :
+@[expose] noncomputable def embedTrapFreshIdxSigImpl (pk : PK) (sk : SK) :
     QueryImpl ((unifSpec + (Salt × M →ₒ Range)) + (M →ₒ (Salt × Domain)))
       (StateT ((((Salt × M →ₒ Range).QueryCache × ℕ) × ((Salt × M) → Option ℕ)) × Finset M)
         ProbComp) :=
@@ -330,7 +334,7 @@ lemma embedTrapIdxSigImpl_run_step_eq_embedTrapFreshIdxSig (pk : PK) (sk : SK) (
           rw [embedTrapIdxSigImpl_run_inl_inr, embedTrapFreshIdxSigImpl_run_inl_inr]
           cases hq : s.1.1.1 q with
           | some v => rfl
-          | none => simp only [if_neg (hoff q rfl hq)]
+          | none => simp only [ite_eq_right (hoff q rfl hq)]
   | inr msg => rw [embedTrapIdxSigImpl_run_inr, embedTrapFreshIdxSigImpl_run_inr]
 
 omit [DecidableEq Range] [Fintype Salt] in
@@ -376,14 +380,14 @@ omit [DecidableEq Range] [Fintype Salt] in
 /-- **Post-winner coincidence (signed-set-augmented).** Once the running counter has passed the
 winner slot (`j < s.1.1.2`), `embedTrapIdxSigImpl … j y` and `embedTrapFreshIdxSigImpl` produce
 identical output distributions over any `oa`.  Signed-set mirror of
-`evalDist_run_embedTrapIdxImpl_eq_embedTrapFreshIdx_of_lt`. -/
-lemma evalDist_run_embedTrapIdxSigImpl_eq_embedTrapFreshIdxSig_of_lt (pk : PK) (sk : SK) (j : ℕ)
+`evalDistEq_run_embedTrapIdxImpl_eq_embedTrapFreshIdx_of_lt`. -/
+lemma evalDistEq_run_embedTrapIdxSigImpl_eq_embedTrapFreshIdxSig_of_lt (pk : PK) (sk : SK) (j : ℕ)
     (y : Range)
     {β : Type} (oa : OracleComp ((unifSpec + (Salt × M →ₒ Range)) + (M →ₒ (Salt × Domain))) β) :
     ∀ (s : (((Salt × M →ₒ Range).QueryCache × ℕ) × ((Salt × M) → Option ℕ)) × Finset M),
       j < s.1.1.2 →
-      𝒟[(simulateQ (embedTrapIdxSigImpl psf M Salt pk sk j y) oa).run s] =
-        𝒟[(simulateQ (embedTrapFreshIdxSigImpl psf M Salt pk sk) oa).run s] := by
+      ((simulateQ (embedTrapIdxSigImpl psf M Salt pk sk j y) oa).run s) =ᵈ
+        ((simulateQ (embedTrapFreshIdxSigImpl psf M Salt pk sk) oa).run s) := by
   induction oa using OracleComp.inductionOn with
   | pure a => intro s _; rfl
   | query_bind t ob ih =>
@@ -395,7 +399,7 @@ lemma evalDist_run_embedTrapIdxSigImpl_eq_embedTrapFreshIdxSig_of_lt (pk : PK) (
         embedTrapIdxSigImpl_run_step_eq_embedTrapFreshIdxSig psf M Salt pk sk j y t s
           (fun q _ _ => by omega)
       rw [hstep]
-      refine evalDist_bind_congr (fun p hp => ?_)
+      refine EvalDistEq.bind_congr_of_support _ (fun p hp => ?_)
       have hcount : s.1.1.2 ≤ p.2.1.1.2 :=
         embedTrapIdxSigImpl_run_step_count_le psf M Salt pk sk j y t s p (by rw [hstep]; exact hp)
       exact ih p.1 p.2 (by omega)
@@ -404,24 +408,23 @@ omit [DecidableEq Range] [Fintype Salt] in
 /-- **The signed-set-augmented GPV Step-2 front-loading lift.** Averaging the signed-set-augmented
 trap-sibling embed run over an external target draw `y ← $ᵗ Range` equals the signed-set-augmented
 inline-fresh run `embedTrapFreshIdxSigImpl`.  Signed-set mirror of
-`evalDist_frontDraw_embedTrapIdxImpl_eq_embedTrapFreshIdx`: off-winner steps commute the front `y`
+`evalDistEq_frontDraw_embedTrapIdxImpl_eq_embedTrapFreshIdx`: off-winner steps commute the front `y`
 past `y`-independent steps; at the count-`j` winner miss the front `y` is the immediately consumed
 draw, so the front `y` *is* the inline-fresh winner draw, and post-winner the two runs coincide
-(`evalDist_run_embedTrapIdxSigImpl_eq_embedTrapFreshIdxSig_of_lt`).  The signed set is updated
+(`evalDistEq_run_embedTrapIdxSigImpl_eq_embedTrapFreshIdxSig_of_lt`).  The signed set is updated
 identically on both sides (signing ignores `y`) and is never read, so it rides along passively. -/
-lemma evalDist_frontDraw_embedTrapIdxSigImpl_eq_embedTrapFreshSigImpl [Inhabited Range]
+lemma evalDistEq_frontDraw_embedTrapIdxSigImpl_eq_embedTrapFreshSigImpl
     (pk : PK) (sk : SK) (j : ℕ)
     {β : Type} (oa : OracleComp ((unifSpec + (Salt × M →ₒ Range)) + (M →ₒ (Salt × Domain))) β) :
     ∀ (s : (((Salt × M →ₒ Range).QueryCache × ℕ) × ((Salt × M) → Option ℕ)) × Finset M),
-      𝒟[(($ᵗ Range : ProbComp Range) >>= fun y =>
-          (simulateQ (embedTrapIdxSigImpl psf M Salt pk sk j y) oa).run s)] =
-        𝒟[(simulateQ (embedTrapFreshIdxSigImpl psf M Salt pk sk) oa).run s] := by
+      (($ᵗ Range : ProbComp Range) >>= fun y =>
+          (simulateQ (embedTrapIdxSigImpl psf M Salt pk sk j y) oa).run s) =ᵈ
+            ((simulateQ (embedTrapFreshIdxSigImpl psf M Salt pk sk) oa).run s) := by
   induction oa using OracleComp.inductionOn with
   | pure a =>
       intro s
       simp only [simulateQ_pure, StateT.run_pure]
-      rw [OracleComp.DeferredSampling.evalDist_bind_const_neverFails _
-        (probFailure_uniformSample Range)]
+      exact EvalDistEq.bind_const _ _
   | query_bind t ob ih =>
       intro s
       simp only [simulateQ_bind, simulateQ_query, OracleQuery.input_query, OracleQuery.cont_query,
@@ -448,10 +451,8 @@ lemma evalDist_frontDraw_embedTrapIdxSigImpl_eq_embedTrapFreshSigImpl [Inhabited
                       fun t' => if t' = q then some s.1.1.2 else s.1.2 t'), s.2)) from by
           rw [embedTrapFreshIdxSigImpl_run_inl_inr, hmiss]
           simp only [map_eq_bind_pure_comp, bind_assoc, pure_bind, Function.comp_apply]]
-        refine evalDist_bind_congr' _ (fun y => ?_)
-        rw [OracleComp.DeferredSampling.evalDist_bind_const_neverFails _
-          (probFailure_uniformSample Range)]
-        exact evalDist_run_embedTrapIdxSigImpl_eq_embedTrapFreshIdxSig_of_lt psf M Salt pk sk j y
+        refine EvalDistEq.bind_right _ (fun y => (EvalDistEq.bind_const _ _).trans ?_)
+        exact evalDistEq_run_embedTrapIdxSigImpl_eq_embedTrapFreshIdxSig_of_lt psf M Salt pk sk j y
           (ob y)
           (((s.1.1.1.cacheQuery q y, s.1.1.2 + 1),
             fun t' => if t' = q then some s.1.1.2 else s.1.2 t'), s.2)
@@ -467,36 +468,41 @@ lemma evalDist_frontDraw_embedTrapIdxSigImpl_eq_embedTrapFreshSigImpl [Inhabited
                 (simulateQ (embedTrapIdxSigImpl psf M Salt pk sk j y) (ob p.1)).run p.2) from by
           funext y
           rw [embedTrapIdxSigImpl_run_step_eq_embedTrapFreshIdxSig psf M Salt pk sk j y t s hoff]]
-        rw [OracleComp.DeferredSampling.evalDist_bind_comm ($ᵗ Range : ProbComp Range)
+        refine (EvalDistEq.bind_bind_swap ($ᵗ Range : ProbComp Range)
           ((embedTrapFreshIdxSigImpl psf M Salt pk sk t).run s)
-          (fun y p => (simulateQ (embedTrapIdxSigImpl psf M Salt pk sk j y) (ob p.1)).run p.2)]
-        refine evalDist_bind_congr' _ (fun p => ?_)
+          (fun y p => (simulateQ (embedTrapIdxSigImpl psf M Salt pk sk j y) (ob p.1)).run
+            p.2)).trans ?_
+        refine EvalDistEq.bind_right _ (fun p => ?_)
         exact ih p.1 p.2
 
 omit [DecidableEq Range] [Fintype Salt] in
 /-- **Expected-functional form of the signed-set front-loading lift.**  For any nonnegative output
 functional `F`, the inline-fresh run's expectation equals the front-target-averaged trap-sibling
-run's expectation: `∑' w, Pr[= w | freshSig run] · F w = ∑' y, Pr[= y] · ∑' w, Pr[= w |
-embedTrapIdxSig … j y run] · F w`.  Immediate from
-`evalDist_frontDraw_embedTrapIdxSigImpl_eq_embedTrapFreshSigImpl` (the two `evalDist`s agree, so
-their expectations of `F` agree) and the Tonelli rearrangement `tsum_probOutput_bind_mul`. -/
-lemma tsum_probOutput_embedTrapFreshIdxSig_mul_eq_frontDraw [Inhabited Range]
+run's expectation: `∑' w, Pr{let x ← freshSig run}[x = w] · F w = ∑' y, Pr[= y] · ∑' w, Pr{let x ←
+embedTrapIdxSig … j y run}[x = w] · F w`. Immediate from
+`evalDistEq_frontDraw_embedTrapIdxSigImpl_eq_embedTrapFreshSigImpl` (the two runs are equal in
+distribution, so their expectations of `F` agree) and the Tonelli rearrangement
+`OracleComp.tsum_prEvent_bind_mul`. -/
+lemma tsum_prEvent_embedTrapFreshIdxSig_mul_eq_frontDraw
     (pk : PK) (sk : SK) (j : ℕ)
     {β : Type} (oa : OracleComp ((unifSpec + (Salt × M →ₒ Range)) + (M →ₒ (Salt × Domain))) β)
     (s : (((Salt × M →ₒ Range).QueryCache × ℕ) × ((Salt × M) → Option ℕ)) × Finset M)
     (F : β × ((((Salt × M →ₒ Range).QueryCache × ℕ) × ((Salt × M) → Option ℕ)) × Finset M) →
       ℝ≥0∞) :
-    (∑' w, Pr[= w | (simulateQ (embedTrapFreshIdxSigImpl psf M Salt pk sk) oa).run s] * F w) =
-      ∑' y : Range, Pr[= y | ($ᵗ Range : ProbComp Range)] *
-        ∑' w, Pr[= w | (simulateQ (embedTrapIdxSigImpl psf M Salt pk sk j y) oa).run s] * F w := by
-  have hlift := evalDist_frontDraw_embedTrapIdxSigImpl_eq_embedTrapFreshSigImpl psf M Salt pk sk j
+    (∑' w, Pr{let x ← (simulateQ (embedTrapFreshIdxSigImpl psf M Salt pk sk) oa).run s}[
+        x = w] * F w) =
+      ∑' y : Range, Pr{let x ← ($ᵗ Range : ProbComp Range)}[x = y] *
+        ∑' w, Pr{let x ← (simulateQ (embedTrapIdxSigImpl psf M Salt pk sk j y) oa).run s}[
+            x = w] * F w := by
+  have hlift := evalDistEq_frontDraw_embedTrapIdxSigImpl_eq_embedTrapFreshSigImpl psf M Salt pk sk j
     oa s
-  have hF : ∀ w, Pr[= w | (simulateQ (embedTrapFreshIdxSigImpl psf M Salt pk sk) oa).run s] =
-      Pr[= w | (($ᵗ Range : ProbComp Range) >>= fun y =>
-        (simulateQ (embedTrapIdxSigImpl psf M Salt pk sk j y) oa).run s)] :=
-    fun w => by rw [probOutput, probOutput, hlift]
+  have hF : ∀ w, Pr{let x ← (simulateQ (embedTrapFreshIdxSigImpl psf M Salt pk sk) oa).run s}[
+      x = w] =
+      Pr{let x ← (($ᵗ Range : ProbComp Range) >>= fun y =>
+        (simulateQ (embedTrapIdxSigImpl psf M Salt pk sk j y) oa).run s)}[x = w] :=
+    fun w => (hlift.prEvent_eq (· = w)).symm
   simp_rw [hF]
-  rw [tsum_probOutput_bind_mul]
+  rw [OracleComp.tsum_prEvent_bind_mul]
 
 omit [DecidableEq Range] [Fintype Salt] in
 /-- **Freshness-confined winner-slot cache invariant (state-general form).** On the
@@ -552,7 +558,7 @@ lemma embedTrapIdxSigImpl_fresh_idx_cache_eq_general (pk : PK) (sk : SK) (j : �
                   else s.1.1.1.cacheQuery mc v, s.1.1.2 + 1),
                 fun t' => if t' = mc then some s.1.1.2 else s.1.2 t'), s.2) := by
               have h2 := (Prod.ext_iff.mp hh).2
-              by_cases hb : s.1.1.2 = j <;> simp only [hb, if_true, if_false] at h2 ⊢ <;>
+              by_cases hb : s.1.1.2 = j <;> simp only [hb, ite_true, ite_false] at h2 ⊢ <;>
                 exact h2
             refine ih pv pst ?_ z hz2
             intro k hidx hfresh
@@ -562,13 +568,13 @@ lemma embedTrapIdxSigImpl_fresh_idx_cache_eq_general (pk : PK) (sk : SK) (j : �
             · subst hk
               -- The miss at `mc` records `idx mc = some s.1.1.2`; the hypothesis forces it `= j`,
               -- so the winner branch fired and cached `y`.
-              simp only [if_true, Option.some.injEq] at hidx
+              simp only [ite_true, Option.some.injEq] at hidx
               subst hidx
-              simp only [if_true, QueryCache.cacheQuery_self]
+              simp only [ite_true, QueryCache.cacheQuery_self]
             · -- Off the missed key the state is the old one; apply `hs`.
-              simp only [if_neg hk] at hidx
+              simp only [ite_eq_right hk] at hidx
               by_cases hb : s.1.1.2 = j <;>
-                simp only [hb, if_true, if_false, QueryCache.cacheQuery_of_ne _ _ hk] <;>
+                simp only [hb, ite_true, ite_false, QueryCache.cacheQuery_of_ne _ _ hk] <;>
                 exact hs k hidx hfresh
       · rw [embedTrapIdxSigImpl_run_inr] at hps
         obtain ⟨r, -, hps⟩ := (mem_support_bind_iff _ _ _).1 hps
@@ -587,7 +593,7 @@ lemma embedTrapIdxSigImpl_fresh_idx_cache_eq_general (pk : PK) (sk : SK) (j : �
         -- `k.2 ≠ msg` forces `k ≠ (r, msg)`, so the signing step left `idx k` and `cache k` alone.
         have hk : k ≠ (r, msg) := fun hkeq => hne (by rw [hkeq])
         simp only at hidx ⊢
-        simp only [if_neg hk] at hidx
+        simp only [ite_eq_right hk] at hidx
         rw [QueryCache.cacheQuery_of_ne _ _ hk]
         exact hs k hidx hfresh'
 
@@ -676,11 +682,11 @@ lemma progGameRunImplCombinedTrapCount_table_support (pk : PK) (sk : SK) :
             rw [hcache]
             by_cases hk : k = mc
             · subst hk
-              simp only [if_true] at hkx'
+              simp only [ite_true] at hkx'
               rw [Option.some.injEq] at hkx'
               subst hkx'
               exact ⟨v, QueryCache.cacheQuery_self _ _ _, hx⟩
-            · simp only [if_neg hk] at hkx'
+            · simp only [ite_eq_right hk] at hkx'
               obtain ⟨w, hw1, hw2⟩ := hs k x' hkx'
               exact ⟨w, by rw [QueryCache.cacheQuery_of_ne _ _ hk]; exact hw1, hw2⟩
       · rw [progGameRunImplCombinedTrapCount_run_inr] at hps
@@ -695,11 +701,11 @@ lemma progGameRunImplCombinedTrapCount_table_support (pk : PK) (sk : SK) :
         rw [hcache]
         by_cases hk : k = (r, msg)
         · subst hk
-          simp only [if_true] at hkx'
+          simp only [ite_true] at hkx'
           rw [Option.some.injEq] at hkx'
           subst hkx'
           exact ⟨v, QueryCache.cacheQuery_self _ _ _, hx⟩
-        · simp only [if_neg hk] at hkx'
+        · simp only [ite_eq_right hk] at hkx'
           obtain ⟨w, hw1, hw2⟩ := hs k x' hkx'
           exact ⟨w, by rw [QueryCache.cacheQuery_of_ne _ _ hk]; exact hw1, hw2⟩
 

@@ -3,9 +3,17 @@ Copyright (c) 2026 Quang Dao. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Quang Dao
 -/
-import VCVio.OracleComp.Constructions.SampleableType
-import VCVio.OracleComp.EvalDist
-import VCVio.OracleComp.ProbComp
+
+module
+public import VCVio.OracleComp.Constructions.SampleableType.Basic
+public import VCVio.OracleComp.Constructions.SampleableType.Measure
+public import VCVio.OracleComp.Support
+public import VCVio.OracleComp.ReachableWhen
+public import VCVio.OracleComp.SimSemantics.SimulateQ
+public import VCVio.OracleComp.EvalDist.Measure
+public import VCVio.OracleComp.EvalDist.AnswerMeasure
+public import VCVio.OracleComp.ProbComp.Basic
+public import VCVio.OracleComp.Constructions.UniformFinMeasure
 
 /-!
 # One-Way Functions and Trapdoor Permutations
@@ -27,11 +35,13 @@ invert given only `pk`; the secret key enables efficient inversion via `f⁻¹(s
 ## Main Definitions
 
 - `OWFAdversary X Y` — an adversary trying to invert `f`.
-- `owfExp` — the one-wayness experiment.
+- `owfExperiment` — the one-wayness experiment.
 - `TrapdoorPermutation PK SK X` — a trapdoor permutation scheme.
 - `TDPAdversary PK X` — an adversary trying to invert the TDP.
-- `tdpExp` — the TDP inversion experiment.
+- `tdpExperiment` — the TDP inversion experiment.
 -/
+
+@[expose] public section
 
 open OracleComp OracleSpec ENNReal
 
@@ -44,18 +54,24 @@ variable {X Y : Type}
 /-- An OWF adversary receives `f(x)` and tries to find a preimage. -/
 def OWFAdversary (X Y : Type) := Y → ProbComp X
 
-/-- One-wayness experiment: sample `x` uniformly, give the adversary `f(x)`,
-and check whether the adversary's output is a valid preimage. -/
-def owfExp [SampleableType X] [DecidableEq Y] (f : X → Y) (adversary : OWFAdversary X Y) :
-    ProbComp Bool := do
+/-- Sample a challenge and the adversary's candidate preimage. -/
+def owfRun [SampleableType X] (f : X → Y) (adversary : OWFAdversary X Y) :
+    ProbComp (X × X) := do
   let x ← $ᵗ X
   let x' ← adversary (f x)
+  return (x, x')
+
+/-- One-wayness experiment: sample `x` uniformly, give the adversary `f(x)`,
+and check whether the adversary's output is a valid preimage. -/
+def owfExperiment [SampleableType X] [DecidableEq Y] (f : X → Y) (adversary : OWFAdversary X Y) :
+    ProbComp Bool := do
+  let (x, x') ← owfRun f adversary
   return decide (f x' = f x)
 
-/-- OWF advantage: the probability of successfully inverting `f`. -/
+/-- OWF advantage: the probability that `owfExperiment` outputs `true`. -/
 noncomputable def owfAdvantage [SampleableType X] [DecidableEq Y] (f : X → Y)
     (adversary : OWFAdversary X Y) : ℝ≥0∞ :=
-  Pr[= true | owfExp f adversary]
+  𝒟[owfExperiment f adversary] {true}
 
 /-! ## Trapdoor Permutations -/
 
@@ -79,19 +95,24 @@ def TrapdoorPermutation.Correct (tdp : TrapdoorPermutation PK SK X) : Prop :=
 and tries to find a valid preimage of `y`. -/
 def TDPAdversary (PK X : Type) := PK → X → ProbComp X
 
-/-- TDP inversion experiment: generate keys, sample `x` uniformly,
-and check whether the adversary outputs a valid preimage of `f(pk, x)`. -/
-def tdpExp [SampleableType X] [DecidableEq X] (tdp : TrapdoorPermutation PK SK X)
-    (adversary : TDPAdversary PK X) : ProbComp Bool := do
+/-- Generate keys, sample a challenge, and retain the adversary's candidate preimage. -/
+def tdpRun [SampleableType X] (tdp : TrapdoorPermutation PK SK X)
+    (adversary : TDPAdversary PK X) : ProbComp ((PK × X) × X) := do
   let (pk, _) ← tdp.keygen
   let x ← $ᵗ X
   let x' ← adversary pk (tdp.forward pk x)
+  return ((pk, x), x')
+
+/-- TDP inversion experiment: generate keys, sample `x` uniformly,
+and check whether the adversary outputs a valid preimage of `f(pk, x)`. -/
+def tdpExperiment [SampleableType X] [DecidableEq X] (tdp : TrapdoorPermutation PK SK X)
+    (adversary : TDPAdversary PK X) : ProbComp Bool := do
+  let ((pk, x), x') ← tdpRun tdp adversary
   return decide (tdp.forward pk x' = tdp.forward pk x)
 
-/-- TDP advantage: the probability of successfully producing a valid preimage
-without the trapdoor. -/
+/-- TDP advantage: the probability that `tdpExperiment` outputs `true`. -/
 noncomputable def tdpAdvantage [SampleableType X] [DecidableEq X]
     (tdp : TrapdoorPermutation PK SK X) (adversary : TDPAdversary PK X) : ℝ≥0∞ :=
-  Pr[= true | tdpExp tdp adversary]
+  𝒟[tdpExperiment tdp adversary] {true}
 
 end OneWay

@@ -3,72 +3,82 @@ Copyright (c) 2026 Quang Dao, Oleksandr Vovkotrub. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Quang Dao, Oleksandr Vovkotrub
 -/
-import LatticeCrypto.Falcon.Correctness
-import LatticeCrypto.HardnessAssumptions.ShortIntegerSolution
-import VCVio.EvalDist.RenyiDivergence
-import VCVio.OracleComp.Constructions.SampleableType
+
+module
+public import LatticeCrypto.Falcon.Scheme
+public import LatticeCrypto.HardnessAssumptions.ShortIntegerSolution
+public import VCVio.OracleComp.Constructions.RetryLoop
+public import VCVio.OracleComp.Constructions.SampleableType.Basic
+public import VCVio.OracleComp.Constructions.SampleableType.Measure
+public import VCVio.OracleComp.EvalDist.Measure
 
 /-!
 # Falcon Security
 
-This file states the high-level security theorems and hardness assumptions for the
-Falcon signature scheme. Abstract signing correctness is proved in
-`LatticeCrypto.Falcon.Correctness`.
+This file states the security theorems for the Falcon signature scheme in the GPV hash-and-sign
+model, at two granularities of the trapdoor sampler: per signing attempt, for the rejection-loop
+signer, and per trapdoor draw, for the single-draw scheme.
 
-## EUF-CMA Security
+## Scope: an idealized Falcon/GPV model
 
-The main security theorem reduces EUF-CMA to a Falcon-PSF collision problem sampled
-from the same key distribution as the scheme. The precise
-bound follows [FGdG+25] Theorem 1 (first concrete proof for Falcon+), refined by
-[Jia+26] (basis-specific Rényi analysis that eliminates the 7-bit security loss).
+The theorems here are about an **idealized Falcon model**, precisely:
 
-### The exact theorem ([FGdG+25] Theorem 1, adapted)
+- The schemes are `falconRetrySignatureAlg` — the generic GPV hash-and-sign scheme
+  (`GPVHashAndSign`) over the rejection-loop signer `falconRetryPSF`, which repeats
+  `signAttempt` up to an attempt budget — and `falconSignatureAlg`, the same scheme over a
+  single trapdoor draw. Signatures carry the full `(s₁, s₂)` preimage; the compressed
+  `s₂`-only wire encoding and byte-level (de)serialization of FN-DSA are not modeled.
+- The trapdoor sampler enters only through an ideal preimage-sampleable abstraction
+  (`idealPSF`) sharing the deterministic `eval`/`isShort` of `falconPSF`. The concrete-to-ideal
+  gap is a named total-variation hypothesis — `attemptTransport` per signing attempt, or
+  `samplerTransport` per trapdoor draw — and floating-point `ffSampling` with its precision
+  analysis is not modeled.
+- Verification correctness (`verify` accepting honest signatures) is proved separately, in
+  `LatticeCrypto.Falcon.Correctness` (`Falcon.verify_sign_correct`), conditional on
+  preimage-sampleable-function correctness (`s₁ + s₂ · h = c` on honest keys), which routes
+  through the floating-point inverse-FFT rounding in `Falcon.fromFFTPreimage`.
+- No cost model is attached: the reductions are constructed explicitly but their polynomial
+  runtime is not machine-checked. They perform no exhaustive search and no noncomputable steps
+  beyond the ambient probabilistic semantics.
 
-For adversary `A` making `Q_s` signing queries and `Q_H` RO queries, with at most
-`C_s` total preimage sampling calls (including retries):
+## The two frontiers
 
-  `Adv^{UF-CMA}_{Falcon+}(A)`
-  `  ≤ (r_u^{C_s} · (r_p^{C_s} · Adv^{ISIS}(B))^{…})^{…}`
-  `  + Σ C(C_s,i) · (1-p)^{C_s-i} · p^i`
-  `  + Q_s · (C_s + Q_H) / 2^k`
+Both headlines are the split GPV bound (`GPVHashAndSign.euf_cma_split_bound`): the EUF-CMA
+advantage is at most the Falcon-PSF collision advantage sampled from the scheme's own key
+distribution (`collisionFindingAdvantage_eq_ntruPSF`), plus an exact-match branch at an
+explicit multi-target factor, plus the salt birthday bound `GPVHashAndSign.collisionBound`,
+plus a sampler loss.
 
-where:
-- `r_p = R_{a_p}(PreSmp ‖ D_{Λ,s,c})`: sampler Rényi divergence
-- `r_u = R_{a_u}(U(R_q) ‖ Q_h)`: RO simulation Rényi divergence
-- `p = Pr[‖(s₁,s₂)‖ ≤ β]`: acceptance probability per attempt
-- `k = 320`: salt bits
-- `a_p, a_u > 1`: Rényi orders (optimized per instance)
+- `euf_cma_security` is the **attempt-level** headline, for the rejection-loop signer. Its
+  sampler loss is `qSign · (ε_step / (1 − pRej) + pRej ^ maxAttempts)`
+  (`measureTVDist_falconRetryPSF_trapdoorSample_le`): the per-attempt precision budget `ε_step`
+  accumulated over the expected retry count, plus the attempt-budget exhaustion mass. The
+  rejection rate `pRej` is priced separately from the precision budget, so `ε_step = 0` is
+  satisfiable at any rejection rate (`attemptTransport_self_zero`) and the loss stays below
+  one at Falcon's query bounds (`attemptSamplerLoss_lt_falconScale`).
+  `euf_cma_collision_security` discharges its exact-match branch by the ideal sampler's
+  guessing bound `idealSamplerGuessBound`.
+- `euf_cma_security_oneShot` is the **one-shot** headline, for the single-draw scheme, with a
+  monolithic sampler loss assumed by its `hTransport` hypothesis. Read per trapdoor draw
+  (`samplerTransport`, budget `ε_step`, loss `qSign · ε_step`) that budget must absorb the
+  norm check's rejection probability (`oneShot_rejection_prob_le_of_samplerTransport`), so the
+  loss reaches one as soon as the signing budget reaches the inverse rejection rate
+  (`oneShot_samplerLoss_one_le_of_samplerTransport`); at Falcon's parameters this frontier
+  carries no quantitative content.
 
-### Concrete security levels ([Jia+26] Table 6)
+`LatticeCrypto.Falcon.NonVacuity` instantiates the attempt-level hypotheses at an NTRU key with
+a genuinely rejecting sampler, where the attempt-level loss is below `1/2` at `qSign = 2^64`
+while every per-draw budget is forced to at least `1/2`.
 
-Using basis-specific analysis (Theorems 2–4 of [Jia+26]):
+## Relation to the literature
 
-| Scheme | `loss_p` | `loss_u` | Bit security |
-|---|---|---|---|
-| Falcon+-512 | 0.093 bits | 0.093 bits | 119.81 |
-| Falcon+-1024 | 0.087 bits | 0.087 bits | 277.82 (256 limited by salt term) |
-
-The `loss_p` and `loss_u` are *maximum* over 1000 random Falcon bases ([Jia+26]
-Table 5), replacing the worst-case 3.29/3.14 bits from [FGdG+25].
-
-### Sampler precision requirements
-
-The sampler Rényi divergence `r_p` depends on floating-point precision via:
-  `δ_{RE}(PreSmp, D_{Λ,s,c}) ≤ δ_{B,s} = ∏_{i=1}^{2n} (1+ε_i)/(1-ε_i) - 1`
-where `ε_i = ε^{α_i²}` and `α_i = ‖B‖_{GS}/‖b̃_i‖` ([Jia+26] Theorem 2).
-
-The required precision `δ_c + δ_σ` for provable security:
-- Required by proof: `≤ 2^{-46}` (for `λ = 256`, `Q_s = 2^{64}`)
-- binary64 (53-bit): achieves only `2^{-37}` worst case ([TWFalcon]),
-  provably secure for only `2^{47}` queries
-- Triple-word (72-bit): achieves `2^{-57}`, fully sufficient
-- Exact (infinite precision): `r_p = 1` (no loss)
-
-### Salt collision
-
-The salt collision term `Q_s · (C_s + Q_H) / 2^k` from [FGdG+25] Theorem 1 is slightly
-tighter than the birthday bound `Q_s² / (2 · 2^k)` from GPV08 Proposition 6.2.
-For `k = 320`, both are negligible.
+[FGdG+25] Theorem 1 bounds Falcon+ by a Rényi-divergence accumulation of the per-query sampler
+and random-oracle simulation gaps over all preimage-sampling calls including retries; [Jia+26]
+sharpens the per-basis divergence, and [TWFalcon] measures the floating-point precision the
+sampler actually achieves. The theorems here replace the Rényi accumulation by a
+total-variation accumulation of a named per-attempt gap, take the salt term as the birthday
+bound of GPV08 Proposition 6.2 rather than [FGdG+25]'s `Q_s · (C_s + Q_H) / 2^k`, and formalize
+no concrete bit-security figure.
 
 ## References
 
@@ -82,6 +92,8 @@ For `k = 320`, both are negligible.
 - [Pre17]: Prest. ASIACRYPT 2017. Rényi-based precision analysis for Klein's sampler.
 -/
 
+@[expose] public section
+
 
 open OracleComp OracleSpec ENNReal
 
@@ -89,47 +101,30 @@ namespace Falcon
 
 variable (p : Params) (prims : Primitives p)
 
-/-! ### NTRU-SIS Hardness Assumptions -/
+/-! ### NTRU-SIS Hardness Assumption -/
 
-/-- A parameterized NTRU-SIS problem: given `h ∈ R_q`, find short
-`(s₁, s₂) ∈ R_q²` satisfying `s₁ + s₂ · h = 0 mod q` with
-`‖(s₁, s₂)‖₂² ≤ bound`.
-
-The challenge sampler is explicit because Falcon uses both the idealized uniform-`h`
-problem and the key-distributed `h` problem induced by actual key generation. -/
-noncomputable def ntruSISProblemWithSample (sampleH : ProbComp (Rq p.n)) (bound : ℕ) :
-    SIS.Problem (Rq p.n) (Rq p.n × Rq p.n) where
-  sampleChallenge := sampleH
-  isValid h x :=
-    decide (x ≠ (0, 0)) &&
-    decide (pairL2NormSq x.1 x.2 ≤ bound) &&
-    decide (x.1 + negacyclicMul x.2 h = 0)
-
-/-- The idealized NTRU-SIS problem: given uniform `h ∈ R_q` (the Falcon public key),
-find short `(s₁, s₂) ∈ R_q²` satisfying `s₁ + s₂ · h = 0 mod q` with
-`‖(s₁, s₂)‖₂² ≤ ⌊β²⌋`.
+/-- The NTRU-SIS problem: given `h ∈ R_q` (the Falcon public key), find a short nonzero
+`(s₁, s₂) ∈ R_q²` satisfying `s₁ + s₂ · h = 0 mod q` with `‖(s₁, s₂)‖₂² ≤ 4·⌊β²⌋`.
 
 This is the lattice problem underlying Falcon's security. It is an instance of
 the generic SIS problem where the matrix is the single-row matrix `[I | h]`
-over the cyclotomic ring `R_q = ℤ_q[x]/(x^n + 1)`. -/
-noncomputable def ntruSISProblem [SampleableType (Rq p.n)] :
-    SIS.Problem (Rq p.n) (Rq p.n × Rq p.n) :=
-  ntruSISProblemWithSample p ($ᵗ (Rq p.n)) p.betaSquared
+over the cyclotomic ring `R_q = ℤ_q[x]/(x^n + 1)`.
 
-/-- The key-distributed NTRU-SIS problem induced by a Falcon key generator relation.
-
-The challenge is `pk.h` for `(pk, sk)` sampled by `hr.gen`, not a uniformly sampled
-ring element. This is the direct target obtained from a Falcon PSF collision before
-adding a separate decisional/uniformity step for the public-key distribution. -/
-noncomputable def ntruKeyedSISProblem
-    (hr : GenerableRelation (PublicKey p) (SecretKey p) (validKeyPair p))
-    (bound : ℕ) : SIS.Problem (Rq p.n) (Rq p.n × Rq p.n) where
-  sampleChallenge := do
-    let (pk, _) ← hr.gen
-    pure pk.h
+The norm target is `4·betaSquared`, not `betaSquared`: a kernel vector produced from a
+Falcon-PSF collision is the difference `x - x'` of two `β`-short preimages, so its squared
+`ℓ₂` norm is at most `(‖x‖₂ + ‖x'‖₂)² ≤ (2β)² = 4·betaSquared`. The
+`ntruPSFCollisionProblem → ntruSISProblem` translation realizing this target is
+`Falcon.ntruSISProblem_isValid_sub` (witness level) and
+`Falcon.advantage_le_ntruSISProblemKeyed` / `Falcon.euf_cma_security_oneShot_ntruSIS` (advantage
+level, at the honest key distribution `ntruSISProblemKeyed`) in
+`LatticeCrypto.Falcon.SISBridge`; the remaining distance between the honest key
+distribution and this problem's uniform challenge is a decisional-NTRU assumption. -/
+noncomputable def ntruSISProblem :
+    SIS.Problem (Rq p.n) (Rq p.n × Rq p.n) where
+  sampleChallenge := $ᵗ (Rq p.n)
   isValid h x :=
     decide (x ≠ (0, 0)) &&
-    decide (pairL2NormSq x.1 x.2 ≤ bound) &&
+    decide (pairL2NormSq x.1 x.2 ≤ 4 * p.betaSquared) &&
     decide (x.1 + negacyclicMul x.2 h = 0)
 
 /-- The direct Falcon PSF collision problem induced by the generic GPV reduction.
@@ -152,203 +147,6 @@ noncomputable def ntruPSFCollisionProblem
     (falconPSF p prims).isShort xs.1 &&
     (falconPSF p prims).isShort xs.2
 
-/-- The kernel vector obtained from a collision pair. -/
-def collisionToNTRUSISSolution
-    (xs : (Rq p.n × Rq p.n) × (Rq p.n × Rq p.n)) : Rq p.n × Rq p.n :=
-  (xs.1.1 - xs.2.1, xs.1.2 - xs.2.2)
-
-/-- Turn a Falcon-PSF collision adversary into a keyed NTRU-SIS adversary with
-the `4 * betaSquared` norm bound.
-
-The adversary only receives `h`; this is enough to reconstruct `PublicKey`, whose only
-field is `h`, and then difference the two collision preimages. -/
-noncomputable def ntruPSFCollisionToKeyedSISAdversary
-    (hr : GenerableRelation (PublicKey p) (SecretKey p) (validKeyPair p))
-    (adv : SIS.Adversary (ntruPSFCollisionProblem p prims hr)) :
-    SIS.Adversary (ntruKeyedSISProblem p hr (4 * p.betaSquared)) :=
-  fun h => do
-    let xs ← adv ⟨h⟩
-    pure (collisionToNTRUSISSolution p xs)
-
-private theorem negacyclicMul_sub_left {n : ℕ} (a b c : Rq n) :
-    negacyclicMul (a - b) c = negacyclicMul a c - negacyclicMul b c := by
-  calc
-    negacyclicMul (a - b) c = negacyclicMul c (a - b) := by
-      simpa [negacyclicMul] using LatticeCrypto.vectorRing_mul_comm (a - b) c
-    _ = negacyclicMul c a - negacyclicMul c b := by
-      simpa [negacyclicMul] using LatticeCrypto.vectorRing_mul_sub_right c a b
-    _ = negacyclicMul a c - negacyclicMul b c := by
-      have hca : negacyclicMul c a = negacyclicMul a c := by
-        simpa [negacyclicMul] using LatticeCrypto.vectorRing_mul_comm c a
-      have hcb : negacyclicMul c b = negacyclicMul b c := by
-        simpa [negacyclicMul] using LatticeCrypto.vectorRing_mul_comm c b
-      rw [hca, hcb]
-
-/-- A valid Falcon-PSF collision yields a valid solution to the key-distributed
-NTRU-SIS problem at bound `4 * betaSquared`.
-
-The algebraic kernel equation comes from subtracting the equal PSF images. The norm
-bound is the centered-residue `ℓ₂` triangle inequality: if both preimages are
-`betaSquared`-short, then their difference has squared norm at most `4 * betaSquared`. -/
-theorem ntruPSFCollision_to_keyedSIS_valid
-    (hr : GenerableRelation (PublicKey p) (SecretKey p) (validKeyPair p))
-    (pk : PublicKey p) (xs : (Rq p.n × Rq p.n) × (Rq p.n × Rq p.n))
-    (hvalid : (ntruPSFCollisionProblem p prims hr).isValid pk xs = true) :
-    (ntruKeyedSISProblem p hr (4 * p.betaSquared)).isValid pk.h
-      (collisionToNTRUSISSolution p xs) = true := by
-  rcases xs with ⟨x, y⟩
-  rcases x with ⟨x₁, x₂⟩
-  rcases y with ⟨y₁, y₂⟩
-  simp only [ntruPSFCollisionProblem, falconPSF, Bool.and_eq_true, decide_eq_true_eq] at hvalid
-  rcases hvalid with ⟨⟨⟨hne, heval⟩, hxshort⟩, hyshort⟩
-  simp only [ntruKeyedSISProblem, collisionToNTRUSISSolution, Bool.and_eq_true,
-    decide_eq_true_eq]
-  constructor
-  · constructor
-    · intro hzero
-      apply hne
-      simp only [Prod.mk.injEq] at hzero ⊢
-      have sub_eq_zero_poly {a b : Rq p.n} (h : a - b = 0) : a = b := by
-        ext i
-        have hi := congrArg (fun z : Rq p.n => (coeffRing p.n).backend.coeff z i) h
-        simp only [LatticeCrypto.NegacyclicRing.coeff_sub,
-          LatticeCrypto.NegacyclicRing.coeff_zero] at hi
-        exact sub_eq_zero.mp hi
-      exact ⟨sub_eq_zero_poly hzero.1, sub_eq_zero_poly hzero.2⟩
-    · have hnorm :=
-        LatticeCrypto.pairL2NormSq_sub_le_two_mul_add
-          (q := modulus) (n := p.n) (x₁, x₂) (y₁, y₂)
-      have hnorm' :
-          LatticeCrypto.pairL2NormSq (x₁ - y₁) (x₂ - y₂) ≤
-            2 * (LatticeCrypto.pairL2NormSq x₁ x₂ +
-              LatticeCrypto.pairL2NormSq y₁ y₂) := by
-        simpa using hnorm
-      change LatticeCrypto.pairL2NormSq (x₁ - y₁) (x₂ - y₂) ≤ 4 * p.betaSquared
-      change LatticeCrypto.pairL2NormSq x₁ x₂ ≤ p.betaSquared at hxshort
-      change LatticeCrypto.pairL2NormSq y₁ y₂ ≤ p.betaSquared at hyshort
-      nlinarith
-  · rw [negacyclicMul_sub_left]
-    ext i
-    have hcoeff := congrArg (fun z : Rq p.n => (coeffRing p.n).backend.coeff z i) heval
-    simp only [LatticeCrypto.NegacyclicRing.coeff_add,
-      LatticeCrypto.NegacyclicRing.coeff_sub, LatticeCrypto.NegacyclicRing.coeff_zero] at hcoeff ⊢
-    have hsub :
-        (coeffRing p.n).backend.coeff x₁ i +
-            (coeffRing p.n).backend.coeff (negacyclicMul x₂ pk.h) i -
-          ((coeffRing p.n).backend.coeff y₁ i +
-            (coeffRing p.n).backend.coeff (negacyclicMul y₂ pk.h) i) = 0 :=
-      sub_eq_zero.mpr hcoeff
-    simpa [sub_eq_add_neg, add_assoc, add_left_comm, add_comm] using hsub
-
-/-- Advantage bridge: the keyed NTRU-SIS adversary built from a Falcon-PSF collision adversary
-wins with at least the collision adversary's advantage.
-
-Both experiments draw the key pair from `hr.gen` and run the *same* collision adversary on the
-*same* public key (`⟨pk.h⟩ = pk`, as `PublicKey` has a single field); the keyed experiment then
-differences the output. Every valid collision differences to a valid keyed-SIS solution
-(`ntruPSFCollision_to_keyedSIS_valid`), so the keyed win event contains the collision win event
-pointwise, giving the inequality. -/
-theorem ntruPSFCollision_advantage_le_keyedSIS
-    (hr : GenerableRelation (PublicKey p) (SecretKey p) (validKeyPair p))
-    (collisionReduction : SIS.Adversary (ntruPSFCollisionProblem p prims hr)) :
-    SIS.advantage (ntruPSFCollisionProblem p prims hr) collisionReduction ≤
-      SIS.advantage (ntruKeyedSISProblem p hr (4 * p.betaSquared))
-        (ntruPSFCollisionToKeyedSISAdversary p prims hr collisionReduction) := by
-  unfold SIS.advantage SIS.experiment
-  -- Unfold only the challenge samplers and the reduction adversary, keeping `isValid` folded.
-  have hsc_c : (ntruPSFCollisionProblem p prims hr).sampleChallenge
-      = (hr.gen >>= fun x => pure x.1) := rfl
-  have hsc_k : (ntruKeyedSISProblem p hr (4 * p.betaSquared)).sampleChallenge
-      = (hr.gen >>= fun x => pure x.1.h) := rfl
-  rw [hsc_c, hsc_k]
-  simp only [ntruPSFCollisionToKeyedSISAdversary, bind_assoc, pure_bind]
-  -- Common prefix `hr.gen >>= collisionReduction`; `⟨x.1.h⟩ = x.1` by structure eta.
-  refine probOutput_bind_mono fun x _hx => ?_
-  refine probOutput_bind_mono fun xs _hxs => ?_
-  by_cases hC : (ntruPSFCollisionProblem p prims hr).isValid x.1 xs = true
-  · have hK := ntruPSFCollision_to_keyedSIS_valid p prims hr x.1 xs hC
-    rw [hC, hK]
-  · rw [Bool.not_eq_true] at hC
-    rw [hC, probOutput_pure]
-    simp
-
-/-! ### Sampler Quality Hypotheses -/
-
-/-- The trapdoor sampler quality hypothesis: the Rényi divergence of order `a > 1`
-between the concrete trapdoor sampler and an ideal sampler is bounded by `R`.
-
-This captures the floating-point precision loss in `ffSampling` and `SamplerZ`.
-The structure separates the *existence* of the bound from its *concrete value*.
-
-### Precise bound ([Jia+26] Corollary 1, refining [Pre17] Lemma 6)
-
-For basis `B` with Gram-Schmidt vectors `b̃_i`, let `α_i = ‖B‖_{GS} / ‖b̃_i‖` and
-`ε_i = ε^{α_i²}` where `ε` is the global closeness parameter. Then:
-
-  `R_a(PreSmp(B,s,t) ‖ D_{Λ(B),s,t}) ≲ 1 + a · δ²_{B,s} / 2`
-
-where `δ_{B,s} = ∏_i (1+ε_i)/(1-ε_i) - 1` is the basis-specific relative error.
-
-The previous worst-case analysis ([Pre17]) used `δ ≈ 4nε`, but the basis-specific
-metric gives `δ_{B,s} ≈ 4nε / (0.87 · |ln ε|)`, which is ~21× tighter for Falcon
-parameters ([Jia+26] Section 4.3).
-
-### Optimal Rényi order ([FGdG+25] Lemma 4)
-
-The Rényi orders `a_p, a_u` should be chosen to minimize the total security loss
-`C_s · log₂(r_p) + C_s · log₂(r_u) + λ/a`, which gives much larger optimal orders
-than the traditional `a = 2λ`:
-
-| | [FGdG+25] | [Jia+26] |
-|---|---|---|
-| Falcon+-512 `a_p` | 72.96 | 2577.30 |
-| Falcon+-512 `a_u` | 69.64 | 2573.91 |
-| Falcon+-1024 `a_p` | 157.05 | 6417.73 |
-| Falcon+-1024 `a_u` | 153.28 | 6413.92 |
-
-### Precision requirements ([TWFalcon] Section 3)
-
-The combined FP error must satisfy `10·√(2n)·(δ_c + δ_σ) ≤ 2^{-37}` for the
-Rényi argument to hold with `λ = 256`, `Q_s = 2^{64}`. This requires
-`δ_c + δ_σ ≤ 2^{-46}`. Measured precision:
-
-| Arithmetic | `δ_c + δ_σ` | Provably secure queries |
-|---|---|---|
-| binary64 (53-bit) | ≤ 2^{-37} (worst) | 2^{47} |
-| triple-word (72-bit) | ≤ 2^{-57} | 2^{68} (exceeds 2^{64}) |
-| exact | 0 | ∞ |
-
-Discharging this hypothesis requires composing per-operation FPR error bounds
-(from `ApproxArith.lean` / `FPRBridge.lean`) through the `ffSampling` recursion. -/
-structure SamplerQuality (pk : PublicKey p) (sk : SecretKey p) where
-  /-- The Rényi divergence order. Optimal values are much larger than `2λ`:
-  ~2577 for Falcon+-512, ~6418 for Falcon+-1024 ([Jia+26] Table 6). -/
-  renyiOrder : ℝ
-  hOrder : 1 < renyiOrder
-  /-- The Rényi divergence bound `R ≥ 1`.
-  By [Jia+26] Corollary 1: `R ≲ 1 + a · δ²_{B,s} / 2` where `δ_{B,s}` is the
-  basis-specific relative error. For typical Falcon bases, `log₂ R < 2^{-10}`. -/
-  bound : ℝ≥0∞
-  /-- The ideal sampler: exact discrete Gaussian `D_{Λ^⊥, σ, c}` over the NTRU lattice
-  coset. This is the target distribution that `ffSampling` approximates. -/
-  idealSampler : Rq p.n → ProbComp (Rq p.n × Rq p.n)
-  /-- Rényi divergence bound: for every target `c`, the Rényi divergence of order `a`
-  between the concrete sampler and the ideal Gaussian is at most `R`. -/
-  quality : ∀ c : Rq p.n,
-    renyiDiv renyiOrder ((falconPSF p prims).trapdoorSample pk sk c) (idealSampler c) ≤ bound
-  /-- Ideal sampler correctness: the ideal Gaussian always produces valid short preimages.
-  This follows from the lattice geometry when `σ ≥ η_ε(Λ^⊥) · ‖B̃‖_GS`. -/
-  idealCorrect : ∀ c : Rq p.n,
-    ∀ x ∈ support (idealSampler c),
-      (falconPSF p prims).eval pk x = c ∧ (falconPSF p prims).isShort x = true
-
-/-- A concrete upper bound on the finite-precision sampler loss that is uniform over
-all valid Falcon key pairs. This keeps the theorem statement non-vacuous while still
-letting later work plug in sharper bounds from `SamplerQuality`. -/
-def HasUniformSamplerLoss (samplerLoss : ENNReal) : Prop :=
-  ∀ pk sk, validKeyPair p pk sk = true →
-    ∃ quality : SamplerQuality p prims pk sk, quality.bound ≤ samplerLoss
-
 /-! ### EUF-CMA Security -/
 
 /-- The Falcon-PSF collision experiment **is** the `ntruPSFCollisionProblem` search experiment.
@@ -361,7 +159,6 @@ trapdoor sampler differs between `psf` and `falconPSF`, and the collision experi
 it, so the equality holds for any such `psf`. This bridge turns the abstract GPV collision branch
 into the Falcon NTRU-SIS hardness target. -/
 theorem collisionFindingAdvantage_eq_ntruPSF
-    [SampleableType (Rq p.n)]
     (psf : PreimageSampleableFunction (PublicKey p) (SecretKey p) (Rq p.n × Rq p.n) (Rq p.n))
     (hr : GenerableRelation (PublicKey p) (SecretKey p) (validKeyPair p))
     (hEval : ∀ pk x, psf.eval pk x = (falconPSF p prims).eval pk x)
@@ -369,26 +166,30 @@ theorem collisionFindingAdvantage_eq_ntruPSF
     (B : GPVHashAndSign.CollisionAdversary (PK := PublicKey p) (Domain := Rq p.n × Rq p.n)) :
     GPVHashAndSign.collisionFindingAdvantage psf hr B
       = SIS.advantage (ntruPSFCollisionProblem p prims hr) B := by
-  simp only [GPVHashAndSign.collisionFindingAdvantage, GPVHashAndSign.collisionFindingExp,
+  simp only [GPVHashAndSign.collisionFindingAdvantage, GPVHashAndSign.collisionFindingExperiment,
     SIS.advantage, SIS.experiment, ntruPSFCollisionProblem, hEval, hShort, bind_assoc, pure_bind]
 
-/-- **EUF-CMA security of Falcon** ([FGdG+25] Theorem 1 + [Jia+26] refined bounds),
-generic in the salt type `Salt`.
+/-- **One-shot EUF-CMA security of Falcon**, generic in the salt type `Salt`: the split GPV
+bound for the single-draw scheme `falconSignatureAlg`, with the sampler loss assumed
+monolithically. The attempt-level headline `euf_cma_security` is the quantitatively usable
+form; see the module docstring.
 
 For any EUF-CMA adversary `A` making at most `qSign` signing queries and `qHash`
 random-oracle queries against the Falcon+ signature scheme with salt type `Salt`, and
-any externally supplied bound `ε_sampler` that upper-bounds `SamplerQuality.bound` for
-every valid Falcon key pair, there exist:
+any ideal-scheme adversary `A'` to which `A` transports at cost `ε_sampler` (the
+`hTransport` hypothesis), the GPV reductions of `A'` at the domain sampler `domainSample`,
 
-- a collision reduction `B_coll` for the distinct-preimage branch,
-- a programmed-preimage replay reduction `B_exact` for the exact-match branch,
+- `B_coll = GPVHashAndSign.reduction idealPSF hr (List Byte) Salt A' domainSample` for the
+  distinct-preimage branch, read as an adversary for `ntruPSFCollisionProblem`,
+- `B_exact = GPVHashAndSign.programmedPreimageReduction idealPSF hr (List Byte) Salt A'
+  domainSample qSign qHash` for the exact-match branch,
 
-such that:
+satisfy:
 
   `Adv^{EUF-CMA}_{Falcon+}(A)`
   `  ≤ Adv^{collision}_{Falcon-PSF}(B_coll)`
   `    + (qSign + qHash) · Adv^{exact-match}_{Falcon-PSF}(B_exact)`
-  `    + qSign² / (2 · |Salt|) + ε_sampler`
+  `    + (qSign + qHash)² / (2 · |Salt|) + ε_sampler`
 
 ### Error terms
 
@@ -403,17 +204,17 @@ The explicit multi-target loss for the exact-match branch. The reduction guesses
 the programmed random-oracle entries and tries to show that reproducing the simulator's
 hidden short preimage there is hard.
 
-**Term 3: `qSign² / (2 · |Salt|)`.**
-Salt collision probability, bounded by the birthday paradox. This is a simplified form
-of the `Q_s · (C_s + Q_H) / 2^k` term from [FGdG+25] Theorem 1.
+**Term 3: `(qSign + qHash)² / (2 · |Salt|)`.**
+Salt collision probability over every salt appearing in a signing query or a
+random-oracle query, bounded by the birthday paradox. This is a simplified form of the
+`Q_s · (C_s + Q_H) / 2^k` term from [FGdG+25] Theorem 1.
 
 **Term 4: `ε_sampler`.**
-The Rényi divergence-based sampler loss. The full [FGdG+25] bound has the structure
-`r_u^{C_s} · (r_p^{C_s} · Adv^{ISIS})^{...}`, where `r_p` and `r_u` are the per-query
-Rényi divergences for the sampler and RO simulation respectively.
-[Jia+26] Theorems 2-4 show that with basis-specific analysis, the total loss
-`C_s · (log r_p + log r_u)` is < 0.2 bits for all tested Falcon instances.
-With exact arithmetic (infinite precision), `r_p = 1` and the sampler loss vanishes.
+The sampler loss, assumed by `hTransport` as the cost of swapping the concrete signing oracle
+for the ideal one. It stands in for the Rényi-divergence term of [FGdG+25] Theorem 1 but is
+not derived from it; read per trapdoor draw it is `qSign · ε_step` for a `samplerTransport`
+budget `ε_step`, and `oneShot_samplerLoss_one_le_of_samplerTransport` shows that reading is
+vacuous at Falcon's query budget.
 
 ### Proof structure
 
@@ -424,29 +225,28 @@ With exact arithmetic (infinite precision), `r_p = 1` and the sampler loss vanis
    sampled from the same key distribution (`collisionFindingAdvantage_eq_ntruPSF`).
 3. Leave the exact-match branch explicit in the theorem statement until it is discharged by
    a Falcon-specific min-entropy / one-way lemma.
-4. Account for finite-precision via the sampler quality hypothesis.
+4. Account for finite precision via the `hTransport` sampler-transport hypothesis.
 
-**On the GPV laws (`hCorrect`/`hReg`/`hNeverFail`).** These are taken on the support of `hr.gen`
-(honestly generated keys) only, via the valid-key-restricted `GPVHashAndSign.euf_cma_split_bound`.
+**On the GPV laws (`hCorrect`/`hReg`).** These are taken on the support of `hr.gen` (honestly
+generated keys) only, via the valid-key-restricted `GPVHashAndSign.euf_cma_split_bound`.
 The universal forms would be *unsatisfiable* for the Falcon PSF — `isShort` is the norm bound
 `‖·‖₂² ≤ betaSquared`, `PublicKey` is unconstrained, and a key with `h = 0` together with a
-large-norm target `c` (`‖c‖² > betaSquared`) has no short preimage — so no sampler could be both
-correct and total at *every* key. Restricting to `support hr.gen` (where the NTRU geometry of a
-valid key guarantees short preimages — the honest-key regime in which Falcon signatures verify)
-makes the hypotheses satisfiable, so this theorem is conditional, not vacuous. The ideal sampler
-`idealPSF` shares the deterministic `eval`/`isShort` of `falconPSF` (`hEval`/`hShort`); `hTransport`
-carries the finite-precision concrete→ideal gap as the [FGdG+25] Rényi term `samplerLoss`, assumed
-here in the
-same way MLWE/SIS hardness is assumed. The collision branch is discharged by
-`collisionFindingAdvantage_eq_ntruPSF`. -/
-theorem euf_cma_security
+large-norm target `c` (`‖c‖² > betaSquared`) has no short preimage — so no sampler, which always
+returns some output, could be correct at *every* key. Restricting to `support hr.gen` (where the
+NTRU geometry of a valid key guarantees short preimages — the honest-key regime in which Falcon
+signatures verify) makes the hypotheses satisfiable, so this theorem is conditional, not vacuous.
+The ideal sampler `idealPSF` shares the deterministic `eval`/`isShort` of `falconPSF`
+(`hEval`/`hShort`); `hTransport` carries the finite-precision concrete→ideal gap as the
+monolithic loss `samplerLoss`, assumed here in the same way MLWE/SIS hardness is assumed. The
+collision branch is discharged by `collisionFindingAdvantage_eq_ntruPSF`. -/
+theorem euf_cma_security_oneShot
     (Salt : Type) [DecidableEq Salt] [SampleableType Salt] [Fintype Salt] [Nonempty Salt]
-    [SampleableType (Rq p.n)] [Inhabited (Rq p.n)]
+    [Inhabited (Rq p.n)]
     (hr : GenerableRelation (PublicKey p) (SecretKey p)
       (validKeyPair p))
     (qSign qHash : ℕ)
     (samplerLoss : ENNReal)
-    (adv : SignatureAlg.unforgeableAdv
+    (adv : SignatureAlg.UnforgeableAdversary
       (falconSignatureAlg p prims Salt hr))
     -- Ideal preimage-sampleable abstraction (truncated discrete Gaussian over the NTRU coset):
     -- same deterministic `eval`/`isShort` as `falconPSF`, GPV laws on honest keys only.
@@ -455,165 +255,581 @@ theorem euf_cma_security
     (hEval : ∀ pk x, idealPSF.eval pk x = (falconPSF p prims).eval pk x)
     (hShort : ∀ x, idealPSF.isShort x = (falconPSF p prims).isShort x)
     (hCorrect : ∀ pk sk, (pk, sk) ∈ support hr.gen → idealPSF.CorrectAt pk sk)
-    (hReg : ∃ domainSample : PublicKey p → ProbComp (Rq p.n × Rq p.n),
-      ∀ pk sk, (pk, sk) ∈ support hr.gen →
-        𝒟[(do let s ← domainSample pk; pure (idealPSF.eval pk s, s)
-              : ProbComp (Rq p.n × (Rq p.n × Rq p.n)))] =
-        𝒟[(do let c ← ($ᵗ (Rq p.n)); let s ← idealPSF.trapdoorSample pk sk c; pure (c, s)
-              : ProbComp (Rq p.n × (Rq p.n × Rq p.n)))])
-    (hNeverFail : ∀ pk sk, (pk, sk) ∈ support hr.gen →
-      ∀ c, NeverFail (idealPSF.trapdoorSample pk sk c))
+    (domainSample : PublicKey p → ProbComp (Rq p.n × Rq p.n))
+    (hReg : ∀ pk sk, (pk, sk) ∈ support hr.gen →
+        (do let s ← domainSample pk; pure (idealPSF.eval pk s, s)
+            : ProbComp (Rq p.n × (Rq p.n × Rq p.n))) =ᵈ
+          (do let c ← ($ᵗ (Rq p.n)); let s ← idealPSF.trapdoorSample pk sk c; pure (c, s)
+            : ProbComp (Rq p.n × (Rq p.n × Rq p.n))))
     -- Finite-precision sampler transport ([FGdG+25] Rényi term): swapping the concrete signing
     -- oracle for the ideal one costs at most `samplerLoss` and yields a well-behaved ideal-scheme
-    -- adversary. Derivable from `SamplerQuality`/`renyiDiv`; assumed here.
-    (hTransport : ∃ adv' : SignatureAlg.unforgeableAdv
-        (GPVHashAndSign idealPSF hr (List Byte) Salt),
-      adv.advantage (GPVHashAndSign.runtime (Range := Rq p.n) (List Byte) Salt) ≤
-          adv'.advantage (GPVHashAndSign.runtime (Range := Rq p.n) (List Byte) Salt) +
-            samplerLoss ∧
-        (∀ ds, GPVHashAndSign.ForgesQueriedPoint idealPSF hr (List Byte) Salt adv' ds) ∧
-        (∀ pk, GPVHashAndSign.signHashQueryBound
-          (M := List Byte) (Salt := Salt) (Range := Rq p.n)
-          (S' := Salt × (Rq p.n × Rq p.n))
-          (α := List Byte × (Salt × (Rq p.n × Rq p.n))) (oa := adv'.main pk)
-          (qSign := qSign) (qHash := qHash))) :
-    ∃ (collisionReduction : SIS.Adversary (ntruPSFCollisionProblem p prims hr))
-      (exactMatchReduction : GPVHashAndSign.ProgrammedPreimageAdversary
-        (PK := PublicKey p) (Domain := Rq p.n × Rq p.n) (Range := Rq p.n)),
-      adv.advantage
-          (GPVHashAndSign.runtime
-            (Range := Rq p.n) (List Byte) Salt) ≤
-        SIS.advantage (ntruPSFCollisionProblem p prims hr) collisionReduction +
+    -- adversary. Assumed here as a single transport hypothesis; decomposing it into a
+    -- per-call sampler-approximation bound with a proven adaptive accumulation is the
+    -- intended refinement.
+    (adv' : SignatureAlg.UnforgeableAdversary
+      (GPVHashAndSign idealPSF hr (List Byte) Salt))
+    (hTransport : SignatureAlg.unforgeableAdvantage
+        (GPVHashAndSign.runtime (Range := Rq p.n) (List Byte) Salt) adv ≤
+      SignatureAlg.unforgeableAdvantage
+          (GPVHashAndSign.runtime (Range := Rq p.n) (List Byte) Salt) adv' + samplerLoss)
+    (hForge' : GPVHashAndSign.ForgesQueriedPoint idealPSF hr (List Byte) Salt adv' domainSample)
+    (hQ' : ∀ pk, GPVHashAndSign.signHashQueryBound
+      (M := List Byte) (Salt := Salt) (Range := Rq p.n)
+      (S' := Salt × (Rq p.n × Rq p.n))
+      (α := List Byte × (Salt × (Rq p.n × Rq p.n))) (oa := adv'.main pk)
+      (qSign := qSign) (qHash := qHash)) :
+    SignatureAlg.unforgeableAdvantage
+        (GPVHashAndSign.runtime (Range := Rq p.n) (List Byte) Salt) adv ≤
+      SIS.advantage (ntruPSFCollisionProblem p prims hr)
+          (GPVHashAndSign.reduction idealPSF hr (List Byte) Salt adv' domainSample) +
         ((qSign + qHash : ℕ) : ENNReal) *
-          GPVHashAndSign.programmedPreimageAdvantage
-            idealPSF hr exactMatchReduction +
+          GPVHashAndSign.programmedPreimageAdvantage idealPSF hr
+            (GPVHashAndSign.programmedPreimageReduction idealPSF hr (List Byte) Salt adv'
+              domainSample qSign qHash) +
         GPVHashAndSign.collisionBound Salt qSign qHash +
         samplerLoss := by
-  obtain ⟨adv', hAdvLe, hForge', hQ'⟩ := hTransport
-  obtain ⟨cRed, eRed, hsplit⟩ :=
-    GPVHashAndSign.euf_cma_split_bound (psf := idealPSF) (hr := hr)
-      (M := List Byte) (Salt := Salt) hCorrect hReg qSign qHash adv'
-      hNeverFail hForge' hQ'
-  refine ⟨cRed, eRed, ?_⟩
-  have hbridge :
-      GPVHashAndSign.collisionFindingAdvantage idealPSF hr cRed
-        = SIS.advantage (ntruPSFCollisionProblem p prims hr) cRed :=
-    collisionFindingAdvantage_eq_ntruPSF p prims idealPSF hr hEval hShort cRed
-  rw [← hbridge]
-  exact le_trans hAdvLe (by gcongr)
+  have hsplit := GPVHashAndSign.euf_cma_split_bound (psf := idealPSF) (hr := hr)
+    (M := List Byte) (Salt := Salt) hCorrect domainSample hReg qSign qHash adv' hForge' hQ'
+  rw [← collisionFindingAdvantage_eq_ntruPSF p prims idealPSF hr hEval hShort]
+  exact le_trans hTransport (by gcongr)
 
-/-- EUF-CMA security expressed against the **key-distributed NTRU-SIS** problem (norm bound
-`4 · betaSquared`), obtained by composing `euf_cma_security` with the collision→keyed-SIS
-advantage bridge `ntruPSFCollision_advantage_le_keyedSIS`.
-
-The reduction now terminates at `ntruKeyedSISProblem` — finding a short nonzero kernel vector for
-the Falcon public key's `[I | h]` lattice — the standard lattice target, at the `4 · betaSquared`
-bound that a difference of two `β`-short preimages achieves. The bound is otherwise identical to
-`euf_cma_security` (only the first summand is replaced, using that the keyed adversary wins
-whenever the collision adversary does). -/
-theorem euf_cma_security_ntruSIS
-    (Salt : Type) [DecidableEq Salt] [SampleableType Salt] [Fintype Salt] [Nonempty Salt]
-    [SampleableType (Rq p.n)] [Inhabited (Rq p.n)]
-    (hr : GenerableRelation (PublicKey p) (SecretKey p)
-      (validKeyPair p))
-    (qSign qHash : ℕ)
-    (samplerLoss : ENNReal)
-    (adv : SignatureAlg.unforgeableAdv
-      (falconSignatureAlg p prims Salt hr))
-    (idealPSF : PreimageSampleableFunction
-      (PublicKey p) (SecretKey p) (Rq p.n × Rq p.n) (Rq p.n))
-    (hEval : ∀ pk x, idealPSF.eval pk x = (falconPSF p prims).eval pk x)
-    (hShort : ∀ x, idealPSF.isShort x = (falconPSF p prims).isShort x)
-    (hCorrect : ∀ pk sk, (pk, sk) ∈ support hr.gen → idealPSF.CorrectAt pk sk)
-    (hReg : ∃ domainSample : PublicKey p → ProbComp (Rq p.n × Rq p.n),
-      ∀ pk sk, (pk, sk) ∈ support hr.gen →
-        𝒟[(do let s ← domainSample pk; pure (idealPSF.eval pk s, s)
-              : ProbComp (Rq p.n × (Rq p.n × Rq p.n)))] =
-        𝒟[(do let c ← ($ᵗ (Rq p.n)); let s ← idealPSF.trapdoorSample pk sk c; pure (c, s)
-              : ProbComp (Rq p.n × (Rq p.n × Rq p.n)))])
-    (hNeverFail : ∀ pk sk, (pk, sk) ∈ support hr.gen →
-      ∀ c, NeverFail (idealPSF.trapdoorSample pk sk c))
-    (hTransport : ∃ adv' : SignatureAlg.unforgeableAdv
-        (GPVHashAndSign idealPSF hr (List Byte) Salt),
-      adv.advantage (GPVHashAndSign.runtime (Range := Rq p.n) (List Byte) Salt) ≤
-          adv'.advantage (GPVHashAndSign.runtime (Range := Rq p.n) (List Byte) Salt) +
-            samplerLoss ∧
-        (∀ ds, GPVHashAndSign.ForgesQueriedPoint idealPSF hr (List Byte) Salt adv' ds) ∧
-        (∀ pk, GPVHashAndSign.signHashQueryBound
-          (M := List Byte) (Salt := Salt) (Range := Rq p.n)
-          (S' := Salt × (Rq p.n × Rq p.n))
-          (α := List Byte × (Salt × (Rq p.n × Rq p.n))) (oa := adv'.main pk)
-          (qSign := qSign) (qHash := qHash))) :
-    ∃ (keyedReduction : SIS.Adversary (ntruKeyedSISProblem p hr (4 * p.betaSquared)))
-      (exactMatchReduction : GPVHashAndSign.ProgrammedPreimageAdversary
-        (PK := PublicKey p) (Domain := Rq p.n × Rq p.n) (Range := Rq p.n)),
-      adv.advantage
-          (GPVHashAndSign.runtime
-            (Range := Rq p.n) (List Byte) Salt) ≤
-        SIS.advantage (ntruKeyedSISProblem p hr (4 * p.betaSquared)) keyedReduction +
-        ((qSign + qHash : ℕ) : ENNReal) *
-          GPVHashAndSign.programmedPreimageAdvantage
-            idealPSF hr exactMatchReduction +
-        GPVHashAndSign.collisionBound Salt qSign qHash +
-        samplerLoss := by
-  obtain ⟨cRed, eRed, hbound⟩ :=
-    euf_cma_security p prims Salt hr qSign qHash samplerLoss adv idealPSF
-      hEval hShort hCorrect hReg hNeverFail hTransport
-  refine ⟨ntruPSFCollisionToKeyedSISAdversary p prims hr cRed, eRed, ?_⟩
-  refine le_trans hbound ?_
-  gcongr
-  exact ntruPSFCollision_advantage_le_keyedSIS p prims hr cRed
-
-/-- Concrete instantiation of `euf_cma_security` with the Falcon-specified 40-byte
+/-- Concrete instantiation of `euf_cma_security_oneShot` with the Falcon-specified 40-byte
 (320-bit) salt.
 
 The collision term specializes to `(qSign + qHash)² / (2 · 2^320)`. For the Falcon-specified
 maximum of `qSign, qHash ≤ 2^64`, this is `≤ 2^{-191}`. -/
-theorem euf_cma_security_bytes40
-    [SampleableType (Rq p.n)] [Inhabited (Rq p.n)]
+theorem euf_cma_security_oneShot_bytes40
+    [Inhabited (Rq p.n)]
     (hr : GenerableRelation (PublicKey p) (SecretKey p)
       (validKeyPair p))
     (qSign qHash : ℕ)
     (samplerLoss : ENNReal)
-    (adv : SignatureAlg.unforgeableAdv
+    (adv : SignatureAlg.UnforgeableAdversary
       (falconSignatureAlg p prims (Bytes 40) hr))
     (idealPSF : PreimageSampleableFunction
       (PublicKey p) (SecretKey p) (Rq p.n × Rq p.n) (Rq p.n))
     (hEval : ∀ pk x, idealPSF.eval pk x = (falconPSF p prims).eval pk x)
     (hShort : ∀ x, idealPSF.isShort x = (falconPSF p prims).isShort x)
     (hCorrect : ∀ pk sk, (pk, sk) ∈ support hr.gen → idealPSF.CorrectAt pk sk)
-    (hReg : ∃ domainSample : PublicKey p → ProbComp (Rq p.n × Rq p.n),
-      ∀ pk sk, (pk, sk) ∈ support hr.gen →
-        𝒟[(do let s ← domainSample pk; pure (idealPSF.eval pk s, s)
-              : ProbComp (Rq p.n × (Rq p.n × Rq p.n)))] =
-        𝒟[(do let c ← ($ᵗ (Rq p.n)); let s ← idealPSF.trapdoorSample pk sk c; pure (c, s)
-              : ProbComp (Rq p.n × (Rq p.n × Rq p.n)))])
-    (hNeverFail : ∀ pk sk, (pk, sk) ∈ support hr.gen →
-      ∀ c, NeverFail (idealPSF.trapdoorSample pk sk c))
-    (hTransport : ∃ adv' : SignatureAlg.unforgeableAdv
-        (GPVHashAndSign idealPSF hr (List Byte) (Bytes 40)),
-      adv.advantage (GPVHashAndSign.runtime (Range := Rq p.n) (List Byte) (Bytes 40)) ≤
-          adv'.advantage (GPVHashAndSign.runtime (Range := Rq p.n) (List Byte) (Bytes 40)) +
-            samplerLoss ∧
-        (∀ ds, GPVHashAndSign.ForgesQueriedPoint idealPSF hr (List Byte) (Bytes 40) adv' ds) ∧
-        (∀ pk, GPVHashAndSign.signHashQueryBound
-          (M := List Byte) (Salt := Bytes 40) (Range := Rq p.n)
-          (S' := Bytes 40 × (Rq p.n × Rq p.n))
-          (α := List Byte × (Bytes 40 × (Rq p.n × Rq p.n))) (oa := adv'.main pk)
-          (qSign := qSign) (qHash := qHash))) :
-    ∃ (collisionReduction : SIS.Adversary (ntruPSFCollisionProblem p prims hr))
-      (exactMatchReduction : GPVHashAndSign.ProgrammedPreimageAdversary
-        (PK := PublicKey p) (Domain := Rq p.n × Rq p.n) (Range := Rq p.n)),
-      adv.advantage
-          (GPVHashAndSign.runtime
-            (Range := Rq p.n) (List Byte) (Bytes 40)) ≤
-        SIS.advantage (ntruPSFCollisionProblem p prims hr) collisionReduction +
+    (domainSample : PublicKey p → ProbComp (Rq p.n × Rq p.n))
+    (hReg : ∀ pk sk, (pk, sk) ∈ support hr.gen →
+        (do let s ← domainSample pk; pure (idealPSF.eval pk s, s)
+            : ProbComp (Rq p.n × (Rq p.n × Rq p.n))) =ᵈ
+          (do let c ← ($ᵗ (Rq p.n)); let s ← idealPSF.trapdoorSample pk sk c; pure (c, s)
+            : ProbComp (Rq p.n × (Rq p.n × Rq p.n))))
+    (adv' : SignatureAlg.UnforgeableAdversary
+      (GPVHashAndSign idealPSF hr (List Byte) (Bytes 40)))
+    (hTransport : SignatureAlg.unforgeableAdvantage
+        (GPVHashAndSign.runtime (Range := Rq p.n) (List Byte) (Bytes 40)) adv ≤
+      SignatureAlg.unforgeableAdvantage
+          (GPVHashAndSign.runtime (Range := Rq p.n) (List Byte) (Bytes 40)) adv' + samplerLoss)
+    (hForge' : GPVHashAndSign.ForgesQueriedPoint idealPSF hr (List Byte) (Bytes 40) adv'
+      domainSample)
+    (hQ' : ∀ pk, GPVHashAndSign.signHashQueryBound
+      (M := List Byte) (Salt := Bytes 40) (Range := Rq p.n)
+      (S' := Bytes 40 × (Rq p.n × Rq p.n))
+      (α := List Byte × (Bytes 40 × (Rq p.n × Rq p.n))) (oa := adv'.main pk)
+      (qSign := qSign) (qHash := qHash)) :
+    SignatureAlg.unforgeableAdvantage
+        (GPVHashAndSign.runtime (Range := Rq p.n) (List Byte) (Bytes 40)) adv ≤
+      SIS.advantage (ntruPSFCollisionProblem p prims hr)
+          (GPVHashAndSign.reduction idealPSF hr (List Byte) (Bytes 40) adv' domainSample) +
         ((qSign + qHash : ℕ) : ENNReal) *
-          GPVHashAndSign.programmedPreimageAdvantage
-            idealPSF hr exactMatchReduction +
+          GPVHashAndSign.programmedPreimageAdvantage idealPSF hr
+            (GPVHashAndSign.programmedPreimageReduction idealPSF hr (List Byte) (Bytes 40) adv'
+              domainSample qSign qHash) +
         GPVHashAndSign.collisionBound (Bytes 40) qSign qHash +
         samplerLoss :=
-  euf_cma_security p prims (Bytes 40) hr qSign qHash samplerLoss adv
-    idealPSF hEval hShort hCorrect hReg hNeverFail hTransport
+  euf_cma_security_oneShot p prims (Bytes 40) hr qSign qHash samplerLoss adv
+    idealPSF hEval hShort hCorrect domainSample hReg adv' hTransport hForge' hQ'
+
+/-! ### Per-call sampler transport
+
+`euf_cma_security_oneShot` assumes the concrete-to-ideal sampler swap as the single monolithic
+`hTransport` package.  `samplerTransport` names the *per-call* finite-precision
+sampler-approximation bound that a decomposition of it would rest on, read against a single
+trapdoor draw.
+
+Read against a single draw the budget is not usable at Falcon's parameters: on honest keys it
+dominates the whole per-attempt rejection probability of the norm check
+(`oneShot_rejection_prob_le_of_samplerTransport`), so the accumulated loss `qSign · ε_step`
+reaches one as soon as the signing budget reaches the inverse rejection rate
+(`oneShot_samplerLoss_one_le_of_samplerTransport`).  The frontier that carries quantitative
+content is the attempt-level one below, where `attemptTransport` compares whole signing
+attempts and the rejection rate is priced separately. -/
+
+/-- **Per-call sampler-approximation bound** ([FGdG+25]'s per-query Rényi term `r_p`, read
+here at total-variation distance): on every honestly generated key pair and every hash
+target `c`, the concrete Falcon trapdoor sampler (`ffSampling` over floating-point
+arithmetic) and the ideal sampler are within total-variation distance `ε_step`.
+
+The total-variation form is chosen because it is what the adaptive accumulation tool
+(`OracleComp.ProgramLogic.Relational.measureETVDist_simulateQ_run_le_queryBoundP_mul`) consumes
+per signing step; a Boolean-distinguisher formulation is interderivable but composes less
+directly.  The distance is taken on the discrete σ-algebra of preimages.  Honest-key scoping
+matches `hCorrect`: the sampler geometry is only meaningful where the NTRU basis is valid.
+
+On honest keys every admissible `ε_step` is at least the per-draw rejection probability of
+Falcon's norm check (`oneShot_rejection_prob_le_of_samplerTransport`), whatever the sampler's
+precision: `hCorrect` confines the ideal side to short outputs while
+`falconPSF.trapdoorSample` carries no norm check, so the two sides are conditioned
+differently.  `ε_step = 1` is always admissible (`samplerTransport_one`); `ε_step = 0` would
+force the concrete sampler to accept every draw (`samplerTransport_zero_forces_accept`).  The
+quantitatively usable hypothesis is the attempt-level `attemptTransport` below. -/
+def samplerTransport
+    (hr : GenerableRelation (PublicKey p) (SecretKey p) (validKeyPair p))
+    (idealPSF : PreimageSampleableFunction
+      (PublicKey p) (SecretKey p) (Rq p.n × Rq p.n) (Rq p.n))
+    (ε_step : ℝ) : Prop :=
+  ∀ pk sk, (pk, sk) ∈ support hr.gen → ∀ c : Rq p.n,
+    letI : MeasurableSpace (Rq p.n × Rq p.n) := ⊤
+    measureTVDist ((falconPSF p prims).trapdoorSample pk sk c)
+      (idealPSF.trapdoorSample pk sk c) ≤ ε_step
+
+/-- The trivial witness for the per-call sampler transport: total-variation distance never
+exceeds one, so `ε_step = 1` is always admissible. -/
+theorem samplerTransport_one
+    (hr : GenerableRelation (PublicKey p) (SecretKey p) (validKeyPair p))
+    (idealPSF : PreimageSampleableFunction
+      (PublicKey p) (SecretKey p) (Rq p.n × Rq p.n) (Rq p.n)) :
+    samplerTransport p prims hr idealPSF 1 :=
+  fun _pk _sk _h _c =>
+    letI : MeasurableSpace (Rq p.n × Rq p.n) := ⊤
+    measureTVDist_le_one _ _
+
+/-! ### Ideal-sampler min-entropy
+
+The exact-match (programmed-preimage) term of the decomposed frontier is controlled by the
+*guessing probability* of the ideal trapdoor sampler
+(`GPVHashAndSign.programmedPreimageAdvantage_le_of_prEvent_trapdoorSample_le`).
+`idealSamplerGuessBound` names the per-call pointwise-mass bound; it is discharged into the
+collision-only headline by `euf_cma_collision_security`, leaving the
+NTRU-PSF collision problem as the only cryptographic residual besides the named
+assumptions. -/
+
+/-- **Per-call guessing-probability (min-entropy) bound for the ideal trapdoor sampler**: on
+every honestly generated key pair and every hash target `c`, no single preimage carries more
+than `εpp` of the ideal sampler's output mass — equivalently, the sampler has min-entropy at
+least `log₂ (1/εpp)` at every honest key and target.
+
+For the ideal (exact-arithmetic) discrete Gaussian over the NTRU lattice coset — the sampler
+GPV08 and [FGdG+25] analyze — the literature value is `εpp = 2^(-H∞)` of the coset Gaussian
+`D_{Λ+c,σ}`, and GPV08 Lemma 2.10 gives `H∞ ≥ n - 1` bits once `σ` exceeds the smoothing
+parameter of the lattice, so `εpp` is negligible at Falcon parameters (`n = 512` / `1024`).
+The formal discharge of a concrete numeric `εpp` goes through the Klein structure of
+`Primitives.ffSampling` rather than through the smoothing parameter: the one-dimensional bound
+`LatticeCrypto.discreteGaussianPMF_le_one_div_sub_one` controls each of the `4 · 2^κ` leaf draws
+and the merge steps are injective, so the sampler's integer output has pointwise mass at most
+`(1 / (σ_min √(2π) - 1)) ^ (4 · 2^κ)`. On honest keys only short preimages carry mass
+(`idealSamplerGuessBound_of_short`), and a short preimage determines the lattice point modulo `q`
+except for representatives at distance at least `q - β`; bounding the mass of those far
+representatives is the remaining obligation. Until then this is a named assumption with
+inspectable content; it is trivially satisfiable at `εpp = 1` (`idealSamplerGuessBound_one`),
+since pointwise masses of any sampler are probabilities. -/
+def idealSamplerGuessBound
+    (hr : GenerableRelation (PublicKey p) (SecretKey p) (validKeyPair p))
+    (idealPSF : PreimageSampleableFunction
+      (PublicKey p) (SecretKey p) (Rq p.n × Rq p.n) (Rq p.n))
+    (εpp : ℝ≥0∞) : Prop :=
+  ∀ pk sk, (pk, sk) ∈ support hr.gen → ∀ (c : Rq p.n) (x : Rq p.n × Rq p.n),
+    Pr{let y ← idealPSF.trapdoorSample pk sk c}[y = x] ≤ εpp
+
+/-- The trivial witness for the guessing-probability bound: pointwise output masses of any
+sampler never exceed one, so `εpp = 1` is always admissible. -/
+theorem idealSamplerGuessBound_one
+    (hr : GenerableRelation (PublicKey p) (SecretKey p) (validKeyPair p))
+    (idealPSF : PreimageSampleableFunction
+      (PublicKey p) (SecretKey p) (Rq p.n × Rq p.n) (Rq p.n)) :
+    idealSamplerGuessBound p hr idealPSF 1 :=
+  fun _pk _sk _h _c _x => prEvent_le_one _
+
+/-- **The guessing bound only needs the short preimages.** On honest keys `CorrectAt` puts every
+output of the ideal sampler inside the short set, so a preimage that is not short has no output
+mass at all; a pointwise bound on the short preimages therefore bounds every preimage. This is
+the form a sampler min-entropy theorem delivers (the reduction of a lattice point modulo `q` is
+injective only on short vectors), and it is all the exact-match branch consumes. -/
+theorem idealSamplerGuessBound_of_short
+    (hr : GenerableRelation (PublicKey p) (SecretKey p) (validKeyPair p))
+    (idealPSF : PreimageSampleableFunction
+      (PublicKey p) (SecretKey p) (Rq p.n × Rq p.n) (Rq p.n))
+    (hCorrect : ∀ pk sk, (pk, sk) ∈ support hr.gen → idealPSF.CorrectAt pk sk)
+    (εpp : ℝ≥0∞)
+    (hShort : ∀ pk sk, (pk, sk) ∈ support hr.gen → ∀ (c : Rq p.n) (x : Rq p.n × Rq p.n),
+      idealPSF.isShort x = true → Pr{let y ← idealPSF.trapdoorSample pk sk c}[y = x] ≤ εpp) :
+    idealSamplerGuessBound p hr idealPSF εpp := by
+  intro pk sk hmem c x
+  by_cases hx : x ∈ support (idealPSF.trapdoorSample pk sk c)
+  · exact hShort pk sk hmem c x (hCorrect pk sk hmem c x hx).2
+  · rw [prEvent_eq_zero_of_not_mem_support _ hx]
+    exact zero_le
+
+/-! ## Falcon's rejection loop: attempt-level sampler transport
+
+Falcon's signer is a rejection loop: `Falcon.signAttempt` draws a trapdoor preimage and returns
+it only when the norm check `‖(s₁, s₂)‖₂² ≤ ⌊β²⌋` passes, retrying otherwise.  This section
+prices the concrete-to-ideal sampler swap at that granularity.
+
+`oneShot_rejection_prob_le_of_samplerTransport` records why the granularity matters: a budget
+stated on a *single* trapdoor draw against a `hCorrect` ideal sampler dominates the whole
+per-attempt rejection probability, because the ideal side accepts every draw.
+
+The attempt-level frontier separates the two costs, following [FGdG+25] Theorem 1, which
+accounts over `C_s` sampling calls *including* retries and carries the per-attempt acceptance
+probability explicitly:
+
+* `attemptTransport ε_step` — the finite-precision gap between Falcon's attempt and an
+  idealized attempt, both of which may reject, so `ε_step` measures precision alone;
+* `attemptRejectBound pRej` — the idealized per-attempt rejection probability;
+* `idealAttemptResamples` — the idealized attempt is a rejection sampler for the reject-free
+  `idealPSF` that the GPV bounds consume (`ProbComp.ResamplesTo`).
+
+`measureTVDist_falconRetryPSF_trapdoorSample_le` combines them into
+`ε_step / (1 - pRej) + pRej ^ maxAttempts` — approximation error accumulated across retries plus
+the attempt-budget exhaustion mass — and `euf_cma_security` carries that as
+the sampler loss. -/
+
+/-- **A one-shot transport budget dominates the rejection probability.**  On honest keys,
+`hCorrect` makes the ideal sampler accept every draw, so total-variation closeness to it charges
+`ε_step` for the entire mass on which Falcon's norm check fails. -/
+theorem oneShot_rejection_prob_le_of_samplerTransport
+    (hr : GenerableRelation (PublicKey p) (SecretKey p) (validKeyPair p))
+    (idealPSF : PreimageSampleableFunction
+      (PublicKey p) (SecretKey p) (Rq p.n × Rq p.n) (Rq p.n))
+    (ε_step : ℝ)
+    (hShort : ∀ x, idealPSF.isShort x = (falconPSF p prims).isShort x)
+    (hCorrect : ∀ pk sk, (pk, sk) ∈ support hr.gen → idealPSF.CorrectAt pk sk)
+    (hStep : samplerTransport p prims hr idealPSF ε_step)
+    (pk : PublicKey p) (sk : SecretKey p) (hmem : (pk, sk) ∈ support hr.gen)
+    (c : Rq p.n) :
+    1 - (Pr{let x ← (falconPSF p prims).trapdoorSample pk sk c}[
+        (falconPSF p prims).isShort x = true]).toReal ≤ ε_step := by
+  let : MeasurableSpace (Rq p.n × Rq p.n) := ⊤
+  have hideal : Pr{let x ← idealPSF.trapdoorSample pk sk c}[
+      (falconPSF p prims).isShort x = true] = 1 :=
+    prEvent_eq_one_of_forall_mem_support _ _ fun x hx => by
+      rw [← hShort x]
+      exact (hCorrect pk sk hmem c x hx).2
+  have habs := abs_prEvent_toReal_sub_le_measureTVDist
+    ((falconPSF p prims).trapdoorSample pk sk c) (idealPSF.trapdoorSample pk sk c)
+    (fun x => (falconPSF p prims).isShort x = true) .of_discrete
+  have hS : measureTVDist ((falconPSF p prims).trapdoorSample pk sk c)
+      (idealPSF.trapdoorSample pk sk c) ≤ ε_step := hStep pk sk hmem c
+  rw [hideal, ENNReal.toReal_one] at habs
+  linarith [(abs_le.mp habs).1]
+
+/-- **Falcon's signer as a preimage-sampleable function.**  The norm-checked attempt
+`Falcon.signAttempt` retried up to `maxAttempts` times, read as a total computation by
+`ProbComp.retryToDefault`.  The deterministic `eval` and `isShort` components are those of
+`falconPSF`, so the collision and verification theory transfers verbatim. -/
+noncomputable def falconRetryPSF [Inhabited (Rq p.n)] (maxAttempts : ℕ) :
+    PreimageSampleableFunction (PublicKey p) (SecretKey p) (Rq p.n × Rq p.n) (Rq p.n) where
+  eval := (falconPSF p prims).eval
+  trapdoorSample pk sk c := ProbComp.retryToDefault (signAttempt p prims pk sk c) maxAttempts
+  isShort := (falconPSF p prims).isShort
+
+/-- The Falcon signature scheme over the rejection-loop signer: the GPV hash-and-sign
+construction at `falconRetryPSF`. -/
+noncomputable def falconRetrySignatureAlg [Inhabited (Rq p.n)]
+    (Salt : Type) [DecidableEq Salt] [SampleableType Salt]
+    [SampleableType (Rq p.n)] [DecidableEq (Rq p.n)]
+    (maxAttempts : ℕ)
+    (hr : GenerableRelation (PublicKey p) (SecretKey p) (validKeyPair p)) :
+    SignatureAlg (OracleComp (unifSpec + (Salt × List Byte →ₒ Rq p.n)))
+      (M := List Byte) (PK := PublicKey p) (SK := SecretKey p)
+      (S := Salt × (Rq p.n × Rq p.n)) :=
+  GPVHashAndSign (falconRetryPSF p prims maxAttempts) hr (List Byte) Salt
+
+/-- **Per-attempt sampler approximation.**  On honestly generated keys and at every hash
+target, Falcon's rejection-sampling attempt and an idealized attempt are within
+total-variation distance `ε_step` on the discrete σ-algebra of attempt outcomes.  Both sides may
+reject, so `ε_step` prices only the finite-precision gap; the rejection rate itself is carried by
+`attemptRejectBound`. -/
+def attemptTransport
+    (hr : GenerableRelation (PublicKey p) (SecretKey p) (validKeyPair p))
+    (idealAttempt : PublicKey p → SecretKey p → Rq p.n →
+      ProbComp (Option (Rq p.n × Rq p.n)))
+    (ε_step : ℝ) : Prop :=
+  ∀ pk sk, (pk, sk) ∈ support hr.gen → ∀ c : Rq p.n,
+    letI : MeasurableSpace (Option (Rq p.n × Rq p.n)) := ⊤
+    measureTVDist (signAttempt p prims pk sk c) (idealAttempt pk sk c) ≤ ε_step
+
+/-- **Per-attempt rejection probability of the idealized attempt.**  This is `1 - p` for the
+acceptance probability `p` of [FGdG+25] Theorem 1. -/
+def attemptRejectBound
+    (hr : GenerableRelation (PublicKey p) (SecretKey p) (validKeyPair p))
+    (idealAttempt : PublicKey p → SecretKey p → Rq p.n →
+      ProbComp (Option (Rq p.n × Rq p.n)))
+    (pRej : ℝ) : Prop :=
+  ∀ pk sk, (pk, sk) ∈ support hr.gen → ∀ c : Rq p.n,
+    Pr{let x ← idealAttempt pk sk c}[x = none].toReal ≤ pRej
+
+/-- **The idealized attempt is a rejection sampler for the ideal PSF.**  Replacing a rejection
+by a fresh draw from `idealPSF.trapdoorSample` reproduces its law, so the accepted outputs of
+the attempt are exactly the ideal sampler conditioned on acceptance. -/
+def idealAttemptResamples
+    (hr : GenerableRelation (PublicKey p) (SecretKey p) (validKeyPair p))
+    (idealAttempt : PublicKey p → SecretKey p → Rq p.n →
+      ProbComp (Option (Rq p.n × Rq p.n)))
+    (idealPSF : PreimageSampleableFunction
+      (PublicKey p) (SecretKey p) (Rq p.n × Rq p.n) (Rq p.n)) : Prop :=
+  ∀ pk sk, (pk, sk) ∈ support hr.gen → ∀ c : Rq p.n,
+    ProbComp.ResamplesTo (idealAttempt pk sk c) (idealPSF.trapdoorSample pk sk c)
+
+/-- **The rejection loop transports at attempt granularity.**  Falcon's retry signer is within
+`ε_step / (1 - pRej) + pRej ^ maxAttempts` of the reject-free ideal sampler: the per-attempt
+precision gap accumulated geometrically across retries
+(`ProbComp.measureTVDist_retryToDefault_le_div`), plus the attempt-budget exhaustion mass
+(`ProbComp.measureTVDist_retryToDefault_le_pow`), on the discrete σ-algebra of preimages.
+
+Unlike a one-shot budget (`oneShot_rejection_prob_le_of_samplerTransport`), neither summand
+contains the rejection probability as an additive term: `pRej` enters only through the
+retry-count factor `1 / (1 - pRej)` and the exhaustion power `pRej ^ maxAttempts`. -/
+theorem measureTVDist_falconRetryPSF_trapdoorSample_le [Inhabited (Rq p.n)]
+    (hr : GenerableRelation (PublicKey p) (SecretKey p) (validKeyPair p))
+    (idealAttempt : PublicKey p → SecretKey p → Rq p.n →
+      ProbComp (Option (Rq p.n × Rq p.n)))
+    (idealPSF : PreimageSampleableFunction
+      (PublicKey p) (SecretKey p) (Rq p.n × Rq p.n) (Rq p.n))
+    (ε_step pRej : ℝ) (maxAttempts : ℕ)
+    (hStep : attemptTransport p prims hr idealAttempt ε_step)
+    (hRej : attemptRejectBound p hr idealAttempt pRej)
+    (hRes : idealAttemptResamples p hr idealAttempt idealPSF)
+    (hRej0 : 0 ≤ pRej) (hRej1 : pRej < 1)
+    (pk : PublicKey p) (sk : SecretKey p) (hmem : (pk, sk) ∈ support hr.gen)
+    (c : Rq p.n) :
+    letI : MeasurableSpace (Rq p.n × Rq p.n) := ⊤
+    measureTVDist ((falconRetryPSF p prims maxAttempts).trapdoorSample pk sk c)
+        (idealPSF.trapdoorSample pk sk c)
+      ≤ ε_step / (1 - pRej) + pRej ^ maxAttempts := by
+  let : MeasurableSpace (Rq p.n × Rq p.n) := ⊤
+  let : MeasurableSpace (Option (Rq p.n × Rq p.n)) := ⊤
+  refine le_trans (measureTVDist_triangle _
+    (ProbComp.retryToDefault (idealAttempt pk sk c) maxAttempts) _) (add_le_add ?_ ?_)
+  · exact ProbComp.measureTVDist_retryToDefault_le_div _ _ (hStep pk sk hmem c)
+      (hRej pk sk hmem c) hRej0 hRej1 maxAttempts
+  · exact ProbComp.measureTVDist_retryToDefault_le_pow _ _ (hRes pk sk hmem c)
+      (hRej pk sk hmem c) hRej0 maxAttempts
+
+
+/-- **EUF-CMA security of the Falcon rejection-loop signer from the attempt-level frontier.**
+The split GPV bound for any query-bounded adversary against `falconRetrySignatureAlg`, with the
+sampler loss `qSign · (ε_step / (1 - pRej) + pRej ^ maxAttempts)` derived from the per-attempt
+precision budget `ε_step`, the idealized per-attempt rejection probability `pRej`, and the
+attempt budget `maxAttempts` (`measureTVDist_falconRetryPSF_trapdoorSample_le`).
+
+The three cryptographic terms are those of `euf_cma_security_oneShot`:
+the NTRU-PSF collision problem, the exact-match branch at the multi-target factor
+`qSign + qHash + 1`, and the salt birthday bound.  The sampler loss differs in that the
+per-attempt rejection probability appears only through the expected retry count
+`1 / (1 - pRej)` and the exhaustion power `pRej ^ maxAttempts`, so a precision budget
+`ε_step ≪ 1 / qSign` and an attempt budget with `pRej ^ maxAttempts ≪ 1 / qSign` keep the term
+below one at Falcon's query bounds. -/
+theorem euf_cma_security
+    (Salt : Type) [DecidableEq Salt] [SampleableType Salt] [Fintype Salt] [Nonempty Salt]
+    [SampleableType (Rq p.n)] [Inhabited (Rq p.n)]
+    (hr : GenerableRelation (PublicKey p) (SecretKey p)
+      (validKeyPair p))
+    (qSign qHash maxAttempts : ℕ)
+    (ε_step pRej : ℝ) (hε : 0 ≤ ε_step) (hRej0 : 0 ≤ pRej) (hRej1 : pRej < 1)
+    (adv : SignatureAlg.UnforgeableAdversary
+      (falconRetrySignatureAlg p prims Salt maxAttempts hr))
+    (idealAttempt : PublicKey p → SecretKey p → Rq p.n →
+      ProbComp (Option (Rq p.n × Rq p.n)))
+    (idealPSF : PreimageSampleableFunction
+      (PublicKey p) (SecretKey p) (Rq p.n × Rq p.n) (Rq p.n))
+    (hEval : ∀ pk x, idealPSF.eval pk x = (falconPSF p prims).eval pk x)
+    (hShort : ∀ x, idealPSF.isShort x = (falconPSF p prims).isShort x)
+    (hCorrect : ∀ pk sk, (pk, sk) ∈ support hr.gen → idealPSF.CorrectAt pk sk)
+    (domainSample : PublicKey p → ProbComp (Rq p.n × Rq p.n))
+    (hReg : ∀ pk sk, (pk, sk) ∈ support hr.gen →
+        (do let s ← domainSample pk; pure (idealPSF.eval pk s, s)
+            : ProbComp (Rq p.n × (Rq p.n × Rq p.n))) =ᵈ
+          (do let c ← ($ᵗ (Rq p.n)); let s ← idealPSF.trapdoorSample pk sk c; pure (c, s)
+            : ProbComp (Rq p.n × (Rq p.n × Rq p.n))))
+    (hAttempt : attemptTransport p prims hr idealAttempt ε_step)
+    (hRej : attemptRejectBound p hr idealAttempt pRej)
+    (hRes : idealAttemptResamples p hr idealAttempt idealPSF)
+    (hQ : ∀ pk, GPVHashAndSign.signHashQueryBound
+      (M := List Byte) (Salt := Salt) (Range := Rq p.n)
+      (S' := Salt × (Rq p.n × Rq p.n))
+      (α := List Byte × (Salt × (Rq p.n × Rq p.n))) (oa := adv.main pk)
+      (qSign := qSign) (qHash := qHash)) :
+    SignatureAlg.unforgeableAdvantage
+        (GPVHashAndSign.runtime (Range := Rq p.n) (List Byte) Salt) adv ≤
+      SIS.advantage (ntruPSFCollisionProblem p prims hr)
+          (GPVHashAndSign.reduction idealPSF hr (List Byte) Salt
+            (GPVHashAndSign.appendForgeQuery idealPSF hr (List Byte) Salt ⟨adv.main⟩)
+            domainSample) +
+        ((qSign + (qHash + 1) : ℕ) : ENNReal) *
+          GPVHashAndSign.programmedPreimageAdvantage idealPSF hr
+            (GPVHashAndSign.programmedPreimageReduction idealPSF hr (List Byte) Salt
+              (GPVHashAndSign.appendForgeQuery idealPSF hr (List Byte) Salt ⟨adv.main⟩)
+              domainSample qSign (qHash + 1)) +
+        GPVHashAndSign.collisionBound Salt qSign (qHash + 1) +
+        ENNReal.ofReal (qSign * (ε_step / (1 - pRej) + pRej ^ maxAttempts)) := by
+  have hsplit := GPVHashAndSign.euf_cma_split_bound_of_queryBound (psf := idealPSF) (hr := hr)
+    (M := List Byte) (Salt := Salt) hCorrect domainSample hReg qSign qHash ⟨adv.main⟩ hQ
+  rw [← collisionFindingAdvantage_eq_ntruPSF p prims idealPSF hr hEval hShort]
+  have hlt : (0 : ℝ) < 1 - pRej := by linarith
+  have hεtot : 0 ≤ ε_step / (1 - pRej) + pRej ^ maxAttempts :=
+    add_nonneg (div_nonneg hε (le_of_lt hlt)) (pow_nonneg hRej0 maxAttempts)
+  have hAdvLe :
+      SignatureAlg.unforgeableAdvantage
+          (GPVHashAndSign.runtime (Range := Rq p.n) (List Byte) Salt) adv ≤
+        SignatureAlg.unforgeableAdvantage
+            (GPVHashAndSign.runtime (Range := Rq p.n) (List Byte) Salt)
+            (⟨adv.main⟩ : SignatureAlg.UnforgeableAdversary
+              (GPVHashAndSign idealPSF hr (List Byte) Salt)) +
+          ENNReal.ofReal (qSign * (ε_step / (1 - pRej) + pRej ^ maxAttempts)) :=
+    GPVHashAndSign.advantage_le_advantage_add_of_trapdoorSample_measureTVDist
+      (falconRetryPSF p prims maxAttempts) idealPSF hr (List Byte) Salt
+      (fun pk x => (hEval pk x).symm) (fun x => (hShort x).symm) hεtot
+      (fun pk sk hmem c => measureTVDist_falconRetryPSF_trapdoorSample_le p prims hr
+        idealAttempt idealPSF ε_step pRej maxAttempts hAttempt hRej hRes hRej0 hRej1 pk sk hmem c)
+      qSign adv (fun pk => (hQ pk).1)
+  exact le_trans hAdvLe (by gcongr)
+
+
+/-! ### The precision budget is decoupled from the rejection rate
+
+The two lemmas below isolate what the attempt-level granularity buys.  At a one-shot budget,
+`ε_step = 0` forces Falcon's norm check to accept with probability one
+(`samplerTransport_zero_forces_accept`), so a rejection loop is incompatible with a small
+budget.  At attempt granularity, `ε_step = 0` is satisfiable at *any* rejection rate
+(`attemptTransport_self_zero`), and the rejection rate is instead carried by `pRej` through the
+retry-count factor and the exhaustion power. -/
+
+/-- A vanishing one-shot transport budget forces the concrete sampler to accept every draw. -/
+theorem samplerTransport_zero_forces_accept
+    (hr : GenerableRelation (PublicKey p) (SecretKey p) (validKeyPair p))
+    (idealPSF : PreimageSampleableFunction
+      (PublicKey p) (SecretKey p) (Rq p.n × Rq p.n) (Rq p.n))
+    (hShort : ∀ x, idealPSF.isShort x = (falconPSF p prims).isShort x)
+    (hCorrect : ∀ pk sk, (pk, sk) ∈ support hr.gen → idealPSF.CorrectAt pk sk)
+    (hStep : samplerTransport p prims hr idealPSF 0)
+    (pk : PublicKey p) (sk : SecretKey p) (hmem : (pk, sk) ∈ support hr.gen)
+    (c : Rq p.n) :
+    Pr{let x ← (falconPSF p prims).trapdoorSample pk sk c}[
+      (falconPSF p prims).isShort x = true] = 1 := by
+  have h := oneShot_rejection_prob_le_of_samplerTransport p prims hr idealPSF 0
+    hShort hCorrect hStep pk sk hmem c
+  refine le_antisymm (prEvent_le_one _) ?_
+  rw [← ENNReal.toReal_le_toReal ENNReal.one_ne_top (prEvent_ne_top _), ENNReal.toReal_one]
+  linarith
+
+/-- At attempt granularity a vanishing precision budget is satisfiable whatever the norm check
+rejects: Falcon's own attempt is an idealized attempt at `ε_step = 0`. -/
+theorem attemptTransport_self_zero
+    (hr : GenerableRelation (PublicKey p) (SecretKey p) (validKeyPair p)) :
+    attemptTransport p prims hr (signAttempt p prims) 0 :=
+  fun _pk _sk _hmem _c =>
+    letI : MeasurableSpace (Option (Rq p.n × Rq p.n)) := ⊤
+    le_of_eq (measureTVDist_self _)
+
+/-- **Collision-only EUF-CMA security of the Falcon rejection-loop signer.**
+`euf_cma_security` with the exact-match branch discharged by the ideal
+sampler's guessing-probability bound `hGuess`
+(`GPVHashAndSign.programmedPreimageAdvantage_le_of_prEvent_trapdoorSample_le`), leaving the
+NTRU-PSF collision problem as the only cryptographic residual besides the named assumptions. -/
+theorem euf_cma_collision_security
+    (Salt : Type) [DecidableEq Salt] [SampleableType Salt] [Fintype Salt] [Nonempty Salt]
+    [SampleableType (Rq p.n)] [Inhabited (Rq p.n)]
+    (hr : GenerableRelation (PublicKey p) (SecretKey p)
+      (validKeyPair p))
+    (qSign qHash maxAttempts : ℕ)
+    (ε_step pRej : ℝ) (hε : 0 ≤ ε_step) (hRej0 : 0 ≤ pRej) (hRej1 : pRej < 1)
+    (εpp : ℝ≥0∞)
+    (adv : SignatureAlg.UnforgeableAdversary
+      (falconRetrySignatureAlg p prims Salt maxAttempts hr))
+    (idealAttempt : PublicKey p → SecretKey p → Rq p.n →
+      ProbComp (Option (Rq p.n × Rq p.n)))
+    (idealPSF : PreimageSampleableFunction
+      (PublicKey p) (SecretKey p) (Rq p.n × Rq p.n) (Rq p.n))
+    (hEval : ∀ pk x, idealPSF.eval pk x = (falconPSF p prims).eval pk x)
+    (hShort : ∀ x, idealPSF.isShort x = (falconPSF p prims).isShort x)
+    (hCorrect : ∀ pk sk, (pk, sk) ∈ support hr.gen → idealPSF.CorrectAt pk sk)
+    (domainSample : PublicKey p → ProbComp (Rq p.n × Rq p.n))
+    (hReg : ∀ pk sk, (pk, sk) ∈ support hr.gen →
+        (do let s ← domainSample pk; pure (idealPSF.eval pk s, s)
+            : ProbComp (Rq p.n × (Rq p.n × Rq p.n))) =ᵈ
+          (do let c ← ($ᵗ (Rq p.n)); let s ← idealPSF.trapdoorSample pk sk c; pure (c, s)
+            : ProbComp (Rq p.n × (Rq p.n × Rq p.n))))
+    (hAttempt : attemptTransport p prims hr idealAttempt ε_step)
+    (hRej : attemptRejectBound p hr idealAttempt pRej)
+    (hRes : idealAttemptResamples p hr idealAttempt idealPSF)
+    (hQ : ∀ pk, GPVHashAndSign.signHashQueryBound
+      (M := List Byte) (Salt := Salt) (Range := Rq p.n)
+      (S' := Salt × (Rq p.n × Rq p.n))
+      (α := List Byte × (Salt × (Rq p.n × Rq p.n))) (oa := adv.main pk)
+      (qSign := qSign) (qHash := qHash))
+    (hGuess : idealSamplerGuessBound p hr idealPSF εpp) :
+    SignatureAlg.unforgeableAdvantage
+        (GPVHashAndSign.runtime (Range := Rq p.n) (List Byte) Salt) adv ≤
+      SIS.advantage (ntruPSFCollisionProblem p prims hr)
+          (GPVHashAndSign.reduction idealPSF hr (List Byte) Salt
+            (GPVHashAndSign.appendForgeQuery idealPSF hr (List Byte) Salt ⟨adv.main⟩)
+            domainSample) +
+        ((qSign + (qHash + 1) : ℕ) : ENNReal) * εpp +
+        GPVHashAndSign.collisionBound Salt qSign (qHash + 1) +
+        ENNReal.ofReal (qSign * (ε_step / (1 - pRej) + pRej ^ maxAttempts)) := by
+  refine le_trans (euf_cma_security p prims Salt hr qSign qHash maxAttempts ε_step pRej
+    hε hRej0 hRej1 adv idealAttempt idealPSF hEval hShort hCorrect domainSample hReg
+    hAttempt hRej hRes hQ) ?_
+  gcongr
+  exact GPVHashAndSign.programmedPreimageAdvantage_le_of_prEvent_trapdoorSample_le
+    idealPSF hr _ hGuess
+
+
+/-! ### The two loss regimes, quantitatively
+
+`oneShot_samplerLoss_one_le_of_samplerTransport` turns the forcing of
+`oneShot_rejection_prob_le_of_samplerTransport` into a statement about the loss *term*: at a
+one-shot budget the sampler loss `qSign · ε_step` reaches one as soon as the signing budget
+reaches the inverse of the per-attempt rejection rate — the rate whose existence is the reason
+the signer retries at all.
+
+`attemptSamplerLoss_lt_falconScale` exhibits the attempt-level term at Falcon-scale numbers:
+a signing budget of `2^64`, a per-attempt precision gap of `2^-80`, a per-attempt rejection
+probability of `1/2`, and an attempt budget of `128` give a loss below `2^-14`.  The rejection
+probability is deliberately taken far above any realistic Falcon value, to show that the term
+is controlled by the precision gap and the attempt budget rather than by the rejection rate. -/
+
+/-- The one-shot sampler loss reaches one once the signing budget reaches the inverse rejection
+rate. -/
+theorem oneShot_samplerLoss_one_le (qSign : ℕ) (rejRate ε_step : ℝ)
+    (hRate : rejRate ≤ ε_step) (hq : 1 ≤ (qSign : ℝ) * rejRate) :
+    (1 : ℝ) ≤ (qSign : ℝ) * ε_step :=
+  le_trans hq (mul_le_mul_of_nonneg_left hRate (Nat.cast_nonneg qSign))
+
+/-- **The one-shot sampler loss is vacuous at Falcon's query budget.**  Combining the forcing of
+`oneShot_rejection_prob_le_of_samplerTransport` with `oneShot_samplerLoss_one_le`: whenever the
+signing budget times the per-attempt rejection probability of Falcon's norm check reaches one,
+so does the loss term `qSign · ε_step` of a one-shot transport frontier — whatever the sampler's
+actual precision. -/
+theorem oneShot_samplerLoss_one_le_of_samplerTransport
+    (hr : GenerableRelation (PublicKey p) (SecretKey p) (validKeyPair p))
+    (idealPSF : PreimageSampleableFunction
+      (PublicKey p) (SecretKey p) (Rq p.n × Rq p.n) (Rq p.n))
+    (qSign : ℕ) (ε_step : ℝ)
+    (hShort : ∀ x, idealPSF.isShort x = (falconPSF p prims).isShort x)
+    (hCorrect : ∀ pk sk, (pk, sk) ∈ support hr.gen → idealPSF.CorrectAt pk sk)
+    (hStep : samplerTransport p prims hr idealPSF ε_step)
+    (pk : PublicKey p) (sk : SecretKey p) (hmem : (pk, sk) ∈ support hr.gen)
+    (c : Rq p.n)
+    (hq : 1 ≤ (qSign : ℝ) *
+      (1 - (Pr{let x ← (falconPSF p prims).trapdoorSample pk sk c}[(falconPSF p prims).isShort x =
+        true]).toReal)) :
+    (1 : ℝ) ≤ (qSign : ℝ) * ε_step :=
+  oneShot_samplerLoss_one_le qSign _ ε_step
+    (oneShot_rejection_prob_le_of_samplerTransport p prims hr idealPSF ε_step
+      hShort hCorrect hStep pk sk hmem c) hq
+
+/-- The attempt-level sampler loss at Falcon-scale parameters: signing budget `2^64`,
+per-attempt precision gap `2^-80`, per-attempt rejection probability `1/2`, attempt budget
+`128`. -/
+theorem attemptSamplerLoss_lt_falconScale :
+    (2 ^ 64 : ℝ) * ((1 / 2 ^ 80 : ℝ) / (1 - 1 / 2) + (1 / 2 : ℝ) ^ 128) < 1 / 2 ^ 14 := by
+  norm_num
+
 
 end Falcon

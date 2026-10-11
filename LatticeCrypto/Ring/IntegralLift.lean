@@ -3,8 +3,10 @@ Copyright (c) 2026 Quang Dao. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Quang Dao
 -/
-import Mathlib.Data.ZMod.Basic
-import LatticeCrypto.Ring.VectorBackend
+
+module
+public import Mathlib.Data.ZMod.Basic
+public import LatticeCrypto.Ring.VectorBackend
 
 /-!
 # Integral Lifts For Negacyclic Rings
@@ -22,6 +24,8 @@ the generic ring layer. Defines:
   `Vector (ZMod q) n` via `PolyBackend.mapCoeffs`.
 -/
 
+@[expose] public section
+
 
 namespace LatticeCrypto
 
@@ -29,7 +33,8 @@ namespace LatticeCrypto
 
 Bundles a reduction map from integer polynomials to `R_q`, integer-polynomial
 multiplication in `ℤ[X]/(X^n + 1)`, and constant embedding. The multiplication
-uses `schoolbookNegacyclicMul` over the integer backend. -/
+is `negacyclicMulPure` over the integer backend, the `Finset`-sum specification whose
+runtime implementation is `schoolbookNegacyclicMul`. -/
 structure IntegralLift (IntPoly Rq : Type*) where
   toRq : IntPoly → Rq
   mul : IntPoly → IntPoly → IntPoly
@@ -45,7 +50,7 @@ def vectorIntegralLift (q n : Nat) :
     IntegralLift (Poly ℤ n) (Poly (ZMod q) n) where
   toRq := PolyBackend.mapCoeffs (vectorBackend ℤ n) (vectorBackend (ZMod q) n) rfl
     (fun z => (z : ZMod q))
-  mul := schoolbookNegacyclicMul (vectorKernel ℤ n)
+  mul := negacyclicMulPure (vectorKernel ℤ n)
   const := constPoly n
 
 end LatticeCrypto

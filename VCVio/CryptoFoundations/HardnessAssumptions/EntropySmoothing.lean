@@ -3,9 +3,18 @@ Copyright (c) 2026 Quang Dao. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Quang Dao
 -/
-import VCVio.OracleComp.ProbComp
-import VCVio.OracleComp.EvalDist
-import VCVio.OracleComp.Constructions.SampleableType
+
+module
+public import VCVio.CryptoFoundations.SecExp.Measure
+public import VCVio.OracleComp.QueryTracking.QueryBound
+public import VCVio.OracleComp.ProbComp.Basic
+public import VCVio.OracleComp.Constructions.UniformFinMeasure
+public import VCVio.OracleComp.Support
+public import VCVio.OracleComp.ReachableWhen
+public import VCVio.OracleComp.SimSemantics.SimulateQ
+public import VCVio.OracleComp.EvalDist.Measure
+public import VCVio.OracleComp.Constructions.SampleableType.Basic
+public import VCVio.OracleComp.Constructions.SampleableType.Measure
 
 /-!
 # Entropy Smoothing
@@ -14,6 +23,8 @@ This file defines the entropy-smoothing distinguishing game used by hashed ElGam
 constructions: the adversary distinguishes a real hash output `hash hk (z • g)` from an
 independent uniform element of the output space.
 -/
+
+@[expose] public section
 
 open OracleComp OracleSpec ENNReal
 
@@ -26,7 +37,7 @@ variable {M : Type} [AddCommGroup M] [SampleableType M] [DecidableEq M]
 
 /-- Real entropy-smoothing experiment. The adversary sees `(hk, hash hk (z • g))`
 for uniform `hk` and `z`, and tries to distinguish this from the ideal experiment. -/
-def realExp (g : G) (hash : HK → G → M) (adversary : HK × M → ProbComp Bool) :
+def realExperiment (g : G) (hash : HK → G → M) (adversary : HK × M → ProbComp Bool) :
     ProbComp Bool := do
   let hk ← $ᵗ HK
   let z ← $ᵗ F
@@ -34,15 +45,14 @@ def realExp (g : G) (hash : HK → G → M) (adversary : HK × M → ProbComp Bo
 
 /-- Ideal entropy-smoothing experiment. The adversary sees `(hk, h)` for independent
 uniform `hk` and uniform `h : M`. -/
-def idealExp (adversary : HK × M → ProbComp Bool) : ProbComp Bool := do
+def idealExperiment (adversary : HK × M → ProbComp Bool) : ProbComp Bool := do
   let hk ← $ᵗ HK
   let h ← $ᵗ M
   adversary (hk, h)
 
 /-- Entropy-smoothing distinguishing advantage. -/
 noncomputable def advantage (g : G) (hash : HK → G → M)
-    (adversary : HK × M → ProbComp Bool) : ℝ :=
-  |(Pr[= true | realExp F g hash adversary]).toReal -
-    (Pr[= true | idealExp adversary]).toReal|
+    (adversary : HK × M → ProbComp Bool) : ℝ≥0∞ :=
+  𝒟[realExperiment F g hash adversary].boolDist 𝒟[idealExperiment adversary]
 
 end EntropySmoothing

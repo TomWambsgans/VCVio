@@ -3,14 +3,19 @@ Copyright (c) 2024 Devon Tuma. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Devon Tuma, Quang Dao
 -/
-import VCVio.OracleComp.SimSemantics.QueryImpl.Basic
-import VCVio.Prelude
-import ToMathlib.Control.OptionT
+
+module
+public import PolyFun.Control.Monad.Hom.Loops
+public import VCVio.OracleComp.SimSemantics.QueryImpl.Basic
+public import VCVio.Prelude.Core
+public import ToMathlib.Control.OptionT
 
 /-!
 # Simulation Semantics for Oracles in a Computation
 
 -/
+
+@[expose] public section
 
 open OracleComp Prod
 
@@ -24,7 +29,7 @@ section simulateQ
 implementation in `r α` by substituting `impl t` for `query t` throughout. -/
 def simulateQ {ι} {spec : OracleSpec ι} {r : Type u → Type _} [Monad r]
     (impl : QueryImpl spec r) {α : Type u} (mx : OracleComp spec α) : r α :=
-  PFunctor.FreeM.mapM impl mx
+  PFunctor.FreeM.liftM impl mx
 
 variable {ι} {spec : OracleSpec ι} {r m n : Type u → Type*}
     [Monad r] (impl : QueryImpl spec r)
@@ -36,7 +41,7 @@ lemma simulateQ_pure (x : α) :
 @[simp, grind =, game_rule]
 lemma simulateQ_bind [LawfulMonad r] (mx : OracleComp spec α) (my : α → OracleComp spec β) :
     simulateQ impl (mx >>= my) = simulateQ impl mx >>= fun x => simulateQ impl (my x) := by
-  unfold simulateQ; exact PFunctor.FreeM.mapM_bind' impl mx my
+  unfold simulateQ; exact PFunctor.FreeM.liftM_bind impl mx my
 
 /-- Version of `simulateQ` that bundles into a monad hom. -/
 @[reducible]
@@ -45,10 +50,20 @@ def simulateQ' [LawfulMonad r] (impl : QueryImpl spec r) : OracleComp spec →�
   toFun_pure' _ := simulateQ_pure _ _
   toFun_bind' _ _ := simulateQ_bind _ _ _
 
+/-- Simulation preserves the monadic operations in cslib's unbundled interface. -/
+theorem simulateQ_isMonadHom [LawfulMonad r] (impl : QueryImpl spec r) :
+    Cslib.IsMonadHom (OracleComp spec) r (fun {_} mx ↦ simulateQ impl mx) :=
+  (simulateQ' impl).isMonadHom
+
+@[simp, grind =]
+lemma simulateQ'_apply [LawfulMonad r] (impl : QueryImpl spec r) (mx : OracleComp spec α) :
+    simulateQ' impl mx = simulateQ impl mx := rfl
+
 @[simp, grind =, game_rule]
 lemma simulateQ_query [LawfulMonad r] (q : OracleQuery spec α) :
     simulateQ impl (liftM q) = q.cont <$> (impl q.input) := by
-  simp [simulateQ, OracleComp.liftM_def]
+  simp [simulateQ, OracleComp.liftM_def, OracleQuery.cont,
+    PFunctor.Obj.snd, PFunctor.Obj.fst]
 
 /-- Specialized form of `simulateQ_query` for the canonical `spec.query t`
 constructor: `simulateQ impl (liftM (spec.query t)) = impl t`.
@@ -61,10 +76,19 @@ vs `E₁.Range t`, both abstract atoms) the type annotations diverge and
 `id_map` no longer fires under `simp only`. This lemma sidesteps the artifact
 entirely and is the canonical entry point for simplifying `simulateQ` over an
 explicit `spec.query t`. -/
-@[simp, grind =]
+@[grind =]
 lemma simulateQ_spec_query [LawfulMonad r] (t : spec.Domain) :
     simulateQ impl (liftM (spec.query t)) = impl t := by
   simp [simulateQ_query]
+
+/-- A direct-style `HasQuery.query` in `OracleComp` is the canonical primitive query when
+interpreted by `simulateQ`. -/
+@[grind =]
+lemma simulateQ_HasQuery_query [LawfulMonad r] (t : spec.Domain) :
+    simulateQ impl
+        (HasQuery.query (spec := spec) (m := OracleComp spec) t) =
+      impl t := by
+  rw [HasQuery.instOfMonadLift_query, simulateQ_spec_query]
 
 /-- Companion to `simulateQ_query` for a query entering the computation through a
 *query-level lift chain*: simulating a query lifted from a sub-spec `spec'` applies the
@@ -115,13 +139,29 @@ theorem evalWithAnswerFn_bind {ι} {spec : OracleSpec ι} (f : QueryImpl spec Id
   change simulateQ f (mx >>= my) = simulateQ f (my (simulateQ f mx))
   rw [simulateQ_bind]; rfl
 
-@[simp]
 theorem evalWithAnswerFn_query {ι} {spec : OracleSpec ι} (f : QueryImpl spec Id)
     (t : spec.Domain) :
     evalWithAnswerFn f (query t : OracleComp spec _) = f t := by
   simp [evalWithAnswerFn]
 
+/-- A primitive query lifted into the free computation receives the given table answer. -/
 @[simp]
+theorem evalWithAnswerFn_liftM_query {ι} {spec : OracleSpec ι}
+    (f : QueryImpl spec Id) (t : spec.Domain) :
+    evalWithAnswerFn f (liftM (spec.query t) : OracleComp spec (spec.Range t)) = f t := rfl
+
+/-- Deterministic evaluation after simulation uses the same table for each query implementation. -/
+theorem evalWithAnswerFn_simulateQ {ι' : Type u} {spec' : OracleSpec ι'}
+    (f : QueryImpl spec' Id) (impl : QueryImpl spec (OracleComp spec'))
+    (oa : OracleComp spec α) :
+    evalWithAnswerFn f (simulateQ impl oa) =
+      evalWithAnswerFn (fun t => evalWithAnswerFn f (impl t)) oa := by
+  induction oa using OracleComp.inductionOn with
+  | pure a => simp
+  | query_bind t k ih =>
+      simp only [simulateQ_bind, simulateQ_spec_query, evalWithAnswerFn_bind,
+        evalWithAnswerFn_liftM_query, ih]
+
 lemma simulateQ_query_bind [LawfulMonad r] (q : OracleQuery spec α)
     (ou : α → OracleComp spec β) : simulateQ impl (liftM q >>= ou) =
       liftM (impl q.input) >>= fun u => simulateQ impl (ou (q.cont u)) := by aesop
@@ -196,7 +236,7 @@ variable {ι} {spec : OracleSpec ι} {n : Type u → Type v}
   [Monad n] [LawfulMonad n] (impl : QueryImpl spec n)
 
 lemma simulateQ_def (impl : QueryImpl spec n) (mx : OracleComp spec α) :
-    simulateQ impl mx = PFunctor.FreeM.mapMHom impl mx := rfl
+    simulateQ impl mx = PFunctor.FreeM.liftMHom impl mx := rfl
 
 /-- `QueryImpl.id'` is an identity for `simulateQ` with implementation in `OracleComp spec`. -/
 @[simp, grind =]
@@ -247,19 +287,12 @@ mapping the simulated function over the list. -/
 @[simp]
 lemma simulateQ_list_mapM (f : α → OracleComp spec β) (xs : List α) :
     simulateQ impl (xs.mapM f) = xs.mapM (fun a => simulateQ impl (f a)) := by
-  induction xs with
-  | nil => simp
-  | cons x xs ih => simp [List.mapM_cons, simulateQ_bind, ih]
+  exact (simulateQ_isMonadHom impl).map_listMapM f xs
 
 /-- `simulateQ` distributes over `List.forM`. -/
-@[simp]
 lemma simulateQ_list_forM (f : α → OracleComp spec PUnit) (xs : List α) :
     simulateQ impl (xs.forM f) = xs.forM (fun a => simulateQ impl (f a)) := by
-  induction xs with
-  | nil => rfl
-  | cons x xs ih =>
-    have h : (x :: xs).forM f = f x >>= fun _ => xs.forM f := rfl
-    rw [h, simulateQ_bind]; congr 1; funext; exact ih
+  exact (simulateQ_isMonadHom impl).map_listForM xs f
 
 /-- `simulateQ` distributes over `forIn` on a list: a monad morphism commutes with `forIn`.
 
@@ -271,15 +304,8 @@ individual simulated query steps can be discharged. -/
 lemma simulateQ_list_forIn {β : Type u} (xs : List α) (init : β)
     (f : α → β → OracleComp spec (ForInStep β)) :
     simulateQ impl (forIn xs init f) = forIn xs init (fun a b => simulateQ impl (f a b)) := by
-  induction xs generalizing init with
-  | nil => simp
-  | cons x xs ih =>
-    rw [List.forIn_cons, List.forIn_cons, simulateQ_bind]
-    congr 1
-    funext step
-    cases step with
-    | done b => simp
-    | yield b => exact ih b
+  exact (simulateQ_isMonadHom impl).map_listForIn xs init f
+
 
 end List
 

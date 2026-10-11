@@ -25,7 +25,7 @@ open scoped ProofWidgets.Jsx
 # Composition diagram widget for OpenSyntax.Raw expressions
 
 This panel widget renders `Raw` expression trees as interactive force-directed
-graphs in the Lean 4 infoview, powered by ProofWidgets' `GraphDisplay` (D3).
+graphs in the Lean 4 infoview, powered by ProofWidgets' `ForceGraphDisplay` (D3).
 
 Nodes are draggable, edges have SVG arrows, and clicking any element shows
 contextual details. Mark a definition with `@[show_composition]` and activate
@@ -36,6 +36,7 @@ to see the composition diagram.
 
 /-! ## Intermediate tree representation -/
 
+/-- Display tree for open-system composition, preserving map, parallel, wire, and plug nodes. -/
 inductive CompTree where
   | atom (label : String)
   | mapNode (child : CompTree)
@@ -49,6 +50,7 @@ inductive CompTree where
 
 private def rawPrefix : Name := `Interaction.UC.OpenSyntax.Raw
 
+/-- Extract the composition structure of an expression, using opaque labels for unrecognized nodes. -/
 partial def extractCompTree (e : Expr) : MetaM CompTree := do
   match e with
   | .mdata _ inner => extractCompTree inner
@@ -108,11 +110,11 @@ where
         let fmt ← ppExpr e
         return .opaque fmt.pretty
 
-/-! ## Graph rendering (D3 force-directed via GraphDisplay) -/
+/-! ## Graph rendering (D3 force-directed via ForceGraphDisplay) -/
 
 private structure GraphState where
-  vertices : Array GraphDisplay.Vertex
-  edges : Array GraphDisplay.Edge
+  vertices : Array ForceGraphDisplay.Vertex
+  edges : Array ForceGraphDisplay.Edge
   nextId : Nat
 
 private def mkAtomLabel (label : String) : Html :=
@@ -153,7 +155,7 @@ private partial def buildGraph (tree : CompTree) (st : GraphState) : String × G
   let st := { st with nextId := st.nextId + 1 }
   match tree with
   | .atom label =>
-      let vertex : GraphDisplay.Vertex := {
+      let vertex : ForceGraphDisplay.Vertex := {
         id := myId
         label := mkAtomLabel label
         boundingShape := .rect 104 32
@@ -161,7 +163,7 @@ private partial def buildGraph (tree : CompTree) (st : GraphState) : String × G
       }
       (myId, { st with vertices := st.vertices.push vertex })
   | .opaque label =>
-      let vertex : GraphDisplay.Vertex := {
+      let vertex : ForceGraphDisplay.Vertex := {
         id := myId
         label := mkOpaqueLabel label
         boundingShape := .rect 104 32
@@ -171,19 +173,19 @@ private partial def buildGraph (tree : CompTree) (st : GraphState) : String × G
   | .par left right =>
       let (leftId, st) := buildGraph left st
       let (rightId, st) := buildGraph right st
-      let vertex : GraphDisplay.Vertex := {
+      let vertex : ForceGraphDisplay.Vertex := {
         id := myId
         label := mkConnectiveLabel "par" "#4c78a8"
         boundingShape := .circle 5
         details? := some (.text "Parallel composition (par): places two systems side by side.")
       }
-      let edgeL : GraphDisplay.Edge := {
+      let edgeL : ForceGraphDisplay.Edge := {
         source := myId, target := leftId
         attrs := #[("stroke", Json.str "#4c78a8"),
                    ("strokeDasharray", Json.str "5,3"),
                    ("strokeWidth", Json.num 1.5)]
       }
-      let edgeR : GraphDisplay.Edge := {
+      let edgeR : ForceGraphDisplay.Edge := {
         source := myId, target := rightId
         attrs := #[("stroke", Json.str "#4c78a8"),
                    ("strokeDasharray", Json.str "5,3"),
@@ -195,19 +197,19 @@ private partial def buildGraph (tree : CompTree) (st : GraphState) : String × G
   | .wire left right =>
       let (leftId, st) := buildGraph left st
       let (rightId, st) := buildGraph right st
-      let vertex : GraphDisplay.Vertex := {
+      let vertex : ForceGraphDisplay.Vertex := {
         id := myId
         label := mkConnectiveLabel "wire" "#e45756"
         boundingShape := .circle 5
         details? := some
           (.text "Wiring (wire): connects two systems through a shared boundary Γ.")
       }
-      let edgeL : GraphDisplay.Edge := {
+      let edgeL : ForceGraphDisplay.Edge := {
         source := myId, target := leftId
         attrs := #[("stroke", Json.str "#e45756"), ("strokeWidth", Json.num 2)]
         label? := some (mkEdgeLabel "Γ" "#e45756")
       }
-      let edgeR : GraphDisplay.Edge := {
+      let edgeR : ForceGraphDisplay.Edge := {
         source := myId, target := rightId
         attrs := #[("stroke", Json.str "#e45756"), ("strokeWidth", Json.num 2)]
         label? := some (mkEdgeLabel "Γ" "#e45756")
@@ -218,20 +220,20 @@ private partial def buildGraph (tree : CompTree) (st : GraphState) : String × G
   | .plug system context =>
       let (sysId, st) := buildGraph system st
       let (ctxId, st) := buildGraph context st
-      let vertex : GraphDisplay.Vertex := {
+      let vertex : ForceGraphDisplay.Vertex := {
         id := myId
         label := mkConnectiveLabel "plug" "#54a24b"
         boundingShape := .circle 5
         details? := some
           (.text "Plugging (plug): fully closes the system against its context.")
       }
-      let edgeSys : GraphDisplay.Edge := {
+      let edgeSys : ForceGraphDisplay.Edge := {
         source := myId, target := sysId
         attrs := #[("stroke", Json.str "#54a24b"), ("strokeWidth", Json.num 2.5),
                    ("markerStart", Json.str "url(#arrow)")]
         label? := some (mkEdgeLabel "Δ" "#54a24b")
       }
-      let edgeCtx : GraphDisplay.Edge := {
+      let edgeCtx : ForceGraphDisplay.Edge := {
         source := myId, target := ctxId
         attrs := #[("stroke", Json.str "#54a24b"), ("strokeWidth", Json.num 2.5),
                    ("markerStart", Json.str "url(#arrow)")]
@@ -242,14 +244,14 @@ private partial def buildGraph (tree : CompTree) (st : GraphState) : String × G
         edges := st.edges ++ #[edgeSys, edgeCtx] })
   | .mapNode child =>
       let (childId, st) := buildGraph child st
-      let vertex : GraphDisplay.Vertex := {
+      let vertex : ForceGraphDisplay.Vertex := {
         id := myId
         label := mkConnectiveLabel "map" "#888"
         boundingShape := .circle 5
         details? := some
           (.text "Boundary adaptation (map): transforms the boundary of the inner system.")
       }
-      let edge : GraphDisplay.Edge := {
+      let edge : ForceGraphDisplay.Edge := {
         source := myId, target := childId
         attrs := #[("stroke", Json.str "#888"),
                    ("strokeDasharray", Json.str "3,3"),
@@ -259,7 +261,7 @@ private partial def buildGraph (tree : CompTree) (st : GraphState) : String × G
         vertices := st.vertices.push vertex
         edges := st.edges.push edge })
 
-private def compTreeToGraph (tree : CompTree) : GraphDisplay.Props :=
+private def compTreeToGraph (tree : CompTree) : ForceGraphDisplay.Props :=
   let (_, st) := buildGraph tree { vertices := #[], edges := #[], nextId := 0 }
   {
     vertices := st.vertices
@@ -281,11 +283,15 @@ private def compTreeToGraph (tree : CompTree) : GraphDisplay.Props :=
 
 /-! ## Attribute registry -/
 
+/-- A declaration registered for display as an open-system composition. -/
 structure RegisteredComp where
+  /-- Module containing the registered composition. -/
   modName : Name
+  /-- Name of the declaration whose composition is displayed. -/
   declName : Name
   deriving Inhabited, Repr
 
+/-- Scoped index of registered composition declarations by module. -/
 initialize compositionExt :
     SimpleScopedEnvExtension RegisteredComp (NameMap (Array Name)) ←
   registerSimpleScopedEnvExtension {
@@ -310,6 +316,7 @@ initialize registerBuiltinAttribute {
     compositionExt.add { modName, declName := decl } kind
 }
 
+/-- Return the composition declarations registered in a module. -/
 def getRegisteredCompositions (modName : Name) : CoreM (Array Name) := do
   return match (compositionExt.getState (← getEnv)).find? modName with
     | some names => names
@@ -380,7 +387,7 @@ private def renderOneDef (declName : Name) : MetaM Html := do
       ("fontWeight", "700"),
       ("fontFamily", "var(--vscode-editor-font-family)")
     ]}>{.text (toString declName)}</div>
-    <GraphDisplay
+    <ForceGraphDisplay
       vertices={gProps.vertices}
       edges={gProps.edges}
       defaultEdgeAttrs={gProps.defaultEdgeAttrs}
@@ -408,20 +415,13 @@ private def renderAll (snap : Snapshots.Snapshot) (modName : Name) : RequestM Ht
     </div>
   </details>
 
-private partial def latestReadySnap?
-    (snaps : IO.AsyncList IO.Error Snapshots.Snapshot)
-    (last? : Option Snapshots.Snapshot := none) : BaseIO (Option Snapshots.Snapshot) := do
-  match snaps with
-  | .nil => pure last?
-  | .cons snap rest => latestReadySnap? rest (some snap)
-  | .delayed task =>
-      if ← IO.hasFinished task.task then
-        match task.task.get with
-        | .ok rest => latestReadySnap? rest last?
-        | .error _ => pure last?
-      else
-        pure last?
+private def latestReadySnap?
+    (snaps : Lean.AsyncList IO.Error Snapshots.Snapshot) :
+    BaseIO (Option Snapshots.Snapshot) := do
+  let ⟨ready, _, _⟩ ← snaps.getFinishedPrefix
+  return ready.getLast?
 
+/-- Render the current module's registered open-system compositions for a widget request. -/
 @[server_rpc_method]
 def rpc (_props : PanelWidgetProps) : RequestM (RequestTask Html) := do
   let doc ← RequestM.readDoc
@@ -443,6 +443,7 @@ def rpc (_props : PanelWidgetProps) : RequestM (RequestTask Html) := do
 
 end CompositionPanel
 
+/-- Editor panel displaying registered open-system compositions as graphs. -/
 @[widget_module]
 def CompositionPanel : Component PanelWidgetProps :=
   mk_rpc_widget% CompositionPanel.rpc

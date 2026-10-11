@@ -4,18 +4,25 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Quang Dao, Oleksandr Vovkotrub
 -/
 
-import VCVio.CryptoFoundations.GPVHashAndSign.Basic
-import VCVio.CryptoFoundations.GPVHashAndSign.CollisionTelescope
-import VCVio.CryptoFoundations.GPVHashAndSign.Factorization
-import VCVio.CryptoFoundations.GPVHashAndSign.GameRuns
-import VCVio.CryptoFoundations.GPVHashAndSign.TapeFactorization
-import VCVio.CryptoFoundations.GPVHashAndSign.FlagHandlers
-import VCVio.CryptoFoundations.GPVHashAndSign.CombinedHandler
-import VCVio.CryptoFoundations.GPVHashAndSign.GameIdentification
-import VCVio.CryptoFoundations.GPVHashAndSign.VerificationBridge
-import VCVio.CryptoFoundations.GPVHashAndSign.TrapCount
-import VCVio.CryptoFoundations.GPVHashAndSign.EmbedIndex
-import VCVio.CryptoFoundations.GPVHashAndSign.Security
+module
+
+public import VCVio.CryptoFoundations.GPVHashAndSign.Basic
+public import VCVio.CryptoFoundations.GPVHashAndSign.MinEntropy
+public import VCVio.CryptoFoundations.GPVHashAndSign.CollisionTelescope
+public import VCVio.CryptoFoundations.GPVHashAndSign.Factorization
+public import VCVio.CryptoFoundations.GPVHashAndSign.GameRuns
+public import VCVio.CryptoFoundations.GPVHashAndSign.TapeFactorization
+public import VCVio.CryptoFoundations.GPVHashAndSign.FlagHandlers
+public import VCVio.CryptoFoundations.GPVHashAndSign.CombinedHandler
+public import VCVio.CryptoFoundations.GPVHashAndSign.GameIdentification
+public import VCVio.CryptoFoundations.GPVHashAndSign.VerificationBridge
+public import VCVio.CryptoFoundations.GPVHashAndSign.TrapCount
+public import VCVio.CryptoFoundations.GPVHashAndSign.EmbedIndex
+public import VCVio.CryptoFoundations.GPVHashAndSign.TrapProjection
+public import VCVio.CryptoFoundations.GPVHashAndSign.Reservoir
+public import VCVio.CryptoFoundations.GPVHashAndSign.Security
+public import VCVio.CryptoFoundations.GPVHashAndSign.AppendQuery
+public import VCVio.CryptoFoundations.GPVHashAndSign.SamplerTransport
 
 /-!
 # GPV Hash-and-Sign Framework
@@ -47,9 +54,14 @@ signing query. The precise EUF-CMA bound from [FGdG+25] Theorem 1 is:
   `                  + tail_bound + Q_s · (C_s + Q_H) / 2^k`
 
 where the salt-collision term `Q_s · (C_s + Q_H) / 2^k` bounds the probability that
-a fresh salt collides with any prior RO query. The simpler birthday bound
-`qSign² / (2 · |Salt|)` from GPV08 Prop 6.2 is slightly looser but still valid and is
-the one we formalize here.
+a fresh salt collides with any prior RO query. The constant the formalized statements prove is
+the closed birthday form `(qSign + qHash)² / (2 · |Salt|)` (`GPVHashAndSign.collisionBound`),
+counting every salt appearing in a signing or random-oracle query. The underlying telescope
+establishes the exact union sum `∑_{j < qSign} (j + qHash) / |Salt|`
+(`GPVHashAndSign.sum_range_div_card_le_collisionBound`); the closed form is looser than that sum
+by the `qHash² / 2` term, which dominates when `qHash ≫ qSign`, and is negligible for Falcon's
+320-bit salts at any realistic budget. GPV08 Proposition 6.2 itself only sketches the
+same-message salt reuse term `Q_sign² / 2^k`.
 
 The proof decomposes into:
 - `GPVHashAndSign.reduction`: the collision-finding adversary (sign-then-hash simulation)
@@ -57,6 +69,18 @@ The proof decomposes into:
 - `GPVHashAndSign.collisionBound`: the salt-collision birthday bound
 - `GPVHashAndSign.forgery_yields_collision`: the core distinct-preimage game-hop
 - `GPVHashAndSign.forgery_yields_collision_or_exact_match`: the explicit split bound
+
+## Public endpoints
+
+- `GPVHashAndSign.euf_cma_split_bound_of_queryBound`: the split bound (collision term,
+  exact-match term, salt-collision term) for every adversary obeying the query bound.
+- `GPVHashAndSign.euf_cma_collision_bound_of_queryBound`: the closed collision-style bound, with
+  the exact-match term priced by the trapdoor guessing probability.
+
+Both discharge the random-oracle convention `ForgesQueriedPoint` by the append-forgery-query
+compiler at one extra hash query; the `ForgesQueriedPoint`-hypothesis forms
+`GPVHashAndSign.euf_cma_split_bound` / `GPVHashAndSign.euf_cma_collision_bound` are the
+primitives they chain through.
 
 ## References
 
@@ -70,8 +94,13 @@ The proof decomposes into:
 ## Module layout
 
 The development is split along its proof phases: `Basic` (the PSF abstraction and
-the scheme), `CollisionTelescope`, `Factorization`, `GameRuns`, `TapeFactorization`,
+the scheme), `MinEntropy` (the guessing-probability bound for the programmed-preimage
+experiment), `CollisionTelescope`, `Factorization`, `GameRuns`, `TapeFactorization`,
 `FlagHandlers`, `CombinedHandler`, `GameIdentification`, `VerificationBridge`,
-`TrapCount`, `EmbedIndex`, and `Security` (the headline EUF-CMA bounds). This
-umbrella module re-exports all of them.
+`TrapCount`, `EmbedIndex`, `Security` (the headline EUF-CMA bounds),
+`AppendQuery` (the append-forgery-query compiler discharging `ForgesQueriedPoint`), and
+`SamplerTransport` (the adaptive trapdoor-sampler-swap accumulation).
+This umbrella module re-exports all of them.
 -/
+
+@[expose] public section

@@ -3,7 +3,9 @@ Copyright (c) 2024 Devon Tuma. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Devon Tuma
 -/
-import PolyFun.PFunctor.Basic
+
+module
+public import PolyFun.PFunctor.Basic
 
 /-!
 # Specifications of Available Oracles
@@ -18,6 +20,8 @@ This file also defines the standard sampling specifications `coinSpec`, `unifSpe
 `probSpec`.
 -/
 
+@[expose] public section
+
 universe u u' v w
 
 /-- An `OracleSpec ι` specifies a set of oracles indexed by `ι`.
@@ -25,11 +29,26 @@ Defined as a map from each input to the type of the oracle's output. -/
 def OracleSpec (ι : Type u) : Type (max u (v + 1)) :=
   ι → Type v
 
+/- `OracleSpec ι` is a one-field wrapper around `ι → Type v`. Lean checks the types of implicit
+and instance-implicit arguments, and of metavariable assignments, at `.implicit` transparency,
+where an ordinary `def` does not unfold. Proofs that unfold the reducible layers above the wrapper
+(`toPFunctor`, `ofFn`, `unifSpec`, `OracleComp`, `ProbComp`) then hold terms of type `ι → Type v`
+where an `OracleSpec ι` is expected, and instance searches whose argument types need the wrapper
+to unfold. Without this attribute the former fail with "the target expression is not type-correct
+under the `implicit` transparency level" (the eager random-oracle table lemmas in
+`QueryTracking/RandomOracle/EagerTable.lean`) and the latter time out (the `Decidable` searches in
+`MerkleTree/Inductive/Batch/Disagreement.lean`). Making the wrapper implicit-reducible closes that
+gap once, for every such site. Instance synthesis at the erased `PFunctor` literal does not need
+it (`VCVioTest/PFunctorFacade.lean` checks that), and the abstract API above the wrapper
+(`Domain`, `Range`, `query`, and the spec combinators) is unaffected. -/
+attribute [implicit_reducible] OracleSpec
+
 namespace OracleSpec
 
 variable {ι : Type u}
 
-def toPFunctor (spec : OracleSpec ι) : PFunctor := { A := ι, B := spec }
+@[reducible]
+def toPFunctor (spec : OracleSpec ι) : PFunctor := PFunctor.mk ι spec
 
 @[reducible, inline]
 def ofPFunctor (P : PFunctor) : OracleSpec P.A := P.B
@@ -43,21 +62,18 @@ def ofPFunctor (P : PFunctor) : OracleSpec P.A := P.B
 abbrev Domain (_spec : OracleSpec ι) : Type _ := ι
 abbrev Range (spec : OracleSpec ι) (t : ι) : Type _ := spec t
 
-protected class Fintype (spec : OracleSpec ι) extends PFunctor.Fintype spec.toPFunctor
+/-! ## Typeclass data on indices and answer types
 
-instance {spec : OracleSpec ι} [h : spec.Fintype] (t : spec.Domain) :
-  Fintype (spec.Range t) := h.fintype_B t
-
-protected class Inhabited (spec : OracleSpec ι) extends PFunctor.Inhabited spec.toPFunctor
-
-instance {spec : OracleSpec ι} [h : spec.Inhabited] (t : spec.Domain) :
-  Inhabited (spec.Range t) := h.inhabited_B t
-
-protected class DecidableEq (spec : OracleSpec ι) extends PFunctor.DecidableEq spec.toPFunctor
-
-instance {spec : OracleSpec ι} [h : spec.DecidableEq] : DecidableEq spec.Domain := h.decidableEq_A
-instance {spec : OracleSpec ι} [h : spec.DecidableEq] (t : spec.Domain) :
-  DecidableEq (spec.Range t) := h.decidableEq_B t
+`Domain` and `Range` are reducible, so a global instance concluding `C spec.Domain` or
+`C (spec.Range t)` for a generic `spec` is indexed as `C ι`, respectively `C (?spec ?t)`: a
+candidate for every `C _` goal, with `spec` undetermined. Instance search then invents a
+specification through `ofFn`, and either times out (VCVio#772) or answers an ordinary
+`DecidableEq`, `Fintype`, or `Inhabited` goal through oracle-specification data. Index
+equality is an ordinary `[DecidableEq ι]` hypothesis, and data on answer types are ordinary
+`[DecidableEq (spec.Range t)]`, `[Fintype (spec.Range t)]`, or `[Inhabited (spec.Range t)]`
+hypotheses, quantified over `t` when a statement ranges over arbitrary queries. Specifications
+built with `ofFn` reduce to their answer types, so `unifSpec`, `coinSpec`, and `A →ₒ B` need no
+instances of their own; `+` combines the per-branch instances of its summands. -/
 
 section ofFn
 
@@ -65,28 +81,22 @@ section ofFn
 notation:25 (name := singletonSpec) A:25 " →ₒ " B:26 =>
   OracleSpec.ofFn (ι := A) (fun _ => B)
 
-instance {ι : Type u} (F : ι → Type v) [h : (i : ι) → Fintype (F i)] :
-    (OracleSpec.ofFn F).Fintype where
-  fintype_B := h
-
-instance {ι : Type u} (F : ι → Type v) [h : DecidableEq ι] [h' : (i : ι) → DecidableEq (F i)] :
-    (OracleSpec.ofFn F).DecidableEq where
-  decidableEq_A := h
-  decidableEq_B := h'
-
-instance {ι : Type u} (F : ι → Type v) [h : (i : ι) → Inhabited (F i)] :
-    (OracleSpec.ofFn F).Inhabited where
-  inhabited_B := h
-
 end ofFn
 
 section add
 
 /-- `spec₁ + spec₂` specifies access to oracles in both `spec₁` and `spec₂`.
 The input is split as a sum type of the two original input sets.
-This corresponds exactly to addition of the corresponding `PFunctor`. -/
-instance {ι ι'} : HAdd (OracleSpec ι) (OracleSpec ι') (OracleSpec (ι ⊕ ι')) where
-  hAdd spec spec' := Sum.elim spec spec'
+This corresponds exactly to addition of the corresponding `PFunctor`.
+
+The ordinary instance reducibility assigned by the `instance` command lets its `HAdd.hAdd`
+projection reduce while checking dependent implicit types such as
+`(spec₁ + spec₂).Range (.inl t)`, without unfolding combined specifications during ordinary
+reducible-transparency tactic matching. -/
+instance {ι ι'} :
+    HAdd (OracleSpec ι) (OracleSpec ι') (OracleSpec (ι ⊕ ι')) where
+  hAdd spec spec' :=
+    OracleSpec.ofPFunctor (PFunctor.sum spec.toPFunctor spec'.toPFunctor)
 
 lemma add_def {ι ι'} (spec : OracleSpec ι) (spec' : OracleSpec ι') :
     spec + spec' = Sum.elim spec spec' := rfl
@@ -97,24 +107,37 @@ lemma add_def {ι ι'} (spec : OracleSpec ι) (spec' : OracleSpec ι') :
 @[simp] lemma add_apply_inr {ι ι'} (spec : OracleSpec ι) (spec' : OracleSpec ι')
     (t : ι') : (spec + spec') (.inr t) = spec' t := rfl
 
-@[simp] lemma toPFunctor_add {ι ι'} (spec : OracleSpec ι) (spec' : OracleSpec ι') :
+/-- Deliberately not `@[simp]`: `toPFunctor` occurs inside the (instance-carrying)
+type of an `OracleComp`, so rewriting with this under a `simulateQ`/`liftM` strands
+the goal in a form the `simulateQ_query` family can no longer match. -/
+lemma toPFunctor_add {ι : Type u} {ι' : Type u'}
+    (spec : OracleSpec ι) (spec' : OracleSpec ι') :
     (spec + spec').toPFunctor = spec.toPFunctor + spec'.toPFunctor := rfl
 
 @[simp] lemma ofPFunctor_add (P P' : PFunctor) :
     OracleSpec.ofPFunctor (P + P') = OracleSpec.ofPFunctor P + OracleSpec.ofPFunctor P' := rfl
 
-instance {ι ι'} (spec : OracleSpec ι) (spec' : OracleSpec ι')
-    [h : spec.Fintype] [h' : spec'.Fintype] : (spec + spec').Fintype where
-  fintype_B | .inl i => h.fintype_B i | .inr i => h'.fintype_B i
+/-! The answer types of a sum specification inherit the per-branch instances of its summands.
+These are indexed on the `HAdd.hAdd` head of the combined specification, so they apply only to
+goals about a sum. -/
 
 instance {ι ι'} (spec : OracleSpec ι) (spec' : OracleSpec ι')
-    [h : spec.DecidableEq] [h' : spec'.DecidableEq] : (spec + spec').DecidableEq where
-  decidableEq_A := inferInstanceAs (DecidableEq (ι ⊕ ι'))
-  decidableEq_B | .inl i => h.decidableEq_B i | .inr i => h'.decidableEq_B i
+    [h : ∀ t, Fintype (spec.Range t)] [h' : ∀ t, Fintype (spec'.Range t)] :
+    ∀ t, Fintype ((spec + spec').Range t)
+  | .inl i => h i
+  | .inr i => h' i
 
 instance {ι ι'} (spec : OracleSpec ι) (spec' : OracleSpec ι')
-    [h : spec.Inhabited] [h' : spec'.Inhabited] : (spec + spec').Inhabited where
-  inhabited_B | .inl i => h.inhabited_B i | .inr i => h'.inhabited_B i
+    [h : ∀ t, DecidableEq (spec.Range t)] [h' : ∀ t, DecidableEq (spec'.Range t)] :
+    ∀ t, DecidableEq ((spec + spec').Range t)
+  | .inl i => h i
+  | .inr i => h' i
+
+instance {ι ι'} (spec : OracleSpec ι) (spec' : OracleSpec ι')
+    [h : ∀ t, Inhabited (spec.Range t)] [h' : ∀ t, Inhabited (spec'.Range t)] :
+    ∀ t, Inhabited ((spec + spec').Range t)
+  | .inl i => h i
+  | .inr i => h' i
 
 end add
 
@@ -150,7 +173,8 @@ instance {ι ι'} : HMul (OracleSpec ι) (OracleSpec ι') (OracleSpec (ι × ι'
 @[simp] lemma mul_apply {ι ι'} (spec : OracleSpec ι) (spec' : OracleSpec ι')
     (t : ι × ι') : (spec * spec').Range t = (spec.Range t.1 ⊕ spec'.Range t.2) := rfl
 
-@[simp] lemma toPFunctor_mul {ι ι'} (spec : OracleSpec ι) (spec' : OracleSpec ι') :
+@[simp] lemma toPFunctor_mul {ι : Type u} {ι' : Type u'}
+    (spec : OracleSpec ι) (spec' : OracleSpec ι') :
     (spec * spec').toPFunctor = spec.toPFunctor * spec'.toPFunctor := rfl
 
 @[simp] lemma ofPFunctor_mul (P P' : PFunctor) :

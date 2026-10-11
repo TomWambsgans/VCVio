@@ -4,8 +4,10 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Quang Dao
 -/
 
-import Mathlib.Data.Finsupp.Basic
-import Mathlib.Data.Finsupp.Order
+module
+
+public import Mathlib.Data.Finsupp.Basic
+public import Mathlib.Data.Finsupp.Order
 
 /-!
 # Structured Resource Profiles
@@ -22,7 +24,8 @@ its intrinsic overhead and interface usage, and only later instantiate those int
 the cost profiles of the adversaries or subroutines that implement them.
 -/
 
-open scoped BigOperators
+@[expose] public section
+
 
 /-- Structured resource profile for open computations.
 
@@ -100,8 +103,14 @@ noncomputable instance [AddMonoid ω] : AddMonoid (ResourceProfile ω κ) where
   zero_add a := by ext <;> simp
   add_zero a := by ext <;> simp
   add_assoc a b c := by ext <;> simp [add_assoc]
-  nsmul_zero a := by ext <;> simp
-  nsmul_succ n a := by ext <;> simp [succ_nsmul]
+  nsmul_zero a := by
+    apply ResourceProfile.ext
+    · exact AddMonoid.nsmul_zero a.intrinsic
+    · exact AddMonoid.nsmul_zero a.usage
+  nsmul_succ n a := by
+    apply ResourceProfile.ext
+    · exact AddMonoid.nsmul_succ n a.intrinsic
+    · exact AddMonoid.nsmul_succ n a.usage
 
 @[simp] lemma intrinsic_nsmul [AddMonoid ω] (n : ℕ) (a : ResourceProfile ω κ) :
     (n • a).intrinsic = n • a.intrinsic := rfl
@@ -286,7 +295,7 @@ profile, is the same as substituting the composite implementation
 
 /-- Evaluating a purely intrinsic profile after instantiation leaves the intrinsic cost
 unchanged. -/
-@[simp] lemma eval_instantiate_ofIntrinsic [AddCommMonoid ω]
+lemma eval_instantiate_ofIntrinsic [AddCommMonoid ω]
     (w : ω) (impl : κ → ResourceProfile ω κ') (weights : κ' → ω) :
     ((ofIntrinsic (κ := κ) w).instantiate impl).eval weights =
       (ofIntrinsic (κ := κ) w).eval (fun k => (impl k).eval weights) := by
@@ -294,7 +303,7 @@ unchanged. -/
 
 /-- Evaluating a purely symbolic usage profile after instantiation amounts to evaluating each
 capability implementation and summing the resulting scalar costs. -/
-@[simp] lemma eval_instantiate_ofUsage [AddCommMonoid ω]
+lemma eval_instantiate_ofUsage [AddCommMonoid ω]
     (u : κ →₀ ℕ) (impl : κ → ResourceProfile ω κ') (weights : κ' → ω) :
     ((ofUsage (ω := ω) u).instantiate impl).eval weights =
       (ofUsage (ω := ω) u).eval (fun k => (impl k).eval weights) := by

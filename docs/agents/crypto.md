@@ -32,6 +32,11 @@ structure SignatureAlg (m : Type → Type v) [Monad m] (M PK SK S : Type) where
   verify (pk : PK) (msg : M) (σ : S) : m Bool
 ```
 
+`sigAlg.runWithSigningOracle pk sk oa` runs `oa : OracleComp (spec + (M →ₒ S)) α` with signing
+queries answered under `sk` and `spec` queries passed through. It returns the output together
+with the log of signed `(message, signature)` pairs. `MacAlg.runWithTaggingOracle` is the MAC
+analogue.
+
 For an end-to-end EUF-CMA reduction worked through the framework (Σ-protocol →
 Fiat-Shamir transform → managed-RO NMA → replay forking → DLog), see
 [`Examples/Schnorr/Signature.lean`](../../Examples/Schnorr/Signature.lean) and the
@@ -50,8 +55,8 @@ structure CommitmentScheme (PP M C D : Type) where
 
 Defined in
 [`VCVio/CryptoFoundations/CommitmentScheme.lean`](../../VCVio/CryptoFoundations/CommitmentScheme.lean)
-together with `PerfectlyCorrect`, `PerfectlyHiding`, `hidingExp`,
-`bindingExp`, and `extractExp`. The standard-model `binding ≤ keyed-CR ≤
+together with `PerfectlyCorrect`, `PerfectlyHiding`, `hidingGame`,
+`bindingExperiment`, and `extractExperiment`. The standard-model `binding ≤ keyed-CR ≤
 birthday` bridge from a `KeyedHashFamily` lives in
 [`VCVio/CryptoFoundations/HashCommitment.lean`](../../VCVio/CryptoFoundations/HashCommitment.lean)
 as `bindingAdvantage_toCommitment_le_keyedCRAdvantage`.
@@ -108,14 +113,33 @@ Used by ML-DSA and the Fiat-Shamir with Aborts transform.
 
 ## Security Experiments
 
-### `SecExp`
+### Naming
 
-```lean
-structure SecExp (m : Type → Type w) [Monad m] extends SPMFSemantics m where
-  main : m Unit
-```
-
-Success = non-failure. Advantage: `1 - Pr[⊥ | exp.main]`.
+- The adversary type of a notion is `<Notion>Adversary`, as in
+  `SignatureAlg.UnforgeableAdversary`. Inside a namespace named after the notion it is plain
+  `Adversary`, as in `SIS.Adversary`.
+- A notion has one token, used in every name that refers to it: uppercase in types and lowercase
+  in definitions and lemmas (`UnforgeableAdversary`, `unforgeableExperiment`,
+  `unforgeableAdvantage`). An underscore acronym keeps its capitals everywhere (`IND_CPA_Game`,
+  `IND_CPA_Advantage`).
+- An experiment is a program, for example of type `OracleComp spec Bool`, not a measure, and its
+  name ends in `Experiment`. When a notion has several worlds, the world word comes first:
+  `prfRealExperiment` and `prfIdealExperiment`. The world words are Real and Ideal, with Random
+  in place of Ideal for a real-or-random notion (`ddhRandomExperiment`).
+- `<notion>Game` is the hidden-bit experiment, which samples a fair bit and returns whether the
+  adversary guessed it, as in `CommitmentScheme.hidingGame`.
+- Inside a namespace named after the notion, the experiment is plain `experiment` and the
+  hidden-bit game plain `game`, as in `SIS.experiment` and `NoisyLearning.game`.
+- Hybrids and intermediate games of a proof are `game0`, `game1`, … or `hybrid…`, declared inside
+  the proof's namespace, as in `KEMDEM.hybrid`.
+- The advantage is `<notion>Advantage` in the scheme or problem namespace, or plain `advantage`
+  inside a namespace named after the notion (`NoisyLearning.advantage`). It is `ℝ≥0∞`-valued.
+  When the experiment runs in a generic monad, the advantage takes the runtime and evaluates the
+  experiment with `runtime.evalDist`: `SignatureAlg.unforgeableAdvantage runtime adv` is
+  `runtime.evalDist (unforgeableExperiment adv) {true}`. A `ProbComp` experiment is evaluated
+  with `𝒟[…]`, as in `DiffieHellman.ddhAdvantage`.
+- Correctness and completeness experiments are lowercase `correctnessExperiment` and
+  `completenessExperiment`, as in `AsymmEncAlg.correctnessExperiment`.
 
 ### `BoundedAdversary`
 
@@ -131,14 +155,72 @@ structure BoundedAdversary {ι : Type u} [DecidableEq ι]
 
 ### Advantage functions
 
-| Function | Input | Type | Measures |
-|----------|-------|------|----------|
-| `ProbComp.guessAdvantage` | `ProbComp Unit` | `ℝ` | `\|1/2 - (Pr[= () \| p]).toReal\|` |
-| `ProbComp.boolBiasAdvantage` | `ProbComp Bool` | `ℝ` | `\|(Pr[= true \| p]).toReal - (Pr[= false \| p]).toReal\|` |
-| `ProbComp.distAdvantage` | Two `ProbComp Unit` | `ℝ` | `\|(Pr[= () \| p]).toReal - (Pr[= () \| q]).toReal\|` |
-| `ProbComp.boolDistAdvantage` | Two `ProbComp Bool` | `ℝ` | `\|(Pr[= true \| p]).toReal - (Pr[= true \| q]).toReal\|` |
+Every advantage is `ℝ≥0∞`-valued and is a function of the measures `runtime.evalDist` assigns to the
+experiments. The advantage of a hidden-bit guessing game is the `Measure.boolBias` of its measure,
+`absDiff (μ {true}) (μ {false})`, which for a total game is twice the distance of the success
+probability from `1 / 2` (`Measure.boolBias_eq_two_mul_absDiff_half_of_isProbabilityMeasure`). The
+advantage of a distinguisher between two worlds is the `Measure.boolDist` of their measures,
+`absDiff (μ {true}) (ν {true})`. A search or forgery advantage is a success probability
+`runtime.evalDist exp {true}`, which is `𝒟[exp] {true}` for `ProbComp`. `ENNReal.absDiff` is the
+extended distance on `ℝ≥0∞` (`ENNReal.absDiff_eq_edist`), so neither direction of the gap is
+lost to truncation; `Measure.toReal_boolDist` and
+`Measure.toReal_boolBias` give the absolute real difference when a proof needs real arithmetic. A
+one-sided gap, such as the difference of two success probabilities without absolute value, is a
+real-valued lemma rather than an advantage.
 
-All return `ℝ` via `.toReal` conversion from `ℝ≥0∞`. This is essential since subtraction on `ℝ≥0∞` is truncated.
+### Random oracle model
+
+An experiment in the random oracle model is an `OracleComp (unifSpec + hashSpec)` computation.
+Its handler is `hashSpec.romImpl` in `StateT hashSpec.QueryCache ProbComp`: uniform queries pass
+through to `ProbComp`, and hash queries are answered by the lazily sampled random oracle
+`hashSpec.randomOracle`, whose cache is the state. Its runtime is `ProbCompRuntime.rom hashSpec`,
+which starts from the empty cache; `ProbCompRuntime.rom hashSpec cache` starts from `cache` and
+so programs the oracle at the cached points. `romImpl` is reducibly
+`unifFwdImpl hashSpec + hashSpec.randomOracle`, so the `roSim` lemmas, stated for
+`unifFwdImpl hashSpec + ro` with a general hash handler `ro`, apply to it.
+
+### KEM–DEM hybrid composition
+
+`VCVio.CryptoFoundations.KEMDEM.Measure` defines the preparation, encapsulation, and final
+observation games independently of probability. `KEMDEM.bias_compose_le` proves the
+composition bound on output measures. Both KEM message branches use `evalDist_kemGame`;
+`evalDist_demGame` performs independent-key interchange. Supply a fair coin, a lossless key
+sampler, and total Boolean hybrid outputs explicitly. Preparation and encapsulation effects
+retain their order. `KEMScheme.ind_cpa_one_time_bias_advantage_compose_with_dem_le` in
+`KEMDEM.lean` calibrates the bound to a `ProbCompRuntime` under explicit runtime coherence
+hypotheses.
+
+`ToMathlib.MeasureTheory.Measure.Bool` provides Boolean event distance and bias algebra.
+`Measure.boolBias_bind_coin` requires total branches: missing mass is distinct from returning
+`false`, so the assumption cannot be dropped.
+
+### DEM real-or-random IND-CPA
+
+`VCVio.CryptoFoundations.DataEncapMech.RealOrRandom` defines the one-time real-or-random game
+`DEMScheme.realOrRandomGame`, which encrypts either the adversary's message or a uniform one.
+Both DEM advantages are `boolBias` of a fair hidden-bit game, that is, the distance between the
+two branches, so the constants carry no factor from the bias normalization.
+`realOrRandomAdvantage_eq_IND_CPA_Advantage` is an exact equality with no runtime hypotheses.
+`IND_CPA_Advantage_le_realOrRandomAdvantage_add` bounds the left-or-right advantage by the sum
+of two real-or-random advantages and takes the runtime coherence hypotheses of the KEM–DEM
+adapter.
+
+### Forking bounds and measure semantics
+
+`VCVio/CryptoFoundations/SeededFork.lean` and `ReplayFork.lean` prove the
+seeded and context-fork success bounds as `Pr{…}` bounds on the
+`Option.isSome` event under uniform answer measures
+(`OracleSpec.UniformAnswerMeasure`). `FiatShamir/Sigma/Fork.lean` specializes the
+replay bound to the managed random-oracle trace, with the measure instances of
+`wrappedSpec` taken as hypotheses so each caller fixes its own discrete answer
+spaces.
+
+The stateful Fiat–Shamir chain in `FiatShamir/Sigma/Stateful/Chain.lean` classifies each
+logged handler step with the private `ForkStateStep` relation before proving invariants.
+Its cache/log preservation lemmas use no sampling assumptions; both whole-run invariant
+proofs reuse the same support-case normalization. Preserve the distinction between a fresh
+oracle reply and a signing insertion: signing records the message and changes the adversary
+cache, while a fresh oracle reply updates both caches and the live query log.
 
 ## Hardness Assumptions
 
@@ -152,9 +234,9 @@ Uses additive / EC-style notation: `a • g` means scalar multiplication (textbo
 
 | Problem | Adversary type | Experiment |
 |---------|---------------|------------|
-| DLog | `DLogAdversary F G` (= `G → G → ProbComp F`) | `dlogExp g adversary` |
-| CDH | `CDHAdversary F G` (= `G → G → G → ProbComp G`) | `cdhExp g adversary` |
-| DDH | `DDHAdversary F G` (= `G → G → G → G → ProbComp Bool`) | `ddhExp g adversary` |
+| DLog | `DLogAdversary F G` (= `G → G → ProbComp F`) | `dlogExperiment g adversary` |
+| CDH | `CDHAdversary F G` (= `G → G → G → ProbComp G`) | `cdhExperiment g adversary` |
+| DDH | `DDHAdversary F G` (= `G → G → G → G → ProbComp Bool`) | `ddhGame g adversary` |
 
 `CDHAdversary` and `DDHAdversary` carry a phantom `_F` parameter so Lean can infer the scalar field at call sites.
 
@@ -190,12 +272,79 @@ def myReduction (adversary : ...) : DDHAdversary F G := fun g A B T => do
 
 3. **Key technique**: hybrid arguments for multi-query reductions.
 
+### Name the reduction in the theorem statement
+
+State a reduction theorem for a specific reduction, written as a definition of the source
+adversary:
+
+```lean
+theorem signature_euf_cma ... :
+    eps * (eps / (qH + 1) - challengeSpaceInv F) ≤
+      𝒟[dlogExperiment g (dlogReduction F G g M adv qH)] {true}
+```
+
+Do not quantify over the target adversary:
+
+```lean
+-- Do not write this.
+theorem signature_euf_cma ... :
+    ∃ reduction : DLogAdversary F G,
+      eps * (eps / (qH + 1) - challengeSpaceInv F) ≤ 𝒟[dlogExperiment g reduction] {true}
+```
+
+The existential form holds for every source adversary, so it says nothing about the scheme.
+The reasons are specific to how adversaries are represented here.
+
+- **Adversary types carry no resource bound.** `DLogAdversary F G`, `X → ProbComp W`,
+  `PRFScheme.PRFAdversary D R`, and `OracleComp spec α` contain every computation of that type,
+  including exhaustive search. Against a computational assumption at concrete parameters, some
+  such adversary has advantage `1` or close to it: search recovers a discrete log, an MLWE
+  secret, or a PRF key.
+- **Lean is classical.** A term may choose a witness with `Classical.choice`, so the unbounded
+  adversary does not even need to search. For a `GenerableRelation`, `gen_sound` gives a
+  witness for every statement in the support of `gen`, and the reduction
+  `fun x => pure (if h : ∃ w, r x w then h.choose else default)` wins `hardRelationExperiment` with
+  probability exactly `1`. Any bound of the form `∃ B, f ≤ 𝒟[hardRelationExperiment hr B] {true}`
+  with `f ≤ 1` is then provable without looking at the scheme.
+- **No existing check catches it.** The vacuous theorem is true, `sorry`-free, and depends only
+  on the standard axioms, so `#print axioms` does not flag it. Checking that the hypotheses are
+  satisfiable ([gotcha 14](gotchas.md#14-hypothesis-satisfiability-is-a-proof-obligation)) does
+  not help either, because the defect is in the conclusion.
+
+The same applies to every object that the security argument requires to be efficient or
+independent of a secret:
+
+- simulators: `∃ sim ζ_zk, HVZK sim ζ_zk` holds with `ζ_zk := 1`, since
+  `measureETVDist ≤ 1`;
+- extractors, distinguishers, collision finders, and preimage finders.
+
+Name each one with a definition (`cmaReduction`, `hvzkSimulatorReal`,
+`unlinkToMultiplePRFReduction`) and state the bound for that definition.
+
+A named reduction also makes the next steps possible. Its query count or cost can be proved as
+a separate lemma about the same definition. The asymptotic lemmas in
+[`VCVio/CryptoFoundations/Asymptotics/Security.lean`](../../VCVio/CryptoFoundations/Asymptotics/Security.lean),
+such as `SecurityGame.secureAgainst_of_reduction`, take the reduction as a function
+`reduce : Adv → Adv'` with an efficiency hypothesis `isPPT A → isPPT' (reduce A)`. That hypothesis
+cannot be stated for an adversary that exists only inside an existential.
+
+When the reduction is not implemented yet, do not fall back to `∃`. Either:
+
+- define it as a `sorry` placeholder and state the bound for that definition, as
+  `GPVHashAndSign.reduction` does; or
+- leave the theorem as a placeholder whose docstring warns that the statement has no security
+  content until a reduction is named, as `FiatShamirWithAbort.euf_cma_bound` does.
+
+`∃` remains appropriate for mathematical objects that the argument does not need to be efficient,
+such as a witness in a relation, an index in a support, or a key pair in the image of key
+generation.
+
 ### Hybrid Argument Pattern
 
 For a hand-written q-query IND-CPA → DDH hybrid proof:
 
-1. Define `HybridGame adversary k`: first `k` queries use real encryption, rest use random
-2. `HybridGame 0 = IND-CPA random`, `HybridGame q = IND-CPA real`
+1. Define `hybrid adversary k`: first `k` queries use real encryption, rest use random
+2. `hybrid adversary 0 = IND-CPA random`, `hybrid adversary q = IND-CPA real`
 3. Per-step reduction: `stepDDHReduction adversary k` maps DDH challenge to hybrid k vs k+1
 4. Telescope: `advantage ≤ q * max_per_step_advantage`
 
@@ -227,33 +376,19 @@ def negligible (f : ℕ → ℝ≥0∞) : Prop := SuperpolynomialDecay atTop (fu
 Closure properties: `negligible_add`, `negligible_const_mul`, `negligible_sum`,
 `negligible_of_le`, `negligible_pow_mul`, `negligible_polynomial_mul`.
 
-### `SecurityExp` and `SecurityGame` (`Security.lean`)
+### `SecurityGame` (`Security.lean`)
 
-Both are decoupled from `SecExp` — they store an abstract advantage function (`ℕ → ℝ≥0∞`)
-rather than a family of concrete experiments. This lets the same meta-theorems work for
-failure-based games, distinguishing games, and any other advantage metric.
+`SecurityGame Adv` stores an advantage function rather than an experiment, so the same
+meta-theorems apply to success, bias and distinguishing advantages. Build one by giving the
+notion's `ℝ≥0∞`-valued advantage at each security parameter.
 
 ```lean
-structure SecurityExp where
-  advantage : ℕ → ℝ≥0∞
-
 structure SecurityGame (Adv : Type*) where
   advantage : Adv → ℕ → ℝ≥0∞
 ```
 
-- `SecurityExp.secure`: advantage is `negligible`.
 - `SecurityGame.secureAgainst isPPT`: every adversary satisfying `isPPT` has negligible advantage.
 - The predicate `isPPT` is abstract — specialize to `PolyQueries` or custom efficiency notions.
-
-### Smart constructors
-
-| Constructor | Game style | Advantage metric |
-|-------------|-----------|-----------------|
-| `SecurityGame.ofSecExp` | Failure-based (`SecExp`) | `1 - Pr[⊥]` |
-| `SecurityGame.ofDistGame` | Two-game distinguishing | `\|Pr[game₀] - Pr[game₁]\|` |
-| `SecurityGame.ofGuessGame` | Single-game guessing | `\|1/2 - Pr[success]\|` |
-
-Analogous constructors exist for `SecurityExp`: `ofSecExp`, `ofDistExp`, `ofGuessExp`.
 
 ### Key reduction/game-hopping lemmas
 
@@ -263,6 +398,11 @@ Analogous constructors exist for `SecurityExp`: `ofSecExp`, `ofDistExp`, `ofGues
 | `secureAgainst_of_poly_reduction` | Polynomial-loss: `adv(A) ≤ p(n) · adv(reduce A)` |
 | `secureAgainst_of_close` | Game hop: `adv_g₁(A) ≤ adv_g₂(A) + ε(n)` |
 | `secureAgainst_of_hybrid` | Chain of `k` games differing by `ε` each |
+
+The tight and polynomial-loss reductions have cost-aware forms,
+`secureAgainst_of_reduction_withCost` and `secureAgainst_of_poly_reduction_withCost`
+(`Asymptotics/ReductionCost.lean`). They take a `ReductionWithCost`, whose cost transform must
+map the source efficiency class into the target one (`CostClassMap`).
 
 ## Cost Model
 
@@ -280,12 +420,9 @@ structure CostModel (spec : OracleSpec ι) (ω : Type) [AddCommMonoid ω] where
 | `expectedCost oa cm val` | `E[val(cost)]` via `wp` |
 | `WorstCaseCostBound oa cm bound` | All paths have cost `≤ bound` |
 | `ExpectedCostBound oa cm val bound` | Expected valued cost `≤ bound` |
-| `WorstCasePolyTime family cm val` | Worst-case poly bound over security parameter |
-| `ExpectedPolyTime family cm val` | Expected poly bound over security parameter |
 
 Key results: `fst_map_costDist` (instrumentation is transparent),
-`probEvent_cost_gt_le_expectedCost_div` (Markov's inequality),
-`WorstCasePolyTime.toExpectedPolyTime`.
+`prEvent_costDist_gt_le_expectedCost_div` (Markov's inequality).
 
 ## Common Gotchas
 
@@ -293,6 +430,4 @@ Key results: `fst_map_costDist` (instrumentation is transparent),
 
 2. **`SymmEncAlg` vs `AsymmEncAlg`**: both are monad-parametric, but symmetric schemes carry a single key type while asymmetric schemes split public and secret keys. Pick the monad at the experiment boundary.
 
-3. **DDH experiment uses `$ᵗ Bool`**: the experiment samples a bit `b`, returns real or random based on `b`, then checks `b == b'`.
-
-4. **`SecExp.advantage` measures `1 - Pr[⊥]`**: this is failure-based, not distinguishing-based. For `ProbComp` (which never fails), advantage is always 1. For distinguishing-style games, use `SecurityGame.ofDistGame` or `SecurityGame.ofGuessGame` instead of `SecurityGame.ofSecExp`.
+3. **`ddhGame` uses `$ᵗ Bool`**: the game samples a bit `b`, returns real or random based on `b`, then checks `b == b'`.

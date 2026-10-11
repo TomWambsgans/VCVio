@@ -4,14 +4,20 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Quang Dao
 -/
 
-import VCVio.ProgramLogic.Tactics.Common.Suggestions
-import VCVio.ProgramLogic.Tactics.Relational.Internals
+module
+
+public meta import VCVio.ProgramLogic.Tactics.Common.Suggestions
+public meta import VCVio.ProgramLogic.Tactics.Relational.Internals
 
 /-!
 # Relational VC Tactics
 
 User-facing relational VCGen tactics and syntax.
 -/
+
+public meta section
+
+open scoped OracleComp.Rel.Quantitative
 
 open Lean Elab Tactic Meta
 
@@ -42,9 +48,9 @@ private def runRVCGenStepWithTheoremNames
 
 /-- `rvcstep` applies one relational VCGen step.
 
-It first lowers `GameEquiv` / `evalDist` equality goals into relational mode, then
+It first lowers `=ᵈ` / output-measure equality goals into relational mode, then
 tries the obvious structural relational rule on `RelTriple` / `RelWP` / quantitative
-`Std.Do'.RelTriple` goals: synchronized conditionals, `simulateQ`, `Functor.map`,
+`VCVio.ProgramLogic.RelTriple` goals: synchronized conditionals, `simulateQ`, `Functor.map`,
 bounded traversals, bind decomposition, or random/query coupling.
 
 `rvcstep using t` supplies the explicit witness needed for the current shape:
@@ -58,7 +64,8 @@ bounded traversals, bind decomposition, or random/query coupling.
 - `simulateQ` state relation
 
 `rvcstep left` and `rvcstep right` expose controlled one-sided bind steps for
-raw `Std.Do'.rwp` and folded `Std.Do'.RelTriple` goals. They do not run as part
+raw `VCVio.ProgramLogic.rwp` and folded `VCVio.ProgramLogic.RelTriple` goals. They do not
+run as part
 of default relational automation, because choosing an asynchronous split fixes a
 coupling frontier.
 
@@ -78,20 +85,34 @@ independent binds on one side through EqRel transport. Add `using R` to
 immediately decompose the aligned residual bind with cut relation `R`.
 
 `rvcstep with thm` forces one explicit relational theorem/assumption step. -/
-syntax "rvcstep" &"swap" &"left" "using" term : tactic
-syntax "rvcstep" &"swap" &"right" "using" term : tactic
-syntax "rvcstep" &"swap" &"left" : tactic
-syntax "rvcstep" &"swap" &"right" : tactic
 syntax "rvcstep" ("using" term)? : tactic
+@[inherit_doc tacticRvcstepUsing_, tactic_alt tacticRvcstepUsing_]
+syntax "rvcstep" &"swap" &"left" "using" term : tactic
+@[inherit_doc tacticRvcstepUsing_, tactic_alt tacticRvcstepUsing_]
+syntax "rvcstep" &"swap" &"right" "using" term : tactic
+@[inherit_doc tacticRvcstepUsing_, tactic_alt tacticRvcstepUsing_]
+syntax "rvcstep" &"swap" &"left" : tactic
+@[inherit_doc tacticRvcstepUsing_, tactic_alt tacticRvcstepUsing_]
+syntax "rvcstep" &"swap" &"right" : tactic
+@[inherit_doc tacticRvcstepUsing_, tactic_alt tacticRvcstepUsing_]
 syntax "rvcstep" "left" : tactic
+@[inherit_doc tacticRvcstepUsing_, tactic_alt tacticRvcstepUsing_]
 syntax "rvcstep" "right" : tactic
+@[inherit_doc tacticRvcstepUsing_, tactic_alt tacticRvcstepUsing_]
 syntax "rvcstep" "sym" : tactic
+@[inherit_doc tacticRvcstepUsing_, tactic_alt tacticRvcstepUsing_]
 syntax "rvcstep" "upto" term : tactic
+@[inherit_doc tacticRvcstepUsing_, tactic_alt tacticRvcstepUsing_]
 syntax "rvcstep" "trans" term : tactic
+@[inherit_doc tacticRvcstepUsing_, tactic_alt tacticRvcstepUsing_]
 syntax "rvcstep" "with" term : tactic
+@[inherit_doc tacticRvcstepUsing_, tactic_alt tacticRvcstepUsing_]
 syntax "rvcstep" "as" "⟨" binderIdent,* "⟩" : tactic
+@[inherit_doc tacticRvcstepUsing_, tactic_alt tacticRvcstepUsing_]
 syntax "rvcstep" "using" term "as" "⟨" binderIdent,* "⟩" : tactic
+@[inherit_doc tacticRvcstepUsing_, tactic_alt tacticRvcstepUsing_]
 syntax "rvcstep" "with" term "as" "⟨" binderIdent,* "⟩" : tactic
+@[inherit_doc tacticRvcstepUsing_, tactic_alt tacticRvcstepUsing_]
 syntax "rvcstep?" : tactic
 
 elab_rules : tactic
@@ -178,11 +199,17 @@ with ordinary hint-free relational VCGen on all remaining goals.
 
 `rvcgen!` runs ordinary `rvcgen` and then `rvcfinish`. -/
 syntax "rvcgen" : tactic
+@[inherit_doc tacticRvcgen, tactic_alt tacticRvcgen]
 syntax (name := rvcgenUsingList) (priority := high) "rvcgen" "using" "[" term,* "]" : tactic
+@[inherit_doc tacticRvcgen, tactic_alt tacticRvcgen]
 syntax "rvcgen" "using" term:max : tactic
+@[inherit_doc tacticRvcgen, tactic_alt tacticRvcgen]
 syntax "rvcgen" "with" term : tactic
+/-- Search for a relational rule and apply consequence to close residual VCGen goals. -/
 syntax "rvcfinish" : tactic
+@[inherit_doc tacticRvcgen, tactic_alt tacticRvcgen]
 syntax "rvcgen!" : tactic
+@[inherit_doc tacticRvcgen, tactic_alt tacticRvcgen]
 syntax "rvcgen?" : tactic
 
 elab_rules : tactic
@@ -277,33 +304,33 @@ macro "rel_inline" ids:ident* : tactic =>
 
 /-! ## Proof mode entry tactics -/
 
-/-- `by_equiv` transforms a `GameEquiv g₁ g₂` goal into `RelTriple g₁ g₂ (EqRel α)`.
-Also works for `evalDist g₁ = evalDist g₂` goals.
-Always targets `RelTriple` (coupling-based), never `RelTriple'` (eRHL-based),
-so that `rvcstep` / `rvcgen` work on the resulting goal. -/
-macro "by_equiv" : tactic =>
+/-- `by_equiv` transforms a `g₁ =ᵈ g₂` goal into `RelTriple g₁ g₂ (EqRel α)`.
+Also works for output-measure equalities `𝒟[g₁] = 𝒟[g₂]`.
+Always targets the coupling-based `RelTriple`, so that `rvcstep` / `rvcgen` work on the
+resulting goal. -/
+macro (name := byEquiv) "by_equiv" : tactic =>
   `(tactic|
     first
-      | apply OracleComp.ProgramLogic.GameEquiv.of_relTriple
+      | apply OracleComp.ProgramLogic.Relational.evalDistEq_of_relTriple_eqRel
       | (change OracleComp.ProgramLogic.Relational.RelTriple _ _ _)
       | (apply OracleComp.ProgramLogic.Relational.evalDist_eq_of_relTriple_eqRel))
 
-/-- `rel_dist` reduces a `RelTriple oa ob (EqRel α)` goal to `evalDist oa = evalDist ob`.
+/-- `rel_dist` reduces a `RelTriple oa ob (EqRel α)` goal to `oa =ᵈ ob`.
 
 This is the reverse direction of `by_equiv`: while `by_equiv` enters relational mode from a
 distributional equality, `rel_dist` exits relational mode back to distributional reasoning.
 
 Useful when both sides are equal in distribution but not syntactically identical, and the
-equality is easier to prove at the `evalDist` level than via stepwise coupling. -/
-macro "rel_dist" : tactic =>
+equality is easier to prove from events or output measures than via stepwise coupling. -/
+macro (name := relDist) "rel_dist" : tactic =>
   `(tactic|
-    apply OracleComp.ProgramLogic.Relational.relTriple_eqRel_of_evalDist_eq)
+    apply OracleComp.ProgramLogic.Relational.relTriple_eqRel_of_evalDistEq)
 
-/-- `game_trans` introduces an intermediate game for transitivity of `GameEquiv`.
+/-- `game_trans` introduces an intermediate game in a chain of distributional equalities.
 
-Given a goal `g₁ ≡ₚ g₃`, `game_trans g₂` produces two subgoals:
-1. `g₁ ≡ₚ g₂`
-2. `g₂ ≡ₚ g₃`
+Given a goal `g₁ =ᵈ g₃`, `game_trans g₂` produces two subgoals:
+1. `g₁ =ᵈ g₂`
+2. `g₂ =ᵈ g₃`
 
 This is the fundamental tactic for multi-step game-hopping chains. -/
 syntax "game_trans" term : tactic
@@ -311,23 +338,23 @@ syntax "game_trans" term : tactic
 macro_rules
   | `(tactic| game_trans $g) =>
     `(tactic|
-      refine OracleComp.ProgramLogic.GameEquiv.trans (g₂ := $g) ?_ ?_)
+      refine EvalDistEq.trans (my := $g) ?_ ?_)
 
-/-- `by_dist` transforms a TV distance or advantage bound goal into a subgoal
-suitable for relational or coupling reasoning. -/
+/-- `by_dist` transforms an advantage bound goal into an advantage bound for a second game
+together with a total variation bound between the two games. -/
 syntax "by_dist" (term)? : tactic
 
 macro_rules
   | `(tactic| by_dist) =>
     `(tactic|
-      apply OracleComp.ProgramLogic.AdvBound.of_tvDist)
+      apply OracleComp.ProgramLogic.AdvBound.of_measureETVDist)
   | `(tactic| by_dist $eps) =>
     `(tactic|
-      (apply OracleComp.ProgramLogic.AdvBound.of_tvDist (ε₂ := $eps)))
+      (apply OracleComp.ProgramLogic.AdvBound.of_measureETVDist (ε₂ := $eps)))
 
-/-- `by_upto bad` applies the "identical until bad" TV-distance theorem for `simulateQ`.
-It leaves the standard four subgoals: initial non-bad state, agreement off bad,
-and bad-state monotonicity for each implementation. -/
+/-- `by_upto bad` applies the "identical until bad" total-variation theorem for `simulateQ`.
+It leaves the standard three subgoals: agreement off bad states, and bad-state monotonicity for
+each implementation. -/
 syntax "by_upto" term : tactic
 
 elab_rules : tactic
@@ -336,7 +363,7 @@ elab_rules : tactic
         return
       let target ← instantiateMVars (← getMainTarget)
       throwError
-        "by_upto: expected a TV-distance goal for two `simulateQ ... run'` computations\n\
+        "by_upto: expected a `measureETVDist` goal for two `simulateQ ... run'` computations\n\
         bounded by\n\
         the probability of a bad event on the left simulation;\n\
         got:{indentExpr target}"

@@ -4,11 +4,12 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Quang Dao
 -/
 
-import Lean
-import Lean.Meta.Sym.Pattern
-import Lean.Meta.Sym.Simp.DiscrTree
-import Lean.Elab.Tactic.Do.Attr
-import VCVio.ProgramLogic.Tactics.Common.Core
+module
+
+public meta import Lean.Meta.Sym.Pattern
+public meta import Lean.Meta.Sym.Simp.DiscrTree
+public meta import Lean.Elab.Tactic.Do.Attr
+public meta import VCVio.ProgramLogic.Tactics.Common.Core
 
 /-!
 # `@[wpStep]` Registry
@@ -52,6 +53,8 @@ development upstream. If a toolchain bump breaks the registry, the affected
 surface is confined to the selector in `buildWpStepEntry` and the lookup
 path in `getRegisteredWpStepEntries`; downstream tactic dispatch works
 through `WpStepEntry.declName?` and is insulated from `Sym` API churn. -/
+
+public meta section
 
 open Lean Elab Meta Lean.Meta
 open Lean.Elab.Tactic.Do.SpecAttr (SpecProof)
@@ -124,11 +127,11 @@ from the LHS of a `wp comp post = …` equation.
 
 After `Sym.preprocessType`, the abbrev `OracleComp.ProgramLogic.wp` has been
 unfolded to either `MAlgOrdered.wp` (legacy structural form) or
-`Std.Do'.wp _ _ Order.bot` (Loom2-routed form, the canonical post-cutover
+`Std.Internal.Do.wp _ _ Order.bot` (core WP form, the canonical
 shape). All three heads are accepted; the `comp` argument is positionally:
 * `MAlgOrdered.wp m l … oa post` → 2nd-to-last explicit argument.
 * `OracleComp.ProgramLogic.wp ι spec … oa post` → 2nd-to-last explicit argument.
-* `Std.Do'.wp m Pred EPred α … oa post epost` → 3rd-to-last explicit argument. -/
+* `Std.Internal.Do.wp m Pred EPred α … oa post epost` → 3rd-to-last explicit argument. -/
 private def selectWpStepLhsComp (body : Expr) : MetaM (Expr × Unit) := do
   let body := body.consumeMData
   unless body.isAppOfArity ``Eq 3 do
@@ -136,9 +139,9 @@ private def selectWpStepLhsComp (body : Expr) : MetaM (Expr × Unit) := do
   let lhs := (body.getArg! 1).consumeMData
   let fn := lhs.getAppFn
   let n := lhs.getAppNumArgs
-  if fn.isConstOf ``Std.Do'.wp then
+  if fn.isConstOf ``Std.Internal.Do.wp then
     unless n ≥ 3 do
-      throwError m!"@[wpStep] `Std.Do'.wp` LHS has too few arguments:{indentExpr lhs}"
+      throwError m!"@[wpStep] `Std.Internal.Do.wp` LHS has too few arguments:{indentExpr lhs}"
     return (lhs.getArg! (n - 3), ())
   unless fn.isConstOf ``MAlgOrdered.wp || fn.isConstOf ``OracleComp.ProgramLogic.wp do
     throwError m!"@[wpStep] expects an `wp _ _` LHS; got:{indentExpr lhs}"
@@ -178,8 +181,9 @@ tries each rewrite, so over-approximation here is harmless. -/
 def getRegisteredWpStepEntries (oa : Expr) : MetaM (Array WpStepEntry) := do
   let oa ← instantiateMVars oa
   let oa ← withReducible <| whnf oa
+  let oa ← symMatchKey oa
   let registry := wpStepRegistry.getState (← getEnv)
-  return Lean.Meta.Sym.getMatch registry.compTree oa
+  return Lean.Meta.Sym.getMatch (← getMCtx) registry.compTree oa
 
 /-- Retrieve `@[wpStep]` entries without normalizing the computation first.
 
@@ -187,8 +191,8 @@ Raw `wp` dispatch uses this as the first pass so syntactic zero/nil iterator
 redexes are offered to their exact rewrite rules before normalized fallback
 candidates such as successor/cons unfoldings. -/
 def getRegisteredWpStepEntriesNoWhnf (oa : Expr) : MetaM (Array WpStepEntry) := do
-  let oa ← instantiateMVars oa
+  let oa ← symMatchKey oa
   let registry := wpStepRegistry.getState (← getEnv)
-  return Lean.Meta.Sym.getMatch registry.compTree oa
+  return Lean.Meta.Sym.getMatch (← getMCtx) registry.compTree oa
 
 end OracleComp.ProgramLogic

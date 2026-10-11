@@ -4,16 +4,17 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Quang Dao
 -/
 
-import VCVio.ProgramLogic.Relational.Basic
-import VCVio.ProgramLogic.Unary.StdDoBridge
+module
+
+public import VCVio.ProgramLogic.Relational.Basic
+public import VCVio.ProgramLogic.Unary.StdDoBridge
 
 /-!
 # Lifting unary `Std.Do` triples to relational couplings
 
 Two `OracleComp` computations that are independently correct (each satisfying a unary
 `Std.Do.Triple`) can always be paired via the product coupling, since every
-`OracleComp` distribution sums to probability `1` (the canonical
-`MonadLiftT (OracleComp spec) PMF` lift).
+`OracleComp` output measure is a probability measure.
 
 This file provides the "unary → relational" bridge:
 
@@ -21,12 +22,15 @@ This file provides the "unary → relational" bridge:
   the product postcondition.
 * `relTriple_prod_of_triple` — same statement, phrased directly in terms of
   `Std.Do.Triple`.
-* `relTriple_prod` — a slightly stronger variant taking `support`-style postconditions.
+
+Both specialize `relTriple_prod`, which takes `support`-style postconditions.
 
 These lemmas let proofs established against the stateful `Std.Do`/`mvcgen` proof mode
 be composed into relational arguments (e.g. game-hopping reductions) without redoing
 the underlying analysis.
 -/
+
+@[expose] public section
 
 open ENNReal OracleSpec OracleComp
 open Std.Do
@@ -36,35 +40,10 @@ universe u
 namespace OracleComp.ProgramLogic.Relational
 
 variable {ι₁ : Type u} {ι₂ : Type u}
-variable {spec₁ : OracleSpec ι₁} {spec₂ : OracleSpec ι₂}
-variable [IsUniformSpec spec₁] [IsUniformSpec spec₂]
+variable {spec₁ : OracleSpec.{u, 0} ι₁} {spec₂ : OracleSpec.{u, 0} ι₂}
+variable [OracleSpec.AnswerMeasure spec₁] [OracleSpec.AnswerMeasure spec₂]
+  [∀ t, Finite (spec₁.Range t)] [∀ t, Finite (spec₂.Range t)]
 variable {α β : Type}
-
-/-- Core lift: two `support`-style unary postconditions combine into a relational
-coupling. The product coupling `evalDist oa ⊗ evalDist ob` witnesses the conjunction,
-using the canonical `MonadLiftT (OracleComp spec) PMF` to ensure neither side has
-failure mass. -/
-theorem relTriple_prod {oa : OracleComp spec₁ α} {ob : OracleComp spec₂ β}
-    {P : α → Prop} {Q : β → Prop} (hP : ∀ a ∈ support oa, P a) (hQ : ∀ b ∈ support ob, Q b) :
-    RelTriple oa ob (fun a b => P a ∧ Q b) := by
-  rw [relTriple_iff_relWP, relWP_iff_couplingPost]
-  have hp : (𝒟[oa]).toPMF none = 0 := probFailure_eq_zero (mx := oa)
-  have hq : (𝒟[ob]).toPMF none = 0 := probFailure_eq_zero (mx := ob)
-  refine ⟨_root_.SPMF.Coupling.prod hp hq, ?_⟩
-  intro z hz
-  rcases (mem_support_bind_iff (𝒟[oa])
-    (fun a => 𝒟[ob] >>= fun b => (pure (a, b) : SPMF (α × β))) z).1 hz with
-    ⟨a, ha, hz'⟩
-  have ha_supp : a ∈ support oa :=
-    (mem_support_iff (mx := oa) (x := a)).2
-      (by simpa [probOutput_def] using (mem_support_iff (mx := 𝒟[oa]) (x := a)).1 ha)
-  rcases (mem_support_bind_iff (𝒟[ob])
-    (fun b => (pure (a, b) : SPMF (α × β))) z).1 hz' with ⟨b, hb, hz''⟩
-  have hb_supp : b ∈ support ob :=
-    (mem_support_iff (mx := ob) (x := b)).2
-      (by simpa [probOutput_def] using (mem_support_iff (mx := 𝒟[ob]) (x := b)).1 hb)
-  obtain rfl : z = (a, b) := by simpa [support_pure, Set.mem_singleton_iff] using hz''
-  exact ⟨hP a ha_supp, hQ b hb_supp⟩
 
 /-- `wpProp`-phrased version of the product lift. -/
 theorem relTriple_prod_of_wpProp {oa : OracleComp spec₁ α} {ob : OracleComp spec₂ β}
@@ -100,9 +79,6 @@ theorem relTriple_of_triple_of_implies {oa : OracleComp spec₁ α} {ob : Oracle
     (hImp : ∀ a b, P a → Q b → R a b) :
     RelTriple oa ob R :=
   relTriple_post_mono (relTriple_prod_of_triple hP hQ) (fun _ _ ⟨hp, hq⟩ => hImp _ _ hp hq)
-
-@[deprecated (since := "2026-06-25")]
-alias relTriple_of_triple_of_imp := relTriple_of_triple_of_implies
 
 /-! ## Smoke tests -/
 

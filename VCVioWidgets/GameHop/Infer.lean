@@ -12,9 +12,11 @@ namespace GameHop
 
 open Lean Meta
 
-private def gameEquivConst : Name :=
-  Name.str (Name.str (Name.str .anonymous "OracleComp") "ProgramLogic") "GameEquiv"
+/-- Equality in distribution, `mx =ᵈ my`: the relation of a game-equivalence hop. -/
+private def evalDistEqConst : Name :=
+  Name.mkSimple "EvalDistEq"
 
+/-- Failure to choose a unique root or infer a diagram from its proof. -/
 inductive DiagramInferenceError where
   | multipleRoots (roots : Array Name)
   | inferenceFailed (root : Name) (message : String)
@@ -22,6 +24,7 @@ inductive DiagramInferenceError where
 
 namespace DiagramInferenceError
 
+/-- Explain a diagram inference failure for display in the widget panel. -/
 def message : DiagramInferenceError → String
   | .multipleRoots roots =>
       let names := String.intercalate ", " <| roots.toList.map toString
@@ -120,38 +123,40 @@ private structure CompRef where
   snippets : Array CodeSnippet := #[]
   deriving Inhabited, Repr
 
+attribute [inherit_doc Inhabited.default] instInhabitedCompRef.default
+
 private def compTitleFromExpr (expr : Expr) : MetaM String := do
   let some head := expr.consumeMData.getAppFn.constName?
     | return "game"
   let base := declBasename head
   let args := expr.consumeMData.getAppArgs
-  if base = "PerfectSecrecyCipherGivenMsgExp" then
+  if base = "perfectSecrecyCipherGivenMsgExperiment" then
     match args.back? with
     | some msg => return s!"Cipher game for {← ppExprString msg}"
     | none => return "Cipher game"
-  if base = "IND_CPA_HybridGame" then
+  if base = "IND_CPA_LR_hybrid" then
     match args.back? with
     | some idx => return s!"Hybrid {← ppExprString idx}"
     | none => return "Hybrid game"
-  if base = "IND_CPA_game" then
+  if base = "IND_CPA_Game" then
     return "IND-CPA game"
   return humanizeName head
 
 private def compKindFromExpr (expr : Expr) : NodeKind :=
   match expr.consumeMData.getAppFn.constName? with
   | some head =>
-      if declBasename head |>.contains "Hybrid" then .hybrid else .game
+      if (declBasename head).toLower.contains "hybrid" then .hybrid else .game
   | none => .game
 
 private def shouldRejectCompHead (head : Name) : Bool :=
   let base := declBasename head
-  base = "ddhExp" || base = "ddhExpReal" || base = "ddhExpRand" ||
+  base = "ddhGame" || base = "ddhRealExperiment" || base = "ddhRandomExperiment" ||
     base.contains "Reduction" || base.contains "advantage"
 
 private def looksLikeComputationHead (head : Name) : Bool :=
   let base := declBasename head
   let lower := base.toLower
-  lower.contains "game" || lower.contains "exp"
+  lower.contains "game" || lower.contains "exp" || lower.contains "hybrid"
 
 private def mkCompRef (rootModule : Name) (expr : Expr) (allowImported : Bool := false) :
     MetaM (Option CompRef) := do
@@ -201,9 +206,9 @@ private def extractGeneralCompRefs (rootModule : Name) (target : Expr) :
       return TransformStep.continue)
   return uniqueCompRefs refs
 
-private def extractGameEquivSides? (rootModule : Name) (target : Expr) :
+private def extractEvalDistEqSides? (rootModule : Name) (target : Expr) :
     MetaM (Option (CompRef × CompRef)) := do
-  let some app := findAppWithHead? gameEquivConst target
+  let some app := findAppWithHead? evalDistEqConst target
     | return none
   let some args := trailingArgs? app 2
     | return none
@@ -224,6 +229,8 @@ private inductive CandidateKind where
   | consequence
   deriving Inhabited, Repr, DecidableEq
 
+attribute [inherit_doc Inhabited.default] instInhabitedCandidateKind.default
+
 private structure CandidateDecl where
   declName : Name
   depth : Nat
@@ -233,6 +240,8 @@ private structure CandidateDecl where
   compRefs : Array CompRef
   directDeps : Array Name
   deriving Inhabited, Repr
+
+attribute [inherit_doc Inhabited.default] instInhabitedCandidateDecl.default
 
 private def scoreNameBonus (declName : Name) : Nat :=
   Id.run do
@@ -248,7 +257,7 @@ private def scoreNameBonus (declName : Name) : Nat :=
 
 private def classifyCandidateKind (target : Expr) (targetText : String) (compRefs : Array CompRef) :
     CandidateKind :=
-  if (findAppWithHead? gameEquivConst target).isSome then
+  if (findAppWithHead? evalDistEqConst target).isSome then
     .equivalence
   else if compRefs.size ≤ 1 && targetText.contains "1 / 2" then
     .endpoint
@@ -308,7 +317,7 @@ private def analyzeCandidate (rootModule : Name) (declName : Name) (depth : Nat)
   let (xs, _, target) ← forallMetaTelescopeReducing info.type
   let targetText ← ppExprString target
   let compRefs ←
-    match (← extractGameEquivSides? rootModule target) with
+    match (← extractEvalDistEqSides? rootModule target) with
     | some (lhs, rhs) => pure #[lhs, rhs]
     | none => do
         let mut refs := #[]
@@ -350,6 +359,8 @@ private structure BuildState where
   primaryNodes : Std.HashMap Name NodeId := {}
   rootNode : NodeId := ""
   deriving Inhabited
+
+attribute [inherit_doc Inhabited.default] instInhabitedBuildState.default
 
 private abbrev BuildM := StateT BuildState MetaM
 
@@ -426,7 +437,7 @@ private def applyCandidate (candidate : CandidateDecl) : BuildM Unit := do
         let lhsId ← buildCompNode candidate.compRefs[0]!
         let rhsId ← buildCompNode candidate.compRefs[1]!
         let anchor? ← liftM <| anchorRefForDecl candidate.declName
-        addEdge lhsId rhsId .equivalence "GameEquiv" anchor?
+        addEdge lhsId rhsId .equivalence "=ᵈ" anchor?
         recordPrimaryNode candidate.declName rhsId
   | .endpoint =>
       let anchor? ← liftM <| anchorRefForDecl candidate.declName
@@ -562,12 +573,14 @@ private def inferDiagramCore (rootModule root : Name) : MetaM GameDiagram := do
   }
   applyDormantHintRefinement diagram
 
+/-- Infer the game sequence and supporting transitions from a root theorem's proof. -/
 def inferDiagramForRoot (root : Name) : MetaM GameDiagram := do
   let rootModule ← match (← Lean.findModuleOf? root) with
     | some rootModule => pure rootModule
     | none => pure (← getEnv).mainModule
   inferDiagramCore rootModule root
 
+/-- Infer a diagram from a module's registered root, reporting ambiguous roots or inference errors. -/
 def inferDiagramForModule? (modName : Name) : MetaM (Except DiagramInferenceError (Option GameDiagram)) := do
   let roots ← getRegisteredGameHopRoots modName
   if roots.isEmpty then

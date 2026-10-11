@@ -4,8 +4,10 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Quang Dao
 -/
 
-import VCVio.ProgramLogic.Tactics.Unary
-import VCVio.OracleComp.Constructions.Replicate
+module
+
+public import VCVio.ProgramLogic.Tactics.Unary
+public import VCVio.OracleComp.Constructions.Replicate.Basic
 
 /-!
 # Unary Triple / VCGen Examples
@@ -13,15 +15,17 @@ import VCVio.OracleComp.Constructions.Replicate
 This file validates unary `Triple` stepping and structural `vcgen` decomposition.
 -/
 
+@[expose] public section
+
 open ENNReal OracleSpec OracleComp
 open Lean.Order
 open OracleComp.ProgramLogic
-open scoped OracleComp.ProgramLogic
+open scoped OracleComp.ProgramLogic Std.Internal.Do OracleComp.Lower
 
 universe u
 
 variable {ι : Type u} {spec : OracleSpec ι}
-variable [IsUniformSpec spec]
+variable [OracleSpec.AnswerMeasure spec]
 variable {α β γ : Type}
 
 /-! ## `vcstep` on `Triple` goals -/
@@ -43,7 +47,7 @@ example {oa : OracleComp spec α} {f : α → OracleComp spec β}
   exact hob x
 
 example (oa : OracleComp spec α) (f : α → OracleComp spec Bool)
-    (h : ∀ x ∈ support oa, Pr[= true | f x] = 1) :
+    (h : ∀ x ∈ support oa, Pr{let y ← f x}[y = true] = 1) :
     ⦃ 1 ⦄ (do
       let x ← oa
       f x) ⦃ fun y => if y = true then 1 else 0 ⦄ := by
@@ -52,7 +56,7 @@ example (oa : OracleComp spec α) (f : α → OracleComp spec Bool)
   · simpa [propInd_eq_ite] using triple_support (oa := oa)
   · intro x
     by_cases hx : x ∈ support oa
-    · simpa [propInd, hx] using triple_probOutput_eq_one (oa := f x) (x := true) (h := h x hx)
+    · simpa [propInd, hx] using triple_prEvent_eq_one (oa := f x) (p := (· = true)) (h := h x hx)
     · simpa [propInd, hx] using
         triple_zero (oa := f x) (post := fun y => if y = true then 1 else 0)
 
@@ -153,8 +157,8 @@ example {f : α → OracleComp spec β} {g : OracleComp spec β}
 
 /-! ### Loop invariants -/
 
-example {oa : OracleComp spec α} {I : ℝ≥0∞} {n : ℕ}
-    (hstep : ⦃ I ⦄ oa ⦃ fun _ => I ⦄) :
+-- Constant postconditions are preserved without an invariant premise.
+example {oa : OracleComp spec α} {I : ℝ≥0∞} {n : ℕ} :
     ⦃ I ⦄ oa.replicate n ⦃ fun _ => I ⦄ := by
   vcgen
 
@@ -164,8 +168,7 @@ example {σ : Type} {f : σ → α → OracleComp spec σ} {l : List α} {s₀ :
     ⦃ I s₀ ⦄ l.foldlM f s₀ ⦃ I ⦄ := by
   vcgen
 
-example {f : α → OracleComp spec β} {l : List α} {I : ℝ≥0∞}
-    (hstep : ∀ x, x ∈ l → ⦃ I ⦄ f x ⦃ fun _ => I ⦄) :
+example {f : α → OracleComp spec β} {l : List α} {I : ℝ≥0∞} :
     ⦃ I ⦄ l.mapM f ⦃ fun _ => I ⦄ := by
   vcgen
 
@@ -183,9 +186,9 @@ example {oa : OracleComp spec α} {f : α → OracleComp spec β}
   · intro x
     vcgen using cut2
 
-example {oa : OracleComp spec α} {I : ℝ≥0∞} {n : ℕ}
-    {pre : ℝ≥0∞} {post : List α → ℝ≥0∞}
-    (hpre : pre ≤ I) (hpost : ∀ xs, I ≤ post xs)
-    (hstep : ⦃ I ⦄ oa ⦃ fun _ => I ⦄) :
-    ⦃ pre ⦄ oa.replicate n ⦃ post ⦄ := by
+example {σ : Type} {f : σ → α → OracleComp spec σ} {l : List α} {s₀ : σ}
+    {I : σ → ℝ≥0∞} {pre : ℝ≥0∞} {post : σ → ℝ≥0∞}
+    (hpre : pre ≤ I s₀) (hpost : ∀ s, I s ≤ post s)
+    (hstep : ∀ s x, x ∈ l → ⦃ I s ⦄ f s x ⦃ I ⦄) :
+    ⦃ pre ⦄ l.foldlM f s₀ ⦃ post ⦄ := by
   vcgen inv I

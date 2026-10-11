@@ -3,9 +3,12 @@ Copyright (c) 2026 Quang Dao. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Quang Dao
 -/
-import PolyFun.Interaction.Concurrent.Fairness
-import VCVio.Interaction.UC.AsyncRuntime
-import VCVio.Interaction.UC.Computational
+
+module
+
+public import PolyFun.Interaction.Concurrent.Fairness
+public import VCVio.Interaction.UC.AsyncRuntime
+public import VCVio.Interaction.UC.Computational
 
 /-!
 # Fair PPT security for asynchronous env-open processes
@@ -73,6 +76,8 @@ through the runtime), and is required for `(openTheory.{u, 0, 0}
 Party).Closed` to be well-formed.
 -/
 
+@[expose] public section
+
 universe u
 
 open OracleComp ProbComp ENNReal
@@ -92,10 +97,10 @@ extensions that match `runStepsAsync`:
 * `state n` is the *joint* runtime state at step `n`, i.e. the
   residual process state plus the env-action bookkeeping state.
 * `event n` records which side fired at step `n`: a `processTick`
-  consumes the `procTranscript`, while an `envTick e` consumes the
+  consumes the `procPath`, while an `envTick e` consumes the
   `envSample`.
 * `next_state n` enforces the coherence law of one async step: at
-  process ticks the proc field advances by the chosen transcript;
+  process ticks the proc field advances by the chosen path;
   at env ticks the env state advances to the sampled new state.
 
 This is a freer object than the runtime's randomized executions
@@ -106,36 +111,36 @@ runtime distribution, exactly as
 `ProcessOver.Run`.
 -/
 structure AsyncRun
-    {Γ : Spec.Node.Context} {m : Type → Type} [Pure m] {State Event : Type}
-    (process : Concurrent.ProcessOver Γ)
+    {Γ : TypeTree.Node.Context} {m : Type → Type} [Pure m] {State Event P : Type}
+    (process : Concurrent.ProcessOver P Γ)
     (envAction : EnvAction m Event State) where
   /-- The joint runtime state at each step. -/
   state : ℕ → AsyncRuntimeState process.Proc State
   /-- The runtime event chosen at each step. -/
   event : ℕ → RuntimeEvent Event
-  /-- The process-side transcript chosen at each step. Only constrained
+  /-- The process-side path chosen at each step. Only constrained
   to be coherent when `event n = .processTick`; left unconstrained
   in the env-tick branch. -/
-  procTranscript : (n : ℕ) → (process.step (state n).proc).spec.Transcript
+  procPath : (n : ℕ) → (process.step (state n).proc).tree.Path
   /-- The env-state result sampled at each step. Only constrained to be
   coherent when `event n = .envTick e`. -/
   envSample : ℕ → State
   /-- One-step coherence: at process ticks the proc field advances by
-  the chosen transcript, at env ticks the env state advances to the
+  the chosen path, at env ticks the env state advances to the
   sampled new state. -/
   next_state : ∀ n, state (n + 1) =
     match event n with
     | .processTick =>
         { state n with
-          proc := (process.step (state n).proc).next (procTranscript n) }
+          proc := (process.step (state n).proc).next (procPath n) }
     | .envTick _ => { state n with envState := envSample n }
 
 namespace AsyncRun
 
-variable {Γ : Spec.Node.Context}
+variable {Γ : TypeTree.Node.Context}
 variable {m : Type → Type} [Pure m]
-variable {State Event : Type}
-variable {process : Concurrent.ProcessOver Γ}
+variable {State Event P : Type}
+variable {process : Concurrent.ProcessOver P Γ}
 variable {envAction : EnvAction m Event State}
 
 /-- The initial joint runtime state of an async run. -/
@@ -171,7 +176,7 @@ structure Ticketed
   toEnvProcess : EnvOpenProcess.{0, 0, 0, 0, 0} m Party Δ Event State
   /-- The stable obligation type. -/
   Ticket : Type
-  /-- The stable ticket assigned to each complete process-step transcript. -/
+  /-- The stable ticket assigned to each complete process-step path. -/
   ticket : toEnvProcess.process.toProcess.Tickets Ticket
 
 namespace Ticketed
@@ -193,7 +198,7 @@ def envAction (ticketed : Ticketed Party m Δ Event State) :
 
 /--
 A process ticket is *enabled* at step `n` of an async run when
-some transcript through the current process spec carries that
+some path through the current process type tree carries that
 ticket.
 
 Equivalent to the synchronous
@@ -205,18 +210,18 @@ def enabledAt
     (ticketed : Ticketed Party m Δ Event State)
     (run : AsyncRun ticketed.process.toProcess ticketed.envAction)
     (ticket : ticketed.Ticket) (n : ℕ) : Prop :=
-  ∃ tr : (ticketed.process.step (run.state n).proc).spec.Transcript,
+  ∃ tr : (ticketed.process.step (run.state n).proc).tree.Path,
     ticketed.ticket (run.state n).proc tr = ticket
 
 /--
 A process ticket *fires* at step `n` of an async run when:
 
 1. the runtime fired a `processTick` at step `n`, and
-2. the chosen transcript carries that ticket.
+2. the chosen path carries that ticket.
 
 Note the asymmetry with the synchronous `firedAt`: an `envTick`
 at step `n` cannot fire a process ticket, even though the
-recorded `procTranscript n` is still well-formed. This matches
+recorded `procPath n` is still well-formed. This matches
 the operational reading that env ticks do not advance the
 process side.
 -/
@@ -225,7 +230,7 @@ def firedAt
     (run : AsyncRun ticketed.process.toProcess ticketed.envAction)
     (ticket : ticketed.Ticket) (n : ℕ) : Prop :=
   run.event n = .processTick ∧
-    ticketed.ticket (run.state n).proc (run.procTranscript n) = ticket
+    ticketed.ticket (run.state n).proc (run.procPath n) = ticket
 
 /--
 *Weak fairness* for a single process ticket: continuously enabled
@@ -279,7 +284,7 @@ theorem fired_implies_enabled
     (run : AsyncRun ticketed.process.toProcess ticketed.envAction)
     (ticket : ticketed.Ticket) (n : ℕ) :
     firedAt ticketed run ticket n → enabledAt ticketed run ticket n :=
-  fun ⟨_, hticket⟩ => ⟨run.procTranscript n, hticket⟩
+  fun ⟨_, hticket⟩ => ⟨run.procPath n, hticket⟩
 
 /-- Strong fairness implies weak fairness on the same ticket. -/
 theorem weakFairOn_of_strongFairOn
@@ -287,7 +292,10 @@ theorem weakFairOn_of_strongFairOn
     (run : AsyncRun ticketed.process.toProcess ticketed.envAction)
     (ticket : ticketed.Ticket) :
     StrongFairOn ticketed run ticket → WeakFairOn ticketed run ticket :=
-  fun hSF ⟨N, hN⟩ => hSF fun N' => ⟨max N N', le_max_right _ _, hN _ (le_max_left _ _)⟩
+  fun hSF hEA => by
+    obtain ⟨N, hN⟩ := Concurrent.ProcessOver.Run.eventuallyAlways_iff.mp hEA
+    exact hSF <| Concurrent.ProcessOver.Run.infinitelyOften_iff.mpr fun N' =>
+      ⟨max N N', le_max_right _ _, hN _ (le_max_left _ _)⟩
 
 /-- Strong fairness implies weak fairness for the whole run. -/
 theorem weakFair_of_strongFair
@@ -314,7 +322,7 @@ structure SchedulerPair
     (State Event : Type) where
   /-- The process-side sampler, indexed by closed processes. -/
   proc : ∀ p : (openTheory.{u, 0, 0, 0} Party m schedulerSampler).Closed,
-    ProcessScheduler m p.Proc State (fun st => (p.step st.proc).spec)
+    ProcessScheduler m p.Proc State (fun st => (p.step st.proc).tree)
   /-- The env-side sampler, indexed by closed processes. -/
   env : ∀ p : (openTheory.{u, 0, 0, 0} Party m schedulerSampler).Closed,
     EnvScheduler m p.Proc State Event
@@ -352,7 +360,7 @@ def secureAgainstFair
       Semantics (openTheory.{u, 0, 0, 0} Party m schedulerSampler))
     {Δ : PortBoundary}
     (real ideal : (openTheory.{u, 0, 0, 0} Party m schedulerSampler).Obj Δ)
-    (ε : ℝ)
+    (ε : ℝ≥0∞)
     (isPPT : SchedulerPair Party m schedulerSampler State Event → Prop)
     (isFair : SchedulerPair Party m schedulerSampler State Event → Prop) :
     Prop :=
@@ -369,7 +377,7 @@ variable {mkSem : SchedulerPair Party m schedulerSampler State Event →
 variable {Δ : PortBoundary}
 variable {real ideal :
   (openTheory.{u, 0, 0, 0} Party m schedulerSampler).Obj Δ}
-variable {ε : ℝ}
+variable {ε : ℝ≥0∞}
 
 /-- Uniform `ObservedCompEmulates` against every scheduler pair implies
 fair-PPT security against any choice of `isPPT` and `isFair`. -/
@@ -390,7 +398,7 @@ theorem refl
   fun _ _ _ => ObservedCompEmulates.refl _ W
 
 /-- Weakening on the advantage bound. -/
-theorem mono {ε₁ ε₂ : ℝ} (hε : ε₁ ≤ ε₂)
+theorem mono {ε₁ ε₂ : ℝ≥0∞} (hε : ε₁ ≤ ε₂)
     {isPPT : SchedulerPair Party m schedulerSampler State Event → Prop}
     {isFair : SchedulerPair Party m schedulerSampler State Event → Prop}
     (h : secureAgainstFair mkSem real ideal ε₁ isPPT isFair) :
@@ -444,12 +452,11 @@ def asympSecureAgainstFair
       SchedulerPair Party m schedulerSampler State Event ×
       (openTheory.{u, 0, 0, 0} Party m schedulerSampler).Plug Δ) : Prop :=
   ∀ A, isPPT A → isFair A → negligible fun n =>
-    ENNReal.ofReal <|
-      (mkSem n (extract A n).1).distAdvantage
-        ((openTheory.{u, 0, 0, 0} Party m schedulerSampler).close
-          (real n) (extract A n).2)
-        ((openTheory.{u, 0, 0, 0} Party m schedulerSampler).close
-          (ideal n) (extract A n).2)
+    (mkSem n (extract A n).1).distAdvantage
+      ((openTheory.{u, 0, 0, 0} Party m schedulerSampler).close
+        (real n) (extract A n).2)
+      ((openTheory.{u, 0, 0, 0} Party m schedulerSampler).close
+        (ideal n) (extract A n).2)
 
 namespace asympSecureAgainstFair
 
@@ -471,25 +478,24 @@ negligible function implies asymptotic fair-PPT security. -/
 theorem of_pointwise_bound
     (f : ℕ → ℝ≥0∞) (hf : negligible f)
     (hbound : ∀ (_A : Adv) (n : ℕ),
-      ENNReal.ofReal ((mkSem n (extract _A n).1).distAdvantage
+      (mkSem n (extract _A n).1).distAdvantage
         ((openTheory.{u, 0, 0, 0} Party m schedulerSampler).close
           (real n) (extract _A n).2)
         ((openTheory.{u, 0, 0, 0} Party m schedulerSampler).close
-          (ideal n) (extract _A n).2)) ≤ f n) :
+          (ideal n) (extract _A n).2) ≤ f n) :
     asympSecureAgainstFair mkSem real ideal Adv isPPT isFair extract :=
   fun A _ _ => negligible_of_le (hbound A) hf
 
 /-- A family of `secureAgainstFair` bounds with negligible advantage
 sequence implies asymptotic fair-PPT security. -/
 theorem of_secureAgainstFair
-    (ε : ℕ → ℝ) (hε : negligible (fun n => ENNReal.ofReal (ε n)))
+    (ε : ℕ → ℝ≥0∞) (hε : negligible ε)
     (h : ∀ n, secureAgainstFair (mkSem n) (real n) (ideal n) (ε n)
       (fun s => ∃ A, isPPT A ∧ (extract A n).1 = s)
       (fun s => ∃ A, isFair A ∧ (extract A n).1 = s)) :
     asympSecureAgainstFair mkSem real ideal Adv isPPT isFair extract :=
   fun A hppt hfair => negligible_of_le
-    (fun n => ENNReal.ofReal_le_ofReal
-      (h n (extract A n).1 ⟨A, hppt, rfl⟩ ⟨A, hfair, rfl⟩ (extract A n).2)) hε
+    (fun n => h n (extract A n).1 ⟨A, hppt, rfl⟩ ⟨A, hfair, rfl⟩ (extract A n).2) hε
 
 end asympSecureAgainstFair
 
