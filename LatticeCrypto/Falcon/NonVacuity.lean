@@ -681,10 +681,9 @@ noncomputable def toyDomainSample : PublicKey toyP → ProbComp (Rq toyP.n × Rq
 draw. -/
 theorem toy_hReg :
     ∀ pk sk, (pk, sk) ∈ support toyHr.gen →
-      𝒮[(do let s ← toyDomainSample pk; pure (toyIdealPSF.eval pk s, s)
-            : ProbComp (Rq toyP.n × (Rq toyP.n × Rq toyP.n)))] =
-      𝒮[(do let c ← ($ᵗ (Rq toyP.n)); let s ← toyIdealPSF.trapdoorSample pk sk c; pure (c, s)
-            : ProbComp (Rq toyP.n × (Rq toyP.n × Rq toyP.n)))] := by
+      (do let s ← toyDomainSample pk; pure (toyIdealPSF.eval pk s, s)
+            : ProbComp (Rq toyP.n × (Rq toyP.n × Rq toyP.n))) =ᵈ (do let c ← ($ᵗ (Rq toyP.n)); let s ← toyIdealPSF.trapdoorSample pk sk c; pure (c, s)
+            : ProbComp (Rq toyP.n × (Rq toyP.n × Rq toyP.n))) := by
   intro pk sk hmem
   unfold toyDomainSample
   obtain ⟨rfl, rfl⟩ := toy_mem_gen hmem
@@ -715,21 +714,17 @@ theorem toy_attemptRejectBound :
     attemptRejectBound toyP toyHr (signAttempt toyP toyPrims) (80 / 81) := by
   intro pk sk hmem c
   obtain ⟨rfl, rfl⟩ := toy_mem_gen hmem
-  rw [toy_signAttempt, probOutput_map]
-  have hle : Pr[fun δ : Box =>
-      (if (falconPSF toyP toyPrims).isShort (sOf c δ) then some (sOf c δ) else none) = none |
-        $ᵗ Box] ≤ Pr[fun δ : Box => δ ≠ center | $ᵗ Box] := by
-    refine probEvent_mono fun δ _ hδ => ?_
+  rw [toy_signAttempt, prEvent_map]
+  have hle : Pr{let δ ← $ᵗ Box}[(if (falconPSF toyP toyPrims).isShort (sOf c δ) then some (sOf c δ) else none) = none] ≤ Pr{let δ ← $ᵗ Box}[δ ≠ center] := by
+    refine prEvent_mono fun δ _ hδ => ?_
     rintro rfl
     simp [toy_center_accepts c] at hδ
   have hcard : (Finset.univ.filter fun δ : Box => δ ≠ center).card = 80 := by
     rw [Finset.filter_ne', Finset.card_erase_of_mem (Finset.mem_univ _), Finset.card_univ]
     simp [Fintype.card_prod, Fintype.card_fin]
   have hBox : Fintype.card Box = 81 := by simp [Fintype.card_prod, Fintype.card_fin]
-  rw [probEvent_uniformSample (p := fun δ : Box => δ ≠ center), hcard, hBox] at hle
-  calc (Pr[fun δ : Box =>
-        (if (falconPSF toyP toyPrims).isShort (sOf c δ) then some (sOf c δ) else none) = none |
-          $ᵗ Box]).toReal
+  rw [SampleableType.prEvent_uniformSample (p := fun δ : Box => δ ≠ center), hcard, hBox] at hle
+  calc (Pr{let δ ← $ᵗ Box}[(if (falconPSF toyP toyPrims).isShort (sOf c δ) then some (sOf c δ) else none) = none]).toReal
       ≤ (((80 : ℕ) : ℝ≥0∞) / ((81 : ℕ) : ℝ≥0∞)).toReal :=
         ENNReal.toReal_mono (ENNReal.div_ne_top (by simp) (by simp)) hle
     _ = 80 / 81 := by
@@ -748,10 +743,9 @@ theorem falcon_attempt_hyps_inhabited :
       ∀ c, NeverFail (toyIdealPSF.trapdoorSample pk sk c)) ∧
     (∃ domainSample : PublicKey toyP → ProbComp (Rq toyP.n × Rq toyP.n),
       ∀ pk sk, (pk, sk) ∈ support toyHr.gen →
-        𝒮[(do let s ← domainSample pk; pure (toyIdealPSF.eval pk s, s)
-              : ProbComp (Rq toyP.n × (Rq toyP.n × Rq toyP.n)))] =
-        𝒮[(do let c ← ($ᵗ (Rq toyP.n)); let s ← toyIdealPSF.trapdoorSample pk sk c; pure (c, s)
-              : ProbComp (Rq toyP.n × (Rq toyP.n × Rq toyP.n)))]) ∧
+        (do let s ← domainSample pk; pure (toyIdealPSF.eval pk s, s)
+              : ProbComp (Rq toyP.n × (Rq toyP.n × Rq toyP.n))) =ᵈ (do let c ← ($ᵗ (Rq toyP.n)); let s ← toyIdealPSF.trapdoorSample pk sk c; pure (c, s)
+              : ProbComp (Rq toyP.n × (Rq toyP.n × Rq toyP.n)))) ∧
     attemptTransport toyP toyPrims toyHr (signAttempt toyP toyPrims) 0 ∧
     attemptRejectBound toyP toyHr (signAttempt toyP toyPrims) (80 / 81) ∧
     idealAttemptResamples toyP toyHr (signAttempt toyP toyPrims) toyIdealPSF :=
@@ -897,12 +891,11 @@ theorem toy_mem_gen_self : (toyPk, toySk) ∈ support toyHr.gen := by
 
 /-- **The one-shot acceptance probability at the zero target is `1/9`.** -/
 theorem toy_oneShot_accept_zero :
-    (Pr[fun x => (falconPSF toyP toyPrims).isShort x = true |
-      (falconPSF toyP toyPrims).trapdoorSample toyPk toySk 0]).toReal = 1 / 9 := by
-  rw [toy_trapdoorSample, probEvent_map]
+    (Pr{let x ← (falconPSF toyP toyPrims).trapdoorSample toyPk toySk 0}[(falconPSF toyP toyPrims).isShort x = true]).toReal = 1 / 9 := by
+  rw [toy_trapdoorSample, prEvent_map]
   have hBox : Fintype.card Box = 81 := by simp [Fintype.card_prod, Fintype.card_fin]
-  change (Pr[accepts 0 | $ᵗ Box]).toReal = 1 / 9
-  rw [probEvent_uniformSample, card_accepts_zero, hBox, ENNReal.toReal_div,
+  change (Pr{let x ← $ᵗ Box}[(accepts 0) x]).toReal = 1 / 9
+  rw [SampleableType.prEvent_uniformSample, card_accepts_zero, hBox, ENNReal.toReal_div,
     ENNReal.toReal_natCast, ENNReal.toReal_natCast]
   norm_num
 

@@ -344,10 +344,9 @@ theorem euf_cma_security_oneShot
     (hCorrect : ∀ pk sk, (pk, sk) ∈ support hr.gen → idealPSF.CorrectAt pk sk)
     (domainSample : PublicKey p → ProbComp (Rq p.n × Rq p.n))
     (hReg : ∀ pk sk, (pk, sk) ∈ support hr.gen →
-        𝒮[(do let s ← domainSample pk; pure (idealPSF.eval pk s, s)
-              : ProbComp (Rq p.n × (Rq p.n × Rq p.n)))] =
-        𝒮[(do let c ← ($ᵗ (Rq p.n)); let s ← idealPSF.trapdoorSample pk sk c; pure (c, s)
-              : ProbComp (Rq p.n × (Rq p.n × Rq p.n)))])
+        (do let s ← domainSample pk; pure (idealPSF.eval pk s, s)
+              : ProbComp (Rq p.n × (Rq p.n × Rq p.n))) =ᵈ (do let c ← ($ᵗ (Rq p.n)); let s ← idealPSF.trapdoorSample pk sk c; pure (c, s)
+              : ProbComp (Rq p.n × (Rq p.n × Rq p.n))))
     (hNeverFail : ∀ pk sk, (pk, sk) ∈ support hr.gen →
       ∀ c, NeverFail (idealPSF.trapdoorSample pk sk c))
     -- Finite-precision sampler transport ([FGdG+25] Rényi term): swapping the concrete signing
@@ -403,10 +402,9 @@ theorem euf_cma_security_oneShot_bytes40
     (hCorrect : ∀ pk sk, (pk, sk) ∈ support hr.gen → idealPSF.CorrectAt pk sk)
     (domainSample : PublicKey p → ProbComp (Rq p.n × Rq p.n))
     (hReg : ∀ pk sk, (pk, sk) ∈ support hr.gen →
-        𝒮[(do let s ← domainSample pk; pure (idealPSF.eval pk s, s)
-              : ProbComp (Rq p.n × (Rq p.n × Rq p.n)))] =
-        𝒮[(do let c ← ($ᵗ (Rq p.n)); let s ← idealPSF.trapdoorSample pk sk c; pure (c, s)
-              : ProbComp (Rq p.n × (Rq p.n × Rq p.n)))])
+        (do let s ← domainSample pk; pure (idealPSF.eval pk s, s)
+              : ProbComp (Rq p.n × (Rq p.n × Rq p.n))) =ᵈ (do let c ← ($ᵗ (Rq p.n)); let s ← idealPSF.trapdoorSample pk sk c; pure (c, s)
+              : ProbComp (Rq p.n × (Rq p.n × Rq p.n))))
     (hNeverFail : ∀ pk sk, (pk, sk) ∈ support hr.gen →
       ∀ c, NeverFail (idealPSF.trapdoorSample pk sk c))
     (adv' : SignatureAlg.UnforgeableAdversary
@@ -456,7 +454,7 @@ target `c`, the concrete Falcon trapdoor sampler (`ffSampling` over floating-poi
 arithmetic) and the ideal sampler are within total-variation distance `ε_step`.
 
 The total-variation form is chosen because it is what the adaptive accumulation tool
-(`OracleComp.ProgramLogic.Relational.tvDist_simulateQ_run_le_queryBoundP_mul`) consumes
+(`OracleComp.ProgramLogic.Relational.measureETVDist_simulateQ_run_le_queryBoundP_mul`) consumes
 per signing step; a Boolean-distinguisher formulation is interderivable but composes less
 directly.  Honest-key scoping matches `hCorrect`/`hNeverFail`: the sampler geometry is
 only meaningful where the NTRU basis is valid.
@@ -521,7 +519,7 @@ def idealSamplerGuessBound
       (PublicKey p) (SecretKey p) (Rq p.n × Rq p.n) (Rq p.n))
     (εpp : ℝ≥0∞) : Prop :=
   ∀ pk sk, (pk, sk) ∈ support hr.gen → ∀ (c : Rq p.n) (x : Rq p.n × Rq p.n),
-    Pr[= x | idealPSF.trapdoorSample pk sk c] ≤ εpp
+    Pr{let y ← idealPSF.trapdoorSample pk sk c}[y = x] ≤ εpp
 
 /-- The trivial witness for the guessing-probability bound: pointwise output masses of any
 sampler never exceed one, so `εpp = 1` is always admissible. -/
@@ -530,7 +528,7 @@ theorem idealSamplerGuessBound_one
     (idealPSF : PreimageSampleableFunction
       (PublicKey p) (SecretKey p) (Rq p.n × Rq p.n) (Rq p.n)) :
     idealSamplerGuessBound p hr idealPSF 1 :=
-  fun _pk _sk _h _c _x => probOutput_le_one
+  fun _pk _sk _h _c _x => prEvent_le_one
 
 /-- **The guessing bound only needs the short preimages.** On honest keys `CorrectAt` puts every
 output of the ideal sampler inside the short set, so a preimage that is not short has no output
@@ -544,12 +542,12 @@ theorem idealSamplerGuessBound_of_short
     (hCorrect : ∀ pk sk, (pk, sk) ∈ support hr.gen → idealPSF.CorrectAt pk sk)
     (εpp : ℝ≥0∞)
     (hShort : ∀ pk sk, (pk, sk) ∈ support hr.gen → ∀ (c : Rq p.n) (x : Rq p.n × Rq p.n),
-      idealPSF.isShort x = true → Pr[= x | idealPSF.trapdoorSample pk sk c] ≤ εpp) :
+      idealPSF.isShort x = true → Pr{let y ← idealPSF.trapdoorSample pk sk c}[y = x] ≤ εpp) :
     idealSamplerGuessBound p hr idealPSF εpp := by
   intro pk sk hmem c x
   by_cases hx : x ∈ support (idealPSF.trapdoorSample pk sk c)
   · exact hShort pk sk hmem c x (hCorrect pk sk hmem c x hx).2
-  · rw [probOutput_eq_zero_of_not_mem_support hx]
+  · rw [prEvent_eq_zero_of_not_mem_support hx]
     exact zero_le
 
 /-! ## Falcon's rejection loop: attempt-level sampler transport
@@ -592,15 +590,14 @@ theorem oneShot_rejection_prob_le_of_samplerTransport
     (hStep : samplerTransport p prims hr idealPSF ε_step)
     (pk : PublicKey p) (sk : SecretKey p) (hmem : (pk, sk) ∈ support hr.gen)
     (c : Rq p.n) :
-    1 - Pr[ fun x => (falconPSF p prims).isShort x = true
-          | (falconPSF p prims).trapdoorSample pk sk c].toReal ≤ ε_step := by
+    1 - Pr{let x ← (falconPSF p prims).trapdoorSample pk sk c}[(falconPSF p prims).isShort x = true].toReal ≤ ε_step := by
   classical
   set f : Rq p.n × Rq p.n → Bool := fun x => (falconPSF p prims).isShort x with hf
-  have hideal : Pr[= true | (f <$> idealPSF.trapdoorSample pk sk c : ProbComp Bool)] = 1 := by
-    rw [← probEvent_eq_eq_probOutput, probEvent_map]
+  have hideal : Pr{let x ← (f <$> idealPSF.trapdoorSample pk sk c : ProbComp Bool)}[x = true] = 1 := by
+    rw [← probEvent_eq_eq_probOutput, prEvent_map]
     refine probEvent_eq_one ⟨?_, fun x hx => ?_⟩
     · have := hNeverFail pk sk hmem c
-      exact probFailure_eq_zero (mx := idealPSF.trapdoorSample pk sk c)
+      exact OracleComp.prFail_eq_zero (mx := idealPSF.trapdoorSample pk sk c)
     · have hx' := (hCorrect pk sk hmem c x hx).2
       simpa [hf, Function.comp, ← hShort x] using hx'
   have hmap : tvDist (f <$> (falconPSF p prims).trapdoorSample pk sk c)
@@ -610,10 +607,9 @@ theorem oneShot_rejection_prob_le_of_samplerTransport
     (f <$> (falconPSF p prims).trapdoorSample pk sk c)
     (f <$> idealPSF.trapdoorSample pk sk c)
   rw [hideal, ENNReal.toReal_one] at habs
-  have hconc : Pr[= true | (f <$> (falconPSF p prims).trapdoorSample pk sk c : ProbComp Bool)]
-      = Pr[ fun x => (falconPSF p prims).isShort x = true
-            | (falconPSF p prims).trapdoorSample pk sk c] := by
-    rw [← probEvent_eq_eq_probOutput, probEvent_map]; rfl
+  have hconc : Pr{let x ← (f <$> (falconPSF p prims).trapdoorSample pk sk c : ProbComp Bool)}[x = true]
+      = Pr{let x ← (falconPSF p prims).trapdoorSample pk sk c}[(falconPSF p prims).isShort x = true] := by
+    rw [← probEvent_eq_eq_probOutput, prEvent_map]; rfl
   rw [hconc] at habs
   linarith [le_trans habs hmap, (abs_le.mp habs).1]
 
@@ -659,7 +655,7 @@ def attemptRejectBound
       ProbComp (Option (Rq p.n × Rq p.n)))
     (pRej : ℝ) : Prop :=
   ∀ pk sk, (pk, sk) ∈ support hr.gen → ∀ c : Rq p.n,
-    Pr[= none | idealAttempt pk sk c].toReal ≤ pRej
+    Pr{let x ← idealAttempt pk sk c}[x = none].toReal ≤ pRej
 
 /-- **The idealized attempt is a rejection sampler for the ideal PSF.**  Replacing a rejection
 by a fresh draw from `idealPSF.trapdoorSample` reproduces its law, so the accepted outputs of
@@ -737,10 +733,9 @@ theorem euf_cma_security
     (hCorrect : ∀ pk sk, (pk, sk) ∈ support hr.gen → idealPSF.CorrectAt pk sk)
     (domainSample : PublicKey p → ProbComp (Rq p.n × Rq p.n))
     (hReg : ∀ pk sk, (pk, sk) ∈ support hr.gen →
-        𝒮[(do let s ← domainSample pk; pure (idealPSF.eval pk s, s)
-              : ProbComp (Rq p.n × (Rq p.n × Rq p.n)))] =
-        𝒮[(do let c ← ($ᵗ (Rq p.n)); let s ← idealPSF.trapdoorSample pk sk c; pure (c, s)
-              : ProbComp (Rq p.n × (Rq p.n × Rq p.n)))])
+        (do let s ← domainSample pk; pure (idealPSF.eval pk s, s)
+              : ProbComp (Rq p.n × (Rq p.n × Rq p.n))) =ᵈ (do let c ← ($ᵗ (Rq p.n)); let s ← idealPSF.trapdoorSample pk sk c; pure (c, s)
+              : ProbComp (Rq p.n × (Rq p.n × Rq p.n))))
     (hNeverFail : ∀ pk sk, (pk, sk) ∈ support hr.gen →
       ∀ c, NeverFail (idealPSF.trapdoorSample pk sk c))
     (hAttempt : attemptTransport p prims hr idealAttempt ε_step)
@@ -809,12 +804,11 @@ theorem samplerTransport_zero_forces_accept
     (hStep : samplerTransport p prims hr idealPSF 0)
     (pk : PublicKey p) (sk : SecretKey p) (hmem : (pk, sk) ∈ support hr.gen)
     (c : Rq p.n) :
-    Pr[ fun x => (falconPSF p prims).isShort x = true
-      | (falconPSF p prims).trapdoorSample pk sk c] = 1 := by
+    Pr{let x ← (falconPSF p prims).trapdoorSample pk sk c}[(falconPSF p prims).isShort x = true] = 1 := by
   have h := oneShot_rejection_prob_le_of_samplerTransport p prims hr idealPSF 0
     hShort hCorrect hNeverFail hStep pk sk hmem c
   refine one_le_probEvent_iff.mp ?_
-  rw [← ENNReal.toReal_le_toReal ENNReal.one_ne_top probEvent_ne_top, ENNReal.toReal_one]
+  rw [← ENNReal.toReal_le_toReal ENNReal.one_ne_top prEvent_ne_top, ENNReal.toReal_one]
   linarith
 
 /-- At attempt granularity a vanishing precision budget is satisfiable whatever the norm check
@@ -848,10 +842,9 @@ theorem euf_cma_collision_security
     (hCorrect : ∀ pk sk, (pk, sk) ∈ support hr.gen → idealPSF.CorrectAt pk sk)
     (domainSample : PublicKey p → ProbComp (Rq p.n × Rq p.n))
     (hReg : ∀ pk sk, (pk, sk) ∈ support hr.gen →
-        𝒮[(do let s ← domainSample pk; pure (idealPSF.eval pk s, s)
-              : ProbComp (Rq p.n × (Rq p.n × Rq p.n)))] =
-        𝒮[(do let c ← ($ᵗ (Rq p.n)); let s ← idealPSF.trapdoorSample pk sk c; pure (c, s)
-              : ProbComp (Rq p.n × (Rq p.n × Rq p.n)))])
+        (do let s ← domainSample pk; pure (idealPSF.eval pk s, s)
+              : ProbComp (Rq p.n × (Rq p.n × Rq p.n))) =ᵈ (do let c ← ($ᵗ (Rq p.n)); let s ← idealPSF.trapdoorSample pk sk c; pure (c, s)
+              : ProbComp (Rq p.n × (Rq p.n × Rq p.n))))
     (hNeverFail : ∀ pk sk, (pk, sk) ∈ support hr.gen →
       ∀ c, NeverFail (idealPSF.trapdoorSample pk sk c))
     (hAttempt : attemptTransport p prims hr idealAttempt ε_step)
@@ -919,8 +912,7 @@ theorem oneShot_samplerLoss_one_le_of_samplerTransport
     (pk : PublicKey p) (sk : SecretKey p) (hmem : (pk, sk) ∈ support hr.gen)
     (c : Rq p.n)
     (hq : 1 ≤ (qSign : ℝ) *
-      (1 - Pr[ fun x => (falconPSF p prims).isShort x = true
-             | (falconPSF p prims).trapdoorSample pk sk c].toReal)) :
+      (1 - Pr{let x ← (falconPSF p prims).trapdoorSample pk sk c}[(falconPSF p prims).isShort x = true].toReal)) :
     (1 : ℝ) ≤ (qSign : ℝ) * ε_step :=
   oneShot_samplerLoss_one_le qSign _ ε_step
     (oneShot_rejection_prob_le_of_samplerTransport p prims hr idealPSF ε_step

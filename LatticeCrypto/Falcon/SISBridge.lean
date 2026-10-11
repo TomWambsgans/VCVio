@@ -219,10 +219,10 @@ theorem advantage_le_ntruSISProblemKeyed
   unfold SIS.advantage SIS.experiment collisionToKernelAdv
   rw [evalDist_apply_singleton, evalDist_apply_singleton, hsamp]
   simp only [map_eq_bind_pure_comp, bind_assoc, pure_bind, Function.comp_apply]
-  rw [probOutput_bind_eq_tsum, probOutput_bind_eq_tsum]
+  rw [OracleComp.prEvent_bind_eq_tsum, OracleComp.prEvent_bind_eq_tsum]
   refine ENNReal.tsum_le_tsum fun pk => ?_
   gcongr
-  rw [probOutput_bind_eq_tsum, probOutput_bind_eq_tsum]
+  rw [OracleComp.prEvent_bind_eq_tsum, OracleComp.prEvent_bind_eq_tsum]
   refine ENNReal.tsum_le_tsum fun xs => ?_
   gcongr
   by_cases hval : (ntruPSFCollisionProblem p prims hr).isValid pk xs = true
@@ -257,10 +257,9 @@ theorem euf_cma_security_oneShot_ntruSIS
     (hCorrect : ∀ pk sk, (pk, sk) ∈ support hr.gen → idealPSF.CorrectAt pk sk)
     (domainSample : PublicKey p → ProbComp (Rq p.n × Rq p.n))
     (hReg : ∀ pk sk, (pk, sk) ∈ support hr.gen →
-        𝒮[(do let s ← domainSample pk; pure (idealPSF.eval pk s, s)
-              : ProbComp (Rq p.n × (Rq p.n × Rq p.n)))] =
-        𝒮[(do let c ← ($ᵗ (Rq p.n)); let s ← idealPSF.trapdoorSample pk sk c; pure (c, s)
-              : ProbComp (Rq p.n × (Rq p.n × Rq p.n)))])
+        (do let s ← domainSample pk; pure (idealPSF.eval pk s, s)
+              : ProbComp (Rq p.n × (Rq p.n × Rq p.n))) =ᵈ (do let c ← ($ᵗ (Rq p.n)); let s ← idealPSF.trapdoorSample pk sk c; pure (c, s)
+              : ProbComp (Rq p.n × (Rq p.n × Rq p.n))))
     (hNeverFail : ∀ pk sk, (pk, sk) ∈ support hr.gen →
       ∀ c, NeverFail (idealPSF.trapdoorSample pk sk c))
     (adv' : SignatureAlg.UnforgeableAdversary
@@ -330,10 +329,9 @@ theorem euf_cma_collision_security_ntruSIS
     (hCorrect : ∀ pk sk, (pk, sk) ∈ support hr.gen → idealPSF.CorrectAt pk sk)
     (domainSample : PublicKey p → ProbComp (Rq p.n × Rq p.n))
     (hReg : ∀ pk sk, (pk, sk) ∈ support hr.gen →
-        𝒮[(do let s ← domainSample pk; pure (idealPSF.eval pk s, s)
-              : ProbComp (Rq p.n × (Rq p.n × Rq p.n)))] =
-        𝒮[(do let c ← ($ᵗ (Rq p.n)); let s ← idealPSF.trapdoorSample pk sk c; pure (c, s)
-              : ProbComp (Rq p.n × (Rq p.n × Rq p.n)))])
+        (do let s ← domainSample pk; pure (idealPSF.eval pk s, s)
+              : ProbComp (Rq p.n × (Rq p.n × Rq p.n))) =ᵈ (do let c ← ($ᵗ (Rq p.n)); let s ← idealPSF.trapdoorSample pk sk c; pure (c, s)
+              : ProbComp (Rq p.n × (Rq p.n × Rq p.n))))
     (hNeverFail : ∀ pk sk, (pk, sk) ∈ support hr.gen →
       ∀ c, NeverFail (idealPSF.trapdoorSample pk sk c))
     (hAttempt : attemptTransport p prims hr idealAttempt ε_step)
