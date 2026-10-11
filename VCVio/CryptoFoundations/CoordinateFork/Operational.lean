@@ -692,8 +692,8 @@ theorem prEvent_goodTranscripts_coordForkOpT (V : (ι → S) → Y → Bool) (k 
     (D : ProbComp ((ι → S) → Y)) :
     Pr{let r ← coordForkOpT V k D}[GoodTranscripts V k r.1]
       = Pr{let r ← coordForkOpT V k D}[r.1.isSome] := by
-  refine le_antisymm (prEvent_mono_of_support _ fun r _ hr => ?_)
-    (prEvent_mono_of_support _ fun r hr hs => ?_)
+  refine le_antisymm (prEvent_mono_of_support _ _ _ fun r _ hr => ?_)
+    (prEvent_mono_of_support _ _ _ fun r hr hs => ?_)
   · obtain ⟨τ, X, hEq, -, -⟩ := hr
     rw [hEq]; rfl
   · obtain ⟨⟨o, n⟩, rfl⟩ : ∃ q : Option (((ι → S) → Y) × Finset (ι → S)) × ℕ, q = r := ⟨r, rfl⟩

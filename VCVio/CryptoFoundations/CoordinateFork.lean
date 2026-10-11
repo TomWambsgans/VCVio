@@ -377,8 +377,8 @@ theorem prEvent_isSome_coordFork (k : ℕ) (D : ProbComp ((ι → S) → Bool)) 
 /-- Succeeding and satisfying `GoodOutput` are the same event: every successful run is good. -/
 theorem prEvent_goodOutput_coordFork (k : ℕ) (D : ProbComp ((ι → S) → Bool)) :
     Pr{let r ← coordFork k D}[GoodOutput k r] = Pr{let r ← coordFork k D}[r.isSome] := by
-  refine le_antisymm (prEvent_mono_of_support _ fun r _ hr => ?_)
-    (prEvent_mono_of_support _ fun r hr hs => ?_)
+  refine le_antisymm (prEvent_mono_of_support _ _ _ fun r _ hr => ?_)
+    (prEvent_mono_of_support _ _ _ fun r hr hs => ?_)
   · obtain ⟨ρ, X, rfl, -, -⟩ := hr
     rfl
   · exact goodOutput_of_mem_support hr hs
