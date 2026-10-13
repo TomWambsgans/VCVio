@@ -68,6 +68,17 @@ class ParityTests(unittest.TestCase):
         self.assertEqual(report["exceptT_missing_of_optionT"], ["wp_const", "wp_failure"])
         self.assertEqual(report["attribute_mismatch"], ["wp_const: flat [], OptionT ['simp']"])
 
+    def test_rewritten_baseline_can_accept_growth(self):
+        report = {c: [] for c in parity.CATEGORIES}
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "baseline.json"
+            parity.write_baseline(path, report)
+            grown = dict(report, optionT_missing=["new_law"])
+            self.assertEqual(parity.compare(grown, parity.load_baseline(path)),
+                             ["new gap (optionT_missing): new_law"])
+            parity.write_baseline(path, grown)
+            self.assertEqual(parity.compare(grown, parity.load_baseline(path)), [])
+
     def test_baseline_comparison(self):
         report = {c: [] for c in parity.CATEGORIES}
         report["optionT_missing"] = ["a", "b"]

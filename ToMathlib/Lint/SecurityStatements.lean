@@ -12,21 +12,24 @@ public meta import Lean.Meta.InferType
 # Security-statement hygiene
 
 Two environment linters over the security libraries, the modules under `VCVio.CryptoFoundations`,
-`LatticeCrypto`, `HashSig` and `Examples`, each reporting a shape under which a security theorem
-holds for every scheme:
+`LatticeCrypto`, `HashSig` and `Examples`, each reporting a syntactic shape that can make a
+security theorem uninformative:
 
 * `existentialReduction`: a theorem whose conclusion existentially quantifies a reduction,
   simulator, extractor or distinguisher, that is, a function (possibly of no arguments) into an
   oracle computation: an `OracleComp` or `ProbComp`, or one of them under `OptionT`, `ExceptT` or
   `StateT`. Nested existentials are searched through. Such a witness carries no resource bound
-  and can be chosen classically, so the statement proves nothing; a security theorem names its
-  reduction instead. A witness bundled in a structure is not recognized.
+  and can be chosen classically. A security theorem names its reduction instead. This syntactic
+  heuristic does not determine whether a flagged existential is vacuous, and a witness bundled
+  in a structure is not recognized.
 * `unconstrainedRealParameter`: a theorem whose conclusion is an upper bound (`≤`, `<`, `≥` or
   `>`) with a parameter in `ℝ` that reaches the bounding side through `ENNReal.ofReal` or
   `Real.toNNReal` and is bounded by no hypothesis, so a negative value drives the clamped term,
   such as a loss, to zero and the bound becomes trivial. An equality fixes the role of its
   parameters, so the real parameters of a distribution, such as a Gaussian's center, are not
   reported, and a parameter in `ℝ≥0` or `ℝ≥0∞` is nonnegative by type and is not reported.
+  This syntactic heuristic accepts any occurrence in a propositional hypothesis as a constraint,
+  including a tautology such as `ε = ε`.
 
 Definitions are not linted. Exceptions are maintained by the repository's exact `nolints.json`
 baseline. `VCVio.Prelude.Core` imports this module so that the linters are available to every
@@ -88,8 +91,10 @@ private partial def existentialReductions (e : Expr) : MetaM (Array Name) := do
   let rest ← lambdaTelescope body fun _ b => existentialReductions b
   return (if here then #[name] else #[]) ++ rest
 
-/-- Report theorems of the security libraries whose conclusion existentially quantifies a
-reduction, simulator, extractor or distinguisher: a function into an oracle computation. -/
+/-- A syntactic heuristic reporting theorems of the security libraries whose conclusion
+existentially quantifies a reduction, simulator, extractor or distinguisher: a function into an
+oracle computation. It misses bundled existentials whose witness stores the reduction in a
+structure, and does not establish that a flagged existential is vacuous. -/
 @[env_linter] def existentialReduction : Linter where
   noErrorsFound := "No security theorem existentially quantifies a reduction."
   errorsFound := "SECURITY THEOREMS EXISTENTIALLY QUANTIFYING A REDUCTION."
@@ -116,9 +121,10 @@ private def upperSide? (body : Expr) : Option Expr :=
   else if body.isAppOfArity ``GE.ge 4 || body.isAppOfArity ``GT.gt 4 then some (body.getArg! 2)
   else none
 
-/-- Report theorems of the security libraries whose conclusion is an upper bound with a parameter
-in `ℝ` that reaches the bounding side through `ENNReal.ofReal` or `Real.toNNReal` and is bounded
-by no hypothesis. -/
+/-- A syntactic heuristic reporting theorems of the security libraries whose conclusion is an
+upper bound with a parameter in `ℝ` that reaches the bounding side through `ENNReal.ofReal` or
+`Real.toNNReal` and occurs in no propositional hypothesis. A tautology such as `ε = ε` counts as
+a constraint, so passing this check does not establish a meaningful parameter bound. -/
 @[env_linter] def unconstrainedRealParameter : Linter where
   noErrorsFound := "No security theorem has an unconstrained real parameter."
   errorsFound := "SECURITY THEOREMS WITH AN UNCONSTRAINED REAL PARAMETER."

@@ -72,4 +72,25 @@ hypothesis -/
 set_option linter.securityStatements.everywhere true in
 #lint only existentialReduction unconstrainedRealParameter
 
+/-- A reduction stored in a bundle is outside the existential heuristic's recognition. -/
+structure BundledReduction where
+  run : ℕ → ProbComp ℕ
+
+/-- A tautological hypothesis satisfies the real-parameter heuristic. -/
+theorem unconstrainedRealParameter_tautology (ε : ℝ) (_h : ε = ε) :
+    ENNReal.ofReal ε ≤ ENNReal.ofReal ε := le_rfl
+
+/-- An existential over a bundled reduction is outside the heuristic's recognition. -/
+theorem existentialReduction_bundled : ∃ _r : BundledReduction, True :=
+  ⟨⟨fun _ => pure 0⟩, trivial⟩
+
+open Lean Elab Command in
+run_cmd liftTermElabM do
+  withOptions (linter.securityStatements.everywhere.set · true) do
+    let realResult ← ToMathlib.Lint.unconstrainedRealParameter.test
+      ``unconstrainedRealParameter_tautology
+    unless realResult.isNone do throwError "the real-parameter heuristic rejected a tautology"
+    let bundledResult ← ToMathlib.Lint.existentialReduction.test ``existentialReduction_bundled
+    unless bundledResult.isNone do throwError "the existential heuristic recognized a bundle"
+
 end VCVioTest.Lint.SecurityStatements
