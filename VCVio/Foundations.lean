@@ -7,7 +7,7 @@ Authors: Devon Tuma
 module
 public import VCVio.Prelude.Core
 public import VCVio.CryptoFoundations.SecExp.Measure
-public import VCVio.StateSeparating.MeasureDistEquiv
+public import VCVio.StateSeparating.DistEquiv
 public import VCVio.ProgramLogic.Relational.Measure.Bind
 public import VCVio.ProgramLogic.Relational.Measure.Deterministic
 public import VCVio.ProgramLogic.Relational.Basic

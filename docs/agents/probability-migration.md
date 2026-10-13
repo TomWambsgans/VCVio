@@ -32,6 +32,11 @@ The codemod is textual: it never needs a build and is idempotent, so it can be r
 further repin. It does not convert proofs; a proof that computed with `probOutput` sums, `SPMF`
 equalities or the discrete `tvDist` follows the *Standard proof conversion* table of the roadmap.
 
+Maintainers converting an open pull request: `scripts/migration-dry-run.sh --worktree DIR --out OUT
+PR...` merges each pull request onto the current commit in a built worktree, runs the codemod over
+its Lean files and builds their modules; `python3 scripts/classify-migration-errors.py OUT` sorts the
+remaining build errors by kind, file scope and whether the codemod knows the name.
+
 ## Notation and definitions
 
 | Removed | Replacement |
@@ -146,14 +151,16 @@ Expectation laws have `wp` and `∫⁻` forms: `expectedValue_bind` → `wp_bind
 `lintegral_iSup`; the `WithoutReplacement` length equations → `lintegral_evalDist_length_…`.
 
 The expectation of a scalar observation is `wp⟦mx⟧ f`, which `ExpectationWP.wp_eq_lintegral_map`
-identifies with `∫⁻ r, r ∂𝒟[f <$> mx]`, so the laws stated for the second form are `wp` laws:
+identifies with `∫⁻ r, r ∂𝒟[f <$> mx]`. The scalar-integral laws remain available;
+when working in the WP form, their counterparts are:
 `lintegral_id_evalDist_map_le_of_le` → `wp_le_of_forall_le`; `lintegral_id_evalDist_map_mono` →
 `ExpectationWP.wp_mono`; `lintegral_id_evalDist_map_add` → `ExpectationWP.wp_add`;
 `lintegral_id_evalDist_map_zero` → `ExpectationWP.wp_zero`; `lintegral_id_evalDist_map_bind` →
 `ExpectationWP.wp_bind`; `lintegral_id_evalDist_map_le_of_le_of_mem_support` →
 `wp_mono_of_support` followed by `wp_le_of_forall_le`. `OracleComp.expectedSimulatedQueryCount`
 takes its expectations in this form, and its resource bound is
-`OracleComp.wp_resource_le_add_expectedSimulatedQueryCount`.
+`OracleComp.wp_resource_le_add_expectedSimulatedQueryCount`. The integral-form companion is
+`OracleComp.lintegral_resource_le_add_expectedSimulatedQueryCount`.
 
 Proofs that compute with sums of point masses convert to `VCVio.OracleComp.EvalDist.Sum`. For
 oracle computations with finite answer types, `lintegral_evalDist_eq_tsum` identifies
@@ -169,6 +176,22 @@ the output type. The sum forms follow from it:
   `tvDist_triangle`, `tvDist_le_one`, `tvDist_map_le`, `tvDist_bind_le`, `tvDist_eq_zero_iff`)
   keeps its names in `EvalDist/EvalDistTV.lean`.
 
+The measure-based distances `measureETVDist` and `measureTVDist` retain an explicit output
+measurable space. Their common-prefix laws are `measureETVDist_bind_left_le_tsum` and
+`measureTVDist_bind_left_le_tsum`. The real API includes `measureTVDist_map_le`,
+`measureTVDist_bind_right_le`, `abs_prEvent_toReal_sub_le_measureTVDist`,
+`measureTVDist_bind_left_le_of_forall_le` and `measureTVDist_bind_left_le_prEvent_of_evalDistEq`;
+`measureTVDist_eq_toReal_measureETVDist` connects the real and extended forms. A definition that
+uses a discrete output measure installs `letI : MeasurableSpace X := ⊤` in its body.
+The event-based `etvDist` and `tvDist` need no output measurable space.
+
+`prEvent_le_one`, `prEvent_ne_top`, `prEvent_eq_zero_of_not_mem_support` and the sums
+`tsum_prEvent_le_one` and `tsum_prEvent_eq_one` take the computation explicitly. The codemod's
+EXPLICIT_COMPUTATION_RENAMES pass writes `(prEvent_le_one _)` for an old implicit application,
+including a use as a function argument or before `.trans`; prose keeps the bare name.
+`OracleComp.prEvent_not_eq_one_sub` gives the complement law, and
+`OracleComp.prEvent_bind_map_swap` exchanges two independent draws.
+
 ## Converted theorem families
 
 These families changed statement shape as well as names. The codemod renames the declarations;
@@ -178,7 +201,7 @@ callers restate the hypotheses they supply.
 |---|---|---|
 | `SigmaProtocol.HVZK`, `IdenSchemeWithAbort.HVZK` | `ζ_zk : ℝ` with `0 ≤ ζ_zk`, and `tvDist real sim ≤ ζ_zk` | `ζ_zk : ℝ≥0∞`, and `etvDist real sim ≤ ζ_zk`; the nonnegativity hypothesis goes |
 | `PerfectHVZK` | `𝒮[real] = 𝒮[sim]` | `real =ᵈ sim`; `perfectHVZK_iff_hvzk_zero` relates it to `HVZK … 0` |
-| `SymmEncAlg.Complete` | `∀ msg, 𝒮[completenessExperiment msg] = PMF.pure (some msg)` | `∀ msg, Pr{let x ← encAlg.completenessExperiment msg}[x = some msg] = 1`; `measureComplete` is the Dirac form under a chosen `ProbabilitySemantics` |
+| `SymmEncAlg.Complete` | `∀ msg, 𝒮[completenessExperiment msg] = PMF.pure (some msg)` | `∀ msg, Pr{let x ← encAlg.completenessExperiment msg}[x = some msg] = 1`; `completeWith` is the Dirac form under a chosen `ProbabilitySemantics` |
 | `CommitmentScheme.PerfectlyHiding`, `TrapdoorExtractor.SetupConsistent`, `DeferredSampling.Factorizes` | equalities of `𝒮[…]` | equalities in distribution `=ᵈ` |
 | `simCommitPredictability` | `Pr[= c₀ \| Prod.fst <$> simT x] ≤ β` | `Pr{let t ← simT x}[t.1 = c₀] ≤ β` |
 | Fiat–Shamir CMA-to-NMA loss (`euf_cma_to_nma`, `euf_cma_bound`) | `ENNReal.ofReal (qS * ζ_zk)` | `qS * ζ_zk` |
@@ -208,7 +231,7 @@ expresses the same fact.
 | `SymmEncAlg.perfectSecrecyPosteriorEqPriorAt`, `perfectSecrecyJointFactorizationAt` and their `_iff_` lemmas | `perfectSecrecyAt`: they were `perfectSecrecyAt` up to `mul_comm` |
 | `SymmEncAlg.perfectSecrecyAtAllPriors`, `perfectSecrecyAtAllPriors_iff_ciphertextRowsEqualAt` | `perfectSecrecyAt` quantifies over the priors `mgen : m M` of mass one; `perfectSecrecyAt_iff_ciphertextRowsEqualAt` (for `ProbComp`) and `ciphertextRowsEqualAt_of_perfectSecrecyAt` (any monad that can draw a two-point prior) give the equivalence |
 | `SymmEncAlg.cipherGivenMsg_uniform_of_uniformKey_of_uniqueKey`, `ciphertextRowsEqualAt_of_uniformKey_of_uniqueKey`, `perfectSecrecyAt_of_uniformKey_of_uniqueKey` | the same names with the key and encryption laws stated as point masses (`prEvent_perfectSecrecyCipherGivenMsgExperiment_eq_of_uniformKey_of_uniqueKey`); the support form, `ciphertextRowsEqualAt_of_uniformKey_of_uniqueKey_support`, needs uniform oracle answers |
-| `SymmEncAlg.MeasureCompatibility.measurePerfectSecrecyAt_iff_ciphertextRowsEqualAt` | `SymmEncAlg.measurePerfectSecrecyAt_iff_ciphertextRowsEqualAt`, whose hypothesis identifies the semantics' rows with `𝒟` |
+| `SymmEncAlg.MeasureCompatibility.measurePerfectSecrecyAt_iff_ciphertextRowsEqualAt` | `SymmEncAlg.ciphertextRowsEqualWith_iff_ciphertextRowsEqualAt`, whose hypothesis identifies the semantics' rows with `𝒟` |
 | `KEMDEM.perfectlyCorrect_composeWithDEM` over `[MonadLiftT m SPMF]` | the same name, generic in any lawful measure semantics, from `Pr{let b ← …}[b = true] = 1` hypotheses; no support or full-mass assumption |
 | `ProbResponder.IsExecutable.answerSPMF_unique` | `IsExecutable.answerComp_evalDistEq`: two realizations of one kernel are equal in distribution, and `stepAgainst`, `iterateAgainst` and `transcriptAgainst` are congruent across them |
 | Lossy executable responders | none: `IsExecutable.answerComp` is a `ProbComp`, which is lossless; a subprobability kernel stays at the `ProbResponder` level |
@@ -234,7 +257,7 @@ expresses the same fact.
 | `VCVio.EvalDist.Fintype` | `VCVio.EvalDist.Monad.Basic` |
 | `VCVio.EvalDist.PFunctor` | `VCVio.EvalDist.PFunctorSupport` |
 | `VCVio.EvalDist.PFunctorMeasure` | `VCVio.EvalDist.PFunctorMeasure.Core` |
-| `VCVio.OracleComp.EvalDist.UniformCompatibility` | `VCVio.OracleComp.EvalDist.Measure`, `VCVio.OracleComp.EvalDist.MeasureSpec` |
+| `VCVio.OracleComp.EvalDist.UniformCompatibility` | `VCVio.OracleComp.EvalDist.Measure`, `VCVio.OracleComp.EvalDist.AnswerMeasure` |
 | `VCVio.OracleComp.Constructions.SampleableType.MeasureCompatibility`, `VCVio.OracleComp.Constructions.SampleableType.NativeMeasure` | `VCVio.OracleComp.Constructions.SampleableType.Measure` |
 | `VCVio.Native` | `VCVio.Foundations` |
 | `VCVio.OracleComp.SimSemantics.WriterT.Basic` | `VCVio.OracleComp.SimSemantics.WriterT.Core` |
@@ -255,7 +278,6 @@ expresses the same fact.
 | `VCVio.EvalDist.RenyiDivergence`, `ToMathlib.Probability.ProbabilityMassFunction.RenyiDivergence`, `ToMathlib.Probability.ProbabilityMassFunction.RadonNikodym` | `ToMathlib.Probability.Divergence.Renyi` |
 | `ToMathlib.Probability.Divergence.RenyiDiscrete` | `ToMathlib.Probability.Divergence.RenyiTotalVariation` (the Rényi comparisons with total variation) |
 | `ToMathlib.Probability.ProbabilityMassFunction.TotalVariation` | `ToMathlib.MeasureTheory.Measure.TotalVariation`; `ToMathlib.Probability.Divergence.RenyiTotalVariation` for the Rényi comparisons |
-| `VCVio.StateSeparating.DistEquiv` | `VCVio.StateSeparating.MeasureDistEquiv` |
 | `VCVio.StateSeparating.Advantage` | `VCVio.StateSeparating.Advantage.Measure` |
 | `VCVio.EvalDist.Monad.Disagreement` | `VCVio.EvalDist.Monad.Disagreement.Measure` |
 | `VCVio.EvalDist.Instances.FinRatPMF`, `ToMathlib.ProbabilityTheory.FinRatPMF.PMF` | `ToMathlib.ProbabilityTheory.FinRatPMF.Measure` |
@@ -272,6 +294,26 @@ The hubs `VCVio.OracleComp.EvalDist`, `VCVio.OracleComp.ProbComp`,
 `VCVio.OracleComp.Coercions.SubSpec` and `VCVio.OracleComp.Constructions.SampleableType` remain
 and import the measure semantics of their area. `import VCVio.Foundations` is an entry point for
 the oracle and probability foundations whose import closure excludes Mathlib's `PMF`.
+
+## Names of the measure API's first release
+
+The first release of the measure API kept qualifiers that set it apart from the discrete layer it
+replaced. The codemod maps both spellings to the final names.
+
+| Removed first-release name | Replacement |
+|---|---|
+| `OracleSpec.IsMeasureSpec`, `PFunctor.IsMeasureSpec` | `OracleSpec.AnswerMeasure`, `PFunctor.AnswerMeasure` |
+| `IsUniformMeasureSpec` (+ `.add`, `.ofFiniteNonempty`, `.unifSpec`, `.coinSpec`, `.toMeasure_singleton`) | `UniformAnswerMeasure` |
+| `toIsMeasureSpec`, `unitArrowSpecIsUniformMeasureSpec`, `fairCoinMeasureSpec` | `toAnswerMeasure`, `unitArrowSpecUniformAnswerMeasure`, `fairCoinAnswerMeasure` |
+| `MeasureDistEquiv`, `MeasureDistEquiv₀` (notation `≡ᵈ`, `≡ᵈ₀` unchanged) | `DistEquiv`, `DistEquiv₀` |
+| `MeasureSemanticsVia`, `toMeasureSemanticsVia` | `SemanticsVia`, `toSemanticsVia` |
+| `MeasureProgramLogic`, `.toMAlgOrdered`, `.Quantitative` | `ExpectationWP`, `.algebra`, `.Lower` |
+| `OracleComp.Qualitative`, `OracleComp.Quantitative` (the unary readings) | `OracleComp.Necessary`, `OracleComp.Lower` |
+| `SymmEncAlg.measureComplete`, `measurePerfectSecrecyAt` | `completeWith`, `ciphertextRowsEqualWith` |
+| `restrictedSigma_hvzk_measure` | `restrictedSigma_hvzk` |
+| `OracleSpec.probHandler`, `simulateQ_probHandler` | `OracleSpec.uniformHandler`, `simulateQ_uniformHandler` |
+| modules `VCVio.OracleComp.EvalDist.MeasureSpec`, `VCVio.StateSeparating.MeasureDistEquiv`, `VCVio.ProgramLogic.Unary.WP.Qualitative`, `VCVio.ProgramLogic.Unary.WP.Quantitative` | `VCVio.OracleComp.EvalDist.AnswerMeasure`, `VCVio.StateSeparating.DistEquiv`, `VCVio.ProgramLogic.Unary.WP.Necessary`, `VCVio.ProgramLogic.Unary.WP.Lower` |
+| the `usesPMF` environment linter | `usesPMF` (`ToMathlib/Lint/UsesPMF.lean`) |
 
 ## Symptoms
 
@@ -310,7 +352,7 @@ the oracle and probability foundations whose import closure excludes Mathlib's `
 | `Application type mismatch` at `prEvent_mono_of_support … fun x hx h => …` | the predicates are explicit: `prEvent_mono_of_support mx p q h` |
 | `cannot determine the monad of the draw` in a converted `Pr{let x ← e}[…]` | ascribe the computation, `Pr{let x ← (e : ProbComp α)}[…]`: the event elaborates its draws first, so a polymorphic `e` needs its monad |
 | `unknown identifier 'tvDist'`, or `tvDist_triangle`, after the codemod rewrote `import VCVio.EvalDist.TVDist` | the event-keyed distance `etvDist` and its real form `tvDist` are in `VCVio.EvalDist.EvalDistTV`, which the codemod imports in place of the removed module |
-| `SPMFSemantics`, `ProbCompRuntime.toSPMFSemantics` | `MeasureSemanticsVia` (the codemod renames `SPMFSemantics.withStateOracle` to `MeasureSemanticsVia.withStateOracle`); a runtime gives the field `toMeasureSemanticsVia` and the law `evalDist_map_eq` |
+| `SPMFSemantics`, `ProbCompRuntime.toSPMFSemantics` | `SemanticsVia` (the codemod renames `SPMFSemantics.withStateOracle` to `SemanticsVia.withStateOracle`); a runtime gives the field `toSemanticsVia` and the law `evalDist_map_eq` |
 | heartbeat timeout on raw `PFunctor.FreeM` terms | normalize with `FreeM.bind_eq_bind`, `FreeM.map_eq_map`, `FreeM.pure_eq_pure`, or state the helper at the `OracleComp` level |
 | unknown identifier `SPMF`, `probOutput`, `evalSPMF`, … or unknown `Pr[…]` syntax | run the codemod, then convert with the tables above |
 | failed to synthesize `MeasurableSpace α` at `prEvent_true_eq_evalDist_apply_univ` | it takes the output's measurable space as an instance: `let : MeasurableSpace α := ⊤` first, or use `OracleComp.prEvent_true_eq_one` for an oracle computation |

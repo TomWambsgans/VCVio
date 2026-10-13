@@ -17,7 +17,7 @@ public import VCVio.OracleComp.SimSemantics.Append
 public import VCVio.EvalDist.Monad.Measure
 import VCVio.OracleComp.Constructions.SampleableType.Measure
 import VCVio.OracleComp.QueryTracking.RandomOracle.Programming
-import VCVio.OracleComp.EvalDist.MeasureSpec
+import VCVio.OracleComp.EvalDist.AnswerMeasure
 import VCVio.ProgramLogic.Tactics.Unary
 import VCVio.ProgramLogic.Tactics.PrVCGen
 

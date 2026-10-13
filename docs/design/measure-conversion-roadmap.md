@@ -528,7 +528,7 @@ The per-query `PMF` interpretations are deprecated: `OracleSpec.IsProbabilitySpe
 `OracleSpec.IsMeasureSpec`, `OracleSpec.IsUniformMeasureSpec`, and
 `IsUniformMeasureSpec.ofFiniteNonempty`; the polynomial-functor forms point to
 `PFunctor.IsMeasureSpec` and `PFunctor.IsMeasureSpec.uniformOfFiniteNonempty`. `NeverFail`, `EvalDistCompatible`, and
-`DiscreteEvalDistCompatible` were already deprecated. The `usesRetiredProbability` linter now
+`DiscreteEvalDistCompatible` were already deprecated. The `usesPMF` linter now
 reports direct uses of all seven classes as well as the scalar API, which enrolled thirty
 declarations that used a class without the scalar functions: the class fields and
 constructors themselves, the uniform instances and the bridge instance they feed, the

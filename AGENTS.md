@@ -170,7 +170,7 @@ or `VCVioTest/`. This contract is enforced by
 
 10. **Probability is `Measure`/`Kernel`, never `PMF`.** Semantic code uses `𝒟[…]`, `Pr{…}[…]`,
     `=ᵈ`, Mathlib measures and kernels. Mathlib owns `PMF`, so VCVio cannot deprecate it.
-    Instead the environment linter `ToMathlib.Lint.usesRetiredProbability` reports any
+    Instead the environment linter `ToMathlib.Lint.usesPMF` reports any
     declaration whose type or value uses `PMF` directly, and `scripts/nolints.json` holds no
     exception for it: no declaration uses `PMF` directly. Code written against VCVio's removed
     discrete API (`SPMF`, `Pr[= x | mx]`, `IsUniformSpec`, …) converts with the codemod and

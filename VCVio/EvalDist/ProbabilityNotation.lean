@@ -161,6 +161,11 @@ theorem prEvent_map (mx : m α) (f : α → β) (p : β → Prop) :
     wp⟦f <$> mx⟧ (predInd p) = Pr{let x ← mx}[p (f x)] :=
   ExpectationWP.wp_map f mx _
 
+/-- An injective map preserves the probability of each corresponding output. -/
+theorem prEvent_map_injective (mx : m α) {f : α → β} (hf : Function.Injective f) (x : α) :
+    Pr{let y ← f <$> mx}[y = f x] = Pr{let y ← mx}[y = x] := by
+  simp only [expect_norm, hf.eq_iff]
+
 /-- An event of a returned value is the indicator of the predicate at that value. -/
 theorem prEvent_pure (a : α) (p : α → Prop) :
     wp⟦(pure a : m α)⟧ (predInd p) = propInd (p a) :=
@@ -205,6 +210,11 @@ variable {m : Type → Type v} [Monad m] [LawfulMonad m] [EvalDistSemantics m]
 theorem wp_const (mx : m α) (c : ℝ≥0∞) : wp⟦mx⟧ (fun _ => c) = c * Pr{let _ ← mx}[True] := by
   simpa only [predInd_apply, propInd_true, mul_one] using ExpectationWP.wp_const_mul mx c
     (predInd fun _ ↦ True)
+
+/-- An independent continuation event is weighted by the successful mass of its prefix. -/
+theorem prEvent_bind_const (mx : m α) (my : m Prop) :
+    Pr{let p ← mx >>= fun _ ↦ my}[p] = Pr{let _ ← mx}[True] * Pr{let p ← my}[p] := by
+  simp only [expect_norm, wp_const, mul_comm]
 
 /-- An indicator observation scaled on the right is the scaled event. -/
 @[simp]

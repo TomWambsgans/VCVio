@@ -13,7 +13,7 @@ public import VCVio.EvalDist.Monad.Map
 public import VCVio.EvalDist.Prod
 public import VCVio.EvalDist.Monad.Basic
 public import VCVio.OracleComp.EvalDist.Measure
-public import VCVio.OracleComp.EvalDist.MeasureSpec
+public import VCVio.OracleComp.EvalDist.AnswerMeasure
 public import VCVio.OracleComp.Constructions.UniformFinMeasure
 public import VCVio.EvalDist.Monad.UniformTable
 public import ToMathlib.Probability.UniformOn

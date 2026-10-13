@@ -75,7 +75,7 @@ Use the synchronous entry points in `VCVio/Interaction/UC/Runtime.lean`:
 import VCVio.Interaction.UC.Runtime
 ```
 
-- `processSemantics` runs in an arbitrary surface monad `m` with bundled `MeasureSemanticsVia m`.
+- `processSemantics` runs in an arbitrary surface monad `m` with bundled `SemanticsVia m`.
 - `processSemanticsProbComp` specializes to coin-flip-only `ProbComp` protocols.
 - `processSemanticsOracle` specializes to `OracleComp superSpec`, interpreting shared oracle access
   through `simulateQ'`.
@@ -104,7 +104,7 @@ import VCVio.Interaction.UC.Computational
 Important definitions:
 
 - `Semantics T` bundles a result type and measurable space, a surface monad, its
-  `MeasureSemanticsVia`, and a closed-system runner.
+  `SemanticsVia`, and a closed-system runner.
 - `Semantics.evalDist` evaluates a closed system to a `Measure sem.Result`.
 - `Semantics.distAdvantage` is the `ℝ≥0∞`-valued total variation `Measure.etvDist` between the
   measure denotations of two closed systems.

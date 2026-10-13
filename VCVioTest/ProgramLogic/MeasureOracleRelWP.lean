@@ -13,7 +13,7 @@ public import VCVio.OracleComp.ProbComp.Basic
 # Relational oracle algebra canaries
 
 The qualitative measure coupling algebra supports the generic relational interface, including
-uncountable output types and weighted zero-mass branches. It requires no discrete backend.
+uncountable output types and weighted zero-mass branches.
 -/
 
 public section

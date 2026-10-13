@@ -39,6 +39,13 @@ theorem advantage_le_etvDist {σ₀ σ₁ : Type}
   (measure_absDiff_apply_le_measureETVDist _ _ (measurableSet_singleton true)).trans
     (measureETVDist_le_etvDist _ _)
 
+/-- The Boolean distinguishing advantage is at most the total variation between the two runs. -/
+theorem advantage_le_measureETVDist {σ₀ σ₁ : Type}
+    (h₀ : QueryImpl.Stateful unifSpec E σ₀) (s₀ : σ₀)
+    (h₁ : QueryImpl.Stateful unifSpec E σ₁) (s₁ : σ₁) (A : OracleComp E Bool) :
+    h₀.advantage s₀ h₁ s₁ A ≤ measureETVDist (h₀.runProb s₀ A) (h₁.runProb s₁ A) := by
+  simpa only [etvDist_eq_measureETVDist] using advantage_le_etvDist h₀ s₀ h₁ s₁ A
+
 /-- State-dependent ε-perturbed identical-until-bad with output bad flag. -/
 theorem advantage_le_expectedQuerySlack_add_prEvent_bad
     (h₀ h₁ : QueryImpl.Stateful unifSpec E (σ × Bool))

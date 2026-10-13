@@ -180,6 +180,12 @@ theorem AdvBound.of_etvDist {game₁ game₂ : OracleComp spec₁ Bool} {ε₁ �
       exact (absDiff_prEvent_le_etvDist game₁ game₂ _).trans htv
     _ = ε₁ + ε₂ := add_comm _ _
 
+/-- Advantage bound via total variation distance. -/
+theorem AdvBound.of_measureETVDist {game₁ game₂ : OracleComp spec₁ Bool} {ε₁ ε₂ : ℝ≥0∞}
+    (hbound : AdvBound game₁ ε₁) (htv : measureETVDist game₁ game₂ ≤ ε₂) :
+    AdvBound game₂ (ε₁ + ε₂) := by
+  exact AdvBound.of_etvDist hbound (by simpa only [← etvDist_eq_measureETVDist] using htv)
+
 /-- Advantage bound through a hybrid chain of games: the bound of the last game plus the
 distances of the consecutive steps. -/
 theorem AdvBound.of_hybrid {games : ℕ → OracleComp spec₁ Bool} {n : ℕ} {ε : ℝ≥0∞}

@@ -101,10 +101,10 @@ theorem isProbabilityMeasure_denote_shiftedGaussian :
 
 /-- The uniform measure interpretation is an explicit value, not a global instance. -/
 @[instance_reducible]
-noncomputable def explicitCoinMeasureSpec : explicitCoinSpec.AnswerMeasure :=
+noncomputable def explicitCoinAnswerMeasure : explicitCoinSpec.AnswerMeasure :=
   AnswerMeasure.uniformOfFiniteNonempty _
 
-attribute [local instance] explicitCoinMeasureSpec
+attribute [local instance] explicitCoinAnswerMeasure
 
 /-- A uniform operation denotes `uniformOn univ` directly. -/
 theorem denote_explicitCoin_lift :

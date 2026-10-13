@@ -124,7 +124,7 @@ theorem discreteGaussianPMF_pos (σ μ : ℝ) (hσ : 0 < σ) (z : ℤ) :
     0 < discreteGaussianPMF σ μ z :=
   div_pos (discreteGaussianWeight_pos σ μ z) (discreteGaussianSum_pos σ μ hσ)
 
-/-! ## Mathlib `PMF ℤ` Construction -/
+/-! ## The discrete Gaussian as a measure on `ℤ` -/
 
 /-- The discrete Gaussian PMF is summable (as a real-valued function). -/
 theorem discreteGaussianPMF_summable (σ μ : ℝ) (hσ : 0 < σ) :

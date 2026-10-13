@@ -12,7 +12,7 @@ public import VCVio.OracleComp.Support
 public import PolyFun.PFunctor.Free.WP
 public import VCVio.OracleComp.SimSemantics.SimulateQ
 public import ToMathlib.Data.Set.Functor
-public import VCVio.OracleComp.EvalDist.MeasureSpec
+public import VCVio.OracleComp.EvalDist.AnswerMeasure
 public import VCVio.OracleComp.ProbComp.Basic
 public import VCVio.OracleComp.Constructions.UniformFinMeasure
 public import ToMathlib.MeasureTheory.Measure.Bool

@@ -7,7 +7,7 @@ Authors: Devon Tuma
 module
 public import VCVio.OracleComp.Support
 public import VCVio.EvalDist.Monad.Measure
-public import VCVio.OracleComp.EvalDist.MeasureSpec
+public import VCVio.OracleComp.EvalDist.AnswerMeasure
 public import VCVio.EvalDist.Monad.Option
 public import VCVio.EvalDist.EvalDistEq
 import ToMathlib.Probability.UniformOn
@@ -155,6 +155,17 @@ theorem prEvent_bind_bind_swap
       Pr{let b ← my; let a ← mx; let c ← f a b}[p c] :=
   wp_swap mx my _
 
+/-- Independent oracle computations commute inside an event of their two outputs. Only the
+query answers must be countable; the two output types need neither countability nor a
+measurable structure. -/
+theorem prEvent_bind_map_swap
+    {ι : Type u} {α β : Type} {spec : OracleSpec.{u, 0} ι}
+    [∀ t, Countable (spec.Range t)]
+    [OracleSpec.AnswerMeasure spec]
+    (mx : OracleComp spec α) (my : OracleComp spec β) (p : α → β → Prop) :
+    Pr{let a ← mx; let b ← my}[p a b] = Pr{let b ← my; let a ← mx}[p a b] :=
+  wp_swap mx my _
+
 /-- Independent oracle computations commute before an event of their continuation under a uniform
 oracle specification. -/
 theorem prEvent_bind_bind_swap_of_uniform
@@ -265,6 +276,26 @@ theorem evalDist_bind_apply_congr_of_support
   le_antisymm
     (evalDist_bind_apply_mono_of_support mx f g hevent fun a ha ↦ (h a ha).le)
     (evalDist_bind_apply_mono_of_support mx g f hevent fun a ha ↦ (h a ha).ge)
+
+/-- Comparing continuation events on possible outputs compares the composed events. -/
+theorem prEvent_bind_mono_of_support
+    {ι : Type u} {α : Type} {spec : OracleSpec.{u, 0} ι}
+    [OracleSpec.AnswerMeasure spec]
+    (mx : OracleComp spec α) (f g : α → OracleComp spec Prop)
+    (h : ∀ a ∈ support mx, Pr{let p ← f a}[p] ≤ Pr{let p ← g a}[p]) :
+    Pr{let p ← mx >>= f}[p] ≤ Pr{let p ← mx >>= g}[p] := by
+  simp only [expect_norm]
+  exact wp_mono_of_support mx h
+
+/-- Equal continuation event probabilities on possible outputs give equal composed events. -/
+theorem prEvent_bind_congr_of_support
+    {ι : Type u} {α : Type} {spec : OracleSpec.{u, 0} ι}
+    [OracleSpec.AnswerMeasure spec]
+    (mx : OracleComp spec α) (f g : α → OracleComp spec Prop)
+    (h : ∀ a ∈ support mx, Pr{let p ← f a}[p] = Pr{let p ← g a}[p]) :
+    Pr{let p ← mx >>= f}[p] = Pr{let p ← mx >>= g}[p] := by
+  simp only [expect_norm]
+  exact wp_congr_of_support mx h
 
 /-- Continuations equal in distribution at every possible output of a common draw give binds
 equal in distribution. -/
@@ -404,6 +435,19 @@ theorem prEvent_true_eq_one (mx : OracleComp spec α) : Pr{let _ ← mx}[True] =
   rw [prEvent_eq_evalDist_of_discrete]
   simp
 
+/-- An independent continuation event is unchanged by a lossless oracle prefix. -/
+theorem prEvent_bind_const (mx : OracleComp spec α) (my : OracleComp spec Prop) :
+    Pr{let p ← mx >>= fun _ ↦ my}[p] = Pr{let p ← my}[p] := by
+  rw [_root_.prEvent_bind_const, prEvent_true_eq_one, one_mul]
+
+/-- The complement of an event has the remaining probability, since oracle computations
+are lossless. -/
+theorem prEvent_not_eq_one_sub (mx : OracleComp spec α) (p : α → Prop) :
+    Pr{let x ← mx}[¬ p x] = 1 - Pr{let x ← mx}[p x] := by
+  have h := prEvent_add_prEvent_not_eq_prEvent_true mx p
+  rw [prEvent_true_eq_one] at h
+  exact ENNReal.eq_sub_of_add_eq (prEvent_ne_top _) (by rw [add_comm]; exact h)
+
 /-- A constant observation of an oracle computation has that constant as its expectation, since
 oracle computations are lossless. It applies once the observation is simplified to a constant,
 ahead of the expectation laws of particular computations such as the uniform average. -/
@@ -485,7 +529,7 @@ theorem evalDistEq_of_forall_prEvent_eq_output [∀ t, Finite (spec.Range t)]
 
 end measureSpec
 
-section uniformMeasureSpec
+section uniformAnswerMeasure
 
 variable {ι : Type u} {spec : OracleSpec.{u, 0} ι}
   [OracleSpec.UniformAnswerMeasure spec] {α : Type}
@@ -634,7 +678,7 @@ theorem evalDist_bind_eq_query_bind_of_uniform {m : Type → Type v} [Monad m]
     evalDist_liftM_query_uniform]
   simp_rw [h]
 
-end uniformMeasureSpec
+end uniformAnswerMeasure
 
 /-! ## Event masses under different measurable structures -/
 

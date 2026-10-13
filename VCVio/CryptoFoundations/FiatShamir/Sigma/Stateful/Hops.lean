@@ -894,6 +894,51 @@ theorem cmaReal_cmaSim_etvDist_costly_le_cmaSignEpsCore_of_valid
       M Commit Chal σ hr simT ζ_zk β hHVZK hCommit m s hvalid
   · exact ht.elim
 
+/-- The measure-level distance of a valid signing step is bounded by its query slack. -/
+theorem cmaReal_cmaSim_measureETVDist_sign_le_cmaSignEpsCore_of_valid
+    (σ : SigmaProtocol Stmt Wit Commit PrvState Chal Resp rel)
+    (hr : GenerableRelation Stmt Wit rel)
+    (simT : Stmt → ProbComp (Commit × Chal × Resp))
+    (ζ_zk β : ℝ≥0∞)
+    (hHVZK : σ.HVZK simT ζ_zk)
+    (hCommit : σ.simCommitPredictability simT β)
+    (m : M) (s : CmaData M Commit Chal Stmt Wit)
+    (hvalid : CmaData.Valid (rel := rel) s) :
+    letI : MeasurableSpace ((Commit × Resp) × CmaData M Commit Chal Stmt Wit × Bool) := ⊤
+    measureETVDist
+      (((cmaReal M Commit Chal σ hr) (CmaQuery.sign m)).run (s, false))
+      (((cmaSim M Commit Chal hr simT) (CmaQuery.sign m)).run (s, false))
+      ≤ cmaSignEpsCore M Commit Chal ζ_zk β s := by
+  let : MeasurableSpace ((Commit × Resp) × CmaData M Commit Chal Stmt Wit × Bool) := ⊤
+  exact (measureETVDist_le_etvDist _ _).trans <|
+    cmaReal_cmaSim_etvDist_sign_le_cmaSignEpsCore_of_valid
+      M Commit Chal σ hr simT ζ_zk β hHVZK hCommit m s hvalid
+
+/-- The measure-level distance of a valid signing step is bounded by its query slack. -/
+theorem cmaReal_cmaSim_measureETVDist_costly_le_cmaSignEpsCore_of_valid
+    (σ : SigmaProtocol Stmt Wit Commit PrvState Chal Resp rel)
+    (hr : GenerableRelation Stmt Wit rel)
+    (simT : Stmt → ProbComp (Commit × Chal × Resp))
+    (ζ_zk β : ℝ≥0∞)
+    (hHVZK : σ.HVZK simT ζ_zk)
+    (hCommit : σ.simCommitPredictability simT β)
+    (t : (cmaSpec M Commit Chal Resp Stmt).Domain)
+    (ht : cmaH3Costly (M := M) (Commit := Commit) (Chal := Chal)
+      (Resp := Resp) (Stmt := Stmt) t)
+    (s : CmaData M Commit Chal Stmt Wit)
+    (hvalid : CmaData.Valid (rel := rel) s) :
+    letI : MeasurableSpace ((cmaSpec M Commit Chal Resp Stmt).Range t ×
+      CmaData M Commit Chal Stmt Wit × Bool) := ⊤
+    measureETVDist
+      (((cmaReal M Commit Chal σ hr) t).run (s, false))
+      (((cmaSim M Commit Chal hr simT) t).run (s, false))
+      ≤ cmaSignEpsCore M Commit Chal ζ_zk β s := by
+  let : MeasurableSpace ((cmaSpec M Commit Chal Resp Stmt).Range t ×
+    CmaData M Commit Chal Stmt Wit × Bool) := ⊤
+  exact (measureETVDist_le_etvDist _ _).trans <|
+    cmaReal_cmaSim_etvDist_costly_le_cmaSignEpsCore_of_valid
+      M Commit Chal σ hr simT ζ_zk β hHVZK hCommit t ht s hvalid
+
 /-- Build the H3 step facts from HVZK and simulator commit predictability. -/
 theorem cmaH3StepFacts_of_hvzk_predictability
     (σ : SigmaProtocol Stmt Wit Commit PrvState Chal Resp rel)

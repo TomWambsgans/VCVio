@@ -27,7 +27,7 @@ private def retiredProbabilityName (name : Name) : Bool :=
   name == `PMF
 
 /-- Report declarations that directly depend on Mathlib's `PMF`. -/
-@[env_linter] def usesRetiredProbability : Linter where
+@[env_linter] def usesPMF : Linter where
   noErrorsFound := "No direct use of `PMF`."
   errorsFound := "DIRECT USE OF `PMF`."
   test declName := do

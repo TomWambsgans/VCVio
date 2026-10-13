@@ -254,8 +254,8 @@ public import VCVio.OracleComp.Constructions.UniformSelectMeasure
 public import VCVio.OracleComp.Constructions.WithoutReplacement
 public import VCVio.OracleComp.Constructions.WithoutReplacement.Basic
 public import VCVio.OracleComp.EvalDist
+public import VCVio.OracleComp.EvalDist.AnswerMeasure
 public import VCVio.OracleComp.EvalDist.Measure
-public import VCVio.OracleComp.EvalDist.MeasureSpec
 public import VCVio.OracleComp.EvalDist.Sum
 public import VCVio.OracleComp.FinRatPMF
 public import VCVio.OracleComp.HasQuery.Basic
@@ -293,7 +293,12 @@ public import VCVio.OracleComp.QueryTracking.RandomOracle.DeferredSampling
 public import VCVio.OracleComp.QueryTracking.RandomOracle.DependentTable
 public import VCVio.OracleComp.QueryTracking.RandomOracle.Eager
 public import VCVio.OracleComp.QueryTracking.RandomOracle.EagerTable
+public import VCVio.OracleComp.QueryTracking.RandomOracle.ExpectedFreshQuery
+public import VCVio.OracleComp.QueryTracking.RandomOracle.ExpectedFreshQueryInfinite
+public import VCVio.OracleComp.QueryTracking.RandomOracle.FiniteSupport
 public import VCVio.OracleComp.QueryTracking.RandomOracle.FreshQuery
+public import VCVio.OracleComp.QueryTracking.RandomOracle.InitialCacheExpectedQuery
+public import VCVio.OracleComp.QueryTracking.RandomOracle.LoggedRun
 public import VCVio.OracleComp.QueryTracking.RandomOracle.ProbeEps
 public import VCVio.OracleComp.QueryTracking.RandomOracle.Programming
 public import VCVio.OracleComp.QueryTracking.RandomOracle.Routing
@@ -391,7 +396,7 @@ public import VCVio.ProgramLogic.Unary.WP.Readback
 public import VCVio.ProgramLogic.Unary.WP.Upper
 public import VCVio.StateSeparating.Advantage.Measure
 public import VCVio.StateSeparating.CellRef
+public import VCVio.StateSeparating.DistEquiv
 public import VCVio.StateSeparating.Hybrid
 public import VCVio.StateSeparating.IdenticalUntilBad
 public import VCVio.StateSeparating.IndistAt
-public import VCVio.StateSeparating.MeasureDistEquiv

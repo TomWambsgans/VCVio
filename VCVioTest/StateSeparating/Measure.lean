@@ -6,7 +6,7 @@ Authors: Devon Tuma
 
 module
 
-public import VCVio.StateSeparating.MeasureDistEquiv
+public import VCVio.StateSeparating.DistEquiv
 
 /-!
 # Weighted stateful-handler measure equivalence
@@ -39,8 +39,8 @@ def drawHandler : QueryImpl.Stateful WeightedSpec WeightedSpec Unit := fun _ ↦
 def constantHandler : QueryImpl.Stateful WeightedSpec WeightedSpec Unit := fun _ ↦
   StateT.mk fun state ↦ pure (false, state)
 
-theorem handlers_equiv : MeasureDistEquiv drawHandler () constantHandler () := by
-  apply MeasureDistEquiv.of_step
+theorem handlers_equiv : DistEquiv drawHandler () constantHandler () := by
+  apply DistEquiv.of_step
   intro operation state
   let : MeasurableSpace (WeightedSpec.Range operation × Unit) := ⊤
   refine EvalDistEq.of_evalDist_eq ?_

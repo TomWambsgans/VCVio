@@ -33,16 +33,16 @@ example : True := by
     let _ := (inferInstance : WPMonad ProbComp ℝ≥0∞ EStack⟨⟩)
   trivial
 
-section Qualitative
+section Necessary
 
 example {ι : Type} {spec : OracleSpec ι} {α : Type} (oa : OracleComp spec α)
     (post : α → Prop) :
     wp oa post estack⟨⟩ ↔ ∀ a ∈ support oa, post a :=
   OracleComp.Necessary.wp_iff_forall_support oa post
 
-end Qualitative
+end Necessary
 
-section Quantitative
+section Lower
 open scoped OracleComp.Lower
 
 noncomputable example : WPMonad ProbComp ℝ≥0∞ EStack⟨⟩ := inferInstance
@@ -74,7 +74,7 @@ example (post : PUnit.{1} → List Nat → ℝ≥0∞) :
   intro log
   simp [WriterT.run_bind, WriterT.run_tell]
 
-end Quantitative
+end Lower
 
 section Probabilistic
 open scoped OracleComp.Probabilistic

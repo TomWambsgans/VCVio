@@ -55,7 +55,7 @@ end Generic
 
 abbrev WeightedSpec : OracleSpec (Fin 1) := Fin 1 →ₒ Bool
 
-noncomputable instance weightedMeasureSpec : OracleSpec.AnswerMeasure WeightedSpec where
+noncomputable instance weightedAnswerMeasure : OracleSpec.AnswerMeasure WeightedSpec where
   toMeasure _ := Measure.dirac false
   isProbabilityMeasure _ := inferInstance
 

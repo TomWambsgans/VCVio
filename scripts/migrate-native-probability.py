@@ -20,10 +20,13 @@ Rewrites:
 - oracle answer-type binders `[∀ t, MeasurableSpace (spec.Range t)]`,
   `[∀ t, DiscreteMeasurableSpace (spec.Range t)]` and `[∀ t, MeasurableSingletonClass …]` are
   deleted, with the `omit … in` and `variable` lines they leave empty;
-- `IsProbabilitySpec` and `IsUniformSpec` binders become `AnswerMeasure` and
-  `UniformAnswerMeasure`, and `IsUniformSpec.ofFintypeInhabited` becomes
+- `IsProbabilitySpec` and `IsUniformSpec` binders become `OracleSpec.AnswerMeasure` and
+  `OracleSpec.UniformAnswerMeasure`, and `IsUniformSpec.ofFintypeInhabited` becomes
   `UniformAnswerMeasure.ofFiniteNonempty`;
-- renamed declarations (`RENAMES`) and removed modules (`MODULES`).
+- equations of output distributions `𝒮[A] = 𝒮[B]` become `A =ᵈ B`;
+- renamed declarations (`RENAMES`), including the names of the measure API's first release
+  (`IsMeasureSpec`, `MeasureDistEquiv`, `MeasureSemanticsVia`, `MeasureProgramLogic`, the
+  `Qualitative` and `Quantitative` readings), and removed or moved modules (`MODULES`).
 
 Everything the script cannot rewrite is reported as `path:line: …` with a pointer into
 `docs/agents/probability-migration.md`. A name in the discrete API's style (`probOutput_…`,
@@ -65,8 +68,8 @@ RENAMES: dict[str, str] = {
     "exp_norm": "expect_arith",
     "game_rule": "expect_norm, expect_eval",
     # Probability heads.
-    "AdvBound.of_tvDist": "AdvBound.of_etvDist",
-    "AdvBound.of_measureETVDist": "AdvBound.of_etvDist",
+    "AdvBound.of_tvDist":
+        "AdvBound.of_measureETVDist",
     "AdvBound.of_gameEquiv": "AdvBound.of_evalDistEq",
     "wpProp_iff_probEvent_eq_one": "OracleComp.Necessary.prEvent_eq_one_iff_triple",
     # Failure probability.
@@ -158,47 +161,25 @@ RENAMES: dict[str, str] = {
     "triple_probOutput_indicator": "triple_prEvent_indicator",
     "triple_propInd_iff_le_probEvent": "triple_propInd_iff_le_prEvent",
     "triple_propInd_iff_probEvent_eq_one": "triple_propInd_iff_prEvent_eq_one",
-    "tvDist_simulateQ_le_probEvent_bad": "etvDist_simulateQ_run'_le_prEvent_bad",
+    "tvDist_simulateQ_le_probEvent_bad":
+        "measureETVDist_simulateQ_run'_le_prEvent_bad",
     # Identical-until-bad and per-query slack.
-    "tvDist_simulateQ_run_le_probEvent_output_bad": "etvDist_simulateQ_run_le_prEvent_bad",
+    "tvDist_simulateQ_run_le_probEvent_output_bad":
+        "measureETVDist_simulateQ_run_le_prEvent_bad",
     "tvDist_simulateQ_le_qeps_plus_probEvent_output_bad":
-        "etvDist_simulateQ_run'_le_queryBoundP_mul_add_prEvent_bad",
+        "measureETVDist_simulateQ_run'_le_queryBoundP_mul_add_prEvent_bad",
     "tvDist_simulateQ_run_le_queryBound_mul_slack_plus_probEvent_bad":
-        "etvDist_simulateQ_run_le_queryBoundP_mul_add_prEvent_bad",
+        "measureETVDist_simulateQ_run_le_queryBoundP_mul_add_prEvent_bad",
     "tvDist_simulateQ_le_queryBound_mul_slack_plus_probEvent_bad":
-        "etvDist_simulateQ_run'_le_queryBoundP_mul_add_prEvent_bad",
-    "tvDist_simulateQ_run_le_queryBoundP_mul": "etvDist_simulateQ_run_le_queryBoundP_mul",
+        "measureETVDist_simulateQ_run'_le_queryBoundP_mul_add_prEvent_bad",
+    "tvDist_simulateQ_run_le_queryBoundP_mul":
+        "measureETVDist_simulateQ_run_le_queryBoundP_mul",
     "ofReal_tvDist_simulateQ_run_le_expectedQuerySlack_plus_probEvent_output_bad":
-        "etvDist_simulateQ_run_le_expectedQuerySlack_add_prEvent_bad",
+        "measureETVDist_simulateQ_run_le_expectedQuerySlack_add_prEvent_bad",
     "ofReal_tvDist_simulateQ_le_expectedQuerySlack_plus_probEvent_output_bad":
-        "etvDist_simulateQ_run'_le_expectedQuerySlack_add_prEvent_bad",
+        "measureETVDist_simulateQ_run'_le_expectedQuerySlack_add_prEvent_bad",
     "ofReal_tvDist_simulateQ_run_le_queryBound_mul_slack_plus_probEvent_bad":
-        "etvDist_simulateQ_run_le_queryBoundP_mul_add_prEvent_bad",
-    # The same bounds stated on the measure-level distance of a chosen σ-algebra.
-    "measureETVDist_simulateQ_run_le_prEvent_bad": "etvDist_simulateQ_run_le_prEvent_bad",
-    "measureETVDist_simulateQ_run'_le_prEvent_bad": "etvDist_simulateQ_run'_le_prEvent_bad",
-    "measureETVDist_simulateQ_run'_le_prEvent_bad_of_run_eq":
-        "etvDist_simulateQ_run'_le_prEvent_bad_of_run_eq",
-    "measureETVDist_simulateQ_run'_le_prEvent_bad_of_evalDistEq":
-        "etvDist_simulateQ_run'_le_prEvent_bad_of_evalDistEq",
-    "measureETVDist_simulateQ_run_le_queryBoundP_mul_add_prEvent_bad":
-        "etvDist_simulateQ_run_le_queryBoundP_mul_add_prEvent_bad",
-    "measureETVDist_simulateQ_run'_le_queryBoundP_mul_add_prEvent_bad":
-        "etvDist_simulateQ_run'_le_queryBoundP_mul_add_prEvent_bad",
-    "measureETVDist_simulateQ_run_le_queryBoundP_mul": "etvDist_simulateQ_run_le_queryBoundP_mul",
-    "measureETVDist_simulateQ_run_le_expectedQuerySlack_add_prEvent_bad":
-        "etvDist_simulateQ_run_le_expectedQuerySlack_add_prEvent_bad",
-    "measureETVDist_simulateQ_run'_le_expectedQuerySlack_add_prEvent_bad":
-        "etvDist_simulateQ_run'_le_expectedQuerySlack_add_prEvent_bad",
-    "measureETVDist_withProgramming_withCachingTrackingPolicy_run_le_prEvent_bad":
-        "etvDist_withProgramming_withCachingTrackingPolicy_run_le_prEvent_bad",
-    "measureETVDist_simulateQ_withCaching_withProgramming_le_prEvent_bad":
-        "etvDist_simulateQ_withCaching_withProgramming_le_prEvent_bad",
-    "measureETVDist_simulateQ_randomOracle_withProgramming_le_prEvent_bad":
-        "etvDist_simulateQ_randomOracle_withProgramming_le_prEvent_bad",
-    "measureETVDist_bind_left_le_tsum": "etvDist_bind_left_le_tsum",
-    "lintegral_simulateQ_run_eq_of_rel": "wp_simulateQ_run_eq_of_rel",
-    "advantage_le_measureETVDist": "advantage_le_etvDist",
+        "measureETVDist_simulateQ_run_le_queryBoundP_mul_add_prEvent_bad",
     "probEvent_bad_simulateQ_run_le_expectedQuerySlack":
         "prEvent_bad_simulateQ_run_le_expectedQuerySlack",
     "advantage_le_expectedQuerySlack_plus_probEvent_bad":
@@ -221,14 +202,9 @@ RENAMES: dict[str, str] = {
     # Fiat–Shamir and ML-DSA zero knowledge.
     "cmaReal_probEvent_bad_eq_zero": "cmaReal_prEvent_bad_eq_zero",
     "cmaReal_cmaSim_tv_sign_le_cmaSignEpsCore_of_valid":
-        "cmaReal_cmaSim_etvDist_sign_le_cmaSignEpsCore_of_valid",
+        "cmaReal_cmaSim_measureETVDist_sign_le_cmaSignEpsCore_of_valid",
     "cmaReal_cmaSim_tv_costly_le_cmaSignEpsCore_of_valid":
-        "cmaReal_cmaSim_etvDist_costly_le_cmaSignEpsCore_of_valid",
-    "cmaReal_cmaSim_measureETVDist_sign_le_cmaSignEpsCore_of_valid":
-        "cmaReal_cmaSim_etvDist_sign_le_cmaSignEpsCore_of_valid",
-    "cmaReal_cmaSim_measureETVDist_costly_le_cmaSignEpsCore_of_valid":
-        "cmaReal_cmaSim_etvDist_costly_le_cmaSignEpsCore_of_valid",
-    "hvzkBoundReal": "hvzkBound",
+        "cmaReal_cmaSim_measureETVDist_costly_le_cmaSignEpsCore_of_valid",
     "evalSPMF_uniform_add_right_swap": "uniform_add_right_swap_evalDistEq",
     "evalSPMF_honest_pregate": "honest_pregate_evalDistEq",
     "evalSPMF_honestExecution_eq_gated": "honestExecution_evalDistEq_gated",
@@ -275,7 +251,7 @@ RENAMES: dict[str, str] = {
     "relTriple_simulateQ_run'_of_impl_evalDist_eq": "relTriple_simulateQ_run'_of_impl_evalDistEq",
     "support_eq_of_evalDist_eq": "support_eq_of_evalDistEq",
     "measureETVDist_simulateQ_run'_le_prEvent_bad_of_evalDist_eq":
-        "etvDist_simulateQ_run'_le_prEvent_bad_of_evalDistEq",
+        "measureETVDist_simulateQ_run'_le_prEvent_bad_of_evalDistEq",
     "evalSPMF_simulateQ_run_congr": "evalDist_simulateQ_run_congr",
     # Discrete answer measures.
     "evalDist_liftM_query_eq_uniformOn_top": "evalDist_liftM_query_uniform",
@@ -285,10 +261,104 @@ RENAMES: dict[str, str] = {
     # Classes.
     "IsUniformSpec.ofFintypeInhabited": "UniformAnswerMeasure.ofFiniteNonempty",
     "GameEquiv": "EvalDistEq",
+    # Lemmas the measure API's first release renamed after this table was written.
+    "tsum_probOutput_bind_mul": "OracleComp.tsum_prEvent_bind_mul",
+    "tsum_probOutput_pure_mul": "OracleComp.tsum_prEvent_pure_mul",
+    "tsum_probOutput_map_mul": "OracleComp.tsum_prEvent_map_mul",
+    "probOutput_ne_zero_of_mem_support": "OracleComp.prEvent_ne_zero_of_mem_support",
+    "probEvent_uniformSample": "SampleableType.prEvent_uniformSample",
+    "probEvent_or_le": "prEvent_or_le",
+    "probEvent_le_of_eq_bind_hiddenReadList": "prEvent_le_of_eq_bind_hiddenReadList",
+    "probEvent_bind_fire_le_of_gen": "prEvent_bind_fire_le_of_gen",
+    "SPMFSemantics.withStateOracle": "SemanticsVia.withStateOracle",
+    # Names of the measure API's first release: the qualifiers that set it apart from the
+    # discrete layer are gone with that layer. Only library names are mapped; names local to
+    # the test libraries are not downstream API. Answer measures.
+    "IsUniformMeasureSpec": "UniformAnswerMeasure",
+    "IsMeasureSpec": "AnswerMeasure",
+    "toIsMeasureSpec": "toAnswerMeasure",
+    "instIsUniformMeasureSpecChalSingleton": "instUniformAnswerMeasureChalSingleton",
+    "unitArrowSpecIsUniformMeasureSpec": "unitArrowSpecUniformAnswerMeasure",
+    "fairCoinMeasureSpec": "fairCoinAnswerMeasure",
+    "simulateQ_probHandler": "simulateQ_uniformHandler",
+    "probHandler": "uniformHandler",
+    # Equality in distribution of packages, and bundled semantics.
+    "MeasureDistEquiv₀": "DistEquiv₀",
+    "MeasureDistEquiv": "DistEquiv",
+    "measureDistEquiv_dhToLR_left_link_real_eq_elgamalLR_left":
+        "distEquiv_dhToLR_left_link_real_eq_elgamalLR_left",
+    "measureDistEquiv_dhToLR_right_link_real_eq_elgamalLR_right":
+        "distEquiv_dhToLR_right_link_real_eq_elgamalLR_right",
+    "measureDistEquiv_dhToLR_link_rand_swap": "distEquiv_dhToLR_link_rand_swap",
+    "MeasureSemanticsVia": "SemanticsVia",
+    "toMeasureSemanticsVia": "toSemanticsVia",
+    # Symmetric encryption with explicit semantics, and the restricted Schnorr statement.
+    "measureComplete": "completeWith",
+    "measureComplete_iff_completeKernel_eq_dirac": "completeWith_iff_completeKernel_eq_dirac",
+    "measureComplete_toSymmEncAlg": "completeWith_toSymmEncAlg",
+    "coinOneTimePad_measureComplete": "coinOneTimePad_completeWith",
+    "measurePerfectSecrecyAt": "ciphertextRowsEqualWith",
+    "measurePerfectSecrecyAt_iff_ciphertextRowsEqualAt":
+        "ciphertextRowsEqualWith_iff_ciphertextRowsEqualAt",
+    "measurePerfectSecrecyAt_iff_kernel_rows_eq": "ciphertextRowsEqualWith_iff_kernel_rows_eq",
+    "measurePerfectSecrecyAt_of_constant": "ciphertextRowsEqualWith_of_constant",
+    "coinOneTimePad_measurePerfectSecrecyAt": "coinOneTimePad_ciphertextRowsEqualWith",
+    "restrictedSigma_hvzk_measure": "restrictedSigma_hvzk",
+    # The expectation interpretation and the unary readings.
+    "MeasureProgramLogic.toMAlgOrdered": "ExpectationWP.algebra",
+    "MeasureProgramLogic.Probabilistic.toMAlgOrdered": "ExpectationWP.Probabilistic.algebra",
+    "MeasureProgramLogic.Quantitative": "ExpectationWP.Lower",
+    "MeasureProgramLogic": "ExpectationWP",
+    "OracleComp.Qualitative": "OracleComp.Necessary",
+    "OracleComp.Quantitative": "OracleComp.Lower",
+    # Event lemmas whose measure twins are stated on the singleton shapes the discrete lemmas had.
+    "probOutput_bind_eq_tsum": "OracleComp.prEvent_bind_eq_tsum",
+    "probEvent_bind_eq_tsum": "OracleComp.prEvent_bind_eq_tsum",
+    "tsum_probOutput_eq_one": "OracleComp.tsum_prEvent_eq_one",
+    "tsum_probOutput_eq_one'": "OracleComp.tsum_prEvent_eq_one",
+    "tsum_probOutput_mul_of_const_on_support": "OracleComp.tsum_prEvent_mul_of_const_on_support",
+    "tsum_probOutput_mul_le_add_of_le": "OracleComp.tsum_prEvent_mul_le_add_of_le",
+    "probOutput_pure": "prEvent_pure",
+    "probEvent_pure": "prEvent_pure",
+    "probOutput_map": "prEvent_map",
+    "probEvent_map": "prEvent_map",
+    "probOutput_map_injective": "prEvent_map_injective",
+    "probOutput_def": "prEvent_eq_evalDist_singleton",
+    "probOutput_bind_bind_swap": "OracleComp.prEvent_bind_bind_swap",
+    "probEvent_bind_bind_swap": "OracleComp.prEvent_bind_bind_swap",
+    "probOutput_bind_const": "prEvent_bind_const",
+    "probEvent_eq_tsum_ite": "OracleComp.prEvent_eq_tsum_ite",
+    "probEvent_bind_le_of_forall_le": "prEvent_bind_le_of_forall_le",
+    "probFailure_eq_zero": "OracleComp.prFail_eq_zero",
+    # Output measures and equality in distribution.
+    "evalSPMF_bind": "evalDist_bind_of_discrete",
+    "evalSPMF_map": "evalDist_map_of_discrete",
+    "evalSPMF_pure": "evalDist_pure",
+    "evalSPMF_map_eq_of_evalSPMF_eq": "EvalDistEq.map",
+    "evalDist_map_eq_of_evalDist_eq": "EvalDistEq.map",
+    "SPMFSemantics": "SemanticsVia",
+    "probEvent_le_of_relTriple_imp": "prEvent_le_of_relTriple",
+}
+
+# Renames whose replacement takes the computation explicitly where the removed lemma left every
+# argument implicit: an occurrence becomes `(new _)`, so `le_antisymm probEvent_le_one h` and
+# `probEvent_le_one.trans h` keep their meaning; a code span in prose keeps the bare name.
+EXPLICIT_COMPUTATION_RENAMES: dict[str, str] = {
+    "probOutput_ne_top": "prEvent_ne_top",
+    "probEvent_ne_top": "prEvent_ne_top",
+    "probOutput_le_one": "prEvent_le_one",
+    "probEvent_le_one": "prEvent_le_one",
+    "probOutput_eq_zero_of_not_mem_support": "prEvent_eq_zero_of_not_mem_support",
+    "tsum_probOutput_le_one": "OracleComp.tsum_prEvent_le_one",
+    "probOutput_bind_eq_sum_fintype": "prEvent_bind_eq_sum_fintype",
 }
 
 # Declarations whose replacement changes the argument shape; reported, not rewritten.
 REPORT_NAMES: dict[str, str] = {
+    "evalDist_apply_true_le_add_ofReal_boolDistAdvantage":
+        "`MeasureTheory.Measure.apply_true_le_add_boolDist 𝒟[pc₀] 𝒟[pc₁]`, in `ℝ≥0∞`",
+    "hvzkBoundReal": "the bound is `hvzkBound` in `ℝ≥0∞`; a real bound is `(hvzkBound p prims).toReal` "
+        "(`ENNReal.ofReal_toReal` returns, given `hvzkBound p prims ≠ ⊤`)",
     "prEvent_congr_of_evalDist_eq":
         "use `(EvalDistEq.of_evalDist_eq h).prEvent_eq p`",
     "evalDist_bind_congr_of_evalDist_eq":
@@ -299,7 +369,7 @@ REPORT_NAMES: dict[str, str] = {
         "step hypotheses are now `=ᵈ` (see *Query and handler laws*)",
     "evalDist_simulateQ_run'_eq_of_forall":
         "step hypotheses are now `=ᵈ` (see *Query and handler laws*)",
-    "MeasureDistEquiv.of_step":
+    "DistEquiv.of_step":
         "step hypotheses are now `=ᵈ` (see *Query and handler laws*)",
     "wp_simulateQ_eq":
         "the per-query hypothesis is now `=ᵈ` (see *Query and handler laws*)",
@@ -317,25 +387,7 @@ REPORT_NAMES: dict[str, str] = {
     "evalDist_apply_univ":
         "targets the removed `Pr[⊥ | mx]`; `prFail_eq_one_sub_evalDist_univ` relates "
         "`prFail mx` and `𝒟[mx] Set.univ`",
-    "lintegral_id_evalDist_map":
-        "state the expectation as `wp⟦mx⟧ f`; `ExpectationWP.wp_eq_lintegral_map` relates it "
-        "to `∫⁻ r, r ∂𝒟[f <$> mx]`",
-    "lintegral_id_evalDist_map_le_of_le":
-        "state the expectation as `wp⟦mx⟧ f` and use `wp_le_of_forall_le`",
-    "lintegral_id_evalDist_map_le_of_le_of_mem_support":
-        "state the expectation as `wp⟦mx⟧ f` and use `wp_mono_of_support`, then "
-        "`wp_le_of_forall_le`",
-    "lintegral_id_evalDist_map_mono":
-        "state the expectation as `wp⟦mx⟧ f` and use `ExpectationWP.wp_mono`",
-    "lintegral_id_evalDist_map_add":
-        "state the expectation as `wp⟦mx⟧ f` and use `ExpectationWP.wp_add`",
-    "lintegral_id_evalDist_map_zero":
-        "state the expectation as `wp⟦mx⟧ f` and use `ExpectationWP.wp_zero`",
-    "lintegral_id_evalDist_map_bind":
-        "state the expectation as `wp⟦mx⟧ f` and use `ExpectationWP.wp_bind`",
-    "lintegral_resource_le_add_expectedSimulatedQueryCount":
-        "use `OracleComp.wp_resource_le_add_expectedSimulatedQueryCount`, which states the "
-        "expectation as `𝔼{let z ← mx}[f z]`",
+
 }
 
 # Modules removed from VCVio, keyed by the old module name.
@@ -377,7 +429,6 @@ MODULES: dict[str, list[str]] = {
         ["ToMathlib.Probability.Divergence.Renyi"],
     "ToMathlib.Probability.ProbabilityMassFunction.TotalVariation":
         ["ToMathlib.MeasureTheory.Measure.TotalVariation"],
-    "VCVio.StateSeparating.DistEquiv": ["VCVio.StateSeparating.MeasureDistEquiv"],
     "VCVio.StateSeparating.Advantage": ["VCVio.StateSeparating.Advantage.Measure"],
     "VCVio.EvalDist.Monad.Disagreement": ["VCVio.EvalDist.Monad.Disagreement.Measure"],
     "VCVio.EvalDist.Instances.FinRatPMF": ["ToMathlib.ProbabilityTheory.FinRatPMF.Measure"],
@@ -396,6 +447,11 @@ MODULES: dict[str, list[str]] = {
          "VCVio.ProgramLogic.Relational.SimulateQ.UntilBad"],
     "VCVio.ProgramLogic.Relational.WP.Coherence": ["VCVio.ProgramLogic.Relational.WP.Quantitative"],
     "VCVio.Prelude": ["VCVio.Prelude.Core"],
+    # Modules of the measure API's first release.
+    "VCVio.OracleComp.EvalDist.MeasureSpec": ["VCVio.OracleComp.EvalDist.AnswerMeasure"],
+    "VCVio.StateSeparating.MeasureDistEquiv": ["VCVio.StateSeparating.DistEquiv"],
+    "VCVio.ProgramLogic.Unary.WP.Qualitative": ["VCVio.ProgramLogic.Unary.WP.Necessary"],
+    "VCVio.ProgramLogic.Unary.WP.Quantitative": ["VCVio.ProgramLogic.Unary.WP.Lower"],
     # The discrete layer itself.
     "ToMathlib.ProbabilityTheory.SPMF": [],
     "ToMathlib.Probability.ProbabilityMassFunction.Lemmas":
@@ -415,7 +471,7 @@ MODULES: dict[str, list[str]] = {
     "VCVio.EvalDist.PFunctor": ["VCVio.EvalDist.PFunctorSupport"],
     "VCVio.EvalDist.PFunctorMeasure": ["VCVio.EvalDist.PFunctorMeasure.Core"],
     "VCVio.OracleComp.EvalDist.UniformCompatibility":
-        ["VCVio.OracleComp.EvalDist.Measure", "VCVio.OracleComp.EvalDist.MeasureSpec"],
+        ["VCVio.OracleComp.EvalDist.Measure", "VCVio.OracleComp.EvalDist.AnswerMeasure"],
     "VCVio.OracleComp.Constructions.SampleableType.MeasureCompatibility":
         ["VCVio.OracleComp.Constructions.SampleableType.Measure"],
     "VCVio.OracleComp.Constructions.SampleableType.NativeMeasure":
@@ -426,104 +482,105 @@ MODULES: dict[str, list[str]] = {
 
 # Native analogues of the most used discrete lemmas, reported where the legacy name appears.
 LEGACY_HINTS: dict[str, str] = {
-    "probOutput_bind_eq_tsum":
-        "`OracleComp.prEvent_bind_eq_tsum`, or `prEvent_bind_eq_lintegral` in another monad",
-    "probEvent_bind_eq_tsum":
-        "`OracleComp.prEvent_bind_eq_tsum`, or `prEvent_bind_eq_lintegral` in another monad",
-    "tsum_probOutput_eq_one": "`OracleComp.tsum_prEvent_eq_one`",
-    "tsum_probOutput_eq_one'": "`OracleComp.tsum_prEvent_eq_one`",
-    "tsum_probOutput_le_one": "`OracleComp.tsum_prEvent_le_one`",
     "probEvent_bind_eq_expectedValue": "`prEvent_bind_eq_lintegral`",
-    "probOutput_def": "`prEvent_eq_evalDist_singleton` (an output's probability is its singleton's "
-                      "measure)",
     "probEvent_def": "`prEvent_eq_evalDist_of_discrete`, or `prEvent_eq_evalDist_map` on the output "
                      "measure",
     "evalSPMF_def": "`𝒟[mx]` is primitive; an event is an expectation, and "
                     "`prEvent_eq_evalDist_of_discrete` reaches the measure",
-    "prEvent_bind_congr_of_support":
-        "`prEvent_bind_congr` when the continuations' events agree at every `x`, or "
-        "`wp_congr_of_support` on the `expect_norm` normal form when they agree on "
-        "`support mx`",
-    "evalSPMF_bind": "`evalDist_bind` or `evalDist_bind_of_discrete`",
-    "evalSPMF_map": "`evalDist_map`",
-    "evalSPMF_pure": "`evalDist_pure`",
     "evalSPMF_ext": "`EvalDistEq.of_forall_prEvent_eq`, or `Measure.ext` on `𝒟[…]`",
     "evalSPMF_eq_of_evalDist_eq":
         "state the result with `𝒟[…]` or `=ᵈ` (`EvalDistEq.of_evalDist_eq`)",
     "probEvent_eq_eq_probOutput":
-        "`Pr{let y ← mx}[y = x]` is the singleton event; `prEvent_eq_evalDist_singleton`",
-    "probEvent_map": "`prEvent_map`",
-    "probOutput_map": "`prEvent_map`",
-    "probEvent_eq_tsum_ite": "`prEvent_eq_evalDist_of_discrete`, then Mathlib's `Measure` sums",
+        "drop it: `Pr{let y ← mx}[y = x]` is already the singleton event "
+        "(`prEvent_eq_evalDist_singleton` for its measure)",
     "probEvent_eq_tsum_indicator":
         "`prEvent_eq_evalDist_of_discrete`, then Mathlib's `Measure` sums",
-    "probOutput_eq_zero_of_not_mem_support": "`prEvent_eq_zero_of_forall_mem_support`",
     "probOutput_eq_zero_iff": "`prEvent_eq_zero_iff`",
     "probEvent_eq_zero_iff": "`prEvent_eq_zero_iff`",
     "probEvent_eq_one_iff":
         "`prEvent_eq_one_iff` (uniform answers) or `prEvent_eq_one_of_forall_mem_support`",
-    "probFailure_eq_zero": "`OracleComp.prFail_eq_zero`, or `prFail_eq_zero_iff` in another monad",
     "probFailure_def": "`prFail_def`",
     "probFailure_bind_eq_add_tsum": "`prFail_bind_eq_add_lintegral_of_discrete`",
-    "probOutput_pure": "`prEvent_pure` or `evalDist_pure`",
-    "probEvent_pure": "`prEvent_pure`",
     "probOutput_uniformSample":
-        "`SampleableType.evalDist_uniformSample` or `prEvent_uniformSample`",
+        "`SampleableType.prEvent_uniformSample_eq_singleton`, or "
+        "`SampleableType.evalDist_uniformSample`",
     "probOutput_query": "`evalDist_liftM_query_apply` or `prEvent_query_eq_card_div`",
-    "probOutput_le_one": "`prEvent_le_one`",
-    "probEvent_le_one": "`prEvent_le_one`",
-    "tsum_probOutput_le_one": "`prEvent_le_one` or `measure_univ`",
-    "probOutput_ne_top": "`prEvent_ne_top`",
-    "probEvent_ne_top": "`prEvent_ne_top`",
-    "probOutput_congr": "`prEvent_congr_of_support`",
-    "probEvent_congr'": "`prEvent_congr_of_support`",
+    "probOutput_congr": "`EvalDistEq.prEvent_eq h p`: an `=ᵈ` hypothesis gives every event",
+    "probEvent_congr'": "`prEvent_congr _ _ q (fun z => …)`, or `prEvent_congr_of_support`",
     "probOutput_bind_congr'": "`prEvent_bind_congr` or `evalDist_bind_congr_of_support`",
     "probEvent_bind_congr'": "`prEvent_bind_congr`, or `wp_congr_of_support` on the `expect_norm` "
                              "normal form",
-    "probOutput_bind_bind_swap": "`prEvent_bind_bind_swap`",
-    "probEvent_bind_bind_swap": "`prEvent_bind_bind_swap`",
-    "probOutput_bind_const": "`evalDist_bind_const` (`OracleComp.evalDist_bind_const` for a "
-                             "lossless oracle computation); for an event, "
-                             "`simp only [expect_norm, wp_const]`",
     "evalSPMF_bind_congr": "`evalDist_bind_congr_of_support` for a hypothesis on the support, "
                            "`evalDist_bind_congr mx f g h` for one at every output, or "
                            "`EvalDistEq.bind_congr_of_support` for `=ᵈ`",
     "evalSPMF_bind_congr'": "`evalDist_bind_congr mx f g h`: the continuations are explicit",
-    "evalSPMF_bind_congr_left": "`evalDist_bind_congr oa f g h`, or "
-                                "`EvalDistEq.bind_congr_of_support` for `=ᵈ`",
+    "evalSPMF_bind_congr_left":
+        "`EvalDistEq.bind_right mx hfg`, or `EvalDistEq.bind_congr_of_support` for a support "
+        "premise",
     "evalSPMF_bind_const_neverFails": "`EvalDistEq.bind_const`: an oracle computation never "
                                       "fails, so the failure-mass hypothesis goes",
     "evalSPMF_bind_comm": "`evalDist_bind_bind_swap`, or `EvalDistEq.bind_bind_swap` for `=ᵈ`; "
                           "`prrw` swaps adjacent binds inside an event",
-    "evalSPMF_map_eq_of_evalSPMF_eq": "`EvalDistEq.map h f` for `h : mx =ᵈ my`",
     "probOutput_bind_mono": "`prEvent_bind_mono_of_forall_le_of_support mx f g p q h`, with the "
                             "events as predicates",
     "probFailure_uniformSample": "`OracleComp.prFail_eq_zero`: an oracle computation never fails",
-    "tsum_probOutput_mul_of_const_on_support":
-        "`OracleComp.tsum_prEvent_mul_of_const_on_support oa h`: the failure-mass argument goes",
-    "tsum_probOutput_mul_le_add_of_le": "`OracleComp.tsum_prEvent_mul_le_add_of_le`, which VCVio "
-                                        "provides",
-    "probEvent_bind_le_of_forall_le": "`prEvent_bind_le_of_forall_le_of_support mx f q h` for a "
-                                      "hypothesis on the support; the arguments are explicit",
     "probEvent_bind_congr": "`prEvent_bind_congr mx f g p q h` for a hypothesis at every output; "
                             "on the support, `wp_congr_of_support` after `prEvent_bind`",
     "probOutput_bind_congr": "`prEvent_bind_congr mx f g (· = y) (· = y) h` for a hypothesis at "
                              "every output; on the support, `wp_congr_of_support`",
-    "probOutput_bind_eq_sum_fintype": "`prEvent_bind_eq_sum_fintype mx f (· = y)`: the event is a "
-                                      "predicate",
     "withStateOracle_evalSPMF_bind_pure": "`withStateOracle_evalDist_bind_pure`, with measurable "
                                           "spaces on the outputs and the map's measurability",
     "withStateOracle_evalSPMF_map": "`withStateOracle_evalDist_map`, with the map's measurability",
-    "abs_probOutput_toReal_sub_le_tvDist": "`absDiff_prEvent_le_etvDist`: the difference of two "
-                                           "events' probabilities, in `ℝ≥0∞`",
-    "tvDist_bind_right_le": "`tvDist_bind_le mx my f` (`etvDist_bind_le` in `ℝ≥0∞`): the "
-                            "continuation is the last argument",
+    "abs_probOutput_toReal_sub_le_tvDist":
+        "`abs_prEvent_toReal_sub_le_measureTVDist` for real measure distance, or "
+        "`absDiff_prEvent_le_etvDist` for extended event distance",
+    "tvDist_bind_right_le":
+        "`tvDist_bind_le mx my f` (`etvDist_bind_le` in `ℝ≥0∞`), or "
+        "`OracleComp.measureTVDist_bind_right_le` / `OracleComp.measureETVDist_bind_right_le` "
+        "with an output measurable space",
     "tvDist_bind_left_le_const": "`etvDist_bind_bind_le_wp_of_support` with a constant bound, "
                                  "then `wp_le_of_forall_le`",
     "tvDist_bind_left_le_const'": "`etvDist_bind_bind_le_wp` with a constant bound, then "
                                   "`wp_le_of_forall_le`",
-    "SPMFSemantics": "`MeasureSemanticsVia`, bundled successful-output measure semantics",
-    "toSPMFSemantics": "the field `toMeasureSemanticsVia`, together with `evalDist_map_eq`",
+    "toSPMFSemantics":
+        "the field `toSemanticsVia`, together with `evalDist_map_eq`",
+    "tvDist_bind_left_le":
+        "`OracleComp.etvDist_bind_left_le_tsum` for event distance, or "
+        "`OracleComp.measureTVDist_bind_left_le_tsum` (real) / "
+        "`OracleComp.measureETVDist_bind_left_le_tsum` with an output measurable space",
+    "probEvent_bind_eq_tsum_subtype":
+        "`prEvent_bind_mono_of_forall_le_of_support` for a bound; "
+        "`OracleComp.prEvent_bind_eq_tsum` for the sum",
+    "probEvent_eq_zero": "`prEvent_eq_zero_of_forall_mem_support`",
+    "probEvent_compl": "`OracleComp.prEvent_not_eq_one_sub`",
+    "probFailure_drawList": "`OracleComp.prFail_eq_zero`: `OracleComp` never fails",
+    "probFailure_bind_eq_zero_iff": "`OracleComp.prFail_eq_zero`: `OracleComp` never fails",
+    "neverFail_bind_iff": "delete: `OracleComp` never fails",
+    "neverFail_iff": "delete: `OracleComp` never fails",
+    "NeverFail.bind_of_forall": "delete: `OracleComp` never fails",
+    "tsum_probOutput_drawList_eq_one": "`OracleComp.tsum_prEvent_eq_one`",
+    "tsum_probOutput_of_liftM_PMF": "`OracleComp.tsum_prEvent_eq_one`",
+    "tsum_probOutput_fresh_mul_count_le":
+        "`DeferredSampling.lintegral_count_le`, then `lintegral_evalDist_eq_tsum` and "
+        "`OracleComp.tsum_prEvent_map_mul`",
+    "evalSPMF_bind_comm_probComp": "`OracleComp.EvalDistEq.bind_bind_swap`",
+    "probEvent_output_bad_eq":
+        "`prEvent_simulateQ_run_bad_eq` with the flag event `fun p => p.2 = true` and start state "
+        "`(s₀, false)`",
+    "evalDist_bind_congr_left":
+        "`EvalDistEq.bind_right mx hfg`: the computation explicit, the continuations implicit, and "
+        "`hfg : ∀ a, f a =ᵈ g a`",
+    "tsum_probOutput_simulateQ_run_mul_of_rel":
+        "`DeferredSampling.wp_simulateQ_run_eq_of_rel`, then `OracleComp.wp_eq_tsum`",
+    "probOutput_map_eq_tsum_ite":
+        "`prEvent_map`, then `prEvent_congr` or `prEvent_eq_zero_of_forall_not`",
+    "probOutput_pure_eq_indicator":
+        "`prEvent_pure`, whose result is the indicator `propInd (v = x)`",
+    "mem_support_evalSPMF_iff": "`support_eq_of_evalDistEq` from an `=ᵈ` hypothesis",
+    "tvDist_bind_le_of_forall_le": "`OracleComp.measureTVDist_bind_left_le_of_forall_le`",
+    "probEvent_bind_le_add": "`prEvent_bind_le_prEvent_add_of_support`",
+    "probEvent_eq_one": "`prEvent_eq_one_of_forall_mem_support _ _ h`; the never-fail half goes",
+    "one_le_probEvent_iff": "`le_antisymm (prEvent_le_one _)`",
 }
 
 # Legacy forms left for a person, with the guide section that converts them.
@@ -542,12 +599,18 @@ LEGACY_TOKENS: list[tuple[str, str]] = [
     (r"EvalDistCompatible", "operational support lemmas; see *Classes and binders*"),
     (r"PFunctor\.IsProbabilitySpec|PFunctor\.IsUniformSpec",
      "`PFunctor.AnswerMeasure`; see *Classes and binders*"),
-    (r"MeasurableSpace\s*\([^\n]*?\.Range\b",
+    # A measurable structure on every answer type that `delete_answer_binders` left (a binder split
+    # across lines, a hypothesis); one on a single answer type (`{_ : MeasurableSpace (spec.Range
+    # t)}`, a local `let` in a proof) is how the measure API states a query law.
+    (r"∀[^,\n]*,\s*(?P<tok>(?:Discrete)?MeasurableSpace\s*\([^\n]*?\.Range\b)",
      "answer measures are discrete; see *Classes and binders*"),
     (r"@(?:OracleSpec\.)?UniformAnswerMeasure\.ofFiniteNonempty\b",
      "takes the specification and its `Finite` and `Nonempty` instances only"),
     (r"(?<![\w'.])SPMF(?![\w'])", "`Measure`; see *Notation and definitions*"),
-    (r"(?<![\w'])[\w'.]*?(?:evalSPMF|probOutput|probEvent|probFailure)_[\w'.]*",
+    (r"(?<![\w'.])(?![\w'.]*Measure\.e?tvDist)"
+     r"(?!(?:[\w']+\.)*tvDist_(?:self|comm|nonneg|triangle|le_one|eq_zero_iff|map_le|"
+     r"le_sum_tvDist_succ|bind_le|eq_measureTVDist)(?![\w']))"
+     r"[\w'.]*?(?:evalSPMF|probOutput|probEvent|probFailure|(?<!e)tvDist)_[\w'.]*",
      "a legacy lemma name; see *Lemma names*"),
 ]
 
@@ -994,12 +1057,31 @@ RENAME_PATTERNS = sorted(((rename_pattern(old), new) for old, new in RENAMES.ite
                          key=lambda p: -len(p[0].pattern))
 
 
+# Namespaces the renamed declarations moved into: a qualified occurrence of a retired name keeps
+# its qualifier, so the qualifier appears twice after the rename and is collapsed.
+NAMESPACE_PREFIXES = sorted({new.rsplit(".", 1)[0] + "." for new in RENAMES.values() if "." in new},
+                            key=len, reverse=True)
+
+
+EXPLICIT_COMPUTATION_PATTERNS = [(rename_pattern(old), new)
+                                 for old, new in EXPLICIT_COMPUTATION_RENAMES.items()]
+
+
 def rewrite_names(text: str) -> str:
     for pattern, new in RENAME_PATTERNS:
         text = pattern.sub(new, text)
+    for pattern, new in EXPLICIT_COMPUTATION_PATTERNS:
+        text = pattern.sub(lambda m, new=new: new if text_at(m, "`") else f"({new} _)", text)
+    for prefix in NAMESPACE_PREFIXES:
+        text = text.replace(prefix + prefix, prefix)
     # `prEvent_le_one` takes the event computation alone.
     text = re.sub(r"(?<![\w'.])prEvent_le_one _ _(?![\w'])", "prEvent_le_one _", text)
     return text.replace("≡ₚ", "=ᵈ")
+
+
+def text_at(m: re.Match[str], ch: str) -> bool:
+    """Whether the character right after a match is `ch`."""
+    return m.string[m.end():m.end() + 1] == ch
 
 
 IMPORT_LINE = re.compile(r"(?m)^((?:public\s+)?(?:meta\s+)?import(?:\s+all)?\s+)(\S+)[ \t]*$")
@@ -1065,16 +1147,18 @@ def report_legacy(text: str, report: Report, path: str,
                    for m in DECLARATION.finditer(text)}
     for regex, hint in LEGACY_TOKENS:
         for m in re.finditer(regex, text):
-            if not in_spans(m.start(), spans):
-                name = m.group(0).rsplit(".", 1)[-1]
+            # Context-sensitive patterns name the actual reported token `tok`.
+            tok = "tok" if "tok" in m.re.groupindex else 0
+            if not in_spans(m.start(tok), spans):
+                name = m.group(tok).rsplit(".", 1)[-1]
                 if name in local:
-                    start = m.start() + len(m.group(0)) - len(name)
+                    start = m.start(tok) + len(m.group(tok)) - len(name)
                     if start in declared_at and name in LEGACY_HINTS:
-                        report.add(path, text, m.start(),
+                        report.add(path, text, m.start(tok),
                                    f"`{name}` is declared here; VCVio has {LEGACY_HINTS[name]}")
                     continue
-                report.add(path, text, m.start(),
-                           f"`{m.group(0)}`: {LEGACY_HINTS.get(name, hint)}")
+                report.add(path, text, m.start(tok),
+                           f"`{m.group(tok)}`: {LEGACY_HINTS.get(name, hint)}")
     for name, hint in REPORT_NAMES.items():
         for m in rename_pattern(name).finditer(text):
             if name == "prEvent_le_one" and re.match(r"prEvent_le_one _(?![\w' ]*_)",

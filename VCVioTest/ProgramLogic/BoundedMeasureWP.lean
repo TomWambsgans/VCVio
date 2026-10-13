@@ -7,7 +7,7 @@ Authors: Devon Tuma
 module
 public import VCVio.ProgramLogic.Unary.WP.Probabilistic.Measure
 public import VCVio.EvalDist.Defs.Measure.Deterministic
-public import VCVio.OracleComp.EvalDist.MeasureSpec
+public import VCVio.OracleComp.EvalDist.AnswerMeasure
 public import Mathlib.Tactic.GRewrite
 
 /-!
@@ -57,7 +57,7 @@ example (mx : m α) (f g : α → Prob) (hfg : ∀ a, f a ≤ g a) :
 
 abbrev WeightedSpec : OracleSpec (Fin 1) := Fin 1 →ₒ Bool
 
-noncomputable instance weightedMeasureSpec : OracleSpec.AnswerMeasure WeightedSpec where
+noncomputable instance weightedAnswerMeasure : OracleSpec.AnswerMeasure WeightedSpec where
   toMeasure _ := Measure.dirac false
   isProbabilityMeasure _ := inferInstance
 

@@ -166,3 +166,24 @@ theorem Except.wp_ok {ε : Type u} {α : Type} (x : α) (g : α → ENNReal) :
 theorem Except.prEvent_ok {ε : Type u} {α : Type} (x : α) (p : α → Prop) :
     Pr{let y ← (Except.ok x : Except ε α)}[p y] = propInd (p x) :=
   Except.wp_ok x _
+
+/-- No event of an absent optional result succeeds. -/
+theorem Option.prEvent_map_none {α : Type} (p : α → Prop) :
+    Pr{let q ← p <$> (none : Option α)}[q] = 0 := by
+  simp
+
+/-- An event of a present optional result has probability one exactly when it holds. -/
+theorem Option.prEvent_map_some {α : Type} (p : α → Prop) (x : α) [Decidable (p x)] :
+    Pr{let q ← p <$> some x}[q] = if p x then 1 else 0 := by
+  simp [propInd]
+
+/-- No event of an exceptional result succeeds. -/
+theorem Except.prEvent_map_error {ε : Type u} {α : Type} (p : α → Prop) (error : ε) :
+    Pr{let q ← p <$> (Except.error error : Except ε α)}[q] = 0 := by
+  simp
+
+/-- An event of a successful exceptional result has probability one exactly when it holds. -/
+theorem Except.prEvent_map_ok {ε : Type u} {α : Type} (p : α → Prop) (x : α)
+    [Decidable (p x)] :
+    Pr{let q ← p <$> (Except.ok x : Except ε α)}[q] = if p x then 1 else 0 := by
+  simp [propInd]

@@ -82,7 +82,6 @@ for lib in "${PROOF_LIBS[@]}"; do
 done
 python3 ./scripts/check-warning-log.py "$BUILD_LOG" "${warning_args[@]}" \
   --exclude-substring 'declaration uses `sorry`' \
-  --exclude-substring 'VCVio retiring probability API' \
   --label 'repository non-sorry warnings'
 
 echo ""
@@ -147,7 +146,6 @@ if (( run_test )); then
     --path-prefix VCVioTest/ --path-prefix VCVioTest.lean \
     --path-prefix LatticeCryptoTest/ --path-prefix LatticeCryptoTest.lean \
     --path-prefix HashSigTest/ \
-    --exclude-substring 'VCVio retiring probability API' \
     --label 'test-library warnings'
 
 

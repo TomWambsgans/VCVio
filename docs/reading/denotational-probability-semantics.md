@@ -159,7 +159,7 @@ New code follows these rules:
 2. Use `Measure.sum` and `Measure.dirac` for new discrete distributions unless an executable
    representation is the actual subject.
 3. Do not use Mathlib's `PMF` in a declaration. No declaration in the libraries uses it
-   directly, and the `usesRetiredProbability` linter reports any that does (see *Deprecation and
+   directly, and the `usesPMF` linter reports any that does (see *Deprecation and
    migration tracking*).
 4. Keep `FinRatPMF.Raw` for computation. Its native denotation is a finite sum of weighted Dirac
    measures, with pure, measurable bind, rational event evaluation, and total mass laws.
@@ -180,8 +180,8 @@ VCVio's own discrete layer is retired. The `SPMF` type, `evalSPMF`, the scalar e
 functions and the classes that interpreted them were deprecated during the migration and then
 removed; the [migration guide](../agents/probability-migration.md) maps each retired name to its
 replacement. Mathlib owns `PMF`, so a downstream module cannot add a `deprecated` attribute to it.
-Instead, VCVio's `usesRetiredProbability` environment linter
-(`ToMathlib/Lint/LegacyProbability.lean`) reports every declaration whose type or value refers to
+Instead, VCVio's `usesPMF` environment linter
+(`ToMathlib/Lint/UsesPMF.lean`) reports every declaration whose type or value refers to
 `PMF` directly. No declaration does, and [`scripts/nolints.json`](../../scripts/nolints.json) holds
 no exception for this linter, so a new use fails `lake lint`.
 

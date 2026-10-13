@@ -26,12 +26,13 @@ public import VCVioTest.EvalDist.Failure
 public import VCVioTest.EvalDist.FinRatPMF
 public import VCVioTest.EvalDist.IndepProductMeasure
 public import VCVioTest.EvalDist.IndependentDraws
-public import VCVioTest.EvalDist.MeasureBridge
+public import VCVioTest.EvalDist.MeasureGate
 public import VCVioTest.EvalDist.MeasureIntegration
 public import VCVioTest.EvalDist.ProbabilityBounds
 public import VCVioTest.EvalDist.ProbabilityNotation
 public import VCVioTest.EvalDist.SeqMeasure
 public import VCVioTest.EvalDist.TotalVariationMeasure
+public import VCVioTest.EvalDist.TotalVariationReal
 public import VCVioTest.EvalDist.Transformers
 public import VCVioTest.EvalDist.UniformTable
 public import VCVioTest.FiatShamirAbort
@@ -68,7 +69,7 @@ public import VCVioTest.OracleComp.SpecInstanceSearch
 public import VCVioTest.OracleComp.SpecInstanceSearchLibrary
 public import VCVioTest.OracleComp.Sum
 public import VCVioTest.OracleComp.SupportMeasure
-public import VCVioTest.OracleComp.UniformMeasureSpec
+public import VCVioTest.OracleComp.UniformAnswerMeasure
 public import VCVioTest.OracleNetwork
 public import VCVioTest.PFunctorFacade
 public import VCVioTest.PRFCacheRepresentation
