@@ -600,6 +600,88 @@ abbrev wrapped (mz : ProbComp ℕ) : ProbComp ℕ := mz
 
 guard_roundtrip wp⟦wrapped (pure 1)⟧ g
 
+namespace interpretationDisplay
+
+/-- A coin interpretation concentrating all mass on `true`. -/
+@[reducible] noncomputable def alwaysTrue : OracleSpec.AnswerMeasure coinSpec where
+  toMeasure _ := Measure.dirac true
+  isProbabilityMeasure _ := by
+    let : MeasurableSpace Bool := (_root_.Top.top : MeasurableSpace Bool)
+    infer_instance
+
+/-- The true event under the concentrated coin interpretation. -/
+noncomputable def biasedEvent : ℝ≥0∞ :=
+  letI : OracleSpec.AnswerMeasure coinSpec := alwaysTrue
+  Pr{let b ← (HasQuery.query (spec := coinSpec) () : OracleComp coinSpec Bool)}[b = true]
+
+/-- A numeric expectation under the concentrated coin interpretation. -/
+noncomputable def biasedExpectation : ℝ≥0∞ :=
+  letI : OracleSpec.AnswerMeasure coinSpec := alwaysTrue
+  𝔼{let b ← (HasQuery.query (spec := coinSpec) () : OracleComp coinSpec Bool)}[if b then 2 else 0]
+
+/-- The fair answer measure, made explicit to isolate the display canary from other fixtures. -/
+noncomputable local instance : OracleSpec.AnswerMeasure coinSpec :=
+  OracleSpec.UniformAnswerMeasure.coinSpec.toAnswerMeasure
+
+/-- The true event under the fair coin interpretation. -/
+noncomputable def fairEvent : ℝ≥0∞ :=
+  Pr{let b ← (HasQuery.query (spec := coinSpec) () : OracleComp coinSpec Bool)}[b = true]
+
+/-- A different expectation interpretation with the ambient fair answer measures unchanged. -/
+@[reducible] noncomputable def alternativeWP : ExpectationWP (OracleComp coinSpec) EStack⟨⟩ :=
+  letI : OracleSpec.AnswerMeasure coinSpec := alwaysTrue
+  inferInstance
+
+/-- The true event under the alternative expectation interpretation. -/
+noncomputable def reinterpretedEvent : ℝ≥0∞ :=
+  letI : ExpectationWP (OracleComp coinSpec) EStack⟨⟩ := alternativeWP
+  Pr{let b ← (HasQuery.query (spec := coinSpec) () : OracleComp coinSpec Bool)}[b = true]
+
+example : biasedEvent = 1 := by
+  let : OracleSpec.AnswerMeasure coinSpec := alwaysTrue
+  change Pr{let b ← (HasQuery.query (spec := coinSpec) () : OracleComp coinSpec Bool)}[b = true] = 1
+  rw [OracleComp.ProgramLogic.wp_HasQuery_query]
+  change (letI : MeasurableSpace Bool := (_root_.Top.top : MeasurableSpace Bool)
+    ∫⁻ u : Bool, propInd (u = true) ∂Measure.dirac true) = 1
+  simp
+
+example : fairEvent = 2⁻¹ := by simp [fairEvent]
+
+example : reinterpretedEvent = 1 := by
+  change biasedEvent = 1
+  let : OracleSpec.AnswerMeasure coinSpec := alwaysTrue
+  change Pr{let b ← (HasQuery.query (spec := coinSpec) () : OracleComp coinSpec Bool)}[b = true] = 1
+  rw [OracleComp.ProgramLogic.wp_HasQuery_query]
+  change (letI : MeasurableSpace Bool := (_root_.Top.top : MeasurableSpace Bool)
+    ∫⁻ u : Bool, propInd (u = true) ∂Measure.dirac true) = 1
+  simp
+
+/-! Default interpretations display compactly; other interpretations expose their instances.
+Each displayed body elaborates back to the original in the ambient fair context. -/
+
+open Lean Elab Command Term Meta in
+run_cmd liftTermElabM do
+  for (name, compact, instanceName) in
+      [(``fairEvent, true, ""), (``biasedEvent, false, "alwaysTrue"),
+        (``reinterpretedEvent, false, "alternativeWP"),
+        (``biasedExpectation, false, "alwaysTrue")] do
+    let .defnInfo info ← getConstInfo name | throwError "expected a definition"
+    let e := info.value
+    let stx ← withOptions (pp.analyze.set · true) (PrettyPrinter.delab e)
+    let rendered := (← PrettyPrinter.ppTerm stx).pretty
+    if compact then
+      unless stx.raw.isOfKind ``prEventStx do throwError "the default event lost compact notation"
+    else
+      if stx.raw.isOfKind ``prEventStx || stx.raw.isOfKind ``expectStx then
+        throwError "the display hides a different interpretation"
+      unless (rendered.splitOn instanceName).length > 1 do
+        throwError m!"the display hides {instanceName}: {rendered}"
+    let e' ← instantiateMVars (← withSynthesize (elabTerm stx none))
+    unless ← withReducibleAndInstances (isDefEq e e') do
+      throwError m!"the displayed interpretation does not round-trip: {rendered}"
+
+end interpretationDisplay
+
 end expectationNotation
 
 end VCVioTest.ProbabilityNotation
