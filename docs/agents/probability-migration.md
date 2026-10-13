@@ -133,7 +133,12 @@ Use `ProbResponder.pullback.measurableSingletonClass_range_of_injective` for one
 `ProbResponder.pullback.measurableSingletonClass_range_of_forall_injective` for all queries,
 when the lens's answer maps are injective.
 
-The removed `ProbCompRuntime.prFail` has the exact replacement `runtime.toSemanticsVia.prFail mx`.
+The runtime failure method has an exact replacement:
+
+| Removed | Replacement |
+|---|---|
+| `ProbCompRuntime.prFail` | `runtime.toSemanticsVia.prFail mx` |
+
 The global `prFail` requires an expectation interpretation and is not a replacement for every
 raw runtime bundle.
 

@@ -2,6 +2,7 @@
 """Regression checks for the audit's security and compatibility disclosures."""
 
 import hashlib
+import importlib.util
 from pathlib import Path
 import unittest
 
@@ -22,6 +23,16 @@ class SecurityDisclosureTests(unittest.TestCase):
 
 
 class CompatibilityDisclosureTests(unittest.TestCase):
+    def test_removed_runtime_method_is_not_a_live_reference(self):
+        spec = importlib.util.spec_from_file_location("docnames", ROOT / "scripts/check-doc-names.py")
+        checker = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(checker)
+        guide = (ROOT / "docs/agents/probability-migration.md").read_text()
+        spans = {span for _, span, _ in checker.guide_spans(guide)}
+        self.assertIn("`ProbCompRuntime.prFail`", guide)
+        self.assertNotIn("ProbCompRuntime.prFail", spans)
+        self.assertIn("runtime.toSemanticsVia.prFail mx", spans)
+
     def test_lawfulness_ledger_and_responder_restrictions(self):
         guide = (ROOT / "docs/agents/probability-migration.md").read_text()
         section = guide.split("## Generic lawfulness and executable responders\n", 1)[1]
