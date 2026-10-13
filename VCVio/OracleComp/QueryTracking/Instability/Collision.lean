@@ -28,6 +28,11 @@ elements, the instability of the collision property with query bound `t` is at m
   the corollaries `instability_cacheHasCollision_le_div` (the bound `t / n`) and
   `instability_cacheHasCollision_lt` (the strict bound `t / n` for `0 < t`).
 
+## Implementation notes
+
+Index and answer types both live in `Type`, as in `OracleComp.CacheHasCollision` and the counting
+lemma `OracleComp.card_responses_creating_cacheCollision_le` that this file builds on.
+
 ## References
 
 * Alessandro Chiesa, Peter Manohar, Nicholas Spooner, *Succinct Arguments in the Quantum Random

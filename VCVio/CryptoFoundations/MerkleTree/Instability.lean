@@ -40,12 +40,30 @@ cache the database before the query and the final cache the database after it.
   disagreeing chain is a label of the extracted tree.
 * `flip_nonExtractingCaches_acceptingCaches_le`: the flip probability bound.
 
+## Scope
+
+The opening `(leaf, proof)`, the position and the root are fixed before the supremum over
+databases and fresh points is taken, and the target property does not require the extended
+database to be collision-free. The statement is therefore a corollary of the deterministic
+disagreement kernel for one fixed opening. It is related to the following results and does not
+formalize any of them:
+
+* [CMS19, Lemma 6.5] and [CDHZ25, Lemma 8.6] bound the probability that one fresh answer changes
+  the *extracted tree*, through the exceptional set of the root and the half-preimages of the
+  database. A fresh answer can change the extracted tree without completing the fixed opening, so
+  that event is not contained in `acceptingCaches`. Those lemmas also need an extractor that is a
+  function of the database; `MerkleTreeExtractor.tree` takes a log, and on a database with a
+  collision its output depends on the order of the log.
+* [CMS19, Lemma 6.10] bounds the conditional instability of the Micali property given no
+  collision. It involves the query that derives the verifier randomness from the root and the
+  soundness of the underlying proof, neither of which appears here.
+
 ## References
 
-* Alessandro Chiesa, Peter Manohar, Nicholas Spooner, *Succinct Arguments in the Quantum Random
-  Oracle Model*, TCC 2019: Lemmas 6.5 and 6.10.
-* Alessandro Chiesa, Zijing Di, Zihan Hu, Yuxi Zheng, *How to Prove Post-Quantum Security for
-  Succinct Non-Interactive Reductions*, 2026: Lemma 8.6.
+* [CMS19] Alessandro Chiesa, Peter Manohar, Nicholas Spooner, *Succinct Arguments in the Quantum
+  Random Oracle Model*, TCC 2019.
+* [CDHZ25] Alessandro Chiesa, Zijing Di, Zihan Hu, Yuxi Zheng, *How to Prove Post-Quantum
+  Security for Succinct Non-Interactive Reductions*, 2026.
 -/
 
 public section

@@ -95,6 +95,21 @@ example : QueryCache.instability nonempty 1 = 1 :=
 example : QueryCache.instability (nonempty ∪ nonemptyᶜ) 1 = 0 := by
   rw [Set.union_compl_self, QueryCache.instability_univ]
 
+-- The other direction: the stable empty property gains instability `1` in a union.
+example : QueryCache.instability (∅ : Set (QueryCache TestSpec)) 1 <
+    QueryCache.instability (∅ ∪ nonempty) 1 := by
+  rw [Set.empty_union, QueryCache.instability_empty]
+  refine lt_of_lt_of_le zero_lt_one (le_max_of_le_left ?_)
+  rw [← extendProb_empty_nonempty]
+  exact QueryCache.extendProb_le_flip (by simp [nonempty]) (by simp) rfl
+
+-- Conditioning restricts the target as well as the source: no nonempty database is empty.
+example : QueryCache.condFlip nonempty {∅} 1 = 0 := by
+  have h : nonempty ∩ ({∅} : Set (QueryCache TestSpec)) = ∅ := by
+    ext D
+    simp [nonempty]
+  rw [QueryCache.condFlip, h, QueryCache.flip_empty_right]
+
 /-- The database `{0 ↦ 0}` has no collision. -/
 private lemma not_collision_single :
     ¬CacheHasCollision ((∅ : QueryCache TestSpec).cacheQuery 0 0) := by

@@ -50,6 +50,13 @@ drawn from the answer measure of the specification. The definitions and closure 
 hold for any `[AnswerMeasure spec]`; the cited papers take uniform answers, which is
 `[UniformAnswerMeasure spec]`, and `extendProb_eq_card_div` gives the counting form in that case.
 
+Answer types live in `Type`: `extendProb` is stated with `Pr{…}[…]`, whose computations return
+values in `Type`. The index type of the specification may live in any universe.
+
+`partitionInstability` accepts any indexed family. A statement that uses it as the instability of
+a partition must assume pairwise disjointness and covering, as
+`partitionInstability_eq_iSup_flip_compl` does.
+
 ## References
 
 * Alessandro Chiesa, Peter Manohar, Nicholas Spooner, *Succinct Arguments in the Quantum Random
