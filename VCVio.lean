@@ -393,6 +393,11 @@ public import VCVio.ProgramLogic.Unary.WP.Probabilistic.Measure
 public import VCVio.ProgramLogic.Unary.WriterTBridge
 public import VCVio.Quantum.MatrixMap
 public import VCVio.Quantum.Observe
+public import VCVio.Quantum.Pure.Instrument
+public import VCVio.Quantum.Pure.Norm
+public import VCVio.Quantum.Pure.State
+public import VCVio.Quantum.Pure.Tensor
+public import VCVio.Quantum.Pure.Vector
 public import VCVio.Quantum.SubInstrument
 public import VCVio.StateSeparating.Advantage.Measure
 public import VCVio.StateSeparating.CellRef
