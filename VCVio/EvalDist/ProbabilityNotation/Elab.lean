@@ -344,6 +344,56 @@ def elabDraw (hint? : Option Expr) (rhs : Term) (ty? : Option Term) :
   throwErrorAt rhs m!"cannot determine the monad of the draw{indentD rhs}\n\
     ascribe it, as in `(… : ProbComp _)`, or draw first from a computation whose monad is known"
 
+/-- A draw in an imperative tail preserves its written monad before ordinary `do` elaboration
+checks its expected type. -/
+syntax (name := tailDrawStx) "probabilityDraw% " term : term
+
+/-- Protect the draws of an imperative tail, leaving nested term-level `do` programs intact. -/
+partial def protectTailDraws (stx : Syntax) : MacroM Syntax := do
+  if stx.isOfKind ``Lean.Parser.Term.do then return stx
+  if let some expanded ← expandMacro? stx then return ← protectTailDraws expanded
+  if stx.isOfKind ``Lean.Parser.Term.doLetArrow then
+    let decl := stx[3]
+    let rhs ← rhsTerm decl[3]
+    let action ← `(doElem| probabilityDraw% $rhs)
+    return stx.setArg 3 (decl.setArg 3 action.raw)
+  if stx.isOfKind ``Lean.Parser.Term.doExpr then
+    let rhs ← rhsTerm stx
+    return (← `(doElem| probabilityDraw% $rhs)).raw
+  match stx with
+  | .node info kind args => return .node info kind (← args.mapM protectTailDraws)
+  | _ => return stx
+
+/-- Elaborate a tail draw in its written monad, using a genuine monad lift when the surrounding
+program expects another monad. Comparing the unapplied monads prevents a transformer from
+unifying with its base monad at a different result type. -/
+def elabTailDraw (rhs : Term) (expected? : Option Expr) : TermElabM Expr := do
+  let expected? ← expected?.mapM instantiateMVars
+  let hint? := expected?.filter (·.isApp) |>.map (·.appFn!)
+  let ty? ← (expected?.filter (fun ty => ty.isApp && !ty.appArg!.hasMVar)).mapM
+    (fun ty => exprToSyntax ty.appArg!)
+  let (a, m, _) ← elabDraw hint? rhs ty?
+  if let some n := hint? then
+    unless ← isDefEq m n do
+      let lift? ← synthInstance? (← mkAppM ``MonadLiftT #[m, n])
+      if lift?.isNone then
+        throwErrorAt rhs "a draw in an imperative tail has a different monad; lift the draw \
+          or ascribe the tail's monad explicitly"
+      return ← elabTermEnsuringType (← `(liftM $(← exprToSyntax a))) expected?.get!
+  ensureHasType expected? a
+
+/-- Infer an imperative tail from its own draws before using the preceding sequence's monad
+as a fallback for tails without a determined draw. -/
+def elabTail (hint? : Option Expr) (prog : Term) : TermElabM (Expr × Expr × Expr) := do
+  let s ← saveState
+  let r? ← try
+      let a ← withSynthesize (postpone := .yes) <| withoutPostponing <| elabTerm prog none
+      determined? a
+    catch _ => pure none
+  if let some r := r? then return r
+  s.restore
+  elabDraw hint? prog none
+
 /-- The expectation of `g` over the draw `a`: core's `wp` under the expectation interpretation
 of `a`'s monad, spelled as the `wp⟦ ⟧` macro spells it. -/
 def mkExpectation (a g : Expr) : TermElabM Expr := do
@@ -434,8 +484,10 @@ partial def elabSeq (hint? : Option Expr) (items : Array (TSyntax ``Lean.Parser.
         `let x ← (do …)`"
     let vars ← tailBinders items
     let (tup, tupPat) ← liftMacroM (mkTuple vars)
-    let prog ← `((do $items:doSeqItem* pure $tup))
-    let (a, m, β) ← elabDraw hint? prog none
+    let guardedItems ← items.mapM fun item => do
+      return (⟨← liftMacroM (protectTailDraws item.raw)⟩ : TSyntax ``Lean.Parser.Term.doSeqItem)
+    let prog ← `((do $guardedItems:doSeqItem* pure $tup))
+    let (a, m, β) ← elabTail hint? prog
     checkMeasureSemantics m
     let body ← if event then `(propInd ($val : Prop)) else pure val
     let g ← elabTermEnsuringType (← `(fun $tupPat => ($body : ENNReal))) (← mkArrow β ennreal)
@@ -457,6 +509,10 @@ where
     else `(fun z => match z with | $pat:term => ($body : ENNReal))
 
 end VCVio.ProbabilityNotation
+
+elab_rules : term <= expected?
+  | `(VCVio.ProbabilityNotation.tailDrawStx| probabilityDraw% $rhs) =>
+    VCVio.ProbabilityNotation.elabTailDraw rhs expected?
 
 elab_rules : term
   | `(expect% $[(m := $h)]? {$items*}[$b]) => do

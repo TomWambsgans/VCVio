@@ -6,6 +6,7 @@ Authors: Devon Tuma
 
 module
 public import VCVio.EvalDist.ProbabilityNotation
+public import VCVio.EvalDist.Monad.Except
 public import VCVio.OracleComp.ProbComp
 public import VCVio.EvalDist.Defs.Measure.FinRatPMF
 public import VCVioTest.MeasureSemantics
@@ -360,6 +361,61 @@ example : Pr{let x ← outer; let y ← inner}[p x y] =
     wp⟦outer⟧ fun x => wp⟦inner⟧ (predInd fun y => p x y) := rfl
 example : Pr{let _ ← outer; let _ ← (failure : OptionT ProbComp Bool)}[True] = 0 := by
   simp
+
+/-- Imperative tails infer their own transformer monad, including through a nested stack. -/
+example : Pr{
+    let _ ← (pure () : ProbComp Unit)
+    let mut unused := 0
+    let _ ← (failure : OptionT ProbComp Bool)}[True] = 0 := by simp
+example : Pr{
+    let _ ← (pure () : ProbComp Unit)
+    let mut unused := 0
+    let _ ← (throw "error" : ExceptT String ProbComp Bool)}[True] = 0 := by simp
+example : Pr{
+    let _ ← (pure () : ProbComp Unit)
+    let mut unused := 0
+    let _ ← (failure : OptionT (ExceptT String ProbComp) Bool)}[True] = 0 := by simp
+example : Pr{
+    let _ ← (pure () : ProbComp Unit)
+    let mut unused := 0
+    let _ ← (throw "error" : ExceptT String (OptionT ProbComp) Bool)}[True] = 0 := by simp
+
+/-- Base draws use the ordinary lift once the tail's transformer monad is determined. -/
+example : Pr{
+    let mut n := 0
+    let b ← (pure true : OptionT ProbComp Bool)
+    let x ← (pure 1 : ProbComp ℕ)
+    if b then n := x}[n = 1] = 1 := by simp
+
+/--
+error: a draw in an imperative tail has a different monad; lift the draw or ascribe the tail's
+monad explicitly
+-/
+#guard_msgs (whitespace := lax) in
+noncomputable example : ℝ≥0∞ := Pr{
+    let mut n := 0
+    let _ ← (pure () : ProbComp Unit)
+    let _ ← (failure : OptionT ProbComp Bool)}[True]
+
+/--
+error: a draw in an imperative tail has a different monad; lift the draw or ascribe the tail's
+monad explicitly
+-/
+#guard_msgs (whitespace := lax) in
+noncomputable example : ℝ≥0∞ := Pr{
+    let mut n := 0
+    let _ ← (pure () : ProbComp Unit)
+    let _ ← (throw "error" : ExceptT String ProbComp Bool)}[True]
+
+/--
+error: a draw in an imperative tail has a different monad; lift the draw or ascribe the tail's
+monad explicitly
+-/
+#guard_msgs (whitespace := lax) in
+noncomputable example : ℝ≥0∞ := Pr{
+    let mut n := 0
+    let _ ← (pure () : ProbComp Unit)
+    let _ ← (failure : OptionT (ExceptT String ProbComp) Bool)}[True]
 
 end mixedMonads
 
