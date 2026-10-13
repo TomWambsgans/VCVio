@@ -51,6 +51,10 @@ class EventTests(unittest.TestCase):
         self.assertMigrates("Pr[= (':' : Char) | mx]",
                             "Pr{let x : Char ← mx}[x = (':' : Char)]")
 
+    def test_singleton_ascriptions_keep_primed_names_and_skip_comments(self):
+        self.assertMigrates("Pr[= (a' : T') | mx]", "Pr{let x : T' ← mx}[x = (a' : T')]")
+        self.assertEqual(codemod.result_ascription("(-1 -- : Nat\n : ℤ)"), "ℤ")
+
     def test_unrecoverable_singleton_types_are_reported(self):
         for source in ("Pr[= -1 | (pure (1 - 2) : ProbComp _)]",
                        "Pr[= a | mx]", "Pr[(· = 1 - 2) | pure (1 - 2)]",

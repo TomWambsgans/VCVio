@@ -758,8 +758,12 @@ def result_ascription(term: str) -> str | None:
     while j < len(inner):
         if inner[j] == '"':
             j = skip_string(inner, j)
-        elif inner[j] == "'" and (literal := re.match(r"'(?:\\.|[^'\\])+'", inner[j:])):
+        elif (inner[j] == "'" and (j == 0 or not re.fullmatch(IDENT_CHARS, inner[j - 1]))
+              and (literal := re.match(r"'(?:\\.|[^'\\])+'", inner[j:]))):
             j += literal.end()
+        elif inner.startswith("--", j):
+            newline = inner.find("\n", j)
+            j = len(inner) if newline < 0 else newline + 1
         elif inner.startswith("/-", j):
             j = skip_block_comment(inner, j)
         elif inner[j] in OPEN:
