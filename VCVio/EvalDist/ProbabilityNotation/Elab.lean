@@ -190,11 +190,12 @@ def Item.isPure : Item → Bool
   | _ => false
 
 /-- A `return` in `stx` that would exit the braces: one not inside a nested term-level `do`. -/
-partial def hasTopLevelReturn (stx : Syntax) : Bool :=
+partial def hasTopLevelReturn (stx : Syntax) : MacroM Bool := do
   if stx.isOfKind ``Lean.Parser.Term.doReturn || stx.isOfKind ``Lean.Parser.Term.termReturn then
-    true
-  else if stx.isOfKind ``Lean.Parser.Term.do then false
-  else stx.getArgs.any hasTopLevelReturn
+    return true
+  if stx.isOfKind ``Lean.Parser.Term.do then return false
+  if let some expanded ← expandMacro? stx then return ← hasTopLevelReturn expanded
+  stx.getArgs.anyM hasTopLevelReturn
 
 /-- The variables an imperative tail binds at its top level, in order. -/
 def tailBinders (items : Array (TSyntax ``Lean.Parser.Term.doSeqItem)) :
@@ -479,7 +480,7 @@ partial def elabSeq (hint? : Option Expr) (items : Array (TSyntax ``Lean.Parser.
         elabTermEnsuringType cont (← mkArrow α ennreal)
     mkExpectation a g
   | .tail =>
-    if items.any (hasTopLevelReturn ·.raw) then
+    if ← items.anyM (fun item => liftMacroM (hasTopLevelReturn item.raw)) then
       throwError "`return` is not allowed at the top level of the braces: the sequence's \
         bindings are what the event observes; bind a computation that returns early as \
         `let x ← (do …)`"

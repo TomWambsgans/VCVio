@@ -437,6 +437,42 @@ the event observes; bind a computation that returns early as `let x ← (do …)
 #guard_msgs (whitespace := lax) in
 noncomputable example : ℝ≥0∞ := Pr{let b ← mx; return b}[b = true]
 
+/-- A `do` element expanding to an early return. -/
+syntax "notationReturn" : doElem
+macro_rules | `(doElem| notationReturn) => `(doElem| return (7 : ℕ))
+
+/--
+error: `return` is not allowed at the top level of the braces: the sequence's bindings are what
+the event observes; bind a computation that returns early as `let x ← (do …)`
+-/
+#guard_msgs (whitespace := lax) in
+noncomputable example : ℝ≥0∞ := Pr{
+    let _ ← (pure () : ProbComp Unit)
+    let mut z := (0 : ℕ)
+    notationReturn}[z = 7]
+
+example : Pr{let x ← (do notationReturn : ProbComp ℕ)}[x = 7] = 1 := by simp
+
+/-- A term macro expanding to a return before Lean introduces its `do` wrapper. -/
+syntax "notationTermReturn" : term
+macro_rules | `(notationTermReturn) => `(return (7 : ℕ))
+
+/--
+error: `return` is not allowed at the top level of the braces: the sequence's bindings are what
+the event observes; bind a computation that returns early as `let x ← (do …)`
+-/
+#guard_msgs (whitespace := lax) in
+noncomputable example : ℝ≥0∞ := Pr{
+    let _ ← (pure () : ProbComp Unit)
+    let mut z := (0 : ℕ)
+    notationTermReturn}[z = 7]
+
+/-- A term macro introducing a nested `do` scope. -/
+syntax "notationNestedReturn" : term
+macro_rules | `(notationNestedReturn) => `(do notationReturn)
+
+example : Pr{let x ← (notationNestedReturn : ProbComp ℕ)}[x = 7] = 1 := by simp
+
 /--
 error: `return` is not allowed at the top level of the braces: the sequence's bindings are what
 the event observes; bind a computation that returns early as `let x ← (do …)`
