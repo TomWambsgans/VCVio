@@ -4,8 +4,8 @@ VCVio's probability semantics are Mathlib measures: `𝒟[mx]` is the output mea
 computation and `Pr{let x ← mx}[p x]` is the mass of an event. Earlier versions also had a discrete
 surface — `SPMF`, `evalSPMF`/`𝒮[…]`, `probOutput`/`probEvent`/`probFailure` with the `Pr[…]`
 notation, and the classes that interpret them — which has been removed. This guide converts code
-written against it. Most of the conversion is mechanical: find the removed form in the tables
-below, write its replacement, and use the symptom table for what remains.
+written against it. The tables below give replacements, but overloaded literals and arithmetic require a result-type
+check. Review the migration report and verify the types of the rewritten computations.
 
 For proof strategies (bind congruence, common-prefix bounds, coupling, total variation) see the
 *Standard proof conversion* table in `docs/design/measure-conversion-roadmap.md`. The design
@@ -16,8 +16,7 @@ record is `docs/reading/denotational-probability-semantics.md`.
 1. Repin VCVio.
 2. Run the codemod over your sources, from the VCVio checkout Lake placed in your project:
    `python3 .lake/packages/VCVio/scripts/migrate-native-probability.py <source directories>`
-   (`--dry-run` prints the diff instead of writing). It rewrites what the tables below convert
-   mechanically: legacy events and bare draws in `Pr{…}`, `GameEquiv`, `≡ₚ` and equations of
+   (`--dry-run` prints the diff instead of writing). It rewrites the forms in the tables below: legacy events and bare draws in `Pr{…}`, `GameEquiv`, `≡ₚ` and equations of
    output distributions `𝒮[A] = 𝒮[B]`, oracle answer-type binders, the spec classes, renamed
    declarations, imports of removed modules, and `open`s of removed namespaces.
    Every site it leaves is reported as `path:line:` with the entry of this guide that converts
@@ -29,7 +28,15 @@ record is `docs/reading/denotational-probability-semantics.md`.
 4. Check that definitions fix their σ-algebras (see *Semantic contract*).
 
 The codemod is textual: it never needs a build and is idempotent, so it can be rerun after a
-further repin. It does not convert proofs; a proof that computed with `probOutput` sums, `SPMF`
+further repin. It is not an unattended semantics-preserving rewrite. A legacy singleton event
+could supply the computation's expected result type. When the singleton has an outer type
+ascription, the codemod keeps it on the draw, for example
+`Pr[= (-1 : ℤ) | (pure (1 - 2) : ProbComp _)]` becomes
+`Pr{let x : ℤ ← (pure (1 - 2) : ProbComp _)}[x = (-1 : ℤ)]`.
+When neither the singleton's type nor an explicit computation type is recoverable from the
+syntax, the report flags the rewritten site for a result-type check. Add a draw annotation or
+an explicit computation type before relying on it. In particular, natural and integer
+subtraction have different values. It does not convert proofs; a proof that computed with `probOutput` sums, `SPMF`
 equalities or the discrete `tvDist` follows the *Standard proof conversion* table of the roadmap.
 
 Maintainers converting an open pull request: `scripts/migration-dry-run.sh --worktree DIR --out OUT

@@ -751,10 +751,45 @@ def draw(x: str, comp: str) -> str:
     return f"let {x} ← {comp}"
 
 
+def result_ascription(term: str) -> str | None:
+    """An outer type ascription, without inferring the type of an unannotated term."""
+    inner = strip_parens(term)
+    colon = top_level(inner, ":")
+    if colon < 0 or inner[colon:colon + 2] == ":=":
+        return None
+    if re.match(r"(?:fun|let|have|show)\b", inner):
+        return None
+    ty = inner[colon + 1:].strip()
+    return ty if ty else None
+
+
+def singleton_value(event: str) -> str | None:
+    """The value of a singleton event in either legacy spelling."""
+    m = re.fullmatch(r"=\s*(.+)", event.strip(), re.S)
+    if m:
+        return m.group(1).strip()
+    m = re.fullmatch(r"·\s*=\s*(.+)", strip_parens(event), re.S)
+    return m.group(1).strip() if m and "·" not in m.group(1) else None
+
+
 def singleton(comp: str, value: str) -> str:
-    """`Pr{let x ← comp}[x = value]`, with `x` fresh for `comp` and `value`."""
+    """A fresh draw preserving an outer type ascription on the singleton value."""
     x = fresh_name(comp, value)
-    return f"Pr{{{draw(x, comp)}}}[{x} = {value}]"
+    ty = result_ascription(value)
+    binder = f"{x} : {ty}" if ty else x
+    return f"Pr{{{draw(binder, comp)}}}[{x} = {value}]"
+
+
+def report_singleton_type(comp: str, value: str, report: Report, path: str,
+                          text: str, offset: int) -> None:
+    """Report singleton rewrites whose original expected result type is not explicit."""
+    ty = result_ascription(value)
+    comp_ty = result_ascription(comp)
+    if ty is None and (comp_ty is None or re.search(r"(?<![\w'])_(?![\w'])", comp_ty)):
+        report.add(path, text, offset,
+                   "singleton rewrite needs a result-type check: the old event supplied the "
+                   "computation's expected type; add `let x : T ← ...` or ascribe the "
+                   "computation explicitly; see *Notation and definitions*")
 
 
 def convert_legacy_event(event: str, comp: str, prose: bool = False) -> str | None:
@@ -851,7 +886,7 @@ def rewrite_spmf_equations(text: str) -> str:
         i = close2 + 1
 
 
-def rewrite_eq_events(text: str) -> str:
+def rewrite_eq_events(text: str, report: Report, path: str) -> str:
     """Write the singleton events `Pr{mx}[= a]` and `Pr{mx}[(· = a)]` of earlier versions of the
     measure API as `Pr{let x ← mx}[x = a]`."""
     out: list[str] = []
@@ -887,6 +922,8 @@ def rewrite_eq_events(text: str) -> str:
                 continue
             value = value[:-1].strip()
         comp = text[k + 3:close].strip()
+        if not in_spans(k, comment_spans(text)):
+            report_singleton_type(comp, value, report, path, text, k)
         out.append(f"{text[i:k]}{singleton(comp, value)}")
         i = end + 1
 
@@ -942,6 +979,10 @@ def rewrite_legacy_events(text: str, report: Report, path: str) -> str:
                            "legacy event left as is; see *Notation and definitions*")
             out.append(text[k:close + 1])
         else:
+            if not in_spans(k, spans):
+                value = singleton_value(body[:bar])
+                if value is not None:
+                    report_singleton_type(body[bar + 1:], value, report, path, text, k)
             out.append(native)
         i = close + 1
 
@@ -1172,7 +1213,7 @@ def migrate(text: str, path: str, report: Report, local: frozenset[str] = frozen
     text = rewrite_imports(text)
     text = rewrite_opens(text)
     text = rewrite_legacy_events(text, report, path)
-    text = rewrite_eq_events(text)
+    text = rewrite_eq_events(text, report, path)
     text = rewrite_spmf_equations(text)
     text = rewrite_draw_items(text, report, path)
     text = delete_answer_binders(text)

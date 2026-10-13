@@ -29,6 +29,28 @@ class EventTests(unittest.TestCase):
         self.assertMigrates("Pr{mx}[= a] = Pr{g <$> my}[(· = (f b, c))]",
                             "Pr{let x ← mx}[x = a] = Pr{let x ← g <$> my}[x = (f b, c)]")
 
+    def test_singleton_ascription_fixes_the_draw_type(self):
+        for value, comp in (("(-1 : ℤ)", "(pure (1 - 2) : ProbComp _)"),
+                            ("(-3 : ℤ)", "(pure (-3) : ProbComp _)"),
+                            ("((1 - 2) : ℤ)", "(pure (1 - 2) : ProbComp _)")):
+            out, items = migrate(f"Pr[= {value} | {comp}]")
+            self.assertEqual(out, f"Pr{{let x : ℤ ← {comp}}}[x = {value}]")
+            self.assertEqual(items, [])
+        self.assertMigrates("Pr[(· = (-1 : ℤ)) | (pure (1 - 2) : ProbComp _)]",
+                            "Pr{let x : ℤ ← (pure (1 - 2) : ProbComp _)}[x = (-1 : ℤ)]")
+        self.assertMigrates("Pr{(pure (1 - 2) : ProbComp _)}[= (-1 : ℤ)]",
+                            "Pr{let x : ℤ ← (pure (1 - 2) : ProbComp _)}[x = (-1 : ℤ)]")
+
+    def test_unrecoverable_singleton_types_are_reported(self):
+        for source in ("Pr[= -1 | (pure (1 - 2) : ProbComp _)]",
+                       "Pr[= a | mx]", "Pr[(· = 1 - 2) | pure (1 - 2)]",
+                       "Pr{mx}[= a]"):
+            _, items = migrate(source)
+            self.assertEqual(len(items), 1)
+            self.assertIn("result-type check", items[0][2])
+        _, items = migrate("Pr[= -1 | (pure (1 - 2) : ProbComp ℤ)]")
+        self.assertEqual(items, [])
+
     def test_reading_scopes_and_answer_measures(self):
         self.assertMigrates(
             "open scoped OracleComp.Qualitative in\n"
