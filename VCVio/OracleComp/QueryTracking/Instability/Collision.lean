@@ -57,7 +57,6 @@ variable {ι : Type} {spec : OracleSpec.{0, 0} ι} [DecidableEq ι]
 
 /-- One fresh answer never removes a collision: the flip probability from "collision" to
 "no collision" is `0`. -/
-@[simp]
 theorem flip_cacheHasCollision_compl [AnswerMeasure spec] (t : ℕ) :
     flip {D : QueryCache spec | CacheHasCollision D} {D | CacheHasCollision D}ᶜ t = 0 :=
   nonpos_iff_eq_zero.mp <| flip_le_iff.mpr fun D hD _ _ hx =>
@@ -95,7 +94,8 @@ every answer type has at least `n` elements. -/
 theorem instability_cacheHasCollision_le {n : ℕ} (hn : ∀ x, n ≤ Fintype.card (spec.Range x))
     (t : ℕ) :
     instability {D : QueryCache spec | CacheHasCollision D} t ≤ ((t - 1 : ℕ) : ℝ≥0∞) / n :=
-  max_le (flip_compl_cacheHasCollision_le hn t) (by simp)
+  max_le (flip_compl_cacheHasCollision_le hn t)
+    ((flip_cacheHasCollision_compl t).trans_le zero_le)
 
 /-- The instability of the collision property with query bound `t` is at most `t / n` when every
 answer type has at least `n` elements. -/
