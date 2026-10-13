@@ -115,8 +115,8 @@ syntax (name := prEventElabStx) "prEvent% " (atomic("(" &"m" " := ") term ")")?
 inductive Binder where
   /-- `let x ← e`, with an optional type ascription. -/
   | ident (x : Ident) (ty? : Option Term)
-  /-- `let _ ← e`, or a bare action. -/
-  | hole
+  /-- `let _ ← e`, with an optional type ascription, or a bare action. -/
+  | hole (ty? : Option Term)
   /-- `let pat ← e`: the value is matched on `pat`. -/
   | pat (p : Term) (ty? : Option Term)
 
@@ -170,7 +170,7 @@ def classify (item : TSyntax ``Lean.Parser.Term.doSeqItem) : MacroM Item := do
       unless decl[4].isNone do return .tail
       let pat : Term := ⟨decl[0]⟩
       let rhs ← rhsTerm decl[3]
-      if pat.raw.isOfKind ``Lean.Parser.Term.hole then return .draw .hole rhs
+      if pat.raw.isOfKind ``Lean.Parser.Term.hole then return .draw (.hole ty?) rhs
       return .draw (.pat pat ty?) rhs
     return .tail
   if elem.isOfKind ``Lean.Parser.Term.doLet then
@@ -179,9 +179,9 @@ def classify (item : TSyntax ``Lean.Parser.Term.doSeqItem) : MacroM Item := do
   if elem.isOfKind ``Lean.Parser.Term.doHave then
     return .have ⟨elem[2]⟩
   if elem.isOfKind ``Lean.Parser.Term.doExpr then
-    return .draw .hole (← rhsTerm elem)
+    return .draw (.hole none) (← rhsTerm elem)
   if elem.isOfKind ``Lean.Parser.Term.doNested then
-    return .draw .hole (← rhsTerm elem)
+    return .draw (.hole none) (← rhsTerm elem)
   return .tail
 
 /-- Whether an item is a pure `let` or `have`. -/
@@ -276,29 +276,71 @@ def determined? (a : Expr) : TermElabM (Option (Expr × Expr × Expr)) := do
   unless ty.isApp && !ty.appFn!.hasExprMVar do return none
   return some (a, ty.appFn!, ty.appArg!)
 
+/-- Elaborate a draw with its annotated result type before elaborating the body of an outer
+ascription. The ascription's result hole must not default independently of the draw annotation. -/
+def elabAnnotatedDraw (rhs : Term) (expected? : Option Expr) (α? : Option Expr) :
+    TermElabM Expr := do
+  let mut rhs := rhs
+  while rhs.raw.isOfKind ``Lean.Parser.Term.paren do
+    rhs := ⟨rhs.raw[1]⟩
+  if α?.isSome && rhs.raw.isOfKind ``Lean.Parser.Term.typeAscription then
+    let ty ← elabType rhs.raw[3][0]
+    let ty ← instantiateMVars ty
+    if ty.isApp then
+      unless ← isDefEq ty.appArg! α?.get! do
+        throwErrorAt rhs m!"the draw's result type{indentExpr ty.appArg!}\n\
+          disagrees with its annotation{indentExpr α?.get!}"
+    if let some expected := expected? then
+      unless ← isDefEq ty expected do
+        throwErrorAt rhs m!"the draw's type{indentExpr ty}\n\
+          disagrees with the expected type{indentExpr expected}"
+    return ← elabTermEnsuringType rhs.raw[1] ty
+  elabTerm rhs expected?
+
 /-- Elaborate the right-hand side of a draw: on its own first, reading its monad off its type as
 written; then, when that leaves the monad undetermined, in the monad of the sequence; then
 without postponing, which lets a nested `do`, `if` or `match` fix its monad from its own binds.
-Returns the draw, its monad and its result type, or postpones. -/
+An annotation supplies the expected result type throughout elaboration. Returns the draw, its
+monad and its result type, or postpones. -/
 def elabDraw (hint? : Option Expr) (rhs : Term) (ty? : Option Term) :
     TermElabM (Expr × Expr × Expr) := do
+  let α? ← ty?.mapM elabType
+  let elabRhs (m : Expr) : TermElabM Expr := do
+    let α ← match α? with
+      | some α => pure α
+      | none => mkFreshTypeMVar
+    elabAnnotatedDraw rhs (some (mkApp m α)) α?
+  let result? (a : Expr) : TermElabM (Option (Expr × Expr × Expr)) := do
+    let r? ← determined? a
+    if let some (_, _, β) := r? then
+      if let some α := α? then
+        unless ← isDefEq α β do
+          throwErrorAt rhs m!"the draw's result type{indentExpr β}\n\
+            disagrees with its annotation{indentExpr α}"
+    return r?
   let s ← saveState
-  let a ← withSynthesize (postpone := .yes) <| elabTerm rhs none
-  if let some r ← determined? a then return r
+  let a ← withSynthesize (postpone := .yes) <| elabAnnotatedDraw rhs none α?
+  if let some r@(_, m, _) ← determined? a then
+    if α?.isNone then return r
+    unless m.hasMVar do
+      s.restore
+      let a ← withSynthesize (postpone := .yes) <| elabRhs m
+      if let some r ← result? a then return r
   if let some m₀ := hint? then
     s.restore
-    let α ← match ty? with
-      | some ty => elabType ty
-      | none => mkFreshTypeMVar
-    let a ← withSynthesize (postpone := .yes) <| elabTerm rhs (some (mkApp m₀ α))
-    if let some r ← determined? a then return r
+    let a ← withSynthesize (postpone := .yes) <| elabRhs m₀
+    if let some r ← result? a then return r
   -- The surrounding term may still determine the draw, as a `let`-bound `do` block whose monad
   -- its own binds fix does once that block is forced; the draw's own binds are forced only when
   -- nothing outside can postpone any longer.
   s.restore
   tryPostpone
-  let a ← withSynthesize (postpone := .yes) <| withoutPostponing <| elabTerm rhs none
-  if let some r ← determined? a then return r
+  let a ← withSynthesize (postpone := .yes) <| withoutPostponing do
+    let a ← elabAnnotatedDraw rhs none α?
+    if let some (_, m, _) ← determined? a then
+      if α?.isSome then return ← elabRhs m
+    return a
+  if let some r ← result? a then return r
   throwErrorAt rhs m!"cannot determine the monad of the draw{indentD rhs}\n\
     ascribe it, as in `(… : ProbComp _)`, or draw first from a computation whose monad is known"
 
@@ -335,7 +377,7 @@ def mkInnermost (binderStx : Term) (α : Expr) (pureItems : Array Item) (val : T
 def Binder.funBinder : Binder → MacroM Term
   | .ident x none => pure x
   | .ident x (some ty) => `(($x : $ty))
-  | .hole => `(_)
+  | .hole _ => `(_)
   | .pat _ _ => `(z)
 
 /-- Elaborate the sequence `items` observed by `val`. -/
@@ -362,8 +404,7 @@ partial def elabSeq (hint? : Option Expr) (items : Array (TSyntax ``Lean.Parser.
   match classified[0]! with
   | .draw b rhs =>
     let ty? := match b with
-      | .ident _ ty? | .pat _ ty? => ty?
-      | .hole => none
+      | .ident _ ty? | .pat _ ty? | .hole ty? => ty?
     let (a, m, α) ← elabDraw hint? rhs ty?
     checkMeasureSemantics m
     let hint := hint?.getD m

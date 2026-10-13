@@ -257,6 +257,25 @@ example : Pr{
 example : Pr{let x ← mz; let y := x + 1; let z ← my (y = 3)}[z = y] =
     wp⟦mz⟧ fun x => let y := x + 1; wp⟦my (y = 3)⟧ (predInd fun z => z = y) := rfl
 
+/-- Draw annotations determine overloaded arithmetic before the observation is elaborated. -/
+example : Pr{let x : ℤ ← (pure (1 - 2) : ProbComp _)}[x = -1] = 1 := by simp
+example : Pr{let (x, y) : ℤ × ℤ ← (pure (1 - 2, -1) : ProbComp _)}[x = y] = 1 := by simp
+example : Pr{let _ : ℤ ← (pure (1 - 2) : ProbComp _)}[True] =
+    wp⟦(pure (-1) : ProbComp ℤ)⟧ (predInd fun _ => True) := rfl
+example : Pr{let _ ← (pure () : ProbComp Unit); let x : ℤ ← pure (1 - 2)}[x = -1] = 1 :=
+  by simp
+
+example : True := by
+  fail_if_success have : ℝ≥0∞ :=
+    Pr{let x : Bool ← (pure (1 : ℕ) : ProbComp ℕ)}[True]
+  fail_if_success have : ℝ≥0∞ :=
+    Pr{let _ : Bool ← (pure (1 : ℕ) : ProbComp ℕ)}[True]
+  fail_if_success have : ℝ≥0∞ :=
+    Pr{let (x, y) : Bool × Bool ← (pure (1, 2) : ProbComp (ℕ × ℕ))}[True]
+  fail_if_success have : ℝ≥0∞ :=
+    Pr{let (x, y) : Bool × Bool ← (pure (1, 2) : ProbComp (ℕ × ℕ)); let _ ← mx}[True]
+  trivial
+
 /-! A draw written as a bind, a map, a returned value or a `do` block stays as written; the
 normal form is one `simp only [expect_norm]` away. -/
 
