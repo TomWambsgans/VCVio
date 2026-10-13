@@ -384,7 +384,8 @@ def elabTailDraw (rhs : Term) (expected? : Option Expr) : TermElabM Expr := do
 
 /-- Infer an imperative tail from its own draws before using the preceding sequence's monad
 as a fallback for tails without a determined draw. -/
-def elabTail (hint? : Option Expr) (prog : Term) : TermElabM (Expr × Expr × Expr) := do
+def elabTail (hint? : Option Expr) (prog : Term) : TermElabM (Expr × Expr × Expr) :=
+    withoutErrToSorry do
   let s ← saveState
   let r? ← try
       let a ← withSynthesize (postpone := .yes) <| withoutPostponing <| elabTerm prog none
