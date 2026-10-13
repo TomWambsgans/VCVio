@@ -754,7 +754,21 @@ def draw(x: str, comp: str) -> str:
 def result_ascription(term: str) -> str | None:
     """An outer type ascription, without inferring the type of an unannotated term."""
     inner = strip_parens(term)
-    colon = top_level(inner, ":")
+    colon, j = -1, 0
+    while j < len(inner):
+        if inner[j] == '"':
+            j = skip_string(inner, j)
+        elif inner[j] == "'" and (literal := re.match(r"'(?:\\.|[^'\\])+'", inner[j:])):
+            j += literal.end()
+        elif inner.startswith("/-", j):
+            j = skip_block_comment(inner, j)
+        elif inner[j] in OPEN:
+            j = match_close(inner, j) + 1
+        elif inner[j] == ":":
+            colon = j
+            break
+        else:
+            j += 1
     if colon < 0 or inner[colon:colon + 2] == ":=":
         return None
     if re.match(r"(?:fun|let|have|show)\b", inner):
@@ -785,7 +799,10 @@ def report_singleton_type(comp: str, value: str, report: Report, path: str,
     """Report singleton rewrites whose original expected result type is not explicit."""
     ty = result_ascription(value)
     comp_ty = result_ascription(comp)
-    if ty is None and (comp_ty is None or re.search(r"(?<![\w'])_(?![\w'])", comp_ty)):
+    def explicit(ty: str | None) -> bool:
+        return ty is not None and not re.search(r"(?<![\w'])_(?![\w'])|(?<![\w'])\?", ty)
+
+    if not explicit(ty) and not explicit(comp_ty):
         report.add(path, text, offset,
                    "singleton rewrite needs a result-type check: the old event supplied the "
                    "computation's expected type; add `let x : T ← ...` or ascribe the "

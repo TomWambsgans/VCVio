@@ -41,10 +41,21 @@ class EventTests(unittest.TestCase):
         self.assertMigrates("Pr{(pure (1 - 2) : ProbComp _)}[= (-1 : ℤ)]",
                             "Pr{let x : ℤ ← (pure (1 - 2) : ProbComp _)}[x = (-1 : ℤ)]")
 
+    def test_singleton_ascriptions_ignore_literal_colons(self):
+        for value in ('":"', "':'"):
+            out, items = migrate(f"Pr[= {value} | mx]")
+            self.assertEqual(out, f"Pr{{let x ← mx}}[x = {value}]")
+            self.assertEqual(len(items), 1)
+        self.assertMigrates('Pr[= (":" : String) | mx]',
+                            'Pr{let x : String ← mx}[x = (":" : String)]')
+        self.assertMigrates("Pr[= (':' : Char) | mx]",
+                            "Pr{let x : Char ← mx}[x = (':' : Char)]")
+
     def test_unrecoverable_singleton_types_are_reported(self):
         for source in ("Pr[= -1 | (pure (1 - 2) : ProbComp _)]",
                        "Pr[= a | mx]", "Pr[(· = 1 - 2) | pure (1 - 2)]",
-                       "Pr{mx}[= a]"):
+                       "Pr{mx}[= a]", "Pr[= (-1 : _) | (pure (1 - 2) : ProbComp _)]",
+                       "Pr[= -1 | (pure (1 - 2) : ProbComp ?result)]"):
             _, items = migrate(source)
             self.assertEqual(len(items), 1)
             self.assertIn("result-type check", items[0][2])
