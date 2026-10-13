@@ -21,5 +21,35 @@ class SecurityDisclosureTests(unittest.TestCase):
                          "5728684c0691682d0d0d1b02e1280d22392808e841f19abf216e3d86b2b0f528")
 
 
+class CompatibilityDisclosureTests(unittest.TestCase):
+    def test_lawfulness_ledger_and_responder_restrictions(self):
+        guide = (ROOT / "docs/agents/probability-migration.md").read_text()
+        section = guide.split("## Generic lawfulness and executable responders\n", 1)[1]
+        section = section.split("\n## ", 1)[0]
+        for name in (
+            "LawfulMonad", "LawfulEvalDistSemantics", "EvalDistEq", "EvalDistEq.prEvent_eq",
+            "EvalDistEq.of_forall_prEvent_eq", "EvalDistEq.refl", "EvalDistEq.rfl",
+            "EvalDistEq.symm", "EvalDistEq.trans", "EvalDistEq.map", "EvalDistEq.map_congr",
+            "prEvent_eq_evalDist_map", "evalDist_singleton_true", "prEvent_le_one",
+            "prEvent_ne_top", "prEvent_lt_top", "prEvent_const_of_lossless",
+            "prEvent_true_attach", "prEvent_true_add_prFail", "prFail_add_prEvent_true",
+            "prFail_eq_zero_iff", "prFail_eq_one_iff", "SymmEncAlg.Complete",
+            "SymmEncAlg.ciphertextRowsEqualAt", "OracleComp.expectedSimulatedQueryCount",
+            "OracleComp.expectedSimulatedQueryCount_pure",
+            "OracleComp.expectedSimulatedQueryCount_query_bind", "AddWriterT.prEvent_costs",
+            "FiatShamirWithAbort.signAttemptAbortProbability_eq_prEvent",
+            "instMeasurableSingletonClassState", "instMeasurableSingletonClassRange",
+            "ProbResponder.pullback.measurableSingletonClass_range_of_injective",
+            "ProbResponder.pullback.measurableSingletonClass_range_of_forall_injective",
+            "runtime.toSemanticsVia.prFail mx", "prEvent_coord_eq_mul_of_forall",
+            "MeasurableSingletonClass",
+        ):
+            self.assertIn(f"`{name}`", section)
+        self.assertNotIn("`MeasureDistEquiv.of_step`", guide)
+        roadmap = (ROOT / "docs/design/measure-conversion-roadmap.md").read_text()
+        self.assertNotIn("MeasureDistEquiv", roadmap)
+        self.assertIn("`DistEquiv`: equal event probabilities", roadmap)
+
+
 if __name__ == "__main__":
     unittest.main()
