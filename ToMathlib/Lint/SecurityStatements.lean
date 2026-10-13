@@ -6,6 +6,7 @@ Authors: Devon Tuma
 
 module
 public meta import Batteries.Tactic.Lint.Basic
+public meta import Lean.Meta.InferType
 
 /-!
 # Security-statement hygiene
