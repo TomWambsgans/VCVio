@@ -27,7 +27,7 @@ if each `W i` is unitary, commutes with every `P j` and with `A`, then
 `‖[labelControlled β W, A]‖ ≤ 2 ‖pinch β A - A‖`
 (`Matrix.l2_opNorm_commutator_labelControlled_le`). It generalizes the two-block argument of
 Chiesa, Manohar and Spooner (TCC 2019, Lemma 5.10) and of Don, Fehr, Majenz and Schaffner
-(Crypto 2022, Theorem 3.1) to arbitrary partitions.
+(EUROCRYPT 2022, Theorem 3.1) to arbitrary partitions.
 
 ## Main results
 
@@ -128,8 +128,12 @@ section labelControlled
 
 /-- The operator that applies `W i` on the block of the label `i`: its row at a basis vector `a`
 is the row of `W (β a)` at `a`. For finite labels it is `∑ i, P i * W i`
-(`Matrix.labelControlled_eq_sum`); when each `W i` maps every block into itself, `P i * W i` is
-also `P i ⊗ W i` restricted to the block of `i`. -/
+(`Matrix.labelControlled_eq_sum`), where the `W i` act on the same register as the `P i`; the
+unitarity and commutator results below ask each `W i` to preserve the labels, that is, to map every
+block into itself.
+
+The tensor case is a specialization: on `n × p` with `β` a label of the first factor and
+`W i = 1 ⊗ U i`, the operator is `∑ i, P i ⊗ U i`. -/
 @[expose]
 def labelControlled (β : n → κ) (W : κ → Matrix n n α) : Matrix n n α :=
   of fun a b ↦ W (β a) a b
