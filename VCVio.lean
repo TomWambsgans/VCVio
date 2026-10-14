@@ -397,9 +397,9 @@ public import VCVio.Quantum.Comp.Runtime
 public import VCVio.Quantum.Comp.Simulation
 public import VCVio.Quantum.MatrixMap
 public import VCVio.Quantum.Observe
-public import VCVio.Quantum.Oracle.Adversary
 public import VCVio.Quantum.Oracle.Basis
 public import VCVio.Quantum.Oracle.Classical
+public import VCVio.Quantum.Oracle.Comb
 public import VCVio.Quantum.Oracle.Model
 public import VCVio.Quantum.Oracle.Unitary
 public import VCVio.Quantum.Register
