@@ -100,6 +100,7 @@ if [[ -f scripts/check-expose-boundary.sh ]]; then
   bash scripts/check-expose-boundary.sh
 fi
 python3 ./scripts/test-migrate-native-probability.py
+python3 ./scripts/gen-notation-differential.py --check
 python3 ./scripts/test-check-reading-citations.py
 python3 ./scripts/test-module-times.py
 python3 ./scripts/test-classify-migration-errors.py

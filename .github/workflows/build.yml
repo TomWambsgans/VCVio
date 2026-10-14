@@ -59,6 +59,9 @@ jobs:
       - name: Test downstream probability codemod
         run: python3 scripts/test-migrate-native-probability.py
 
+      - name: Check the generated notation differential tests are current
+        run: python3 scripts/gen-notation-differential.py --check
+
       - name: Test the reading-citation checker
         run: python3 scripts/test-check-reading-citations.py
       # The classifier of a migration dry run (`scripts/migration-dry-run.sh`).

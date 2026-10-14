@@ -28,6 +28,11 @@ public import VCVioTest.EvalDist.IndepProductMeasure
 public import VCVioTest.EvalDist.IndependentDraws
 public import VCVioTest.EvalDist.MeasureGate
 public import VCVioTest.EvalDist.MeasureIntegration
+public import VCVioTest.EvalDist.NotationDifferential.Cases1
+public import VCVioTest.EvalDist.NotationDifferential.Cases2
+public import VCVioTest.EvalDist.NotationDifferential.Cases3
+public import VCVioTest.EvalDist.NotationDifferential.Cases4
+public import VCVioTest.EvalDist.NotationDifferential.Cases5
 public import VCVioTest.EvalDist.ProbabilityBounds
 public import VCVioTest.EvalDist.ProbabilityNotation
 public import VCVioTest.EvalDist.SeqMeasure
