@@ -206,6 +206,17 @@ theorem amplify_comp_amplifyLeft [Finite A] (Φ : MatrixMap A B) (V : MatrixMap 
   rw [hN, apply_eq_sum_single Φ]
   simp [Matrix.sum_apply, map_sum, map_smul, mul_comm]
 
+/-- An amplification acts on a product operator through its left factor:
+`(Φ ⊗ id) (ρ ⊗ σ) = Φ ρ ⊗ σ`. -/
+theorem amplify_kronecker (Φ : MatrixMap A B) (ρ : Matrix A A ℂ) (σ : Matrix R R ℂ) :
+    Φ.amplify R (ρ ⊗ₖ σ) = Φ ρ ⊗ₖ σ := by
+  ext ⟨b, r⟩ ⟨b', r'⟩
+  have h : (ρ ⊗ₖ σ).submatrix (·, r) (·, r') = σ r r' • ρ := by
+    ext a a'
+    simp [mul_comm]
+  rw [amplify_apply, h, map_smul]
+  simp [mul_comm]
+
 /-- A left amplification acts on a product operator through its right factor:
 `(id ⊗ V) (ρ ⊗ σ) = ρ ⊗ V σ`. -/
 theorem amplifyLeft_kronecker (V : MatrixMap R S) (ρ : Matrix A A ℂ) (σ : Matrix R R ℂ) :
