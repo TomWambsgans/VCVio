@@ -167,7 +167,7 @@ end database
 
 section compressed
 
-variable {X Y : Type} [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y] [AddCommGroup Y]
+variable {X Y : Type*} [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y] [AddCommGroup Y]
 
 /-- A nonzero entry of the compressed oracle relates two databases that differ at most in the
 queried cell. -/
@@ -206,6 +206,14 @@ theorem QuerySupportedOn.amplify_conj_compressedOracle {E : Type*} {t : ℕ}
       ((MatrixMap.conj (compressedOracle X Y)).amplify E σ) :=
   QuerySupportedOn.amplify_fst (q := fun m : (X × Y) × Database X Y ↦ m.2.size)
     (fun _ hσ ↦ DatabaseSupportedOn.conj_compressedOracle hσ) h
+
+end compressed
+
+/-! ## The size invariant for the compressed runtime -/
+
+section compressedRuntime
+
+variable {X Y : Type} [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y] [AddCommGroup Y]
 
 /-- **One call.** A call of the compressed runtime, with any remainder `E` of the program
 register carried along, takes `P_t` to `P_(t + 1)`. -/
@@ -305,6 +313,6 @@ theorem forallQueries_compressedRuntime_prod_init (I : L.Interp)
   forallQueries_compressedRuntime I hx (by omega)
     (databaseSupportedOn_kronecker_single_empty (X := X) (Y := Y) ρ.matrix)
 
-end compressed
+end compressedRuntime
 
 end Quantum
