@@ -199,7 +199,8 @@ section QuerySupportedOn
 
 /-- The operator `ρ` on the register `X × Y × W` is supported on the query inputs in `S`: an
 entry is nonzero only when the query inputs of its row and of its column lie in `S`. For a
-state this says that measuring the query register yields an element of `S` with certainty. -/
+normalized state, of trace one, this says that measuring the query register yields an element of
+`S` with certainty; for a substate, that the measurement gives zero weight to inputs outside `S`. -/
 @[expose]
 def QuerySupportedOn (S : Set X) (ρ : Matrix (X × Y × W) (X × Y × W) ℂ) : Prop :=
   ∀ m m', ρ m m' ≠ 0 → m.1 ∈ S ∧ m'.1 ∈ S
