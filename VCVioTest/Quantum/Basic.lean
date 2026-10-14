@@ -5,7 +5,7 @@ Authors: Quang Dao
 -/
 
 module
-public import VCVio.Quantum.Observe
+public import VCVio.Quantum.Semantics
 
 /-!
 # Qubit measurement regression tests
