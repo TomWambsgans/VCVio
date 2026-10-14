@@ -402,6 +402,7 @@ public import VCVio.Quantum.Comp.Simulation
 public import VCVio.Quantum.DSubInstrument
 public import VCVio.Quantum.MatrixMap
 public import VCVio.Quantum.MatrixMap.Family
+public import VCVio.Quantum.MatrixMap.OpNorm
 public import VCVio.Quantum.Observe
 public import VCVio.Quantum.Oracle.Basis
 public import VCVio.Quantum.Oracle.Classical
