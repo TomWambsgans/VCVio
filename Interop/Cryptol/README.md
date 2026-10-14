@@ -17,7 +17,7 @@ lake exe cryptol-interop model arx-native 32 8
 ```
 
 The root manifest pins the companion PolyFun development at
-`9a7e7f78ab2567d4c3c98629a13d31e10726bae1`. The commands above and the separate
+`a5d19b760a44a53a74e7f5c75e4bb80117ee07f3`. The commands above and the separate
 `Consumer` use that published dependency; no sibling checkout is required.
 For local development against a different PolyFun checkout:
 
@@ -65,10 +65,14 @@ width, including zero. Recursive groups take a single fixed point before
 instantiation. The semantics distinguishes errors at successive quantifiers,
 outer divergence, and a returned family with divergent instances.
 
-Public beta laws, the closed resolved embedding, and per-instance specification
-transfer are proved. General semantic preservation of polymorphic syntax
-substitution, polymorphic operational adequacy, and frontend correspondence
-remain open. The existing monomorphic adequacy theorem keeps its original scope.
+Public beta laws, the closed resolved embedding, per-instance specification
+transfer, whole-term parameter identity/composition, parameter/value fusion,
+value-substitution composition and general semantic preservation of both
+substitutions are proved. These laws cover all current constructors and partial
+environments, including simultaneous recursion. Polymorphic operational adequacy,
+syntax-producing specialization and official frontend correspondence remain
+open. The [next milestones](docs/model.md#audited-next-milestones) give their
+scope and acceptance criteria; monomorphic adequacy keeps its original scope.
 
 External evidence uses clean, pinned checkouts:
 

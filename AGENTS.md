@@ -100,7 +100,7 @@ The repo also includes a first-class lattice cryptography library under `Lattice
   Use `./scripts/validate.sh --cryptol --lint --test --axioms`; add
   `--cryptol-external` with `CRYPTOL_BINARY=…` and `FOUNDATION_PATH=…` for pinned checks.
   Set `POLYFUN_PATH=…` when using the companion local PolyFun checkout.
-  Use that override for the optional Cryptol driver or `-KpolyfunPath=…` for
+  Use that override for the optional Cryptol driver or `-R -K polyfunPath=…` for
   direct Lake commands. Keep Lake's Git dependency checkout independent: never
   replace `.lake/packages/PolyFun` with a symlink to a working repository. A
   plain Lake invocation may check out its pinned revision. Root-wide validation

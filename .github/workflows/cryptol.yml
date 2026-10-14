@@ -61,8 +61,8 @@ jobs:
         run: |
           lake_cmd=(lake)
           if [[ -n "$POLYFUN_PATH" ]]; then
-            lake_cmd+=("-KpolyfunPath=$POLYFUN_PATH")
-            "${lake_cmd[@]}" -R update PolyFun --keep-toolchain
+            lake_cmd+=(-R -K "polyfunPath=$POLYFUN_PATH")
+            "${lake_cmd[@]}" update PolyFun --keep-toolchain
           fi
           "${lake_cmd[@]}" exe cache get
           "${lake_cmd[@]}" build mathlib/lint-style

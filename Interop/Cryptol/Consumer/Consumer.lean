@@ -11,7 +11,7 @@ import Interop.Cryptol.Translation.Finite.Loop
 import Interop.Cryptol.Model.ResolvedSequences
 import Interop.Cryptol.Model.Recurrence
 import Interop.Cryptol.Translation.PolymorphicExamples
-import Interop.Cryptol.Model.PolyRenaming
+import Interop.Cryptol.Model.PolySubstitutionSemantics
 
 /-!
 # Independent public API consumer
@@ -75,3 +75,21 @@ example {a b : Finite.Ty} {ha : DataShape a} {hb : DataShape b}
     (admissible : ∀ x, pre x → valid x) :
     DataMeaningContract ha meaning pre post ↔ ∀ x, pre x → post x (implementation x) :=
   h.contract_iff pre post admissible
+
+open Polymorphic in
+example {w z : Scope} {Γ : List w.ValueSort} {s : w.ValueSort}
+    (t : Term w Γ s) (μ : Scope.Map w z) (ρ : z.Assignment) (η : Env (μ.pull ρ) Γ) :
+    PointedDomain.cast (Scheme.domain_subst s μ.parameters ρ.val)
+      ((Term.parameters μ t).denote ρ (Env.parameters μ ρ η)) =
+        t.denote (μ.pull ρ) η :=
+  Term.denote_parameters t μ ρ η
+
+open Polymorphic in
+example {w : Scope} {Γ Δ : List w.ValueSort} {s : w.ValueSort}
+    (t : Term w Γ s) (θ : signature.Substitution Γ Δ) (ρ : w.Assignment) (η : Env ρ Δ) :
+    (t.subst θ).denote ρ η = t.denote ρ (Env.substitute ρ θ η) :=
+  Term.denote_subst t θ ρ η
+
+open Polymorphic in
+example {w : Scope} {Γ : List w.ValueSort} {s : w.ValueSort} (t : Term w Γ s) :
+    HEq (Term.parameters (Scope.Map.id w) t) t := by simp

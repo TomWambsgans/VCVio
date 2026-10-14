@@ -3,7 +3,7 @@
 set -euo pipefail
 
 lake_cmd=(lake)
-if [[ -n "${POLYFUN_PATH:-}" ]]; then lake_cmd+=("-KpolyfunPath=$POLYFUN_PATH"); fi
+if [[ -n "${POLYFUN_PATH:-}" ]]; then lake_cmd+=(-R -K "polyfunPath=$POLYFUN_PATH"); fi
 
 regenerate() {
   local status

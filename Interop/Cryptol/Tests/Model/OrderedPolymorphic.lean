@@ -8,7 +8,7 @@ module
 
 public import Interop.Cryptol.Model.PolyRecursion
 public import Interop.Cryptol.Model.PolyRenaming
-public import Interop.Cryptol.Model.PolyReindexLaws
+public import Interop.Cryptol.Model.PolySubstitutionSemantics
 public import Interop.Cryptol.Translation.PolymorphicExamples
 public import PolyFun.IPFunctor.Scoped.FamilySize
 
@@ -152,5 +152,89 @@ example {w : Scope} {s t : w.ValueSort} (e : s = t) (op : Op w s) :
 example {w z u : Scope} (μ : Scope.Map w z) (ν : Scope.Map z u)
     {s : w.ValueSort} (h : Head w s) :
     HEq ((h.map μ).map ν) (h.map (μ.comp ν)) := Head.map_map_heq μ ν h
+
+/-- Collapsing type parameters retains distinct error and value positions. -/
+example :
+    let ρ := emptyAssignment
+    let η : Env (mergeTypes.pull ρ) separate :=
+      Env.cons _ (Env.cons _ (Env.empty _, DomainResult.value ⟨true⟩),
+        DomainResult.error (.user "first"))
+    (Term.parameters mergeTypes (.pair first second)).denote ρ
+      (Env.parameters mergeTypes ρ η) =
+        DomainResult.value (DomainResult.error (.user "first"), DomainResult.value ⟨true⟩) := by
+  dsimp only
+  exact eq_of_heq (Term.denote_parameters_related (.pair first second) mergeTypes
+    emptyAssignment (mergeTypes.pull emptyAssignment) rfl _ _
+    (Env.parameters_related mergeTypes emptyAssignment _))
+
+private def mixed : Term Scope.empty [.mono .bit]
+    (.allNum (.allType (.guard (.eq (.finite 0) (.finite 0)) (.mono .bit)))) :=
+  .numAbs (.typeAbs (.proofAbs (.eq (.finite 0) (.finite 0)) (.var .zero)))
+
+/-- Partial images remain suspended beneath numeric, type and erased proof binders. -/
+example {Δ : List Scope.empty.ValueSort}
+    (θ : signature.Substitution (w := Scope.empty) [.mono .bit] Δ)
+    (η : Env emptyAssignment Δ) :
+    (mixed.subst θ).denote emptyAssignment η =
+      DomainResult.value (fun _ : Length => DomainResult.value (fun _ : ClosedTy =>
+        fun _ : PLift ((Constraint.eq (.finite 0) (.finite 0)).Holds Fin.elim0) =>
+          Term.denote (θ .zero) emptyAssignment η)) := by
+  rw [Term.denote_subst]
+  rfl
+
+/-- Two substitutions preserve capture avoidance below a type binder on partial environments. -/
+example {Δ Θ : List Scope.empty.ValueSort}
+    (θ : signature.Substitution (w := Scope.empty) [.mono .bit] Δ)
+    (τ : signature.Substitution Δ Θ) (η : Env emptyAssignment Θ) :
+    ((capture.subst θ).subst τ).denote emptyAssignment η =
+      capture.denote emptyAssignment
+        (Env.substitute emptyAssignment θ (Env.substitute emptyAssignment τ η)) := by
+  rw [Term.denote_subst, Term.denote_subst]
+
+/-- Parameter identity is available as a single simplifier call through ordinary imports. -/
+example {w : Scope} {Γ : List w.ValueSort} {s : w.ValueSort} (t : Term w Γ s) :
+    HEq (Term.parameters (Scope.Map.id w) t) t := by simp
+
+/-- Fusion applies to arbitrary checked result annotations and context transports. -/
+example {w z u : Scope} {Γ Δ : List w.ValueSort} {a b : w.ValueSort}
+    (t : Term w Γ a) (hΓ : Γ = Δ) (hab : a = b) (μ : Scope.Map w z) (ν : Scope.Map z u) :
+    HEq (Term.parameters ν (Term.parameters μ (t.cast hΓ hab)))
+      (Term.parameters (μ.comp ν) (t.cast hΓ hab)) :=
+  Term.parameters_parameters_heq μ ν _
+
+/-- Value substitution is associative on descriptions with arbitrary annotations. -/
+example {w : Scope} {Γ Δ Θ : List w.ValueSort} {a b : w.ValueSort}
+    (t : Term w Γ a) (hab : a = b) (θ : signature.Substitution Γ Δ)
+    (τ : signature.Substitution Δ Θ) :
+    Term.subst τ (Term.subst θ (t.cast rfl hab)) =
+      Term.subst (fun x => Term.subst τ (θ x)) (t.cast rfl hab) :=
+  Term.subst_subst _ θ τ
+
+/-- Parameter/value fusion permits noninjective maps and arbitrary substitution images. -/
+example {Δ : List twoTypes.ValueSort} {s : twoTypes.ValueSort}
+    (t : Term twoTypes separate s) (θ : signature.Substitution separate Δ) :
+    Term.parameters mergeTypes (t.subst θ) =
+      (Term.parameters mergeTypes t).subst (θ.map parameterHom mergeTypes) :=
+  Term.parameters_subst mergeTypes θ t
+
+/-- Semantic substitution acts on a whole recursive group, with no totality premise. -/
+example {w : Scope} {Γ Δ : List w.ValueSort} {s : w.ValueSort}
+    (bindings : List w.ValueSort)
+    (rhs : (i : Fin bindings.length) → Term w (bindings ++ Γ) bindings[i])
+    (body : Term w (bindings ++ Γ) s) (θ : signature.Substitution Γ Δ)
+    (ρ : w.Assignment) (η : Env ρ Δ) :
+    Term.denote ((Term.letRec bindings rhs body).subst θ) ρ η =
+      (Term.letRec bindings rhs body).denote ρ (Env.substitute ρ θ η) :=
+  Term.denote_subst _ θ ρ η
+
+/-- Recursive calls at changed instantiations remain partial after parameter mapping. -/
+example :
+    HEq (Term.denote (Term.parameters (Scope.Map.id Scope.empty)
+      Polymorphic.Examples.shiftedCycle) emptyAssignment (Env.empty _))
+      (Polymorphic.Examples.shiftedCycle.denote emptyAssignment (Env.empty _)) := by
+  apply Term.denote_parameters_related
+  · exact (ParameterAssignment.pull_id emptyAssignment.val).symm
+  · intro a b x
+    nomatch x
 
 end Interop.Cryptol.Tests.OrderedPolymorphic

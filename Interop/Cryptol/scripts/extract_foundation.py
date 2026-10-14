@@ -577,7 +577,7 @@ def extract(cryptol, foundation):
         wrapper.write_text(COMPRESSION)
         output = run(cryptol, foundation, [f":load {wrapper}", ":extract-coq"])
         round_raw = normalize(output[output.index("[ (NonRecursive"):].strip() + "\n").replace(
-            str(Path(tmp).resolve()), "$WRAPPER")
+            str(Path(tmp).resolve()), "$WRAPPER").replace(str(Path(tmp)), "$WRAPPER")
     round_decoder = Decoder(parse_dump(round_raw))
     body, bindings, argument, round_info = round_root(round_decoder)
     definitions.append("/-- Actual local `step3`, with captured lookups specialized to `kt`/`wt`. -/\n"

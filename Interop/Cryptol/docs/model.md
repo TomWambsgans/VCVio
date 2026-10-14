@@ -28,7 +28,7 @@ parser, name resolver, type inference engine, or constraint solver.
 | Types | Bits, integers, unit, binary products, functions, finite and infinite sequences |
 | Polymorphism | Ordered numeric, type, and proof binders; checked instantiation and local polymorphic values; one finite syntax tree before instantiation |
 | Numeric expressions | Finite constants, infinity, variables, addition, multiplication, minimum; finiteness and equality constraints |
-| Binding | Typed de Bruijn positions and capture-avoiding transformations; semantic substitution laws for the monomorphic core/native IR; beta laws for ordered polymorphic syntax |
+| Binding | Typed de Bruijn positions and capture-avoiding transformations; semantic parameter/value substitution laws for every current ordered polymorphic constructor, as well as the monomorphic core/native IR |
 | Laziness | Suspended function arguments, let values, product fields, sequence elements; only the selected conditional branch is demanded |
 | Recursion | Least fixed points at every closed type; monomorphic groups use lazy products. Finite polymorphic group syntax takes one fixed point of the whole scheme environment before instantiation. |
 | Failure | Semantic bottom, explicit evaluation error, and returned outer value are distinct |
@@ -140,20 +140,29 @@ that they preserve assumptions. [`PolyReindex.lean`](../Model/PolyReindex.lean)
 implements one constructor-local `ScopedFamily.Hom`; the generic PolyFun
 traversal performs the tree recursion. Instantiating two distinct type
 parameters to the same type preserves the two value-variable positions.
-[`PolyReindexLaws.lean`](../Model/PolyReindexLaws.lean) proves identity and
-composition for constructor heads, including recursive-group schemes and
-constraint evidence. Head equalities allow arbitrary result annotations and
-different parameter scopes; numeric and type lifting preserve identity and
-composition. Whole-term parameter identity/composition still require the
-corresponding child-map coherence proof.
-[`PolySubstitution.lean`](../Model/PolySubstitution.lean) uses that action to
-move value substitutions under parameter binders without capturing variables.
-Its identity and renaming-interaction laws follow from the shared PolyFun API.
-[`PolyRenaming.lean`](../Model/PolyRenaming.lean) proves `Term.denote_rename` for
-every current constructor, including numeric/type/proof abstractions, single
-recursion and simultaneous recursive groups. The proof uses positional
-environment transport and whole-group fixed-point naturality. A general
-semantic theorem for parameter and value substitution is not yet provided.
+[`PolyReindexLaws.lean`](../Model/PolyReindexLaws.lean) proves whole-term
+`Term.parameters_id_heq` and `Term.parameters_parameters_heq`. Constructor heads,
+child maps, arbitrary result annotations and context transports are covered;
+no injectivity premise is imposed on the symbolic type map.
+[`PolySubstitutionLaws.lean`](../Model/PolySubstitutionLaws.lean) proves the
+constructor-local binder square, `Term.parameters_subst`, full lawfulness of
+`reindexAction`, and `Term.subst_subst`. These are laws of finite syntax, before
+any parameter instantiation.
+
+[`PolyParameterSemantics.lean`](../Model/PolyParameterSemantics.lean) proves
+`Term.denote_parameters` and its relational form on positionally corresponding
+environments. [`PolySubstitutionSemantics.lean`](../Model/PolySubstitutionSemantics.lean)
+proves `Term.denote_subst`: interpreting substituted syntax equals interpreting
+the original term in the environment of substitution-image meanings. The
+proofs cover **every current constructor**, arbitrary partial environments,
+numeric/type/proof and value binders, fixed points, and heterogeneous
+simultaneous recursive groups. They do not require totality, finite parameter
+values, or monomorphic recursive calls. The positional relation in PolyFun
+preserves different variables even when their types coincide; group transport
+uses strict continuous fixed-point fusion. Value substitution uses whole-group
+congruence, without assuming its environment map is strict.
+[`PolyRenaming.lean`](../Model/PolyRenaming.lean) supplies the corresponding
+value-renaming theorem.
 
 [`PolySyntax.lean`](../Model/PolySyntax.lean) stores finite heads and finitely
 many children. Heads carry checked result annotations separately from their
@@ -439,7 +448,7 @@ upgrade. Probability and security interpretations belong downstream in VCVio.
 
 | Capability | Current evidence | Remaining boundary |
 |---|---|---|
-| Shared syntax | Resolved/native terms use `ScopedSignature`; ordered polymorphic terms use `ScopedFamily`. Generic renaming, traversal composition, relational folds, positional reindexing, and semantic renaming for all current polymorphic constructors | General semantic preservation and normalized composition for polymorphic parameter/value substitution remain to be proved |
+| Shared syntax | Resolved/native terms use `ScopedSignature`; ordered polymorphic terms use `ScopedFamily`. Generic renaming, traversal composition, relational folds, positional reindexing, and semantic renaming for all current polymorphic constructors | Whole-term identity/composition, parameter/value fusion and semantic preservation are proved for every current constructor; extending syntax requires extending these proofs |
 | Native semantics | One constructor algebra and generic semantic substitution; source preservation composes with resolved lowering | Native fragment is total and monomorphic |
 | Recurrence compilation | Prefix uniqueness, least-fixed-point agreement, compact singleton extension and a linear syntax-size theorem | No general termination compiler or evaluation-time certificate |
 | Ordered polymorphism | Finite numeric/type/proof syntax, continuous denotation, beta laws, closed embedding, map at finite/infinite lengths, XOR certificate at every finite width | No polymorphic operational adequacy or full upstream `ETAbs`/`ETApp` frontend correspondence |
@@ -456,3 +465,63 @@ computations would identify distinct demand behaviors. Proof guards are erased
 and add no suspension. The generic sort-reindexing API preserves binding
 positions under noninjective instantiation; quantified-value semantics is an
 additional language-specific responsibility.
+
+## Audited next milestones
+
+The current substitution milestone closes the binding and semantic transport
+obligations of the existing syntax. It does not establish that an arbitrary
+Cryptol program has been faithfully imported, specialized, compiled or printed.
+The larger monomorphic primitive library is reachable through a closed resolved
+embedding; it is not yet a parameterized implementation of every primitive in
+the ordered syntax.
+
+The next work is ordered by semantic dependence. Each slice should include a
+partial-value counterexample, a public theorem, ordinary-import tests and an
+independent consumer before adding its first algorithm client.
+
+| Stage | Work and ownership | Completion evidence |
+|---|---|---|
+| 1 — complete | VCVio Model: whole-term parameter identity/composition, binder squares, parameter/value fusion, lawful value substitution, both general denotation-preservation theorems. PolyFun: generic map congruence, positional environments and whole-group fusion. | Arbitrary annotation/context witnesses, noninjective maps, mixed binders, partial values and recursive groups are covered without new axioms. |
+| 2 — inbound frontend | Translation: versioned, pinned exporter over Cryptol's typechecked AST and a checked Lean decoder. Model: explicit well-formedness and supported-fragment judgments. | Decode types/schemes, ordered abstractions/applications, constraints, guard order, declaration groups and dependencies; reject unsupported nodes with locations. Reproduce SHA-256 artifacts and its existing certificate through both paths. Mutation tests reject changed types, binder positions, evidence and source identities. |
+| 3 — official reference connection | Model and a pinned upstream adapter: define a reference-core judgment and a value/environment relation following Cryptol 3.6.0's reference evaluator. | Constructor correspondence for the accepted frontend fragment, including error/demand stages and recursive groups; a composition theorem from decoded reference core to Lean meaning. State the remaining exporter and Haskell trust assumptions explicitly. |
+| 4 — broader language and execution | Model: partial numeric operations, class constraints, records/tuples and lazy selection/update, complete comprehension structure and nominal cases; then modular/rational and remaining reference primitives. Extend the machine and logical relation to ordered polymorphic syntax. | Per-feature reference equations and demand regressions; polymorphic value/error/bottom adequacy, including changing-instantiation recursion. External normal/reference disagreements have separate expected results. |
+| 5 — syntax-producing specialization and compilation | Translation: specialize checked finite polymorphic terms to resolved syntax; compile an explicitly bounded/total fragment to the native IR. Keep correspondence certificates independent of the compiler's implementation. | Preservation of source meaning, binding and constraints; represented-input/output theorem with explicit admissibility; reproducible compiler output. Bounded folds, prefix recurrences and finite observations supply reusable certified rules. Unsupported recursion is rejected, not silently approximated. |
+| 6 — outbound transport | Translation: polymorphic typed export with retained quantifiers, constraints, local declarations and names; compose it with the inbound path. | Alpha/binding round trips and a semantic round-trip theorem for the supported fragment; pinned frontend acceptance plus partial-value differential tests. Internal `force` remains excluded unless an actual source correspondence is proved. |
+| 7 — algorithm expansion | Bridge and core algorithm owners: full SHA-256 padding/block iteration and SHA2 variants; CRC/AES; Keccak/SHA3/SHAKE; remaining catalogue families, then P-256. | Independent source properties, codecs and explicit profiles, all-input implementation correspondence, and specification transfer. Source coverage, probes, certificates and security theorems remain separately recorded. |
+
+Stages 2 and 3 should begin with the currently certified fragment, then grow
+alongside stage 4. Stage 5 consumes the substitution laws now proved. Stage 6
+uses the checked inbound representation; executable printer acceptance alone
+is not its correctness theorem. Algorithm slices may proceed once their
+specific semantic and compilation prerequisites have passed.
+
+## Connection to official Cryptol semantics
+
+The pinned [typechecked AST](https://github.com/GaloisInc/cryptol/blob/3.6.0/src/Cryptol/TypeCheck/AST.hs)
+and [reference evaluator](https://github.com/GaloisInc/cryptol/blob/3.6.0/src/Cryptol/Eval/Reference.lhs)
+are the initial upstream interfaces. `ETAbs` creates a suspended numeric or type
+family; `ETApp` demands that family before instantiating it. Proof abstractions
+and applications are erased, property guards select the first satisfied branch,
+and declaration groups carry recursive binding structure. These distinctions
+must survive the decoder and the correspondence relation. In particular,
+`EProofApp` does not contain a proof term to copy: the decoder must reconstruct
+and check the constraint obligation from the retained types and context.
+
+The current Python reifier reads `:extract-coq`, whose output omits information
+needed for the general interface. It supports a narrow typed Foundation subset,
+including recognized SHA-256 recurrence/fold shapes and finite-data generators;
+it rejects general local polymorphism and mutual recursion. Its successful
+output is checked as Lean syntax and its implementation certificate is checked
+by the kernel, but this does not prove that extraction/reification preserved
+the original Haskell AST. A checked decoder narrows that boundary; proving its
+relation to a pinned reference-core export is a further obligation, not an
+automatic consequence of decoding.
+
+The older [Cryptol Coq semantics project](https://github.com/GaloisInc/cryptol-semantics/blob/master/TOUR.md)
+is useful for comparing overlapping definitions and proof structure. It is not
+a complete verified semantics for Cryptol 3.6.0; its admission inventory and
+unfinished eager/lazy correspondence prevent treating it as an imported proof
+of the current evaluator. A later cross-formalization should identify a common
+fragment, its version assumptions and independently checked correspondence
+lemmas. Neither the Coq development nor external solver output expands Lean's
+trusted axiom set in this plan.

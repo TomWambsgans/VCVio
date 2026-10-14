@@ -2,14 +2,14 @@
 
 
 The optional [Cryptol model](../README.md) pins the published PolyFun companion
-at `9a7e7f78ab2567d4c3c98629a13d31e10726bae1`. That development builds on the
-v4.35 work at `559cd9857da50cf6f4f113c60702bf3176c9541d`
-([PR 271](https://github.com/Verified-zkEVM/PolyFun/pull/271)). The other dependency
-pins remain Lean `v4.35.0-rc3`, Mathlib
-`c55e6e786f49471c72fbddbec5415808896aec1e`, and CSLib
-`a91aaaf96a72419b399c41c974a171749bf5b929`. Exact weakest preconditions are
-exercised for finite executions; they are not used as a substitute for
-domain-theoretic adequacy of recursion.
+at `a5d19b760a44a53a74e7f5c75e4bb80117ee07f3`. The companion
+[PR 290](https://github.com/Verified-zkEVM/PolyFun/pull/290) includes main
+`bf635d02d7070022c986f8646992e5dba176a96e` (`v4.35.0-patch1`), including the merged
+[#271](https://github.com/Verified-zkEVM/PolyFun/pull/271) work. The shared toolchain
+is Lean `v4.35.0`, Mathlib `56a005855ea17e0b0958f73ec801ae140b0a1679`, and CSLib
+`5b56df99362532c46e1175381fbbdd755bd56030`. Exact weakest preconditions are
+exercised for finite executions; they are not a substitute for domain-theoretic
+adequacy of recursion.
 
 The optional-library organization and `ITree.Execution` adapter reuse the
 design from [PolyFun PR 289](https://github.com/Verified-zkEVM/PolyFun/pull/289),
@@ -59,7 +59,9 @@ importing an upstream owner; re-run the model's ordinary-import and axiom gates.
 
 The Foundation bridge consumer targets
 [VCVio PR 821](https://github.com/Verified-zkEVM/VCVio/pull/821), head
-`e4ca16b05cb778a1a75f2dae9d25f4b95505a366`, with these same v4.35 pins.
+`53e93b7679cc222c26ad1027779e4840a4262a93`, with these same v4.35 pins.
+VCVio #840 includes that head and main `afa6593f15e1e79ecb3cf22fc56191cecb452bb0`
+through a history-preserving merge.
 Its `evalDistEq_simulateQ_run` theorem already lifts equality of joint responses
 and retained state to adaptive clients. The bridge supplies its pointwise
 premise from the finite-word correspondence; no second probability semantics
@@ -84,3 +86,12 @@ The native compression test also exercises proved compiler simplifications for
 discarded recursive results under strict evaluation; nested vector constructors
 compound that work. The replacement selects the case directly. Remove the
 staging laws when core and Mathlib supply equivalent compiled implementations.
+
+The substitution milestone adds generic `ScopedFamily.Term.map_congr`,
+position-based `ScopedDomain.Env.Pointwise`, strict transport of simultaneous
+fixed points, and pointed-domain heterogeneous equality lemmas to PolyFun.
+Cryptol-specific binder squares, scheme transport, constructor compatibility
+and both semantic substitution theorems remain in VCVio Model. The
+[scoped roadmap](model.md#audited-next-milestones) assigns future frontend,
+reference-correspondence, compiler and export work without introducing a second
+syntax carrier, CPO class or probability interpretation.

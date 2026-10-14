@@ -16,7 +16,7 @@ and HashSig never import the bridge. SHA2 and Keccak implementations belong to
 `VCVio/Algorithms/`; the bridge has no HashSig dependency.
 
 PolyFun owns generic scoped syntax, folds, continuous domains and prefix
-recurrences. All targets use VCVio's Lean `v4.35.0-rc3` toolchain and common
+recurrences. All targets use VCVio's Lean `v4.35.0` toolchain and common
 Mathlib/CSLib pins. The [upstream ledger](upstream.md) records the fork and
 external PR audit. The root manifest pins the published companion PolyFun
 revision, so the bridge and its separate consumer build without a local override.

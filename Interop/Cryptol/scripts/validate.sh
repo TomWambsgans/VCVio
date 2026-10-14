@@ -22,7 +22,7 @@ fi
 report_dir="${CRYPTOL_REPORT_DIR:-/tmp/vcvio-cryptol-validation}"
 mkdir -p "$report_dir"
 lake_cmd=(lake)
-if [[ -n "${POLYFUN_PATH:-}" ]]; then lake_cmd+=("-KpolyfunPath=$POLYFUN_PATH"); fi
+if [[ -n "${POLYFUN_PATH:-}" ]]; then lake_cmd+=(-R -K "polyfunPath=$POLYFUN_PATH"); fi
 "${lake_cmd[@]}" build CryptolModel CryptolTranslation CryptolBridge CryptolTests --wfail --iofail
 bash scripts/check-interop-isolation.sh
 python3 scripts/test-interop-isolation.py
@@ -59,6 +59,8 @@ if (( run_test )); then
   if (( run_external )); then model_cmd+=(--cryptol "$CRYPTOL_BINARY"); fi
   "${model_cmd[@]}"
   python3 -u Interop/Cryptol/scripts/check_bridge.py --local-only --report "$report_dir/local.json"
+  # Refresh the separate manifest when switching between a local override and the Git pin.
+  "${lake_cmd[@]}" -R -d Interop/Cryptol/Consumer update VCVio --keep-toolchain
   "${lake_cmd[@]}" -d Interop/Cryptol/Consumer build --wfail --iofail
   if (( run_external )); then
     python3 -u Interop/Cryptol/scripts/check_bridge.py --cryptol "$CRYPTOL_BINARY" \

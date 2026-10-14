@@ -118,5 +118,20 @@ theorem liftType_comp (μ : Map w z) (ν : Map z u) :
   apply ext
   exact ParameterSubstitution.liftType_comp ..
 
+/-- Checked maps with equal endpoints and symbolic substitutions are heterogeneously equal. -/
+theorem heq_of_parameters_heq {w z u : Scope} (μ : Map w z) (ν : Map w u)
+    (hz : z = u) (hp : HEq μ.parameters ν.parameters) : HEq μ ν := by
+  cases hz
+  exact heq_of_eq (ext (eq_of_heq hp))
+
+/-- Lifting composition below a proof binder preserves the checked parameter map. -/
+theorem assume_comp_heq {w z u : Scope} (μ : Map w z) (ν : Map z u)
+    (c : Constraint w.numbers) :
+    HEq ((μ.assume c).comp (ν.assume (c.subst μ.parameters.numbers)))
+      ((μ.comp ν).assume c) := by
+  apply heq_of_parameters_heq
+  · exact congrArg (Scope.assume u) (Constraint.subst_subst c _ _)
+  · rfl
+
 end Map
 end Interop.Cryptol.Polymorphic.Scope

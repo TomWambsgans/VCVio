@@ -25,6 +25,8 @@ public import Interop.Cryptol.Model.PolyDenotation
 public import Interop.Cryptol.Model.PolyDomain
 public import Interop.Cryptol.Model.PolyExamples
 public import Interop.Cryptol.Model.PolyLaws
+public import Interop.Cryptol.Model.PolyParameterDomain
+public import Interop.Cryptol.Model.PolyParameterSemantics
 public import Interop.Cryptol.Model.PolyRecursion
 public import Interop.Cryptol.Model.PolyReindex
 public import Interop.Cryptol.Model.PolyReindexLaws
@@ -33,6 +35,8 @@ public import Interop.Cryptol.Model.PolyScope
 public import Interop.Cryptol.Model.PolyScopeMaps
 public import Interop.Cryptol.Model.PolySpecialization
 public import Interop.Cryptol.Model.PolySubstitution
+public import Interop.Cryptol.Model.PolySubstitutionLaws
+public import Interop.Cryptol.Model.PolySubstitutionSemantics
 public import Interop.Cryptol.Model.PolySyntax
 public import Interop.Cryptol.Model.Polymorphic
 public import Interop.Cryptol.Model.Primitives

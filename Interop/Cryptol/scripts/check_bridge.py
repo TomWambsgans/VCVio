@@ -253,7 +253,7 @@ noncomputable def bad : CertifiedFunction (.word 8) (.word 8) where
 """)
     command = ["lake"]
     if os.environ.get("POLYFUN_PATH"):
-        command.append("-KpolyfunPath=" + os.environ["POLYFUN_PATH"])
+        command.extend(["-R", "-K", "polyfunPath=" + os.environ["POLYFUN_PATH"]])
     result = subprocess.run([*command, "env", "lean", str(probe)], cwd=REPO,
                             text=True, capture_output=True, timeout=30)
     require(result.returncode != 0 and "rfl" in result.stdout and

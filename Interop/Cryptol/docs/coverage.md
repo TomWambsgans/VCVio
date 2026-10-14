@@ -30,25 +30,19 @@ without an independently verified native implementation. New source features
 must first pass partial-value and binder regressions, rather than being erased
 by the importer to make a particular algorithm compile.
 
-1. Close whole-term parameter/value substitution laws. Constructor-head
-   identity/composition and numeric/type lifting coherence are proved; the
-   generic PolyFun map/substitution law is conditional on local reindexing
-   naturality. Discharge that condition for Cryptol and prove semantic
-   substitution while preserving ordered quantifier stages and simultaneous
-   recursion. Keep source and implementation separate.
-2. Introduce a pinned typed-AST exporter and a checked Lean decoder. Retain
-   constraints, declaration groups, nominal declarations, guards,
-   comprehensions, module provenance and foreign declarations' pure fallbacks.
-   Reproduce the existing compression certificate through both inbound paths.
-3. Add partial numeric type operations and class constraints; heterogeneous
-   aggregates with lazy selection/update; full comprehensions; nominal cases;
-   then modular/rational and remaining reference primitives. Extend operational
-   adequacy to polymorphic stages. Floating point and backend arrays follow the
-   deterministic corpus; unsupported reference primitives retain their errors.
-4. Certify reusable bounded folds, prefix recurrences and finite stream
-   observations, then full SHA256 padding/block processing, SHA2 variants,
-   CRC/AES and Keccak/SHA3/SHAKE. Expand compositions and the remaining families
-   before tackling P-256 arithmetic and termination.
+The [audited milestone plan](model.md#audited-next-milestones) gives the full
+order and acceptance gates. Whole-term parameter/value algebra and general
+semantic preservation are complete for the current syntax. Next come a pinned
+typed-AST exporter with checked decoding and an explicit reference-core
+correspondence, followed by broader semantics and polymorphic operational
+adequacy. Syntax-producing specialization and certified native compilation
+precede polymorphic export with semantic round trips.
+
+Algorithm work consumes those reusable interfaces: bounded folds, prefix
+recurrences and finite observations; full SHA-256 padding/block processing and
+SHA2 variants; CRC/AES and Keccak/SHA3/SHAKE; compositions and remaining families
+before P-256 arithmetic and termination. The catalogue stays at one certified
+entry, one probe and 55 planned entries until each new entry has its own evidence.
 
 ## What a guard establishes
 
