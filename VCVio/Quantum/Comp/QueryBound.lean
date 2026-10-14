@@ -57,11 +57,14 @@ public section
 
 open IPFunctor
 
+universe u v u₁ v₁ w w₁
+
 namespace Quantum
 
 namespace QuantumComp
 
-variable {L : LocalSig} {spec : QuantumOracleSpec} {X Y : QReg → Type} {A : QReg}
+variable {L : LocalSig.{u, v}} {spec : QuantumOracleSpec.{u₁, v₁}} {X : QReg → Type w}
+  {Y : QReg → Type w₁} {A : QReg}
 
 /-! ## Budgets on one port -/
 
@@ -70,10 +73,10 @@ variable {L : LocalSig} {spec : QuantumOracleSpec} {X Y : QReg → Type} {A : QR
 def isQueryBoundAtAux (i : spec.Port) :
     {A : QReg} → IFreeM (toIPFunctor L spec) X A → ℕ → Prop
   | _, .pure _, _ => True
-  | _, .liftBind (.prim _) k, n => ∀ b, isQueryBoundAtAux i (k b) n
+  | _, .liftBind (.prim _) k, n => ∀ b, isQueryBoundAtAux i (k (ULift.up b)) n
   | _, .liftBind (.query j _ _) k, n =>
-      (j = i → 0 < n ∧ ∀ r, isQueryBoundAtAux i (k r) (n - 1)) ∧
-        (j ≠ i → ∀ r, isQueryBoundAtAux i (k r) n)
+      (j = i → 0 < n ∧ ∀ r, isQueryBoundAtAux i (k (ULift.up r)) (n - 1)) ∧
+        (j ≠ i → ∀ r, isQueryBoundAtAux i (k (ULift.up r)) n)
 
 /-- Every path of `x`, including paths reached with weight zero, calls port `i` at most `n`
 times. -/
@@ -218,8 +221,8 @@ theorem isQueryBound_queryBind_iff [DecidableEq spec.Port] (i : spec.Port) (E : 
 def isCostBoundAux (c : ∀ ⦃A : QReg⦄, L.Op A → ℕ) :
     {A : QReg} → IFreeM (toIPFunctor L spec) X A → ℕ → Prop
   | _, .pure _, _ => True
-  | _, .liftBind (.prim o) k, n => c o ≤ n ∧ ∀ b, isCostBoundAux c (k b) (n - c o)
-  | _, .liftBind (.query _ _ _) k, n => ∀ r, isCostBoundAux c (k r) n
+  | _, .liftBind (.prim o) k, n => c o ≤ n ∧ ∀ b, isCostBoundAux c (k (ULift.up b)) (n - c o)
+  | _, .liftBind (.query _ _ _) k, n => ∀ r, isCostBoundAux c (k (ULift.up r)) n
 
 /-- **Cost bound.** Along every path of `x`, including paths reached with weight zero, the costs
 `c o` of the local operations add up to at most `n`. With `c o = 1` for every operation of a
@@ -287,7 +290,8 @@ end QuantumComp
 
 namespace QuantumComp₂
 
-variable {L : LocalSig} {spec : QuantumOracleSpec} {A B C : QReg} {α β : Type}
+variable {L : LocalSig.{u, v}} {spec : QuantumOracleSpec.{u₁, v₁}} {A B C : QReg} {α : Type w}
+  {β : Type w₁}
 
 /-- A program that returns at once has every budget. -/
 @[simp]
@@ -327,7 +331,7 @@ end QuantumComp₂
 
 namespace QComp
 
-variable {spec : QuantumOracleSpec} {A B C : QReg} {α β : Type}
+variable {spec : QuantumOracleSpec.{u₁, v₁}} {A B C : QReg} {α β : Type w}
 
 /-- A local subinstrument followed by a continuation is bounded on port `i` when every
 continuation is. -/
@@ -356,8 +360,8 @@ end QComp
 
 namespace QuantumRuntime
 
-variable {spec : QuantumOracleSpec} {L : LocalSig} (I : L.Interp) {X : QReg → Type}
-  {A B : QReg} {α : Type}
+variable {spec : QuantumOracleSpec.{u₁, v₁}} {L : LocalSig.{u, v}} (I : L.Interp)
+  {X : QReg → Type w} {A B : QReg} {α : Type w}
 
 /-- **Unused ports do not matter.** Two runtimes on the same register whose steps agree on every
 port with a nonzero budget run every program within that budget to the same dependent

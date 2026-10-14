@@ -59,9 +59,12 @@ public section
 open MeasureTheory ProbabilityTheory
 open scoped ENNReal ComplexOrder
 
+universe u v u₁ v₁ w w₁
+
 namespace Quantum
 
-variable {spec : QuantumOracleSpec} {L : LocalSig} {W : QReg → Type} {A B : QReg} {α β : Type}
+variable {spec : QuantumOracleSpec.{u₁, v₁}} {L : LocalSig.{u, v}} {W : QReg → Type w} {A B : QReg}
+  {α : Type w} {β : Type w₁}
 
 /-! ## Outcome laws against a sampled runtime -/
 
@@ -236,7 +239,7 @@ variable {X Y : Type} [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y]
 results unfold to `Unit` and `X × Y` when rewriting. -/
 @[expose, reducible]
 def qromSpec (X Y : Type) [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y] :
-    QuantumOracleSpec where
+    QuantumOracleSpec.{0, 0} where
   Port := Unit
   In _ := QReg.of (X × Y)
   Out _ := QReg.of (X × Y)

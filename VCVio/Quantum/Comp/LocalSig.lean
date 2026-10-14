@@ -31,6 +31,14 @@ interpretations, and properties of its tree, such as a count of its operations
 * A gate set is a signature whose operations are finitely many named gates, interpreted by their
   channels; the cost of a program in gates is read off its tree.
 
+## Universes
+
+`Quantum.LocalSig.{u, v}` takes its operations in `Type u` and their outcomes in `Type v`, both
+arbitrary. Registers are `Quantum.QReg : Type 1`, so an interpretation lives in
+`Type (max 1 u v)`. The signature of instruments `Quantum.LocalSig.instruments.{v}` takes
+dependent subinstruments with outcomes in any `Type v`; its operations, which quantify over such
+outcome types, lie in `Type (v + 1)`.
+
 ## Main definitions
 
 * `Quantum.LocalSig`, with `Quantum.LocalSig.OutcomeAt o u`, the outcomes of `o` that leave the
@@ -42,32 +50,34 @@ interpretations, and properties of its tree, such as a count of its operations
 
 public section
 
+universe u v
+
 namespace Quantum
 
 /-- **Primitive signatures.** For each register `A`, a type of local operations `Op A`; each
 operation `o` has a type of classical outcomes `Outcome o`, and on outcome `b` it leaves the
-register `next o b`. -/
+register `next o b`. Operations lie in `Type u` and outcomes in `Type v`. -/
 structure LocalSig where
   /-- The local operations on the register `A`. -/
-  Op : QReg → Type 1
+  Op : QReg → Type u
   /-- The classical outcomes of an operation. -/
-  Outcome : {A : QReg} → Op A → Type
+  Outcome : {A : QReg} → Op A → Type v
   /-- The register after an operation, as a function of its outcome. -/
   next : {A : QReg} → (o : Op A) → Outcome o → QReg
 
 namespace LocalSig
 
-variable (L : LocalSig)
+variable (L : LocalSig.{u, v})
 
 /-- The outcomes of the operation `o` that leave the register `u`. -/
-abbrev OutcomeAt {A : QReg} (o : L.Op A) (u : QReg) : Type :=
+abbrev OutcomeAt {A : QReg} (o : L.Op A) (u : QReg) : Type v :=
   {b : L.Outcome o // L.next o b = u}
 
 /-- **Interpretations.** An interpretation of the signature `L` sends each operation
 `o : L.Op A` to a dependent subinstrument from `A` with outcomes in `L.Outcome o`, whose output
 register on outcome `b` is `L.next o b`. -/
 @[expose]
-def Interp : Type 1 :=
+def Interp : Type (max 1 u v) :=
   ∀ ⦃A : QReg⦄ (o : L.Op A), DSubInstrument A (L.Outcome o) fun b ↦ L.next o b
 
 variable {L}
@@ -78,25 +88,25 @@ subinstrument. -/
 def Interp.Lossless (I : L.Interp) : Prop :=
   ∀ ⦃A : QReg⦄ (o : L.Op A), (I o).Lossless
 
-/-- The operations of the signature of instruments on `A`: a type of outcomes `ι`, output
-registers `B : ι → QReg`, and a dependent subinstrument from `A` with these outcomes and
+/-- The operations of the signature of instruments on `A`: a type of outcomes `ι : Type v`,
+output registers `B : ι → QReg`, and a dependent subinstrument from `A` with these outcomes and
 outputs. -/
-abbrev InstrumentOp (A : QReg) : Type 1 :=
-  Σ (ι : Type) (B : ι → QReg), DSubInstrument A ι fun i ↦ B i
+abbrev InstrumentOp (A : QReg) : Type (v + 1) :=
+  Σ (ι : Type v) (B : ι → QReg), DSubInstrument A ι fun i ↦ B i
 
 /-- The outcomes of an operation of the signature of instruments. -/
-abbrev InstrumentOp.Outcome {A : QReg} (o : InstrumentOp A) : Type :=
+abbrev InstrumentOp.Outcome {A : QReg} (o : InstrumentOp.{v} A) : Type v :=
   o.1
 
 /-- The register an operation of the signature of instruments leaves on each outcome. -/
-abbrev InstrumentOp.next {A : QReg} (o : InstrumentOp A) : o.Outcome → QReg :=
+abbrev InstrumentOp.next {A : QReg} (o : InstrumentOp.{v} A) : o.Outcome → QReg :=
   o.2.1
 
 /-- **The signature of instruments.** An operation on `A` is a dependent subinstrument from `A`,
-with any type of outcomes `ι` and output registers `B : ι → QReg`
+with any type of outcomes `ι : Type v` and output registers `B : ι → QReg`
 (`Quantum.LocalSig.InstrumentOp`). -/
 @[expose, reducible]
-def instruments : LocalSig where
+def instruments : LocalSig.{v + 1, v} where
   Op := InstrumentOp
   Outcome := InstrumentOp.Outcome
   next := InstrumentOp.next
@@ -104,12 +114,12 @@ def instruments : LocalSig where
 /-- The canonical interpretation of the signature of instruments: every operation means the
 dependent subinstrument it is. -/
 @[expose]
-def Interp.instruments : instruments.Interp :=
+def Interp.instruments : Interp LocalSig.instruments.{v} :=
   fun _ o ↦ o.2.2
 
 /-- The canonical interpretation sends an operation to the dependent subinstrument it is. -/
 @[simp]
-theorem Interp.instruments_apply {A : QReg} (o : LocalSig.instruments.Op A) :
+theorem Interp.instruments_apply {A : QReg} (o : (LocalSig.instruments.{v}).Op A) :
     Interp.instruments o = o.2.2 :=
   rfl
 
