@@ -20,6 +20,8 @@ in that basis.
   `ρ ↦ K * ρ * Kᴴ` of an isometry `K`.
 * `Quantum.basisMatrix f`: the matrix sending the basis vector `|a⟩` to `|f a⟩`.
 * `Quantum.SubState.basis a`: the basis state `|a⟩⟨a|`.
+* `Quantum.SubInstrument.relabel e`: the gate of a bijection `e` between bases, which moves a
+  register to another basis without changing its state.
 * `Quantum.SubInstrument.classical f g`: measure the register in the computational basis; on
   reading `a`, report `g a` and prepare `|f a⟩`.
 
@@ -246,6 +248,63 @@ theorem conj_basisMatrix_equiv_single [DecidableEq B] (e : A ≃ B) (a : A) :
   simp [Matrix.single_apply, Equiv.eq_symm_apply]
 
 end basis
+
+/-! ## Relabelling registers -/
+
+namespace SubInstrument
+
+section relabel
+
+variable [Fintype A] [Fintype B] [Fintype C] [DecidableEq A] [DecidableEq B] [DecidableEq C]
+
+/-- The relabelling gate of a bijection `e : A ≃ B` between bases: the lossless one-outcome
+subinstrument that moves the basis vector `|a⟩` to `|e a⟩`. An operator `ρ` on `A` becomes the
+operator `ρ.submatrix e.symm e.symm` on `B` (`Quantum.SubInstrument.relabel_branch_apply`). -/
+@[expose]
+noncomputable def relabel (e : A ≃ B) : SubInstrument A B Unit :=
+  ofIsometry (basisMatrix e) (conjTranspose_basisMatrix_mul_self e.injective)
+
+/-- The unique branch of a relabelling gate is conjugation by the basis matrix. -/
+theorem branch_relabel (e : A ≃ B) (u : Unit) :
+    (relabel e).branch u = MatrixMap.conj (basisMatrix e) :=
+  branch_ofIsometry_apply ..
+
+/-- A relabelling gate moves the rows and columns of an operator along the bijection. -/
+@[simp]
+theorem relabel_branch_apply (e : A ≃ B) (u : Unit) (ρ : Matrix A A ℂ) :
+    (relabel e).branch u ρ = ρ.submatrix e.symm e.symm := by
+  rw [branch_relabel, conj_basisMatrix_equiv]
+
+/-- A relabelling gate is lossless. -/
+theorem lossless_relabel (e : A ≃ B) : (relabel e).Lossless :=
+  lossless_ofIsometry (basisMatrix e) _
+
+/-- Relabelling along the identity bijection returns without touching the state. -/
+@[simp]
+theorem relabel_refl : relabel (Equiv.refl A) = SubInstrument.pure () :=
+  SubInstrument.ext <| Finsupp.ext fun u ↦ LinearMap.ext fun ρ ↦ by
+    cases u
+    rw [relabel_branch_apply, branch_pure, Finsupp.single_eq_same]
+    rfl
+
+/-- Relabelling along `e` and then along `f` is relabelling along the composite bijection. -/
+theorem relabel_bind_relabel (e : A ≃ B) (f : B ≃ C) :
+    ((relabel e).bind fun _ ↦ relabel f) = relabel (e.trans f) :=
+  SubInstrument.ext <| Finsupp.ext fun u ↦ LinearMap.ext fun ρ ↦ by
+    rw [branch_bind_unit, LinearMap.comp_apply, relabel_branch_apply, relabel_branch_apply,
+      relabel_branch_apply, Matrix.submatrix_submatrix]
+    rfl
+
+/-- A relabelling gate sends the basis state at `a` to the basis state at `e a`. -/
+theorem post_relabel_basis (e : A ≃ B) (a : A) :
+    (relabel e).post (SubState.basis a) () = SubState.basis (e a) :=
+  SubState.ext <| by
+    rw [matrix_post, branch_relabel, SubState.matrix_basis, conj_basisMatrix_equiv_single]
+    rfl
+
+end relabel
+
+end SubInstrument
 
 /-! ## Classical instruments -/
 
