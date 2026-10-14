@@ -16,7 +16,7 @@ A call to the compressed oracle changes only the queried cell of the database
 cells by at most one, and the local operations of a program do not touch the database register.
 For a program that makes at most `q` calls on every path, run against the compressed runtime from
 the empty database, the joint state at every leaf is therefore supported on databases with at
-most `q` nonempty cells (Zhandry, Crypto 2019; Chiesa, Dall'Agnol, Hu and Zheng, ePrint 2025/2166,
+most `q` nonempty cells (Zhandry, Crypto 2019; Chiesa, Di, Hu and Zheng, ePrint 2025/2166,
 §4.3).
 
 The statements hold for general programs (`Quantum.QuantumComp`): adaptive, with their own local

@@ -13,8 +13,9 @@ public import VCVio.Quantum.Oracle.Model
 # The compressed oracle is perfectly indistinguishable from a random function
 
 The compressed oracle of Zhandry (*How to Record Quantum Queries, and Applications to Quantum
-Indifferentiability*, Crypto 2019), in the presentation of Chiesa, Dall'Agnol, Hu and Zheng
-(*Quantum Rewinding and the Compressed Oracle*, ePrint 2025/2166, §4), is a runtime for the
+Indifferentiability*, Crypto 2019), in the presentation of Chiesa, Di, Hu and Zheng
+(*How to Prove Post-Quantum Security for Succinct Non-Interactive Reductions*, ePrint 2025/2166,
+§4.3), is a runtime for the
 signature `Quantum.qromSpec X Y` of a random oracle:
 
 * `Quantum.compressedRuntime X Y` keeps the database register `Quantum.Database X Y`, started
@@ -24,7 +25,8 @@ signature `Quantum.qromSpec X Y` of a random oracle:
   uniform superposition over all functions, and answers each call with the table oracle that
   reads the function off that register (the purified random oracle).
 
-The main theorem, `Quantum.outcomeLawWith_compressedRuntime`, says that every program, observed
+The main theorem, `Quantum.outcomeLawWith_compressedRuntime` (Lemma 4.4 of ePrint 2025/2166,
+Lemma 4 of Zhandry), says that every program, observed
 through any function of its leaf, has the same law against the compressed runtime as in the
 quantum random-oracle model (`Quantum.qromLawWith`). It holds for general programs
 (`Quantum.QuantumComp`): adaptive, with their own local operations and registers, whose final

@@ -10,11 +10,12 @@ public import VCVio.Quantum.Oracle.Compressed.Size
 /-!
 # The truncated compressed oracle
 
-Chiesa, Dall'Agnol, Hu and Zheng (*Quantum Rewinding and the Compressed Oracle*, ePrint 2025/2166,
-§4.3) cut the database register of Zhandry's compressed oracle (Crypto 2019) down to databases
-with at most `t` nonempty cells: with the projector `P_size^(t) = Σ_{|D| ≤ t} |D⟩⟨D|`, the
-truncated oracle is `O^(t) = P_size^(t) cO P_size^(t)`. Their Lemma 4.4 says that against a
-program with at most `q ≤ t` queries the truncation is invisible.
+Chiesa, Di, Hu and Zheng (*How to Prove Post-Quantum Security for Succinct Non-Interactive
+Reductions*, ePrint 2025/2166, §4.3) cut the database register of Zhandry's compressed oracle
+(Crypto 2019) down to databases with at most `t` nonempty cells: with the projector
+`P_size^(t) = Σ_{|D| ≤ t} |D⟩⟨D|`, the truncated oracle is `O^(t) = P_size^(t) cO P_size^(t)`.
+Against a program with at most `q ≤ t` queries the truncation is invisible; the paper uses this
+through the size invariant without numbering it.
 
 * `Quantum.sizeProjector X Y t` is `P_size^(t)` acting on the database component of the joint
   register `(X × Y) × Database X Y`, the operator `1 ⊗ P_size^(t)`.
@@ -27,10 +28,11 @@ program with at most `q ≤ t` queries the truncation is invisible.
   subinstrument expresses exactly this operator, with no completion by an extra failure outcome
   that the paper does not have, and it is a runtime step of the general model as it stands.
 
-**Lemma 4.4** (`Quantum.jointPost_truncatedRuntime`,
+**Truncation is invisible** (`Quantum.jointPost_truncatedRuntime`,
 `Quantum.outcomeLawWith_truncatedRuntime`): for a general program with at most `q` calls on every
 path and `q ≤ t`, the joint post-state at every leaf, hence every observed law, is the same
-against the truncated runtime as against the compressed runtime, hence as in the quantum
+against the truncated runtime as against the compressed runtime, hence, by Lemma 4.4 of
+ePrint 2025/2166 (Zhandry's Lemma 4, `Quantum.outcomeLawWith_compressedRuntime`), as in the quantum
 random-oracle model. The proof is the size invariant (`Quantum.forallQueries_compressedRuntime`):
 every call receives an operator supported on databases with at most `q - 1 < t` cells, on which
 `P_size^(t)` acts as the identity before and after the compressed oracle.
@@ -204,9 +206,9 @@ theorem amplify_conj_truncatedOracle_eq {E : Type*} {n t : ℕ} (hnt : n < t)
 
 variable {L : LocalSig.{u, v}} {W : QReg → Type w} {A B : QReg} {α : Type w}
 
-/-- **Lemma 4.4 of ePrint 2025/2166.** For a program that makes at most `q` calls on every path
-and `q ≤ t`, the joint post-state at every leaf is the same against the truncated runtime as
-against the compressed runtime. -/
+/-- **Truncation is invisible** (ePrint 2025/2166, §4.3). For a program that makes at most `q`
+calls on every path and `q ≤ t`, the joint post-state at every leaf is the same against the
+truncated runtime as against the compressed runtime. -/
 theorem jointPost_truncatedRuntime (I : L.Interp) {x : QuantumComp L (qromSpec X Y) W A}
     {q t : ℕ} (hx : x.IsQueryBound fun _ ↦ q) (hqt : q ≤ t) (ρ : SubState A) (p : Σ u, W u) :
     (truncatedRuntime X Y t).jointPost I x ρ p = (compressedRuntime X Y).jointPost I x ρ p := by
@@ -225,7 +227,7 @@ theorem jointPost_truncatedRuntime (I : L.Interp) {x : QuantumComp L (qromSpec X
         (amplify_conj_truncatedOracle_eq (n := q - 1) (t := t) (by omega) hσ).symm)
       (forallQueries_compressedRuntime_prod_init I hx ρ) p).symm
 
-/-- **Lemma 4.4 of ePrint 2025/2166**, for observed laws: for a program that makes at most `q`
+/-- **Truncation is invisible**, for observed laws: for a program that makes at most `q`
 calls on every path and `q ≤ t`, every observed law is the same against the truncated runtime as
 against the compressed runtime. -/
 theorem outcomeLawWith_truncatedRuntime {γ : Type*} [MeasurableSpace γ] (I : L.Interp)
@@ -245,7 +247,7 @@ theorem outcomeLawWith_truncatedRuntime_eq_qromLawWith [SampleableType (X → Y)
     (truncatedRuntime X Y t).outcomeLawWith I x ρ f = qromLawWith I x ρ fun _ ↦ f := by
   rw [outcomeLawWith_truncatedRuntime I hx hqt, outcomeLawWith_compressedRuntime]
 
-/-- **Lemma 4.4 of ePrint 2025/2166**, for fixed-register programs. -/
+/-- **Truncation is invisible**, for fixed-register programs. -/
 theorem outcomeLaw₂_truncatedRuntime [MeasurableSpace α] (I : L.Interp)
     {x : QuantumComp₂ L (qromSpec X Y) A B α} {q t : ℕ} (hx : x.IsQueryBound fun _ ↦ q)
     (hqt : q ≤ t) (ρ : SubState A) :

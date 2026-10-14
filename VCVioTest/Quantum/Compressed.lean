@@ -118,7 +118,7 @@ example (ρ : SubState (QReg.of Reg)) (b : Fin 2) :
     _ isQueryBound_queryMeasureQuery _ _
 
 /-- Truncating the database at two cells does not change the law of the adaptive program
-(Lemma 4.4 of ePrint 2025/2166). -/
+(ePrint 2025/2166, §4.3). -/
 example (ρ : SubState (QReg.of Reg)) :
     (truncatedRuntime (Fin 2) (Fin 2) 2).outcomeLaw₂ .instruments queryMeasureQuery ρ =
       qromLaw₂ .instruments queryMeasureQuery ρ :=

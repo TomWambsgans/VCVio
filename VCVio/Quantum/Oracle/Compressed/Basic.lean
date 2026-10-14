@@ -20,7 +20,8 @@ nonempty `Y` it is a unitary that swaps the empty cell `|⊥⟩` with the unifor
 
 This file follows the compressed oracle of Zhandry, *How to Record Quantum Queries, and
 Applications to Quantum Indifferentiability* (Crypto 2019), in the presentation of Chiesa,
-Dall'Agnol, Hu and Zheng, *Quantum Rewinding and the Compressed Oracle* (ePrint 2025/2166), §4.
+Di, Hu and Zheng, *How to Prove Post-Quantum Security for Succinct Non-Interactive Reductions*
+(ePrint 2025/2166), §4.3.
 
 Operators on the whole database register that act cell by cell are pi-tensor products
 `Quantum.piKron A`, with entries `∏ x, A x (D x) (D' x)`.

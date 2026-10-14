@@ -13,7 +13,7 @@ public import VCVio.Quantum.Oracle.Compressed.Equivalence
 After a program has run against the compressed runtime (`Quantum.compressedRuntime`) and reached
 a leaf, the database register can be measured in the computational basis
 (`Quantum.measureDatabase`), which reports a database `D`. This is how the compressed oracle is
-used to record queries (Zhandry, Crypto 2019; Chiesa, Dall'Agnol, Hu and Zheng, ePrint 2025/2166,
+used to record queries (Zhandry, Crypto 2019; Chiesa, Di, Hu and Zheng, ePrint 2025/2166,
 §4). The measurement does not disturb the leaf already reached, so the law of the leaf alone is
 the law of the run against the compressed runtime, hence the law of the quantum random-oracle
 model.
