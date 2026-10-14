@@ -76,11 +76,13 @@ public section
 open IPFunctor MeasureTheory
 open scoped Kronecker
 
+universe u v u₁ v₁ w w₁
+
 namespace Quantum
 
 /-- A runtime for the signature `spec`: a private register `D` with initial substate `init`, and
 for each port the subinstrument that answers a call of it. -/
-structure QuantumRuntime (spec : QuantumOracleSpec) where
+structure QuantumRuntime (spec : QuantumOracleSpec.{u₁, v₁}) where
   /-- The runtime's private register, which persists across calls. -/
   D : QReg
   /-- The initial substate of the private register. -/
@@ -121,8 +123,9 @@ theorem queryEquivOut_apply (O D E : Type*) (x : (O × D) × E) :
     queryEquivOut O D E x = ((x.1.1, x.2), x.1.2) :=
   rfl
 
-variable {spec : QuantumOracleSpec} (R : QuantumRuntime spec) {L : LocalSig} (I : L.Interp)
-  {X Y : QReg → Type} {A B C : QReg} {α β : Type}
+variable {spec : QuantumOracleSpec.{u₁, v₁}} (R : QuantumRuntime spec) {L : LocalSig.{u, v}}
+  (I : L.Interp) {X : QReg → Type w} {Y : QReg → Type w₁} {A B C : QReg} {α : Type w}
+  {β : Type w₁}
 
 /-- One call of port `i`, with the rest `E` of the program register carried along: relabel
 `A × D` to `(In i × D) × E`, apply the port's step framed by `E`, and relabel back. -/
@@ -148,9 +151,9 @@ noncomputable def runAux :
     {A : QReg} → IFreeM (QuantumComp.toIPFunctor L spec) X A →
       DSubInstrument (A × R.D) (Σ u, X u) fun p ↦ p.1 × R.D
   | _, .pure x => DSubInstrument.ret (fun p : Σ u, X u ↦ p.1 × R.D) ⟨_, x⟩
-  | _, .liftBind (.prim o) k => ((I o).frame R.D).bind fun b ↦ runAux (k b)
+  | _, .liftBind (.prim o) k => ((I o).frame R.D).bind fun b ↦ runAux (k (ULift.up b))
   | _, .liftBind (.query i E ℓ) k =>
-      (SubInstrument.toD (R.queryStep i E ℓ)).bind fun r ↦ runAux (k r)
+      (SubInstrument.toD (R.queryStep i E ℓ)).bind fun r ↦ runAux (k (ULift.up r))
 
 /-- **Execution.** A program run under the interpretation `I` against the runtime `R` is a
 dependent subinstrument on the joint register of the program and the runtime, whose outcomes are
@@ -331,7 +334,7 @@ theorem lossless_run₂ {x : QuantumComp₂ L spec A B α} (hx : x.Lossless I)
 /-- Running a local subinstrument followed by a continuation applies it framed by the runtime
 register, then the runs of the continuation. -/
 @[simp]
-theorem run₂_act_bind (p : SubInstrument A B β) (k : β → QComp spec B C α) :
+theorem run₂_act_bind {α β : Type w} (p : SubInstrument A B β) (k : β → QComp spec B C α) :
     R.run₂ .instruments ((QComp.act p).bind k) =
       (p.frame R.D).bind fun b ↦ R.run₂ .instruments (k b) := by
   refine SubInstrument.toD_injective ?_

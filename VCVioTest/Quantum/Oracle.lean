@@ -37,6 +37,9 @@ Oracles `Fin 2 → Fin 2`, queried on the register `Fin 2 × Fin 2`.
   remainder, measures the ancilla and keeps it on `0` or discards it on `1`, so that its final
   register depends on the outcome. Against the oracle unitary it is lossless, makes one call, and
   keeps the trace of its input.
+* **Higher universes.** A measurement whose outcomes lie in `Type 1`, and a program whose leaves
+  (its final registers) lie in `Type 1`, run against the oracle unitary and keep the trace of
+  their input.
 * **A gate set.** A primitive signature of two named gates, interpreted by the bit flip and the
   phase flip. A program applying both uses two gates and not one, and runs to a lossless
   subinstrument.
@@ -595,6 +598,53 @@ example (H : Fin 2 → Fin 2) (ρ : SubState (QReg.of (Reg × Fin 2))) :
       ENNReal.ofReal ρ.matrix.trace.re := by
   rw [(xorRuntime H).outcomeLaw_apply_univ_of_lossless .instruments
     (lossless_run_xorRuntime .instruments lossless_queryKeepOrDiscard H),
+    trace_re_xorRuntime_init, mul_one]
+
+/-! ## Outcomes and leaves in a higher universe -/
+
+/-- Measure a qubit in the computational basis and report the bit lifted to `Type 1`: a local
+operation of the signature of instruments `LocalSig.instruments.{1}`, whose outcomes lie in
+`Type 1`. -/
+noncomputable def measureLift :
+    QComp qrom2 (QReg.of (Fin 2)) (QReg.of (Fin 2)) (ULift.{1} (Fin 2)) :=
+  QComp.act (SubInstrument.classical id ULift.up)
+
+/-- The measurement with outcomes in `Type 1` is lossless. -/
+theorem lossless_measureLift : measureLift.Lossless .instruments :=
+  QComp.lossless_act (SubInstrument.lossless_classical _ _)
+
+/-- Against the oracle unitary, the measurement with outcomes in `Type 1` keeps the trace of its
+input. -/
+example [MeasurableSpace (ULift.{1} (Fin 2))] (H : Fin 2 → Fin 2)
+    (ρ : SubState (QReg.of (Fin 2))) :
+    (xorRuntime H).outcomeLaw₂ .instruments measureLift ρ Set.univ =
+      ENNReal.ofReal ρ.matrix.trace.re := by
+  rw [(xorRuntime H).outcomeLaw₂_apply_univ_of_lossless .instruments
+    (lossless_run₂_xorRuntime .instruments lossless_measureLift H),
+    trace_re_xorRuntime_init, mul_one]
+
+/-- The final register of a leaf, as a leaf: a family in `Type 1`. -/
+abbrev RegLeaf (u : QReg) : Type 1 :=
+  {v : QReg // v = u}
+
+/-- The keep-or-discard program, returning its final register as its leaf: its leaves lie in
+`Type 1`, while those of `queryKeepOrDiscard` lie in `Type`. -/
+noncomputable def queryKeepOrDiscardReg :
+    QuantumComp LocalSig.instruments qrom2 RegLeaf (QReg.of (Reg × Fin 2)) :=
+  queryKeepOrDiscard.bind fun u _ ↦ QuantumComp.pure ⟨u, rfl⟩
+
+/-- The program with leaves in `Type 1` is lossless. -/
+theorem lossless_queryKeepOrDiscardReg : queryKeepOrDiscardReg.Lossless .instruments :=
+  lossless_queryKeepOrDiscard.bind fun _ _ ↦ QuantumComp.lossless_pure _
+
+/-- Against the oracle unitary, the program with leaves in `Type 1` keeps the trace of its
+input. -/
+example [MeasurableSpace (Σ u, RegLeaf u)] (H : Fin 2 → Fin 2)
+    (ρ : SubState (QReg.of (Reg × Fin 2))) :
+    (xorRuntime H).outcomeLaw .instruments queryKeepOrDiscardReg ρ Set.univ =
+      ENNReal.ofReal ρ.matrix.trace.re := by
+  rw [(xorRuntime H).outcomeLaw_apply_univ_of_lossless .instruments
+    (lossless_run_xorRuntime .instruments lossless_queryKeepOrDiscardReg H),
     trace_re_xorRuntime_init, mul_one]
 
 /-! ## A gate set -/

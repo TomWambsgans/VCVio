@@ -59,6 +59,8 @@ public section
 open MeasureTheory
 open scoped Kronecker
 
+universe u v u₁ v₁ w
+
 namespace Quantum
 
 namespace SubInstrument
@@ -209,8 +211,8 @@ namespace QuantumRuntime
 
 open SubInstrument
 
-variable {spec : QuantumOracleSpec} {L : LocalSig} (I : L.Interp) {X : QReg → Type}
-  {A B : QReg} {α : Type}
+variable {spec : QuantumOracleSpec.{u₁, v₁}} {L : LocalSig.{u, v}} (I : L.Interp)
+  {X : QReg → Type w} {A B : QReg} {α : Type w}
 
 section relabel
 
@@ -378,10 +380,11 @@ def forallQueriesAux
     {A : QReg} → IPFunctor.IFreeM (QuantumComp.toIPFunctor L spec) X A →
       Matrix (A × R.D) (A × R.D) ℂ → Prop
   | _, .pure _, _ => True
-  | _, .liftBind (.prim o) k, ρ => ∀ b, forallQueriesAux P (k b) (((I o).frame R.D).branch b ρ)
+  | _, .liftBind (.prim o) k, ρ =>
+      ∀ b, forallQueriesAux P (k (ULift.up b)) (((I o).frame R.D).branch b ρ)
   | _, .liftBind (.query i E ℓ) k, ρ =>
       P i E ((relabel (queryEquivIn ℓ R.D)).branch () ρ) ∧
-        ∀ r, forallQueriesAux P (k r) ((R.queryStep i E ℓ).branch r ρ)
+        ∀ r, forallQueriesAux P (k (ULift.up r)) ((R.queryStep i E ℓ).branch r ρ)
 
 /-- Every call along every branch of the run of `x` under `I` from the operator `ρ` on `A × D`,
 including branches reached with weight zero, receives an operator satisfying `P`. When `ρ` is
@@ -424,7 +427,7 @@ theorem forallQueries_queryBind_iff (i : spec.Port) (E : QReg) (ℓ : A ≃ spec
 
 /-- After a local subinstrument of a program over instruments, the condition is checked on every
 branch. -/
-theorem forallQueries_act_bind_iff {C : QReg} {β : Type} (p : SubInstrument A B β)
+theorem forallQueries_act_bind_iff {C : QReg} {β : Type w} (p : SubInstrument A B β)
     (k : β → QComp spec B C α) (ρ : Matrix (A × R.D) (A × R.D) ℂ) :
     R.ForallQueries .instruments P ((QComp.act p).bind k) ρ ↔
       ∀ b, R.ForallQueries .instruments P (k b) ((p.frame R.D).branch b ρ) :=

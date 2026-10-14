@@ -73,6 +73,8 @@ public section
 open MeasureTheory
 open scoped ComplexOrder
 
+universe u₁ v₁
+
 namespace Quantum
 
 section comb
@@ -388,7 +390,7 @@ end comb
 
 namespace QuantumRuntime
 
-variable {spec : QuantumOracleSpec} (R : QuantumRuntime spec) {M : Type} [Fintype M]
+variable {spec : QuantumOracleSpec.{u₁, v₁}} (R : QuantumRuntime spec) {M : Type} [Fintype M]
   [DecidableEq M]
 
 /-- A call of port `i` as a query step on the joint register `M × D` of a comb and the runtime:
@@ -403,7 +405,8 @@ end QuantumRuntime
 
 section toComp
 
-variable {spec : QuantumOracleSpec} {M : Type} [Fintype M] [DecidableEq M] {α : Type} {q : ℕ}
+variable {spec : QuantumOracleSpec.{u₁, v₁}} {M : Type} [Fintype M] [DecidableEq M] {α : Type}
+  {q : ℕ}
 
 /-- The straight-line program `s 0, call, s 1, …, call, s q`: each call goes to port `i` on the
 factor of `M` exposed by `ℓ`, and the register returns to `M` through `ℓ'` before the next step. -/
