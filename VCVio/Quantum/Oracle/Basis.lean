@@ -424,6 +424,14 @@ theorem outcomeMeasure_classical_basis [MeasurableSpace α] (f : A → B) (g : A
   · simp
   · simp [ha']
 
+omit [DecidableEq B] in
+/-- A framed subinstrument acts on a product basis state through its first factor. -/
+theorem branch_frame_single {R : Type*} [Fintype R] [DecidableEq R] (p : SubInstrument A B α)
+    (c : α) (a : A) (r : R) :
+    (p.frame R).branch c (Matrix.single (a, r) (a, r) 1) =
+      p.branch c (Matrix.single a a 1) ⊗ₖ Matrix.single r r 1 := by
+  rw [branch_frame_apply, ← MatrixMap.amplify_kronecker, Matrix.single_kronecker_single, one_mul]
+
 end classical
 
 end SubInstrument
