@@ -8,6 +8,7 @@ module
 public import VCVio.EvalDist.Expectation
 public import VCVio.Prelude.Core
 public meta import Lean.PrettyPrinter.Formatter
+public meta import Lean.Elab.PatternVar
 
 /-!
 # Elaboration of the event and expectation notations
@@ -196,28 +197,35 @@ partial def hasTopLevelReturn (stx : Syntax) : MacroM Bool := do
   if let some expanded ← expandMacro? stx then return ← hasTopLevelReturn expanded
   stx.getArgs.anyM hasTopLevelReturn
 
-/-- The end of an imperative tail, `tailScope% n`: the tuple of the variables the tail binds, read
-off the local context at the end of the tail. A variable is one of local-context index at least
-`n` (the size of the context before the tail) under its innermost binding, so `have`, shadowing,
-reassignment and macro-produced binders are seen exactly as ordinary `do` sees them. A proof, a
-type, or a value whose type mentions another tail variable cannot be returned in the tuple; such a
-name is recorded as hidden. The tuple is annotated with both lists of names. The observation is
-carried only for its source positions: each variable is recorded as used by it. -/
+/-- The end of an imperative tail, `tailScope% n observing obs`: the tuple of the variables the
+tail binds, read off the local context at the end of the tail. A variable is one of local-context
+index at least `n` (the size of the context before the tail) under its innermost binding, so
+`have`, shadowing, reassignment and macro-produced binders are seen as ordinary `do` sees them. A
+binding with macro scopes is returned when the observation names it, so a hygienic binding of a
+macro is observed by that macro's own event. A proof, a type, or a value whose type mentions
+another tail variable cannot be returned. The tuple is annotated with the names; `obs` is carried
+for its identifiers and source positions. -/
 syntax (name := tailScopeStx) "tailScope% " num " observing " term : term
 
 /-- The metadata key of the names returned by `tailScope%`. -/
 def tailScopeKey : Name := `VCVio.ProbabilityNotation.tailScope
 
-/-- The metadata key of the names `tailScope%` cannot return. -/
-def tailHiddenKey : Name := `VCVio.ProbabilityNotation.tailHidden
+/-- An identifier in `obs` naming `n`, or a field of it: the same macro scopes and a name
+extending `n`'s. -/
+def findMention? (obs : Syntax) (n : Name) : Option Syntax :=
+  let v := extractMacroScopes n
+  obs.find? fun s =>
+    s.isIdent &&
+      let w := extractMacroScopes s.getId
+      w.scopes == v.scopes && w.ctx == v.ctx && w.imported == v.imported &&
+        v.name.isPrefixOf w.name
 
-/-- Elaborate `tailScope% n`. -/
+/-- Elaborate `tailScope% n observing obs`. -/
 def elabTailScope (n : Nat) (obs : Term) : TermElabM Expr := do
   let lctx ← getLCtx
   let isTailVar (f : FVarId) : Bool := (lctx.find? f).any (·.index ≥ n)
   let mut seen : NameSet := {}
   let mut vars : Array LocalDecl := #[]
-  let mut hidden : Array Name := #[]
   -- The index of the first binding of each name: reassigning a mutable variable rebinds it,
   -- and the tuple keeps the variables in the order they were introduced.
   let mut first : Std.HashMap Name Nat := {}
@@ -225,46 +233,132 @@ def elabTailScope (n : Nat) (obs : Term) : TermElabM Expr := do
   while i > n do
     i := i - 1
     let some decl := lctx.getAt? i | continue
-    if decl.isImplementationDetail || decl.userName.hasMacroScopes then continue
+    if decl.isImplementationDetail then continue
+    if decl.userName.hasMacroScopes && (findMention? obs decl.userName).isNone then continue
     first := first.insert decl.userName i
     if seen.contains decl.userName then continue
     seen := seen.insert decl.userName
     let ty ← instantiateMVars decl.type
-    if (← isProp ty) || (← whnfD ty).isSort || ty.hasAnyFVar isTailVar then
-      hidden := hidden.push decl.userName
-    else
+    unless (← isProp ty) || (← whnfD ty).isSort || ty.hasAnyFVar isTailVar do
       vars := vars.push decl
   let observed := vars.qsort fun a b => first[a.userName]! < first[b.userName]!
   -- The tail returns its variables to the observation: record each as used there, at the
   -- identifier naming it, for the unused-variables linter.
   for d in observed do
-    let ref := obs.raw.find? fun s => s.isIdent && d.userName.isPrefixOf s.getId
-    addTermInfo' (ref.getD obs) d.toExpr
+    addTermInfo' ((findMention? obs d.userName).getD obs) d.toExpr
   let mut tup := Lean.mkConst ``Unit.unit
   if let some last := observed.back? then
     tup := last.toExpr
     for d in observed.pop.reverse do
       tup ← mkAppM ``Prod.mk #[d.toExpr, tup]
-  let names (ns : Array Name) : DataValue :=
-    .ofSyntax (mkNullNode (ns.map fun n => (mkIdent n).raw))
-  return mkMData ((({} : KVMap).insert tailScopeKey (names (observed.map (·.userName)))).insert
-    tailHiddenKey (names hidden.reverse)) tup
+  let names : DataValue :=
+    .ofSyntax (mkNullNode (observed.map fun d => (mkIdent d.userName).raw))
+  return mkMData (({} : KVMap).insert tailScopeKey names) tup
+
+/-- The names annotated by `tailScope%` in the elaborated tail `a`. -/
+def tailScopeNames? (a : Expr) : Option (Array Name) := do
+  let .mdata d _ ← a.find? fun
+      | .mdata d _ => d.contains tailScopeKey
+      | _ => false
+    | none
+  match d.find tailScopeKey with
+    | some (.ofSyntax s) => return s.getArgs.map (·.getId)
+    | _ => return #[]
 
 /-- The names annotated by `tailScope%` in the elaborated tail `a`, and `a` without the
 annotation. -/
-def tailScopeNames (a : Expr) : TermElabM (Array Name × Array Name × Expr) := do
+def tailScopeNames (a : Expr) : TermElabM (Array Name × Expr) := do
   let a ← instantiateMVars a
-  let some (.mdata d _) := a.find? fun
-      | .mdata d _ => d.contains tailScopeKey
-      | _ => false
+  let some names := tailScopeNames? a
     | throwError "internal error: the end of the imperative tail was not elaborated"
-  let names (k : Name) : Array Name := match d.find k with
-    | some (.ofSyntax s) => s.getArgs.map (·.getId)
-    | _ => #[]
   let a := a.replace fun
     | .mdata d e => if d.contains tailScopeKey then some e else none
     | _ => none
-  return (names tailScopeKey, names tailHiddenKey, a)
+  return (names, a)
+
+/-- The trailing body of a `do` element, as its items and a function rebuilding the element
+around new items: `let pat ← e | alt` and `let pat := e | alt` (and `let_expr`) take the rest of
+the block, when it is indented below them, as their own body. An element written last has no
+body; its bindings scope over nothing after it, so the body is empty. -/
+def trailingBody? (elem : Syntax) : Option (Array Syntax × (Array Syntax → Syntax)) := do
+  let (opt, setOpt) ← if elem.isOfKind ``Lean.Parser.Term.doLetArrow then
+      let decl := elem[3]
+      guard <| decl.isOfKind ``Lean.Parser.Term.doPatDecl && !decl[4].isNone
+      let alt := decl[4]
+      let k := alt.getNumArgs - 1
+      pure (alt[k], fun o => elem.setArg 3 (decl.setArg 4 (alt.setArg k o)))
+    else if elem.isOfKind ``Lean.Parser.Term.doLetElse ||
+        elem.isOfKind ``Lean.Parser.Term.doLetExpr ||
+        elem.isOfKind ``Lean.Parser.Term.doLetMetaExpr then
+      let k := elem.getNumArgs - 1
+      pure (elem[k], fun o => elem.setArg k o)
+    else none
+  let mkBody (items : Array Syntax) :=
+    setOpt (mkNullNode #[mkNode ``Lean.Parser.Term.doSeqIndent #[mkNullNode items]])
+  if opt.isNone then return (#[], mkBody)
+  let body := opt[0]
+  guard <| body.isOfKind ``Lean.Parser.Term.doSeqIndent
+  return (body[0].getArgs, mkBody)
+
+/-- Append `last` to the sequence `items` where ordinary `do` would put a final element written
+after them: inside the innermost trailing body. -/
+partial def appendAtEnd (items : Array Syntax) (last : Syntax) : Array Syntax :=
+  match items.back? with
+  | some item =>
+    match trailingBody? item[0] with
+    | some (body, rebuild) => items.pop.push (item.setArg 0 (rebuild (appendAtEnd body last)))
+    | none => items.push last
+  | none => #[last]
+
+/-- The names an imperative tail binds at its top level, including inside trailing bodies: the
+names that must be in scope at its end. -/
+partial def topLevelBinders (items : Array Syntax) : TermElabM NameSet := do
+  let mut names : NameSet := {}
+  for item in items do
+    let mut elem := item[0]
+    while true do
+      let some e ← liftMacroM (expandMacro? elem) | break
+      elem := e
+    let patVars (pat : Syntax) : TermElabM (Array Name) := do
+      if pat.isOfKind ``Lean.Parser.Term.hole then return #[]
+      return getPatternVarNames (← getPatternVars pat)
+    let letDeclNames (decl : Syntax) : TermElabM (Array Name) := do
+      if decl.isOfKind ``Lean.Parser.Term.letIdDecl then
+        let id := if decl[0].isOfKind ``Lean.Parser.Term.letId then decl[0][0] else decl[0]
+        return if id.isIdent then #[id.getId] else #[`this]
+      if decl.isOfKind ``Lean.Parser.Term.letPatDecl then return ← patVars decl[0]
+      if decl.isOfKind ``Lean.Parser.Term.letEqnsDecl then
+        let id := if decl[0].isOfKind ``Lean.Parser.Term.letId then decl[0][0] else decl[0]
+        return if id.isIdent then #[id.getId] else #[]
+      return #[]
+    let new ← if elem.isOfKind ``Lean.Parser.Term.doLet then letDeclNames elem[3][0]
+      else if elem.isOfKind ``Lean.Parser.Term.doHave then letDeclNames elem[2][0]
+      else if elem.isOfKind ``Lean.Parser.Term.doLetArrow then
+        let decl := elem[3]
+        if decl.isOfKind ``Lean.Parser.Term.doIdDecl then pure #[decl[0].getId]
+        else patVars decl[0]
+      else if elem.isOfKind ``Lean.Parser.Term.doLetElse then patVars elem[3]
+      else pure #[]
+    names := new.foldl (·.insert ·) names
+    if let some (body, _) := trailingBody? elem then
+      names := (← topLevelBinders body).foldl (·.insert ·) names
+  return names
+
+/-- Fail closed when the observation `g` of a tail would see a different variable than the end
+of the tail: it uses an outer variable, or a constant through an identifier, whose name the tail
+binds at its top level without returning it (a proof, a type, or a dependently typed value). -/
+def checkTailObservation (items : Array Syntax) (val : Term) (g : Expr) : TermElabM Unit := do
+  let binders ← topLevelBinders items
+  let lctx ← getLCtx
+  let g ← instantiateMVars g
+  let viaFVar? := ((collectFVars {} g).fvarIds.filterMap fun f =>
+      (lctx.find? f).map (·.userName)).find? binders.contains
+  let viaConst? := binders.toList.find? fun b =>
+    (findMention? val b).isSome && g.getUsedConstants.any (b.isSuffixOf ·)
+  if let some x := viaFVar? <|> viaConst? then
+    throwErrorAt val m!"`{x}` is bound by the imperative tail, but it is a proof, a type, or a \
+      value whose type depends on another binding of the tail, so the event cannot observe it \
+      and would see the `{x}` outside the braces instead; rename one of them"
 
 /-- The tuple of the variables and the pattern that matches it. -/
 def mkTuple (vars : Array Ident) : MacroM (Term × Term) := do
@@ -319,6 +413,61 @@ def determined? (a : Expr) : TermElabM (Option (Expr × Expr × Expr)) := do
   unless ty.isApp && !ty.appFn!.hasExprMVar do return none
   return some (a, ty.appFn!, ty.appArg!)
 
+/-- The result type of the draw `a`, as far as it is known. -/
+def resultType (a : Expr) : TermElabM Expr := do
+  let ty ← instantiateMVars (← inferType (← instantiateMVars a))
+  return if ty.isApp then ty.appArg! else mkConst ``Unit
+
+/-- Warn that the type `ty` of `what` was fixed by a default instance. The sequence's types are
+fixed before the event is read, so an event that would have fixed another type, as it does in an
+ordinary `do` block, coerces the value instead. -/
+def warnDefaulted (ref : Syntax) (what : MessageData) (ty : Expr) : TermElabM Unit :=
+  logWarningAt ref m!"{what} fixed by a default instance, as when a numeral defaults to \
+    `ℕ`:{indentExpr ty}\nThe event is read afterwards and cannot change it, so an event at \
+    another type coerces the value instead of fixing its type, unlike in an ordinary `do` \
+    block. Write the intended type: `let x : T ← …`, `(… : M T)` or `let mut x : T := …`."
+
+/-- `withSynthesize (postpone := .yes)` for a draw, passing `report` the draw and its result type
+before default instances apply, to compare with the type after them. -/
+def withSynthesizeDraw (report : Expr → Expr → TermElabM Unit) (k : TermElabM Expr) :
+    TermElabM Expr := do
+  let saved := (← get).pendingMVars
+  modify fun s => { s with pendingMVars := [] }
+  try
+    let a ← k
+    synthesizeSyntheticMVars (postpone := .yes)
+    let before ← resultType a
+    synthesizeSyntheticMVarsUsingDefault
+    report a before
+    return a
+  finally
+    modify fun s => { s with pendingMVars := s.pendingMVars ++ saved }
+
+/-- Report a draw whose result type default instances fixed. -/
+def reportDefaultedDraw (rhs : Term) (a before : Expr) : TermElabM Unit := do
+  let after ← resultType a
+  if before.hasExprMVar && !after.hasExprMVar then
+    warnDefaulted rhs m!"The result type of the draw{indentD rhs}\nis" after
+
+/-- The `n` components of a right-nested tuple type, as `mkTuple` builds it. -/
+def tupleComponents : Nat → Expr → List Expr
+  | 0, _ => []
+  | 1, ty => [ty]
+  | n + 1, ty =>
+    if ty.isAppOfArity ``Prod 2 then ty.appFn!.appArg! :: tupleComponents n ty.appArg! else []
+
+/-- Report the variables that the event `val` reads after an imperative tail and whose types
+default instances fixed. -/
+def reportDefaultedTail (val : Term) (a before : Expr) : TermElabM Unit := do
+  let some names := tailScopeNames? (← instantiateMVars a) | return
+  let after ← resultType a
+  let types := (tupleComponents names.size before).zip (tupleComponents names.size after)
+  for (x, b, t) in names.toList.zip types do
+    if b.hasExprMVar && !t.hasExprMVar then
+      if let some ref := findMention? val x then
+        warnDefaulted ref m!"The type of `{x}`, which the event reads after the imperative code, \
+          is" t
+
 /-- Elaborate a draw with its annotated result type before elaborating the body of an outer
 ascription. The ascription's result hole must not default independently of the draw annotation. -/
 def elabAnnotatedDraw (rhs : Term) (expected? : Option Expr) (α? : Option Expr) :
@@ -345,7 +494,8 @@ written; then, when that leaves the monad undetermined, in the monad of the sequ
 without postponing, which lets a nested `do`, `if` or `match` fix its monad from its own binds.
 An annotation supplies the expected result type throughout elaboration. Returns the draw, its
 monad and its result type, or postpones. -/
-def elabDraw (hint? : Option Expr) (rhs : Term) (ty? : Option Term) :
+def elabDraw (hint? : Option Expr) (rhs : Term) (ty? : Option Term)
+    (report : Expr → Expr → TermElabM Unit := reportDefaultedDraw rhs) :
     TermElabM (Expr × Expr × Expr) := do
   let α? ← ty?.mapM elabType
   let elabRhs (m : Expr) : TermElabM Expr := do
@@ -362,23 +512,23 @@ def elabDraw (hint? : Option Expr) (rhs : Term) (ty? : Option Term) :
             disagrees with its annotation{indentExpr α}"
     return r?
   let s ← saveState
-  let a ← withSynthesize (postpone := .yes) <| elabAnnotatedDraw rhs none α?
+  let a ← withSynthesizeDraw report <| elabAnnotatedDraw rhs none α?
   if let some r@(_, m, _) ← determined? a then
     if α?.isNone then return r
     unless m.hasMVar do
       s.restore
-      let a ← withSynthesize (postpone := .yes) <| elabRhs m
+      let a ← withSynthesizeDraw report <| elabRhs m
       if let some r ← result? a then return r
   if let some m₀ := hint? then
     s.restore
-    let a ← withSynthesize (postpone := .yes) <| elabRhs m₀
+    let a ← withSynthesizeDraw report <| elabRhs m₀
     if let some r ← result? a then return r
   -- The surrounding term may still determine the draw, as a `let`-bound `do` block whose monad
   -- its own binds fix does once that block is forced; the draw's own binds are forced only when
   -- nothing outside can postpone any longer.
   s.restore
   tryPostpone
-  let a ← withSynthesize (postpone := .yes) <| withoutPostponing do
+  let a ← withSynthesizeDraw report <| withoutPostponing do
     let a ← elabAnnotatedDraw rhs none α?
     if let some (_, m, _) ← determined? a then
       if α?.isSome then return ← elabRhs m
@@ -399,7 +549,11 @@ partial def protectTailDraws (stx : Syntax) : MacroM Syntax := do
     let decl := stx[3]
     let rhs ← rhsTerm decl[3]
     let action ← `(doElem| probabilityDraw% $rhs)
-    return stx.setArg 3 (decl.setArg 3 action.raw)
+    let stx := stx.setArg 3 (decl.setArg 3 action.raw)
+    -- The rest of the block may be the trailing body of `let pat ← e | alt`.
+    let some (body, rebuild) := trailingBody? stx | return stx
+    if body.isEmpty then return stx
+    return rebuild (← body.mapM protectTailDraws)
   if stx.isOfKind ``Lean.Parser.Term.doExpr then
     let rhs ← rhsTerm stx
     return (← `(doElem| probabilityDraw% $rhs)).raw
@@ -427,16 +581,17 @@ def elabTailDraw (rhs : Term) (expected? : Option Expr) : TermElabM Expr := do
 
 /-- Infer an imperative tail from its own draws before using the preceding sequence's monad
 as a fallback for tails without a determined draw. -/
-def elabTail (hint? : Option Expr) (prog : Term) : TermElabM (Expr × Expr × Expr) :=
+def elabTail (hint? : Option Expr) (prog val : Term) : TermElabM (Expr × Expr × Expr) :=
     withoutErrToSorry do
   let s ← saveState
   let r? ← try
-      let a ← withSynthesize (postpone := .yes) <| withoutPostponing <| elabTerm prog none
+      let a ← withSynthesizeDraw (reportDefaultedTail val) <| withoutPostponing <|
+        elabTerm prog none
       determined? a
     catch _ => pure none
   if let some r := r? then return r
   s.restore
-  elabDraw hint? prog none
+  elabDraw hint? prog none (reportDefaultedTail val)
 
 /-- The expectation of `g` over the draw `a`: core's `wp` under the expectation interpretation
 of `a`'s monad, spelled as the `wp⟦ ⟧` macro spells it. -/
@@ -499,7 +654,9 @@ partial def elabSeq (hint? : Option Expr) (items : Array (TSyntax ``Lean.Parser.
   | .draw b rhs =>
     let ty? := match b with
       | .ident _ ty? | .pat _ ty? | .hole ty? => ty?
-    let (a, m, α) ← elabDraw hint? rhs ty?
+    -- A value nothing reads cannot be coerced by the event.
+    let report := if b matches .hole _ then fun _ _ => pure () else reportDefaultedDraw rhs
+    let (a, m, α) ← elabDraw hint? rhs ty? report
     checkMeasureSemantics m
     let hint := hint?.getD m
     let rest := items[1:].toArray
@@ -529,18 +686,16 @@ partial def elabSeq (hint? : Option Expr) (items : Array (TSyntax ``Lean.Parser.
     let guardedItems ← items.mapM fun item => do
       return (⟨← liftMacroM (protectTailDraws item.raw)⟩ : TSyntax ``Lean.Parser.Term.doSeqItem)
     let scope := Syntax.mkNumLit (toString (← getLCtx).numIndices)
-    let prog ← `((do $guardedItems:doSeqItem* pure (tailScope% $scope observing $val)))
-    let (a, m, β) ← elabTail hint? prog
-    let (vars, unobservable, a) ← tailScopeNames a
-    if let some h := unobservable.find? fun h =>
-        (val.raw.find? fun s => s.isIdent && h.isPrefixOf s.getId).isSome then
-      throwErrorAt val m!"`{h}` is bound by the imperative tail, but it is a proof, a type, or a \
-        value whose type depends on another binding of the tail, so the event cannot observe it; \
-        observe the data it is about instead"
+    let endItem ← `(Lean.Parser.Term.doSeqItem| pure (tailScope% $scope observing $val))
+    let progItems := appendAtEnd (guardedItems.map (·.raw)) endItem.raw
+    let prog ← `((do $(progItems.map (⟨·⟩)):doSeqItem*))
+    let (a, m, β) ← elabTail hint? prog val
+    let (vars, a) ← tailScopeNames a
     let (_, tupPat) ← liftMacroM (mkTuple (vars.map mkIdent))
     checkMeasureSemantics m
     let body ← if event then `(propInd ($val : Prop)) else pure val
     let g ← elabTermEnsuringType (← `(fun $tupPat => ($body : ENNReal))) (← mkArrow β ennreal)
+    checkTailObservation (items.map (·.raw)) val g
     let g := (← instantiateMVars g).eta
     let g ← match indicatorPred? g with
       | some p => mkAppM ``predInd #[p]

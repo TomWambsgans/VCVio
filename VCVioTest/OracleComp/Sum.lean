@@ -53,7 +53,8 @@ example (a : ℕ) (w : ℕ → ℝ≥0∞) :
     ∑' n, Pr{let y ← (pure a : ProbComp ℕ)}[y = n] * w n = w a := by simp
 
 example (oa : ProbComp ℕ) (w : ℕ → ℝ≥0∞) :
-    ∑' n, Pr{let y ← (· + 1) <$> oa}[y = n] * w n = ∑' n, Pr{let y ← oa}[y = n] * w (n + 1) :=
+    ∑' n, Pr{let y : ℕ ← (· + 1) <$> oa}[y = n] * w n =
+      ∑' n, Pr{let y ← oa}[y = n] * w (n + 1) :=
   tsum_prEvent_map_mul oa _ w
 
 example (oa : ProbComp ℕ) (w : ℕ → ℝ≥0∞) (h : ∀ n ∈ support oa, w n = 2) :

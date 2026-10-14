@@ -266,6 +266,31 @@ example : Pr{let _ : ℤ ← (pure (1 - 2) : ProbComp _)}[True] =
 example : Pr{let _ ← (pure () : ProbComp Unit); let x : ℤ ← pure (1 - 2)}[x = -1] = 1 :=
   by simp
 
+-- Without an annotation, a numeral fixes the draw's type before the event is read: the draw is
+-- `ℕ` and the event coerces it, where an ordinary `do` block would draw from `Fin 2`. The
+-- notation warns, at the draw or at the event's mention of a variable of an imperative tail.
+/--
+warning: The result type of the draw
+  (pure 2 : ProbComp _)
+is fixed by a default instance, as when a numeral defaults to `ℕ`:
+  ℕ
+The event is read afterwards and cannot change it, so an event at another type coerces the value instead of fixing its type, unlike in an ordinary `do` block. Write the intended type: `let x : T ← …`, `(… : M T)` or `let mut x : T := …`.
+-/
+#guard_msgs in
+example : Pr{let x ← (pure 2 : ProbComp _)}[x < (1 : Fin 2)] = 0 := by simp
+example : Pr{let r ← (do let x ← (pure 2 : ProbComp _); return (x < (1 : Fin 2) : Prop))}[r] =
+    1 := by simp
+/--
+warning: The type of `m`, which the event reads after the imperative code, is fixed by a default instance, as when a numeral defaults to `ℕ`:
+  ℕ
+The event is read afterwards and cannot change it, so an event at another type coerces the value instead of fixing its type, unlike in an ordinary `do` block. Write the intended type: `let x : T ← …`, `(… : M T)` or `let mut x : T := …`.
+-/
+#guard_msgs in
+example : Pr{let b ← (pure true : ProbComp Bool); let mut m := 0; if b then m := m + 1}[
+    m = (-1 : ℤ)] = 0 := by simp
+-- A variable the event does not read raises no warning.
+example : Pr{let _ ← (pure 2 : ProbComp _); let mut m := 0; m := 1}[True] = 1 := by simp
+
 example : True := by
   fail_if_success have : ℝ≥0∞ :=
     Pr{let x : Bool ← (pure (1 : ℕ) : ProbComp ℕ)}[True]
@@ -329,7 +354,7 @@ example (g : ℕ → ProbComp ℕ) :
     Pr{let mut s := 0; for i in [1, 2, 3] do s := s + (← g i)}[s = 3] =
       Pr{let a ← g 1; let b ← g 2; let c ← g 3}[a + b + c = 3] := by
   simp
-example : Pr{let b ← mx; let mut n := 0; if b then n := 1}[n = 1] =
+example : Pr{let b ← mx; let mut n : ℕ := 0; if b then n := 1}[n = 1] =
     𝔼{let b ← mx}[if b then 1 else 0] := by
   simp
 example : Pr{let b ← (do if true then return true else return false : ProbComp Bool)}[b = true]
@@ -368,16 +393,73 @@ example (g : ℕ → ProbComp ℕ) (p : ℕ → ℕ → Prop) :
       wp⟦do let a ← g 0; let b ← g 1; pure (a + 1, b)⟧ (predInd fun (a, b) => p a b) := by
   rfl
 
+-- A proof bound by the tail cannot be returned; an event naming it would see an outer `h`, and
+-- is rejected.
 /--
 error: `h` is bound by the imperative tail, but it is a proof, a type, or a value whose type
-depends on another binding of the tail, so the event cannot observe it; observe the data it is
-about instead
+depends on another binding of the tail, so the event cannot observe it and would see the `h`
+outside the braces instead; rename one of them
 -/
 #guard_msgs (whitespace := lax) in
-noncomputable example : ℝ≥0∞ := Pr{
+noncomputable example (h : ℕ) : ℝ≥0∞ := Pr{
     let mut n ← (pure 0 : ProbComp ℕ)
     have h : True := trivial
-    n := n + 1}[h = h]
+    n := n + 1}[h = 0]
+
+/-- A name the observation binds itself is not the tail's. -/
+example : Pr{
+    let mut n ← (pure 0 : ProbComp ℕ)
+    have h : True := trivial
+    have _ : True := h
+    n := n + 1}[(fun h : ℕ => h = 0) 0] = 1 := by
+  simp
+
+/-- A branch-local binding is not in scope after its branch: the event sees the outer one. -/
+example (x : ℕ) (b : Bool) : Pr{
+    let mut n ← (pure 0 : ProbComp ℕ)
+    if b then
+      let x := 7
+      n := x
+    else
+      n := 9}[x = x ∧ n = if b then 7 else 9] = 1 := by
+  cases b <;> simp
+
+-- `let pat ← e | alt` takes the rest of the block as its body, so the end of the tail is
+-- inside it and the pattern's variables are observed, not an outer `x`.
+set_option linter.unusedVariables false in
+example (x : ℕ) : Pr{
+    let mut n ← (pure 0 : OptionT ProbComp ℕ)
+    let some x ← (pure (some 3) : OptionT ProbComp (Option ℕ)) | failure
+    n := x}[n = 3 ∧ x = 3] = 1 := by
+  simp
+example : Pr{
+    let mut n ← (pure 0 : OptionT ProbComp ℕ)
+    let some x := (some 3 : Option ℕ) | failure
+    n := x}[n = 3 ∧ x = 3] = 1 := by
+  simp
+-- Written last, it has no body, and the end of the tail becomes its body.
+set_option linter.unusedVariables false in
+example (x : ℕ) : Pr{
+    let mut n ← (pure 0 : OptionT ProbComp ℕ)
+    let some x ← (pure (some 3) : OptionT ProbComp (Option ℕ)) | failure}[x = 3] = 1 := by
+  simp
+example : Pr{
+    let b ← ($ᵗ Bool : ProbComp Bool)
+    let mut n : ℕ := 0
+    let some x ← (pure (if b then some 3 else none) : OptionT ProbComp (Option ℕ)) | failure}[
+    x = 3] = 1 / 2 := by
+  simp
+
+/-- A macro's hygienic tail binding is the one its own event observes, not an outer binding the
+macro introduced under the same name. -/
+local macro "shadowedByTail" : term => `(let b := true; Pr{
+  let mut b ← (pure false : ProbComp Bool)
+  b := false}[b = true])
+example : shadowedByTail = 0 := by simp
+local macro "tailOnly" : term => `(𝔼{
+  let mut x ← (pure (0 : ℕ) : ProbComp ℕ)
+  x := 3}[(x : ℝ≥0∞)])
+example : tailOnly = 3 := by simp
 
 /-- A draw whose program is a `let`-bound `do` block typed by its own binds elaborates once the
 surrounding term has forced that block: the draw postpones instead of forcing its own binds. -/

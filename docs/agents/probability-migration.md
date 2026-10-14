@@ -41,7 +41,9 @@ When neither a written type in the event (a singleton's ascription, a typed `fun
 explicit computation type is recoverable from the syntax, the report flags the rewritten site
 for a result-type check. Add a draw annotation or
 an explicit computation type before relying on it. In particular, natural and integer
-subtraction have different values. It does not convert proofs; a proof that computed with
+subtraction have different values. The notation itself warns at such a draw when the result type
+was fixed by a default instance, and at the event's mention of a variable of an imperative tail
+whose type was. It does not convert proofs; a proof that computed with
 `probOutput` sums, `SPMF` equalities or the discrete `tvDist` follows the *Standard proof conversion* table of the roadmap.
 
 Maintainers converting an open pull request: `scripts/migration-dry-run.sh --worktree DIR --out OUT
