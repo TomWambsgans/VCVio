@@ -177,13 +177,13 @@ theorem lossless_oracleQuery (H : X → Y) :
 theorem oracleQuery_zero :
     (oracleQuery (0 : X → Y) : SubInstrument (X × Y) (X × Y) Unit) =
       SubInstrument.pure () :=
-  SubInstrument.ext <| Finsupp.ext fun u ↦ by simp
+  SubInstrument.ext <| funext fun ⟨⟩ ↦ by simp
 
 /-- A query to `H` followed by a query to `H'` is one query to `H + H'`. -/
 theorem oracleQuery_bind_oracleQuery (H H' : X → Y) :
     ((oracleQuery H : SubInstrument (X × Y) (X × Y) Unit).bind fun _ ↦ oracleQuery H') =
       oracleQuery (H + H') :=
-  SubInstrument.ext <| Finsupp.ext fun u ↦ by
+  SubInstrument.ext <| funext fun u ↦ by
     rw [SubInstrument.branch_bind_unit, branch_oracleQuery_apply, branch_oracleQuery_apply,
       branch_oracleQuery_apply, ← MatrixMap.conj_mul, ← oracleUnitary_add, add_comm]
 

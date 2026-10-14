@@ -190,22 +190,28 @@ theorem sum_outcomeMeasure_map_guess {M N : Type*} [Fintype M] [Fintype N]
     rw [← Finset.mul_sum, Finset.sum_boole, hfilter, ← hc, Nat.cast_mul,
       ENNReal.mul_inv (Or.inl hne) (Or.inl (ENNReal.natCast_ne_top _)), mul_right_comm,
       ENNReal.inv_mul_cancel hne (ENNReal.natCast_ne_top _), one_mul]
-  have hterm : ∀ a ∈ P.branch.support, ∑ H : X → Y, (Fintype.card (X → Y) : ℝ≥0∞)⁻¹ *
+  have hterm : ∀ a, ∑ H : X → Y, (Fintype.card (X → Y) : ℝ≥0∞)⁻¹ *
       (ENNReal.ofReal (P.branch a ρ.matrix).trace.re *
         Set.indicator {True} 1 (y a = H (x a))) =
       ENNReal.ofReal (P.branch a ρ.matrix).trace.re * (Fintype.card Y : ℝ≥0∞)⁻¹ :=
-    fun a _ ↦ by
+    fun a ↦ by
       rw [← hcount a, Finset.mul_sum]
       refine Finset.sum_congr rfl fun H _ ↦ ?_
       rw [mul_left_comm]
       congr 2
       by_cases h : y a = H (x a) <;> simp [h]
-  simp only [SubInstrument.outcomeMeasure_map, Measure.coe_finsetSum, Finset.sum_apply,
-    Measure.smul_apply, Measure.dirac_apply' _ (MeasurableSet.singleton True), smul_eq_mul,
-    Finset.mul_sum]
-  rw [Finset.sum_comm, Finset.sum_congr rfl hterm, ← Finset.sum_mul, div_eq_mul_inv,
-    SubInstrument.total_eq_sum, LinearMap.sum_apply, Matrix.trace_sum, Complex.re_sum,
-    ENNReal.ofReal_sum_of_nonneg fun a _ ↦ P.trace_re_branch_apply_nonneg a ρ.posSemidef]
+  have hmeas : ∀ H : X → Y, (P.map fun a ↦ y a = H (x a)).outcomeMeasure ρ {True} =
+      ∑' a, ENNReal.ofReal (P.branch a ρ.matrix).trace.re *
+        Set.indicator {True} 1 (y a = H (x a)) := fun H ↦ by
+    rw [SubInstrument.outcomeMeasure_map, Measure.sum_apply _ (MeasurableSet.singleton True)]
+    simp only [Measure.smul_apply, Measure.dirac_apply' _ (MeasurableSet.singleton True),
+      smul_eq_mul]
+  simp only [hmeas, ← ENNReal.tsum_mul_left]
+  rw [← Summable.tsum_finsetSum fun _ _ ↦ ENNReal.summable]
+  simp only [hterm]
+  rw [ENNReal.tsum_mul_right, div_eq_mul_inv, SubInstrument.trace_re_total_apply,
+    ENNReal.ofReal_tsum_of_nonneg (fun a ↦ P.trace_re_branch_apply_nonneg a ρ.posSemidef)
+      (P.isCPTNIFamily.summable_trace_re_apply ρ.posSemidef)]
 
 end guess
 

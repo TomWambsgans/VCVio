@@ -428,16 +428,16 @@ theorem run_coinProg_branch_single (b c : Fin 2) (d : Fin 3) :
       SubInstrument.branch_relabel, conj_basisMatrix_equiv_single,
       QuantumRuntime.queryEquivOut_apply]
     rcases eq_zero_or_one b with rfl | rfl
-    · simp [SubInstrument.branch_pure, Finsupp.single_apply]
-      split_ifs <;> rfl
+    · simp [SubInstrument.branch_pure, Pi.single_apply]
+      split_ifs <;> simp_all
     · simp only [↓reduceIte]
       rw [QuantumRuntime.run_query_bind, SubInstrument.branch_bind_unit, LinearMap.comp_apply,
         QuantumRuntime.queryStep_branch_single, Equiv.refl_apply,
         countRuntime_step_branch_single, Matrix.single_kronecker_single, one_mul,
         SubInstrument.branch_relabel, conj_basisMatrix_equiv_single,
         QuantumRuntime.queryEquivOut_apply]
-      simp [SubInstrument.branch_pure, Finsupp.single_apply]
-      split_ifs <;> rfl
+      simp [SubInstrument.branch_pure, Pi.single_apply]
+      split_ifs <;> simp_all
   · rw [LinearMap.comp_apply, SubInstrument.branch_frame_single,
       SubInstrument.branch_classical_basis]
     simp [Ne.symm hb']

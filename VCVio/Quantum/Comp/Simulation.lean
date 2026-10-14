@@ -70,27 +70,17 @@ def Intertwines (L₁ : MatrixMap X X') (L₂ : MatrixMap Y Y') (p : SubInstrume
     (p' : SubInstrument X' Y' α) : Prop :=
   ∀ a, p'.branch a ∘ₗ L₁ = L₂ ∘ₗ p.branch a
 
-/-- The branch of a composite as a sum over any finite set of outcomes containing the support of
-the first subinstrument. -/
-theorem branch_bind_apply_of_subset (p : SubInstrument X Y α) (k : α → SubInstrument Y Z β)
-    {s : Finset α} (hs : p.branch.support ⊆ s) (b : β) :
-    (p.bind k).branch b = ∑ a ∈ s, (k a).branch b ∘ₗ p.branch a := by
-  rw [branch_bind_apply]
-  exact Finset.sum_subset hs fun a _ ha ↦ by
-    rw [Finsupp.notMem_support_iff.mp ha, LinearMap.comp_zero]
-
 /-- A step, then a step without outcome, then returning the first outcome: the branch at `a` is
 the second step after the branch of the first at `a`. -/
 theorem branch_bind_bind_unit_pure (p : SubInstrument X Y α) (u : SubInstrument Y Z Unit)
     (a : α) :
     (p.bind fun a' ↦ u.bind fun _ ↦ SubInstrument.pure a').branch a =
-      u.branch () ∘ₗ p.branch a := by
-  classical
-  rw [branch_bind_apply_of_subset p _ (Finset.subset_insert a p.branch.support),
-    Finset.sum_eq_single_of_mem a (Finset.mem_insert_self _ _)]
-  · rw [branch_bind_unit, branch_pure, Finsupp.single_eq_same, LinearMap.id_comp]
-  · intro b _ hb
-    simp [branch_bind_unit, hb]
+      u.branch () ∘ₗ p.branch a :=
+  LinearMap.ext fun ρ ↦ by
+    rw [branch_bind_apply, tsum_eq_single a fun a' ha' ↦ by
+        rw [branch_bind_unit, branch_pure_of_ne (Ne.symm ha'), LinearMap.zero_comp,
+          LinearMap.zero_apply],
+      branch_bind_unit, branch_pure_self, LinearMap.id_comp, LinearMap.comp_apply]
 
 /-- Two subinstruments whose branches leave operators of the same trace on two substates, on
 every outcome, have the same outcome measures on them. -/
@@ -98,39 +88,31 @@ theorem outcomeMeasure_congr [MeasurableSpace α] {p : SubInstrument X Y α}
     {p' : SubInstrument X' Y' α} {ρ : SubState X} {ρ' : SubState X'}
     (h : ∀ a, (p.branch a ρ.matrix).trace = (p'.branch a ρ'.matrix).trace) :
     p.outcomeMeasure ρ = p'.outcomeMeasure ρ' := by
-  classical
-  rw [outcomeMeasure_eq_sum_of_subset _ _ (Finset.subset_union_left
-      (s₂ := p'.branch.support)),
-    outcomeMeasure_eq_sum_of_subset _ _ (Finset.subset_union_right (s₁ := p.branch.support))]
-  exact Finset.sum_congr rfl fun a _ ↦ by rw [h a]
+  rw [outcomeMeasure_eq_sum, outcomeMeasure_eq_sum]
+  exact congrArg Measure.sum <| funext fun a ↦ by rw [h a]
 
 namespace Intertwines
 
 /-- `pure a` intertwines with itself through any map. -/
 theorem pure (L : MatrixMap X X') (a : α) :
     Intertwines L L (SubInstrument.pure a) (SubInstrument.pure a) := fun a' ↦ by
-  classical
-  simp only [branch_pure, Finsupp.single_apply]
-  split_ifs
-  · rw [LinearMap.id_comp, LinearMap.comp_id]
-  · rw [LinearMap.zero_comp, LinearMap.comp_zero]
+  obtain rfl | h := eq_or_ne a' a
+  · rw [branch_pure_self, branch_pure_self, LinearMap.id_comp, LinearMap.comp_id]
+  · rw [branch_pure_of_ne h, branch_pure_of_ne h, LinearMap.zero_comp, LinearMap.comp_zero]
 
 /-- Intertwining is preserved by sequencing. -/
 theorem bind {L₁ : MatrixMap X X'} {L₂ : MatrixMap Y Y'} {L₃ : MatrixMap Z Z'}
     {p : SubInstrument X Y α} {p' : SubInstrument X' Y' α} {k : α → SubInstrument Y Z β}
     {k' : α → SubInstrument Y' Z' β} (hp : Intertwines L₁ L₂ p p')
     (hk : ∀ a, Intertwines L₂ L₃ (k a) (k' a)) :
-    Intertwines L₁ L₃ (p.bind k) (p'.bind k') := fun b ↦ by
-  classical
-  rw [branch_bind_apply_of_subset p k (Finset.subset_union_left (s₂ := p'.branch.support)) b,
-    branch_bind_apply_of_subset p' k' (Finset.subset_union_right (s₁ := p.branch.support)) b]
-  refine LinearMap.ext fun ρ ↦ ?_
-  rw [LinearMap.comp_apply, LinearMap.comp_apply, LinearMap.sum_apply, LinearMap.sum_apply,
-    map_sum]
-  refine Finset.sum_congr rfl fun a _ ↦ ?_
+    Intertwines L₁ L₃ (p.bind k) (p'.bind k') := fun b ↦ LinearMap.ext fun ρ ↦ by
+  rw [LinearMap.comp_apply, LinearMap.comp_apply, branch_bind_apply, branch_bind_apply,
+    MatrixMap.map_tsum L₃ (f := fun a ↦ (k a).branch b (p.branch a ρ))
+      ((p.isCPTNIFamily.comp_eval (fun a ↦ (k a).isCPTNIFamily) b).summable_apply ρ)]
+  refine tsum_congr fun a ↦ ?_
   have h₁ := LinearMap.congr_fun (hp a) ρ
   have h₂ := LinearMap.congr_fun (hk a b) (p.branch a ρ)
-  simp only [LinearMap.comp_apply] at h₁ h₂ ⊢
+  simp only [LinearMap.comp_apply] at h₁ h₂
   rw [h₁, h₂]
 
 /-- Framing by a common ancilla preserves intertwining. -/
@@ -372,23 +354,16 @@ theorem run_branch_apply_eq_of_forallQueries {D : QReg} {σ₁ σ₂ : SubState 
         ((QuantumRuntime.mk D σ₂ s₂).run x).branch a ρ) ?_ ?_ ?_ x ρ hx
   · exact fun _ _ _ _ _ ↦ rfl
   · intro _ _ _ _ p k ih ρ hx a
-    rw [run_act_bind, run_act_bind, branch_bind_apply, branch_bind_apply, LinearMap.sum_apply,
-      LinearMap.sum_apply]
-    exact Finset.sum_congr rfl fun b _ ↦ ih b _ (hx b) a
+    rw [run_act_bind, run_act_bind, branch_bind_apply, branch_bind_apply]
+    exact tsum_congr fun b ↦ ih b _ (hx b) a
   · intro _ _ i E ℓ k ih ρ hx a
-    classical
-    rw [run_query_bind, run_query_bind,
-      branch_bind_apply_of_subset _ _ (Finset.subset_union_left
-        (s₂ := ((QuantumRuntime.mk D σ₂ s₂).queryStep i E ℓ).branch.support)),
-      branch_bind_apply_of_subset _ _ (Finset.subset_union_right
-        (s₁ := ((QuantumRuntime.mk D σ₁ s₁).queryStep i E ℓ).branch.support)),
-      LinearMap.sum_apply, LinearMap.sum_apply]
-    refine Finset.sum_congr rfl fun r _ ↦ ?_
+    rw [run_query_bind, run_query_bind, branch_bind_apply, branch_bind_apply]
+    refine tsum_congr fun r ↦ ?_
     have hq : ((QuantumRuntime.mk D σ₁ s₁).queryStep i E ℓ).branch r ρ =
         ((QuantumRuntime.mk D σ₂ s₂).queryStep i E ℓ).branch r ρ := by
       rw [queryStep_branch_apply, queryStep_branch_apply]
       exact congrArg _ (hs i E _ hx.1 r)
-    rw [LinearMap.comp_apply, LinearMap.comp_apply, ← hq]
+    rw [← hq]
     exact ih r _ (hx.2 r) a
 
 /-- The condition on the presented operators transfers between two runtimes whose steps agree

@@ -199,20 +199,19 @@ theorem run_toQuantum_branch_of_basis [DecidableEq α] (H : X → Y)
       else 0 := by
   induction oa using OracleComp.inductionOn with
   | pure b =>
-    rw [OracleComp.toQuantum_pure, QuantumRuntime.run_pure, SubInstrument.branch_pure,
-      evalWithAnswerFn_pure, Finsupp.single_apply]
-    by_cases h : b = a <;> simp [h]
+    rw [OracleComp.toQuantum_pure, QuantumRuntime.run_pure, evalWithAnswerFn_pure]
+    by_cases h : b = a
+    · subst h
+      simp
+    · simp [h, SubInstrument.branch_pure_of_ne (Ne.symm h)]
   | query_bind t k ih =>
-    classical
     rw [OracleComp.toQuantum_query_bind, QuantumRuntime.run_bind,
-      SubInstrument.branch_bind_apply_of_subset _ _ (Finset.subset_insert (H t) _),
-      LinearMap.sum_apply, Finset.sum_eq_single_of_mem (H t) (Finset.mem_insert_self _ _),
-      LinearMap.comp_apply, run_classicalQuery_branch_of_basis H hR]
-    · simp only [↓reduceIte]
-      rw [ih, evalWithAnswerFn_bind, evalWithAnswerFn_liftM_query]
-      rfl
-    · intro y _ hy
-      simp [run_classicalQuery_branch_of_basis H hR, Ne.symm hy]
+      SubInstrument.branch_bind_apply, tsum_eq_single (H t) fun y hy ↦ by
+        simp [run_classicalQuery_branch_of_basis H hR, Ne.symm hy],
+      run_classicalQuery_branch_of_basis H hR]
+    simp only [↓reduceIte]
+    rw [ih, evalWithAnswerFn_bind, evalWithAnswerFn_liftM_query]
+    rfl
 
 /-- Against a runtime that answers basis queries by `H`, leaves its private register alone and
 starts it in a basis state, the program of a classical algorithm from the trivial state reports
@@ -225,13 +224,13 @@ theorem outcomeLaw_toQuantum_of_basis [MeasurableSpace α] (H : X → Y)
     R.outcomeLaw oa.toQuantum (SubState.basis ()) =
       Measure.dirac (evalWithAnswerFn (QueryImpl.ofFn H) oa) := by
   classical
-  rw [QuantumRuntime.outcomeLaw, hinit, SubState.basis_prod_basis,
-    SubInstrument.outcomeMeasure_eq_sum_of_subset _ _
-      (Finset.subset_insert (evalWithAnswerFn (QueryImpl.ofFn H) oa) _),
-    Finset.sum_eq_single_of_mem _ (Finset.mem_insert_self _ _)]
-  · simp [SubState.matrix_basis, run_toQuantum_branch_of_basis H hR]
-  · intro b _ hb
-    simp [SubState.matrix_basis, run_toQuantum_branch_of_basis H hR, Ne.symm hb]
+  rw [QuantumRuntime.outcomeLaw, hinit, SubState.basis_prod_basis]
+  ext t ht
+  rw [SubInstrument.outcomeMeasure_apply _ _ ht,
+    tsum_eq_single (evalWithAnswerFn (QueryImpl.ofFn H) oa) fun b hb ↦ by
+      simp [SubState.matrix_basis, run_toQuantum_branch_of_basis H hR, Ne.symm hb],
+    Measure.dirac_apply' _ ht]
+  simp [SubState.matrix_basis, run_toQuantum_branch_of_basis H hR]
 
 /-- Against the oracle unitary of `H`, the program of a classical algorithm reports the value of
 the algorithm against `H` with certainty. -/

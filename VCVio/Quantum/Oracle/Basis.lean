@@ -55,20 +55,18 @@ theorem branch_map_apply_univ [Fintype α] [DecidableEq β] (f : α → β) (p :
     (b : β) : (p.map f).branch b = ∑ a, if f a = b then p.branch a else 0 := by
   rw [map_eq_bind_pure, branch_bind_apply_univ]
   refine Finset.sum_congr rfl fun a _ ↦ ?_
-  rw [branch_pure, Finsupp.single_apply]
-  split_ifs
-  · exact LinearMap.id_comp _
-  · exact LinearMap.zero_comp _
+  split_ifs with h
+  · rw [h, branch_pure_self, LinearMap.id_comp]
+  · rw [branch_pure_of_ne (Ne.symm h), LinearMap.zero_comp]
 
 /-- The outcome measure of a relabelled subinstrument moves each point mass along the
 relabelling. -/
-theorem outcomeMeasure_map [MeasurableSpace β] (f : α → β) (p : SubInstrument A B α)
-    (ρ : SubState A) :
+theorem outcomeMeasure_map [MeasurableSpace β] (f : α → β)
+    (p : SubInstrument A B α) (ρ : SubState A) :
     (p.map f).outcomeMeasure ρ =
-      ∑ a ∈ p.branch.support,
-        ENNReal.ofReal (p.branch a ρ.matrix).trace.re • Measure.dirac (f a) := by
+      Measure.sum fun a ↦ ENNReal.ofReal (p.branch a ρ.matrix).trace.re • Measure.dirac (f a) := by
   rw [map_eq_bind_pure, outcomeMeasure_bind]
-  exact Finset.sum_congr rfl fun a _ ↦ by rw [outcomeMeasure_pure, matrix_post]
+  exact congrArg Measure.sum <| funext fun a ↦ by rw [outcomeMeasure_pure, matrix_post]
 
 /-- The outcome measure of a relabelled subinstrument as a sum over a finite type of
 outcomes. -/
@@ -76,9 +74,7 @@ theorem outcomeMeasure_map_univ [Fintype α] [MeasurableSpace β] (f : α → β
     (p : SubInstrument A B α) (ρ : SubState A) :
     (p.map f).outcomeMeasure ρ =
       ∑ a, ENNReal.ofReal (p.branch a ρ.matrix).trace.re • Measure.dirac (f a) := by
-  rw [outcomeMeasure_map]
-  refine Finset.sum_subset (Finset.subset_univ _) fun a _ ha ↦ ?_
-  simp [Finsupp.notMem_support_iff.mp ha]
+  rw [outcomeMeasure_map, Measure.sum_fintype]
 
 /-- After a step without outcome, the branch of a composite at `b` is the branch of the
 continuation at `b` after the unique branch of the step. -/
@@ -97,12 +93,7 @@ the continuation on the substate left by the step. -/
 theorem outcomeMeasure_bind_unit [MeasurableSpace β] (p : SubInstrument A B Unit)
     (k : Unit → SubInstrument B C β) (ρ : SubState A) :
     (p.bind k).outcomeMeasure ρ = (k ()).outcomeMeasure (p.post ρ ()) := by
-  have hs : (p.bind k).branch.support ⊆ (k ()).branch.support := fun b hb ↦ by
-    rw [Finsupp.mem_support_iff] at hb ⊢
-    intro h
-    exact hb (by rw [branch_bind_unit, h, LinearMap.zero_comp])
-  rw [outcomeMeasure_eq_sum_of_subset _ _ hs, outcomeMeasure_eq_sum]
-  exact Finset.sum_congr rfl fun b _ ↦ by rw [branch_bind_unit, matrix_post, LinearMap.comp_apply]
+  rw [outcomeMeasure_bind, Measure.sum_fintype, Fintype.sum_unique]
 
 /-- A lossless step without outcome preserves the trace of the substate. -/
 theorem Lossless.trace_post_unit {p : SubInstrument A B Unit} (hp : p.Lossless) (ρ : SubState A) :
@@ -127,7 +118,7 @@ noncomputable def ofIsometry (K : Matrix B A ℂ) (hK : Kᴴ * K = 1) : SubInstr
 @[simp]
 theorem branch_ofIsometry_apply (K : Matrix B A ℂ) (hK : Kᴴ * K = 1) (u : Unit) :
     (ofIsometry K hK).branch u = MatrixMap.conj K :=
-  Finsupp.single_eq_same
+  rfl
 
 /-- The gate of an isometry is lossless. -/
 theorem lossless_ofIsometry (K : Matrix B A ℂ) (hK : Kᴴ * K = 1) : (ofIsometry K hK).Lossless :=
@@ -136,7 +127,8 @@ theorem lossless_ofIsometry (K : Matrix B A ℂ) (hK : Kᴴ * K = 1) : (ofIsomet
 /-- The gate of the identity matrix returns without touching the state. -/
 theorem ofIsometry_one :
     ofIsometry (1 : Matrix A A ℂ) (by simp) = SubInstrument.pure () :=
-  SubInstrument.ext <| by simp [ofIsometry]
+  SubInstrument.ext <| funext fun u ↦ by
+    rw [branch_ofIsometry_apply, MatrixMap.conj_one, branch_pure_self]
 
 /-- Sequencing the gates of two isometries is the gate of their product. -/
 theorem ofIsometry_bind_ofIsometry [Fintype C] [DecidableEq B] (K : Matrix B A ℂ)
@@ -145,7 +137,7 @@ theorem ofIsometry_bind_ofIsometry [Fintype C] [DecidableEq B] (K : Matrix B A �
       ofIsometry (L * K) (by
         rw [Matrix.conjTranspose_mul, Matrix.mul_assoc, ← Matrix.mul_assoc Lᴴ, hL,
           Matrix.one_mul, hK]) := by
-  refine SubInstrument.ext <| Finsupp.ext fun u ↦ ?_
+  refine SubInstrument.ext <| funext fun u ↦ ?_
   rw [branch_bind_unit, branch_ofIsometry_apply, branch_ofIsometry_apply,
     branch_ofIsometry_apply, MatrixMap.conj_mul]
 
@@ -347,15 +339,14 @@ theorem lossless_relabel (e : A ≃ B) : (relabel e).Lossless :=
 /-- Relabelling along the identity bijection returns without touching the state. -/
 @[simp]
 theorem relabel_refl : relabel (Equiv.refl A) = SubInstrument.pure () :=
-  SubInstrument.ext <| Finsupp.ext fun u ↦ LinearMap.ext fun ρ ↦ by
-    cases u
-    rw [relabel_branch_apply, branch_pure, Finsupp.single_eq_same]
+  SubInstrument.ext <| funext fun u ↦ LinearMap.ext fun ρ ↦ by
+    rw [relabel_branch_apply, branch_pure_self]
     rfl
 
 /-- Relabelling along `e` and then along `f` is relabelling along the composite bijection. -/
 theorem relabel_bind_relabel (e : A ≃ B) (f : B ≃ C) :
     ((relabel e).bind fun _ ↦ relabel f) = relabel (e.trans f) :=
-  SubInstrument.ext <| Finsupp.ext fun u ↦ LinearMap.ext fun ρ ↦ by
+  SubInstrument.ext <| funext fun u ↦ LinearMap.ext fun ρ ↦ by
     rw [branch_bind_unit, LinearMap.comp_apply, relabel_branch_apply, relabel_branch_apply,
       relabel_branch_apply, Matrix.submatrix_submatrix]
     rfl
