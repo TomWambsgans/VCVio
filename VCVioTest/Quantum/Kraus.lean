@@ -21,7 +21,8 @@ On a system with an arbitrary finite basis `A`:
   computational-basis measurement on the event `S`, is trace nonincreasing, and the converse of
   the trace condition gives `∑ a : S, (single a a 1)ᴴ * single a a 1 ≤ 1` in the Loewner order;
 * the computational-basis measurement, as a subinstrument, has Kraus operators for all branches
-  at once satisfying the completeness relation.
+  at once satisfying the completeness relation, and measuring twice has the path operators
+  `single b b 1 * single a a 1`.
 -/
 
 public section
@@ -161,5 +162,15 @@ example [Fintype A] (a : A) :
     ∃ K : A × A → Matrix A A ℂ, (measure : SubInstrument A A A).branch a =
       ∑ k, MatrixMap.conj (K k) :=
   measure.exists_kraus_branch a
+
+/-- Measuring twice: the branch at `b` sums the Kraus maps of the path operators
+`single b b 1 * single a a 1`. -/
+example [Fintype A] (b : A) :
+    ((measure : SubInstrument A A A).bind fun _ ↦ measure).branch b =
+      ∑ x : A × Unit × Unit,
+        MatrixMap.conj (Matrix.single b b (1 : ℂ) * Matrix.single x.1 x.1 1) :=
+  SubInstrument.branch_bind_eq_sum_conj_mul _ _ (K := fun a _ ↦ Matrix.single a a 1)
+    (L := fun _ b _ ↦ Matrix.single b b 1) (fun _ ↦ by simp [measure])
+    (fun _ _ ↦ by simp [measure]) b
 
 end VCVioTest.QuantumKraus
