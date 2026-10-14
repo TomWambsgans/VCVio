@@ -34,8 +34,12 @@ could supply the computation's expected result type. When the singleton has an o
 ascription, the codemod keeps it on the draw, for example
 `Pr[= (-1 : ℤ) | (pure (1 - 2) : ProbComp _)]` becomes
 `Pr{let x : ℤ ← (pure (1 - 2) : ProbComp _)}[x = (-1 : ℤ)]`.
-When neither the singleton's type nor an explicit computation type is recoverable from the
-syntax, the report flags the rewritten site for a result-type check. Add a draw annotation or
+More generally, the legacy event and computation were elaborated together, so a section or a
+predicate could also fix the result type: `Pr[(· < (1 : Fin 2)) | (pure 2 : ProbComp _)]` drew
+from `Fin 2` (probability 1), while its rewrite draws `pure 2` first as `ℕ` (probability 0).
+When neither a written type in the event (a singleton's ascription, a typed `fun` binder) nor an
+explicit computation type is recoverable from the syntax, the report flags the rewritten site
+for a result-type check. Add a draw annotation or
 an explicit computation type before relying on it. In particular, natural and integer
 subtraction have different values. It does not convert proofs; a proof that computed with
 `probOutput` sums, `SPMF` equalities or the discrete `tvDist` follows the *Standard proof conversion* table of the roadmap.

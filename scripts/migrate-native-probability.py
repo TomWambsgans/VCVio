@@ -630,22 +630,35 @@ class Report:
             self.items.append(item)
 
 
+CHAR_LITERAL = re.compile(r"'(?:\\(?:u\{[0-9a-fA-F]+\}|x[0-9a-fA-F]{2}|.)|[^\\'\n])'")
+
+
+def skip_literal(s: str, j: int) -> int:
+    """The offset after a string, character literal or comment starting at `s[j]`, or `j`."""
+    if s[j] == '"':
+        return skip_string(s, j)
+    if s[j] == "'" and (j == 0 or not (s[j - 1].isalnum() or s[j - 1] in "_'.")):
+        m = CHAR_LITERAL.match(s, j)
+        if m:
+            return m.end()
+    if s.startswith("--", j):
+        nl = s.find("\n", j)
+        return len(s) if nl < 0 else nl
+    if s.startswith("/-", j):
+        return skip_block_comment(s, j)
+    return j
+
+
 def match_close(s: str, i: int) -> int:
-    """Index of the bracket closing the one at `s[i]`, skipping strings and comments."""
+    """Index of the bracket closing the one at `s[i]`, skipping literals and comments."""
     stack = [s[i]]
     j = i + 1
     while j < len(s):
+        k = skip_literal(s, j)
+        if k != j:
+            j = k
+            continue
         c = s[j]
-        if c == '"':
-            j = skip_string(s, j)
-            continue
-        if s.startswith("--", j):
-            nl = s.find("\n", j)
-            j = len(s) if nl < 0 else nl
-            continue
-        if s.startswith("/-", j):
-            j = skip_block_comment(s, j)
-            continue
         if c in OPEN:
             stack.append(c)
         elif c in CLOSE:
@@ -682,10 +695,15 @@ def skip_block_comment(s: str, j: int) -> int:
 
 
 def top_level(s: str, token: str) -> int:
-    """Offset of the first occurrence of `token` outside brackets, or -1."""
+    """Offset of the first occurrence of `token` outside brackets, literals and comments, or
+    -1."""
     depth = 0
     j = 0
     while j < len(s):
+        k = skip_literal(s, j)
+        if k != j:
+            j = k
+            continue
         c = s[j]
         if c in OPEN:
             depth += 1
@@ -698,10 +716,17 @@ def top_level(s: str, token: str) -> int:
 
 
 def split_top_level(s: str, sep: str) -> list[str]:
+    """`s` split at each `sep` outside brackets, literals and comments."""
     parts: list[str] = []
     depth = 0
     start = 0
-    for j, c in enumerate(s):
+    j = 0
+    while j < len(s):
+        k = skip_literal(s, j)
+        if k != j:
+            j = k
+            continue
+        c = s[j]
         if c in OPEN:
             depth += 1
         elif c in CLOSE:
@@ -709,6 +734,7 @@ def split_top_level(s: str, sep: str) -> list[str]:
         elif c == sep and depth == 0:
             parts.append(s[start:j])
             start = j + 1
+        j += 1
     parts.append(s[start:])
     return parts
 
@@ -798,19 +824,41 @@ def singleton(comp: str, value: str) -> str:
     return f"Pr{{{draw(binder, comp)}}}[{x} = {value}]"
 
 
+def explicit_type(ty: str | None) -> bool:
+    """Whether `ty` is a written type with no hole `_` or `?m`."""
+    return ty is not None and not re.search(r"(?<![\w'])_(?![\w'])|(?<![\w'])\?", ty)
+
+
+def event_binder_type(event: str) -> str | None:
+    """The result type a legacy event writes for the drawn value: the outer ascription of a
+    singleton value, or the binder type of a typed `fun`."""
+    value = singleton_value(event)
+    if value is not None:
+        return result_ascription(value)
+    m = (re.fullmatch(FUN_TYPED_BINDER, strip_parens(event), re.S)
+         or re.fullmatch(FUN_BINDER, strip_parens(event), re.S))
+    return m.group(2).strip() if m and m.group(2) else None
+
+
+def report_result_type(comp: str, ty: str | None, report: Report, path: str,
+                       text: str, offset: int) -> None:
+    """Report an event rewrite whose computation's result type is not explicit.
+
+    The legacy `Pr[e | mx]` elaborated the event and the computation together, so a singleton
+    value, a section or a predicate could fix the computation's result type; the native draw is
+    elaborated before its observation. A numeral then defaults, as `(pure 2 : ProbComp _)`
+    observed by `(· < (1 : Fin 2))` changes from `Fin 2` to `ℕ`."""
+    if not explicit_type(ty) and not explicit_type(result_ascription(comp)):
+        report.add(path, text, offset,
+                   "rewrite needs a result-type check: the old event could supply the "
+                   "computation's result type; add `let x : T ← ...` or ascribe the "
+                   "computation explicitly; see *Notation and definitions*")
+
+
 def report_singleton_type(comp: str, value: str, report: Report, path: str,
                           text: str, offset: int) -> None:
     """Report singleton rewrites whose original expected result type is not explicit."""
-    ty = result_ascription(value)
-    comp_ty = result_ascription(comp)
-    def explicit(ty: str | None) -> bool:
-        return ty is not None and not re.search(r"(?<![\w'])_(?![\w'])|(?<![\w'])\?", ty)
-
-    if not explicit(ty) and not explicit(comp_ty):
-        report.add(path, text, offset,
-                   "singleton rewrite needs a result-type check: the old event supplied the "
-                   "computation's expected type; add `let x : T ← ...` or ascribe the "
-                   "computation explicitly; see *Notation and definitions*")
+    report_result_type(comp, result_ascription(value), report, path, text, offset)
 
 
 def convert_legacy_event(event: str, comp: str, prose: bool = False) -> str | None:
@@ -1000,10 +1048,9 @@ def rewrite_legacy_events(text: str, report: Report, path: str) -> str:
                            "legacy event left as is; see *Notation and definitions*")
             out.append(text[k:close + 1])
         else:
-            if not in_spans(k, spans):
-                value = singleton_value(body[:bar])
-                if value is not None:
-                    report_singleton_type(body[bar + 1:], value, report, path, text, k)
+            if not in_spans(k, spans) and body[:bar].strip() != "⊥":
+                report_result_type(body[bar + 1:], event_binder_type(body[:bar]),
+                                   report, path, text, k)
             out.append(native)
         i = close + 1
 

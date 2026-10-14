@@ -66,6 +66,28 @@ class EventTests(unittest.TestCase):
         _, items = migrate("Pr[= -1 | (pure (1 - 2) : ProbComp ℤ)]")
         self.assertEqual(items, [])
 
+    def test_untyped_predicate_rewrites_are_reported(self):
+        # The legacy predicate fixed the result type: `pure 2` drew from `Fin 2`, not `ℕ`.
+        for source in ("Pr[(· < (1 : Fin 2)) | (pure 2 : ProbComp _)]",
+                       "Pr[fun x => x < (1 : Fin 2) | pure 2]", "Pr[p | mx]"):
+            _, items = migrate(source)
+            self.assertEqual(len(items), 1)
+            self.assertIn("result-type check", items[0][2])
+        for source in ("Pr[fun (x : Fin 2) => x < 1 | (pure 2 : ProbComp _)]",
+                       "Pr[(· < 1) | (pure 2 : ProbComp (Fin 2))]", "Pr[⊥ | mx]"):
+            _, items = migrate(source)
+            self.assertEqual(items, [])
+
+    def test_separators_inside_literals_and_comments(self):
+        self.assertMigrates('Pr[fun x => x = "a|b" | mx]', 'Pr{let x ← mx}[x = "a|b"]')
+        self.assertMigrates("Pr[fun c => c = '|' | mc]", "Pr{let c ← mc}[c = '|']")
+        self.assertMigrates("Pr[fun c => c = ')' | mc]", "Pr{let c ← mc}[c = ')']")
+        self.assertMigrates("Pr[fun x => x = a /- | -/ | mx]",
+                            "Pr{let x ← mx}[x = a /- | -/]")
+        self.assertMigrates("Pr[fun x' => x' = 1 | mx]", "Pr{let x' ← mx}[x' = 1]")
+        self.assertEqual(codemod.split_top_level('a, "b,c", \',\', d', ","),
+                         ["a", ' "b,c"', " ','", " d"])
+
     def test_reading_scopes_and_answer_measures(self):
         self.assertMigrates(
             "open scoped OracleComp.Qualitative in\n"
