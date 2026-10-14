@@ -13,72 +13,20 @@ public import Mathlib.LinearAlgebra.Matrix.PosDef
 /-!
 # Linear maps between matrix algebras
 
-This file fixes the representation of finite-dimensional quantum systems and of the maps
-between them, and the conventions every other quantum file uses.
-
-A finite basis type `A` represents the Hilbert space `ℂ^A`, with operator algebra
-`M_A = Matrix A A ℂ`. A normalized quantum state is a density matrix: a positive semidefinite
-matrix `ρ` with `tr ρ = 1`. `Quantum.SubState` instead permits `tr ρ ≤ 1`, so its trace can
-also record the weight of a successful branch. Positive semidefinite means that `ρ` is
-Hermitian and `v†ρv ≥ 0` for every vector `v`.
-
-`Quantum.MatrixMap A B` is a complex-linear map `Φ : M_A → M_B`. Its raw linear-map API allows
-arbitrary basis types; the physical state and instrument APIs use finite bases.
-
-## Conventions
-
-* **Vectors are columns.** A matrix `K : Matrix B A ℂ` sends vectors on `A` to vectors on `B`:
-  the output index comes first. `Kᴴ` is the conjugate transpose, written `K†` in physics.
-* **Products.** The basis `A × R` represents `ℂ^A ⊗ ℂ^R`, in that order. Kronecker products
-  follow the same order: `(X ⊗ₖ Y) (a, r) (b, s) = X a b * Y r s`.
-* **Amplification.** `amplify Φ R` is `Φ ⊗ id_R`: the system is on the left, and the map acts
-  as the identity on the reference factor `R` on the right. It acts on the whole of `M_{A × R}`,
-  including on operators that are entangled across the two factors.
-* **Kraus maps.** `conj K` is `ρ ↦ K ρ K†`. Here "conj" means conjugation by a matrix, not
-  entrywise complex conjugation. Applying `K` and then `L` gives `conj (L * K)`.
-
-## Physical maps
-
-A positive map preserves positive semidefinite matrices. To act on one part of an entangled
-system, it must remain positive when extended by the identity on a reference system.
-For example, transposition is positive on a qubit, but `transpose ⊗ id` sends the normalized
-Bell density matrix `ρ = |ψ⟩⟨ψ|`, where `|ψ⟩ = (|00⟩ + |11⟩) / √2`, to a matrix with
-negative eigenvalue `-1/2`. An eigenvector is `|01⟩ - |10⟩`.
-A map is *completely positive* (`IsCP`) when `Φ ⊗ id_R` is positive for every finite `R`.
-
-Physical maps are completely positive. A completely positive map that is also trace
-nonincreasing (`IsTNI`) is a *quantum operation*: it may fail, and the trace it loses is the
-probability of failure. A completely positive trace-preserving (`IsTP`) map is a *quantum
-channel*. `IsTNI` alone is not a physicality condition: the map `-id` satisfies it.
+A finite-dimensional quantum system is presented by a basis type `A`, and its operators are the
+complex matrices `Matrix A A ℂ`. `Quantum.MatrixMap A B` is the type of linear maps from the
+operators on `A` to the operators on `B`.
 
 ## Main definitions
 
-* `Quantum.MatrixMap.amplify Φ R`: the map `Φ ⊗ id_R`, applied blockwise.
-* `Quantum.MatrixMap.IsCP`: complete positivity, as positivity of every amplification by
-  `Fin k`. `Quantum.MatrixMap.IsCP.amplify_posSemidef` extends it to every finite reference.
+* `Quantum.MatrixMap.amplify Φ R`: the blockwise application `Φ ⊗ id_R` on a system extended by
+  an ancilla with basis `R`.
+* `Quantum.MatrixMap.IsCP`: complete positivity, as positivity of every finite amplification.
 * `Quantum.MatrixMap.IsTP`, `Quantum.MatrixMap.IsTNI`: trace preservation, and trace
   nonincrease on positive semidefinite inputs.
-* `Quantum.MatrixMap.conj K`: the Kraus map `ρ ↦ K ρ K†`.
-* `Quantum.MatrixMap.traceRight A R`: the partial trace over the right factor of `A × R`.
+* `Quantum.MatrixMap.conj K`: the Kraus map `ρ ↦ K * ρ * Kᴴ`.
 
 Positivity is Mathlib's `Matrix.PosSemidef`, read with the `ComplexOrder` partial order on `ℂ`.
-Branch families for classical outcomes are developed in `VCVio.Quantum.MatrixMap.Family`.
-
-## References
-
-* J. Watrous, *The Theory of Quantum Information*, Cambridge University Press, 2018.
-  PDF page numbers below are 1-based. Complete positivity and trace preservation:
-  equations (1.124)–(1.125), printed p. 23,
-  [Chapter 1 PDF p. 23](https://cs.uwaterloo.ca/~watrous/TQI/TQI.1.pdf#page=23).
-  Density operators as states: Definition 2.5, printed p. 62,
-  [full PDF p. 70](https://cs.uwaterloo.ca/~watrous/TQI/TQI.pdf#page=70).
-  Partial trace: equations (2.30)–(2.34), printed p. 68,
-  [full PDF p. 76](https://cs.uwaterloo.ca/~watrous/TQI/TQI.pdf#page=76).
-  Channels: Definition 2.13, printed p. 73,
-  [full PDF p. 81](https://cs.uwaterloo.ca/~watrous/TQI/TQI.pdf#page=81).
-  The CP–Kraus correspondence: Theorem 2.22, printed p. 82,
-  [full PDF p. 90](https://cs.uwaterloo.ca/~watrous/TQI/TQI.pdf#page=90).
-  This file proves the direction from Kraus form to complete positivity.
 -/
 
 public section
@@ -182,13 +130,84 @@ theorem amplify_amplify_apply (Φ : MatrixMap A B) (ρ : Matrix ((A × R) × S) 
         (Equiv.prodAssoc B R S) :=
   rfl
 
+/-! ## Amplification on the left -/
+
+/-- The amplification `id_A ⊗ V` of a matrix map `V` on the right factor of `A × R`: the block of
+the output at indices `(a, a')` of `A` is `V` applied to the block of the input at `(a, a')`. -/
+@[expose]
+def amplifyLeft (V : MatrixMap R S) (A : Type*) : MatrixMap (A × R) (A × S) where
+  toFun ρ := Matrix.of fun x y ↦ V (ρ.submatrix (x.1, ·) (y.1, ·)) x.2 y.2
+  map_add' ρ σ := by
+    ext x y
+    simp [Matrix.submatrix_add]
+  map_smul' c ρ := by
+    ext x y
+    simp [Matrix.submatrix_smul]
+
+/-- The entry of a left amplification at `(x, y)` is the entry at `(x.2, y.2)` of the map
+applied to the block of the input at `(x.1, y.1)`. -/
+@[simp]
+theorem amplifyLeft_apply (V : MatrixMap R S) (ρ : Matrix (A × R) (A × R) ℂ) (x y : A × S) :
+    V.amplifyLeft A ρ x y = V (ρ.submatrix (x.1, ·) (y.1, ·)) x.2 y.2 :=
+  rfl
+
+/-- The block of a left amplification at `(a, a')` is the map applied to the block of the input
+at `(a, a')`. -/
+theorem amplifyLeft_apply_submatrix (V : MatrixMap R S) (ρ : Matrix (A × R) (A × R) ℂ)
+    (a a' : A) : (V.amplifyLeft A ρ).submatrix (a, ·) (a', ·) = V (ρ.submatrix (a, ·) (a', ·)) :=
+  rfl
+
+/-- Amplifying the identity map on the left gives the identity map. -/
+@[simp]
+theorem amplifyLeft_id : amplifyLeft (LinearMap.id : MatrixMap R R) A = LinearMap.id :=
+  rfl
+
+/-- Left amplification commutes with composition. -/
+theorem amplifyLeft_comp (W : MatrixMap S C) (V : MatrixMap R S) :
+    amplifyLeft (W ∘ₗ V) A = W.amplifyLeft A ∘ₗ V.amplifyLeft A :=
+  rfl
+
+/-- A matrix map on a finite system is determined by its values on the matrix units:
+`Φ ρ = ∑ a a', ρ a a' • Φ (single a a' 1)`. -/
+theorem apply_eq_sum_single [Fintype A] [DecidableEq A] (Φ : MatrixMap A B)
+    (ρ : Matrix A A ℂ) : Φ ρ = ∑ a, ∑ a', ρ a a' • Φ (Matrix.single a a' 1) := by
+  conv_lhs => rw [Matrix.matrix_eq_sum_single ρ]
+  simp only [map_sum]
+  refine Finset.sum_congr rfl fun a _ ↦ Finset.sum_congr rfl fun a' _ ↦ ?_
+  rw [← map_smul, Matrix.smul_single, smul_eq_mul, mul_one]
+
+/-- Maps on different tensor factors commute: `(Φ ⊗ id) ∘ (id ⊗ V) = (id ⊗ V) ∘ (Φ ⊗ id)`. -/
+theorem amplify_comp_amplifyLeft [Finite A] (Φ : MatrixMap A B) (V : MatrixMap R S) :
+    Φ.amplify S ∘ₗ V.amplifyLeft A = V.amplifyLeft B ∘ₗ Φ.amplify R := by
+  classical
+  have := Fintype.ofFinite A
+  refine LinearMap.ext fun ρ ↦ ?_
+  ext ⟨b, s⟩ ⟨b', s'⟩
+  have hN : (Φ.amplify R ρ).submatrix (b, ·) (b', ·) =
+      ∑ a, ∑ a', Φ (Matrix.single a a' 1) b b' • ρ.submatrix (a, ·) (a', ·) := by
+    ext r r'
+    simp only [Matrix.submatrix_apply, amplify_apply]
+    rw [apply_eq_sum_single Φ]
+    simp [Matrix.sum_apply, mul_comm]
+  simp only [LinearMap.comp_apply, amplify_apply, amplifyLeft_apply]
+  rw [hN, apply_eq_sum_single Φ]
+  simp [Matrix.sum_apply, map_sum, map_smul, mul_comm]
+
+/-- A left amplification acts on a product operator through its right factor:
+`(id ⊗ V) (ρ ⊗ σ) = ρ ⊗ V σ`. -/
+theorem amplifyLeft_kronecker (V : MatrixMap R S) (ρ : Matrix A A ℂ) (σ : Matrix R R ℂ) :
+    V.amplifyLeft A (ρ ⊗ₖ σ) = ρ ⊗ₖ V σ := by
+  ext ⟨a, s⟩ ⟨a', s'⟩
+  have h : (ρ ⊗ₖ σ).submatrix (a, ·) (a', ·) = ρ a a' • σ := by
+    ext r r'
+    simp
+  rw [amplifyLeft_apply, h, map_smul]
+  simp
+
 /-! ## Partial trace -/
 
-/-- The partial trace over the right factor of `A × R`, which discards the system `R`:
-`(traceRight A R ρ) a a' = ∑ r, ρ (a, r) (a', r)`. Nothing is divided by the size of `R`, and
-`traceRight A R (X ⊗ₖ Y) = tr Y • X` (`traceRight_kronecker`). This is the partial trace of
-Watrous, equations (2.30)–(2.34), printed p. 68, full PDF p. 76 (see the module references),
-for two factors. -/
+/-- The partial trace over the right factor of `A × R`: the entry at `(a, a')` sums the diagonal
+of the block at `(a, a')`. -/
 @[expose]
 def traceRight (A R : Type*) [Fintype R] : MatrixMap (A × R) A where
   toFun ρ := Matrix.of fun a a' ↦ ∑ r, ρ (a, r) (a', r)
@@ -244,13 +263,12 @@ end traceRight
 
 /-! ## Complete positivity -/
 
-/-- Complete positivity: for every `k : ℕ` and every positive semidefinite `ρ` on `A × Fin k`,
-the matrix `(Φ ⊗ id_{Fin k}) ρ` is positive semidefinite. The reference `Fin k` is the right
-factor, and `ρ` may be entangled across the two factors.
+/-- A matrix map is completely positive when each of its amplifications by a finite ancilla
+`Fin k` sends positive semidefinite matrices to positive semidefinite matrices.
 
-Quantifying over `Fin k` loses no finite reference system: `IsCP.amplify_posSemidef` gives the
-same conclusion for every finite basis type. Taking `k = 1` shows that `Φ` is positive.
-See Watrous, equation (1.124), printed p. 23, Chapter 1 PDF p. 23 (see the module references). -/
+Positivity of every finite amplification is also the shape of complete positivity in Physlib's
+`QuantumInfo` development, which keeps a comparison with it direct; no such comparison is
+formalized here. -/
 @[expose]
 def IsCP (Φ : MatrixMap A B) : Prop :=
   ∀ (k : ℕ) (ρ : Matrix (A × Fin k) (A × Fin k) ℂ),
@@ -304,10 +322,7 @@ end IsCP
 
 /-! ## Kraus maps -/
 
-/-- The Kraus map `ρ ↦ K ρ K†` of `K : Matrix B A ℂ`, which takes operators on `A` to operators
-on `B`. It is completely positive (`isCP_conj`). It is trace nonincreasing when `K† K ≤ 1`
-(`isTNI_conj`) and trace preserving when `K† K = 1` (`isTP_conj`). Here "conj" means
-conjugation by `K`, not entrywise complex conjugation. -/
+/-- The Kraus map `ρ ↦ K * ρ * Kᴴ` of a rectangular matrix `K`. -/
 @[expose]
 def conj [Fintype A] (K : Matrix B A ℂ) : MatrixMap A B where
   toFun ρ := K * ρ * Kᴴ
@@ -374,19 +389,12 @@ section Trace
 
 variable [Fintype A] [Fintype B] [Fintype C]
 
-/-- Trace preservation: `tr (Φ X) = tr X` for every matrix `X`, not only for states. Together
-with complete positivity this makes `Φ` a quantum channel (Watrous, equation (1.125), printed
-p. 23, Chapter 1 PDF p. 23; Definition 2.13, printed p. 73, full PDF p. 81; see the module
-references). -/
+/-- A matrix map is trace preserving. -/
 @[expose]
 def IsTP (Φ : MatrixMap A B) : Prop :=
   ∀ ρ : Matrix A A ℂ, (Φ ρ).trace = ρ.trace
 
-/-- Trace nonincrease: `Re (tr (Φ ρ)) ≤ Re (tr ρ)` for every positive semidefinite `ρ`.
-
-For a completely positive map both traces are real and nonnegative, and this is the condition
-that makes `Φ` a quantum operation: the trace it loses is the probability that it fails. On its
-own the predicate says nothing about positivity; `-id` satisfies it. -/
+/-- A matrix map is trace nonincreasing on positive semidefinite inputs. -/
 @[expose]
 def IsTNI (Φ : MatrixMap A B) : Prop :=
   ∀ ρ : Matrix A A ℂ, ρ.PosSemidef → (Φ ρ).trace.re ≤ ρ.trace.re
@@ -478,6 +486,16 @@ theorem isTNI_conj [DecidableEq A] {K : Matrix B A ℂ} (h : (1 - Kᴴ * K).PosS
   rw [Matrix.sub_mul, Matrix.one_mul, Matrix.trace_sub, Complex.sub_re] at this
   rw [trace_conj_apply]
   exact sub_nonneg.mp this
+
+omit [Fintype A] in
+/-- Tracing out the right factor discards a trace-preserving map acting on it. -/
+theorem traceRight_comp_amplifyLeft [Fintype R] [Fintype S] {V : MatrixMap R S} (hV : V.IsTP) :
+    traceRight A S ∘ₗ V.amplifyLeft A = traceRight A R := by
+  refine LinearMap.ext fun ρ ↦ ?_
+  ext a a'
+  have h := hV (ρ.submatrix (a, ·) (a', ·))
+  simp only [Matrix.trace, Matrix.diag_apply, Matrix.submatrix_apply] at h
+  simpa [LinearMap.comp_apply] using h
 
 end Trace
 
