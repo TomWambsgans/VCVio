@@ -31,6 +31,15 @@ composite are the content of `Quantum.SubInstrument.bind`.
 * `Quantum.SubInstrument.frame`: the action on a system extended by an untouched ancilla.
 * `Quantum.SubInstrument M M`: subinstruments from a register `M` to itself form a lawful monad,
   the semantic domain of quantum programs on that register.
+
+## Outcome-dependent output systems
+
+Here every branch has the same output system `B`. `Quantum.DSubInstrument A ι B`, in
+`VCVio.Quantum.DSubInstrument`, lets the output system `B i` depend on the outcome `i`, with trace
+nonincrease stated through the trace functional `ρ ↦ ∑ i, trace (branch i ρ)`. Subinstruments are
+exactly its constant-codomain case: `Quantum.SubInstrument.equivD` is an equivalence
+`SubInstrument A B α ≃ DSubInstrument A α (fun _ ↦ B)` that commutes with `pure`, `bind`, `map`,
+`fail` and `frame`.
 -/
 
 public section
