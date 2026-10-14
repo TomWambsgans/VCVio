@@ -410,6 +410,7 @@ public import VCVio.Quantum.Oracle.Classical
 public import VCVio.Quantum.Oracle.Comb
 public import VCVio.Quantum.Oracle.Compressed.Action
 public import VCVio.Quantum.Oracle.Compressed.Basic
+public import VCVio.Quantum.Oracle.Compressed.CommutatorBound
 public import VCVio.Quantum.Oracle.Compressed.Equivalence
 public import VCVio.Quantum.Oracle.Compressed.Instability
 public import VCVio.Quantum.Oracle.Compressed.Measurement

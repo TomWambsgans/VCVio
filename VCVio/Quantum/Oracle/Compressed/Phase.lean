@@ -456,6 +456,14 @@ theorem phaseSizeProjector_eq_one_kronecker (t : ℕ) :
   simp only [phaseSizeProjector, diagonal_apply, kroneckerMap_apply, one_apply, Prod.mk.injEq]
   split_ifs <;> simp_all
 
+/-- The entries of the truncated phase oracle: the entries of the phase oracle, kept when both
+databases have at most `t` nonempty cells. -/
+theorem truncatedPhaseOracle_apply (t : ℕ) (m' m : (X × AddChar Y ℂ) × Database X Y) :
+    truncatedPhaseOracle X Y t m' m =
+      (if m'.2.size ≤ t then 1 else 0) * phaseOracle X Y m' m *
+        (if m.2.size ≤ t then 1 else 0) := by
+  simp only [truncatedPhaseOracle, phaseSizeProjector, mul_diagonal, diagonal_mul]
+
 /-- **Equation (4) of ePrint 2025/2166.** The truncated phase oracle is the truncated standard
 oracle conjugated by the Fourier transform of the response register: `O_ph^(t) = H O^(t) H†`. -/
 theorem truncatedPhaseOracle_eq (t : ℕ) :
