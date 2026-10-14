@@ -394,6 +394,7 @@ public import VCVio.ProgramLogic.Unary.WriterTBridge
 public import VCVio.Quantum.Comp.Basic
 public import VCVio.Quantum.Comp.QueryBound
 public import VCVio.Quantum.Comp.Runtime
+public import VCVio.Quantum.Comp.Simulation
 public import VCVio.Quantum.MatrixMap
 public import VCVio.Quantum.Observe
 public import VCVio.Quantum.Oracle.Adversary
