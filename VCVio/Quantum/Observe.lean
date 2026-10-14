@@ -6,6 +6,7 @@ Authors: Quang Dao
 
 module
 public import VCVio.EvalDist.Defs.Semantics.Core
+public import VCVio.Quantum.DSubInstrument
 public import VCVio.Quantum.SubInstrument
 
 /-!
@@ -24,6 +25,13 @@ the post-branch substates of its first part, with no renormalization.
 `Quantum.SubInstrument.semanticsVia` packages the outcome measure from a fixed initial substate
 as a bundled `SemanticsVia` on the monad `SubInstrument M M`. Observation fixes the initial state
 and discards the final one, so it is not a monad morphism.
+
+Dependent subinstruments are observed in the same way. `Quantum.DSubInstrument.post` is the
+family of post-branch substates, one on the system `B i` for each outcome `i`, and
+`Quantum.DSubInstrument.outcomeMeasure` has the chain rule
+`Quantum.DSubInstrument.outcomeMeasure_bind`. Under the constant-codomain equivalence both agree
+with the versions for subinstruments (`Quantum.SubInstrument.post_toD`,
+`Quantum.SubInstrument.outcomeMeasure_toD`).
 -/
 
 public section
@@ -185,6 +193,184 @@ theorem outcomeMeasure_bind [MeasurableSpace β] (p : SubInstrument A B α)
   simp only [LinearMap.comp_apply, matrix_post]
   rw [ENNReal.ofReal_sum_of_nonneg fun a _ ↦
     (k a).trace_re_branch_apply_nonneg b (p.posSemidef_branch_apply a ρ.posSemidef)]
+
+end SubInstrument
+
+/-! ## Dependent subinstruments -/
+
+namespace DSubInstrument
+
+variable {A : Type*} [Fintype A] {ι κ : Type*} {B : ι → Type*} [∀ i, Fintype (B i)]
+  {C : κ → Type*} [∀ c, Fintype (C c)]
+
+/-! ### Post-branch substates -/
+
+/-- The substate left after the dependent subinstrument reports outcome `i` on `ρ`: the
+unnormalized state `p.branch i ρ` of the system `B i`, whose trace is the weight of that
+outcome. -/
+@[expose]
+def post (p : DSubInstrument A ι B) (ρ : SubState A) (i : ι) : SubState (B i) where
+  matrix := p.branch i ρ.matrix
+  posSemidef := p.posSemidef_branch_apply i ρ.posSemidef
+  trace_re_le_one := (p.trace_re_branch_apply_le i ρ.posSemidef).trans ρ.trace_re_le_one
+
+/-- The matrix of the post-branch substate at `i` is the branch at `i` applied to the input. -/
+@[simp]
+theorem matrix_post (p : DSubInstrument A ι B) (ρ : SubState A) (i : ι) :
+    (p.post ρ i).matrix = p.branch i ρ.matrix :=
+  rfl
+
+/-- After `ret B i` reports `i`, the substate is unchanged. -/
+@[simp]
+theorem post_ret_self (i : ι) (ρ : SubState (B i)) : (ret B i).post ρ i = ρ :=
+  SubState.ext <| by simp
+
+/-! ### Outcome measures -/
+
+open Classical in
+/-- The measure of classical outcomes of a dependent subinstrument run on the substate `ρ`:
+outcome `i` has weight the trace of `p.branch i ρ`. Its total mass is the trace functional of
+the branches at `ρ`, and missing mass is failure. -/
+@[expose]
+noncomputable def outcomeMeasure [MeasurableSpace ι] (p : DSubInstrument A ι B)
+    (ρ : SubState A) : Measure ι :=
+  ∑ i ∈ p.branch.support, ENNReal.ofReal (p.branch i ρ.matrix).trace.re • Measure.dirac i
+
+section outcomeMeasure
+
+variable [MeasurableSpace ι]
+
+/-- The outcome measure as a sum of weighted point masses over any finite set of outcomes
+outside which the branches vanish. -/
+theorem outcomeMeasure_eq_sum_of_forall_notMem (p : DSubInstrument A ι B) (ρ : SubState A)
+    {s : Finset ι} (hs : ∀ i ∉ s, p.branch i = 0) :
+    p.outcomeMeasure ρ =
+      ∑ i ∈ s, ENNReal.ofReal (p.branch i ρ.matrix).trace.re • Measure.dirac i := by
+  classical
+  rw [outcomeMeasure]
+  refine Finset.sum_subset (fun i hi ↦ Classical.byContradiction fun h ↦
+    DFinsupp.mem_support_iff.mp hi (hs i h)) fun i _ hi ↦ ?_
+  rw [DFinsupp.notMem_support_iff.mp hi]
+  simp
+
+/-- The outcome measure as a sum of weighted point masses over the support of the branch
+family. -/
+theorem outcomeMeasure_eq_sum [DecidableEq ι] [∀ i (x : MatrixMap A (B i)), Decidable (x ≠ 0)]
+    (p : DSubInstrument A ι B) (ρ : SubState A) :
+    p.outcomeMeasure ρ =
+      ∑ i ∈ p.branch.support, ENNReal.ofReal (p.branch i ρ.matrix).trace.re • Measure.dirac i :=
+  p.outcomeMeasure_eq_sum_of_forall_notMem ρ fun _ ↦ DFinsupp.notMem_support_iff.mp
+
+/-- The outcome measure as a sum of weighted point masses over a finite type of outcomes. -/
+theorem outcomeMeasure_eq_sum_univ [Fintype ι] (p : DSubInstrument A ι B) (ρ : SubState A) :
+    p.outcomeMeasure ρ =
+      ∑ i, ENNReal.ofReal (p.branch i ρ.matrix).trace.re • Measure.dirac i :=
+  p.outcomeMeasure_eq_sum_of_forall_notMem ρ fun i hi ↦ absurd (Finset.mem_univ i) hi
+
+/-- The total mass of the outcome measure is the trace functional of the branches at the
+substate. -/
+theorem outcomeMeasure_apply_univ (p : DSubInstrument A ι B) (ρ : SubState A) :
+    p.outcomeMeasure ρ Set.univ =
+      ENNReal.ofReal (MatrixMap.familyTrace p.branch ρ.matrix).re := by
+  classical
+  rw [outcomeMeasure_eq_sum, Measure.coe_finsetSum, Finset.sum_apply,
+    MatrixMap.familyTrace_apply, Complex.re_sum,
+    ENNReal.ofReal_sum_of_nonneg fun i _ ↦ p.trace_re_branch_apply_nonneg i ρ.posSemidef]
+  simp
+
+/-- The outcome measure has total mass at most one. -/
+theorem outcomeMeasure_apply_univ_le_one (p : DSubInstrument A ι B) (ρ : SubState A) :
+    p.outcomeMeasure ρ Set.univ ≤ 1 := by
+  rw [outcomeMeasure_apply_univ]
+  exact ENNReal.ofReal_le_one.mpr ((p.trace_le _ ρ.posSemidef).trans ρ.trace_re_le_one)
+
+/-- Outcome measures of dependent subinstruments are subprobability measures. -/
+instance outcomeMeasure.instIsSubprobabilityMeasure (p : DSubInstrument A ι B)
+    (ρ : SubState A) : IsSubprobabilityMeasure (p.outcomeMeasure ρ) :=
+  ⟨p.outcomeMeasure_apply_univ_le_one ρ⟩
+
+/-- A lossless dependent subinstrument preserves total mass: its outcome measure has the trace
+of the input substate as total mass. -/
+theorem Lossless.outcomeMeasure_apply_univ {p : DSubInstrument A ι B} (hp : p.Lossless)
+    (ρ : SubState A) : p.outcomeMeasure ρ Set.univ = ENNReal.ofReal ρ.matrix.trace.re := by
+  rw [DSubInstrument.outcomeMeasure_apply_univ, hp ρ.matrix]
+
+/-- The weight of a single outcome is the trace of its post-branch substate. -/
+theorem outcomeMeasure_apply_singleton [MeasurableSingletonClass ι] (p : DSubInstrument A ι B)
+    (ρ : SubState A) (i : ι) :
+    p.outcomeMeasure ρ {i} = ENNReal.ofReal (p.branch i ρ.matrix).trace.re := by
+  classical
+  rw [outcomeMeasure_eq_sum, Measure.coe_finsetSum, Finset.sum_apply]
+  simp only [Measure.smul_apply, Measure.dirac_apply' _ (measurableSet_singleton i),
+    smul_eq_mul, Set.indicator_apply, Set.mem_singleton_iff, Pi.one_apply, mul_ite, mul_one,
+    mul_zero, Finset.sum_ite_eq', DFinsupp.mem_support_iff]
+  split_ifs with h
+  · rfl
+  · simp [not_not.mp h]
+
+/-- The outcome measure of `ret B i` is the point mass at `i` weighted by the trace of the
+substate. -/
+@[simp]
+theorem outcomeMeasure_ret (i : ι) (ρ : SubState (B i)) :
+    (ret B i).outcomeMeasure ρ = ENNReal.ofReal ρ.matrix.trace.re • Measure.dirac i := by
+  rw [outcomeMeasure_eq_sum_of_forall_notMem _ ρ (s := {i})
+      fun j hj ↦ branch_ret_of_ne B (Finset.notMem_singleton.mp hj),
+    Finset.sum_singleton, branch_ret_self, LinearMap.id_apply]
+
+/-- The outcome measure of the failing dependent subinstrument is zero. -/
+@[simp]
+theorem outcomeMeasure_fail (ρ : SubState A) :
+    (DSubInstrument.fail : DSubInstrument A ι B).outcomeMeasure ρ = 0 := by
+  rw [outcomeMeasure_eq_sum_of_forall_notMem _ ρ (s := ∅) fun _ _ ↦ rfl, Finset.sum_empty]
+
+end outcomeMeasure
+
+/-- Chain rule: the outcome measure of a composite sums, over the outcomes of the first
+dependent subinstrument, the outcome measure of the continuation on the post-branch
+substate. -/
+theorem outcomeMeasure_bind [MeasurableSpace κ] [DecidableEq ι]
+    [∀ i (x : MatrixMap A (B i)), Decidable (x ≠ 0)] (p : DSubInstrument A ι B)
+    (k : (i : ι) → DSubInstrument (B i) κ C) (ρ : SubState A) :
+    (p.bind k).outcomeMeasure ρ =
+      ∑ i ∈ p.branch.support, (k i).outcomeMeasure (p.post ρ i) := by
+  classical
+  have hp : ∀ i ∉ p.branch.support, p.branch i = 0 := fun _ ↦ DFinsupp.notMem_support_iff.mp
+  have hT : ∀ i ∈ p.branch.support, ∀ c ∉ p.branch.support.biUnion fun i ↦ (k i).branch.support,
+      (k i).branch c = 0 := fun i hi c hc ↦
+    DFinsupp.notMem_support_iff.mp fun h ↦ hc (Finset.mem_biUnion.mpr ⟨i, hi, h⟩)
+  have h₁ := (p.bind k).outcomeMeasure_eq_sum_of_forall_notMem ρ fun c hc ↦
+    MatrixMap.familyBind_apply_eq_zero p.branch (fun i ↦ (k i).branch) hp fun i hi ↦ hT i hi c hc
+  have h₂ : ∀ i ∈ p.branch.support, (k i).outcomeMeasure (p.post ρ i) = _ := fun i hi ↦
+    (k i).outcomeMeasure_eq_sum_of_forall_notMem (p.post ρ i) (hT i hi)
+  rw [h₁, Finset.sum_congr rfl h₂, Finset.sum_comm]
+  refine Finset.sum_congr rfl fun c _ ↦ ?_
+  rw [← Finset.sum_smul, branch_bind_apply_of_forall_notMem p k hp, LinearMap.sum_apply,
+    Matrix.trace_sum, Complex.re_sum]
+  simp only [LinearMap.comp_apply, matrix_post]
+  rw [ENNReal.ofReal_sum_of_nonneg fun i _ ↦
+    (k i).trace_re_branch_apply_nonneg c (p.posSemidef_branch_apply i ρ.posSemidef)]
+
+end DSubInstrument
+
+/-! ### The constant-codomain case -/
+
+namespace SubInstrument
+
+variable {A B : Type*} [Fintype A] [Fintype B] {α : Type*}
+
+/-- Post-branch substates agree under the constant-codomain equivalence. -/
+@[simp]
+theorem post_toD (p : SubInstrument A B α) (ρ : SubState A) (a : α) :
+    (toD p).post ρ a = p.post ρ a :=
+  rfl
+
+/-- Outcome measures agree under the constant-codomain equivalence. -/
+@[simp]
+theorem outcomeMeasure_toD [MeasurableSpace α] (p : SubInstrument A B α) (ρ : SubState A) :
+    (toD p).outcomeMeasure ρ = p.outcomeMeasure ρ := by
+  rw [DSubInstrument.outcomeMeasure_eq_sum_of_forall_notMem _ ρ (s := p.branch.support)
+    fun a ha ↦ (Finsupp.notMem_support_iff.mp ha : p.branch a = 0), outcomeMeasure_eq_sum]
+  rfl
 
 end SubInstrument
 
