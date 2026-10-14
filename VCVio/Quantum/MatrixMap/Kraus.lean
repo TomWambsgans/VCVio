@@ -32,7 +32,6 @@ of `Y`. A positive semidefinite matrix has such a factorization with `ι = B × 
   map, indexed by `B × A`.
 * `Quantum.MatrixMap.stinespring K`: the Kraus operators `K i` stacked into one operator from `A`
   to `B × ι`.
-* `Quantum.MatrixMap.traceRight`: the partial trace over the right factor of `B × ι`.
 
 ## Main results
 
@@ -60,7 +59,8 @@ many outcomes, each member still has Kraus operators
 (`Quantum.MatrixMap.IsCPTNIFamily.exists_kraus`). A joint Stinespring operator for the whole
 family is not built here. It would map into the infinite-dimensional space
 `ℓ²(outcomes) ⊗ B ⊗ (B × A)`: it needs the convergence of `∑ i, ∑ k, (K i k)ᴴ * K i k` over the
-countable support of the family, and an isometry into a Hilbert space rather than a matrix.
+countable support of the family, and a contraction into a Hilbert space rather than a matrix,
+which is an isometry when the family is lossless.
 
 ## References
 
@@ -391,33 +391,6 @@ theorem IsCP.exists_kraus_of_isTP [Fintype A] [Fintype B] [DecidableEq A] {Φ : 
 
 section Stinespring
 
-/-- The partial trace over the right factor of `B × ι`: the entry at `(b, b')` is
-`∑ i, M (b, i) (b', i)`. -/
-@[expose]
-def traceRight [Fintype ι] : MatrixMap (B × ι) B where
-  toFun M := Matrix.of fun b b' ↦ ∑ i, M (b, i) (b', i)
-  map_add' M N := by
-    ext b b'
-    simp [Finset.sum_add_distrib]
-  map_smul' c M := by
-    ext b b'
-    simp [Finset.mul_sum]
-
-/-- The entry of the partial trace at `(b, b')` is `∑ i, M (b, i) (b', i)`. -/
-@[simp]
-theorem traceRight_apply [Fintype ι] (M : Matrix (B × ι) (B × ι) ℂ) (b b' : B) :
-    traceRight M b b' = ∑ i, M (b, i) (b', i) :=
-  rfl
-
-/-- The partial trace preserves the trace. -/
-theorem trace_traceRight [Fintype B] [Fintype ι] (M : Matrix (B × ι) (B × ι) ℂ) :
-    (traceRight M).trace = M.trace := by
-  simp [Matrix.trace, Fintype.sum_prod_type]
-
-/-- The partial trace is trace preserving. -/
-theorem isTP_traceRight [Fintype B] [Fintype ι] : (traceRight : MatrixMap (B × ι) B).IsTP :=
-  trace_traceRight
-
 /-- The Stinespring operator of a family of Kraus operators: the operators `K i` stacked into one
 operator from `A` to `B × ι`, with entry `K i b a` at `((b, i), a)`. -/
 @[expose]
@@ -440,14 +413,14 @@ theorem conjTranspose_stinespring_mul_stinespring [Fintype B] [Fintype ι]
 
 /-- A sum of Kraus maps is the partial trace of conjugation by the Stinespring operator. -/
 theorem sum_conj_apply_eq_traceRight [Fintype A] [Fintype ι] (K : ι → Matrix B A ℂ)
-    (ρ : Matrix A A ℂ) : (∑ i, conj (K i)) ρ = traceRight (conj (stinespring K) ρ) := by
+    (ρ : Matrix A A ℂ) : (∑ i, conj (K i)) ρ = traceRight B ι (conj (stinespring K) ρ) := by
   ext b b'
   simp [LinearMap.sum_apply, Matrix.sum_apply, Matrix.mul_apply]
 
 /-- **Stinespring form** of a sum of Kraus maps: conjugation by the Stinespring operator, followed
 by the partial trace over the Kraus index. -/
 theorem sum_conj_eq_traceRight_comp_conj [Fintype A] [Fintype ι] (K : ι → Matrix B A ℂ) :
-    ∑ i, conj (K i) = traceRight ∘ₗ conj (stinespring K) :=
+    ∑ i, conj (K i) = traceRight B ι ∘ₗ conj (stinespring K) :=
   LinearMap.ext (sum_conj_apply_eq_traceRight K)
 
 variable [Fintype A] [Fintype B] [Fintype ι]
@@ -470,7 +443,8 @@ end Stinespring
 contraction `S` into `B × (B × A)`, followed by the partial trace over `B × A`. -/
 theorem IsCP.exists_stinespring_of_isTNI [Fintype A] [Fintype B] [DecidableEq A]
     {Φ : MatrixMap A B} (hΦ : Φ.IsCP) (htni : Φ.IsTNI) :
-    ∃ S : Matrix (B × (B × A)) A ℂ, Φ = traceRight ∘ₗ conj S ∧ (1 - Sᴴ * S).PosSemidef := by
+    ∃ S : Matrix (B × (B × A)) A ℂ,
+      Φ = traceRight B (B × A) ∘ₗ conj S ∧ (1 - Sᴴ * S).PosSemidef := by
   obtain ⟨K, rfl⟩ := hΦ.exists_kraus
   exact ⟨stinespring K, sum_conj_eq_traceRight_comp_conj K,
     isTNI_sum_conj_iff_stinespring.mp htni⟩
@@ -479,7 +453,7 @@ theorem IsCP.exists_stinespring_of_isTNI [Fintype A] [Fintype B] [DecidableEq A]
 isometry `S` into `B × (B × A)`, followed by the partial trace over `B × A`. -/
 theorem IsCP.exists_stinespring_of_isTP [Fintype A] [Fintype B] [DecidableEq A]
     {Φ : MatrixMap A B} (hΦ : Φ.IsCP) (htp : Φ.IsTP) :
-    ∃ S : Matrix (B × (B × A)) A ℂ, Φ = traceRight ∘ₗ conj S ∧ Sᴴ * S = 1 := by
+    ∃ S : Matrix (B × (B × A)) A ℂ, Φ = traceRight B (B × A) ∘ₗ conj S ∧ Sᴴ * S = 1 := by
   obtain ⟨K, rfl⟩ := hΦ.exists_kraus
   exact ⟨stinespring K, sum_conj_eq_traceRight_comp_conj K,
     isTP_sum_conj_iff_stinespring.mp htp⟩
