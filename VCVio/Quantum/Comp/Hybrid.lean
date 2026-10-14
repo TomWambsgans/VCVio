@@ -262,7 +262,6 @@ end MatrixMap
 namespace SubInstrument
 
 /-- A relabelling gate preserves the trace. -/
-@[simp]
 theorem trace_relabel_branch_apply {A B : Type*} [Fintype A] [Fintype B] [DecidableEq A]
     [DecidableEq B] (e : A ≃ B) (u : Unit) (ρ : Matrix A A ℂ) :
     ((relabel e).branch u ρ).trace = ρ.trace := by
