@@ -20,6 +20,8 @@ in that basis.
   `ρ ↦ K * ρ * Kᴴ` of an isometry `K`.
 * `Quantum.basisMatrix f`: the matrix sending the basis vector `|a⟩` to `|f a⟩`.
 * `Quantum.SubState.basis a`: the basis state `|a⟩⟨a|`.
+* `Quantum.SubState.prod ρ σ` and `Quantum.SubState.traceRight ρ`: the product of substates of
+  two registers, and the reduced substate of the left register of a joint substate.
 * `Quantum.SubInstrument.relabel e`: the gate of a bijection `e` between bases, which moves a
   register to another basis without changing its state.
 * `Quantum.SubInstrument.classical f g`: measure the register in the computational basis; on
@@ -33,7 +35,7 @@ lemmas `Quantum.SubInstrument.branch_bind_unit`, `Quantum.SubInstrument.post_bin
 public section
 
 open MeasureTheory Matrix
-open scoped ComplexOrder
+open scoped ComplexOrder Kronecker
 
 namespace Quantum
 
@@ -248,6 +250,69 @@ theorem conj_basisMatrix_equiv_single [DecidableEq B] (e : A ≃ B) (a : A) :
   simp [Matrix.single_apply, Equiv.eq_symm_apply]
 
 end basis
+
+/-! ## Product and reduced substates -/
+
+section prod
+
+variable [Fintype A] [Fintype B]
+
+/-- The product `ρ ⊗ σ` of substates of two registers, a substate of the joint register. -/
+@[expose]
+def SubState.prod (ρ : SubState A) (σ : SubState B) : SubState (A × B) where
+  matrix := ρ.matrix ⊗ₖ σ.matrix
+  posSemidef := ρ.posSemidef.kronecker σ.posSemidef
+  trace_re_le_one := by
+    have h₁ := Complex.nonneg_iff.mp ρ.posSemidef.trace_nonneg
+    rw [Matrix.trace_kronecker, Complex.mul_re, ← h₁.2, zero_mul, sub_zero]
+    calc ρ.matrix.trace.re * σ.matrix.trace.re ≤ 1 * 1 :=
+          mul_le_mul ρ.trace_re_le_one σ.trace_re_le_one σ.trace_re_nonneg zero_le_one
+      _ = 1 := one_mul 1
+
+/-- The matrix of a product substate is the Kronecker product of the matrices. -/
+@[simp]
+theorem SubState.matrix_prod (ρ : SubState A) (σ : SubState B) :
+    (ρ.prod σ).matrix = ρ.matrix ⊗ₖ σ.matrix :=
+  rfl
+
+/-- The trace of a product substate is the product of the traces. -/
+theorem SubState.trace_re_prod (ρ : SubState A) (σ : SubState B) :
+    (ρ.prod σ).matrix.trace.re = ρ.matrix.trace.re * σ.matrix.trace.re := by
+  have h₁ := Complex.nonneg_iff.mp ρ.posSemidef.trace_nonneg
+  rw [matrix_prod, Matrix.trace_kronecker, Complex.mul_re, ← h₁.2, zero_mul, sub_zero]
+
+/-- The product of basis states is the basis state of the pair. -/
+@[simp]
+theorem SubState.basis_prod_basis [DecidableEq A] [DecidableEq B] (a : A) (b : B) :
+    (SubState.basis a).prod (SubState.basis b) = SubState.basis (a, b) :=
+  SubState.ext <| by
+    ext ⟨x₁, x₂⟩ ⟨y₁, y₂⟩
+    rw [matrix_prod, matrix_basis, matrix_basis, matrix_basis, Matrix.kroneckerMap_apply]
+    simp only [Matrix.single_apply, Prod.mk.injEq]
+    rw [ite_zero_mul_ite_zero, mul_one]
+    exact if_congr (by tauto) rfl rfl
+
+/-- The reduced substate of the left register: the partial trace over the right register. -/
+@[expose]
+def SubState.traceRight (ρ : SubState (A × B)) : SubState A where
+  matrix := MatrixMap.traceRight A B ρ.matrix
+  posSemidef := ρ.posSemidef.traceRight
+  trace_re_le_one := by
+    rw [MatrixMap.trace_traceRight]
+    exact ρ.trace_re_le_one
+
+/-- The matrix of a reduced substate is the partial trace of the matrix. -/
+@[simp]
+theorem SubState.matrix_traceRight (ρ : SubState (A × B)) :
+    ρ.traceRight.matrix = MatrixMap.traceRight A B ρ.matrix :=
+  rfl
+
+/-- Tracing out a factor of trace one from a product substate recovers the other factor. -/
+theorem SubState.traceRight_prod (ρ : SubState A) {σ : SubState B}
+    (hσ : σ.matrix.trace = 1) : (ρ.prod σ).traceRight = ρ :=
+  SubState.ext <| by simp [MatrixMap.traceRight_kronecker, hσ]
+
+end prod
 
 /-! ## Relabelling registers -/
 
