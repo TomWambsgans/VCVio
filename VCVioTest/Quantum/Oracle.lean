@@ -30,8 +30,18 @@ Oracles `Fin 2 → Fin 2`, queried on the register `Fin 2 × Fin 2`.
   calls in its private register. A program that flips a coin and calls twice on heads and once
   on tails leaves the counter at `2` or `1` according to the coin; a comb with a fixed number of
   slots cannot.
-* **Guessing without queries.** A lossless program with budget zero guesses a point of a
-  uniformly sampled oracle with probability `1 / 2`.
+* **Guessing without queries.** A lossless program with budget zero, over any primitive
+  signature and interpretation, guesses a point of a uniformly sampled oracle with probability
+  `1 / 2`.
+* **A register that depends on an outcome.** A program calls the oracle with an ancilla as the
+  remainder, measures the ancilla and keeps it on `0` or discards it on `1`, so that its final
+  register depends on the outcome. Against the oracle unitary it is lossless, makes one call, and
+  keeps the trace of its input.
+* **A gate set.** A primitive signature of two named gates, interpreted by the bit flip and the
+  phase flip. A program applying both uses two gates and not one, and runs to a lossless
+  subinstrument.
+* **The fixed-register run.** The run of the coin program as a fixed-register program is the run
+  of its tree read at the leaf on its final register; Proposition 3 holds for both.
 -/
 
 public section
@@ -148,20 +158,21 @@ example (H : Fin 2 → Fin 2) (h : H 0 ≠ H 1) :
 
 /-- Deutsch's algorithm as a program over the random-oracle signature: its call goes to the
 whole register, with the trivial remainder. -/
-noncomputable def deutschComp : QuantumComp qrom2 (QReg.of Reg) (QReg.of Reg) (Fin 2) :=
+noncomputable def deutschComp : QComp qrom2 (QReg.of Reg) (QReg.of Reg) (Fin 2) :=
   deutsch.toComp () (QReg.of Unit) (Equiv.prodPUnit Reg).symm (Equiv.prodPUnit Reg)
 
 /-- **Proposition 1** for Deutsch's algorithm: against the oracle runtime, the program runs as the
 comb, framed by the runtime register, against the runtime's query step. -/
 example (H : Fin 2 → Fin 2) :
-    (xorRuntime H).run deutschComp =
+    (xorRuntime H).run₂ .instruments deutschComp =
       (deutsch.frame (xorRuntime H).D (xorRuntime H).init).run
         ((xorRuntime H).combQuery () (QReg.of Unit) (Equiv.prodPUnit Reg).symm
           (Equiv.prodPUnit Reg)) :=
   QuantumComb.run_toComp ..
 
 /-- The program of Deutsch's algorithm makes one call, and is lossless. -/
-example : deutschComp.IsQueryBound (Pi.single (() : qrom2.Port) 1) ∧ deutschComp.Lossless :=
+example :
+    deutschComp.IsQueryBound (Pi.single (() : qrom2.Port) 1) ∧ deutschComp.Lossless .instruments :=
   ⟨deutsch.isQueryBound_toComp (spec := qrom2) () _ _ _,
     deutsch.lossless_toComp (spec := qrom2) () _ _ _⟩
 
@@ -179,7 +190,8 @@ theorem isTotalQueryBound_queryZero : OracleComp.IsTotalQueryBound queryZero 1 :
 /-- Against the oracle unitary of `H`, the program of the algorithm reports `H 0` with
 certainty. -/
 example (H : Fin 2 → Fin 2) :
-    (xorRuntime H).outcomeLaw queryZero.toQuantum (SubState.basis ()) = Measure.dirac (H 0) :=
+    (xorRuntime H).outcomeLaw₂ .instruments queryZero.toQuantum (SubState.basis ()) =
+      Measure.dirac (H 0) :=
   outcomeLaw_xorRuntime_toQuantum H queryZero
 
 /-- The program makes one call. -/
@@ -189,7 +201,7 @@ example : queryZero.toQuantum.IsQueryBound fun _ ↦ 1 :=
 /-- The law of the program in the quantum random-oracle model is the law of the algorithm under
 the lazily sampled random oracle; no query bound is used. -/
 example :
-    qromLaw queryZero.toQuantum (SubState.basis ()) =
+    qromLaw .instruments queryZero.toQuantum (SubState.basis ()) =
       𝒟[(simulateQ randomOracle queryZero).run' ∅] :=
   qromLaw_toQuantum_eq_randomOracle queryZero
 
@@ -201,50 +213,53 @@ def queryTwice : OracleComp (Fin 2 →ₒ Fin 2) (Fin 2) := do
 /-- Its program, whose second call depends on the measured result of the first, reports
 `H (H 0)` with certainty. -/
 example (H : Fin 2 → Fin 2) :
-    (xorRuntime H).outcomeLaw queryTwice.toQuantum (SubState.basis ()) =
+    (xorRuntime H).outcomeLaw₂ .instruments queryTwice.toQuantum (SubState.basis ()) =
       Measure.dirac (H (H 0)) :=
   outcomeLaw_xorRuntime_toQuantum H queryTwice
 
 /-- Running the program of a sequenced algorithm is sequencing the runs of the programs. -/
 example {α β : Type} (H : Fin 2 → Fin 2) (oa : OracleComp (Fin 2 →ₒ Fin 2) α)
     (f : α → OracleComp (Fin 2 →ₒ Fin 2) β) :
-    (xorRuntime H).run (oa >>= f).toQuantum =
-      ((xorRuntime H).run oa.toQuantum).bind fun a ↦ (xorRuntime H).run (f a).toQuantum := by
+    (xorRuntime H).run₂ .instruments (oa >>= f).toQuantum =
+      ((xorRuntime H).run₂ .instruments oa.toQuantum).bind fun a ↦
+        (xorRuntime H).run₂ .instruments (f a).toQuantum := by
   rw [OracleComp.toQuantum, simulateQ_bind]
-  exact QuantumRuntime.run_bind _ _ _
+  exact QuantumRuntime.run₂_bind _ _ _ _
 
 /-! ## An adaptive program -/
 
 /-- Measure the query bit; on `1`, call the oracle and return to the register `Fin 2 × Fin 2`;
 then return the bit. The number of calls depends on the measured outcome. -/
-noncomputable def callIfOne : QuantumComp qrom2 (QReg.of Reg) (QReg.of Reg) (Fin 2) :=
-  (QuantumComp.act (A := QReg.of Reg) (B := QReg.of Reg)
+noncomputable def callIfOne : QComp qrom2 (QReg.of Reg) (QReg.of Reg) (Fin 2) :=
+  (QComp.act (A := QReg.of Reg) (B := QReg.of Reg)
       (SubInstrument.classical id fun m : Reg ↦ m.1)).bind fun b ↦
     if b = 1 then
-      ((QuantumComp.query () (QReg.of Unit) (Equiv.prodPUnit Reg).symm).bind fun _ ↦
-        QuantumComp.act (B := QReg.of Reg) (SubInstrument.relabel (Equiv.prodPUnit Reg))).bind
-          fun _ ↦ QuantumComp.pure b
-    else QuantumComp.pure b
+      ((QuantumComp₂.query (L := LocalSig.instruments) () (QReg.of Unit)
+          (Equiv.prodPUnit Reg).symm).bind fun _ ↦
+        QComp.act (B := QReg.of Reg) (SubInstrument.relabel (Equiv.prodPUnit Reg))).bind
+          fun _ ↦ QuantumComp₂.pure b
+    else QuantumComp₂.pure b
 
 /-- The adaptive program makes at most one call on every path. -/
 example : callIfOne.IsQueryBound fun _ ↦ 1 := by
-  rw [callIfOne, QuantumComp.isQueryBound_act_bind_iff]
+  rw [callIfOne, QComp.isQueryBound_act_bind_iff]
   intro b
   split_ifs
-  · refine ((((QuantumComp.isQueryBound_query_iff _ _ _ (fun _ ↦ 1)).mpr Nat.one_pos).bind
-      fun _ ↦ QuantumComp.isQueryBound_act _ 0).bind (b₂ := 0)
-        fun _ ↦ QuantumComp.isQueryBound_pure _ _).mono fun _ ↦ ?_
+  · refine (QuantumComp₂.isQueryBound_bind (QuantumComp₂.isQueryBound_bind
+      ((QuantumComp₂.isQueryBound_query_iff _ _ _ (fun _ ↦ 1)).mpr Nat.one_pos)
+        fun _ ↦ QComp.isQueryBound_act _ 0) (b₂ := 0)
+          fun _ ↦ QuantumComp₂.isQueryBound_pure _ _).mono fun _ ↦ ?_
     simp
-  · exact QuantumComp.isQueryBound_pure _ _
+  · exact QuantumComp₂.isQueryBound_pure _ _
 
 /-- The adaptive program calls the oracle on the path where it reads `1`. -/
 example : ¬ callIfOne.IsQueryBound 0 := by
   intro h
-  rw [callIfOne, QuantumComp.isQueryBound_act_bind_iff] at h
+  rw [callIfOne, QComp.isQueryBound_act_bind_iff] at h
   have h₁ := h 1
   simp only [↓reduceIte] at h₁
-  rw [QuantumComp.bind_assoc] at h₁
-  exact Nat.lt_irrefl 0 (QuantumComp.IsQueryBound.of_query_bind h₁).1
+  rw [QuantumComp₂.bind_assoc, QuantumComp₂.query_bind] at h₁
+  exact Nat.lt_irrefl 0 (QuantumComp.IsQueryBound.of_queryBind h₁).1
 
 /-! ## Allocating and discarding an ancilla -/
 
@@ -281,28 +296,32 @@ noncomputable def discard (A : Type) [Fintype A] [DecidableEq A] :
 
 /-- Allocate an ancilla, call the oracle with the ancilla as the remainder of the register, and
 discard the ancilla. -/
-noncomputable def queryWithAncilla : QuantumComp qrom2 (QReg.of Reg) (QReg.of Reg) Unit :=
-  (QuantumComp.act (B := QReg.of (Reg × Fin 2)) (alloc Reg)).bind fun _ ↦
-    (QuantumComp.query () (QReg.of (Fin 2)) (Equiv.refl (Reg × Fin 2))).bind fun _ ↦
-      QuantumComp.act (B := QReg.of Reg) (discard Reg)
+noncomputable def queryWithAncilla : QComp qrom2 (QReg.of Reg) (QReg.of Reg) Unit :=
+  (QComp.act (B := QReg.of (Reg × Fin 2)) (alloc Reg)).bind fun _ ↦
+    (QuantumComp₂.query (L := LocalSig.instruments) () (QReg.of (Fin 2))
+        (Equiv.refl (Reg × Fin 2))).bind fun _ ↦
+      QComp.act (B := QReg.of Reg) (discard Reg)
 
 /-- The program with an ancilla is lossless and makes one call. -/
-theorem lossless_queryWithAncilla : queryWithAncilla.Lossless :=
-  (QuantumComp.lossless_act (SubInstrument.lossless_ofIsometry _ _)).bind fun _ ↦
-    (QuantumComp.lossless_query _ _ _).bind fun _ ↦
-      QuantumComp.lossless_act ((SubInstrument.lossless_ofKraus _ _).map _)
+theorem lossless_queryWithAncilla : queryWithAncilla.Lossless .instruments :=
+  QuantumComp₂.lossless_bind (QComp.lossless_act (SubInstrument.lossless_ofIsometry _ _)) fun _ ↦
+    QuantumComp₂.lossless_bind (QuantumComp₂.lossless_query _ _ _) fun _ ↦
+      QComp.lossless_act ((SubInstrument.lossless_ofKraus _ _).map _)
 
 example : queryWithAncilla.IsQueryBound fun _ ↦ 1 := by
-  rw [queryWithAncilla, QuantumComp.isQueryBound_act_bind_iff]
+  rw [queryWithAncilla, QComp.isQueryBound_act_bind_iff]
   intro _
-  exact (((QuantumComp.isQueryBound_query_iff _ _ _ (fun _ ↦ 1)).mpr Nat.one_pos).bind
-    fun _ ↦ QuantumComp.isQueryBound_act _ 0).mono fun _ ↦ le_of_eq (add_zero _)
+  exact (QuantumComp₂.isQueryBound_bind
+    ((QuantumComp₂.isQueryBound_query_iff _ _ _ (fun _ ↦ 1)).mpr Nat.one_pos)
+      fun _ ↦ QComp.isQueryBound_act _ 0).mono fun _ ↦ le_of_eq (add_zero _)
 
 /-- Against the oracle unitary, the program with an ancilla keeps the trace of its input. -/
 example (H : Fin 2 → Fin 2) (ρ : SubState (QReg.of Reg)) :
-    (xorRuntime H).outcomeLaw queryWithAncilla ρ Set.univ = ENNReal.ofReal ρ.matrix.trace.re := by
-  rw [(xorRuntime H).outcomeLaw_apply_univ_of_lossless
-    (lossless_run_xorRuntime lossless_queryWithAncilla H), trace_re_xorRuntime_init, mul_one]
+    (xorRuntime H).outcomeLaw₂ .instruments queryWithAncilla ρ Set.univ =
+      ENNReal.ofReal ρ.matrix.trace.re := by
+  rw [(xorRuntime H).outcomeLaw₂_apply_univ_of_lossless .instruments
+    (lossless_run₂_xorRuntime .instruments lossless_queryWithAncilla H),
+    trace_re_xorRuntime_init, mul_one]
 
 /-! ## Two ports -/
 
@@ -323,36 +342,41 @@ noncomputable def twoXor (H G : Fin 2 → Fin 2) : QuantumRuntime twoSpec where
   step b := (oracleQuery (cond b H G)).frame Unit
 
 /-- Call port `true`, then port `false`. -/
-noncomputable def callBoth :
-    QuantumComp twoSpec (QReg.of Reg) (QReg.of (Reg × Unit)) Unit :=
-  (QuantumComp.query true (QReg.of Unit) (Equiv.prodPUnit Reg).symm).bind fun _ ↦
-    QuantumComp.query false (QReg.of Unit) (Equiv.refl (Reg × Unit))
+noncomputable def callBoth : QComp twoSpec (QReg.of Reg) (QReg.of (Reg × Unit)) Unit :=
+  (QuantumComp₂.query (L := LocalSig.instruments) true (QReg.of Unit)
+      (Equiv.prodPUnit Reg).symm).bind fun _ ↦
+    QuantumComp₂.query false (QReg.of Unit) (Equiv.refl (Reg × Unit))
 
 /-- The program calls each port once. -/
 example : callBoth.IsQueryBound fun _ ↦ 1 := by
-  refine (QuantumComp.IsQueryBound.bind (spec := twoSpec) (b₁ := Pi.single true 1)
+  refine (QuantumComp₂.isQueryBound_bind (spec := twoSpec) (b₁ := Pi.single true 1)
     (b₂ := Pi.single false 1)
-    ((QuantumComp.isQueryBound_query_iff _ _ _ _).mpr (by simp))
-    fun _ ↦ (QuantumComp.isQueryBound_query_iff _ _ _ _).mpr (by simp)).mono fun b ↦ ?_
+    ((QuantumComp₂.isQueryBound_query_iff _ _ _ _).mpr (by simp))
+    fun _ ↦ (QuantumComp₂.isQueryBound_query_iff _ _ _ _).mpr (by simp)).mono fun b ↦ ?_
   cases b <;> simp
 
 /-- A budget on port `true` alone does not cover the call of port `false`. -/
 example : ¬ callBoth.IsQueryBound (Pi.single (true : twoSpec.Port) 1) := by
   intro h
-  have h₁ := (QuantumComp.IsQueryBound.of_query_bind h).2 ()
-  rw [QuantumComp.isQueryBound_query_iff] at h₁
+  rw [callBoth, QuantumComp₂.query_bind] at h
+  have h₁ : (QuantumComp₂.query (L := LocalSig.instruments) (spec := twoSpec)
+      (A := QReg.of (Reg × Unit)) false (QReg.of Unit)
+      (Equiv.refl (Reg × Unit))).IsQueryBound (Pi.single (true : twoSpec.Port) 1) :=
+    (QuantumComp.IsQueryBound.of_queryBind h).2 ()
+  rw [QuantumComp₂.isQueryBound_query_iff] at h₁
   simp at h₁
 
 /-- Call port `true` only. -/
-noncomputable def callTrue : QuantumComp twoSpec (QReg.of Reg) (QReg.of (Reg × Unit)) Unit :=
-  QuantumComp.query true (QReg.of Unit) (Equiv.prodPUnit Reg).symm
+noncomputable def callTrue : QComp twoSpec (QReg.of Reg) (QReg.of (Reg × Unit)) Unit :=
+  QuantumComp₂.query true (QReg.of Unit) (Equiv.prodPUnit Reg).symm
 
 /-- A program that calls only port `true` runs in the same way whatever port `false` does. -/
-example (H G G' : Fin 2 → Fin 2) : (twoXor H G).run callTrue = (twoXor H G').run callTrue := by
-  refine QuantumRuntime.run_congr_of_isQueryBound (D := QReg.of Unit)
+example (H G G' : Fin 2 → Fin 2) :
+    (twoXor H G).run₂ .instruments callTrue = (twoXor H G').run₂ .instruments callTrue := by
+  refine QuantumRuntime.run₂_congr_of_isQueryBound .instruments (D := QReg.of Unit)
     (σ₁ := SubState.basis ()) (σ₂ := SubState.basis ()) (s₁ := (twoXor H G).step)
     (s₂ := (twoXor H G').step) (b := Pi.single (true : twoSpec.Port) 1)
-    ((QuantumComp.isQueryBound_query_iff _ _ _ _).mpr (by simp)) fun i hi ↦ ?_
+    ((QuantumComp₂.isQueryBound_query_iff _ _ _ _).mpr (by simp)) fun i hi ↦ ?_
   cases i
   · simp at hi
   · rfl
@@ -390,39 +414,41 @@ theorem countRuntime_step_branch_single (d : Fin 3) :
 /-- Measure a coin; call twice on heads (`1`) and once on tails (`0`); return the coin. -/
 @[expose]
 noncomputable def coinProg :
-    QuantumComp countSpec (QReg.of (Fin 2)) (QReg.of (Unit × Fin 2)) (Fin 2) :=
-  (QuantumComp.act (A := QReg.of (Fin 2)) (B := QReg.of (Fin 2))
+    QComp countSpec (QReg.of (Fin 2)) (QReg.of (Unit × Fin 2)) (Fin 2) :=
+  (QComp.act (A := QReg.of (Fin 2)) (B := QReg.of (Fin 2))
       (SubInstrument.classical id id)).bind fun b ↦
-    (QuantumComp.query () (QReg.of (Fin 2)) (Equiv.punitProd (Fin 2)).symm).bind fun _ ↦
+    (QuantumComp₂.query (L := LocalSig.instruments) () (QReg.of (Fin 2))
+        (Equiv.punitProd (Fin 2)).symm).bind fun _ ↦
       if b = 1 then
-        (QuantumComp.query () (QReg.of (Fin 2)) (Equiv.refl (Unit × Fin 2))).bind fun _ ↦
-          QuantumComp.pure b
-      else QuantumComp.pure b
+        (QuantumComp₂.query () (QReg.of (Fin 2)) (Equiv.refl (Unit × Fin 2))).bind fun _ ↦
+          QuantumComp₂.pure b
+      else QuantumComp₂.pure b
 
 /-- The coin program makes at most two calls on every path. -/
 example : coinProg.IsQueryBound fun _ ↦ 2 := by
-  rw [coinProg, QuantumComp.isQueryBound_act_bind_iff]
+  rw [coinProg, QComp.isQueryBound_act_bind_iff]
   intro b
-  refine (QuantumComp.IsQueryBound.bind (b₁ := fun _ ↦ 1) (b₂ := fun _ ↦ 1)
-    ((QuantumComp.isQueryBound_query_iff _ _ _ _).mpr Nat.one_pos) fun _ ↦ ?_).mono
+  refine (QuantumComp₂.isQueryBound_bind (b₁ := fun _ ↦ 1) (b₂ := fun _ ↦ 1)
+    ((QuantumComp₂.isQueryBound_query_iff _ _ _ _).mpr Nat.one_pos) fun _ ↦ ?_).mono
       fun _ ↦ le_refl _
   split_ifs
-  · exact ((QuantumComp.isQueryBound_query_iff _ _ _ _).mpr Nat.one_pos).bind (b₂ := 0)
-      (fun _ ↦ QuantumComp.isQueryBound_pure _ _) |>.mono fun _ ↦ le_of_eq (add_zero _)
-  · exact QuantumComp.isQueryBound_pure _ _
+  · exact QuantumComp₂.isQueryBound_bind (b₂ := 0)
+      ((QuantumComp₂.isQueryBound_query_iff _ _ _ _).mpr Nat.one_pos)
+      (fun _ ↦ QuantumComp₂.isQueryBound_pure _ _) |>.mono fun _ ↦ le_of_eq (add_zero _)
+  · exact QuantumComp₂.isQueryBound_pure _ _
 
 /-- The run of the coin program on a basis state `|b, d⟩`. -/
 theorem run_coinProg_branch_single (b c : Fin 2) (d : Fin 3) :
-    (countRuntime.run coinProg).branch c (Matrix.single (b, d) (b, d) 1) =
+    (countRuntime.run₂ .instruments coinProg).branch c (Matrix.single (b, d) (b, d) 1) =
       if b = c then
         Matrix.single (((), b), if b = 1 then tick (tick d) else tick d)
           (((), b), if b = 1 then tick (tick d) else tick d) 1
       else 0 := by
-  rw [coinProg, QuantumRuntime.run_act_bind, SubInstrument.branch_bind_apply_univ,
+  rw [coinProg, QuantumRuntime.run₂_act_bind, SubInstrument.branch_bind_apply_univ,
     LinearMap.sum_apply, Finset.sum_eq_single b (fun b' _ hb' ↦ ?_) (by simp),
     LinearMap.comp_apply, SubInstrument.branch_frame_single, SubInstrument.branch_classical_basis]
   · simp only [id, ↓reduceIte, Matrix.single_kronecker_single, one_mul]
-    rw [QuantumRuntime.run_query_bind, SubInstrument.branch_bind_unit, LinearMap.comp_apply,
+    rw [QuantumRuntime.run₂_query_bind, SubInstrument.branch_bind_unit, LinearMap.comp_apply,
       QuantumRuntime.queryStep_branch_single, Equiv.punitProd_symm_apply,
       countRuntime_step_branch_single, Matrix.single_kronecker_single, one_mul,
       SubInstrument.branch_relabel, conj_basisMatrix_equiv_single,
@@ -431,7 +457,7 @@ theorem run_coinProg_branch_single (b c : Fin 2) (d : Fin 3) :
     · simp [SubInstrument.branch_pure, Finsupp.single_apply]
       split_ifs <;> rfl
     · simp only [↓reduceIte]
-      rw [QuantumRuntime.run_query_bind, SubInstrument.branch_bind_unit, LinearMap.comp_apply,
+      rw [QuantumRuntime.run₂_query_bind, SubInstrument.branch_bind_unit, LinearMap.comp_apply,
         QuantumRuntime.queryStep_branch_single, Equiv.refl_apply,
         countRuntime_step_branch_single, Matrix.single_kronecker_single, one_mul,
         SubInstrument.branch_relabel, conj_basisMatrix_equiv_single,
@@ -445,24 +471,203 @@ theorem run_coinProg_branch_single (b c : Fin 2) (d : Fin 3) :
 /-- **Proposition 3.** On heads the counting runtime ends at `2`, on tails at `1`: the final
 state of its private register depends on the path of the program. A comb with a fixed number of
 slots calls the same number of times on every path. -/
-example :
-    countRuntime.jointPost coinProg (SubState.basis 1) 1 =
+theorem jointPost₂_coinProg :
+    countRuntime.jointPost₂ .instruments coinProg (SubState.basis 1) 1 =
         SubState.basis (((), 1), (2 : Fin 3)) ∧
-      countRuntime.jointPost coinProg (SubState.basis 0) 0 =
+      countRuntime.jointPost₂ .instruments coinProg (SubState.basis 0) 0 =
         SubState.basis (((), 0), (1 : Fin 3)) := by
   constructor <;>
   · refine SubState.ext ?_
-    rw [QuantumRuntime.matrix_jointPost, SubState.matrix_basis, SubState.matrix_basis,
+    rw [QuantumRuntime.matrix_jointPost₂, SubState.matrix_basis, SubState.matrix_basis,
       SubState.matrix_basis, Matrix.single_kronecker_single, one_mul, run_coinProg_branch_single]
     rfl
 
 /-! ## Guessing without queries -/
 
-/-- A lossless program with budget zero, started in a state of trace one, guesses a point of the
-oracle with probability `1 / 2`. -/
-example {A B : QReg} (x : QuantumComp qrom2 A B (Fin 2 × Fin 2)) (hx : x.IsQueryBound 0)
-    (hl : x.Lossless) {ρ : SubState A} (h : ρ.matrix.trace = 1) :
-    qromLawWith x ρ (fun H a ↦ a.2 = H a.1) {True} = 2⁻¹ := by
-  simpa using qromLawWith_guess_zero_of_trace_eq_one hx hl h
+/-- A lossless program with budget zero, over any primitive signature and interpretation, started
+in a state of trace one, guesses a point of the oracle with probability `1 / 2`. -/
+example {L : LocalSig} (I : L.Interp) {A B : QReg} (x : QuantumComp₂ L qrom2 A B (Fin 2 × Fin 2))
+    (hx : x.IsQueryBound 0) (hl : x.Lossless I) {ρ : SubState A} (h : ρ.matrix.trace = 1) :
+    qromLawWith I x ρ (fun H a ↦ a.2 = H a.1) {True} = 2⁻¹ := by
+  simpa using qromLawWith_guess_zero_of_trace_eq_one I hx hl h
+
+/-! ## The fixed-register run is the general run -/
+
+/-- The run of the coin program as a fixed-register program is the run of its tree, read at the
+leaf on its final register `Unit × Fin 2`. -/
+example (c : Fin 2) :
+    (countRuntime.run₂ .instruments coinProg).branch c =
+      (countRuntime.run .instruments coinProg).branch ⟨QReg.of (Unit × Fin 2), rfl, c⟩ :=
+  QuantumRuntime.branch_run₂ ..
+
+/-- **Proposition 3** on the general form: the joint post-measurement state of the tree at the
+leaf on `Unit × Fin 2`. -/
+example :
+    countRuntime.jointPost .instruments coinProg (SubState.basis 1) ⟨_, rfl, 1⟩ =
+        SubState.basis (((), 1), (2 : Fin 3)) ∧
+      countRuntime.jointPost .instruments coinProg (SubState.basis 0) ⟨_, rfl, 0⟩ =
+        SubState.basis (((), 0), (1 : Fin 3)) :=
+  ⟨(QuantumRuntime.jointPost₂_eq_jointPost ..).symm.trans jointPost₂_coinProg.1,
+    (QuantumRuntime.jointPost₂_eq_jointPost ..).symm.trans jointPost₂_coinProg.2⟩
+
+/-! ## A register that depends on an outcome -/
+
+/-- The register after measuring the ancilla of `Reg × Fin 2`: on `0` the ancilla is kept, on `1`
+it is discarded. -/
+@[expose, reducible]
+def ancReg : Fin 2 → QReg
+  | 0 => QReg.of (Reg × Fin 2)
+  | 1 => QReg.of Reg
+
+/-- Removing an ancilla in the state `|r⟩` after embedding it is the identity. -/
+theorem discardKraus_mul_conjTranspose (A : Type) [Fintype A] [DecidableEq A] (r : Fin 2) :
+    discardKraus A r * (discardKraus A r)ᴴ = 1 := by
+  ext a a'
+  simp only [Matrix.mul_apply, Matrix.conjTranspose_apply, discardKraus, Matrix.of_apply,
+    apply_ite star, star_one, star_zero, ite_mul, one_mul, zero_mul, Matrix.one_apply]
+  rw [Finset.sum_eq_single (a, r) (fun p _ hp ↦ by simp [hp]) (by simp)]
+  simp
+
+/-- Keep the ancilla after reading `0`: the operator `1 ⊗ |0⟩⟨0|`. -/
+def keepZero (A : Type) [Fintype A] [DecidableEq A] : Matrix (A × Fin 2) (A × Fin 2) ℂ :=
+  (discardKraus A 0)ᴴ * discardKraus A 0
+
+/-- Keeping the ancilla on `0` and discarding it on `1` satisfy the completeness relation. -/
+theorem keepZero_discardKraus_complete (A : Type) [Fintype A] [DecidableEq A] :
+    (keepZero A)ᴴ * keepZero A + (discardKraus A 1)ᴴ * discardKraus A 1 = 1 := by
+  have h : (keepZero A)ᴴ * keepZero A = (discardKraus A 0)ᴴ * discardKraus A 0 := by
+    rw [keepZero, Matrix.conjTranspose_mul, Matrix.conjTranspose_conjTranspose, Matrix.mul_assoc,
+      ← Matrix.mul_assoc (discardKraus A 0), discardKraus_mul_conjTranspose, Matrix.one_mul]
+  rw [h, ← sum_discardKraus A, Fin.sum_univ_two]
+
+/-- The Kraus operators of the measurement that keeps the ancilla on `0` and discards it on
+`1`. -/
+def ancKraus : (b : Fin 2) → Matrix (ancReg b) (Reg × Fin 2) ℂ
+  | 0 => keepZero Reg
+  | 1 => discardKraus Reg 1
+
+/-- The keep-or-discard Kraus operators satisfy the completeness relation. -/
+theorem sum_ancKraus : ∑ b, (ancKraus b)ᴴ * ancKraus b = 1 := by
+  rw [Fin.sum_univ_two]
+  exact keepZero_discardKraus_complete Reg
+
+/-- Measure the ancilla; keep it on `0` and discard it on `1`. Its output register depends on the
+outcome. -/
+noncomputable def measureAnc : DSubInstrument (Reg × Fin 2) (Fin 2) fun b ↦ ancReg b :=
+  DSubInstrument.ofKraus ancKraus sum_ancKraus
+
+/-- The keep-or-discard measurement of the ancilla is lossless. -/
+theorem lossless_measureAnc : measureAnc.Lossless :=
+  DSubInstrument.lossless_ofKraus _ _
+
+/-- Call the oracle with an ancilla as the remainder of the register, then measure the ancilla
+and keep it on `0` or discard it on `1`. The leaf of outcome `b` sits on the register
+`ancReg b`. -/
+noncomputable def queryKeepOrDiscard :
+    QuantumComp LocalSig.instruments qrom2 (fun u ↦ {b : Fin 2 // ancReg b = u})
+      (QReg.of (Reg × Fin 2)) :=
+  QuantumComp.queryBind () (QReg.of (Fin 2)) (Equiv.refl (Reg × Fin 2)) fun _ ↦
+    QuantumComp.prim (L := LocalSig.instruments) (spec := qrom2)
+      (⟨Fin 2, ancReg, measureAnc⟩ : LocalSig.instruments.Op (QReg.of (Reg × Fin 2)))
+
+/-- The program that keeps or discards the ancilla is lossless. -/
+theorem lossless_queryKeepOrDiscard : queryKeepOrDiscard.Lossless .instruments :=
+  (QuantumComp.lossless_queryBind_iff _ _ _ _).mpr fun _ ↦
+    (QuantumComp.lossless_primBind_iff _ _).mpr
+      ⟨lossless_measureAnc, fun _ ↦ trivial⟩
+
+/-- The program that keeps or discards the ancilla makes one call. -/
+example : queryKeepOrDiscard.IsQueryBound fun _ ↦ 1 :=
+  (QuantumComp.isQueryBound_queryBind_iff (spec := qrom2) _ _ _ _ _).mpr
+    ⟨Nat.one_pos, fun _ ↦ QuantumComp.isQueryBound_prim _ _⟩
+
+/-- Against the oracle unitary, the program runs to a lossless dependent subinstrument. -/
+example (H : Fin 2 → Fin 2) :
+    ((xorRuntime H).run .instruments queryKeepOrDiscard).Lossless :=
+  lossless_run_xorRuntime .instruments lossless_queryKeepOrDiscard H
+
+/-- Against the oracle unitary, the program keeps the trace of its input, summed over both final
+registers. -/
+example (H : Fin 2 → Fin 2) (ρ : SubState (QReg.of (Reg × Fin 2))) :
+    (xorRuntime H).outcomeLaw .instruments queryKeepOrDiscard ρ Set.univ =
+      ENNReal.ofReal ρ.matrix.trace.re := by
+  rw [(xorRuntime H).outcomeLaw_apply_univ_of_lossless .instruments
+    (lossless_run_xorRuntime .instruments lossless_queryKeepOrDiscard H),
+    trace_re_xorRuntime_init, mul_one]
+
+/-! ## A gate set -/
+
+/-- Two named gates on a qubit: the bit flip `x` and the phase flip `z`. -/
+inductive Gate : QReg → Type 1
+  /-- The bit flip. -/
+  | x : Gate (QReg.of (Fin 2))
+  /-- The phase flip. -/
+  | z : Gate (QReg.of (Fin 2))
+
+/-- The signature of the gate set: a gate has one outcome and keeps its register. -/
+@[expose, reducible]
+def gates : LocalSig where
+  Op := Gate
+  Outcome _ := Unit
+  next {A} _ _ := A
+
+/-- The bit flip, the permutation matrix of `b ↦ b + 1`. -/
+noncomputable def pauliX : Matrix (Fin 2) (Fin 2) ℂ :=
+  basisMatrix fun b : Fin 2 ↦ b + 1
+
+/-- The bit flip is unitary. -/
+theorem conjTranspose_pauliX_mul_self : pauliXᴴ * pauliX = 1 :=
+  conjTranspose_basisMatrix_mul_self (add_left_injective 1)
+
+/-- The phase flip, the diagonal matrix of signs. -/
+noncomputable def pauliZ : Matrix (Fin 2) (Fin 2) ℂ :=
+  Matrix.diagonal sgn
+
+/-- The phase flip is unitary. -/
+theorem conjTranspose_pauliZ_mul_self : pauliZᴴ * pauliZ = 1 := by
+  rw [pauliZ, Matrix.diagonal_conjTranspose, Matrix.diagonal_mul_diagonal, ← Matrix.diagonal_one]
+  congr 1
+  funext y
+  rcases eq_zero_or_one y with rfl | rfl <;> simp [sgn]
+
+/-- The interpretation of the gate set: each gate is the gate of its unitary. -/
+noncomputable def gateInterp : gates.Interp := fun _ g ↦
+  match g with
+  | .x => SubInstrument.toD (SubInstrument.ofIsometry pauliX conjTranspose_pauliX_mul_self)
+  | .z => SubInstrument.toD (SubInstrument.ofIsometry pauliZ conjTranspose_pauliZ_mul_self)
+
+/-- The interpretation of the gate set is lossless. -/
+theorem lossless_gateInterp : gateInterp.Lossless := fun _ g ↦ by
+  cases g <;> exact SubInstrument.lossless_toD_iff.mpr (SubInstrument.lossless_ofIsometry _ _)
+
+/-- Apply one gate. -/
+noncomputable def gate {A : QReg} (g : Gate A) : QuantumComp₂ gates qrom2 A A Unit :=
+  QuantumComp₂.primBind g fun _ ↦ QuantumComp₂.pure ()
+
+/-- One gate costs one gate. -/
+theorem isCostBound_gate {A : QReg} (g : Gate A) : (gate g).IsCostBound (fun _ _ ↦ 1) 1 :=
+  (QuantumComp.isCostBound_primBind_iff _ _ _).mpr
+    ⟨le_rfl, fun _ ↦ QuantumComp.isCostBound_pure _ _⟩
+
+/-- Apply the bit flip, then the phase flip. -/
+noncomputable def xThenZ : QuantumComp₂ gates qrom2 (QReg.of (Fin 2)) (QReg.of (Fin 2)) Unit :=
+  (gate .x).bind fun _ ↦ gate .z
+
+/-- The program uses two gates. -/
+example : xThenZ.IsCostBound (fun _ _ ↦ 1) 2 :=
+  QuantumComp₂.isCostBound_bind (n := 1) (m := 1) (isCostBound_gate _) fun _ ↦ isCostBound_gate _
+
+/-- The program does not fit in one gate. -/
+example : ¬ xThenZ.IsCostBound (fun _ _ ↦ 1) 1 := by
+  intro h
+  have h' : (QuantumComp₂.primBind (L := gates) (spec := qrom2) Gate.x fun _ ↦
+      QuantumComp₂.primBind Gate.z fun _ ↦ QuantumComp₂.pure ()).IsCostBound (fun _ _ ↦ 1) 1 := h
+  have h₂ := ((QuantumComp.isCostBound_primBind_iff _ _ _).mp h').2 ()
+  exact absurd ((QuantumComp.isCostBound_primBind_iff _ _ _).mp h₂).1 (by decide)
+
+/-- Under the gate interpretation, against the oracle unitary, the program runs to a lossless
+subinstrument. -/
+example (H : Fin 2 → Fin 2) : ((xorRuntime H).run₂ gateInterp xThenZ).Lossless :=
+  lossless_run₂_xorRuntime gateInterp (QuantumComp.lossless_of_interp lossless_gateInterp _) H
 
 end VCVioTest.QuantumOracle
