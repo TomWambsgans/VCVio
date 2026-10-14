@@ -37,14 +37,18 @@ Oracles `Fin 2 → Fin 2`, queried on the register `Fin 2 × Fin 2`.
 * **A register that depends on an outcome.** A program calls the oracle with an ancilla as the
   remainder, measures the ancilla and keeps it on `0` or discards it on `1`, so that its final
   register depends on the outcome. Against the oracle unitary it is lossless, makes one call, and
-  keeps the trace of its input; its law in the quantum random-oracle model has total mass the
-  trace of its input.
+  keeps the trace of its input; on `|x, y, 0⟩` it ends in `|x, y + H x, 0⟩` on the register with
+  the ancilla, and on `|x, y, 1⟩` in `|x, y + H x⟩` on the register without it. Its law in the
+  quantum random-oracle model has total mass the trace of its input.
+* **Infinitely many outcomes.** The geometric distribution over `ℕ`, a dependent subinstrument on
+  the trivial register with outcome `n` of weight `2⁻¹ ^ (n + 1)`, is lossless; a program that
+  draws from it reaches the leaf of `n` with that weight, and keeps the trace of its input.
 * **Higher universes.** A measurement whose outcomes lie in `Type 1`, and a program whose leaves
   (its final registers) lie in `Type 1`, run against the oracle unitary and keep the trace of
   their input.
 * **A gate set.** A primitive signature of two named gates, interpreted by the bit flip and the
-  phase flip. A program applying both uses two gates and not one, and runs to a lossless
-  subinstrument.
+  phase flip: the bit flip moves `|0⟩` to `|1⟩` and the phase flip moves `|+⟩` to `|-⟩`. A
+  program applying both uses two gates and not one, and runs to a lossless subinstrument.
 * **The fixed-register run.** The run of the coin program as a fixed-register program is the run
   of its tree read at the leaf on its final register; Proposition 3 holds for both.
 -/
@@ -619,6 +623,212 @@ example [MeasurableSpace (Σ u, {b : Fin 2 // ancReg b = u})]
     qromLaw .instruments queryKeepOrDiscard ρ Set.univ = ENNReal.ofReal ρ.matrix.trace.re :=
   qromLaw_apply_univ_of_lossless lossless_queryKeepOrDiscard ρ
 
+/-- Each branch of a framed dependent subinstrument on a product basis state acts on the first
+factor and keeps the second. -/
+theorem branch_frame_single {A : Type} [Fintype A] [DecidableEq A] {ι : Type} {B : ι → Type}
+    [∀ i, Fintype (B i)] {R : Type} [Fintype R] [DecidableEq R] (p : DSubInstrument A ι B) (i : ι)
+    (a : A) (r : R) :
+    (p.frame R).branch i (Matrix.single (a, r) (a, r) 1) =
+      p.branch i (Matrix.single a a 1) ⊗ₖ Matrix.single r r 1 := by
+  rw [DSubInstrument.branch_frame_apply, ← MatrixMap.amplify_kronecker,
+    Matrix.single_kronecker_single, one_mul]
+
+/-- The Kraus map of `K` sends the basis projector `|a⟩⟨a|` to the projector onto the column of
+`K` at `a`. -/
+theorem conj_single_apply {A B : Type} [Fintype A] [DecidableEq A] (K : Matrix B A ℂ) (a : A)
+    (b b' : B) : MatrixMap.conj K (Matrix.single a a 1) b b' = K b a * star (K b' a) := by
+  simp only [MatrixMap.conj_apply, Matrix.mul_apply, Matrix.single_apply,
+    Matrix.conjTranspose_apply]
+  rw [Finset.sum_eq_single a (fun c _ hc ↦ by simp [Ne.symm hc]) (by simp),
+    Finset.sum_eq_single a (fun c _ hc ↦ by simp [Ne.symm hc]) (by simp)]
+  simp
+
+/-- Removing the ancilla `|r⟩` from the basis state `|a, r⟩` leaves `|a⟩`. -/
+theorem conj_discardKraus_single (A : Type) [Fintype A] [DecidableEq A] (a : A) (r : Fin 2) :
+    MatrixMap.conj (discardKraus A r) (Matrix.single (a, r) (a, r) 1) = Matrix.single a a 1 := by
+  ext b b'
+  rw [conj_single_apply]
+  by_cases h₁ : a = b <;> by_cases h₂ : a = b' <;>
+    simp [h₁, h₂, discardKraus, Matrix.single_apply, eq_comm]
+
+/-- Keeping the ancilla on `0` leaves the basis state `|a, 0⟩` unchanged. -/
+theorem conj_keepZero_single (A : Type) [Fintype A] [DecidableEq A] (a : A) :
+    MatrixMap.conj (keepZero A) (Matrix.single (a, 0) (a, 0) 1) =
+      Matrix.single (a, 0) (a, 0) 1 := by
+  rw [keepZero, MatrixMap.conj_mul, LinearMap.comp_apply, conj_discardKraus_single]
+  ext b b'
+  rw [conj_single_apply]
+  by_cases h₁ : b = (a, 0) <;> by_cases h₂ : b' = (a, 0) <;>
+    simp [h₁, h₂, discardKraus, Matrix.conjTranspose_apply, eq_comm]
+
+/-- The Kronecker product of two basis projectors is a basis projector. -/
+theorem single_kronecker_single_one {A B : Type} [DecidableEq A] [DecidableEq B] (a : A) (b : B) :
+    Matrix.single a a (1 : ℂ) ⊗ₖ Matrix.single b b (1 : ℂ) = Matrix.single (a, b) (a, b) 1 := by
+  rw [Matrix.single_kronecker_single, one_mul]
+
+/-- The run of the keep-or-discard program on a basis state `|x, y, r⟩ ⊗ |d⟩`, at the leaf of
+the outcome `r`: the call moves the query register to `|x, y + H x⟩`, and the measurement keeps
+the ancilla `|0⟩` or discards the ancilla `|1⟩`. -/
+theorem run_queryKeepOrDiscard_branch_single (H : Fin 2 → Fin 2) (x y : Fin 2)
+    (d : (xorRuntime H).D) :
+    ((xorRuntime H).run .instruments queryKeepOrDiscard).branch ⟨ancReg 0, 0, rfl⟩
+        (Matrix.single (((x, y), 0), d) (((x, y), 0), d) 1) =
+      Matrix.single (((x, y + H x), 0), d) (((x, y + H x), 0), d) 1 ∧
+    ((xorRuntime H).run .instruments queryKeepOrDiscard).branch ⟨ancReg 1, 1, rfl⟩
+        (Matrix.single (((x, y), 1), d) (((x, y), 1), d) 1) =
+      Matrix.single ((x, y + H x), d) ((x, y + H x), d) 1 := by
+  have hne : (⟨ancReg 1, 1, rfl⟩ : Σ u, {b : Fin 2 // ancReg b = u}) ≠ ⟨ancReg 0, 0, rfl⟩ :=
+    fun h ↦ absurd (congrArg (fun p : Σ u, {b : Fin 2 // ancReg b = u} ↦ p.2.1) h) (by decide)
+  constructor <;>
+  ( rw [queryKeepOrDiscard, QuantumRuntime.run_queryBind, DSubInstrument.branch_bind_apply_univ,
+      Fintype.sum_unique, LinearMap.comp_apply, SubInstrument.branch_toD_apply,
+      QuantumRuntime.queryStep_branch_single, xorRuntime_step_branch_single,
+      Matrix.single_kronecker_single, one_mul, SubInstrument.branch_relabel,
+      conj_basisMatrix_equiv_single, QuantumRuntime.queryEquivOut_apply, QuantumComp.prim,
+      QuantumRuntime.run_primBind, DSubInstrument.branch_bind_apply_univ, Fin.sum_univ_two,
+      LinearMap.add_apply, LinearMap.comp_apply, LinearMap.comp_apply]
+    simp only [Equiv.refl_apply, branch_frame_single, QuantumRuntime.run_pure,
+      LocalSig.InstrumentOp.next, LocalSig.Interp.instruments_apply, measureAnc,
+      DSubInstrument.branch_ofKraus_apply] )
+  · rw [DSubInstrument.branch_ret_self, DSubInstrument.branch_ret_of_ne _ hne.symm,
+      LinearMap.id_apply, LinearMap.zero_apply, add_zero]
+    simp only [ancKraus]
+    rw [conj_keepZero_single, single_kronecker_single_one]
+  · rw [DSubInstrument.branch_ret_of_ne _ hne, DSubInstrument.branch_ret_self,
+      LinearMap.id_apply, LinearMap.zero_apply, zero_add]
+    simp only [ancKraus]
+    rw [conj_discardKraus_single, single_kronecker_single_one]
+
+/-- The post-states of both branches of the keep-or-discard program. On `|x, y, 0⟩` it reaches
+the leaf on `Reg × Fin 2` in the state `|x, y + H x, 0⟩`; on `|x, y, 1⟩` it reaches the leaf on
+`Reg` in the state `|x, y + H x⟩`. -/
+theorem jointPost_queryKeepOrDiscard (H : Fin 2 → Fin 2) (x y : Fin 2) :
+    (xorRuntime H).jointPost .instruments queryKeepOrDiscard (SubState.basis ((x, y), 0))
+        ⟨ancReg 0, 0, rfl⟩ = SubState.basis (((x, y + H x), 0), ()) ∧
+      (xorRuntime H).jointPost .instruments queryKeepOrDiscard (SubState.basis ((x, y), 1))
+        ⟨ancReg 1, 1, rfl⟩ = SubState.basis ((x, y + H x), ()) := by
+  constructor
+  · refine SubState.ext ?_
+    exact (congrArg (((xorRuntime H).run .instruments queryKeepOrDiscard).branch
+      ⟨ancReg 0, 0, rfl⟩) (single_kronecker_single_one ((x, y), (0 : Fin 2)) ())).trans
+        (run_queryKeepOrDiscard_branch_single H x y ()).1
+  · refine SubState.ext ?_
+    exact (congrArg (((xorRuntime H).run .instruments queryKeepOrDiscard).branch
+      ⟨ancReg 1, 1, rfl⟩) (single_kronecker_single_one ((x, y), (1 : Fin 2)) ())).trans
+        (run_queryKeepOrDiscard_branch_single H x y ()).2
+
+/-! ## Infinitely many outcomes -/
+
+/-- The weight `2⁻¹ ^ (n + 1)` of the outcome `n` of the geometric distribution. -/
+noncomputable def geomWeight (n : ℕ) : ℝ :=
+  2⁻¹ ^ (n + 1)
+
+/-- The weights of the geometric distribution are nonnegative. -/
+theorem geomWeight_nonneg (n : ℕ) : 0 ≤ geomWeight n := by
+  unfold geomWeight
+  positivity
+
+/-- The weights of the geometric distribution as a geometric sequence. -/
+theorem geomWeight_eq : geomWeight = fun n ↦ (2⁻¹ : ℝ) ^ n * 2⁻¹ :=
+  funext fun n ↦ pow_succ _ n
+
+/-- The weights of the geometric distribution are summable. -/
+theorem summable_geomWeight : Summable geomWeight := by
+  rw [geomWeight_eq]
+  exact (summable_geometric_of_lt_one (by norm_num) (by norm_num)).mul_right _
+
+/-- The weights of the geometric distribution sum to one. -/
+theorem tsum_geomWeight : ∑' n, geomWeight n = 1 := by
+  rw [geomWeight_eq, tsum_mul_right, tsum_geometric_of_lt_one (by norm_num) (by norm_num)]
+  norm_num
+
+/-- The Kraus operator of the outcome `n` of the geometric distribution on the trivial register:
+the scalar `√(2⁻¹ ^ (n + 1))`. -/
+noncomputable def geomKraus (n : ℕ) : Matrix Unit Unit ℂ :=
+  ((Real.sqrt (geomWeight n) : ℝ) : ℂ) • 1
+
+/-- The Kraus operator of the outcome `n` contributes the weight of `n`. -/
+theorem conjTranspose_geomKraus_mul_self (n : ℕ) :
+    (geomKraus n)ᴴ * geomKraus n = (geomWeight n : ℂ) • 1 := by
+  rw [geomKraus, Matrix.conjTranspose_smul, Matrix.conjTranspose_one, Matrix.smul_mul,
+    Matrix.mul_smul, Matrix.one_mul, smul_smul, Complex.star_def, Complex.conj_ofReal,
+    ← Complex.ofReal_mul, Real.mul_self_sqrt (geomWeight_nonneg n)]
+
+/-- The branch of the outcome `n` multiplies the trace by the weight of `n`. -/
+theorem trace_conj_geomKraus (n : ℕ) (ρ : Matrix Unit Unit ℂ) :
+    (MatrixMap.conj (geomKraus n) ρ).trace = (geomWeight n : ℂ) * ρ.trace := by
+  rw [MatrixMap.trace_conj_apply, conjTranspose_geomKraus_mul_self, Matrix.smul_mul,
+    Matrix.one_mul, Matrix.trace_smul, smul_eq_mul]
+
+/-- **The geometric distribution** as a dependent subinstrument on the trivial register, with
+outcome `n : ℕ` of weight `2⁻¹ ^ (n + 1)`: infinitely many outcomes of positive weight. -/
+noncomputable def geometric : DSubInstrument (QReg.of Unit) ℕ fun _ ↦ QReg.of Unit where
+  branch n := MatrixMap.conj (geomKraus n)
+  isCP_branch n := MatrixMap.isCP_conj _
+  trace_le s ρ hρ := by
+    simp_rw [trace_conj_geomKraus, Complex.re_ofReal_mul]
+    rw [← Finset.sum_mul]
+    calc (∑ n ∈ s, geomWeight n) * ρ.trace.re ≤ 1 * ρ.trace.re := by
+          refine mul_le_mul_of_nonneg_right ?_ hρ.trace_re_nonneg
+          rw [← tsum_geomWeight]
+          exact summable_geomWeight.sum_le_tsum s fun n _ ↦ geomWeight_nonneg n
+      _ = ρ.trace.re := one_mul _
+
+/-- The outcome `n` of the geometric distribution has weight `2⁻¹ ^ (n + 1)`. -/
+theorem trace_geometric_branch (n : ℕ) (ρ : Matrix (QReg.of Unit) (QReg.of Unit) ℂ) :
+    (geometric.branch n ρ).trace = (geomWeight n : ℂ) * ρ.trace :=
+  trace_conj_geomKraus n ρ
+
+/-- The geometric distribution is lossless: its weights sum to one. -/
+theorem lossless_geometric : geometric.Lossless := fun ρ ↦ by
+  rw [geometric.isCPTNIFamily.familyTrace_apply]
+  refine (tsum_congr fun n ↦ trace_geometric_branch n ρ).trans ?_
+  rw [tsum_mul_right, ← Complex.ofReal_tsum, tsum_geomWeight, Complex.ofReal_one, one_mul]
+
+/-- The geometric distribution as one local operation of the signature of instruments. -/
+@[expose, reducible]
+noncomputable def geomOp : LocalSig.instruments.Op (QReg.of Unit) :=
+  ⟨ℕ, fun _ ↦ QReg.of Unit, geometric⟩
+
+/-- Draw from the geometric distribution and stop; the leaf of outcome `n` sits on the trivial
+register. -/
+@[expose]
+noncomputable def geomProg :
+    QuantumComp LocalSig.instruments qrom2 (LocalSig.instruments.OutcomeAt geomOp)
+      (QReg.of Unit) :=
+  QuantumComp.prim geomOp
+
+/-- Against the oracle unitary, the program reaches the leaf of outcome `n` with weight
+`2⁻¹ ^ (n + 1)` times the trace of its input. -/
+theorem trace_jointPost_geomProg (H : Fin 2 → Fin 2) (ρ : SubState (QReg.of Unit)) (n : ℕ) :
+    ((xorRuntime H).jointPost .instruments geomProg ρ ⟨_, n, rfl⟩).matrix.trace =
+      (geomWeight n : ℂ) * ρ.matrix.trace := by
+  have hi : (xorRuntime H).init.matrix.trace = 1 := SubState.trace_basis (A := Unit) ()
+  rw [QuantumRuntime.matrix_jointPost, geomProg, QuantumComp.prim, QuantumRuntime.run_primBind,
+    DSubInstrument.branch_bind_apply, tsum_eq_single n fun b hb ↦ ?_]
+  · simp only [QuantumRuntime.run_pure, LocalSig.Interp.instruments_apply]
+    rw [DSubInstrument.branch_ret_self, LinearMap.id_apply, DSubInstrument.branch_frame_apply,
+      MatrixMap.amplify_kronecker, Matrix.trace_kronecker, hi, mul_one]
+    exact trace_geometric_branch n ρ.matrix
+  · simp only [QuantumRuntime.run_pure]
+    rw [DSubInstrument.branch_ret_of_ne _ fun h ↦ hb ?_, LinearMap.zero_apply]
+    exact (congrArg (fun p : Σ u, LocalSig.instruments.OutcomeAt geomOp u ↦ p.2.1) h).symm
+
+/-- The program that draws from the geometric distribution is lossless. -/
+theorem lossless_geomProg : geomProg.Lossless .instruments :=
+  (QuantumComp.lossless_primBind_iff (L := LocalSig.instruments) (spec := qrom2) geomOp _).mpr
+    ⟨lossless_geometric, fun _ ↦ trivial⟩
+
+/-- Against the oracle unitary, the program keeps the trace of its input, summed over its
+infinitely many leaves. -/
+example [MeasurableSpace (Σ u, LocalSig.instruments.OutcomeAt geomOp u)] (H : Fin 2 → Fin 2)
+    (ρ : SubState (QReg.of Unit)) :
+    (xorRuntime H).outcomeLaw .instruments geomProg ρ Set.univ =
+      ENNReal.ofReal ρ.matrix.trace.re := by
+  rw [(xorRuntime H).outcomeLaw_apply_univ_of_lossless .instruments
+    (lossless_run_xorRuntime .instruments lossless_geomProg H),
+    trace_re_xorRuntime_init, mul_one]
+
 /-! ## Outcomes and leaves in a higher universe -/
 
 /-- Measure a qubit in the computational basis and report the bit lifted to `Type 1`: a local
@@ -710,6 +920,28 @@ noncomputable def gateInterp : gates.Interp := fun _ g ↦
 /-- The interpretation of the gate set is lossless. -/
 theorem lossless_gateInterp : gateInterp.Lossless := fun _ g ↦ by
   cases g <;> exact SubInstrument.lossless_toD_iff.mpr (SubInstrument.lossless_ofIsometry _ _)
+
+/-- The bit flip moves the basis state `|0⟩` to `|1⟩`, so it is not the identity. -/
+theorem gateInterp_x_branch_single_zero :
+    (gateInterp Gate.x).branch () (Matrix.single (0 : Fin 2) 0 1) =
+      Matrix.single (1 : Fin 2) 1 1 := by
+  change MatrixMap.conj (basisMatrix (Equiv.addRight (1 : Fin 2))) (Matrix.single 0 0 1) = _
+  rw [conj_basisMatrix_equiv_single]
+  rfl
+
+/-- The state `|+⟩⟨+|` (for `b = 0`) or `|-⟩⟨-|` (for `b = 1`) of a qubit. -/
+noncomputable def plusMinusProj (b : Fin 2) : Matrix (Fin 2) (Fin 2) ℂ :=
+  Matrix.of fun i j ↦ sgn (b * (i + j)) / 2
+
+/-- The phase flip moves `|+⟩` to `|-⟩`, so it is not the identity; it fixes the basis states, so
+it is not the bit flip either. -/
+theorem gateInterp_z_branch_plus :
+    (gateInterp Gate.z).branch () (plusMinusProj 0) = plusMinusProj 1 := by
+  change MatrixMap.conj pauliZ (plusMinusProj 0) = _
+  ext i j
+  rcases eq_zero_or_one i with rfl | rfl <;> rcases eq_zero_or_one j with rfl | rfl <;>
+    simp [MatrixMap.conj_apply, pauliZ, Matrix.diagonal_conjTranspose, Matrix.diagonal_mul,
+      Matrix.mul_diagonal, plusMinusProj, sgn, neg_div]
 
 /-- Apply one gate. -/
 noncomputable def gate {A : QReg} (g : Gate A) : QuantumComp₂ gates qrom2 A A Unit :=
