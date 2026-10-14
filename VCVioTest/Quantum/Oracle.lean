@@ -51,8 +51,9 @@ open scoped ComplexOrder ENNReal Kronecker
 
 namespace VCVioTest.QuantumOracle
 
-/-- The random-oracle signature for oracles `Fin 2 → Fin 2`. -/
-abbrev qrom2 : QuantumOracleSpec :=
+/-- The random-oracle signature for oracles `Fin 2 → Fin 2`. It is noncomputable: it is only used
+in types and noncomputable programs, and is not evaluated when the module is loaded. -/
+noncomputable abbrev qrom2 : QuantumOracleSpec :=
   qromSpec (Fin 2) (Fin 2)
 
 /-! ## Deutsch's algorithm -/
@@ -325,9 +326,10 @@ example (H : Fin 2 → Fin 2) (ρ : SubState (QReg.of Reg)) :
 
 /-! ## Two ports -/
 
-/-- Two oracles `Fin 2 → Fin 2`, one on each port. -/
+/-- Two oracles `Fin 2 → Fin 2`, one on each port. It is noncomputable: it is only used in types
+and noncomputable programs, and is not evaluated when the module is loaded. -/
 @[expose, reducible]
-def twoSpec : QuantumOracleSpec where
+noncomputable def twoSpec : QuantumOracleSpec where
   Port := Bool
   In _ := QReg.of Reg
   Out _ := QReg.of Reg
