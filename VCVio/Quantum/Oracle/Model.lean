@@ -30,7 +30,8 @@ each run by a function that sees the sampled value.
 * `Quantum.QueryAdversary.qromLaw_eq_sum`: the law is the average over all functions of the
   outcome measures of the runs.
 * `Quantum.QueryAdversary.qromLawWith_guess_zero`: without queries, a guess `(x, y)` satisfies
-  `y = H x` with probability `1 / |Y|`.
+  `y = H x` with probability the trace of the initial substate divided by `|Y|`; from a normalized
+  initial state this is `1 / |Y|` (`Quantum.QueryAdversary.qromLawWith_guess_zero_of_trace_eq_one`).
 * `Quantum.QueryAdversary.outcomeMeasure_run_oracleQuery_eq_of_eqOn`: if every query acts on a
   substate supported on the query inputs in `S`, the outcome measure only depends on the
   restriction of the function to `S`.
@@ -81,6 +82,8 @@ theorem outcomeLawWith_id [MeasurableSpace α] (adv : QueryAdversary M α q)
   funext ω
   rw [show (fun a : α ↦ a) = id from rfl, SubInstrument.map_id]
 
+section fintype
+
 variable [Fintype Ω]
 
 /-- The relabelled outcome law of a measurable set averages, over the sampled values, its
@@ -123,7 +126,8 @@ theorem outcomeLaw_eq_sum [MeasurableSpace α] (adv : QueryAdversary M α q)
   rw [outcomeLaw_apply _ _ hs, Measure.smul_apply, Measure.coe_finsetSum, Finset.sum_apply,
     smul_eq_mul, Finset.mul_sum]
 
-omit [Fintype Ω] in
+end fintype
+
 /-- Against lossless query steps, the outcome law has total mass the trace of the initial
 substate. -/
 theorem outcomeLaw_apply_univ [MeasurableSpace α] (adv : QueryAdversary M α q)
@@ -138,12 +142,82 @@ theorem outcomeLaw_apply_univ [MeasurableSpace α] (adv : QueryAdversary M α q)
 
 end outcomeLaw
 
+/-! ## Guessing a value of a uniform function -/
+
+section guess
+
+variable {X Y : Type} [Fintype X] [DecidableEq X] [Fintype Y] [AddCommGroup Y]
+
+/-- Each value is taken at a given input by the same number of functions: the functions with
+`H x = y`, times `|Y|`, are all the functions. -/
+theorem card_filter_apply_eq_mul_card [DecidableEq Y] (x : X) (y : Y) :
+    (Finset.univ.filter fun H : X → Y ↦ H x = y).card * Fintype.card Y =
+      Fintype.card (X → Y) := by
+  have hfib : ∀ y' : Y, (Finset.univ.filter fun H : X → Y ↦ H x = y').card =
+      (Finset.univ.filter fun H : X → Y ↦ H x = y).card := fun y' ↦
+    Finset.card_equiv (Equiv.addRight fun _ ↦ y - y') fun H ↦ by
+      simp only [Finset.mem_filter, Finset.mem_univ, true_and]
+      exact ⟨fun h ↦ (congrArg (· + (y - y')) h).trans (add_sub_cancel y' y),
+        fun h ↦ add_right_cancel (h.trans (add_sub_cancel y' y).symm)⟩
+  have h := Finset.card_eq_sum_card_fiberwise (f := fun H : X → Y ↦ H x) (s := Finset.univ)
+    (t := Finset.univ) fun _ _ ↦ Finset.mem_coe.mpr (Finset.mem_univ _)
+  rw [Finset.card_univ] at h
+  rw [h, Finset.sum_congr rfl fun b _ ↦ hfib b, Finset.sum_const, Finset.card_univ, smul_eq_mul,
+    mul_comm]
+
+/-- A guess that does not depend on the function is right with probability the total weight
+divided by `|Y|`: for a quantum computation `P` on a substate `ρ`, averaging over all functions
+`H` the weight with which the output `a` of `P` satisfies `y a = H (x a)` gives the trace of the
+total output of `P` on `ρ` divided by `|Y|`. For a lossless `P` this is the trace of `ρ` divided
+by `|Y|` (`Quantum.QueryAdversary.qromLawWith_guess_zero`), and `1 / |Y|` when `ρ` is normalized
+(`Quantum.QueryAdversary.qromLawWith_guess_zero_of_trace_eq_one`). -/
+theorem sum_outcomeMeasure_map_guess {M : Type*} [Fintype M] (P : QuantumComp M α)
+    (ρ : SubState M) (x : α → X) (y : α → Y) :
+    ∑ H : X → Y, (Fintype.card (X → Y) : ℝ≥0∞)⁻¹ *
+        (P.map fun a ↦ y a = H (x a)).outcomeMeasure ρ {True} =
+      ENNReal.ofReal (P.total ρ.matrix).trace.re / Fintype.card Y := by
+  classical
+  have hcount : ∀ a : α, ∑ H : X → Y, (Fintype.card (X → Y) : ℝ≥0∞)⁻¹ *
+      (if y a = H (x a) then 1 else 0) = (Fintype.card Y : ℝ≥0∞)⁻¹ := fun a ↦ by
+    have hc := card_filter_apply_eq_mul_card (x a) (y a)
+    have hfilter : (Finset.univ.filter fun H : X → Y ↦ y a = H (x a)) =
+        Finset.univ.filter fun H : X → Y ↦ H (x a) = y a :=
+      Finset.filter_congr fun _ _ ↦ eq_comm
+    have hne : ((Finset.univ.filter fun H : X → Y ↦ H (x a) = y a).card : ℝ≥0∞) ≠ 0 :=
+      Nat.cast_ne_zero.mpr fun h0 ↦
+        (Fintype.card_pos (α := X → Y)).ne' (by rw [← hc, h0, zero_mul])
+    rw [← Finset.mul_sum, Finset.sum_boole, hfilter, ← hc, Nat.cast_mul,
+      ENNReal.mul_inv (Or.inl hne) (Or.inl (ENNReal.natCast_ne_top _)), mul_right_comm,
+      ENNReal.inv_mul_cancel hne (ENNReal.natCast_ne_top _), one_mul]
+  have hterm : ∀ a ∈ P.branch.support, ∑ H : X → Y, (Fintype.card (X → Y) : ℝ≥0∞)⁻¹ *
+      (ENNReal.ofReal (P.branch a ρ.matrix).trace.re *
+        Set.indicator {True} 1 (y a = H (x a))) =
+      ENNReal.ofReal (P.branch a ρ.matrix).trace.re * (Fintype.card Y : ℝ≥0∞)⁻¹ :=
+    fun a _ ↦ by
+      rw [← hcount a, Finset.mul_sum]
+      refine Finset.sum_congr rfl fun H _ ↦ ?_
+      rw [mul_left_comm]
+      congr 2
+      by_cases h : y a = H (x a) <;> simp [h]
+  simp only [SubInstrument.outcomeMeasure_map, Measure.coe_finsetSum, Finset.sum_apply,
+    Measure.smul_apply, Measure.dirac_apply' _ (MeasurableSet.singleton True), smul_eq_mul,
+    Finset.mul_sum]
+  rw [Finset.sum_comm, Finset.sum_congr rfl hterm, ← Finset.sum_mul, div_eq_mul_inv,
+    SubInstrument.total_eq_sum, LinearMap.sum_apply, Matrix.trace_sum, Complex.re_sum,
+    ENNReal.ofReal_sum_of_nonneg fun a _ ↦ P.trace_re_branch_apply_nonneg a ρ.posSemidef]
+
+end guess
+
 /-! ## The quantum random-oracle model -/
 
 section qrom
 
 variable {X Y W : Type} [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y] [AddCommGroup Y]
-  [Fintype W] [DecidableEq W] [SampleableType (X → Y)]
+  [Fintype W] [DecidableEq W]
+
+section sampled
+
+variable [SampleableType (X → Y)]
 
 /-- The law of the output of `adv` in the quantum random-oracle model, relabelled by a function
 that sees the random function: `H : X → Y` is drawn uniformly, the adversary runs against the
@@ -191,63 +265,6 @@ theorem qromLaw_apply_univ [MeasurableSpace α] (adv : QueryAdversary (X × Y ×
 
 /-! ### No queries -/
 
-omit [Fintype W] [DecidableEq W] [SampleableType (X → Y)] in
-/-- Each value is taken at a given input by the same number of functions: the functions with
-`H x = y`, times `|Y|`, are all the functions. -/
-theorem card_filter_apply_eq_mul_card (x : X) (y : Y) :
-    (Finset.univ.filter fun H : X → Y ↦ H x = y).card * Fintype.card Y =
-      Fintype.card (X → Y) := by
-  have hfib : ∀ y' : Y, (Finset.univ.filter fun H : X → Y ↦ H x = y').card =
-      (Finset.univ.filter fun H : X → Y ↦ H x = y).card := fun y' ↦
-    Finset.card_equiv (Equiv.addRight fun _ ↦ y - y') fun H ↦ by
-      simp only [Finset.mem_filter, Finset.mem_univ, true_and]
-      exact ⟨fun h ↦ (congrArg (· + (y - y')) h).trans (add_sub_cancel y' y),
-        fun h ↦ add_right_cancel (h.trans (add_sub_cancel y' y).symm)⟩
-  have h := Finset.card_eq_sum_card_fiberwise (f := fun H : X → Y ↦ H x) (s := Finset.univ)
-    (t := Finset.univ) fun _ _ ↦ Finset.mem_coe.mpr (Finset.mem_univ _)
-  rw [Finset.card_univ] at h
-  rw [h, Finset.sum_congr rfl fun b _ ↦ hfib b, Finset.sum_const, Finset.card_univ, smul_eq_mul,
-    mul_comm]
-
-omit [Fintype W] [DecidableEq W] [SampleableType (X → Y)] [DecidableEq Y] in
-/-- A guess that does not depend on the function is right with probability `1 / |Y|`: for a
-quantum computation `P`, averaging over all functions `H` the weight with which the output `a` of
-`P` satisfies `y a = H (x a)` gives the total weight of `P` divided by `|Y|`. -/
-theorem sum_outcomeMeasure_map_guess {M : Type*} [Fintype M] (P : QuantumComp M α)
-    (ρ : SubState M) (x : α → X) (y : α → Y) :
-    ∑ H : X → Y, (Fintype.card (X → Y) : ℝ≥0∞)⁻¹ *
-        (P.map fun a ↦ y a = H (x a)).outcomeMeasure ρ {True} =
-      ENNReal.ofReal (P.total ρ.matrix).trace.re / Fintype.card Y := by
-  classical
-  have hcount : ∀ a : α, ∑ H : X → Y, (Fintype.card (X → Y) : ℝ≥0∞)⁻¹ *
-      (if y a = H (x a) then 1 else 0) = (Fintype.card Y : ℝ≥0∞)⁻¹ := fun a ↦ by
-    have hc := card_filter_apply_eq_mul_card (x a) (y a)
-    have hfilter : (Finset.univ.filter fun H : X → Y ↦ y a = H (x a)) =
-        Finset.univ.filter fun H : X → Y ↦ H (x a) = y a :=
-      Finset.filter_congr fun _ _ ↦ eq_comm
-    have hne : ((Finset.univ.filter fun H : X → Y ↦ H (x a) = y a).card : ℝ≥0∞) ≠ 0 :=
-      Nat.cast_ne_zero.mpr fun h0 ↦
-        (Fintype.card_pos (α := X → Y)).ne' (by rw [← hc, h0, zero_mul])
-    rw [← Finset.mul_sum, Finset.sum_boole, hfilter, ← hc, Nat.cast_mul,
-      ENNReal.mul_inv (Or.inl hne) (Or.inl (ENNReal.natCast_ne_top _)), mul_right_comm,
-      ENNReal.inv_mul_cancel hne (ENNReal.natCast_ne_top _), one_mul]
-  have hterm : ∀ a ∈ P.branch.support, ∑ H : X → Y, (Fintype.card (X → Y) : ℝ≥0∞)⁻¹ *
-      (ENNReal.ofReal (P.branch a ρ.matrix).trace.re *
-        Set.indicator {True} 1 (y a = H (x a))) =
-      ENNReal.ofReal (P.branch a ρ.matrix).trace.re * (Fintype.card Y : ℝ≥0∞)⁻¹ :=
-    fun a _ ↦ by
-      rw [← hcount a, Finset.mul_sum]
-      refine Finset.sum_congr rfl fun H _ ↦ ?_
-      rw [mul_left_comm]
-      congr 2
-      by_cases h : y a = H (x a) <;> simp [h]
-  simp only [SubInstrument.outcomeMeasure_map, Measure.coe_finsetSum, Finset.sum_apply,
-    Measure.smul_apply, Measure.dirac_apply' _ (MeasurableSet.singleton True), smul_eq_mul,
-    Finset.mul_sum]
-  rw [Finset.sum_comm, Finset.sum_congr rfl hterm, ← Finset.sum_mul, div_eq_mul_inv,
-    SubInstrument.total_eq_sum, LinearMap.sum_apply, Matrix.trace_sum, Complex.re_sum,
-    ENNReal.ofReal_sum_of_nonneg fun a _ ↦ P.trace_re_branch_apply_nonneg a ρ.posSemidef]
-
 /-- **No queries, no knowledge of the oracle.** In the quantum random-oracle model, an adversary
 that makes no query and outputs a guess, an input `x a` with a value `y a`, satisfies
 `y a = H (x a)` with probability the trace of its initial substate divided by `|Y|`. -/
@@ -269,9 +286,9 @@ theorem qromLawWith_guess_zero_of_trace_eq_one (adv : QueryAdversary (X × Y × 
   rw [qromLawWith_guess_zero adv Prod.fst Prod.snd, h]
   simp
 
-/-! ### The oracle is only seen where it is queried -/
+end sampled
 
-omit [SampleableType (X → Y)]
+/-! ### The oracle is only seen where it is queried -/
 
 /-- The queries of `adv` in the run against `Q` stay within the set `S` of query inputs: before
 every query, the substate of the register is supported on the query inputs in `S`. -/

@@ -46,7 +46,11 @@ open scoped ComplexOrder
 
 namespace Quantum
 
-variable {M : Type*} [Fintype M] {α : Type*} {q : ℕ}
+variable {M : Type*}
+
+section run
+
+variable [Fintype M] {α : Type*} {q : ℕ}
 
 /-! ## Interleaving steps with queries -/
 
@@ -258,11 +262,41 @@ theorem stateAfterStep_dropLast (adv : QueryAdversary M α (q + 1)) (Q : Quantum
     (i : Fin (q + 1)) : adv.dropLast.stateAfterStep Q i = adv.stateAfterStep Q i.castSucc :=
   interleavePost_init ..
 
+end QueryAdversary
+
+end run
+
 /-! ## Classical adversaries -/
+
+namespace QueryAdversary
+
+section classicalTrajectory
+
+variable {q : ℕ}
+
+/-- The contents of the register after each step of a classical algorithm whose queries rewrite
+the register by `π`: start at `m₀`, apply `f 0`, and alternate `π` with the later `f i`. -/
+@[expose]
+def classicalTrajectory (π : M → M) (m₀ : M) (f : Fin (q + 1) → M → M) : Fin (q + 1) → M :=
+  Fin.induction (f 0 m₀) fun i m ↦ f i.succ (π m)
+
+/-- The register after step `0` is `f 0` of the initial contents. -/
+@[simp]
+theorem classicalTrajectory_zero (π : M → M) (m₀ : M) (f : Fin (q + 1) → M → M) :
+    classicalTrajectory π m₀ f 0 = f 0 m₀ :=
+  rfl
+
+/-- The register after step `i + 1` is `π` and then `f (i + 1)` of the register after step
+`i`. -/
+theorem classicalTrajectory_succ (π : M → M) (m₀ : M) (f : Fin (q + 1) → M → M) (i : Fin q) :
+    classicalTrajectory π m₀ f i.succ = f i.succ (π (classicalTrajectory π m₀ f i.castSucc)) :=
+  Fin.induction_succ ..
+
+end classicalTrajectory
 
 section ofClassical
 
-variable [DecidableEq M]
+variable [Fintype M] {α : Type*} {q : ℕ} {Q : QuantumComp M Unit} [DecidableEq M]
 
 /-- The adversary that runs a classical deterministic algorithm on basis states: it starts in
 the basis state at `m₀`, step `i` reads the register in the computational basis and rewrites it
@@ -275,26 +309,6 @@ noncomputable def ofClassical (m₀ : M) (f : Fin (q + 1) → M → M) (g : M �
   lossless_step _ := SubInstrument.lossless_classical _ _
   final := SubInstrument.classical id g
   lossless_final := SubInstrument.lossless_classical _ _
-
-/-- The contents of the register after each step of a classical algorithm whose queries rewrite
-the register by `π`: start at `m₀`, apply `f 0`, and alternate `π` with the later `f i`. -/
-@[expose]
-def classicalTrajectory (π : M → M) (m₀ : M) (f : Fin (q + 1) → M → M) : Fin (q + 1) → M :=
-  Fin.induction (f 0 m₀) fun i m ↦ f i.succ (π m)
-
-omit [Fintype M] [DecidableEq M] in
-/-- The register after step `0` is `f 0` of the initial contents. -/
-@[simp]
-theorem classicalTrajectory_zero (π : M → M) (m₀ : M) (f : Fin (q + 1) → M → M) :
-    classicalTrajectory π m₀ f 0 = f 0 m₀ :=
-  rfl
-
-omit [Fintype M] [DecidableEq M] in
-/-- The register after step `i + 1` is `π` and then `f (i + 1)` of the register after step
-`i`. -/
-theorem classicalTrajectory_succ (π : M → M) (m₀ : M) (f : Fin (q + 1) → M → M) (i : Fin q) :
-    classicalTrajectory π m₀ f i.succ = f i.succ (π (classicalTrajectory π m₀ f i.castSucc)) :=
-  Fin.induction_succ ..
 
 variable {π : M → M} (hQ : ∀ m, Q.post (SubState.basis m) () = SubState.basis (π m))
 include hQ
