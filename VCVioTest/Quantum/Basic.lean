@@ -24,6 +24,9 @@ constant-codomain equivalence keeps its losslessness and its outcome law.
 Outcomes need not be finitely many: the instrument on a qubit that reports `n : ℕ` with weight
 `2^{-(n+1)}` and leaves the state unchanged, built directly as a summable family, is lossless,
 and on `|+⟩⟨+|` it gives the outcome `n` mass `2^{-(n+1)}`.
+
+The laws of Kleisli composition of families of matrix maps need only the convergence of the sums
+involved: associativity holds for a finite family that is not trace nonincreasing.
 -/
 
 public section
@@ -256,5 +259,19 @@ example (n : ℕ) : geometric.outcomeMeasure plus {n} = ENNReal.ofReal ((1 / 2) 
 example : geometric.outcomeMeasure plus Set.univ = 1 := by
   rw [lossless_geometric.outcomeMeasure_apply_univ]
   simp [plus, Matrix.trace]
+
+/-! ## Family laws beyond subinstruments -/
+
+/-- Twice the identity map on a qubit, as a one-member family. It is not trace nonincreasing. -/
+noncomputable def twice : Unit → MatrixMap (Fin 2) (Fin 2) :=
+  fun _ ↦ (2 : ℂ) • LinearMap.id
+
+/-- Kleisli composition of families of matrix maps is associative whenever the sums involved
+converge, with no positivity or trace condition: here every family is finite. -/
+example :
+    MatrixMap.familyBind (MatrixMap.familyBind twice fun _ ↦ twice) (fun _ ↦ twice) =
+      MatrixMap.familyBind twice fun _ ↦ MatrixMap.familyBind twice fun _ ↦ twice :=
+  MatrixMap.familyBind_assoc_of_summable (fun _ _ ↦ .of_finite) (fun _ _ _ ↦ .of_finite)
+    fun _ _ ↦ .of_finite
 
 end VCVioTest.QuantumBasic

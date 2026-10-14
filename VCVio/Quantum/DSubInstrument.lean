@@ -318,8 +318,7 @@ theorem frame_ret (i : ι) : (ret B i).frame R = ret (fun j ↦ B j × R) i := b
 /-- Framing commutes with sequencing. -/
 theorem frame_bind (p : DSubInstrument A ι B) (k : (i : ι) → DSubInstrument (B i) κ C) :
     (p.bind k).frame R = (p.frame R).bind fun i ↦ (k i).frame R :=
-  DSubInstrument.ext <| MatrixMap.familyBind_mapRange_amplify R p.isCPTNIFamily
-    fun i ↦ (k i).isCPTNIFamily
+  DSubInstrument.ext <| MatrixMap.familyBind_mapRange_amplify R p.branch fun i ↦ (k i).branch
 
 /-- Framing commutes with reindexing outcomes. -/
 theorem frame_map (f : ι → κ) (p : DSubInstrument A ι fun i ↦ C (f i)) :
