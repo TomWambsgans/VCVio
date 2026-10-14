@@ -336,6 +336,49 @@ example : Pr{let b ← (do if true then return true else return false : ProbComp
     = 1 := by
   simp
 
+/-! The observation sees the tail's bindings as ordinary `do` scope does: a `have` that shadows
+an earlier draw is the binding observed, and a name bound only by a `have` is visible. -/
+
+example : Pr{
+    let _b ← (pure true : ProbComp Bool)
+    let mut n := 0
+    have _b : Bool := false
+    n := n + 1}[_b = true] = 0 := by
+  simp
+example : 𝔼{
+    let _b ← (pure true : ProbComp Bool)
+    let mut n := 0
+    have _b : Bool := false
+    n := n + 1}[if _b then 5 else 2] = 2 := by
+  simp
+example : Pr{
+    let mut n ← (pure 0 : ProbComp ℕ)
+    have c : Bool := false
+    n := n + 1}[c = false ∧ n = 1] = 1 := by
+  simp
+example : Pr{
+    let mut n ← (pure 0 : ProbComp ℕ)
+    let x := 5
+    n := n + x}[n = 5] = 1 := by
+  simp
+
+/-- Reassignment keeps the variables in the order they were introduced. -/
+example (g : ℕ → ProbComp ℕ) (p : ℕ → ℕ → Prop) :
+    Pr{let mut a ← g 0; let mut b ← g 1; a := a + 1}[p a b] =
+      wp⟦do let a ← g 0; let b ← g 1; pure (a + 1, b)⟧ (predInd fun (a, b) => p a b) := by
+  rfl
+
+/--
+error: `h` is bound by the imperative tail, but it is a proof, a type, or a value whose type
+depends on another binding of the tail, so the event cannot observe it; observe the data it is
+about instead
+-/
+#guard_msgs (whitespace := lax) in
+noncomputable example : ℝ≥0∞ := Pr{
+    let mut n ← (pure 0 : ProbComp ℕ)
+    have h : True := trivial
+    n := n + 1}[h = h]
+
 /-- A draw whose program is a `let`-bound `do` block typed by its own binds elaborates once the
 surrounding term has forced that block: the draw postpones instead of forcing its own binds. -/
 noncomputable example (mx : OptionT ProbComp ℕ) : ℝ≥0∞ :=

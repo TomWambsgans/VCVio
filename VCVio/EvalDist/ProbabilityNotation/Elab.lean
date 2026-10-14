@@ -8,7 +8,6 @@ module
 public import VCVio.EvalDist.Expectation
 public import VCVio.Prelude.Core
 public meta import Lean.PrettyPrinter.Formatter
-public meta import Lean.Elab.PatternVar
 
 /-!
 # Elaboration of the event and expectation notations
@@ -197,32 +196,75 @@ partial def hasTopLevelReturn (stx : Syntax) : MacroM Bool := do
   if let some expanded ← expandMacro? stx then return ← hasTopLevelReturn expanded
   stx.getArgs.anyM hasTopLevelReturn
 
-/-- The variables an imperative tail binds at its top level, in order. -/
-def tailBinders (items : Array (TSyntax ``Lean.Parser.Term.doSeqItem)) :
-    TermElabM (Array Ident) := do
-  let mut vars : Array Ident := #[]
-  for item in items do
-    let elem := item.raw[0]
-    let mut new : Array Ident := #[]
-    if elem.isOfKind ``Lean.Parser.Term.doLet then
-      let decl := elem[3][0]
-      if decl.isOfKind ``Lean.Parser.Term.letIdDecl then
-        let id := if decl[0].isOfKind ``Lean.Parser.Term.letId then decl[0][0] else decl[0]
-        if id.isIdent then new := #[⟨id⟩]
-      else if decl.isOfKind ``Lean.Parser.Term.letPatDecl then
-        new := (← getPatternVarNames <$> getPatternVars decl[0]).map mkIdent
-    else if elem.isOfKind ``Lean.Parser.Term.doLetArrow then
-      let decl := elem[3]
-      if decl.isOfKind ``Lean.Parser.Term.doIdDecl then
-        new := #[⟨decl[0]⟩]
-      else if decl.isOfKind ``Lean.Parser.Term.doPatDecl then
-        unless decl[0].isOfKind ``Lean.Parser.Term.hole do
-          new := (← getPatternVarNames <$> getPatternVars decl[0]).map mkIdent
-    else if elem.isOfKind ``Lean.Parser.Term.doLetElse then
-      new := (← getPatternVarNames <$> getPatternVars elem[3]).map mkIdent
-    for v in new do
-      vars := (vars.filter (·.getId != v.getId)).push v
-  return vars
+/-- The end of an imperative tail, `tailScope% n`: the tuple of the variables the tail binds, read
+off the local context at the end of the tail. A variable is one of local-context index at least
+`n` (the size of the context before the tail) under its innermost binding, so `have`, shadowing,
+reassignment and macro-produced binders are seen exactly as ordinary `do` sees them. A proof, a
+type, or a value whose type mentions another tail variable cannot be returned in the tuple; such a
+name is recorded as hidden. The tuple is annotated with both lists of names. The observation is
+carried only for its source positions: each variable is recorded as used by it. -/
+syntax (name := tailScopeStx) "tailScope% " num " observing " term : term
+
+/-- The metadata key of the names returned by `tailScope%`. -/
+def tailScopeKey : Name := `VCVio.ProbabilityNotation.tailScope
+
+/-- The metadata key of the names `tailScope%` cannot return. -/
+def tailHiddenKey : Name := `VCVio.ProbabilityNotation.tailHidden
+
+/-- Elaborate `tailScope% n`. -/
+def elabTailScope (n : Nat) (obs : Term) : TermElabM Expr := do
+  let lctx ← getLCtx
+  let isTailVar (f : FVarId) : Bool := (lctx.find? f).any (·.index ≥ n)
+  let mut seen : NameSet := {}
+  let mut vars : Array LocalDecl := #[]
+  let mut hidden : Array Name := #[]
+  -- The index of the first binding of each name: reassigning a mutable variable rebinds it,
+  -- and the tuple keeps the variables in the order they were introduced.
+  let mut first : Std.HashMap Name Nat := {}
+  let mut i := lctx.numIndices
+  while i > n do
+    i := i - 1
+    let some decl := lctx.getAt? i | continue
+    if decl.isImplementationDetail || decl.userName.hasMacroScopes then continue
+    first := first.insert decl.userName i
+    if seen.contains decl.userName then continue
+    seen := seen.insert decl.userName
+    let ty ← instantiateMVars decl.type
+    if (← isProp ty) || (← whnfD ty).isSort || ty.hasAnyFVar isTailVar then
+      hidden := hidden.push decl.userName
+    else
+      vars := vars.push decl
+  let observed := vars.qsort fun a b => first[a.userName]! < first[b.userName]!
+  -- The tail returns its variables to the observation: record each as used there, at the
+  -- identifier naming it, for the unused-variables linter.
+  for d in observed do
+    let ref := obs.raw.find? fun s => s.isIdent && d.userName.isPrefixOf s.getId
+    addTermInfo' (ref.getD obs) d.toExpr
+  let mut tup := Lean.mkConst ``Unit.unit
+  if let some last := observed.back? then
+    tup := last.toExpr
+    for d in observed.pop.reverse do
+      tup ← mkAppM ``Prod.mk #[d.toExpr, tup]
+  let names (ns : Array Name) : DataValue :=
+    .ofSyntax (mkNullNode (ns.map fun n => (mkIdent n).raw))
+  return mkMData ((({} : KVMap).insert tailScopeKey (names (observed.map (·.userName)))).insert
+    tailHiddenKey (names hidden.reverse)) tup
+
+/-- The names annotated by `tailScope%` in the elaborated tail `a`, and `a` without the
+annotation. -/
+def tailScopeNames (a : Expr) : TermElabM (Array Name × Array Name × Expr) := do
+  let a ← instantiateMVars a
+  let some (.mdata d _) := a.find? fun
+      | .mdata d _ => d.contains tailScopeKey
+      | _ => false
+    | throwError "internal error: the end of the imperative tail was not elaborated"
+  let names (k : Name) : Array Name := match d.find k with
+    | some (.ofSyntax s) => s.getArgs.map (·.getId)
+    | _ => #[]
+  let a := a.replace fun
+    | .mdata d e => if d.contains tailScopeKey then some e else none
+    | _ => none
+  return (names tailScopeKey, names tailHiddenKey, a)
 
 /-- The tuple of the variables and the pattern that matches it. -/
 def mkTuple (vars : Array Ident) : MacroM (Term × Term) := do
@@ -484,12 +526,18 @@ partial def elabSeq (hint? : Option Expr) (items : Array (TSyntax ``Lean.Parser.
       throwError "`return` is not allowed at the top level of the braces: the sequence's \
         bindings are what the event observes; bind a computation that returns early as \
         `let x ← (do …)`"
-    let vars ← tailBinders items
-    let (tup, tupPat) ← liftMacroM (mkTuple vars)
     let guardedItems ← items.mapM fun item => do
       return (⟨← liftMacroM (protectTailDraws item.raw)⟩ : TSyntax ``Lean.Parser.Term.doSeqItem)
-    let prog ← `((do $guardedItems:doSeqItem* pure $tup))
+    let scope := Syntax.mkNumLit (toString (← getLCtx).numIndices)
+    let prog ← `((do $guardedItems:doSeqItem* pure (tailScope% $scope observing $val)))
     let (a, m, β) ← elabTail hint? prog
+    let (vars, unobservable, a) ← tailScopeNames a
+    if let some h := unobservable.find? fun h =>
+        (val.raw.find? fun s => s.isIdent && h.isPrefixOf s.getId).isSome then
+      throwErrorAt val m!"`{h}` is bound by the imperative tail, but it is a proof, a type, or a \
+        value whose type depends on another binding of the tail, so the event cannot observe it; \
+        observe the data it is about instead"
+    let (_, tupPat) ← liftMacroM (mkTuple (vars.map mkIdent))
     checkMeasureSemantics m
     let body ← if event then `(propInd ($val : Prop)) else pure val
     let g ← elabTermEnsuringType (← `(fun $tupPat => ($body : ENNReal))) (← mkArrow β ennreal)
@@ -515,6 +563,10 @@ end VCVio.ProbabilityNotation
 elab_rules : term <= expected?
   | `(VCVio.ProbabilityNotation.tailDrawStx| probabilityDraw% $rhs) =>
     VCVio.ProbabilityNotation.elabTailDraw rhs expected?
+
+elab_rules : term
+  | `(VCVio.ProbabilityNotation.tailScopeStx| tailScope% $n observing $obs) =>
+    VCVio.ProbabilityNotation.elabTailScope n.getNat obs
 
 elab_rules : term
   | `(expect% $[(m := $h)]? {$items*}[$b]) => do
