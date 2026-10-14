@@ -17,7 +17,7 @@ which finite events can be evaluated exactly and which semantics require measura
 `import VCVio.Foundations` is the public entry point for oracle, sampling, measure, kernel,
 operational-support, unary/relational WP, and stateful security foundations. Its import closure
 excludes Mathlib's `PMF`; `VCVioTest/Foundations.lean` checks this boundary. Across the library,
-the `usesRetiredProbability` environment linter (`ToMathlib/Lint/LegacyProbability.lean`) reports
+the `usesPMF` environment linter (`ToMathlib/Lint/UsesPMF.lean`) reports
 any declaration whose type or value uses `PMF` directly.
 
 Handler instrumentation lives in `QueryImpl.Constructions.Core`, `Append.Core`, `WriterT.Core`,
@@ -124,7 +124,7 @@ constructions for typeclass search, and a proof may select them explicitly.
 packages four separate corner postconditions; the one-sided and optional case helpers are in
 `RelationalAlgebraAnchored`.
 
-`VCVio.StateSeparating.MeasureDistEquiv` compares all adaptive client output measures under the
+`VCVio.StateSeparating.DistEquiv` compares all adaptive client output measures under the
 selected lawful interpretation. Its `of_step` rule retains each joint response/state law;
 `prEvent_eq` transports final events, and the advantage rules permit replacing experiments
 with different private-state types. `run_evalDist_eq` is the public observation equation.
@@ -626,7 +626,7 @@ When a concrete specification's answer type appears reduced (`Bool` rather than
 `spec.Range t`), `rw` and `simp` match the generic laws only with the specification named, as in
 `evalDist_liftM_query_apply (spec := S) t hs`: Lean assigns the measurable-space argument before
 the query has determined `spec`. Handler-level hypotheses (`evalDist_simulateQ_congr`,
-`evalDist_simulateQ_run_congr`, `QueryImpl.Stateful.MeasureDistEquiv.of_step`,
+`evalDist_simulateQ_run_congr`, `QueryImpl.Stateful.DistEquiv.of_step`,
 `wp_simulateQ_eq`, `wp_simulateQ_run'_eq`) are equalities in distribution `=ᵈ`, so handler states
 need no measurable structure either. A tactic proof that needs the discrete structure on an answer
 or on a reply-state product declares it with `let : MeasurableSpace (spec.Range t) := ⊤`, using
@@ -752,7 +752,7 @@ the successful-output denotation to its first marginal before the upstream `run'
 unfolds; consumers do not need to supply the measurable-map equation.
 
 `ProbabilitySemantics` is the total/lossless semantics bundle used by transformer adapters.
-The lower-level `MeasureSemanticsVia` describes potentially lossy surface semantics.
+The lower-level `SemanticsVia` describes potentially lossy surface semantics.
 Import `VCVio.EvalDist.Defs.Semantics.Core` for the bundles and
 `VCVio.EvalDist.MeasureSemantics` for effect-preserving transformer observations. Bundled
 `evalDist` observations infer `IsSubprobabilityMeasure` and `IsFiniteMeasure`.
@@ -1018,7 +1018,7 @@ disconnects them. Concretely: `@[grind norm] bind_pure_comp` (`mx >>= fun a => p
 do-block normalises to a `<$>` form while the E-matching-side `replicate` unfolds stay in `bind`
 form, and the E-graph never connects the two. It is therefore deliberately **not** tagged. Gate any
 new `@[grind norm]` candidate against all of `VCVioTest/{ProbabilityTactics,MonadProbability,`
-`LongChainPrograms,GrindFailFast}.lean` and `VCVioTest/EvalDist/MeasureBridge.lean` before
+`LongChainPrograms,GrindFailFast}.lean` and `VCVioTest/EvalDist/MeasureGate.lean` before
 keeping it.
 
 **Structural additions to the default set** (all gated in `VCVioTest/GrindFailFast.lean`):
@@ -1113,7 +1113,7 @@ and `grw` registrations. Measure-bind rewriting requires importing
 The simp, grind and `gcongr` sets of the probability layer are designed around one normal form
 and one *ladder* below it. The normal form is the measure form: singleton, event and total masses
 stay `𝒟[mx] s` or `Pr{…}[…]`, and `simp` leaves it only to reach a closed form.
-`VCVioTest/EvalDist/MeasureBridge.lean` pins this contract. The ladder has one canonical spelling
+`VCVioTest/EvalDist/MeasureGate.lean` pins this contract. The ladder has one canonical spelling
 per rung, mass-left throughout, each rung reached from the one above it by an existing pathway
 rather than by a per-rung duplicate lemma.
 
@@ -1153,7 +1153,7 @@ inside proofs, never as a normal form.
 
 **What the gates enforce.** The gate files (`VCVioTest/ProbabilityTactics.lean`,
 `MonadProbability.lean`, `LongChainPrograms.lean`, `GrindFailFast.lean`,
-`EvalDist/MeasureBridge.lean`, `Tactic/*.lean`, `ProgramLogic/GCongr.lean`) state
+`EvalDist/MeasureGate.lean`, `Tactic/*.lean`, `ProgramLogic/GCongr.lean`) state
 "goal family → one terminal tactic" and are the gate for every change to these sets:
 
 1. *One terminal call.* A positive entry is `by <one tactic>` or a term: `simp`, `grind`,

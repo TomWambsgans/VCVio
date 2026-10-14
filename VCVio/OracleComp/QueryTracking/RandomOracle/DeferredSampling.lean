@@ -195,4 +195,32 @@ theorem wp_simulateQ_run_eq_of_rel
       simp only [simulateQ_bind, simulateQ_spec_query, StateT.run_bind, ExpectationWP.wp_bind]
       exact hstep t s₁ s₂ hs _ fun b t₁ t₂ ht => ih b F hF t₁ t₂ ht
 
+/-- Related starting states give equal expected observations when every query preserves
+expectations of relation-invariant continuations. -/
+theorem lintegral_simulateQ_run_eq_of_rel
+    {ι : Type} {spec : OracleSpec ι} {σ : Type}
+    (impl : QueryImpl spec (StateT σ ProbComp))
+    {γ : Type} (oa : OracleComp spec γ)
+    (Rel : σ → σ → Prop)
+    (hstep : ∀ (t : spec.Domain) (s₁ s₂ : σ), Rel s₁ s₂ →
+      ∀ (K : spec.Range t → σ → ℝ≥0∞),
+        (∀ (b : spec.Range t) (t₁ t₂ : σ), Rel t₁ t₂ → K b t₁ = K b t₂) →
+        letI : MeasurableSpace (spec.Range t × σ) := ⊤
+        ∫⁻ p, K p.1 p.2 ∂𝒟[(impl t).run s₁] = ∫⁻ p, K p.1 p.2 ∂𝒟[(impl t).run s₂]) :
+    ∀ (F : γ → σ → ℝ≥0∞), (∀ (g : γ) (s₁ s₂ : σ), Rel s₁ s₂ → F g s₁ = F g s₂) →
+      ∀ (s₁ s₂ : σ), Rel s₁ s₂ →
+        letI : MeasurableSpace (γ × σ) := ⊤
+        ∫⁻ z, F z.1 z.2 ∂𝒟[(simulateQ impl oa).run s₁] =
+          ∫⁻ z, F z.1 z.2 ∂𝒟[(simulateQ impl oa).run s₂] := by
+  intro F hF s₁ s₂ hs
+  let : MeasurableSpace (γ × σ) := ⊤
+  rw [← ExpectationWP.wp_eq_lintegral _ _ Measurable.of_discrete,
+    ← ExpectationWP.wp_eq_lintegral _ _ Measurable.of_discrete]
+  apply wp_simulateQ_run_eq_of_rel impl oa Rel _ F hF s₁ s₂ hs
+  intro t t₁ t₂ ht K hK
+  let : MeasurableSpace (spec.Range t × σ) := ⊤
+  rw [ExpectationWP.wp_eq_lintegral _ _ Measurable.of_discrete,
+    ExpectationWP.wp_eq_lintegral _ _ Measurable.of_discrete]
+  exact hstep t t₁ t₂ ht K hK
+
 end OracleComp.DeferredSampling

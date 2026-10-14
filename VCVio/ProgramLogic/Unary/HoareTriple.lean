@@ -43,7 +43,7 @@ namespace OracleComp.ProgramLogic
 variable {ι : Type u} {spec : OracleSpec ι}
 variable {α β σ : Type}
 
-section MeasureSpec
+section answerMeasure
 
 variable [OracleSpec.AnswerMeasure spec]
 
@@ -246,7 +246,7 @@ theorem wp_liftM_query (t : spec.Domain) (post : spec.Range t → ℝ≥0∞) :
     wp⟦(HasQuery.query t : OracleComp spec (spec.Range t))⟧ post =
       ∫⁻ u, post u ∂OracleSpec.AnswerMeasure.toMeasure t := wp_query t post
 
-end MeasureSpec
+end answerMeasure
 
 section Uniform
 
@@ -274,7 +274,7 @@ theorem wp_HasQuery_query_uniform [OracleSpec.UniformAnswerMeasure spec]
 
 end Uniform
 
-section MeasureSpec
+section answerMeasure
 
 variable [OracleSpec.AnswerMeasure spec]
 
@@ -425,6 +425,6 @@ lemma wp_congr_evalDist [MeasurableSpace α] {oa ob : OracleComp spec α}
     wp⟦oa⟧ post = wp⟦ob⟧ post := by
   rw [wp_eq_lintegral oa post hpost, wp_eq_lintegral ob post hpost, h]
 
-end MeasureSpec
+end answerMeasure
 
 end OracleComp.ProgramLogic

@@ -9,8 +9,9 @@ expectation over the run. This script lists the flat laws without an `OptionT` o
 twin, the `OptionT` laws without an `ExceptT` twin, and the twins whose rewriting attributes
 (`simp`, `grind`, `expect_norm`, `expect_eval`, `expect_arith`, `gcongr`) differ from the flat
 law's. `scripts/lifted_law_parity_baseline.json` lists the known gaps. `--check` fails on a gap
-the baseline does not list and on an obsolete entry (the lists only shrink);
-`--update-baseline` rewrites it.
+the current baseline does not list and on an obsolete entry. It compares names and rewriting
+attribute categories, not theorem types or proof meaning, and does not compare Git history.
+`--update-baseline` rewrites the current baseline and can add gaps.
 """
 
 from __future__ import annotations

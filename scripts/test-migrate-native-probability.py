@@ -29,6 +29,73 @@ class EventTests(unittest.TestCase):
         self.assertMigrates("Pr{mx}[= a] = Pr{g <$> my}[(· = (f b, c))]",
                             "Pr{let x ← mx}[x = a] = Pr{let x ← g <$> my}[x = (f b, c)]")
 
+    def test_singleton_ascription_fixes_the_draw_type(self):
+        for value, comp in (("(-1 : ℤ)", "(pure (1 - 2) : ProbComp _)"),
+                            ("(-3 : ℤ)", "(pure (-3) : ProbComp _)"),
+                            ("((1 - 2) : ℤ)", "(pure (1 - 2) : ProbComp _)")):
+            out, items = migrate(f"Pr[= {value} | {comp}]")
+            self.assertEqual(out, f"Pr{{let x : ℤ ← {comp}}}[x = {value}]")
+            self.assertEqual(items, [])
+        self.assertMigrates("Pr[(· = (-1 : ℤ)) | (pure (1 - 2) : ProbComp _)]",
+                            "Pr{let x : ℤ ← (pure (1 - 2) : ProbComp _)}[x = (-1 : ℤ)]")
+        self.assertMigrates("Pr{(pure (1 - 2) : ProbComp _)}[= (-1 : ℤ)]",
+                            "Pr{let x : ℤ ← (pure (1 - 2) : ProbComp _)}[x = (-1 : ℤ)]")
+
+    def test_singleton_ascriptions_ignore_literal_colons(self):
+        for value in ('":"', "':'"):
+            out, items = migrate(f"Pr[= {value} | mx]")
+            self.assertEqual(out, f"Pr{{let x ← mx}}[x = {value}]")
+            self.assertEqual(len(items), 1)
+        self.assertMigrates('Pr[= (":" : String) | mx]',
+                            'Pr{let x : String ← mx}[x = (":" : String)]')
+        self.assertMigrates("Pr[= (':' : Char) | mx]",
+                            "Pr{let x : Char ← mx}[x = (':' : Char)]")
+
+    def test_singleton_ascriptions_keep_primed_names_and_skip_comments(self):
+        self.assertMigrates("Pr[= (a' : T') | mx]", "Pr{let x : T' ← mx}[x = (a' : T')]")
+        self.assertEqual(codemod.result_ascription("(-1 -- : Nat\n : ℤ)"), "ℤ")
+
+    def test_unrecoverable_singleton_types_are_reported(self):
+        for source in ("Pr[= -1 | (pure (1 - 2) : ProbComp _)]",
+                       "Pr[= a | mx]", "Pr[(· = 1 - 2) | pure (1 - 2)]",
+                       "Pr{mx}[= a]", "Pr[= (-1 : _) | (pure (1 - 2) : ProbComp _)]",
+                       "Pr[= -1 | (pure (1 - 2) : ProbComp ?result)]"):
+            _, items = migrate(source)
+            self.assertEqual(len(items), 1)
+            self.assertIn("result-type check", items[0][2])
+        _, items = migrate("Pr[= -1 | (pure (1 - 2) : ProbComp ℤ)]")
+        self.assertEqual(items, [])
+
+    def test_untyped_predicate_rewrites_are_reported(self):
+        # The legacy predicate fixed the result type: `pure 2` drew from `Fin 2`, not `ℕ`.
+        for source in ("Pr[(· < (1 : Fin 2)) | (pure 2 : ProbComp _)]",
+                       "Pr[fun x => x < (1 : Fin 2) | pure 2]", "Pr[p | mx]"):
+            _, items = migrate(source)
+            self.assertEqual(len(items), 1)
+            self.assertIn("result-type check", items[0][2])
+        for source in ("Pr[fun (x : Fin 2) => x < 1 | (pure 2 : ProbComp _)]",
+                       "Pr[(· < 1) | (pure 2 : ProbComp (Fin 2))]", "Pr[⊥ | mx]"):
+            _, items = migrate(source)
+            self.assertEqual(items, [])
+
+    def test_binder_colons_are_not_ascriptions(self):
+        for comp in ("if h : True then drawTwo else drawTwo",
+                     "(if h : True then drawTwo else drawTwo)", "(fun x : ℕ => mx x) 0"):
+            _, items = migrate(f"Pr[(· < (1 : Fin 2)) | {comp}]")
+            self.assertEqual(len(items), 1, comp)
+        self.assertEqual(codemod.result_ascription("(pure 2 : ProbComp (Fin 2))"),
+                         "ProbComp (Fin 2)")
+
+    def test_separators_inside_literals_and_comments(self):
+        self.assertMigrates('Pr[fun x => x = "a|b" | mx]', 'Pr{let x ← mx}[x = "a|b"]')
+        self.assertMigrates("Pr[fun c => c = '|' | mc]", "Pr{let c ← mc}[c = '|']")
+        self.assertMigrates("Pr[fun c => c = ')' | mc]", "Pr{let c ← mc}[c = ')']")
+        self.assertMigrates("Pr[fun x => x = a /- | -/ | mx]",
+                            "Pr{let x ← mx}[x = a /- | -/]")
+        self.assertMigrates("Pr[fun x' => x' = 1 | mx]", "Pr{let x' ← mx}[x' = 1]")
+        self.assertEqual(codemod.split_top_level('a, "b,c", \',\', d', ","),
+                         ["a", ' "b,c"', " ','", " d"])
+
     def test_reading_scopes_and_answer_measures(self):
         self.assertMigrates(
             "open scoped OracleComp.Qualitative in\n"
@@ -197,14 +264,14 @@ class NameTests(unittest.TestCase):
                               "  ExpectationWP.algebra, ExpectationWP.Lower.Spec.pure]")
 
     def test_total_variation(self):
-        # The real-valued algebra keeps its names; the bounds are stated on `etvDist`.
+        # Live real-valued names and measure-TV wrappers remain stable.
         out, items = migrate(
             "exact (tvDist_simulateQ_le_probEvent_bad h).trans (tvDist_le_one _ _)\n"
             "exact AdvBound.of_measureETVDist hb "
             "(measureETVDist_simulateQ_run'_le_prEvent_bad_of_evalDistEq i j)\n")
         self.assertEqual(out,
-            "exact (etvDist_simulateQ_run'_le_prEvent_bad h).trans (tvDist_le_one _ _)\n"
-            "exact AdvBound.of_etvDist hb (etvDist_simulateQ_run'_le_prEvent_bad_of_evalDistEq i j)\n")
+            "exact (measureETVDist_simulateQ_run'_le_prEvent_bad h).trans (tvDist_le_one _ _)\n"
+            "exact AdvBound.of_measureETVDist hb (measureETVDist_simulateQ_run'_le_prEvent_bad_of_evalDistEq i j)\n")
         self.assertEqual(items, [])
         _, items = migrate("exact tvDist_bind_left_le mx f g")
         self.assertEqual(len(items), 1)
@@ -227,9 +294,10 @@ class NameTests(unittest.TestCase):
         self.assertEqual(migrate("rw [probEvent_uniformSample]")[0],
                          "rw [SampleableType.prEvent_uniformSample]")
         self.assertEqual(migrate("(SPMFSemantics.withStateOracle h s).evalDist mx")[0],
-                         "(MeasureSemanticsVia.withStateOracle h s).evalDist mx")
-        _, items = migrate("def sem : SPMFSemantics m := s")
-        self.assertIn("MeasureSemanticsVia", items[0][2])
+                         "(SemanticsVia.withStateOracle h s).evalDist mx")
+        out, items = migrate("def sem : SPMFSemantics m := s")
+        self.assertEqual(out, "def sem : SemanticsVia m := s")
+        self.assertEqual(items, [])
         _, items = migrate("exact tvDist_bind_right_le f mx my")
         self.assertIn("tvDist_bind_le mx my f", items[0][2])
 
@@ -250,18 +318,18 @@ class NameTests(unittest.TestCase):
                                     capture_output=True, text=True, check=True)
         self.assertIn("0 site(s) to finish by hand", result.stderr)
         # A local copy of a lemma VCVio replaces is reported once, at its declaration.
-        source = ("lemma probOutput_bind_eq_tsum : True := trivial\n"
-                  "example : True := probOutput_bind_eq_tsum\n")
+        source = ("lemma probOutput_congr : True := trivial\n"
+                  "example : True := probOutput_congr\n")
         report = codemod.Report()
         codemod.migrate(source, "Fixture.lean", report, codemod.declared_names([source]))
         self.assertEqual([line for _, line, _ in report.items], [1])
-        self.assertIn("prEvent_bind_eq_tsum", report.items[0][2])
+        self.assertIn("EvalDistEq.prEvent_eq", report.items[0][2])
 
     def test_legacy_names_are_reported_with_hints(self):
-        _, items = migrate("theorem t : True := by\n  rw [probOutput_bind_eq_tsum]\n  exact h")
+        _, items = migrate("theorem t : True := by\n  rw [probOutput_congr rfl h]\n  exact h")
         self.assertEqual(len(items), 1)
         self.assertEqual(items[0][1], 2)
-        self.assertIn("prEvent_bind_eq_lintegral", items[0][2])
+        self.assertIn("EvalDistEq.prEvent_eq", items[0][2])
 
 
 class ReportTests(unittest.TestCase):
@@ -303,6 +371,162 @@ class ImportTests(unittest.TestCase):
     def test_unrelated_imports_are_untouched(self):
         source = "public import A\npublic import B\npublic import A\n"
         self.assertEqual(migrate(source)[0], source)
+
+
+class FirstReleaseTests(unittest.TestCase):
+    """Sources written against the measure API's first release land on the final names."""
+
+    def assertMigrates(self, source, expected):
+        self.assertEqual(migrate(source)[0], expected)
+
+    def test_answer_measures(self):
+        self.assertMigrates("[OracleSpec.IsMeasureSpec spec] [IsUniformMeasureSpec spec']",
+                            "[OracleSpec.AnswerMeasure spec] [UniformAnswerMeasure spec']")
+        self.assertMigrates("IsMeasureSpec.toMeasure t = IsUniformMeasureSpec.add.toMeasure t",
+                            "AnswerMeasure.toMeasure t = UniformAnswerMeasure.add.toMeasure t")
+        self.assertMigrates("h.toIsMeasureSpec, instIsUniformMeasureSpecChalSingleton, "
+                            "spec.toPFunctor.IsMeasureSpec, fairCoinMeasureSpec",
+                            "h.toAnswerMeasure, instUniformAnswerMeasureChalSingleton, "
+                            "spec.toPFunctor.AnswerMeasure, fairCoinAnswerMeasure")
+        self.assertMigrates("spec.probHandler, simulateQ_probHandler, ProbHandler spec",
+                            "spec.uniformHandler, simulateQ_uniformHandler, ProbHandler spec")
+
+    def test_packages_and_bundled_semantics(self):
+        self.assertMigrates("MeasureDistEquiv₀ h₀ h₁ ∧ QueryImpl.Stateful.MeasureDistEquiv i j",
+                            "DistEquiv₀ h₀ h₁ ∧ QueryImpl.Stateful.DistEquiv i j")
+        self.assertMigrates("runtime.toMeasureSemanticsVia.evalDist mx = "
+                            "(MeasureSemanticsVia.ofEvalDistSemantics m).evalDist mx",
+                            "runtime.toSemanticsVia.evalDist mx = "
+                            "(SemanticsVia.ofEvalDistSemantics m).evalDist mx")
+        out, items = migrate("exact MeasureDistEquiv.of_step h")
+        self.assertEqual(out, "exact DistEquiv.of_step h")
+        self.assertEqual(len(items), 1)
+
+    def test_expectation_interpretation_and_readings(self):
+        self.assertMigrates("MeasureProgramLogic.toMAlgOrdered m, MeasureProgramLogic.Quantitative.wp",
+                            "ExpectationWP.algebra m, ExpectationWP.Lower.wp")
+        self.assertMigrates("OracleComp.Qualitative.wp_eq_mAlgOrdered_wp, OracleComp.Quantitative.triple, "
+                            "OracleComp.Rel.Qualitative.triple",
+                            "OracleComp.Necessary.wp_eq_mAlgOrdered_wp, OracleComp.Lower.triple, "
+                            "OracleComp.Rel.Qualitative.triple")
+
+    def test_modules(self):
+        source = ("public import VCVio.OracleComp.EvalDist.MeasureSpec\n"
+                  "import VCVio.StateSeparating.DistEquiv\n"
+                  "import VCVio.StateSeparating.MeasureDistEquiv\n"
+                  "import VCVio.ProgramLogic.Unary.WP.Qualitative\n")
+        expected = ("public import VCVio.OracleComp.EvalDist.AnswerMeasure\n"
+                    "import VCVio.StateSeparating.DistEquiv\n"
+                    "import VCVio.ProgramLogic.Unary.WP.Necessary\n")
+        self.assertMigrates(source, expected)
+
+    def test_distribution_equations(self):
+        # An equation of two output distributions is an equality in distribution.
+        self.assertMigrates("(h : 𝒮[oa >>= f] = 𝒮[ob])", "(h : (oa >>= f) =ᵈ ob)")
+        self.assertMigrates("(h : ∀ a, 𝒮[f a] = 𝒮[g a]) : 𝒮[mx] = 𝒮[my] ∧ True",
+                            "(h : ∀ a, f a =ᵈ g a) : mx =ᵈ my ∧ True")
+        # A pointwise mass, or a distribution passed as an argument, is left and reported.
+        for source in ("𝒮[mx] x = 𝒮[my] x", "foo 𝒮[mx] = 𝒮[my]"):
+            out, items = migrate(source)
+            self.assertEqual(out, source)
+            self.assertEqual(len(items), 1)
+
+    def test_tables_record_chains_by_their_final_name(self):
+        self.assertEqual([old for old, new in codemod.RENAMES.items() if new in codemod.RENAMES],
+                         [])
+        self.assertEqual([old for old, targets in codemod.MODULES.items()
+                          if old in targets or any(t in codemod.MODULES for t in targets)], [])
+
+
+class EventLemmaTests(unittest.TestCase):
+    """The discrete event lemmas land on the measure lemmas stated on the same singleton shapes."""
+
+    def assertMigrates(self, source, expected):
+        self.assertEqual(migrate(source)[0], expected)
+
+    def test_singleton_shapes(self):
+        self.assertMigrates("rw [probOutput_bind_eq_tsum, tsum_probOutput_eq_one', "
+                            "probOutput_ne_top]",
+                            "rw [OracleComp.prEvent_bind_eq_tsum, OracleComp.tsum_prEvent_eq_one, "
+                            "(prEvent_ne_top _)]")
+        self.assertMigrates("probOutput_eq_zero_of_not_mem_support hx, probEvent_le_one, "
+                            "probOutput_pure",
+                            "(prEvent_eq_zero_of_not_mem_support _) hx, (prEvent_le_one _), "
+                            "prEvent_pure")
+
+    def test_explicit_computation_renames(self):
+        self.assertMigrates("exact le_antisymm probEvent_le_one h",
+                            "exact le_antisymm (prEvent_le_one _) h")
+        self.assertMigrates("probEvent_le_one.trans h", "(prEvent_le_one _).trans h")
+        self.assertMigrates("-- see `probOutput_ne_top`", "-- see `prEvent_ne_top`")
+        self.assertMigrates("rw [probOutput_bind_eq_sum_fintype]", "rw [(prEvent_bind_eq_sum_fintype _)]")
+        self.assertMigrates("evalSPMF_bind, evalSPMF_map",
+                            "evalDist_bind_of_discrete, evalDist_map_of_discrete")
+        # A replacement whose arguments differ is reported, never rewritten: the qualified,
+        # four-argument call would otherwise turn into a name that does not exist.
+        out, items = migrate("OracleComp.DeferredSampling.evalSPMF_bind_congr_left _ _ _ h")
+        self.assertEqual(out, "OracleComp.DeferredSampling.evalSPMF_bind_congr_left _ _ _ h")
+        self.assertIn("EvalDistEq.bind_right mx hfg", items[0][2])
+        self.assertMigrates("SPMFSemantics.withStateOracle, SPMFSemantics m, "
+                            "evalSPMF_map_eq_of_evalSPMF_eq h f",
+                            "SemanticsVia.withStateOracle, SemanticsVia m, EvalDistEq.map h f")
+
+    def test_relational_event_bound(self):
+        self.assertMigrates("probEvent_le_of_relTriple_imp h himp",
+                            "prEvent_le_of_relTriple h himp")
+
+    def test_qualified_occurrences_keep_one_namespace(self):
+        self.assertMigrates("OracleComp.probOutput_bind_eq_tsum oa g p",
+                            "OracleComp.prEvent_bind_eq_tsum oa g p")
+        self.assertMigrates("OracleComp.tsum_probOutput_bind_mul",
+                            "OracleComp.tsum_prEvent_bind_mul")
+
+    def test_real_total_variation_is_reported(self):
+        _, items = migrate("le_trans (tvDist_bind_right_le k a b) (tvDist_nonneg _ _)")
+        self.assertEqual(len(items), 1)
+        self.assertIn("`tvDist_bind_right_le`", items[0][2])
+        self.assertIn("tvDist_bind_le mx my f", items[0][2])
+        self.assertIn("OracleComp.measureTVDist_bind_right_le", items[0][2])
+        self.assertIn("OracleComp.measureETVDist_bind_right_le", items[0][2])
+        # The PR's real event-distance algebra remains a live API.
+        self.assertEqual(migrate("tvDist_nonneg a b"), ("tvDist_nonneg a b", []))
+
+    def test_only_structures_on_every_answer_type_are_reported(self):
+        _, items = migrate("theorem t {_ : MeasurableSpace (spec.Range u)} [h : ∀ t,\n"
+                           "    MeasurableSpace (spec.Range t)] : True := by\n"
+                           "  let _ : MeasurableSpace (spec.Range u) := ⊤\n"
+                           "  · letI : MeasurableSpace (unifSpec.Range n) := ⊤\n    trivial")
+        self.assertEqual([line for _, line, _ in items], [2])
+
+    def test_mathlib_total_variation_is_not_a_legacy_name(self):
+        _, items = migrate("exact Measure.tvDist_triangle _ _ _ h₁ h₂ h₃ |>.trans "
+                           "(MeasureTheory.Measure.etvDist_le_one _ _ h₁ h₂)")
+        self.assertEqual(items, [])
+
+    def test_no_name_is_both_renamed_and_reported(self):
+        renamed = {**codemod.RENAMES, **codemod.EXPLICIT_COMPUTATION_RENAMES}
+        self.assertEqual(len(renamed),
+                         len(codemod.RENAMES) + len(codemod.EXPLICIT_COMPUTATION_RENAMES))
+        self.assertEqual([k for k in renamed if k in codemod.LEGACY_HINTS], [])
+        self.assertEqual([k for k in renamed if k in codemod.REPORT_NAMES], [])
+        self.assertEqual([k for k, v in renamed.items() if v in renamed], [])
+
+
+class RepositoryTests(unittest.TestCase):
+    def test_repository_is_a_fixed_point(self):
+        """Every tracked Lean source of the libraries is unchanged by the codemod: a retired name
+        that reappears is reported here, with no build."""
+        root = SCRIPT.parent.parent
+        listed = subprocess.run(["git", "ls-files", "*.lean"], cwd=root, capture_output=True,
+                                text=True, encoding="utf-8").stdout.split()
+        changed = []
+        for name in listed:
+            if name.startswith(("Interop/", "third_party/")):
+                continue
+            text = (root / name).read_text(encoding="utf-8")
+            if codemod.migrate(text, name, codemod.Report()) != text:
+                changed.append(name)
+        self.assertEqual(changed, [])
 
 
 class CommandLineTests(unittest.TestCase):

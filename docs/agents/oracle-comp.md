@@ -86,7 +86,7 @@ the set of outputs of `oa` when each query `t` is answered only from `possibleOu
 PolyFun's `FreeM.reachableUnder`, the set view of PolyFun's angelic predicate transformer folded
 over the free tree with each operation restricted to the allowed answers. The `pure`, query,
 bind and monotonicity laws are `reachableWhen_pure`, `reachableWhen_query`, `reachableWhen_bind`
-and `reachableWhen_mono`. Use `reachableWhen` rather than the deprecated `supportWhen`.
+and `reachableWhen_mono`.
 
 `support oa` admits every answer, and `reachableWhen_univ_eq_support` identifies it with
 `reachableWhen` for the policy that allows every answer. `support` is PolyFun's

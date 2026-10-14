@@ -480,6 +480,22 @@ lemma etvDist_seedOutputs_le_collision_gen (N : ℕ) (s : S)
       rw [evalDist_genCollisionExperiment_succ_of_isCached N s c hc]
       exact etvDist_le_one _ _
 
+/-- **Generalized per-seed core coupling.** For an arbitrary starting cache `c`, the total
+variation distance between the lazy-random-oracle output chain (run from cache `c`) and a
+uniformly random output vector is bounded by the generalized collision probability. Proved by
+induction on the number of rounds: a fresh query produces an independent uniform block and the
+cache grows by exactly the just-visited state, so the collision recursion closes; a repeated
+query has already triggered the bad event, where the bound is trivially `1`. -/
+lemma measureETVDist_seedOutputs_le_collision_gen (N : ℕ) (s : S)
+    (c : (S →ₒ S × O).QueryCache) :
+    (letI : MeasurableSpace (List.Vector O N) := ⊤;
+      measureETVDist ((simulateQ (prfIdealQueryImpl (D := S) (R := S × O))
+          (oracleOutputs N s)).run' c) ($ᵗ (List.Vector O N))) ≤
+      𝒟[genCollisionExperiment N s c] {true} := by
+  let : MeasurableSpace (List.Vector O N) := ⊤
+  exact (measureETVDist_le_etvDist _ _).trans <|
+    etvDist_seedOutputs_le_collision_gen N s c
+
 /-- **Per-seed core coupling.** For a fixed initial state, the total variation distance between
 the lazy-random-oracle output chain and a uniformly random output vector is bounded by the
 probability that the state chain revisits a state. This is the fundamental "identical until
@@ -497,6 +513,20 @@ lemma etvDist_seedOutputs_le_collision (seed : S) :
   have h := etvDist_seedOutputs_le_collision_gen (O := O) n seed ∅
   rw [heq] at h
   exact h
+
+/-- **Per-seed core coupling.** For a fixed initial state, the total variation distance between
+the lazy-random-oracle output chain and a uniformly random output vector is bounded by the
+probability that the state chain revisits a state. This is the fundamental "identical until
+bad" step: until the chain repeats, the lazy random oracle returns independent uniform blocks.
+
+The empty-cache specialization of `measureETVDist_seedOutputs_le_collision_gen`. -/
+lemma measureETVDist_seedOutputs_le_collision (seed : S) :
+    (letI : MeasurableSpace (List.Vector O n) := ⊤;
+      measureETVDist (seedOutputs n seed) ($ᵗ (List.Vector O n))) ≤
+      𝒟[seedCollisionExperiment (O := O) n seed] {true} := by
+  let : MeasurableSpace (List.Vector O n) := ⊤
+  exact (measureETVDist_le_etvDist _ _).trans <|
+    etvDist_seedOutputs_le_collision seed
 
 /-- **Core coupling.** The total variation distance between the lazy-random-oracle output
 chain and a uniformly random output vector is bounded by the state-collision probability.
@@ -518,6 +548,21 @@ lemma etvDist_idealOutputs_le_collisionProb :
           (OracleComp.evalDist_bind_const _ _).symm).etvDist_congr_right]
     _ ≤ wp⟦$ᵗ S⟧ fun seed => 𝒟[seedCollisionExperiment (O := O) n seed] {true} :=
         etvDist_bind_bind_le_wp _ _ _ _ fun seed => etvDist_seedOutputs_le_collision seed
+
+/-- **Core coupling.** The total variation distance between the lazy-random-oracle output
+chain and a uniformly random output vector is bounded by the state-collision probability.
+This is the fundamental "identical until bad" step: until the state chain repeats, the lazy
+random oracle returns independent uniform blocks, matching the ideal PRG distribution.
+
+Obtained by averaging the per-seed bound `measureETVDist_seedOutputs_le_collision` over the
+uniform initial state. -/
+lemma measureETVDist_idealOutputs_le_collisionProb :
+    (letI : MeasurableSpace (List.Vector O n) := ⊤;
+      measureETVDist (idealOutputs (S := S) (O := O) n) ($ᵗ (List.Vector O n))) ≤
+      collisionProb (S := S) (O := O) n := by
+  let : MeasurableSpace (List.Vector O n) := ⊤
+  exact (measureETVDist_le_etvDist _ _).trans <|
+    etvDist_idealOutputs_le_collisionProb
 
 /-- The gap between the ideal PRF and ideal PRG experiments is bounded by the
 collision probability. This follows from the fundamental lemma of game playing:

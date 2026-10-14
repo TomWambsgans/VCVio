@@ -7,7 +7,7 @@ Authors: Devon Tuma
 module
 
 public import VCVio.OracleComp.EvalDist.Measure
-public import VCVio.OracleComp.EvalDist.MeasureSpec
+public import VCVio.OracleComp.EvalDist.AnswerMeasure
 public import VCVio.OracleComp.OracleComp
 public import VCVio.EvalDist.ProbabilityNotation
 public import VCVio.EvalDist.BitVec.Measure
@@ -29,7 +29,7 @@ public section
 
 open MeasureTheory ProbabilityTheory
 
-namespace VCVioTest.UniformMeasureSpec
+namespace VCVioTest.UniformAnswerMeasure
 
 /-! ### One measure semantics per specification
 
@@ -127,4 +127,4 @@ example (g : Bool → ProbComp Bool) (i : Bool) :
     (𝒟[Fintype.mPi g]).map (Function.eval i) = 𝒟[g i] :=
   evalDist_map_eval_mPi g (fun j => OracleComp.evalDist_apply_univ_eq_one (g j)) i
 
-end VCVioTest.UniformMeasureSpec
+end VCVioTest.UniformAnswerMeasure

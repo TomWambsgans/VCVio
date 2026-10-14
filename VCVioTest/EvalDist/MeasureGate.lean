@@ -28,7 +28,7 @@ public section
 open MeasureTheory OracleComp OracleSpec
 open scoped ENNReal
 
-namespace VCVioTest.MeasureBridge
+namespace VCVioTest.MeasureGate
 
 /-! ## Successful-output measure normalization -/
 
@@ -205,4 +205,4 @@ example : 𝒟[coinDie] Set.univ = 1 := by simp
 example : evalDistWithFailure coinDie {none} = 0 := by simp [evalDistWithFailure_none]
 example : IsProbabilityMeasure 𝒟[coinDie] := inferInstance
 
-end VCVioTest.MeasureBridge
+end VCVioTest.MeasureGate

@@ -6,7 +6,7 @@ Authors: Quang Dao
 
 module
 public import VCVio.StateSeparating.Hybrid
-public import VCVio.StateSeparating.MeasureDistEquiv
+public import VCVio.StateSeparating.DistEquiv
 public import VCVio.OracleComp.Constructions.SampleableType.Measure
 public import VCVio.OracleComp.SimSemantics.QueryImpl.Constructions.Core
 
@@ -275,22 +275,22 @@ private theorem composed_real_right_handler_run_eq (gen : G)
   · simp [dhToLR_rightHandler, dhTripleReal, elgamalLR_right, monad_norm]
 
 /-- The real DDH reduction and LR-left handler have equal adaptive output measures. -/
-theorem measureDistEquiv_dhToLR_left_link_real_eq_elgamalLR_left (gen : G) :
-    QueryImpl.Stateful.MeasureDistEquiv
+theorem distEquiv_dhToLR_left_link_real_eq_elgamalLR_left (gen : G) :
+    QueryImpl.Stateful.DistEquiv
       (dhToLR_left.link (dhTripleReal (F := F) gen)) (PUnit.unit, none)
       (elgamalLR_left (F := F) gen) none := by
-  apply QueryImpl.Stateful.MeasureDistEquiv.of_run_eq
+  apply QueryImpl.Stateful.DistEquiv.of_run_eq
   intro α A
   apply QueryImpl.Stateful.run_link_left_ofStateless_eq_of_compose_eq
   funext q state
   exact composed_real_left_handler_run_eq gen q state
 
 /-- The real DDH reduction and LR-right handler have equal adaptive output measures. -/
-theorem measureDistEquiv_dhToLR_right_link_real_eq_elgamalLR_right (gen : G) :
-    QueryImpl.Stateful.MeasureDistEquiv
+theorem distEquiv_dhToLR_right_link_real_eq_elgamalLR_right (gen : G) :
+    QueryImpl.Stateful.DistEquiv
       (dhToLR_right.link (dhTripleReal (F := F) gen)) (PUnit.unit, none)
       (elgamalLR_right (F := F) gen) none := by
-  apply QueryImpl.Stateful.MeasureDistEquiv.of_run_eq
+  apply QueryImpl.Stateful.DistEquiv.of_run_eq
   intro α A
   apply QueryImpl.Stateful.run_link_left_ofStateless_eq_of_compose_eq
   funext q state
@@ -400,9 +400,9 @@ private theorem composed_rand_swap_handler_evalDistEq (gen : G)
 /-- Hop #3: under the DDH-random handler, the left- and right-message reductions have equal
 output measures against every adversary. The per-query uniform-masking argument lifts across
 the full adversary via `OracleComp.evalDist_simulateQ_run_congr`. -/
-theorem measureDistEquiv_dhToLR_link_rand_swap
+theorem distEquiv_dhToLR_link_rand_swap
     (gen : G) (hg : Function.Bijective (fun x : F => x • gen)) :
-    QueryImpl.Stateful.MeasureDistEquiv
+    QueryImpl.Stateful.DistEquiv
       (dhToLR_left.link (dhTripleRand (F := F) gen)) (PUnit.unit, none)
       (dhToLR_right.link (dhTripleRand (F := F) gen)) (PUnit.unit, none) := by
   intro α _ A
@@ -448,17 +448,17 @@ theorem elgamalLR_left_advantage_right_le
   -- Hop #1: (elgamalLR_left).advantage G₁ A = 0
   have h1 : (elgamalLR_left (F := F) gen).advantage none G₁ (PUnit.unit, none) A = 0 := by
     rw [hG₁, QueryImpl.Stateful.advantage_eq_of_evalDist_run_eq_right
-      ((measureDistEquiv_dhToLR_left_link_real_eq_elgamalLR_left (F := F) gen) A)]
+      ((distEquiv_dhToLR_left_link_real_eq_elgamalLR_left (F := F) gen) A)]
     exact QueryImpl.Stateful.advantage_self _ _ _
   -- Hop #3: G₂.advantage G₃ A = 0
   have h3 : G₂.advantage (PUnit.unit, none) G₃ (PUnit.unit, none) A = 0 := by
     rw [hG₂, hG₃, QueryImpl.Stateful.advantage_eq_of_evalDist_run_eq_right
-      ((measureDistEquiv_dhToLR_link_rand_swap (F := F) gen hg) A).symm]
+      ((distEquiv_dhToLR_link_rand_swap (F := F) gen hg) A).symm]
     exact QueryImpl.Stateful.advantage_self _ _ _
   -- Hop #5: G₄.advantage elgamalLR_right A = 0
   have h5 : G₄.advantage (PUnit.unit, none) (elgamalLR_right (F := F) gen) none A = 0 := by
     rw [hG₄, QueryImpl.Stateful.advantage_eq_of_evalDist_run_eq
-      ((measureDistEquiv_dhToLR_right_link_real_eq_elgamalLR_right (F := F) gen) A)]
+      ((distEquiv_dhToLR_right_link_real_eq_elgamalLR_right (F := F) gen) A)]
     exact QueryImpl.Stateful.advantage_self _ _ _
   -- Hop #2: G₁.advantage G₂ A = (dhTripleReal).advantage (dhTripleRand) (shiftLeft dhToLR_left A)
   have h2 : G₁.advantage (PUnit.unit, none) G₂ (PUnit.unit, none) A =

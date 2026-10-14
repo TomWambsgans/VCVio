@@ -9,7 +9,7 @@ module
 public import VCVio.OracleComp.QueryTracking.QueryBound
 public import VCVio.OracleComp.ProbComp
 public import VCVio.EvalDist.ProbabilityBounds
-public import VCVio.OracleComp.EvalDist.MeasureSpec
+public import VCVio.OracleComp.EvalDist.AnswerMeasure
 
 /-!
 # Expected charged-query count of a simulated computation
@@ -189,6 +189,18 @@ theorem wp_resource_le_add_expectedSimulatedQueryCount [MonadAttach m]
       _ = resource s + ((if charged t then 1 else 0) +
             𝔼{let z ← (so t).run s}[expectedSimulatedQueryCount so charged (k z.1) z.2]) :=
           add_assoc _ _ _
+
+/-- The scalar-observation integral bounds the expected final resource by its initial value
+plus the expected charged-query count. -/
+theorem lintegral_resource_le_add_expectedSimulatedQueryCount [MonadAttach m]
+    [WeaklyLawfulMonadAttach m] (resource : σ → ℝ≥0∞)
+    (hstep : ∀ (t : spec.Domain) (s : σ), ∀ z ∈ support ((so t).run s),
+      resource z.2 ≤ resource s + if charged t then 1 else 0)
+    (oa : OracleComp spec α) (s : σ) :
+    ∫⁻ r, r ∂𝒟[(fun z => resource z.2) <$> (simulateQ so oa).run s] ≤
+      resource s + expectedSimulatedQueryCount so charged oa s := by
+  rw [← ExpectationWP.wp_eq_lintegral_map]
+  exact wp_resource_le_add_expectedSimulatedQueryCount so charged resource hstep oa s
 
 /-- The expected count for the disjunction of two disjoint charged predicates is the sum of
 their expected counts. -/

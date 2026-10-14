@@ -26,8 +26,10 @@ This file states the high-level security theorems for the Falcon signature schem
 
 ## EUF-CMA Security
 
-The main security theorem reduces EUF-CMA to a Falcon-PSF collision problem sampled
-from the same key distribution as the scheme. The precise
+The main security theorem states a reduction of EUF-CMA to a Falcon-PSF collision problem
+sampled from the same key distribution as the scheme. **It is not proved:** `euf_cma_security`
+ends in `sorry`, its reductions are the placeholder reductions of `GPVHashAndSign`, and
+`euf_cma_security_bytes40` inherits both. The precise
 bound follows [FGdG+25] Theorem 1 (first concrete proof for Falcon+), refined by
 [Jia+26] (basis-specific Rényi analysis that eliminates the 7-bit security loss).
 
@@ -334,7 +336,11 @@ With exact arithmetic (infinite precision), `r_p = 1` and the sampler loss vanis
    sampled from the same key distribution.
 3. Leave the exact-match branch explicit in the theorem statement until it is discharged by
    a Falcon-specific min-entropy / one-way lemma.
-4. Account for finite-precision via the sampler quality hypothesis. -/
+4. Account for finite-precision via the sampler quality hypothesis.
+
+**Admitted.** The proof is `sorry`, and the reductions in the bound
+(`GPVHashAndSign.reduction`, `GPVHashAndSign.programmedPreimageReduction`) are placeholders, so
+the statement certifies nothing yet. -/
 theorem euf_cma_security
     (Salt : Type) [DecidableEq Salt] [SampleableType Salt] [Fintype Salt]
     [DecidableEq (Rq p.n)]
@@ -371,7 +377,10 @@ theorem euf_cma_security
 (320-bit) salt.
 
 The collision term specializes to `qSign² / (2 · 2^320)`. For the Falcon-specified
-maximum of `qSign = 2^64` signing queries, this is `≤ 2^{-193}`. -/
+maximum of `qSign = 2^64` signing queries, this is `≤ 2^{-193}`.
+
+**Admitted.** This specializes the admitted `euf_cma_security` and inherits its `sorry` and
+placeholder reductions. -/
 theorem euf_cma_security_bytes40
     [DecidableEq (Rq p.n)]
     (hr : GenerableRelation (PublicKey p) (SecretKey p)

@@ -31,7 +31,7 @@ namespace MeasureTheory.Measure
 variable {α : Type*} [MeasurableSpace α] [MeasurableSingletonClass α]
 
 /-- A probability measure concentrated on a finite set has point masses summing to one. -/
-private theorem sum_apply_singleton_eq_one {μ : Measure α} [IsProbabilityMeasure μ] {F : Finset α}
+theorem sum_apply_singleton_eq_one {μ : Measure α} [IsProbabilityMeasure μ] {F : Finset α}
     (hF : μ (↑F)ᶜ = 0) : ∑ a ∈ F, μ {a} = 1 := by
   have h := measure_inter_conull hF (s := Set.univ)
   rw [Set.univ_inter, measure_univ] at h
@@ -123,6 +123,13 @@ theorem etvDist_eq_one_sub_sum_min [IsProbabilityMeasure μ] [IsProbabilityMeasu
   rw [etvDist_eq_sum_tsub hμ hν, one_sub_sum_min_eq_sum_tsub hμ]
 
 end overlap
+
+/-- A measure concentrated on a finite set integrates a function as a finite sum. -/
+theorem lintegral_eq_sum_of_compl_eq_zero {μ : Measure α} {F : Finset α} (hF : μ (↑F)ᶜ = 0)
+    (f : α → ℝ≥0∞) : ∫⁻ x, f x ∂μ = ∑ x ∈ F, f x * μ {x} := by
+  have hmem : ∀ᵐ x ∂μ, x ∈ (↑F : Set α) :=
+    (measure_eq_zero_iff_ae_notMem.1 hF).mono fun _ h => not_not.1 h
+  rw [← lintegral_finset, Measure.restrict_eq_self_of_ae_mem hmem]
 
 /-- No coupling puts more than the overlap on a diagonal point. -/
 theorem IsCoupling.apply_diag_le {μ ν : Measure α} {c : Measure (α × α)}

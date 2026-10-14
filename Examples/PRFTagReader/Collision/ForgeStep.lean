@@ -581,9 +581,6 @@ lemma authRFReaderStep_forge_le [Fintype TagId] [SampleableType Nonce] [Decidabl
           unfold authRFReaderQueryImpl authRFReaderLookups
           simp only [bind_pure_comp, StateT.run_bind, StateT.run_get, StateT.run_map,
             StateT.run_set, map_pure, expect_norm]
-          -- The observations agree once the handler's state update is unfolded; the `change`
-          -- above left the event's binder typed at `AuthOracleSpec`, which `simp` does not unfold.
-          exact ExpectationWP.wp_congr _ fun _ => rfl
         rw [← hpush]
         exact le_trans (le_add_right le_rfl) hstepcore
       refine le_trans (prEvent_mono_of_support _ _ _ fun mp hmp hmem => ?_) hreaderResp

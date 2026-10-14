@@ -32,7 +32,7 @@ class ValidationTests(unittest.TestCase):
                      "check-doc-names.py", "spec-coverage.py", "test-spec-coverage.py",
                      "check-lifted-law-parity.py", "test-lifted-law-parity.py",
                      "test-module-times.py", "test-classify-migration-errors.py",
-                     "test-interop-isolation.py"):
+                     "test-interop-isolation.py", "gen-notation-differential.py"):
             (scripts / name).write_text("pass\n")
         cryptol = self.root / "Interop/Cryptol/scripts/validate.sh"
         cryptol.parent.mkdir(parents=True)
@@ -69,6 +69,9 @@ fi
         result = self.validate()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertNotIn("cryptol ", (self.root / "calls").read_text())
+        result = self.validate("--cryptol")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("cryptol ", (self.root / "calls").read_text().splitlines())
         result = self.validate("--cryptol-external", "--test", "--lint", "--axioms")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("cryptol --lint --test --axioms --external",

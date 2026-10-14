@@ -1191,8 +1191,8 @@ Re-verified with the `measure-probability` branch (#821) on Lean `v4.35.0-rc3` a
 - **Item 9 (discrete density normal form) — dropped.** It presupposed `PMF`, which VCVio does not
   use; the Rényi and total-variation layers are stated on measures
   (`V:ToMathlib/Probability/Divergence/Renyi.lean`, `V:ToMathlib/Probability/Divergence/TotalVariation.lean`).
-- **`SPMF`/`PMF` — removed.** The environment linter `usesRetiredProbability`
-  (`V:ToMathlib/Lint/LegacyProbability.lean:30`) reports any direct use of Mathlib's `PMF`, and
+- **`SPMF`/`PMF` — removed.** The environment linter `usesPMF`
+  (`V:ToMathlib/Lint/UsesPMF.lean:30`) reports any direct use of Mathlib's `PMF`, and
   `scripts/nolints.json` holds no exception for it.
 - **Tooling.** `scripts/check-reading-citations.py` keeps the citations of this directory
   resolvable at the pins; `scripts/migrate-native-probability.py` converts code written against

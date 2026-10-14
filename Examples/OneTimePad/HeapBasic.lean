@@ -5,7 +5,7 @@ Authors: Quang Dao
 -/
 
 module
-public import VCVio.StateSeparating.MeasureDistEquiv
+public import VCVio.StateSeparating.DistEquiv
 public import VCVio.OracleComp.Constructions.BitVec
 public import VCVio.OracleComp.Constructions.SampleableType.Basic
 public import VCVio.OracleComp.ProbComp.Basic
@@ -58,7 +58,7 @@ A second SSProve-style choice: the real handler's key is **not** sampled
 at `init` and stored in the heap. Instead, both `init`s are
 `pure Heap.empty`, and the real handler samples its key locally on the
 first call. This keeps the two `init`s measure-equal (so the simple
-"per-handler" `MeasureDistEquiv.of_step` constructor applies) without any heap
+"per-handler" `DistEquiv.of_step` constructor applies) without any heap
 bijection bookkeeping, and is observationally equivalent for OTP
 because the key is single-use anyway.
 
@@ -72,7 +72,7 @@ because the key is single-use anyway.
   on `UsedFlag`.
 * `realImpl_distEquiv_idealImpl : realImpl sp ≡ᵈ₀ idealImpl sp` is the
   unconditional measure-equivalence headline, proved via
-  `QueryImpl.Stateful.MeasureDistEquiv.of_step`.
+  `QueryImpl.Stateful.DistEquiv.of_step`.
 * `encOnce sp m` is the canonical single-call adversary; the
   `evalDist_run_encOnce_eq` corollary on it is a one-line
   consequence of the equivalence.
@@ -152,7 +152,7 @@ def realImpl (sp : ℕ) : QueryImpl.Stateful unifSpec (otpSpec sp) (Heap UsedFla
 
 The same identifier set as `realImpl` is shared on purpose: it lets the
 proof `realImpl_distEquiv_idealImpl` use the simple
-`QueryImpl.Stateful.MeasureDistEquiv.of_step` constructor (per-handler measure
+`QueryImpl.Stateful.DistEquiv.of_step` constructor (per-handler measure
 equality), avoiding any heap bijection bookkeeping. -/
 def idealImpl (sp : ℕ) : QueryImpl.Stateful unifSpec (otpSpec sp) (Heap UsedFlag)
   | .enc _ => StateT.mk fun (h : Heap UsedFlag) =>
@@ -181,7 +181,7 @@ The arithmetic core of OTP perfect secrecy at the handler layer:
 on every (query, heap) pair, `realImpl`'s and `idealImpl`'s handlers
 have the same output measure. Exposed as a stand-alone lemma so that
 parallel-channel cutovers (e.g. `Examples.OneTimePad.HeapPar`) can
-feed it to `QueryImpl.Stateful.MeasureDistEquiv.parSum_congr` without re-running
+feed it to `QueryImpl.Stateful.DistEquiv.parSum_congr` without re-running
 the case-split. -/
 
 /-- **Per-handler equality in distribution** between `realImpl sp` and
@@ -230,12 +230,12 @@ single-call gate baked into both handlers, the real and ideal OTP
 handlers produce identical output distributions against every
 adversary, on every output type.
 
-Proof shape: `QueryImpl.Stateful.MeasureDistEquiv.of_step` from the default initial
+Proof shape: `QueryImpl.Stateful.DistEquiv.of_step` from the default initial
 heap state, using the per-(query, heap) handler equivalence
 `realImpl_impl_evalDistEq_idealImpl`. -/
 theorem realImpl_distEquiv_idealImpl (sp : ℕ) :
     realImpl sp ≡ᵈ₀ idealImpl sp :=
-  QueryImpl.Stateful.MeasureDistEquiv.of_step (realImpl_impl_evalDistEq_idealImpl sp) Heap.empty
+  QueryImpl.Stateful.DistEquiv.of_step (realImpl_impl_evalDistEq_idealImpl sp) Heap.empty
 
 /-! ## Single-call adversary and corollary -/
 

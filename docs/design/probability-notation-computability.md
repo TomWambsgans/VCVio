@@ -60,7 +60,7 @@ interpreted them) converts with the codemod and the
 2. Move client proofs onto the public measure equations. The one-time-pad UC observation
    theorem is a concrete example: its main equality is between measures.
 3. Convert program-logic and coupling statements in coherent families.
-4. Keep the result measure-valued. The environment linter `usesRetiredProbability` reports any
+4. Keep the result measure-valued. The environment linter `usesPMF` reports any
    declaration whose type or value uses Mathlib's `PMF` directly, and `scripts/nolints.json`
    holds no exception for it.
 

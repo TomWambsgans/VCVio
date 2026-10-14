@@ -89,7 +89,6 @@ for lib in "${PROOF_LIBS[@]}"; do
 done
 python3 ./scripts/check-warning-log.py "$BUILD_LOG" "${warning_args[@]}" \
   --exclude-substring 'declaration uses `sorry`' \
-  --exclude-substring 'VCVio retiring probability API' \
   --label 'repository non-sorry warnings'
 
 echo ""
@@ -108,6 +107,7 @@ if [[ -f scripts/check-expose-boundary.sh ]]; then
   bash scripts/check-expose-boundary.sh
 fi
 python3 ./scripts/test-migrate-native-probability.py
+python3 ./scripts/gen-notation-differential.py --check
 python3 ./scripts/test-check-reading-citations.py
 python3 ./scripts/test-module-times.py
 python3 ./scripts/test-classify-migration-errors.py
@@ -155,7 +155,6 @@ if (( run_test )); then
     --path-prefix VCVioTest/ --path-prefix VCVioTest.lean \
     --path-prefix LatticeCryptoTest/ --path-prefix LatticeCryptoTest.lean \
     --path-prefix HashSigTest/ \
-    --exclude-substring 'VCVio retiring probability API' \
     --label 'test-library warnings'
 
 
@@ -186,11 +185,11 @@ fi
 
 echo ""
 if (( run_cryptol )); then
-  cryptol_args=()
-  if (( run_lint )); then cryptol_args+=(--lint); fi
-  if (( run_test )); then cryptol_args+=(--test); fi
-  if (( run_axioms )); then cryptol_args+=(--axioms); fi
-  if (( run_cryptol_external )); then cryptol_args+=(--external); fi
-  bash Interop/Cryptol/scripts/validate.sh "${cryptol_args[@]}"
+  cryptol_cmd=(bash Interop/Cryptol/scripts/validate.sh)
+  if (( run_lint )); then cryptol_cmd+=(--lint); fi
+  if (( run_test )); then cryptol_cmd+=(--test); fi
+  if (( run_axioms )); then cryptol_cmd+=(--axioms); fi
+  if (( run_cryptol_external )); then cryptol_cmd+=(--external); fi
+  "${cryptol_cmd[@]}"
 fi
 echo "validate: OK."

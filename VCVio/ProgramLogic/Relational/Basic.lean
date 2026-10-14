@@ -525,7 +525,7 @@ end measureSpec
 
 /-! ## Anchoring and bijection rules under uniform answer measures -/
 
-section uniformMeasureSpec
+section uniformAnswerMeasure
 
 variable [UniformAnswerMeasure spec₁] [UniformAnswerMeasure spec₂]
 
@@ -653,7 +653,7 @@ lemma relTriple_bind_query_bij (t : spec₁.Domain)
     (relTriple_post_mono (relTriple_query_bij t hf) fun _ _ h => h.symm)
     fun a b hb => by simpa [hb] using hfg a
 
-end uniformMeasureSpec
+end uniformAnswerMeasure
 
 section Sampling
 

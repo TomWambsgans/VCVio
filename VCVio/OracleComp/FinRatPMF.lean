@@ -8,7 +8,7 @@ module
 public import VCVio.OracleComp.Support
 public import VCVio.OracleComp.SimSemantics.SimulateQ
 public import VCVio.EvalDist.Defs.Measure.FinRatPMF
-public import VCVio.OracleComp.EvalDist.MeasureSpec
+public import VCVio.OracleComp.EvalDist.AnswerMeasure
 public import VCVio.EvalDist.ProbabilityNotation
 
 /-!

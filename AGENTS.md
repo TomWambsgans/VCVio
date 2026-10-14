@@ -208,7 +208,7 @@ or `VCVioTest/`. This contract is enforced by
 
 10. **Probability is `Measure`/`Kernel`, never `PMF`.** Semantic code uses `𝒟[…]`, `Pr{…}[…]`,
     `=ᵈ`, Mathlib measures and kernels. Mathlib owns `PMF`, so VCVio cannot deprecate it.
-    Instead the environment linter `ToMathlib.Lint.usesRetiredProbability` reports any
+    Instead the environment linter `ToMathlib.Lint.usesPMF` reports any
     declaration whose type or value uses `PMF` directly, and `scripts/nolints.json` holds no
     exception for it: no declaration uses `PMF` directly. Code written against VCVio's removed
     discrete API (`SPMF`, `Pr[= x | mx]`, `IsUniformSpec`, …) converts with the codemod and
@@ -497,7 +497,7 @@ with the occurrences of each in the current tree.
 After adding new `.lean` files: `./scripts/update-lib.sh` (CI's `scripts/check-imports.sh`
 fails when a regenerated umbrella would differ from the committed one).
 
-Lean toolchain and Mathlib must stay in sync (both currently `v4.35.0-rc3`); the bump procedure
+Lean toolchain and Mathlib must stay in sync (both currently `v4.35.0`); the bump procedure
 is in `CONTRIBUTING.md`. Mathlib's file-length linter is enabled at 1500 lines. Split
 files by responsibility before crossing that limit; retain an import façade when an existing
 module path forms part of the public API.

@@ -135,9 +135,9 @@ measure-native vertical slice over the existing trusted layers:
 - `denote_coinVector_eq_uniform` proves the whole Boolean-vector measure is uniform, and
   `denote_coinBitVec_eq_uniform` transports that law through the explicit `bitVecOfFnLE`
   bijection;
-- `coinOneTimePad_measureComplete` proves the round-trip law is Dirac at the input; and
+- `coinOneTimePad_completeWith` proves the round-trip law is Dirac at the input; and
 - `denote_coinOneTimePad_cipherGivenMsg_eq_uniform` proves the entire ciphertext law is uniform
-  for each fixed message, yielding `coinOneTimePad_measurePerfectSecrecyAt`.
+  for each fixed message, yielding `coinOneTimePad_ciphertextRowsEqualWith`.
 
 This is meaningful feasibility evidence: the random tape is exposed as `n` typed coin
 interactions, and the whole-measure OTP proof follows without replacing the program by a claimed
@@ -159,12 +159,12 @@ semantic foundation of the new path.
 
 The candidate symmetric-encryption layer packages denotations through a `MeasureSemantics`:
 
-- `completeKernel` is the message-indexed round-trip kernel, and `measureComplete` says every row
+- `completeKernel` is the message-indexed round-trip kernel, and `completeWith` says every row
   is the Dirac law at the input message;
 - `perfectSecrecyCipherKernel` is the message-to-ciphertext channel, and
-  `measurePerfectSecrecyAt` says all of its rows are equal; and
+  `ciphertextRowsEqualWith` says all of its rows are equal; and
 - the corresponding `..._iff_...` lemmas identify these propositions with kernel-row
-  equalities, while `measurePerfectSecrecyAt_of_constant` supports a common-law proof.
+  equalities, while `ciphertextRowsEqualWith_of_constant` supports a common-law proof.
 
 The OTP example instantiates the corresponding measure propositions: correctness is a Dirac
 round-trip law and perfect secrecy is equality of ciphertext laws, proved through one common
@@ -184,7 +184,7 @@ uniform proof boundary. They do **not** inhabit it. In particular, the slice doe
 - a strict-PPT theorem for key generation, encryption, decryption, or the complete scheme; or
 - any backend, complexitylib or otherwise, implementing the variable-width OTP family.
 
-`fairCoinMeasureSpec` is an explicit semantic choice for oracle answers. Assigning the uniform
+`fairCoinAnswerMeasure` is an explicit semantic choice for oracle answers. Assigning the uniform
 measure to a coin response does not provide an efficient sampler implementation. Likewise, an
 exact query theorem is not an execution-time theorem.
 

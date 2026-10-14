@@ -55,9 +55,9 @@ if (( run_test )); then
   # This executable uses only the Lean implementations.
   "${lake_cmd[@]}" build cryptol-interop slhdsa_primitive_tests
   .lake/build/bin/slhdsa_primitive_tests
-  external_args=()
-  if (( run_external )); then external_args=(--cryptol "$CRYPTOL_BINARY"); fi
-  python3 -u Interop/Cryptol/scripts/test_model.py "${external_args[@]}"
+  model_cmd=(python3 -u Interop/Cryptol/scripts/test_model.py)
+  if (( run_external )); then model_cmd+=(--cryptol "$CRYPTOL_BINARY"); fi
+  "${model_cmd[@]}"
   python3 -u Interop/Cryptol/scripts/check_bridge.py --local-only --report "$report_dir/local.json"
   "${lake_cmd[@]}" -d Interop/Cryptol/Consumer build --wfail --iofail
   if (( run_external )); then

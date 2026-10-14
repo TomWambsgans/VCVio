@@ -107,7 +107,7 @@ theorem childMap_sort {w z : Scope} (μ : Scope.Map w z) {s : w.ValueSort}
     (op : Op w s) (p : Fin (op.mapHead μ).2.arity) :
     (op.childMap μ p).sort (op.sort (p.cast (op.mapHead_arity μ))) =
       (op.mapHead μ).2.sort p := by
-  cases op <;> first | rfl | exact Fin.elim0 p | skip
+  cases op <;> try first | rfl | exact Fin.elim0 p
   all_goals cases p using Fin.cases <;> try rfl
   rename_i bindings i
   change μ.sort (bindings[i.val]'(by simpa only [List.length_map] using i.isLt)) =

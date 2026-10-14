@@ -325,7 +325,7 @@ noncomputable def eufCmaSTMSISReduction
 open scoped Classical in
 /-- **Main Security Theorem (EUF-CMA, Theorem 4, CRYPTO 2023).**
 
-**WARNING: this is a placeholder statement with no security content.** Two defects must be
+**WARNING: this is a placeholder statement with no security content.** Three defects must be
 fixed before it is proved:
 
 1. The bound is stated for the named reductions `eufCmaMLWEReduction` and
@@ -338,6 +338,9 @@ fixed before it is proved:
    identified with the commitment-guessing probability, abort probability and regularity failure
    probability of the ML-DSA identification scheme. The final statement takes them as those
    probabilities rather than as free parameters.
+3. No hypothesis ties the adversary to `qS` or `qH`. The signing and hash query bounds
+   described below are not assumptions of this statement. This is a placeholder, not the
+   cited theorem.
 
 The proof is intentionally deferred. The statement also needs to be specialized to the
 actual ML-DSA parameters (eliminating the explicit quantitative HVZK simulator hypothesis)

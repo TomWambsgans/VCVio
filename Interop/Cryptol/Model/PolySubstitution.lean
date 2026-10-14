@@ -35,7 +35,7 @@ namespace Op
 /-- The checked map agrees with the polynomial's context action. -/
 theorem binderMap_sort {w : Scope} {s : w.ValueSort} (op : Op w s) (p : Fin op.arity) :
     (op.binderMap p).sort = op.reindex p := by
-  cases op <;> first | rfl | skip
+  cases op <;> try rfl
   all_goals
     funext a
     exact Scheme.subst_id a

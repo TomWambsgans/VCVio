@@ -36,8 +36,8 @@ def identityChannel : SymmEncAlg Id Bool Unit Bool where
   decrypt _ ciphertext := some ciphertext
 
 /-- The two channel rows are genuinely different, so the secrecy predicate detects the leak. -/
-theorem identityChannel_not_measurePerfectSecrecyAt :
-    ¬ identityChannel.measurePerfectSecrecyAt idSemantics := by
+theorem identityChannel_not_ciphertextRowsEqualWith :
+    ¬ identityChannel.ciphertextRowsEqualWith idSemantics := by
   intro hsecrecy
   have hrows := hsecrecy false true
   change Measure.dirac false = Measure.dirac true at hrows

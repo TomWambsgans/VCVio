@@ -339,6 +339,35 @@ theorem etvDist_simulateQ_run_le_expectedQuerySlack_add_prEvent_bad
           · rw [expectedQuerySlackStep_free _ _ _ _ _ _ _ hS]
             simp only [q', hS, ↓reduceIte, add_zero]
 
+/-- **State-dependent ε-perturbed identical until bad**, on answer-state pairs.
+
+The handlers may differ in total variation by `querySlack s` on each charged query answered from
+a good state `(s, false)`, and must coincide on uncharged queries from good states; the first
+handler keeps bad states bad. The joint runs of a computation making at most `queryBudget`
+charged queries then stay within its expected accumulated slack plus the probability that the
+first run ends in a bad state. -/
+theorem measureETVDist_simulateQ_run_le_expectedQuerySlack_add_prEvent_bad
+    [MeasurableSpace (α × σ × Bool)]
+    (impl₁ impl₂ : QueryImpl spec (StateT (σ × Bool) (OracleComp spec')))
+    (chargedQuery : spec.Domain → Prop) [DecidablePred chargedQuery]
+    (querySlack : σ → ℝ≥0∞)
+    (h_step_charged : ∀ (t : spec.Domain), chargedQuery t → ∀ (s : σ),
+      letI : MeasurableSpace (spec.Range t × σ × Bool) := ⊤
+      measureETVDist ((impl₁ t).run (s, false)) ((impl₂ t).run (s, false)) ≤ querySlack s)
+    (h_step_uncharged : ∀ (t : spec.Domain), ¬ chargedQuery t → ∀ (s : σ),
+      (impl₁ t).run (s, false) = (impl₂ t).run (s, false))
+    (h_mono₁ : ∀ (t : spec.Domain) (p : σ × Bool), p.2 = true →
+      ∀ z ∈ support ((impl₁ t).run p), z.2.2 = true)
+    (oa : OracleComp spec α) {queryBudget : ℕ}
+    (h_qb : oa.IsQueryBoundP chargedQuery queryBudget) (p : σ × Bool) :
+    measureETVDist ((simulateQ impl₁ oa).run p) ((simulateQ impl₂ oa).run p) ≤
+      expectedQuerySlack impl₁ chargedQuery querySlack oa queryBudget p +
+        Pr{let z ← (simulateQ impl₁ oa).run p}[z.2.2 = true] := by
+  exact (measureETVDist_le_etvDist _ _).trans <|
+    etvDist_simulateQ_run_le_expectedQuerySlack_add_prEvent_bad impl₁ impl₂ chargedQuery
+      querySlack (by simpa only [← etvDist_eq_measureETVDist] using h_step_charged)
+      h_step_uncharged h_mono₁ oa h_qb p
+
 /-- **State-dependent ε-perturbed identical until bad**, on outputs. -/
 theorem etvDist_simulateQ_run'_le_expectedQuerySlack_add_prEvent_bad
     (impl₁ impl₂ : QueryImpl spec (StateT (σ × Bool) (OracleComp spec')))
@@ -359,6 +388,29 @@ theorem etvDist_simulateQ_run'_le_expectedQuerySlack_add_prEvent_bad
   exact (etvDist_map_le _ _ Prod.fst).trans
     (etvDist_simulateQ_run_le_expectedQuerySlack_add_prEvent_bad impl₁ impl₂
       chargedQuery querySlack h_step_charged h_step_uncharged h_mono₁ oa h_qb p)
+
+/-- **State-dependent ε-perturbed identical until bad**, on outputs. -/
+theorem measureETVDist_simulateQ_run'_le_expectedQuerySlack_add_prEvent_bad
+    [MeasurableSpace α]
+    (impl₁ impl₂ : QueryImpl spec (StateT (σ × Bool) (OracleComp spec')))
+    (chargedQuery : spec.Domain → Prop) [DecidablePred chargedQuery]
+    (querySlack : σ → ℝ≥0∞)
+    (h_step_charged : ∀ (t : spec.Domain), chargedQuery t → ∀ (s : σ),
+      letI : MeasurableSpace (spec.Range t × σ × Bool) := ⊤
+      measureETVDist ((impl₁ t).run (s, false)) ((impl₂ t).run (s, false)) ≤ querySlack s)
+    (h_step_uncharged : ∀ (t : spec.Domain), ¬ chargedQuery t → ∀ (s : σ),
+      (impl₁ t).run (s, false) = (impl₂ t).run (s, false))
+    (h_mono₁ : ∀ (t : spec.Domain) (p : σ × Bool), p.2 = true →
+      ∀ z ∈ support ((impl₁ t).run p), z.2.2 = true)
+    (oa : OracleComp spec α) {queryBudget : ℕ}
+    (h_qb : oa.IsQueryBoundP chargedQuery queryBudget) (p : σ × Bool) :
+    measureETVDist ((simulateQ impl₁ oa).run' p) ((simulateQ impl₂ oa).run' p) ≤
+      expectedQuerySlack impl₁ chargedQuery querySlack oa queryBudget p +
+        Pr{let z ← (simulateQ impl₁ oa).run p}[z.2.2 = true] := by
+  exact (measureETVDist_le_etvDist _ _).trans <|
+    etvDist_simulateQ_run'_le_expectedQuerySlack_add_prEvent_bad impl₁ impl₂ chargedQuery
+      querySlack (by simpa only [← etvDist_eq_measureETVDist] using h_step_charged)
+      h_step_uncharged h_mono₁ oa h_qb p
 
 /-! ### Closed-form bounds on the expected slack -/
 

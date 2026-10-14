@@ -6,6 +6,7 @@ Authors: Devon Tuma
 
 module
 public import VCVio.EvalDist.ProbabilityNotation
+public import VCVio.EvalDist.Monad.Except
 public import VCVio.OracleComp.ProbComp
 public import VCVio.EvalDist.Defs.Measure.FinRatPMF
 public import VCVioTest.MeasureSemantics
@@ -257,6 +258,37 @@ example : Pr{
 example : Pr{let x ← mz; let y := x + 1; let z ← my (y = 3)}[z = y] =
     wp⟦mz⟧ fun x => let y := x + 1; wp⟦my (y = 3)⟧ (predInd fun z => z = y) := rfl
 
+/-- Draw annotations determine overloaded arithmetic before the observation is elaborated. -/
+example : Pr{let x : ℤ ← (pure (1 - 2) : ProbComp _)}[x = -1] = 1 := by simp
+example : Pr{let (x, y) : ℤ × ℤ ← (pure (1 - 2, -1) : ProbComp _)}[x = y] = 1 := by simp
+example : Pr{let _ : ℤ ← (pure (1 - 2) : ProbComp _)}[True] =
+    wp⟦(pure (-1) : ProbComp ℤ)⟧ (predInd fun _ => True) := rfl
+example : Pr{let _ ← (pure () : ProbComp Unit); let x : ℤ ← pure (1 - 2)}[x = -1] = 1 :=
+  by simp
+
+-- Without an annotation, the event can still fix a type that a numeral leaves open, as in
+-- ordinary `do`: these draw from `Fin 2`, `Fin 2 × _` and `ℤ`, with the values of the reference
+-- `Pr{let r ← (do items; return (t : Prop))}[r]`.
+example : Pr{let x ← (pure 2 : ProbComp _)}[x < (1 : Fin 2)] = 1 := by simp
+example : Pr{let r ← (do let x ← (pure 2 : ProbComp _); return (x < (1 : Fin 2) : Prop))}[r] =
+    1 := by simp
+example : Pr{let x ← (pure (2, fun y => y) : ProbComp _)}[
+    x.1 < (1 : Fin 2) ∧ x.2 true = true] = 1 := by simp
+example : Pr{let x ← (pure (1 - 2) : ProbComp _)}[x = (-1 : ℤ)] = 1 := by simp
+example : Pr{let b ← (pure true : ProbComp Bool); let mut m := 2; if b then m := m + 2}[
+    m < (1 : Fin 2)] = 1 := by simp
+
+example : True := by
+  fail_if_success have : ℝ≥0∞ :=
+    Pr{let x : Bool ← (pure (1 : ℕ) : ProbComp ℕ)}[True]
+  fail_if_success have : ℝ≥0∞ :=
+    Pr{let _ : Bool ← (pure (1 : ℕ) : ProbComp ℕ)}[True]
+  fail_if_success have : ℝ≥0∞ :=
+    Pr{let (x, y) : Bool × Bool ← (pure (1, 2) : ProbComp (ℕ × ℕ))}[True]
+  fail_if_success have : ℝ≥0∞ :=
+    Pr{let (x, y) : Bool × Bool ← (pure (1, 2) : ProbComp (ℕ × ℕ)); let _ ← mx}[True]
+  trivial
+
 /-! A draw written as a bind, a map, a returned value or a `do` block stays as written; the
 normal form is one `simp only [expect_norm]` away. -/
 
@@ -309,12 +341,200 @@ example (g : ℕ → ProbComp ℕ) :
     Pr{let mut s := 0; for i in [1, 2, 3] do s := s + (← g i)}[s = 3] =
       Pr{let a ← g 1; let b ← g 2; let c ← g 3}[a + b + c = 3] := by
   simp
-example : Pr{let b ← mx; let mut n := 0; if b then n := 1}[n = 1] =
+example : Pr{let b ← mx; let mut n : ℕ := 0; if b then n := 1}[n = 1] =
     𝔼{let b ← mx}[if b then 1 else 0] := by
   simp
 example : Pr{let b ← (do if true then return true else return false : ProbComp Bool)}[b = true]
     = 1 := by
   simp
+
+/-! The observation sees the tail's bindings as ordinary `do` scope does: a `have` that shadows
+an earlier draw is the binding observed, and a name bound only by a `have` is visible. -/
+
+example : Pr{
+    let _b ← (pure true : ProbComp Bool)
+    let mut n := 0
+    have _b : Bool := false
+    n := n + 1}[_b = true] = 0 := by
+  simp
+example : 𝔼{
+    let _b ← (pure true : ProbComp Bool)
+    let mut n := 0
+    have _b : Bool := false
+    n := n + 1}[if _b then 5 else 2] = 2 := by
+  simp
+example : Pr{
+    let mut n ← (pure 0 : ProbComp ℕ)
+    have c : Bool := false
+    n := n + 1}[c = false ∧ n = 1] = 1 := by
+  simp
+example : Pr{
+    let mut n ← (pure 0 : ProbComp ℕ)
+    let x := 5
+    n := n + x}[n = 5] = 1 := by
+  simp
+
+/-- Reassignment keeps the variables in the order they were introduced. -/
+example (g : ℕ → ProbComp ℕ) (p : ℕ → ℕ → Prop) :
+    Pr{let mut a ← g 0; let mut b ← g 1; a := a + 1}[p a b] =
+      wp⟦do let a ← g 0; let b ← g 1; pure (a + 1, b)⟧ (predInd fun (a, b) => p a b) := by
+  rfl
+
+-- A proof bound by the tail cannot be returned; an event naming it would see an outer `h`, and
+-- is rejected.
+/--
+error: the event reads `h`, which the imperative code binds but cannot return to it: a proof,
+a type, a local instance, or a value whose type depends on another of its bindings
+
+Rename it, or bind what the event needs to a value
+-/
+#guard_msgs (whitespace := lax) in
+noncomputable example (h : ℕ) : ℝ≥0∞ := Pr{
+    let mut n ← (pure 0 : ProbComp ℕ)
+    have h : True := trivial
+    n := n + 1}[h = 0]
+
+/-- A name the observation binds itself is not the tail's. -/
+example : Pr{
+    let mut n ← (pure 0 : ProbComp ℕ)
+    have h : True := trivial
+    have _ : True := h
+    n := n + 1}[(fun h : ℕ => h = 0) 0] = 1 := by
+  simp
+
+/-- A branch-local binding is not in scope after its branch: the event sees the outer one. -/
+example (x : ℕ) (b : Bool) : Pr{
+    let mut n ← (pure 0 : ProbComp ℕ)
+    if b then
+      let x := 7
+      n := x
+    else
+      n := 9}[x = x ∧ n = if b then 7 else 9] = 1 := by
+  cases b <;> simp
+
+-- The event is resolved where ordinary `do` would resolve it: a macro reading a binding the tail
+-- cannot return is rejected, and a qualified constant is not mistaken for a tail binding.
+namespace TailResolution
+def _p : Prop := True
+local macro "readP" : term => `($(Lean.mkIdent `_p))
+/--
+error: the event reads `_p`, which the imperative code binds but cannot return to it: a proof,
+a type, a local instance, or a value whose type depends on another of its bindings
+
+Rename it, or bind what the event needs to a value
+-/
+#guard_msgs (whitespace := lax) in
+noncomputable example : ℝ≥0∞ := Pr{
+    let mut _n ← (pure 0 : ProbComp ℕ)
+    let _p : Prop := False}[readP]
+def x : ℕ := 0
+example : Pr{let mut x ← (pure 1 : ProbComp ℕ)}[x = TailResolution.x + 1] = 1 := by
+  simp [TailResolution.x]
+local macro "readX" : term => `($(Lean.mkIdent `x) < (1 : Fin 2))
+example : Pr{let _ ← (pure () : ProbComp Unit); let mut x := 2; x := x + 2}[readX] = 1 := by
+  simp
+/-- An event elaborator that needs its expected type: the event is resolved at the end of the tail
+under `Prop`, as it is outside, and reads the hidden `_p`. -/
+local elab "needsProp " p:term : term <= expected => do
+  if expected.isMVar then throwError "expected type required"
+  Lean.Elab.Term.elabTermEnsuringType p expected
+/--
+error: the event reads `_p`, which the imperative code binds but cannot return to it: a proof,
+a type, a local instance, or a value whose type depends on another of its bindings
+
+Rename it, or bind what the event needs to a value
+-/
+#guard_msgs (whitespace := lax) in
+noncomputable example : ℝ≥0∞ := Pr{
+    let mut _n ← (pure 0 : ProbComp ℕ)
+    let _p : Prop := False}[needsProp _p]
+-- A local instance of the tail is found by instance resolution, not by name; it cannot be
+-- returned, so an event that uses it is rejected.
+/--
+error: the event reads an unnamed binding, which the imperative code binds but cannot return to
+it: a proof, a type, a local instance, or a value whose type depends on another of its bindings,
+here
+  Inhabited Prop
+
+Rename it, or bind what the event needs to a value
+-/
+#guard_msgs (whitespace := lax) in
+noncomputable example : ℝ≥0∞ := Pr{
+    let mut _n ← (pure 0 : ProbComp ℕ)
+    let _ : Inhabited Prop := ⟨False⟩}[default]
+/--
+error: the event reads an unnamed binding, which the imperative code binds but cannot return to
+it: a proof, a type, a local instance, or a value whose type depends on another of its bindings,
+here
+  Inhabited ℝ≥0∞
+
+Rename it, or bind what the event needs to a value
+-/
+#guard_msgs (whitespace := lax) in
+noncomputable example : ℝ≥0∞ := 𝔼{
+    let mut _n ← (pure 0 : ProbComp ℕ)
+    let _ : Inhabited ℝ≥0∞ := ⟨7⟩}[default]
+-- An event the elaborator cannot resolve is reported once, from the end of the tail.
+/--
+error: Unknown identifier `nosuch`
+-/
+#guard_msgs (whitespace := lax) in
+noncomputable example : ℝ≥0∞ := Pr{let mut x ← (pure 3 : ProbComp ℕ)}[nosuch x]
+end TailResolution
+
+-- An observation written as a tactic block is completed before it is observed.
+example : Pr{let mut _n ← (pure 0 : ProbComp ℕ)}[by exact True] = 1 := by simp
+example : Pr{let _x ← (pure 0 : ProbComp ℕ)}[by exact True] = 1 := by simp
+example : 𝔼{let mut n ← (pure 2 : ProbComp ℕ)}[by exact (n : ℝ≥0∞)] = 2 := by simp
+example : 𝔼{let n ← (pure 2 : ProbComp ℕ)}[by exact (n : ℝ≥0∞)] = 2 := by simp
+-- A hole for the event is left to unification, as in `do`.
+set_option linter.unusedTactic false in
+example : Pr{let mut n ← (pure 2 : ProbComp ℕ); n := n + 1}[n = 3] = 1 := by
+  change Pr{let mut n ← (pure 2 : ProbComp ℕ); n := n + 1}[_] = _
+  simp
+
+-- `let pat ← e | alt` takes the rest of the block as its body, so the end of the tail is
+-- inside it and the pattern's variables are observed, not an outer `x`.
+set_option linter.unusedVariables false in
+example (x : ℕ) : Pr{
+    let mut n ← (pure 0 : OptionT ProbComp ℕ)
+    let some x ← (pure (some 3) : OptionT ProbComp (Option ℕ)) | failure
+    n := x}[n = 3 ∧ x = 3] = 1 := by
+  simp
+example : Pr{
+    let mut n ← (pure 0 : OptionT ProbComp ℕ)
+    let some x := (some 3 : Option ℕ) | failure
+    n := x}[n = 3 ∧ x = 3] = 1 := by
+  simp
+-- `let_expr` keeps its trailing body too: `x` is the matched `Expr`, not the outer `ℕ`.
+set_option linter.unusedVariables false in
+noncomputable example (x : ℕ) : ℝ≥0∞ := Pr{
+    let mut n ← (pure 0 : OptionT ProbComp ℕ)
+    let_expr Nat.succ x := Lean.mkApp (Lean.mkConst ``Nat.succ) (Lean.mkRawNatLit 0) | failure
+    n := 1}[x.isApp]
+-- Written last, it has no body, and the end of the tail becomes its body.
+set_option linter.unusedVariables false in
+example (x : ℕ) : Pr{
+    let mut n ← (pure 0 : OptionT ProbComp ℕ)
+    let some x ← (pure (some 3) : OptionT ProbComp (Option ℕ)) | failure}[x = 3] = 1 := by
+  simp
+example : Pr{
+    let b ← ($ᵗ Bool : ProbComp Bool)
+    let mut _n : ℕ := 0
+    let some x ← (pure (if b then some 3 else none) : OptionT ProbComp (Option ℕ)) | failure}[
+    x = 3] = 1 / 2 := by
+  simp
+
+/-- A macro's hygienic tail binding is the one its own event observes, not an outer binding the
+macro introduced under the same name. -/
+local macro "shadowedByTail" : term => `(let b := true; Pr{
+  let mut b ← (pure false : ProbComp Bool)
+  b := false}[b = true])
+example : shadowedByTail = 0 := by simp
+local macro "tailOnly" : term => `(𝔼{
+  let mut x ← (pure (0 : ℕ) : ProbComp ℕ)
+  x := 3}[(x : ℝ≥0∞)])
+example : tailOnly = 3 := by simp
 
 /-- A draw whose program is a `let`-bound `do` block typed by its own binds elaborates once the
 surrounding term has forced that block: the draw postpones instead of forcing its own binds. -/
@@ -342,6 +562,61 @@ example : Pr{let x ← outer; let y ← inner}[p x y] =
 example : Pr{let _ ← outer; let _ ← (failure : OptionT ProbComp Bool)}[True] = 0 := by
   simp
 
+/-- Imperative tails infer their own transformer monad, including through a nested stack. -/
+example : Pr{
+    let _ ← (pure () : ProbComp Unit)
+    let mut _unused := 0
+    let _ ← (failure : OptionT ProbComp Bool)}[True] = 0 := by simp
+example : Pr{
+    let _ ← (pure () : ProbComp Unit)
+    let mut _unused := 0
+    let _ ← (throw "error" : ExceptT String ProbComp Bool)}[True] = 0 := by simp
+example : Pr{
+    let _ ← (pure () : ProbComp Unit)
+    let mut _unused := 0
+    let _ ← (failure : OptionT (ExceptT String ProbComp) Bool)}[True] = 0 := by simp
+example : Pr{
+    let _ ← (pure () : ProbComp Unit)
+    let mut _unused := 0
+    let _ ← (throw "error" : ExceptT String (OptionT ProbComp) Bool)}[True] = 0 := by simp
+
+/-- Base draws use the ordinary lift once the tail's transformer monad is determined. -/
+example : Pr{
+    let mut n := 0
+    let b ← (pure true : OptionT ProbComp Bool)
+    let x ← (pure 1 : ProbComp ℕ)
+    if b then n := x}[n = 1] = 1 := by simp
+
+/--
+error: a draw in an imperative tail has a different monad; lift the draw or ascribe the tail's
+monad explicitly
+-/
+#guard_msgs (whitespace := lax) in
+noncomputable example : ℝ≥0∞ := Pr{
+    let mut n := 0
+    let _ ← (pure () : ProbComp Unit)
+    let _ ← (failure : OptionT ProbComp Bool)}[True]
+
+/--
+error: a draw in an imperative tail has a different monad; lift the draw or ascribe the tail's
+monad explicitly
+-/
+#guard_msgs (whitespace := lax) in
+noncomputable example : ℝ≥0∞ := Pr{
+    let mut n := 0
+    let _ ← (pure () : ProbComp Unit)
+    let _ ← (throw "error" : ExceptT String ProbComp Bool)}[True]
+
+/--
+error: a draw in an imperative tail has a different monad; lift the draw or ascribe the tail's
+monad explicitly
+-/
+#guard_msgs (whitespace := lax) in
+noncomputable example : ℝ≥0∞ := Pr{
+    let mut n := 0
+    let _ ← (pure () : ProbComp Unit)
+    let _ ← (failure : OptionT (ExceptT String ProbComp) Bool)}[True]
+
 end mixedMonads
 
 /-! A `return` at the top level of the braces is rejected; inside a bound computation it is
@@ -361,6 +636,42 @@ the event observes; bind a computation that returns early as `let x ← (do …)
 -/
 #guard_msgs (whitespace := lax) in
 noncomputable example : ℝ≥0∞ := Pr{let b ← mx; return b}[b = true]
+
+/-- A `do` element expanding to an early return. -/
+syntax "notationReturn" : doElem
+macro_rules | `(doElem| notationReturn) => `(doElem| return (7 : ℕ))
+
+/--
+error: `return` is not allowed at the top level of the braces: the sequence's bindings are what
+the event observes; bind a computation that returns early as `let x ← (do …)`
+-/
+#guard_msgs (whitespace := lax) in
+noncomputable example : ℝ≥0∞ := Pr{
+    let _ ← (pure () : ProbComp Unit)
+    let mut z := (0 : ℕ)
+    notationReturn}[z = 7]
+
+example : Pr{let x ← (do notationReturn : ProbComp ℕ)}[x = 7] = 1 := by simp
+
+/-- A term macro expanding to a return before Lean introduces its `do` wrapper. -/
+syntax "notationTermReturn" : term
+macro_rules | `(notationTermReturn) => `(return (7 : ℕ))
+
+/--
+error: `return` is not allowed at the top level of the braces: the sequence's bindings are what
+the event observes; bind a computation that returns early as `let x ← (do …)`
+-/
+#guard_msgs (whitespace := lax) in
+noncomputable example : ℝ≥0∞ := Pr{
+    let _ ← (pure () : ProbComp Unit)
+    let mut z := (0 : ℕ)
+    notationTermReturn}[z = 7]
+
+/-- A term macro introducing a nested `do` scope. -/
+syntax "notationNestedReturn" : term
+macro_rules | `(notationNestedReturn) => `(do notationReturn)
+
+example : Pr{let x ← (notationNestedReturn : ProbComp ℕ)}[x = 7] = 1 := by simp
 
 /--
 error: `return` is not allowed at the top level of the braces: the sequence's bindings are what
@@ -524,6 +835,88 @@ end mixedMonads
 abbrev wrapped (mz : ProbComp ℕ) : ProbComp ℕ := mz
 
 guard_roundtrip wp⟦wrapped (pure 1)⟧ g
+
+namespace interpretationDisplay
+
+/-- A coin interpretation concentrating all mass on `true`. -/
+@[reducible] noncomputable def alwaysTrue : OracleSpec.AnswerMeasure coinSpec where
+  toMeasure _ := Measure.dirac true
+  isProbabilityMeasure _ := by
+    let : MeasurableSpace Bool := (_root_.Top.top : MeasurableSpace Bool)
+    infer_instance
+
+/-- The true event under the concentrated coin interpretation. -/
+noncomputable def biasedEvent : ℝ≥0∞ :=
+  letI : OracleSpec.AnswerMeasure coinSpec := alwaysTrue
+  Pr{let b ← (HasQuery.query (spec := coinSpec) () : OracleComp coinSpec Bool)}[b = true]
+
+/-- A numeric expectation under the concentrated coin interpretation. -/
+noncomputable def biasedExpectation : ℝ≥0∞ :=
+  letI : OracleSpec.AnswerMeasure coinSpec := alwaysTrue
+  𝔼{let b ← (HasQuery.query (spec := coinSpec) () : OracleComp coinSpec Bool)}[if b then 2 else 0]
+
+/-- The fair answer measure, made explicit to isolate the display canary from other fixtures. -/
+noncomputable local instance : OracleSpec.AnswerMeasure coinSpec :=
+  OracleSpec.UniformAnswerMeasure.coinSpec.toAnswerMeasure
+
+/-- The true event under the fair coin interpretation. -/
+noncomputable def fairEvent : ℝ≥0∞ :=
+  Pr{let b ← (HasQuery.query (spec := coinSpec) () : OracleComp coinSpec Bool)}[b = true]
+
+/-- A different expectation interpretation with the ambient fair answer measures unchanged. -/
+@[reducible] noncomputable def alternativeWP : ExpectationWP (OracleComp coinSpec) EStack⟨⟩ :=
+  letI : OracleSpec.AnswerMeasure coinSpec := alwaysTrue
+  inferInstance
+
+/-- The true event under the alternative expectation interpretation. -/
+noncomputable def reinterpretedEvent : ℝ≥0∞ :=
+  letI : ExpectationWP (OracleComp coinSpec) EStack⟨⟩ := alternativeWP
+  Pr{let b ← (HasQuery.query (spec := coinSpec) () : OracleComp coinSpec Bool)}[b = true]
+
+example : biasedEvent = 1 := by
+  let : OracleSpec.AnswerMeasure coinSpec := alwaysTrue
+  change Pr{let b ← (HasQuery.query (spec := coinSpec) () : OracleComp coinSpec Bool)}[b = true] = 1
+  rw [OracleComp.ProgramLogic.wp_HasQuery_query]
+  change (letI : MeasurableSpace Bool := (_root_.Top.top : MeasurableSpace Bool)
+    ∫⁻ u : Bool, propInd (u = true) ∂Measure.dirac true) = 1
+  simp
+
+example : fairEvent = 2⁻¹ := by simp [fairEvent]
+
+example : reinterpretedEvent = 1 := by
+  change biasedEvent = 1
+  let : OracleSpec.AnswerMeasure coinSpec := alwaysTrue
+  change Pr{let b ← (HasQuery.query (spec := coinSpec) () : OracleComp coinSpec Bool)}[b = true] = 1
+  rw [OracleComp.ProgramLogic.wp_HasQuery_query]
+  change (letI : MeasurableSpace Bool := (_root_.Top.top : MeasurableSpace Bool)
+    ∫⁻ u : Bool, propInd (u = true) ∂Measure.dirac true) = 1
+  simp
+
+/-! Default interpretations display compactly; other interpretations expose their instances.
+Each displayed body elaborates back to the original in the ambient fair context. -/
+
+open Lean Elab Command Term Meta in
+run_cmd liftTermElabM do
+  for (name, compact, instanceName) in
+      [(``fairEvent, true, ""), (``biasedEvent, false, "alwaysTrue"),
+        (``reinterpretedEvent, false, "alternativeWP"),
+        (``biasedExpectation, false, "alwaysTrue")] do
+    let .defnInfo info ← getConstInfo name | throwError "expected a definition"
+    let e := info.value
+    let stx ← withOptions (pp.analyze.set · true) (PrettyPrinter.delab e)
+    let rendered := (← PrettyPrinter.ppTerm stx).pretty
+    if compact then
+      unless stx.raw.isOfKind ``prEventStx do throwError "the default event lost compact notation"
+    else
+      if stx.raw.isOfKind ``prEventStx || stx.raw.isOfKind ``expectStx then
+        throwError "the display hides a different interpretation"
+      unless (rendered.splitOn instanceName).length > 1 do
+        throwError m!"the display hides {instanceName}: {rendered}"
+    let e' ← instantiateMVars (← withSynthesize (elabTerm stx none))
+    unless ← withReducibleAndInstances (isDefEq e e') do
+      throwError m!"the displayed interpretation does not round-trip: {rendered}"
+
+end interpretationDisplay
 
 end expectationNotation
 

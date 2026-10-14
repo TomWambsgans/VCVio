@@ -6,7 +6,7 @@ Authors: Quang Dao
 
 module
 public import Examples.OneTimePad.HeapBasic
-public import VCVio.StateSeparating.MeasureDistEquiv
+public import VCVio.StateSeparating.DistEquiv
 
 /-!
 # Two parallel OTP channels via `QueryImpl.Stateful.parSum`
@@ -35,10 +35,10 @@ threads each channel's uniform sampling through its own slot.
   *unconditional* distributional equivalence, proved by feeding the
   per-(query, heap) handler equality from
   `realImpl_impl_evalDistEq_idealImpl` (HeapBasic.lean) into
-  `QueryImpl.Stateful.MeasureDistEquiv.parSum_congr` once per channel.
+  `QueryImpl.Stateful.DistEquiv.parSum_congr` once per channel.
 * `evalDist_run_encOncePair_eq` is the corollary on the canonical
   two-call adversary, a one-line specialisation via
-  `QueryImpl.Stateful.MeasureDistEquiv.run_evalDist_eq`.
+  `QueryImpl.Stateful.DistEquiv.run_evalDist_eq`.
 
 ## Why no operational reduction here
 
@@ -53,7 +53,7 @@ compositions. The proof here needs none of that, because
   the OTP cryptographic core as a *per-(query, heap) handler
   equality* between the gated real and ideal single-channel
   handlers, and
-* `QueryImpl.Stateful.MeasureDistEquiv.parSum_congr` (in `VCVio.StateSeparating.MeasureDistEquiv`)
+* `QueryImpl.Stateful.DistEquiv.parSum_congr` (in `VCVio.StateSeparating.DistEquiv`)
   lifts a pair of such per-handler equalities to a `≡ᵈ`-hop on the
   parallel composite, without any operational `liftComp`
   bookkeeping.
@@ -134,13 +134,13 @@ Both ingredients live one layer below:
 
 * `realImpl_impl_evalDistEq_idealImpl` (HeapBasic.lean): per-(query,
   heap) handler equality in distribution at the single-channel layer.
-* `QueryImpl.Stateful.MeasureDistEquiv.parSum_congr` (VCVio.StateSeparating.MeasureDistEquiv): lift
+* `QueryImpl.Stateful.DistEquiv.parSum_congr` (VCVio.StateSeparating.DistEquiv): lift
   per-handler measure equalities on each factor to a `≡ᵈ`-hop on
   the parallel composite.
 
 Stitching them gives the two-channel statement against *every*
 adversary, not just `encOncePair`. The one-call corollary is then
-a `QueryImpl.Stateful.MeasureDistEquiv.run_evalDist_eq` specialisation. -/
+a `QueryImpl.Stateful.DistEquiv.run_evalDist_eq` specialisation. -/
 
 /-- **OTP two-channel unconditional distributional equivalence.**
 The parallel real and ideal handlers produce identical output
@@ -151,7 +151,7 @@ Proof: feed the per-(query, heap) handler equality from
 channel, from the default heap state on each side. -/
 theorem pairRealImpl_distEquiv_pairIdealImpl (sp : ℕ) :
     pairRealImpl sp ≡ᵈ₀ pairIdealImpl sp :=
-  QueryImpl.Stateful.MeasureDistEquiv.parSum_congr
+  QueryImpl.Stateful.DistEquiv.parSum_congr
     (h₁ := realImpl sp) (h₁' := idealImpl sp)
     (h₂ := realImpl sp) (h₂' := idealImpl sp)
     (realImpl_impl_evalDistEq_idealImpl sp) (realImpl_impl_evalDistEq_idealImpl sp)
@@ -161,7 +161,7 @@ theorem pairRealImpl_distEquiv_pairIdealImpl (sp : ℕ) :
 parallel real and ideal handlers agree on output distribution for
 the canonical two-call adversary, recovered from the universal
 `pairRealImpl_distEquiv_pairIdealImpl` by specialisation via
-`QueryImpl.Stateful.MeasureDistEquiv.run_evalDist_eq`. -/
+`QueryImpl.Stateful.DistEquiv.run_evalDist_eq`. -/
 theorem evalDist_run_encOncePair_eq (sp : ℕ) (m₁ m₂ : BitVec sp) :
     𝒟[(pairRealImpl sp).run₀ (encOncePair sp m₁ m₂)] =
       𝒟[(pairIdealImpl sp).run₀ (encOncePair sp m₁ m₂)] :=

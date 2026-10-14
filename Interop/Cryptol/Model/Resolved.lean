@@ -209,7 +209,7 @@ theorem lower_correct {s : Scope} (term : IPFunctor.IFreeM signature (fun j => V
       | _ =>
           simp only [lower_node, denote_node, lowerOp, denoteOp, Expr.denote]
           all_goals
-            repeat first | erw [ih 0] | erw [ih 1] | erw [ih 2]
+            repeat erw [ih 0]
             all_goals first
             | rfl
             | apply DFunLike.ext

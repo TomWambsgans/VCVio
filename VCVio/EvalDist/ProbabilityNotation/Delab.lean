@@ -6,7 +6,7 @@ Authors: Devon Tuma
 
 module
 public import VCVio.EvalDist.ProbabilityNotation.Elab
-public meta import Lean.PrettyPrinter.Delaborator.Basic
+public meta import Lean.PrettyPrinter.Delaborator.Builtins
 
 /-!
 # Display of events and expectations
@@ -56,12 +56,25 @@ partial def wpMonadOf? (inst : Expr) : MetaM (Option Expr) := do
 
 /-- Whether `e` is an expectation: core's `wp` at `ℝ≥0∞` with no exception postcondition, under
 the measure interpretation of its monad. -/
-def isExpectation (e : Expr) : MetaM Bool := do
+def isExpectationShape (e : Expr) : MetaM Bool := do
   unless e.isAppOfArity ``Std.WP.WP.wp 10 do return false
   unless (e.getArg! 2).isConstOf ``ENNReal do return false
   unless (e.getArg! 9).isAppOf ``Lean.Order.bot do return false
   let some w ← wpMonadOf? (e.getArg! 6) | return false
   isExpectationInterpretation w
+
+/-- Whether the interpretation of an expectation is the one notation synthesizes in the
+current context, compared at instance transparency. -/
+def isExpectation (e : Expr) : MetaM Bool := do
+  unless ← isExpectationShape e do return false
+  let some w ← wpMonadOf? (e.getArg! 6) | return false
+  withNewMCtxDepth do
+    try
+      let ty ← inferType w
+      let current ← mkAppOptM ``ExpectationWP.toWPMonad
+        #[some (ty.getArg! 0), none, some (ty.getArg! 2), none, none]
+      withReducibleAndInstances (isDefEq w current)
+    catch _ => return false
 
 /-- The statement `let x ← a` for a draw bound by the `fun` `f`, or `let _ ← a` when `f` ignores
 its argument. -/
@@ -93,7 +106,12 @@ def delabValue : DelabM (Term × Bool) := do
 the last observation is an event's indicator. -/
 partial def delabDraws :
     DelabM (Array (TSyntax ``Lean.Parser.Term.doSeqItem) × Term × Bool) := do
-  let a ← withNaryArg 7 delab
+  let a ← withNaryArg 7 do
+    let a ← delab
+    if ← getPPOption getPPAnalyze then
+      let ty ← withType delab
+      `(($a : $ty))
+    else pure a
   withNaryArg 8 do
     let g := (← getExpr).cleanupAnnotations
     if g.isAppOfArity ``predInd 2 then
@@ -116,10 +134,15 @@ partial def delabDraws :
       return (#[← drawItem g x a false], t, event)
 
 /-- Display an expectation as the notation it elaborates from: `Pr{…}[…]` when its innermost
-observation is an indicator and `𝔼{…}[…]` otherwise. -/
+observation is an indicator and `𝔼{…}[…]` otherwise. A different interpretation displays as an
+explicit application with its instance arguments visible. -/
 @[delab app.Std.WP.WP.wp]
 def delabExpectation : Delab := whenPPOption getPPNotation <| withOverApp 10 do
-  unless ← isExpectation (← getExpr) do failure
+  let e ← getExpr
+  unless ← isExpectationShape e do failure
+  unless ← isExpectation e do
+    return ← withOptions (fun opts =>
+      pp.proofs.set (pp.notation.set (pp.explicit.set opts true) false) true) delabApp
   let (draws, t, event) ← delabDraws
   if event then `(Pr{$draws*}[$t]) else `(𝔼{$draws*}[$t])
 

@@ -263,7 +263,7 @@ noncomputable def realSmcSemantics (sp : ℕ)
   instMeasurableSpace := inferInstance
   m := OptionT ProbComp
   instMonad := inferInstance
-  sem := MeasureSemanticsVia.ofEvalDistSemantics (OptionT ProbComp)
+  sem := SemanticsVia.ofEvalDistSemantics (OptionT ProbComp)
   run := fun W => realCipherObserve sp (readMsg W) P
 
 /-- **Ideal SMC semantics.** Ignore the closed system beyond sampling
@@ -277,7 +277,7 @@ noncomputable def idealSmcSemantics (sp : ℕ) (P : BitVec sp → Bool) :
   instMeasurableSpace := inferInstance
   m := OptionT ProbComp
   instMonad := inferInstance
-  sem := MeasureSemanticsVia.ofEvalDistSemantics (OptionT ProbComp)
+  sem := SemanticsVia.ofEvalDistSemantics (OptionT ProbComp)
   run := fun _ => idealCipherObserve sp P
 
 @[simp]

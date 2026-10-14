@@ -34,7 +34,7 @@ over `Option (Commit × Chal × Resp)` by total-variation distance, so it is sen
 abort probability. The honest `respond` (`Scheme.lean`) aborts on four gates — `‖z‖∞ < γ₁ − β`,
 the secret-dependent `‖LowBits(w − c·s₂)‖∞ < γ₂ − β`, `‖c·t₀‖∞ < γ₂`, and `hintWeight h ≤ ω` —
 whereas `hvzkSimulator` applies only the first. Because the honest abort event is a strict
-superset and `tvDist ≥ |Pr_honest[none] − Pr_sim[none]|`, the distance is strictly positive in
+superset and the distance is at least `|Pr_honest[none] − Pr_sim[none]|`, it is strictly positive in
 general (with `p`/`prims` unconstrained and no `Primitives.Laws` hypothesis a literal
 counterexample exists, e.g. `hintWeight ≡ 1` with `ω = 0`). The honest hint `h` is moreover a
 deterministic function of the witness, against the simulator's independent-uniform draw.

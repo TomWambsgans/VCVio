@@ -22,7 +22,7 @@ The definitions do not select a discrete probability representation and do not a
 arbitrary monad is efficient. They isolate the semantic claim that concrete complexity proofs can
 compose with separately. When the semantics denotes the ciphertext rows by their output measures
 under the ambient `EvalDistSemantics`, measure-level perfect secrecy is the channel form
-`SymmEncAlg.ciphertextRowsEqualAt` (`measurePerfectSecrecyAt_iff_ciphertextRowsEqualAt`).
+`SymmEncAlg.ciphertextRowsEqualAt` (`ciphertextRowsEqualWith_iff_ciphertextRowsEqualAt`).
 -/
 
 @[expose] public section
@@ -59,15 +59,15 @@ instance isMarkovKernel_completeKernel [MeasurableSpace M]
   isProbabilityMeasure msg := semantics.isProbabilityMeasure (encAlg.completenessExperiment msg)
 
 /-- Measure-level perfect correctness: every round trip has the Dirac law at the input message. -/
-def measureComplete [MeasurableSpace M]
+def completeWith [MeasurableSpace M]
     (encAlg : SymmEncAlg m M K C) (semantics : ProbabilitySemantics m) : Prop :=
   ∀ msg, semantics.denote (encAlg.completenessExperiment msg) = Measure.dirac (some msg)
 
 /-- Kernel form of measure-level perfect correctness. -/
-theorem measureComplete_iff_completeKernel_eq_dirac [MeasurableSpace M]
+theorem completeWith_iff_completeKernel_eq_dirac [MeasurableSpace M]
     (encAlg : SymmEncAlg m M K C) (semantics : ProbabilitySemantics m)
     (hMeasurable : Measurable fun msg ↦ semantics.denote (encAlg.completenessExperiment msg)) :
-    encAlg.measureComplete semantics ↔
+    encAlg.completeWith semantics ↔
       ∀ msg, encAlg.completeKernel semantics hMeasurable msg = Measure.dirac (some msg) :=
   Iff.rfl
 
@@ -100,28 +100,28 @@ instance isMarkovKernel_perfectSecrecyCipherKernel
     semantics.isProbabilityMeasure (encAlg.perfectSecrecyCipherGivenMsgExperiment msg)
 
 /-- Measure-level perfect secrecy: every pair of messages induces the same ciphertext measure. -/
-def measurePerfectSecrecyAt [MeasurableSpace C]
+def ciphertextRowsEqualWith [MeasurableSpace C]
     (encAlg : SymmEncAlg m M K C) (semantics : ProbabilitySemantics m) : Prop :=
   ∀ msg₀ msg₁,
     semantics.denote (encAlg.perfectSecrecyCipherGivenMsgExperiment msg₀) =
       semantics.denote (encAlg.perfectSecrecyCipherGivenMsgExperiment msg₁)
 
 /-- Kernel-row form of measure-level perfect secrecy. -/
-theorem measurePerfectSecrecyAt_iff_kernel_rows_eq [MeasurableSpace M] [MeasurableSpace C]
+theorem ciphertextRowsEqualWith_iff_kernel_rows_eq [MeasurableSpace M] [MeasurableSpace C]
     (encAlg : SymmEncAlg m M K C) (semantics : ProbabilitySemantics m)
     (hMeasurable : Measurable fun msg ↦
       semantics.denote (encAlg.perfectSecrecyCipherGivenMsgExperiment msg)) :
-    encAlg.measurePerfectSecrecyAt semantics ↔
+    encAlg.ciphertextRowsEqualWith semantics ↔
       ∀ msg₀ msg₁,
         encAlg.perfectSecrecyCipherKernel semantics hMeasurable msg₀ =
           encAlg.perfectSecrecyCipherKernel semantics hMeasurable msg₁ :=
   Iff.rfl
 
 /-- A ciphertext law independent of the message establishes measure-level perfect secrecy. -/
-theorem measurePerfectSecrecyAt_of_constant [MeasurableSpace C]
+theorem ciphertextRowsEqualWith_of_constant [MeasurableSpace C]
     (encAlg : SymmEncAlg m M K C) (semantics : ProbabilitySemantics m) (law : Measure C)
     (hlaw : ∀ msg, semantics.denote (encAlg.perfectSecrecyCipherGivenMsgExperiment msg) = law) :
-    encAlg.measurePerfectSecrecyAt semantics := by
+    encAlg.ciphertextRowsEqualWith semantics := by
   intro msg₀ msg₁
   rw [hlaw msg₀, hlaw msg₁]
 
@@ -130,13 +130,13 @@ theorem measurePerfectSecrecyAt_of_constant [MeasurableSpace C]
 /-- When a probability semantics denotes every fixed-message ciphertext experiment by its output
 measure under the ambient `EvalDistSemantics`, in a discrete structure on ciphertexts,
 measure-level perfect secrecy is the channel form `ciphertextRowsEqualAt`. -/
-theorem measurePerfectSecrecyAt_iff_ciphertextRowsEqualAt [LawfulMonad m] [EvalDistSemantics m]
+theorem ciphertextRowsEqualWith_iff_ciphertextRowsEqualAt [LawfulMonad m] [EvalDistSemantics m]
     [LawfulEvalDistSemantics m] {_ : MeasurableSpace C} [DiscreteMeasurableSpace C]
     (encAlg : SymmEncAlg m M K C) (semantics : ProbabilitySemantics m)
     (hden : ∀ msg, semantics.denote (encAlg.perfectSecrecyCipherGivenMsgExperiment msg) =
       𝒟[encAlg.perfectSecrecyCipherGivenMsgExperiment msg]) :
-    encAlg.measurePerfectSecrecyAt semantics ↔ encAlg.ciphertextRowsEqualAt := by
-  unfold measurePerfectSecrecyAt ciphertextRowsEqualAt
+    encAlg.ciphertextRowsEqualWith semantics ↔ encAlg.ciphertextRowsEqualAt := by
+  unfold ciphertextRowsEqualWith ciphertextRowsEqualAt
   simp only [hden]
   exact forall₂_congr fun _ _ => ⟨EvalDistEq.of_evalDist_eq, EvalDistEq.evalDist_eq⟩
 
