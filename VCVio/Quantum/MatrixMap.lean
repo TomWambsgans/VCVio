@@ -21,6 +21,9 @@ operators on `A` to the operators on `B`.
 
 * `Quantum.MatrixMap.amplify Φ R`: the blockwise application `Φ ⊗ id_R` on a system extended by
   an ancilla with basis `R`.
+* `Quantum.MatrixMap.amplifyLeft V A`: the blockwise application `id_A ⊗ V` on the right factor
+  of `A × R`. It commutes with `amplify` (`Quantum.MatrixMap.amplify_comp_amplifyLeft`).
+* `Quantum.MatrixMap.traceRight A R`: the partial trace over the right factor of `A × R`.
 * `Quantum.MatrixMap.IsCP`: complete positivity, as positivity of every finite amplification.
 * `Quantum.MatrixMap.IsTP`, `Quantum.MatrixMap.IsTNI`: trace preservation, and trace
   nonincrease on positive semidefinite inputs.
@@ -160,6 +163,16 @@ theorem amplifyLeft_apply_submatrix (V : MatrixMap R S) (ρ : Matrix (A × R) (A
 /-- Amplifying the identity map on the left gives the identity map. -/
 @[simp]
 theorem amplifyLeft_id : amplifyLeft (LinearMap.id : MatrixMap R R) A = LinearMap.id :=
+  rfl
+
+/-- Amplifying the zero map on the left gives the zero map. -/
+@[simp]
+theorem amplifyLeft_zero : amplifyLeft (0 : MatrixMap R S) A = 0 :=
+  rfl
+
+/-- Left amplification is additive. -/
+theorem amplifyLeft_add (V W : MatrixMap R S) :
+    amplifyLeft (V + W) A = V.amplifyLeft A + W.amplifyLeft A :=
   rfl
 
 /-- Left amplification commutes with composition. -/
