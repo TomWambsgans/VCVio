@@ -47,785 +47,775 @@ local macro "ennreal_value" : tactic => `(tactic| (
 /-- Case 0: the notation. -/
 theorem case000 : Pr{
   let m ← ($ᵗ Bool : ProbComp Bool)
-  have y : ℕ := 0
-  let n ← ($ᵗ Bool : ProbComp Bool)
-  let some b ← (pure (if (n && m) then some ((if n then 2 else 2)) else none) : OptionT ProbComp (Option ℕ)) | failure
-  let (m, a) ← (pure ((if n then 0 else 0), y) : ProbComp (ℕ × ℕ))
-  let m ← ($ᵗ Bool : ProbComp Bool)}[n = false ∨ n = true] = (1 / 4 : ℝ≥0∞) := by
+  have y := 0
+  let some b ← (pure (if (y == 2) then some ((if m then 2 else 2)) else none) : OptionT ProbComp (Option ℕ)) | failure
+  let (m, a) ← (pure ((if m then 0 else 0), y) : ProbComp (ℕ × ℕ))
+  let m ← ($ᵗ Bool : ProbComp Bool)
+  let x ← (if !m then pure 3 else pure 1 : ProbComp ℕ)}[x = 2 ∧ a = 0] = (0 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 0: Lean's `do`. -/
 theorem case000_do : Pr{let r ← (do
     let m ← ($ᵗ Bool : ProbComp Bool)
-    have y : ℕ := 0
-    let n ← ($ᵗ Bool : ProbComp Bool)
-    let some b ← (pure (if (n && m) then some ((if n then 2 else 2)) else none) : OptionT ProbComp (Option ℕ)) | failure
-    let (m, a) ← (pure ((if n then 0 else 0), y) : ProbComp (ℕ × ℕ))
+    have y := 0
+    let some b ← (pure (if (y == 2) then some ((if m then 2 else 2)) else none) : OptionT ProbComp (Option ℕ)) | failure
+    let (m, a) ← (pure ((if m then 0 else 0), y) : ProbComp (ℕ × ℕ))
     let m ← ($ᵗ Bool : ProbComp Bool)
-    return (n = false ∨ n = true : Prop) : OptionT ProbComp _)}[r] = (1 / 4 : ℝ≥0∞) := by
+    let x ← (if !m then pure 3 else pure 1 : ProbComp ℕ)
+    return (x = 2 ∧ a = 0 : Prop) : OptionT ProbComp _)}[r] = (0 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 1: the notation. -/
 theorem case001 : Pr{
-  let x ← ($ᵗ Bool : ProbComp Bool)
-  have a : ℕ := 3
-  let x ← ($ᵗ Bool : ProbComp Bool)
-  let (m, y) ← (pure (a, a) : ProbComp (ℕ × ℕ))
-  have a : Bool := x
-  let (y, x) ← (pure (1, y + 0) : ProbComp (ℕ × ℕ))}[x = 2] = (0 : ℝ≥0∞) := by
+  let b ← ($ᵗ Bool : ProbComp Bool)
+  let y := 1
+  let b : ℕ ← (pure (1) : ProbComp ℕ)
+  let (y, x) ← (pure (y, 0) : ProbComp (ℕ × ℕ))}[y ≥ 2 ∧ b = 2] = (0 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 1: Lean's `do`. -/
 theorem case001_do : Pr{let r ← (do
-    let x ← ($ᵗ Bool : ProbComp Bool)
-    have a : ℕ := 3
-    let x ← ($ᵗ Bool : ProbComp Bool)
-    let (m, y) ← (pure (a, a) : ProbComp (ℕ × ℕ))
-    have a : Bool := x
-    let (y, x) ← (pure (1, y + 0) : ProbComp (ℕ × ℕ))
-    return (x = 2 : Prop))}[r] = (0 : ℝ≥0∞) := by
+    let b ← ($ᵗ Bool : ProbComp Bool)
+    let y := 1
+    let b : ℕ ← (pure (1) : ProbComp ℕ)
+    let (y, x) ← (pure (y, 0) : ProbComp (ℕ × ℕ))
+    return (y ≥ 2 ∧ b = 2 : Prop))}[r] = (0 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 2: the notation. -/
 theorem case002 : Pr{
-  let x ← ($ᵗ Bool : ProbComp Bool)
-  let a : Bool := x
-  let (n, b) ← (pure (3, 2) : ProbComp (ℕ × ℕ))
-  let (m, b) ← (pure ((if a then 2 else 1), b + n) : ProbComp (ℕ × ℕ))
-  let mut c : ℕ := n
-  if a then c := (if a then 3 else 0)}[m ≥ 1 ∧ x = false] = (1 / 2 : ℝ≥0∞) := by
+  let y ← ($ᵗ Bool : ProbComp Bool)
+  let _ ← ($ᵗ Bool : ProbComp Bool)
+  let c ← ($ᵗ Bool : ProbComp Bool)
+  let mut n := 3
+  for i in [1, 2] do n := n + i}[y = false ∧ c = false] = (1 / 4 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 2: Lean's `do`. -/
 theorem case002_do : Pr{let r ← (do
-    let x ← ($ᵗ Bool : ProbComp Bool)
-    let a : Bool := x
-    let (n, b) ← (pure (3, 2) : ProbComp (ℕ × ℕ))
-    let (m, b) ← (pure ((if a then 2 else 1), b + n) : ProbComp (ℕ × ℕ))
-    let mut c : ℕ := n
-    if a then c := (if a then 3 else 0)
-    return (m ≥ 1 ∧ x = false : Prop))}[r] = (1 / 2 : ℝ≥0∞) := by
+    let y ← ($ᵗ Bool : ProbComp Bool)
+    let _ ← ($ᵗ Bool : ProbComp Bool)
+    let c ← ($ᵗ Bool : ProbComp Bool)
+    let mut n := 3
+    for i in [1, 2] do n := n + i
+    return (y = false ∧ c = false : Prop))}[r] = (1 / 4 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 3: the notation. -/
 theorem case003 : 𝔼{
+  let b ← ($ᵗ Bool : ProbComp Bool)
+  let x : Bool := b
   let c ← ($ᵗ Bool : ProbComp Bool)
-  let (c, y) ← (pure (3, 0) : ProbComp (ℕ × ℕ))
-  let _ ← ($ᵗ Bool : ProbComp Bool)
-  let some n ← (pure (if (y == 2) then some (y) else none) : OptionT ProbComp (Option ℕ)) | failure
-  have m : ℕ := y
-  let some n ← (pure (if (n == 0) then some (m) else none) : OptionT ProbComp (Option ℕ)) | failure}[(y : ℝ≥0∞)] = (0 : ℝ≥0∞) := by
+  let (n, a) ← (pure (2, 2) : ProbComp (ℕ × ℕ))
+  let n ← ($ᵗ Bool : ProbComp Bool)}[(a : ℝ≥0∞)] = (2 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 3: Lean's `do`. -/
 theorem case003_do : 𝔼{let r ← (do
+    let b ← ($ᵗ Bool : ProbComp Bool)
+    let x : Bool := b
     let c ← ($ᵗ Bool : ProbComp Bool)
-    let (c, y) ← (pure (3, 0) : ProbComp (ℕ × ℕ))
-    let _ ← ($ᵗ Bool : ProbComp Bool)
-    let some n ← (pure (if (y == 2) then some (y) else none) : OptionT ProbComp (Option ℕ)) | failure
-    have m : ℕ := y
-    let some n ← (pure (if (n == 0) then some (m) else none) : OptionT ProbComp (Option ℕ)) | failure
-    return (y : ℝ≥0∞) : OptionT ProbComp _)}[r] = (0 : ℝ≥0∞) := by
+    let (n, a) ← (pure (2, 2) : ProbComp (ℕ × ℕ))
+    let n ← ($ᵗ Bool : ProbComp Bool)
+    return (a : ℝ≥0∞))}[r] = (2 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 4: the notation. -/
 theorem case004 : Pr{
-  let x ← ($ᵗ Bool : ProbComp Bool)
-  let m : Bool := x
-  let b ← (pure (3) : ProbComp ℕ)
-  let _ ← ($ᵗ Bool : ProbComp Bool)}[x = true] = (1 / 2 : ℝ≥0∞) := by
+  let a ← ($ᵗ Bool : ProbComp Bool)
+  let some m ← (pure (if a then some (2) else none) : OptionT ProbComp (Option ℕ)) | failure
+  let some n ← (pure (if !a then some (2) else none) : OptionT ProbComp (Option ℕ)) | failure
+  let some m ← (pure (if (n == 2) then some ((if a then 3 else 2)) else none) : OptionT ProbComp (Option ℕ)) | failure
+  let b : ℕ := (if a then 2 else 0)
+  let c ← (if !a then pure 1 else pure 1 : ProbComp ℕ)
+  let n ← (if (n == 1) then pure 3 else pure 1 : ProbComp ℕ)}[b = 0 ∨ n = 0] = (0 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 4: Lean's `do`. -/
 theorem case004_do : Pr{let r ← (do
-    let x ← ($ᵗ Bool : ProbComp Bool)
-    let m : Bool := x
-    let b ← (pure (3) : ProbComp ℕ)
-    let _ ← ($ᵗ Bool : ProbComp Bool)
-    return (x = true : Prop))}[r] = (1 / 2 : ℝ≥0∞) := by
+    let a ← ($ᵗ Bool : ProbComp Bool)
+    let some m ← (pure (if a then some (2) else none) : OptionT ProbComp (Option ℕ)) | failure
+    let some n ← (pure (if !a then some (2) else none) : OptionT ProbComp (Option ℕ)) | failure
+    let some m ← (pure (if (n == 2) then some ((if a then 3 else 2)) else none) : OptionT ProbComp (Option ℕ)) | failure
+    let b : ℕ := (if a then 2 else 0)
+    let c ← (if !a then pure 1 else pure 1 : ProbComp ℕ)
+    let n ← (if (n == 1) then pure 3 else pure 1 : ProbComp ℕ)
+    return (b = 0 ∨ n = 0 : Prop) : OptionT ProbComp _)}[r] = (0 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 5: the notation. -/
 theorem case005 : Pr{
-  let m ← ($ᵗ Bool : ProbComp Bool)
-  let mut a : ℕ := 3
-  let m ← (pure (2) : ProbComp ℕ)
-  for i in [2, 0, 2] do a := a + i
-  if (a == 3) then a := m + a
-  let n ← ($ᵗ Bool : ProbComp Bool)
-  for i in [2] do a := a + i}[a ≥ 0 ∧ m = 2] = (1 : ℝ≥0∞) := by
+  let x ← ($ᵗ Bool : ProbComp Bool)
+  let x ← (if x then pure 2 else pure 0 : ProbComp ℕ)
+  let (y, n) ← (pure (x, 2) : ProbComp (ℕ × ℕ))
+  let _ ← ($ᵗ Bool : ProbComp Bool)
+  let (c, n) ← (pure (x + y, 0) : ProbComp (ℕ × ℕ))}[n = 0 ∧ n ≥ 3] = (0 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 5: Lean's `do`. -/
 theorem case005_do : Pr{let r ← (do
-    let m ← ($ᵗ Bool : ProbComp Bool)
-    let mut a : ℕ := 3
-    let m ← (pure (2) : ProbComp ℕ)
-    for i in [2, 0, 2] do a := a + i
-    if (a == 3) then a := m + a
-    let n ← ($ᵗ Bool : ProbComp Bool)
-    for i in [2] do a := a + i
-    return (a ≥ 0 ∧ m = 2 : Prop))}[r] = (1 : ℝ≥0∞) := by
+    let x ← ($ᵗ Bool : ProbComp Bool)
+    let x ← (if x then pure 2 else pure 0 : ProbComp ℕ)
+    let (y, n) ← (pure (x, 2) : ProbComp (ℕ × ℕ))
+    let _ ← ($ᵗ Bool : ProbComp Bool)
+    let (c, n) ← (pure (x + y, 0) : ProbComp (ℕ × ℕ))
+    return (n = 0 ∧ n ≥ 3 : Prop))}[r] = (0 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 6: the notation. -/
 theorem case006 : Pr{
+  let m ← ($ᵗ Bool : ProbComp Bool)
+  let y ← ($ᵗ Bool : ProbComp Bool)
   let a ← ($ᵗ Bool : ProbComp Bool)
-  let mut c : ℕ := 2
-  let b ← (if !a then pure 0 else pure 2 : ProbComp ℕ)}[b ≥ 0 ∧ a = true] = (1 / 2 : ℝ≥0∞) := by
+  let mut c : ℕ := 2}[c = 2] = (1 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 6: Lean's `do`. -/
 theorem case006_do : Pr{let r ← (do
+    let m ← ($ᵗ Bool : ProbComp Bool)
+    let y ← ($ᵗ Bool : ProbComp Bool)
     let a ← ($ᵗ Bool : ProbComp Bool)
     let mut c : ℕ := 2
-    let b ← (if !a then pure 0 else pure 2 : ProbComp ℕ)
-    return (b ≥ 0 ∧ a = true : Prop))}[r] = (1 / 2 : ℝ≥0∞) := by
+    return (c = 2 : Prop))}[r] = (1 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 7: the notation. -/
 theorem case007 : 𝔼{
-  let n ← ($ᵗ Bool : ProbComp Bool)
-  let mut m : ℕ := 3
-  have b : Bool := n
-  let some b ← (pure (if !b then some (m + m) else none) : OptionT ProbComp (Option ℕ)) | failure
-  let a : ℕ ← (pure (m) : ProbComp ℕ)}[(b + m : ℝ≥0∞)] = (9 / 2 : ℝ≥0∞) := by
+  let m ← ($ᵗ Bool : ProbComp Bool)
+  let x ← ($ᵗ Bool : ProbComp Bool)
+  have n : ℕ := 0}[(n : ℝ≥0∞)] = (0 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 7: Lean's `do`. -/
 theorem case007_do : 𝔼{let r ← (do
-    let n ← ($ᵗ Bool : ProbComp Bool)
-    let mut m : ℕ := 3
-    have b : Bool := n
-    let some b ← (pure (if !b then some (m + m) else none) : OptionT ProbComp (Option ℕ)) | failure
-    let a : ℕ ← (pure (m) : ProbComp ℕ)
-    return (b + m : ℝ≥0∞) : OptionT ProbComp _)}[r] = (9 / 2 : ℝ≥0∞) := by
+    let m ← ($ᵗ Bool : ProbComp Bool)
+    let x ← ($ᵗ Bool : ProbComp Bool)
+    have n : ℕ := 0
+    return (n : ℝ≥0∞))}[r] = (0 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 8: the notation. -/
 theorem case008 : Pr{
-  let n ← ($ᵗ Bool : ProbComp Bool)
-  let mut n : ℕ := 0
-  let (c, y) ← (pure (n, n) : ProbComp (ℕ × ℕ))}[y ≥ 0 ∨ c = 0] = (1 : ℝ≥0∞) := by
+  let m ← ($ᵗ Bool : ProbComp Bool)
+  let _ ← ($ᵗ Bool : ProbComp Bool)
+  let mut y : ℕ := 0
+  let (b, x) ← (pure (y + y, 3) : ProbComp (ℕ × ℕ))
+  let a : ℕ ← (pure (y) : ProbComp ℕ)
+  let b ← ($ᵗ Bool : ProbComp Bool)}[m = true] = (1 / 2 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 8: Lean's `do`. -/
 theorem case008_do : Pr{let r ← (do
-    let n ← ($ᵗ Bool : ProbComp Bool)
-    let mut n : ℕ := 0
-    let (c, y) ← (pure (n, n) : ProbComp (ℕ × ℕ))
-    return (y ≥ 0 ∨ c = 0 : Prop))}[r] = (1 : ℝ≥0∞) := by
+    let m ← ($ᵗ Bool : ProbComp Bool)
+    let _ ← ($ᵗ Bool : ProbComp Bool)
+    let mut y : ℕ := 0
+    let (b, x) ← (pure (y + y, 3) : ProbComp (ℕ × ℕ))
+    let a : ℕ ← (pure (y) : ProbComp ℕ)
+    let b ← ($ᵗ Bool : ProbComp Bool)
+    return (m = true : Prop))}[r] = (1 / 2 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 9: the notation. -/
 theorem case009 : Pr{
   let a ← ($ᵗ Bool : ProbComp Bool)
-  let some a ← (pure (if a then some (0) else none) : OptionT ProbComp (Option ℕ)) | failure
-  let mut m : ℕ := 3
-  let n ← (if (a == 3) then pure 1 else pure 3 : ProbComp ℕ)
-  let mut b : ℕ := a + 1
-  let mut y : ℕ := m}[n = 3 ∨ m = 2] = (1 / 2 : ℝ≥0∞) := by
+  let (y, n) ← (pure (0, 1) : ProbComp (ℕ × ℕ))
+  let a ← ($ᵗ Bool : ProbComp Bool)
+  let y ← ($ᵗ Bool : ProbComp Bool)
+  have x := n + n
+  let mut n := (if a then 0 else 3)
+  let x : Bool := y}[n = 1 ∧ y = false] = (0 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 9: Lean's `do`. -/
 theorem case009_do : Pr{let r ← (do
     let a ← ($ᵗ Bool : ProbComp Bool)
-    let some a ← (pure (if a then some (0) else none) : OptionT ProbComp (Option ℕ)) | failure
-    let mut m : ℕ := 3
-    let n ← (if (a == 3) then pure 1 else pure 3 : ProbComp ℕ)
-    let mut b : ℕ := a + 1
-    let mut y : ℕ := m
-    return (n = 3 ∨ m = 2 : Prop) : OptionT ProbComp _)}[r] = (1 / 2 : ℝ≥0∞) := by
+    let (y, n) ← (pure (0, 1) : ProbComp (ℕ × ℕ))
+    let a ← ($ᵗ Bool : ProbComp Bool)
+    let y ← ($ᵗ Bool : ProbComp Bool)
+    have x := n + n
+    let mut n := (if a then 0 else 3)
+    let x : Bool := y
+    return (n = 1 ∧ y = false : Prop))}[r] = (0 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 10: the notation. -/
 theorem case010 : Pr{
-  let c ← ($ᵗ Bool : ProbComp Bool)
   let x ← ($ᵗ Bool : ProbComp Bool)
-  let n ← (pure (0) : ProbComp ℕ)
-  let n : Bool := x
-  let a ← ($ᵗ Bool : ProbComp Bool)
-  let mut a : ℕ := 2
-  let b : Bool := (c && n)}[x = true] = (1 / 2 : ℝ≥0∞) := by
+  let mut m := 1
+  let mut x : ℕ := m
+  for i in [1, 1] do x := x + i
+  x := m + x
+  let mut b := 1}[m = 2] = (0 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 10: Lean's `do`. -/
 theorem case010_do : Pr{let r ← (do
-    let c ← ($ᵗ Bool : ProbComp Bool)
     let x ← ($ᵗ Bool : ProbComp Bool)
-    let n ← (pure (0) : ProbComp ℕ)
-    let n : Bool := x
-    let a ← ($ᵗ Bool : ProbComp Bool)
-    let mut a : ℕ := 2
-    let b : Bool := (c && n)
-    return (x = true : Prop))}[r] = (1 / 2 : ℝ≥0∞) := by
+    let mut m := 1
+    let mut x : ℕ := m
+    for i in [1, 1] do x := x + i
+    x := m + x
+    let mut b := 1
+    return (m = 2 : Prop))}[r] = (0 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 11: the notation. -/
 theorem case011 : 𝔼{
-  let x ← ($ᵗ Bool : ProbComp Bool)
-  let m ← (if !x then pure 1 else pure 1 : ProbComp ℕ)
-  let c ← (if (m == 0) then pure 0 else pure 0 : ProbComp ℕ)}[(c + m : ℝ≥0∞)] = (1 : ℝ≥0∞) := by
+  let m ← ($ᵗ Bool : ProbComp Bool)
+  let (x, m) ← (pure (0, 0) : ProbComp (ℕ × ℕ))
+  let some n ← (pure (if (m == 0) then some (x + m) else none) : OptionT ProbComp (Option ℕ)) | failure
+  let _ ← ($ᵗ Bool : ProbComp Bool)}[(n + m : ℝ≥0∞)] = (0 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 11: Lean's `do`. -/
 theorem case011_do : 𝔼{let r ← (do
-    let x ← ($ᵗ Bool : ProbComp Bool)
-    let m ← (if !x then pure 1 else pure 1 : ProbComp ℕ)
-    let c ← (if (m == 0) then pure 0 else pure 0 : ProbComp ℕ)
-    return (c + m : ℝ≥0∞))}[r] = (1 : ℝ≥0∞) := by
+    let m ← ($ᵗ Bool : ProbComp Bool)
+    let (x, m) ← (pure (0, 0) : ProbComp (ℕ × ℕ))
+    let some n ← (pure (if (m == 0) then some (x + m) else none) : OptionT ProbComp (Option ℕ)) | failure
+    let _ ← ($ᵗ Bool : ProbComp Bool)
+    return (n + m : ℝ≥0∞) : OptionT ProbComp _)}[r] = (0 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 12: the notation. -/
 theorem case012 : Pr{
-  let x ← ($ᵗ Bool : ProbComp Bool)
-  let some c ← (pure (if x then some (0) else none) : OptionT ProbComp (Option ℕ)) | failure
-  let (b, x) ← (pure (c + c, c + c) : ProbComp (ℕ × ℕ))
-  let n ← ($ᵗ Bool : ProbComp Bool)
-  let n ← ($ᵗ Bool : ProbComp Bool)
-  let b : Bool := (c == 3)}[b = false] = (1 / 2 : ℝ≥0∞) := by
+  let b ← ($ᵗ Bool : ProbComp Bool)
+  let m ← (if b then pure 0 else pure 0 : ProbComp ℕ)
+  let c ← ($ᵗ Bool : ProbComp Bool)
+  let x ← (pure (2) : ProbComp ℕ)
+  let y ← (if (c && b) then pure 0 else pure 2 : ProbComp ℕ)
+  let (x, b) ← (pure (x + x, x + y) : ProbComp (ℕ × ℕ))
+  let y : ℕ := y + 2}[b = 2] = (1 / 4 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 12: Lean's `do`. -/
 theorem case012_do : Pr{let r ← (do
-    let x ← ($ᵗ Bool : ProbComp Bool)
-    let some c ← (pure (if x then some (0) else none) : OptionT ProbComp (Option ℕ)) | failure
-    let (b, x) ← (pure (c + c, c + c) : ProbComp (ℕ × ℕ))
-    let n ← ($ᵗ Bool : ProbComp Bool)
-    let n ← ($ᵗ Bool : ProbComp Bool)
-    let b : Bool := (c == 3)
-    return (b = false : Prop) : OptionT ProbComp _)}[r] = (1 / 2 : ℝ≥0∞) := by
+    let b ← ($ᵗ Bool : ProbComp Bool)
+    let m ← (if b then pure 0 else pure 0 : ProbComp ℕ)
+    let c ← ($ᵗ Bool : ProbComp Bool)
+    let x ← (pure (2) : ProbComp ℕ)
+    let y ← (if (c && b) then pure 0 else pure 2 : ProbComp ℕ)
+    let (x, b) ← (pure (x + x, x + y) : ProbComp (ℕ × ℕ))
+    let y : ℕ := y + 2
+    return (b = 2 : Prop))}[r] = (1 / 4 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 13: the notation. -/
 theorem case013 : Pr{
-  let y ← ($ᵗ Bool : ProbComp Bool)
-  let n ← (if !y then pure 3 else pure 1 : ProbComp ℕ)
-  let c : ℕ := n
-  let x : ℕ := (if y then 2 else 1)
+  let m ← ($ᵗ Bool : ProbComp Bool)
+  let _ ← ($ᵗ Bool : ProbComp Bool)
+  let x ← (pure (1) : ProbComp ℕ)
   let b ← ($ᵗ Bool : ProbComp Bool)
-  let m : ℕ ← (pure (c + x) : ProbComp ℕ)}[y = false ∨ y = true] = (1 : ℝ≥0∞) := by
+  let (b, y) ← (pure ((if b then 3 else 2), 0) : ProbComp (ℕ × ℕ))}[y = 0] = (1 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 13: Lean's `do`. -/
 theorem case013_do : Pr{let r ← (do
-    let y ← ($ᵗ Bool : ProbComp Bool)
-    let n ← (if !y then pure 3 else pure 1 : ProbComp ℕ)
-    let c : ℕ := n
-    let x : ℕ := (if y then 2 else 1)
+    let m ← ($ᵗ Bool : ProbComp Bool)
+    let _ ← ($ᵗ Bool : ProbComp Bool)
+    let x ← (pure (1) : ProbComp ℕ)
     let b ← ($ᵗ Bool : ProbComp Bool)
-    let m : ℕ ← (pure (c + x) : ProbComp ℕ)
-    return (y = false ∨ y = true : Prop))}[r] = (1 : ℝ≥0∞) := by
+    let (b, y) ← (pure ((if b then 3 else 2), 0) : ProbComp (ℕ × ℕ))
+    return (y = 0 : Prop))}[r] = (1 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 14: the notation. -/
 theorem case014 : Pr{
+  let x ← ($ᵗ Bool : ProbComp Bool)
   let c ← ($ᵗ Bool : ProbComp Bool)
-  let some n ← (pure (if c then some (0) else none) : OptionT ProbComp (Option ℕ)) | failure
-  let x : ℕ ← (pure (n + n) : ProbComp ℕ)
-  let (y, b) ← (pure ((if c then 3 else 1), n + n) : ProbComp (ℕ × ℕ))}[n = 0 ∨ c = false] = (1 / 2 : ℝ≥0∞) := by
+  let y ← (pure (0) : ProbComp ℕ)
+  let n ← ($ᵗ Bool : ProbComp Bool)
+  let x : ℕ ← (pure (y + y) : ProbComp ℕ)
+  let (y, b) ← (pure ((if n then 3 else 1), x + x) : ProbComp (ℕ × ℕ))
+  have a : ℕ := b}[y ≥ 3 ∨ y = 3] = (1 / 2 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 14: Lean's `do`. -/
 theorem case014_do : Pr{let r ← (do
+    let x ← ($ᵗ Bool : ProbComp Bool)
     let c ← ($ᵗ Bool : ProbComp Bool)
-    let some n ← (pure (if c then some (0) else none) : OptionT ProbComp (Option ℕ)) | failure
-    let x : ℕ ← (pure (n + n) : ProbComp ℕ)
-    let (y, b) ← (pure ((if c then 3 else 1), n + n) : ProbComp (ℕ × ℕ))
-    return (n = 0 ∨ c = false : Prop) : OptionT ProbComp _)}[r] = (1 / 2 : ℝ≥0∞) := by
+    let y ← (pure (0) : ProbComp ℕ)
+    let n ← ($ᵗ Bool : ProbComp Bool)
+    let x : ℕ ← (pure (y + y) : ProbComp ℕ)
+    let (y, b) ← (pure ((if n then 3 else 1), x + x) : ProbComp (ℕ × ℕ))
+    have a : ℕ := b
+    return (y ≥ 3 ∨ y = 3 : Prop))}[r] = (1 / 2 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 15: the notation. -/
 theorem case015 : 𝔼{
-  let x ← ($ᵗ Bool : ProbComp Bool)
-  let x ← ($ᵗ Bool : ProbComp Bool)
-  let c : Bool := x
-  let n : Bool := x}[(1 : ℝ≥0∞)] = (1 : ℝ≥0∞) := by
+  let y ← ($ᵗ Bool : ProbComp Bool)
+  have x : ℕ := 1
+  let n ← ($ᵗ Bool : ProbComp Bool)
+  let some n ← (pure (if (y && n) then some ((if n then 1 else 3)) else none) : OptionT ProbComp (Option ℕ)) | failure
+  let (n, m) ← (pure ((if y then 0 else 2), x) : ProbComp (ℕ × ℕ))
+  let _ ← ($ᵗ Bool : ProbComp Bool)}[(x + n : ℝ≥0∞)] = (1 / 4 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 15: Lean's `do`. -/
 theorem case015_do : 𝔼{let r ← (do
-    let x ← ($ᵗ Bool : ProbComp Bool)
-    let x ← ($ᵗ Bool : ProbComp Bool)
-    let c : Bool := x
-    let n : Bool := x
-    return (1 : ℝ≥0∞))}[r] = (1 : ℝ≥0∞) := by
+    let y ← ($ᵗ Bool : ProbComp Bool)
+    have x : ℕ := 1
+    let n ← ($ᵗ Bool : ProbComp Bool)
+    let some n ← (pure (if (y && n) then some ((if n then 1 else 3)) else none) : OptionT ProbComp (Option ℕ)) | failure
+    let (n, m) ← (pure ((if y then 0 else 2), x) : ProbComp (ℕ × ℕ))
+    let _ ← ($ᵗ Bool : ProbComp Bool)
+    return (x + n : ℝ≥0∞) : OptionT ProbComp _)}[r] = (1 / 4 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 16: the notation. -/
 theorem case016 : Pr{
-  let x ← ($ᵗ Bool : ProbComp Bool)
-  let some n ← (pure (if x then some (1) else none) : OptionT ProbComp (Option ℕ)) | failure
-  let _ ← ($ᵗ Bool : ProbComp Bool)
-  let (n, m) ← (pure ((if x then 0 else 2), n) : ProbComp (ℕ × ℕ))
-  let _ ← ($ᵗ Bool : ProbComp Bool)
-  let b ← ($ᵗ Bool : ProbComp Bool)
-  let y : ℕ := m}[y ≥ 1] = (1 / 2 : ℝ≥0∞) := by
+  let a ← ($ᵗ Bool : ProbComp Bool)
+  let mut a := 0
+  let c ← ($ᵗ Bool : ProbComp Bool)
+  for i in [1, 1] do a := a + i
+  match c with
+  | true => a := a + a
+  | false => a := a
+  a := a}[c = false ∧ c = true] = (0 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 16: Lean's `do`. -/
 theorem case016_do : Pr{let r ← (do
-    let x ← ($ᵗ Bool : ProbComp Bool)
-    let some n ← (pure (if x then some (1) else none) : OptionT ProbComp (Option ℕ)) | failure
-    let _ ← ($ᵗ Bool : ProbComp Bool)
-    let (n, m) ← (pure ((if x then 0 else 2), n) : ProbComp (ℕ × ℕ))
-    let _ ← ($ᵗ Bool : ProbComp Bool)
-    let b ← ($ᵗ Bool : ProbComp Bool)
-    let y : ℕ := m
-    return (y ≥ 1 : Prop) : OptionT ProbComp _)}[r] = (1 / 2 : ℝ≥0∞) := by
+    let a ← ($ᵗ Bool : ProbComp Bool)
+    let mut a := 0
+    let c ← ($ᵗ Bool : ProbComp Bool)
+    for i in [1, 1] do a := a + i
+    match c with
+    | true => a := a + a
+    | false => a := a
+    a := a
+    return (c = false ∧ c = true : Prop))}[r] = (0 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 17: the notation. -/
 theorem case017 : Pr{
-  let a ← ($ᵗ Bool : ProbComp Bool)
-  let some y ← (pure (if !a then some (2) else none) : OptionT ProbComp (Option ℕ)) | failure
-  let a ← (if (y == 3) then pure 0 else pure 3 : ProbComp ℕ)
-  let mut m : ℕ := 2}[y ≥ 1 ∧ m ≥ 1] = (1 / 2 : ℝ≥0∞) := by
+  let x ← ($ᵗ Bool : ProbComp Bool)
+  let (a, y) ← (pure (3, 0) : ProbComp (ℕ × ℕ))
+  let mut m : ℕ := (if x then 0 else 1)}[m ≥ 1] = (1 / 2 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 17: Lean's `do`. -/
 theorem case017_do : Pr{let r ← (do
-    let a ← ($ᵗ Bool : ProbComp Bool)
-    let some y ← (pure (if !a then some (2) else none) : OptionT ProbComp (Option ℕ)) | failure
-    let a ← (if (y == 3) then pure 0 else pure 3 : ProbComp ℕ)
-    let mut m : ℕ := 2
-    return (y ≥ 1 ∧ m ≥ 1 : Prop) : OptionT ProbComp _)}[r] = (1 / 2 : ℝ≥0∞) := by
+    let x ← ($ᵗ Bool : ProbComp Bool)
+    let (a, y) ← (pure (3, 0) : ProbComp (ℕ × ℕ))
+    let mut m : ℕ := (if x then 0 else 1)
+    return (m ≥ 1 : Prop))}[r] = (1 / 2 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 18: the notation. -/
 theorem case018 : Pr{
-  let c ← ($ᵗ Bool : ProbComp Bool)
-  let x ← ($ᵗ Bool : ProbComp Bool)
-  let c ← ($ᵗ Bool : ProbComp Bool)
-  let a : ℕ := 0
-  let m ← ($ᵗ Bool : ProbComp Bool)
-  let m ← ($ᵗ Bool : ProbComp Bool)}[x = true] = (1 / 2 : ℝ≥0∞) := by
+  let n ← ($ᵗ Bool : ProbComp Bool)
+  let b ← ($ᵗ Bool : ProbComp Bool)
+  let mut y : ℕ := 3
+  let x : ℕ := y + y}[n = true ∧ n = false] = (0 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 18: Lean's `do`. -/
 theorem case018_do : Pr{let r ← (do
-    let c ← ($ᵗ Bool : ProbComp Bool)
-    let x ← ($ᵗ Bool : ProbComp Bool)
-    let c ← ($ᵗ Bool : ProbComp Bool)
-    let a : ℕ := 0
-    let m ← ($ᵗ Bool : ProbComp Bool)
-    let m ← ($ᵗ Bool : ProbComp Bool)
-    return (x = true : Prop))}[r] = (1 / 2 : ℝ≥0∞) := by
+    let n ← ($ᵗ Bool : ProbComp Bool)
+    let b ← ($ᵗ Bool : ProbComp Bool)
+    let mut y : ℕ := 3
+    let x : ℕ := y + y
+    return (n = true ∧ n = false : Prop))}[r] = (0 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 19: the notation. -/
 theorem case019 : 𝔼{
-  let n ← ($ᵗ Bool : ProbComp Bool)
-  let m ← (pure (1) : ProbComp ℕ)
-  let b ← ($ᵗ Bool : ProbComp Bool)
-  let mut y : ℕ := 3}[(m : ℝ≥0∞)] = (1 : ℝ≥0∞) := by
+  let a ← ($ᵗ Bool : ProbComp Bool)
+  let c ← ($ᵗ Bool : ProbComp Bool)
+  let y : ℕ := 3
+  let m ← ($ᵗ Bool : ProbComp Bool)
+  let n ← (pure ((if a then 2 else 1)) : ProbComp ℕ)}[(y : ℝ≥0∞)] = (3 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 19: Lean's `do`. -/
 theorem case019_do : 𝔼{let r ← (do
-    let n ← ($ᵗ Bool : ProbComp Bool)
-    let m ← (pure (1) : ProbComp ℕ)
-    let b ← ($ᵗ Bool : ProbComp Bool)
-    let mut y : ℕ := 3
-    return (m : ℝ≥0∞))}[r] = (1 : ℝ≥0∞) := by
+    let a ← ($ᵗ Bool : ProbComp Bool)
+    let c ← ($ᵗ Bool : ProbComp Bool)
+    let y : ℕ := 3
+    let m ← ($ᵗ Bool : ProbComp Bool)
+    let n ← (pure ((if a then 2 else 1)) : ProbComp ℕ)
+    return (y : ℝ≥0∞))}[r] = (3 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 20: the notation. -/
 theorem case020 : Pr{
-  let m ← ($ᵗ Bool : ProbComp Bool)
-  let mut c : ℕ := 0
-  let _ ← ($ᵗ Bool : ProbComp Bool)
-  let mut a : ℕ := 2
-  let b ← (if (c == 0) then pure 1 else pure 2 : ProbComp ℕ)}[c = 0 ∧ m = false] = (1 / 2 : ℝ≥0∞) := by
+  let a ← ($ᵗ Bool : ProbComp Bool)
+  let mut m : ℕ := 3
+  let c : ℕ ← (pure (0) : ProbComp ℕ)
+  for i in [2, 0, 0] do m := m + i
+  if (c == 2) then m := (if a then 3 else 1) else m := 1}[c = 1 ∧ m = 3] = (0 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 20: Lean's `do`. -/
 theorem case020_do : Pr{let r ← (do
-    let m ← ($ᵗ Bool : ProbComp Bool)
-    let mut c : ℕ := 0
-    let _ ← ($ᵗ Bool : ProbComp Bool)
-    let mut a : ℕ := 2
-    let b ← (if (c == 0) then pure 1 else pure 2 : ProbComp ℕ)
-    return (c = 0 ∧ m = false : Prop))}[r] = (1 / 2 : ℝ≥0∞) := by
+    let a ← ($ᵗ Bool : ProbComp Bool)
+    let mut m : ℕ := 3
+    let c : ℕ ← (pure (0) : ProbComp ℕ)
+    for i in [2, 0, 0] do m := m + i
+    if (c == 2) then m := (if a then 3 else 1) else m := 1
+    return (c = 1 ∧ m = 3 : Prop))}[r] = (0 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 21: the notation. -/
 theorem case021 : Pr{
-  let y ← ($ᵗ Bool : ProbComp Bool)
-  let m ← ($ᵗ Bool : ProbComp Bool)
-  let x ← (pure (0) : ProbComp ℕ)
-  let some m ← (pure (if y then some (2) else none) : OptionT ProbComp (Option ℕ)) | failure}[x ≥ 3] = (0 : ℝ≥0∞) := by
+  let n ← ($ᵗ Bool : ProbComp Bool)
+  let m ← (if n then pure 2 else pure 1 : ProbComp ℕ)
+  let mut y : ℕ := m}[m = 1 ∧ y = 2] = (0 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 21: Lean's `do`. -/
 theorem case021_do : Pr{let r ← (do
-    let y ← ($ᵗ Bool : ProbComp Bool)
-    let m ← ($ᵗ Bool : ProbComp Bool)
-    let x ← (pure (0) : ProbComp ℕ)
-    let some m ← (pure (if y then some (2) else none) : OptionT ProbComp (Option ℕ)) | failure
-    return (x ≥ 3 : Prop) : OptionT ProbComp _)}[r] = (0 : ℝ≥0∞) := by
+    let n ← ($ᵗ Bool : ProbComp Bool)
+    let m ← (if n then pure 2 else pure 1 : ProbComp ℕ)
+    let mut y : ℕ := m
+    return (m = 1 ∧ y = 2 : Prop))}[r] = (0 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 22: the notation. -/
 theorem case022 : Pr{
+  let y ← ($ᵗ Bool : ProbComp Bool)
+  let some y ← (pure (if y then some (3) else none) : OptionT ProbComp (Option ℕ)) | failure
+  let y ← (if (y == 3) then pure 1 else pure 3 : ProbComp ℕ)
+  let n : ℕ := y
   let a ← ($ᵗ Bool : ProbComp Bool)
-  let m ← (pure (3) : ProbComp ℕ)
-  let c ← ($ᵗ Bool : ProbComp Bool)
-  let a : ℕ := m
-  let some n ← (pure (if (a == 1) then some (1) else none) : OptionT ProbComp (Option ℕ)) | failure}[c = false] = (0 : ℝ≥0∞) := by
+  let m ← (pure ((if a then 0 else 3)) : ProbComp ℕ)
+  let b ← (pure (y + y) : ProbComp ℕ)}[m = 3 ∧ m ≥ 0] = (1 / 4 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 22: Lean's `do`. -/
 theorem case022_do : Pr{let r ← (do
+    let y ← ($ᵗ Bool : ProbComp Bool)
+    let some y ← (pure (if y then some (3) else none) : OptionT ProbComp (Option ℕ)) | failure
+    let y ← (if (y == 3) then pure 1 else pure 3 : ProbComp ℕ)
+    let n : ℕ := y
     let a ← ($ᵗ Bool : ProbComp Bool)
-    let m ← (pure (3) : ProbComp ℕ)
-    let c ← ($ᵗ Bool : ProbComp Bool)
-    let a : ℕ := m
-    let some n ← (pure (if (a == 1) then some (1) else none) : OptionT ProbComp (Option ℕ)) | failure
-    return (c = false : Prop) : OptionT ProbComp _)}[r] = (0 : ℝ≥0∞) := by
+    let m ← (pure ((if a then 0 else 3)) : ProbComp ℕ)
+    let b ← (pure (y + y) : ProbComp ℕ)
+    return (m = 3 ∧ m ≥ 0 : Prop) : OptionT ProbComp _)}[r] = (1 / 4 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 23: the notation. -/
 theorem case023 : 𝔼{
-  let m ← ($ᵗ Bool : ProbComp Bool)
-  let (n, c) ← (pure (3, 0) : ProbComp (ℕ × ℕ))
-  let a ← (pure ((if m then 2 else 3)) : ProbComp ℕ)
-  let m : ℕ := (if m then 3 else 3)
-  let mut c : ℕ := m + n}[(a : ℝ≥0∞)] = (5 / 2 : ℝ≥0∞) := by
+  let c ← ($ᵗ Bool : ProbComp Bool)
+  let y ← ($ᵗ Bool : ProbComp Bool)
+  let a : ℕ ← (pure (2) : ProbComp ℕ)}[(a : ℝ≥0∞)] = (2 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 23: Lean's `do`. -/
 theorem case023_do : 𝔼{let r ← (do
-    let m ← ($ᵗ Bool : ProbComp Bool)
-    let (n, c) ← (pure (3, 0) : ProbComp (ℕ × ℕ))
-    let a ← (pure ((if m then 2 else 3)) : ProbComp ℕ)
-    let m : ℕ := (if m then 3 else 3)
-    let mut c : ℕ := m + n
-    return (a : ℝ≥0∞))}[r] = (5 / 2 : ℝ≥0∞) := by
+    let c ← ($ᵗ Bool : ProbComp Bool)
+    let y ← ($ᵗ Bool : ProbComp Bool)
+    let a : ℕ ← (pure (2) : ProbComp ℕ)
+    return (a : ℝ≥0∞))}[r] = (2 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 24: the notation. -/
 theorem case024 : Pr{
+  let c ← ($ᵗ Bool : ProbComp Bool)
+  let m := 0
   let b ← ($ᵗ Bool : ProbComp Bool)
-  let n ← ($ᵗ Bool : ProbComp Bool)
-  let b : Bool := n
-  let y ← (if !n then pure 0 else pure 0 : ProbComp ℕ)
-  let m ← (pure ((if b then 0 else 3)) : ProbComp ℕ)
-  let b ← (pure (y + y) : ProbComp ℕ)}[n = false] = (1 / 2 : ℝ≥0∞) := by
+  let mut b := m
+  if c then b := 0}[m ≥ 2] = (0 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 24: Lean's `do`. -/
 theorem case024_do : Pr{let r ← (do
+    let c ← ($ᵗ Bool : ProbComp Bool)
+    let m := 0
     let b ← ($ᵗ Bool : ProbComp Bool)
-    let n ← ($ᵗ Bool : ProbComp Bool)
-    let b : Bool := n
-    let y ← (if !n then pure 0 else pure 0 : ProbComp ℕ)
-    let m ← (pure ((if b then 0 else 3)) : ProbComp ℕ)
-    let b ← (pure (y + y) : ProbComp ℕ)
-    return (n = false : Prop))}[r] = (1 / 2 : ℝ≥0∞) := by
+    let mut b := m
+    if c then b := 0
+    return (m ≥ 2 : Prop))}[r] = (0 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 25: the notation. -/
 theorem case025 : Pr{
-  let m ← ($ᵗ Bool : ProbComp Bool)
-  have a : ℕ := 2
-  let y ← ($ᵗ Bool : ProbComp Bool)
-  let a : ℕ ← (pure (a) : ProbComp ℕ)
-  let b : ℕ := a}[y = false] = (1 / 2 : ℝ≥0∞) := by
+  let n ← ($ᵗ Bool : ProbComp Bool)
+  let a : Bool := n
+  let m ← (pure (3) : ProbComp ℕ)
+  let some a ← (pure (if (a && n) then some ((if n then 0 else 3)) else none) : OptionT ProbComp (Option ℕ)) | failure
+  let (b, m) ← (pure ((if n then 3 else 3), m) : ProbComp (ℕ × ℕ))}[n = false] = (0 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 25: Lean's `do`. -/
 theorem case025_do : Pr{let r ← (do
-    let m ← ($ᵗ Bool : ProbComp Bool)
-    have a : ℕ := 2
-    let y ← ($ᵗ Bool : ProbComp Bool)
-    let a : ℕ ← (pure (a) : ProbComp ℕ)
-    let b : ℕ := a
-    return (y = false : Prop))}[r] = (1 / 2 : ℝ≥0∞) := by
+    let n ← ($ᵗ Bool : ProbComp Bool)
+    let a : Bool := n
+    let m ← (pure (3) : ProbComp ℕ)
+    let some a ← (pure (if (a && n) then some ((if n then 0 else 3)) else none) : OptionT ProbComp (Option ℕ)) | failure
+    let (b, m) ← (pure ((if n then 3 else 3), m) : ProbComp (ℕ × ℕ))
+    return (n = false : Prop) : OptionT ProbComp _)}[r] = (0 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 26: the notation. -/
 theorem case026 : Pr{
-  let b ← ($ᵗ Bool : ProbComp Bool)
-  let b ← ($ᵗ Bool : ProbComp Bool)
-  let mut b : ℕ := 1
-  let _ ← ($ᵗ Bool : ProbComp Bool)}[b = 1] = (1 : ℝ≥0∞) := by
+  let a ← ($ᵗ Bool : ProbComp Bool)
+  let (n, m) ← (pure (0, 0) : ProbComp (ℕ × ℕ))
+  let x ← ($ᵗ Bool : ProbComp Bool)
+  let n ← ($ᵗ Bool : ProbComp Bool)}[m = 0] = (1 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 26: Lean's `do`. -/
 theorem case026_do : Pr{let r ← (do
-    let b ← ($ᵗ Bool : ProbComp Bool)
-    let b ← ($ᵗ Bool : ProbComp Bool)
-    let mut b : ℕ := 1
-    let _ ← ($ᵗ Bool : ProbComp Bool)
-    return (b = 1 : Prop))}[r] = (1 : ℝ≥0∞) := by
+    let a ← ($ᵗ Bool : ProbComp Bool)
+    let (n, m) ← (pure (0, 0) : ProbComp (ℕ × ℕ))
+    let x ← ($ᵗ Bool : ProbComp Bool)
+    let n ← ($ᵗ Bool : ProbComp Bool)
+    return (m = 0 : Prop))}[r] = (1 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 27: the notation. -/
 theorem case027 : 𝔼{
-  let a ← ($ᵗ Bool : ProbComp Bool)
-  let some c ← (pure (if a then some (2) else none) : OptionT ProbComp (Option ℕ)) | failure
-  let a ← (if a then pure 0 else pure 0 : ProbComp ℕ)
-  let _ ← ($ᵗ Bool : ProbComp Bool)}[(a : ℝ≥0∞)] = (0 : ℝ≥0∞) := by
+  let m ← ($ᵗ Bool : ProbComp Bool)
+  let x ← (pure (1) : ProbComp ℕ)
+  let a ← ($ᵗ Bool : ProbComp Bool)}[(x : ℝ≥0∞)] = (1 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 27: Lean's `do`. -/
 theorem case027_do : 𝔼{let r ← (do
+    let m ← ($ᵗ Bool : ProbComp Bool)
+    let x ← (pure (1) : ProbComp ℕ)
     let a ← ($ᵗ Bool : ProbComp Bool)
-    let some c ← (pure (if a then some (2) else none) : OptionT ProbComp (Option ℕ)) | failure
-    let a ← (if a then pure 0 else pure 0 : ProbComp ℕ)
-    let _ ← ($ᵗ Bool : ProbComp Bool)
-    return (a : ℝ≥0∞) : OptionT ProbComp _)}[r] = (0 : ℝ≥0∞) := by
+    return (x : ℝ≥0∞))}[r] = (1 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 28: the notation. -/
 theorem case028 : Pr{
-  let b ← ($ᵗ Bool : ProbComp Bool)
-  let mut a : ℕ := 3
-  let b : ℕ ← (pure (a + a) : ProbComp ℕ)
-  for i in [1, 0] do a := a + i
-  for i in [0] do a := a + i
-  let y ← (pure (b) : ProbComp ℕ)}[b = 6] = (1 : ℝ≥0∞) := by
+  let n ← ($ᵗ Bool : ProbComp Bool)
+  let a : ℕ ← (pure (1) : ProbComp ℕ)
+  let a ← ($ᵗ Bool : ProbComp Bool)
+  let a ← (if n then pure 0 else pure 1 : ProbComp ℕ)
+  let x ← ($ᵗ Bool : ProbComp Bool)
+  have n : ℕ := 0}[n = 0] = (1 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 28: Lean's `do`. -/
 theorem case028_do : Pr{let r ← (do
-    let b ← ($ᵗ Bool : ProbComp Bool)
-    let mut a : ℕ := 3
-    let b : ℕ ← (pure (a + a) : ProbComp ℕ)
-    for i in [1, 0] do a := a + i
-    for i in [0] do a := a + i
-    let y ← (pure (b) : ProbComp ℕ)
-    return (b = 6 : Prop))}[r] = (1 : ℝ≥0∞) := by
+    let n ← ($ᵗ Bool : ProbComp Bool)
+    let a : ℕ ← (pure (1) : ProbComp ℕ)
+    let a ← ($ᵗ Bool : ProbComp Bool)
+    let a ← (if n then pure 0 else pure 1 : ProbComp ℕ)
+    let x ← ($ᵗ Bool : ProbComp Bool)
+    have n : ℕ := 0
+    return (n = 0 : Prop))}[r] = (1 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 29: the notation. -/
 theorem case029 : Pr{
-  let a ← ($ᵗ Bool : ProbComp Bool)
-  let mut b : ℕ := 0
-  match a with
-  | true => b := 3
-  | false => b := b
-  let m ← (if (b == 0) then pure 0 else pure 0 : ProbComp ℕ)
-  let c ← ($ᵗ Bool : ProbComp Bool)
-  let _ ← ($ᵗ Bool : ProbComp Bool)}[a = true] = (1 / 2 : ℝ≥0∞) := by
+  let n ← ($ᵗ Bool : ProbComp Bool)
+  let x ← ($ᵗ Bool : ProbComp Bool)
+  let mut y : ℕ := 0
+  let mut m : ℕ := y}[m ≥ 0 ∨ x = true] = (1 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 29: Lean's `do`. -/
 theorem case029_do : Pr{let r ← (do
-    let a ← ($ᵗ Bool : ProbComp Bool)
-    let mut b : ℕ := 0
-    match a with
-    | true => b := 3
-    | false => b := b
-    let m ← (if (b == 0) then pure 0 else pure 0 : ProbComp ℕ)
-    let c ← ($ᵗ Bool : ProbComp Bool)
-    let _ ← ($ᵗ Bool : ProbComp Bool)
-    return (a = true : Prop))}[r] = (1 / 2 : ℝ≥0∞) := by
+    let n ← ($ᵗ Bool : ProbComp Bool)
+    let x ← ($ᵗ Bool : ProbComp Bool)
+    let mut y : ℕ := 0
+    let mut m : ℕ := y
+    return (m ≥ 0 ∨ x = true : Prop))}[r] = (1 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 30: the notation. -/
 theorem case030 : Pr{
+  let b ← ($ᵗ Bool : ProbComp Bool)
+  let b : ℕ := 1
+  let c ← (if (b == 1) then pure 3 else pure 0 : ProbComp ℕ)
+  let n ← ($ᵗ Bool : ProbComp Bool)
   let a ← ($ᵗ Bool : ProbComp Bool)
-  let mut n : ℕ := 0
-  if a then n := (if a then 1 else 0) else n := (if a then 3 else 2)
-  let a ← (if (n == 2) then pure 3 else pure 2 : ProbComp ℕ)
-  let (c, b) ← (pure (n, n) : ProbComp (ℕ × ℕ))}[b ≥ 2] = (1 / 2 : ℝ≥0∞) := by
+  let some m ← (pure (if n then some (1) else none) : OptionT ProbComp (Option ℕ)) | failure}[a = false ∨ b ≥ 1] = (1 / 2 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 30: Lean's `do`. -/
 theorem case030_do : Pr{let r ← (do
+    let b ← ($ᵗ Bool : ProbComp Bool)
+    let b : ℕ := 1
+    let c ← (if (b == 1) then pure 3 else pure 0 : ProbComp ℕ)
+    let n ← ($ᵗ Bool : ProbComp Bool)
     let a ← ($ᵗ Bool : ProbComp Bool)
-    let mut n : ℕ := 0
-    if a then n := (if a then 1 else 0) else n := (if a then 3 else 2)
-    let a ← (if (n == 2) then pure 3 else pure 2 : ProbComp ℕ)
-    let (c, b) ← (pure (n, n) : ProbComp (ℕ × ℕ))
-    return (b ≥ 2 : Prop))}[r] = (1 / 2 : ℝ≥0∞) := by
+    let some m ← (pure (if n then some (1) else none) : OptionT ProbComp (Option ℕ)) | failure
+    return (a = false ∨ b ≥ 1 : Prop) : OptionT ProbComp _)}[r] = (1 / 2 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 31: the notation. -/
 theorem case031 : 𝔼{
   let x ← ($ᵗ Bool : ProbComp Bool)
-  let _ ← ($ᵗ Bool : ProbComp Bool)
-  let mut n : ℕ := 0
-  let b : Bool := (n == 0)
-  let _ ← ($ᵗ Bool : ProbComp Bool)
-  let mut x : ℕ := (if b then 1 else 1)
-  n := (if b then 3 else 2)}[(n : ℝ≥0∞)] = (3 : ℝ≥0∞) := by
+  let (b, n) ← (pure (2, 2) : ProbComp (ℕ × ℕ))
+  let c ← (if x then pure 3 else pure 1 : ProbComp ℕ)
+  let m : Bool := (n == 1)
+  let b ← (if m then pure 1 else pure 3 : ProbComp ℕ)
+  have x : Bool := x
+  let a ← ($ᵗ Bool : ProbComp Bool)}[(b + c : ℝ≥0∞)] = (5 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 31: Lean's `do`. -/
 theorem case031_do : 𝔼{let r ← (do
     let x ← ($ᵗ Bool : ProbComp Bool)
-    let _ ← ($ᵗ Bool : ProbComp Bool)
-    let mut n : ℕ := 0
-    let b : Bool := (n == 0)
-    let _ ← ($ᵗ Bool : ProbComp Bool)
-    let mut x : ℕ := (if b then 1 else 1)
-    n := (if b then 3 else 2)
-    return (n : ℝ≥0∞))}[r] = (3 : ℝ≥0∞) := by
+    let (b, n) ← (pure (2, 2) : ProbComp (ℕ × ℕ))
+    let c ← (if x then pure 3 else pure 1 : ProbComp ℕ)
+    let m : Bool := (n == 1)
+    let b ← (if m then pure 1 else pure 3 : ProbComp ℕ)
+    have x : Bool := x
+    let a ← ($ᵗ Bool : ProbComp Bool)
+    return (b + c : ℝ≥0∞))}[r] = (5 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 32: the notation. -/
 theorem case032 : Pr{
-  let b ← ($ᵗ Bool : ProbComp Bool)
-  let c ← (if b then pure 3 else pure 1 : ProbComp ℕ)
-  let m : Bool := (c == 1)
-  let x ← (if (c == 2) then pure 3 else pure 1 : ProbComp ℕ)
-  let _ ← ($ᵗ Bool : ProbComp Bool)
-  let b : ℕ ← (pure (x) : ProbComp ℕ)}[b = 1] = (1 : ℝ≥0∞) := by
+  let n ← ($ᵗ Bool : ProbComp Bool)
+  let (m, b) ← (pure (2, 3) : ProbComp (ℕ × ℕ))
+  let m ← ($ᵗ Bool : ProbComp Bool)}[m = true] = (1 / 2 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 32: Lean's `do`. -/
 theorem case032_do : Pr{let r ← (do
-    let b ← ($ᵗ Bool : ProbComp Bool)
-    let c ← (if b then pure 3 else pure 1 : ProbComp ℕ)
-    let m : Bool := (c == 1)
-    let x ← (if (c == 2) then pure 3 else pure 1 : ProbComp ℕ)
-    let _ ← ($ᵗ Bool : ProbComp Bool)
-    let b : ℕ ← (pure (x) : ProbComp ℕ)
-    return (b = 1 : Prop))}[r] = (1 : ℝ≥0∞) := by
+    let n ← ($ᵗ Bool : ProbComp Bool)
+    let (m, b) ← (pure (2, 3) : ProbComp (ℕ × ℕ))
+    let m ← ($ᵗ Bool : ProbComp Bool)
+    return (m = true : Prop))}[r] = (1 / 2 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 33: the notation. -/
 theorem case033 : Pr{
   let y ← ($ᵗ Bool : ProbComp Bool)
-  let c ← (pure (0) : ProbComp ℕ)
-  let mut m : ℕ := c
-  let _ ← ($ᵗ Bool : ProbComp Bool)
-  let x ← ($ᵗ Bool : ProbComp Bool)
-  for i in [0, 1] do m := m + i
-  if x then m := 2 else m := c + m}[y = true ∧ y = true] = (1 / 2 : ℝ≥0∞) := by
+  let (a, n) ← (pure (2, 3) : ProbComp (ℕ × ℕ))
+  have n := a + n
+  let b ← (if y then pure 3 else pure 1 : ProbComp ℕ)
+  let mut n : ℕ := a}[a = 2] = (1 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 33: Lean's `do`. -/
 theorem case033_do : Pr{let r ← (do
     let y ← ($ᵗ Bool : ProbComp Bool)
-    let c ← (pure (0) : ProbComp ℕ)
-    let mut m : ℕ := c
-    let _ ← ($ᵗ Bool : ProbComp Bool)
-    let x ← ($ᵗ Bool : ProbComp Bool)
-    for i in [0, 1] do m := m + i
-    if x then m := 2 else m := c + m
-    return (y = true ∧ y = true : Prop))}[r] = (1 / 2 : ℝ≥0∞) := by
+    let (a, n) ← (pure (2, 3) : ProbComp (ℕ × ℕ))
+    have n := a + n
+    let b ← (if y then pure 3 else pure 1 : ProbComp ℕ)
+    let mut n : ℕ := a
+    return (a = 2 : Prop))}[r] = (1 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 34: the notation. -/
 theorem case034 : Pr{
-  let a ← ($ᵗ Bool : ProbComp Bool)
-  let some b ← (pure (if a then some (1) else none) : OptionT ProbComp (Option ℕ)) | failure
-  let mut n : ℕ := b
-  let some m ← (pure (if (n == 3) then some (1) else none) : OptionT ProbComp (Option ℕ)) | failure
-  for i in [2, 0] do n := n + i
-  let some m ← (pure (if !a then some ((if a then 0 else 1)) else none) : OptionT ProbComp (Option ℕ)) | failure
-  let mut x : ℕ := (if a then 2 else 0)}[a = true ∨ a = true] = (0 : ℝ≥0∞) := by
+  let n ← ($ᵗ Bool : ProbComp Bool)
+  let (n, m) ← (pure (0, 1) : ProbComp (ℕ × ℕ))
+  let mut n : ℕ := n
+  n := n + n
+  let x ← (if (n == 1) then pure 0 else pure 2 : ProbComp ℕ)
+  n := m + x}[x ≥ 2] = (1 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 34: Lean's `do`. -/
 theorem case034_do : Pr{let r ← (do
-    let a ← ($ᵗ Bool : ProbComp Bool)
-    let some b ← (pure (if a then some (1) else none) : OptionT ProbComp (Option ℕ)) | failure
-    let mut n : ℕ := b
-    let some m ← (pure (if (n == 3) then some (1) else none) : OptionT ProbComp (Option ℕ)) | failure
-    for i in [2, 0] do n := n + i
-    let some m ← (pure (if !a then some ((if a then 0 else 1)) else none) : OptionT ProbComp (Option ℕ)) | failure
-    let mut x : ℕ := (if a then 2 else 0)
-    return (a = true ∨ a = true : Prop) : OptionT ProbComp _)}[r] = (0 : ℝ≥0∞) := by
+    let n ← ($ᵗ Bool : ProbComp Bool)
+    let (n, m) ← (pure (0, 1) : ProbComp (ℕ × ℕ))
+    let mut n : ℕ := n
+    n := n + n
+    let x ← (if (n == 1) then pure 0 else pure 2 : ProbComp ℕ)
+    n := m + x
+    return (x ≥ 2 : Prop))}[r] = (1 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 35: the notation. -/
 theorem case035 : 𝔼{
   let a ← ($ᵗ Bool : ProbComp Bool)
-  let mut a : ℕ := 2
-  if (a == 0) then a := a else a := a
-  let mut c : ℕ := 0
-  if (c == 2) then a := a + 3 else a := a}[(a : ℝ≥0∞)] = (2 : ℝ≥0∞) := by
+  let some c ← (pure (if a then some (1) else none) : OptionT ProbComp (Option ℕ)) | failure
+  let y ← ($ᵗ Bool : ProbComp Bool)
+  let mut a : ℕ := (if y then 3 else 0)
+  match y with
+  | true => a := a
+  | false => a := a}[(c : ℝ≥0∞)] = (1 / 2 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 35: Lean's `do`. -/
 theorem case035_do : 𝔼{let r ← (do
     let a ← ($ᵗ Bool : ProbComp Bool)
-    let mut a : ℕ := 2
-    if (a == 0) then a := a else a := a
-    let mut c : ℕ := 0
-    if (c == 2) then a := a + 3 else a := a
-    return (a : ℝ≥0∞))}[r] = (2 : ℝ≥0∞) := by
+    let some c ← (pure (if a then some (1) else none) : OptionT ProbComp (Option ℕ)) | failure
+    let y ← ($ᵗ Bool : ProbComp Bool)
+    let mut a : ℕ := (if y then 3 else 0)
+    match y with
+    | true => a := a
+    | false => a := a
+    return (c : ℝ≥0∞) : OptionT ProbComp _)}[r] = (1 / 2 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 36: the notation. -/
 theorem case036 : Pr{
-  let x ← ($ᵗ Bool : ProbComp Bool)
-  let _ ← ($ᵗ Bool : ProbComp Bool)
-  let c ← ($ᵗ Bool : ProbComp Bool)
-  have m : ℕ := 2
-  let mut c : ℕ := m}[x = false] = (1 / 2 : ℝ≥0∞) := by
+  let y ← ($ᵗ Bool : ProbComp Bool)
+  let (c, a) ← (pure (2, 2) : ProbComp (ℕ × ℕ))
+  have c : ℕ := c}[a ≥ 2 ∧ a ≥ 1] = (1 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 36: Lean's `do`. -/
 theorem case036_do : Pr{let r ← (do
-    let x ← ($ᵗ Bool : ProbComp Bool)
-    let _ ← ($ᵗ Bool : ProbComp Bool)
-    let c ← ($ᵗ Bool : ProbComp Bool)
-    have m : ℕ := 2
-    let mut c : ℕ := m
-    return (x = false : Prop))}[r] = (1 / 2 : ℝ≥0∞) := by
+    let y ← ($ᵗ Bool : ProbComp Bool)
+    let (c, a) ← (pure (2, 2) : ProbComp (ℕ × ℕ))
+    have c : ℕ := c
+    return (a ≥ 2 ∧ a ≥ 1 : Prop))}[r] = (1 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 37: the notation. -/
 theorem case037 : Pr{
-  let a ← ($ᵗ Bool : ProbComp Bool)
-  let m : ℕ := 1
-  let _ ← ($ᵗ Bool : ProbComp Bool)
-  let y : Bool := (m == 1)
-  let (b, a) ← (pure ((if a then 0 else 0), m) : ProbComp (ℕ × ℕ))}[b = 0 ∧ m = 3] = (0 : ℝ≥0∞) := by
+  let c ← ($ᵗ Bool : ProbComp Bool)
+  let a ← (pure (2) : ProbComp ℕ)
+  let x ← ($ᵗ Bool : ProbComp Bool)
+  let n ← ($ᵗ Bool : ProbComp Bool)
+  let y ← (pure (0) : ProbComp ℕ)
+  let mut c := a
+  for i in [1, 1] do c := c + i}[n = false] = (1 / 2 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 37: Lean's `do`. -/
 theorem case037_do : Pr{let r ← (do
-    let a ← ($ᵗ Bool : ProbComp Bool)
-    let m : ℕ := 1
-    let _ ← ($ᵗ Bool : ProbComp Bool)
-    let y : Bool := (m == 1)
-    let (b, a) ← (pure ((if a then 0 else 0), m) : ProbComp (ℕ × ℕ))
-    return (b = 0 ∧ m = 3 : Prop))}[r] = (0 : ℝ≥0∞) := by
+    let c ← ($ᵗ Bool : ProbComp Bool)
+    let a ← (pure (2) : ProbComp ℕ)
+    let x ← ($ᵗ Bool : ProbComp Bool)
+    let n ← ($ᵗ Bool : ProbComp Bool)
+    let y ← (pure (0) : ProbComp ℕ)
+    let mut c := a
+    for i in [1, 1] do c := c + i
+    return (n = false : Prop))}[r] = (1 / 2 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 38: the notation. -/
 theorem case038 : Pr{
-  let c ← ($ᵗ Bool : ProbComp Bool)
-  let c ← (if c then pure 0 else pure 0 : ProbComp ℕ)
-  let (x, m) ← (pure (1, c) : ProbComp (ℕ × ℕ))
+  let n ← ($ᵗ Bool : ProbComp Bool)
   let x ← ($ᵗ Bool : ProbComp Bool)
-  let mut c : ℕ := (if x then 1 else 2)}[x = true ∨ m ≥ 0] = (1 : ℝ≥0∞) := by
+  let c ← ($ᵗ Bool : ProbComp Bool)
+  let (x, m) ← (pure (1, 1) : ProbComp (ℕ × ℕ))}[c = false ∧ n = false] = (1 / 4 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 38: Lean's `do`. -/
 theorem case038_do : Pr{let r ← (do
-    let c ← ($ᵗ Bool : ProbComp Bool)
-    let c ← (if c then pure 0 else pure 0 : ProbComp ℕ)
-    let (x, m) ← (pure (1, c) : ProbComp (ℕ × ℕ))
+    let n ← ($ᵗ Bool : ProbComp Bool)
     let x ← ($ᵗ Bool : ProbComp Bool)
-    let mut c : ℕ := (if x then 1 else 2)
-    return (x = true ∨ m ≥ 0 : Prop))}[r] = (1 : ℝ≥0∞) := by
+    let c ← ($ᵗ Bool : ProbComp Bool)
+    let (x, m) ← (pure (1, 1) : ProbComp (ℕ × ℕ))
+    return (c = false ∧ n = false : Prop))}[r] = (1 / 4 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 39: the notation. -/
 theorem case039 : 𝔼{
   let y ← ($ᵗ Bool : ProbComp Bool)
-  let some a ← (pure (if !y then some (1) else none) : OptionT ProbComp (Option ℕ)) | failure
-  let c ← ($ᵗ Bool : ProbComp Bool)
-  let b ← ($ᵗ Bool : ProbComp Bool)
-  let y ← (pure (2) : ProbComp ℕ)}[(y : ℝ≥0∞)] = (1 : ℝ≥0∞) := by
+  let y ← ($ᵗ Bool : ProbComp Bool)
+  have y := 0
+  let _ ← ($ᵗ Bool : ProbComp Bool)
+  let y ← ($ᵗ Bool : ProbComp Bool)
+  have c := 0
+  let y ← (pure (2) : ProbComp ℕ)}[(y : ℝ≥0∞)] = (2 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 39: Lean's `do`. -/
 theorem case039_do : 𝔼{let r ← (do
     let y ← ($ᵗ Bool : ProbComp Bool)
-    let some a ← (pure (if !y then some (1) else none) : OptionT ProbComp (Option ℕ)) | failure
-    let c ← ($ᵗ Bool : ProbComp Bool)
-    let b ← ($ᵗ Bool : ProbComp Bool)
+    let y ← ($ᵗ Bool : ProbComp Bool)
+    have y := 0
+    let _ ← ($ᵗ Bool : ProbComp Bool)
+    let y ← ($ᵗ Bool : ProbComp Bool)
+    have c := 0
     let y ← (pure (2) : ProbComp ℕ)
-    return (y : ℝ≥0∞) : OptionT ProbComp _)}[r] = (1 : ℝ≥0∞) := by
+    return (y : ℝ≥0∞))}[r] = (2 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 40: the notation. -/
@@ -903,10 +893,9 @@ theorem case044 : Pr{
   let b ← ($ᵗ Bool : ProbComp Bool)
   let b ← (pure (2) : ProbComp ℕ)
   let mut x : ℕ := b
-  let c ← ($ᵗ Bool : ProbComp Bool)
-  match c with
-  | true => x := 1
-  | false => x := b}[c = false ∧ c = false] = (1 / 2 : ℝ≥0∞) := by
+  if (b == 3) then x := 1
+  let c ← (pure (x) : ProbComp ℕ)
+  x := b}[c ≥ 2 ∧ x = 2] = (1 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 44: Lean's `do`. -/
@@ -914,104 +903,105 @@ theorem case044_do : Pr{let r ← (do
     let b ← ($ᵗ Bool : ProbComp Bool)
     let b ← (pure (2) : ProbComp ℕ)
     let mut x : ℕ := b
-    let c ← ($ᵗ Bool : ProbComp Bool)
-    match c with
-    | true => x := 1
-    | false => x := b
-    return (c = false ∧ c = false : Prop))}[r] = (1 / 2 : ℝ≥0∞) := by
+    if (b == 3) then x := 1
+    let c ← (pure (x) : ProbComp ℕ)
+    x := b
+    return (c ≥ 2 ∧ x = 2 : Prop))}[r] = (1 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 45: the notation. -/
 theorem case045 : Pr{
-  let b ← ($ᵗ Bool : ProbComp Bool)
-  let (x, n) ← (pure (1, 2) : ProbComp (ℕ × ℕ))
-  have a : ℕ := n + n
-  let mut y : ℕ := x}[x = 1 ∨ b = true] = (1 : ℝ≥0∞) := by
+  let x ← ($ᵗ Bool : ProbComp Bool)
+  have x := 3
+  let b ← (if (x == 2) then pure 0 else pure 1 : ProbComp ℕ)
+  let y ← ($ᵗ Bool : ProbComp Bool)
+  let _ ← ($ᵗ Bool : ProbComp Bool)
+  let n ← (if (x == 1) then pure 0 else pure 1 : ProbComp ℕ)}[y = false ∧ b = 1] = (1 / 2 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 45: Lean's `do`. -/
 theorem case045_do : Pr{let r ← (do
-    let b ← ($ᵗ Bool : ProbComp Bool)
-    let (x, n) ← (pure (1, 2) : ProbComp (ℕ × ℕ))
-    have a : ℕ := n + n
-    let mut y : ℕ := x
-    return (x = 1 ∨ b = true : Prop))}[r] = (1 : ℝ≥0∞) := by
+    let x ← ($ᵗ Bool : ProbComp Bool)
+    have x := 3
+    let b ← (if (x == 2) then pure 0 else pure 1 : ProbComp ℕ)
+    let y ← ($ᵗ Bool : ProbComp Bool)
+    let _ ← ($ᵗ Bool : ProbComp Bool)
+    let n ← (if (x == 1) then pure 0 else pure 1 : ProbComp ℕ)
+    return (y = false ∧ b = 1 : Prop))}[r] = (1 / 2 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 46: the notation. -/
 theorem case046 : Pr{
-  let a ← ($ᵗ Bool : ProbComp Bool)
-  let x ← (if a then pure 1 else pure 0 : ProbComp ℕ)
-  let mut m : ℕ := (if a then 3 else 3)
-  m := x + x
-  let y ← ($ᵗ Bool : ProbComp Bool)
-  let x : ℕ := x}[m = 0] = (1 / 2 : ℝ≥0∞) := by
+  let m ← ($ᵗ Bool : ProbComp Bool)
+  let mut m : ℕ := 0
+  let some y ← (pure (if (m == 1) then some (m) else none) : OptionT ProbComp (Option ℕ)) | failure}[m = 0 ∧ y ≥ 1] = (0 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 46: Lean's `do`. -/
 theorem case046_do : Pr{let r ← (do
-    let a ← ($ᵗ Bool : ProbComp Bool)
-    let x ← (if a then pure 1 else pure 0 : ProbComp ℕ)
-    let mut m : ℕ := (if a then 3 else 3)
-    m := x + x
-    let y ← ($ᵗ Bool : ProbComp Bool)
-    let x : ℕ := x
-    return (m = 0 : Prop))}[r] = (1 / 2 : ℝ≥0∞) := by
+    let m ← ($ᵗ Bool : ProbComp Bool)
+    let mut m : ℕ := 0
+    let some y ← (pure (if (m == 1) then some (m) else none) : OptionT ProbComp (Option ℕ)) | failure
+    return (m = 0 ∧ y ≥ 1 : Prop) : OptionT ProbComp _)}[r] = (0 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 47: the notation. -/
 theorem case047 : 𝔼{
-  let y ← ($ᵗ Bool : ProbComp Bool)
-  let mut c : ℕ := 0
-  let m : ℕ ← (pure (0) : ProbComp ℕ)}[(c : ℝ≥0∞)] = (0 : ℝ≥0∞) := by
-  ennreal_value
-
-/-- Case 47: Lean's `do`. -/
-theorem case047_do : 𝔼{let r ← (do
-    let y ← ($ᵗ Bool : ProbComp Bool)
-    let mut c : ℕ := 0
-    let m : ℕ ← (pure (0) : ProbComp ℕ)
-    return (c : ℝ≥0∞))}[r] = (0 : ℝ≥0∞) := by
-  ennreal_value
-
-/-- Case 48: the notation. -/
-theorem case048 : Pr{
   let c ← ($ᵗ Bool : ProbComp Bool)
   let c ← ($ᵗ Bool : ProbComp Bool)
   let n ← ($ᵗ Bool : ProbComp Bool)
   let b ← ($ᵗ Bool : ProbComp Bool)
   let (n, c) ← (pure (1, 0) : ProbComp (ℕ × ℕ))
-  let m ← (pure (n) : ProbComp ℕ)}[m ≥ 0 ∧ c = 3] = (0 : ℝ≥0∞) := by
+  let m ← (pure (n) : ProbComp ℕ)}[(n + m : ℝ≥0∞)] = (2 : ℝ≥0∞) := by
   ennreal_value
 
-/-- Case 48: Lean's `do`. -/
-theorem case048_do : Pr{let r ← (do
+/-- Case 47: Lean's `do`. -/
+theorem case047_do : 𝔼{let r ← (do
     let c ← ($ᵗ Bool : ProbComp Bool)
     let c ← ($ᵗ Bool : ProbComp Bool)
     let n ← ($ᵗ Bool : ProbComp Bool)
     let b ← ($ᵗ Bool : ProbComp Bool)
     let (n, c) ← (pure (1, 0) : ProbComp (ℕ × ℕ))
     let m ← (pure (n) : ProbComp ℕ)
-    return (m ≥ 0 ∧ c = 3 : Prop))}[r] = (0 : ℝ≥0∞) := by
+    return (n + m : ℝ≥0∞))}[r] = (2 : ℝ≥0∞) := by
+  ennreal_value
+
+/-- Case 48: the notation. -/
+theorem case048 : Pr{
+  let m ← ($ᵗ Bool : ProbComp Bool)
+  let a ← (pure (3) : ProbComp ℕ)
+  let _ ← ($ᵗ Bool : ProbComp Bool)}[m = true] = (1 / 2 : ℝ≥0∞) := by
+  ennreal_value
+
+/-- Case 48: Lean's `do`. -/
+theorem case048_do : Pr{let r ← (do
+    let m ← ($ᵗ Bool : ProbComp Bool)
+    let a ← (pure (3) : ProbComp ℕ)
+    let _ ← ($ᵗ Bool : ProbComp Bool)
+    return (m = true : Prop))}[r] = (1 / 2 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 49: the notation. -/
 theorem case049 : Pr{
-  let n ← ($ᵗ Bool : ProbComp Bool)
-  let a ← ($ᵗ Bool : ProbComp Bool)
-  have c : ℕ := 2
-  let m ← (if n then pure 2 else pure 1 : ProbComp ℕ)
-  let mut a : ℕ := 3}[n = true ∨ m = 1] = (1 : ℝ≥0∞) := by
+  let m ← ($ᵗ Bool : ProbComp Bool)
+  let mut y : ℕ := 2
+  match m with
+  | true => y := (if m then 0 else 1)
+  | false => y := (if m then 0 else 3)
+  let c ← ($ᵗ Bool : ProbComp Bool)
+  y := (if m then 1 else 1)}[c = true] = (1 / 2 : ℝ≥0∞) := by
   ennreal_value
 
 /-- Case 49: Lean's `do`. -/
 theorem case049_do : Pr{let r ← (do
-    let n ← ($ᵗ Bool : ProbComp Bool)
-    let a ← ($ᵗ Bool : ProbComp Bool)
-    have c : ℕ := 2
-    let m ← (if n then pure 2 else pure 1 : ProbComp ℕ)
-    let mut a : ℕ := 3
-    return (n = true ∨ m = 1 : Prop))}[r] = (1 : ℝ≥0∞) := by
+    let m ← ($ᵗ Bool : ProbComp Bool)
+    let mut y : ℕ := 2
+    match m with
+    | true => y := (if m then 0 else 1)
+    | false => y := (if m then 0 else 3)
+    let c ← ($ᵗ Bool : ProbComp Bool)
+    y := (if m then 1 else 1)
+    return (c = true : Prop))}[r] = (1 / 2 : ℝ≥0∞) := by
   ennreal_value
 
 end VCVioTest.NotationDifferential

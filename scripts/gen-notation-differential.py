@@ -231,14 +231,16 @@ def step(rng: random.Random, p: Program) -> None:
         else:
             e = gen_nat(rng, p.scope)
         x = p.fresh(rng)
-        ty = "ℕ" if e.ty == "nat" else "Bool"
-        p.lines.append(f"{kind} {x} : {ty} := {e.text}")
+        # An unwritten type is left to the default instances, as in ordinary `do`.
+        ty = "" if rng.random() < 0.3 else " : ℕ" if e.ty == "nat" else " : Bool"
+        p.lines.append(f"{kind} {x}{ty} := {e.text}")
         p.run = bind(p.run, x, e.run)
         p.define(x, e.ty)
     elif kind == "mut":
         e = gen_nat(rng, p.scope)
         x = rng.choice([n for n in NAMES if n not in p.mutable])
-        p.lines.append(f"let mut {x} : ℕ := {e.text}")
+        ty = "" if rng.random() < 0.3 else " : ℕ"
+        p.lines.append(f"let mut {x}{ty} := {e.text}")
         p.run = bind(p.run, x, e.run)
         p.define(x, "nat")
         p.mutable.add(x)

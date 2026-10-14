@@ -266,30 +266,17 @@ example : Pr{let _ : ℤ ← (pure (1 - 2) : ProbComp _)}[True] =
 example : Pr{let _ ← (pure () : ProbComp Unit); let x : ℤ ← pure (1 - 2)}[x = -1] = 1 :=
   by simp
 
--- Without an annotation, a numeral fixes the draw's type before the event is read: the draw is
--- `ℕ` and the event coerces it, where an ordinary `do` block would draw from `Fin 2`. The
--- notation warns, at the draw or at the event's mention of a variable of an imperative tail.
-/--
-warning: The result type of the draw
-  (pure 2 : ProbComp _)
-is fixed by a default instance, as when a numeral defaults to `ℕ`:
-  ℕ
-The event is read afterwards and cannot change it, so an event at another type coerces the value instead of fixing its type, unlike in an ordinary `do` block. Write the intended type: `let x : T ← …`, `(… : M T)` or `let mut x : T := …`.
--/
-#guard_msgs in
-example : Pr{let x ← (pure 2 : ProbComp _)}[x < (1 : Fin 2)] = 0 := by simp
+-- Without an annotation, the event can still fix a type that a numeral leaves open, as in
+-- ordinary `do`: these draw from `Fin 2`, `Fin 2 × _` and `ℤ`, with the values of the reference
+-- `Pr{let r ← (do items; return (t : Prop))}[r]`.
+example : Pr{let x ← (pure 2 : ProbComp _)}[x < (1 : Fin 2)] = 1 := by simp
 example : Pr{let r ← (do let x ← (pure 2 : ProbComp _); return (x < (1 : Fin 2) : Prop))}[r] =
     1 := by simp
-/--
-warning: The type of `m`, which the event reads after the imperative code, is fixed by a default instance, as when a numeral defaults to `ℕ`:
-  ℕ
-The event is read afterwards and cannot change it, so an event at another type coerces the value instead of fixing its type, unlike in an ordinary `do` block. Write the intended type: `let x : T ← …`, `(… : M T)` or `let mut x : T := …`.
--/
-#guard_msgs in
-example : Pr{let b ← (pure true : ProbComp Bool); let mut m := 0; if b then m := m + 1}[
-    m = (-1 : ℤ)] = 0 := by simp
--- A variable the event does not read raises no warning.
-example : Pr{let _ ← (pure 2 : ProbComp _); let mut m := 0; m := 1}[True] = 1 := by simp
+example : Pr{let x ← (pure (2, fun y => y) : ProbComp _)}[
+    x.1 < (1 : Fin 2) ∧ x.2 true = true] = 1 := by simp
+example : Pr{let x ← (pure (1 - 2) : ProbComp _)}[x = (-1 : ℤ)] = 1 := by simp
+example : Pr{let b ← (pure true : ProbComp Bool); let mut m := 2; if b then m := m + 2}[
+    m < (1 : Fin 2)] = 1 := by simp
 
 example : True := by
   fail_if_success have : ℝ≥0∞ :=
@@ -396,9 +383,9 @@ example (g : ℕ → ProbComp ℕ) (p : ℕ → ℕ → Prop) :
 -- A proof bound by the tail cannot be returned; an event naming it would see an outer `h`, and
 -- is rejected.
 /--
-error: `h` is bound by the imperative tail, but it is a proof, a type, or a value whose type
-depends on another binding of the tail, so the event cannot observe it and would see the `h`
-outside the braces instead; rename one of them
+error: the event reads `h`, which the imperative code binds but cannot return to it: a proof,
+a type, or a value whose type depends on another of its bindings. Rename it, or bind what the
+event needs to a value
 -/
 #guard_msgs (whitespace := lax) in
 noncomputable example (h : ℕ) : ℝ≥0∞ := Pr{
@@ -424,6 +411,28 @@ example (x : ℕ) (b : Bool) : Pr{
       n := 9}[x = x ∧ n = if b then 7 else 9] = 1 := by
   cases b <;> simp
 
+-- The event is resolved where ordinary `do` would resolve it: a macro reading a binding the tail
+-- cannot return is rejected, and a qualified constant is not mistaken for a tail binding.
+namespace TailResolution
+def _p : Prop := True
+local macro "readP" : term => `($(Lean.mkIdent `_p))
+/--
+error: the event reads `_p`, which the imperative code binds but cannot return to it: a proof,
+a type, or a value whose type depends on another of its bindings. Rename it, or bind what the
+event needs to a value
+-/
+#guard_msgs (whitespace := lax) in
+noncomputable example : ℝ≥0∞ := Pr{
+    let mut _n ← (pure 0 : ProbComp ℕ)
+    let _p : Prop := False}[readP]
+def x : ℕ := 0
+example : Pr{let mut x ← (pure 1 : ProbComp ℕ)}[x = TailResolution.x + 1] = 1 := by
+  simp [TailResolution.x]
+local macro "readX" : term => `($(Lean.mkIdent `x) < (1 : Fin 2))
+example : Pr{let _ ← (pure () : ProbComp Unit); let mut x := 2; x := x + 2}[readX] = 1 := by
+  simp
+end TailResolution
+
 -- `let pat ← e | alt` takes the rest of the block as its body, so the end of the tail is
 -- inside it and the pattern's variables are observed, not an outer `x`.
 set_option linter.unusedVariables false in
@@ -437,6 +446,12 @@ example : Pr{
     let some x := (some 3 : Option ℕ) | failure
     n := x}[n = 3 ∧ x = 3] = 1 := by
   simp
+-- `let_expr` keeps its trailing body too: `x` is the matched `Expr`, not the outer `ℕ`.
+set_option linter.unusedVariables false in
+noncomputable example (x : ℕ) : ℝ≥0∞ := Pr{
+    let mut n ← (pure 0 : OptionT ProbComp ℕ)
+    let_expr Nat.succ x := Lean.mkApp (Lean.mkConst ``Nat.succ) (Lean.mkRawNatLit 0) | failure
+    n := 1}[x.isApp]
 -- Written last, it has no body, and the end of the tail becomes its body.
 set_option linter.unusedVariables false in
 example (x : ℕ) : Pr{

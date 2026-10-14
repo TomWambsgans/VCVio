@@ -35,15 +35,14 @@ ascription, the codemod keeps it on the draw, for example
 `Pr[= (-1 : ℤ) | (pure (1 - 2) : ProbComp _)]` becomes
 `Pr{let x : ℤ ← (pure (1 - 2) : ProbComp _)}[x = (-1 : ℤ)]`.
 More generally, the legacy event and computation were elaborated together, so a section or a
-predicate could also fix the result type: `Pr[(· < (1 : Fin 2)) | (pure 2 : ProbComp _)]` drew
-from `Fin 2` (probability 1), while its rewrite draws `pure 2` first as `ℕ` (probability 0).
-When neither a written type in the event (a singleton's ascription, a typed `fun` binder) nor an
-explicit computation type is recoverable from the syntax, the report flags the rewritten site
-for a result-type check. Add a draw annotation or
-an explicit computation type before relying on it. In particular, natural and integer
-subtraction have different values. The notation itself warns at such a draw when the result type
-was fixed by a default instance, and at the event's mention of a variable of an imperative tail
-whose type was. It does not convert proofs; a proof that computed with
+predicate could also fix the result type: `Pr[(· < (1 : Fin 2)) | (pure 2 : ProbComp _)]` draws
+from `Fin 2` (probability 1). The notation applies no default instance to a draw before the event
+is read, as ordinary `do` does not, so its rewrite
+`Pr{let x ← (pure 2 : ProbComp _)}[x < (1 : Fin 2)]` draws from `Fin 2` as well. As a
+precaution, when neither a written type in the event (a singleton's ascription, a typed `fun`
+binder) nor an explicit computation type is recoverable from the syntax, the report still flags
+the rewritten site for a result-type check; natural and integer subtraction have different
+values. It does not convert proofs; a proof that computed with
 `probOutput` sums, `SPMF` equalities or the discrete `tvDist` follows the *Standard proof conversion* table of the roadmap.
 
 Maintainers converting an open pull request: `scripts/migration-dry-run.sh --worktree DIR --out OUT
