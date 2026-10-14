@@ -27,10 +27,16 @@ a runtime (`Quantum.QuantumRuntime.run`). Combs are a restricted form of program
   is running the comb, framed by `R.D`, against the query step `R.combQuery i E ℓ ℓ'`. So
   statements about combs apply to the programs they embed as, against every runtime.
 
-The converse direction, that every program whose calls all go to one port and number at most
-`q` on every path has a `q`-query comb with the same outcome law against every runtime (by
-purifying its classical branching into a control register), is a follow-up and is not stated
-here.
+A converse holds only under a hypothesis on the runtime, and is a follow-up not stated here: if
+the runtime has a single port with an *idle input* (a state on which a call changes nothing,
+including the private register, and returns a fixed result), then every program making at most
+`q` calls on every path has a `q`-slot comb, on the memory `M × H × R'` with a classical history
+register `H` and a scratch copy `R'` of the port register, with the same joint law of output and
+private register against the runtime. Without that hypothesis combs are strictly weaker: against
+a runtime that counts its calls, a program that calls a different number of times on different
+paths has a joint law that no comb reproduces (see the counting-runtime test in
+`VCVioTest/Quantum/Oracle.lean`), and with several ports a comb fixes the order of its calls in
+advance.
 
 ## Main definitions
 

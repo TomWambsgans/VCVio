@@ -339,6 +339,18 @@ theorem queryStep_branch_apply (i : spec.Port) (E : QReg) (ℓ : A ≃ spec.In i
   rw [queryStep, branch_bind_unit, branch_bind_bind_unit_pure]
   rfl
 
+/-- A call on a basis state `|a, d⟩` of `A × D`: the port's step acts on the exposed factor
+`(ℓ a).1` and the runtime register, the remainder `(ℓ a).2` is carried along, and the result is
+relabelled back. -/
+theorem queryStep_branch_single (i : spec.Port) (E : QReg) (ℓ : A ≃ spec.In i × E)
+    (r : spec.Result i) (a : A) (d : R.D) :
+    (R.queryStep i E ℓ).branch r (Matrix.single (a, d) (a, d) 1) =
+      (relabel (queryEquivOut (spec.Out i) R.D E)).branch ()
+        ((R.step i).branch r (Matrix.single ((ℓ a).1, d) ((ℓ a).1, d) 1) ⊗ₖ
+          Matrix.single (ℓ a).2 (ℓ a).2 1) := by
+  rw [queryStep_branch_apply, branch_relabel (queryEquivIn ℓ R.D),
+    conj_basisMatrix_equiv_single, queryEquivIn_apply, branch_frame_single]
+
 end forallQueries
 
 /-- **Only the presented operators matter.** Two runtimes on the same register whose steps,
