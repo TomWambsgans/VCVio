@@ -43,7 +43,8 @@ topology is put on spaces of linear maps.
   nonincreasing finite partial sums is summable on every matrix.
 * `Quantum.MatrixMap.isCP_familySum`, `Quantum.MatrixMap.IsCPTNIFamily.isTNI_familySum`: the sum
   of such a family is completely positive and trace nonincreasing.
-* `Quantum.MatrixMap.IsCPTNIFamily.countable_support`: such a family has countable support.
+* `Quantum.MatrixMap.IsCPTNIFamily.countable_support`: such a family has countable support, also
+  when its codomain depends on the label.
 * `Quantum.MatrixMap.familyBind_assoc_of_summable`, `Quantum.MatrixMap.single_id_familyBind`,
   `Quantum.MatrixMap.familyBind_single_id`: the monad laws for Kleisli composition. The unit laws
   hold for all families. Associativity, and the formulas `familySum_familyBind_of_summable` and
@@ -246,6 +247,39 @@ theorem summable_trace_apply (h : IsCPTNIFamily Φ) (ρ : Matrix A A ℂ) :
   exact (Complex.summable_ofReal.mpr (h.summable_trace_re_apply hρ)).congr fun i ↦
     (h.posSemidef_apply i hρ).ofReal_trace_re
 
+/-- A member whose trace vanishes on every input is zero: it maps positive semidefinite inputs to
+positive semidefinite matrices of trace zero, and these span all inputs. -/
+theorem eq_zero_of_trace_apply_eq_zero (h : IsCPTNIFamily Φ) {i : ι}
+    (h0 : ∀ ρ : Matrix A A ℂ, (Φ i ρ).trace = 0) : Φ i = 0 :=
+  LinearMap.ext fun ρ ↦ by
+    rw [LinearMap.zero_apply]
+    induction ρ using Matrix.induction_on_posSemidef with
+    | posSemidef ρ hρ => exact (h.posSemidef_apply i hρ).trace_eq_zero_iff.mp (h0 ρ)
+    | add ρ σ hρ hσ => rw [map_add, hρ, hσ, add_zero]
+    | smul c ρ hρ => rw [map_smul, hρ, smul_zero]
+
+/-- **Countable support.** A completely positive family with trace-nonincreasing partial sums,
+whose codomain may depend on the label, has countable support: only countably many members are
+nonzero. For a common codomain the set is `Function.support Φ`. A nonzero member has nonzero
+trace on some matrix unit, and on each of the finitely many matrix units the traces of the
+members form a summable family. -/
+theorem countable_support (h : IsCPTNIFamily Φ) : {i | Φ i ≠ 0}.Countable := by
+  classical
+  have key : {i | Φ i ≠ 0} ⊆ ⋃ x : A × A,
+      Function.support fun i ↦ (Φ i (Matrix.single x.1 x.2 1)).trace := by
+    intro i (hi : Φ i ≠ 0)
+    by_contra hcon
+    simp only [Set.mem_iUnion, Function.mem_support, not_exists, not_not] at hcon
+    have h0 : ∀ r s, (Φ i (Matrix.single r s 1)).trace = 0 := fun r s ↦ hcon (r, s)
+    refine hi (h.eq_zero_of_trace_apply_eq_zero fun ρ ↦ ?_)
+    have hρ : ρ = ∑ r, ∑ s, ρ r s • Matrix.single r s (1 : ℂ) := by
+      simp only [Matrix.smul_single, smul_eq_mul, mul_one]
+      exact Matrix.matrix_eq_sum_single ρ
+    rw [hρ]
+    simp only [map_sum, map_smul, Matrix.trace_sum, Matrix.trace_smul, h0, smul_zero,
+      Finset.sum_const_zero]
+  exact (Set.countable_iUnion fun x ↦ (h.summable_trace_apply _).countable_support).mono key
+
 /-- The real part of the sum of the traces of the members is the sum of their real parts. -/
 theorem re_tsum_trace_apply (h : IsCPTNIFamily Φ) (ρ : Matrix A A ℂ) :
     (∑' i, (Φ i ρ).trace).re = ∑' i, (Φ i ρ).trace.re :=
@@ -386,26 +420,6 @@ theorem summable_apply (h : IsCPTNIFamily Φ) (ρ : Matrix A A ℂ) : Summable f
   exact Matrix.summable_of_apply_apply fun x y ↦
     (h.summable_trace_re_apply hρ).of_norm_bounded fun i ↦
       (h.posSemidef_apply i hρ).norm_apply_le_trace_re x y
-
-/-- A completely positive family with trace-nonincreasing partial sums has countable support. -/
-theorem countable_support (h : IsCPTNIFamily Φ) : (Function.support Φ).Countable := by
-  classical
-  have key : Function.support Φ ⊆ ⋃ x : A × A × B × B,
-      Function.support fun i ↦ Φ i (Matrix.single x.1 x.2.1 1) x.2.2.1 x.2.2.2 := by
-    intro i hi
-    by_contra hcon
-    simp only [Set.mem_iUnion, Function.mem_support, not_exists, not_not] at hcon
-    have h0 : ∀ r s, Φ i (Matrix.single r s 1) = 0 := fun r s ↦ by
-      ext x y
-      exact hcon (r, s, x, y)
-    refine hi (LinearMap.ext fun ρ ↦ ?_)
-    have hρ : ρ = ∑ r, ∑ s, ρ r s • Matrix.single r s (1 : ℂ) := by
-      simp only [Matrix.smul_single, smul_eq_mul, mul_one]
-      exact Matrix.matrix_eq_sum_single ρ
-    rw [LinearMap.zero_apply, hρ]
-    simp only [map_sum, map_smul, h0, smul_zero, Finset.sum_const_zero]
-  refine (Set.countable_iUnion fun x ↦ ?_).mono key
-  exact (Pi.summable.mp (Pi.summable.mp (h.summable_apply _) x.2.2.1) x.2.2.2).countable_support
 
 end IsCPTNIFamily
 
