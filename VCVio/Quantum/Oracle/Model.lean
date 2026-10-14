@@ -59,7 +59,7 @@ variable {Ω : Type} [SampleableType Ω]
 `ω` of the outcome measures of `f ω <$> adv.run (oracle ω)` on the initial substate. -/
 @[expose]
 noncomputable def outcomeLawWith [MeasurableSpace β] (adv : QueryAdversary M α q)
-    (oracle : Ω → QuantumComp M Unit) (f : Ω → α → β) : Measure β :=
+    (oracle : Ω → SubInstrument M M Unit) (f : Ω → α → β) : Measure β :=
   letI : MeasurableSpace Ω := ⊤
   (𝒟[$ᵗ Ω]).bind fun ω ↦ ((adv.run (oracle ω)).map (f ω)).outcomeMeasure adv.init
 
@@ -68,14 +68,14 @@ query step `oracle ω`: the mixture over `ω` of the outcome measures of the run
 substate. -/
 @[expose]
 noncomputable def outcomeLaw [MeasurableSpace α] (adv : QueryAdversary M α q)
-    (oracle : Ω → QuantumComp M Unit) : Measure α :=
+    (oracle : Ω → SubInstrument M M Unit) : Measure α :=
   letI : MeasurableSpace Ω := ⊤
   (𝒟[$ᵗ Ω]).bind fun ω ↦ (adv.run (oracle ω)).outcomeMeasure adv.init
 
 /-- Relabelling the output without looking at the sampled value or changing the output gives the
 outcome law. -/
 theorem outcomeLawWith_id [MeasurableSpace α] (adv : QueryAdversary M α q)
-    (oracle : Ω → QuantumComp M Unit) :
+    (oracle : Ω → SubInstrument M M Unit) :
     adv.outcomeLawWith oracle (fun _ a ↦ a) = adv.outcomeLaw oracle := by
   simp only [outcomeLawWith, outcomeLaw]
   congr 1
@@ -89,7 +89,7 @@ variable [Fintype Ω]
 /-- The relabelled outcome law of a measurable set averages, over the sampled values, its
 measure under the relabelled runs. -/
 theorem outcomeLawWith_apply [MeasurableSpace β] (adv : QueryAdversary M α q)
-    (oracle : Ω → QuantumComp M Unit) (f : Ω → α → β) {s : Set β} (hs : MeasurableSet s) :
+    (oracle : Ω → SubInstrument M M Unit) (f : Ω → α → β) {s : Set β} (hs : MeasurableSet s) :
     adv.outcomeLawWith oracle f s =
       ∑ ω, (Fintype.card Ω : ℝ≥0∞)⁻¹ *
         ((adv.run (oracle ω)).map (f ω)).outcomeMeasure adv.init s := by
@@ -99,7 +99,7 @@ theorem outcomeLawWith_apply [MeasurableSpace β] (adv : QueryAdversary M α q)
 /-- The relabelled outcome law is the average, over the sampled values, of the outcome measures
 of the relabelled runs. -/
 theorem outcomeLawWith_eq_sum [MeasurableSpace β] (adv : QueryAdversary M α q)
-    (oracle : Ω → QuantumComp M Unit) (f : Ω → α → β) :
+    (oracle : Ω → SubInstrument M M Unit) (f : Ω → α → β) :
     adv.outcomeLawWith oracle f =
       (Fintype.card Ω : ℝ≥0∞)⁻¹ •
         ∑ ω, ((adv.run (oracle ω)).map (f ω)).outcomeMeasure adv.init := by
@@ -110,7 +110,7 @@ theorem outcomeLawWith_eq_sum [MeasurableSpace β] (adv : QueryAdversary M α q)
 /-- The outcome law of a measurable set averages, over the sampled values, its measure under
 the runs. -/
 theorem outcomeLaw_apply [MeasurableSpace α] (adv : QueryAdversary M α q)
-    (oracle : Ω → QuantumComp M Unit) {s : Set α} (hs : MeasurableSet s) :
+    (oracle : Ω → SubInstrument M M Unit) {s : Set α} (hs : MeasurableSet s) :
     adv.outcomeLaw oracle s =
       ∑ ω, (Fintype.card Ω : ℝ≥0∞)⁻¹ * (adv.run (oracle ω)).outcomeMeasure adv.init s := by
   let : MeasurableSpace Ω := ⊤
@@ -119,7 +119,7 @@ theorem outcomeLaw_apply [MeasurableSpace α] (adv : QueryAdversary M α q)
 /-- The outcome law is the average, over the sampled values, of the outcome measures of the
 runs. -/
 theorem outcomeLaw_eq_sum [MeasurableSpace α] (adv : QueryAdversary M α q)
-    (oracle : Ω → QuantumComp M Unit) :
+    (oracle : Ω → SubInstrument M M Unit) :
     adv.outcomeLaw oracle =
       (Fintype.card Ω : ℝ≥0∞)⁻¹ • ∑ ω, (adv.run (oracle ω)).outcomeMeasure adv.init := by
   refine Measure.ext fun s hs ↦ ?_
@@ -131,7 +131,7 @@ end fintype
 /-- Against lossless query steps, the outcome law has total mass the trace of the initial
 substate. -/
 theorem outcomeLaw_apply_univ [MeasurableSpace α] (adv : QueryAdversary M α q)
-    {oracle : Ω → QuantumComp M Unit} (h : ∀ ω, (oracle ω).Lossless) :
+    {oracle : Ω → SubInstrument M M Unit} (h : ∀ ω, (oracle ω).Lossless) :
     adv.outcomeLaw oracle Set.univ = ENNReal.ofReal adv.init.matrix.trace.re := by
   let : Fintype Ω := Fintype.ofFinite Ω
   rw [outcomeLaw_apply _ _ MeasurableSet.univ]
@@ -171,7 +171,7 @@ divided by `|Y|`: for a quantum computation `P` on a substate `ρ`, averaging ov
 total output of `P` on `ρ` divided by `|Y|`. For a lossless `P` this is the trace of `ρ` divided
 by `|Y|` (`Quantum.QueryAdversary.qromLawWith_guess_zero`), and `1 / |Y|` when `ρ` is normalized
 (`Quantum.QueryAdversary.qromLawWith_guess_zero_of_trace_eq_one`). -/
-theorem sum_outcomeMeasure_map_guess {M : Type*} [Fintype M] (P : QuantumComp M α)
+theorem sum_outcomeMeasure_map_guess {M : Type*} [Fintype M] (P : SubInstrument M M α)
     (ρ : SubState M) (x : α → X) (y : α → Y) :
     ∑ H : X → Y, (Fintype.card (X → Y) : ℝ≥0∞)⁻¹ *
         (P.map fun a ↦ y a = H (x a)).outcomeMeasure ρ {True} =
@@ -294,7 +294,7 @@ end sampled
 every query, the substate of the register is supported on the query inputs in `S`. -/
 @[expose]
 def QueriesWithin (adv : QueryAdversary (X × Y × W) α q) (S : Set X)
-    (Q : QuantumComp (X × Y × W) Unit) : Prop :=
+    (Q : SubInstrument (X × Y × W) (X × Y × W) Unit) : Prop :=
   ∀ i : Fin q, QuerySupportedOn S (adv.stateAfterStep Q i.castSucc).matrix
 
 variable {S : Set X} {H H' : X → Y}

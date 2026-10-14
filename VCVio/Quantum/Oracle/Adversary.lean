@@ -57,26 +57,26 @@ variable [Fintype M] {α : Type*} {q : ℕ}
 /-- The composite `s 0, Q, s 1, Q, …, Q, s q` of `q + 1` steps interleaved with `q` copies of
 the query step `Q`. -/
 @[expose]
-noncomputable def interleave (Q : QuantumComp M Unit) :
-    (q : ℕ) → (Fin (q + 1) → QuantumComp M Unit) → QuantumComp M Unit
+noncomputable def interleave (Q : SubInstrument M M Unit) :
+    (q : ℕ) → (Fin (q + 1) → SubInstrument M M Unit) → SubInstrument M M Unit
   | 0, s => s 0
   | q + 1, s => ((interleave Q q (Fin.init s)).bind fun _ ↦ Q).bind fun _ ↦ s (Fin.last _)
 
 /-- Without queries, the composite is the single step. -/
 @[simp]
-theorem interleave_zero (Q : QuantumComp M Unit) (s : Fin 1 → QuantumComp M Unit) :
+theorem interleave_zero (Q : SubInstrument M M Unit) (s : Fin 1 → SubInstrument M M Unit) :
     interleave Q 0 s = s 0 :=
   rfl
 
 /-- The composite with one more query: all steps but the last, a query, and the last step. -/
-theorem interleave_succ (Q : QuantumComp M Unit) (s : Fin (q + 2) → QuantumComp M Unit) :
+theorem interleave_succ (Q : SubInstrument M M Unit) (s : Fin (q + 2) → SubInstrument M M Unit) :
     interleave Q (q + 1) s =
       ((interleave Q q (Fin.init s)).bind fun _ ↦ Q).bind fun _ ↦ s (Fin.last _) :=
   rfl
 
 /-- The composite with one more query, split at the first query: the first step, a query, and
 the composite of the remaining steps. -/
-theorem interleave_succ' (Q : QuantumComp M Unit) (s : Fin (q + 2) → QuantumComp M Unit) :
+theorem interleave_succ' (Q : SubInstrument M M Unit) (s : Fin (q + 2) → SubInstrument M M Unit) :
     interleave Q (q + 1) s =
       (s 0).bind fun _ ↦ Q.bind fun _ ↦ interleave Q q (Fin.tail s) := by
   induction q with
@@ -88,8 +88,8 @@ theorem interleave_succ' (Q : QuantumComp M Unit) (s : Fin (q + 2) → QuantumCo
     rfl
 
 /-- Interleaving lossless steps with a lossless query step is lossless. -/
-theorem lossless_interleave {Q : QuantumComp M Unit} (hQ : Q.Lossless) :
-    ∀ {q : ℕ} {s : Fin (q + 1) → QuantumComp M Unit}, (∀ i, (s i).Lossless) →
+theorem lossless_interleave {Q : SubInstrument M M Unit} (hQ : Q.Lossless) :
+    ∀ {q : ℕ} {s : Fin (q + 1) → SubInstrument M M Unit}, (∀ i, (s i).Lossless) →
       (interleave Q q s).Lossless
   | 0, _, hs => hs 0
   | _ + 1, _, hs =>
@@ -98,27 +98,27 @@ theorem lossless_interleave {Q : QuantumComp M Unit} (hQ : Q.Lossless) :
 /-- The substates after each step of `s 0, Q, s 1, …, Q, s q` run on `ρ`: the entry at `i` is
 the substate after step `i`, on which the next query acts. -/
 @[expose]
-noncomputable def interleavePost (Q : QuantumComp M Unit) (ρ : SubState M)
-    (s : Fin (q + 1) → QuantumComp M Unit) : Fin (q + 1) → SubState M :=
+noncomputable def interleavePost (Q : SubInstrument M M Unit) (ρ : SubState M)
+    (s : Fin (q + 1) → SubInstrument M M Unit) : Fin (q + 1) → SubState M :=
   Fin.induction ((s 0).post ρ ()) fun i σ ↦ (s i.succ).post (Q.post σ ()) ()
 
 /-- The substate after step `0` is step `0` applied to the initial substate. -/
 @[simp]
-theorem interleavePost_zero (Q : QuantumComp M Unit) (ρ : SubState M)
-    (s : Fin (q + 1) → QuantumComp M Unit) : interleavePost Q ρ s 0 = (s 0).post ρ () :=
+theorem interleavePost_zero (Q : SubInstrument M M Unit) (ρ : SubState M)
+    (s : Fin (q + 1) → SubInstrument M M Unit) : interleavePost Q ρ s 0 = (s 0).post ρ () :=
   rfl
 
 /-- The substate after step `i + 1` is the query step and then step `i + 1` applied to the
 substate after step `i`. -/
-theorem interleavePost_succ (Q : QuantumComp M Unit) (ρ : SubState M)
-    (s : Fin (q + 1) → QuantumComp M Unit) (i : Fin q) :
+theorem interleavePost_succ (Q : SubInstrument M M Unit) (ρ : SubState M)
+    (s : Fin (q + 1) → SubInstrument M M Unit) (i : Fin q) :
     interleavePost Q ρ s i.succ =
       (s i.succ).post (Q.post (interleavePost Q ρ s i.castSucc) ()) () :=
   Fin.induction_succ ..
 
 /-- Dropping the last step does not change the substates after the earlier steps. -/
-theorem interleavePost_init (Q : QuantumComp M Unit) (ρ : SubState M)
-    (s : Fin (q + 2) → QuantumComp M Unit) (i : Fin (q + 1)) :
+theorem interleavePost_init (Q : SubInstrument M M Unit) (ρ : SubState M)
+    (s : Fin (q + 2) → SubInstrument M M Unit) (i : Fin (q + 1)) :
     interleavePost Q ρ (Fin.init s) i = interleavePost Q ρ s i.castSucc := by
   induction i using Fin.induction with
   | zero => rfl
@@ -127,8 +127,8 @@ theorem interleavePost_init (Q : QuantumComp M Unit) (ρ : SubState M)
     rfl
 
 /-- The substate left by the composite is the substate after the last step. -/
-theorem post_interleave (Q : QuantumComp M Unit) (ρ : SubState M) :
-    ∀ {q : ℕ} (s : Fin (q + 1) → QuantumComp M Unit),
+theorem post_interleave (Q : SubInstrument M M Unit) (ρ : SubState M) :
+    ∀ {q : ℕ} (s : Fin (q + 1) → SubInstrument M M Unit),
       (interleave Q q s).post ρ () = interleavePost Q ρ s (Fin.last q)
   | 0, _ => rfl
   | q + 1, s => by
@@ -146,28 +146,28 @@ structure QueryAdversary (M : Type*) [Fintype M] (α : Type*) (q : ℕ) where
   /-- The substate of the register before the first step. -/
   init : SubState M
   /-- The steps: step `0` precedes the first query and step `i + 1` follows query `i`. -/
-  step : Fin (q + 1) → QuantumComp M Unit
+  step : Fin (q + 1) → SubInstrument M M Unit
   /-- Every step is lossless. -/
   lossless_step : ∀ i, (step i).Lossless
   /-- The final instrument, reporting the output. -/
-  final : QuantumComp M α
+  final : SubInstrument M M α
   /-- The final instrument is lossless. -/
   lossless_final : final.Lossless
 
 namespace QueryAdversary
 
-variable (adv : QueryAdversary M α q) (Q : QuantumComp M Unit)
+variable (adv : QueryAdversary M α q) (Q : SubInstrument M M Unit)
 
 /-- The interaction of the adversary with the query step `Q`, before the final instrument:
 `step 0, Q, step 1, …, Q, step q`. -/
 @[expose]
-noncomputable def body : QuantumComp M Unit :=
+noncomputable def body : SubInstrument M M Unit :=
   interleave Q q adv.step
 
 /-- The adversary run against the query step `Q`: the steps interleaved with `q` copies of `Q`,
 then the final instrument. -/
 @[expose]
-noncomputable def run : QuantumComp M α :=
+noncomputable def run : SubInstrument M M α :=
   (adv.body Q).bind fun _ ↦ adv.final
 
 /-- The substate after step `i` of the run against `Q`, having made `i` queries. For `i < q` it
@@ -217,7 +217,7 @@ theorem outcomeMeasure_run_apply_univ [MeasurableSpace α] (hQ : Q.Lossless) :
 
 /-- Two query steps that act in the same way on each substate the adversary presents to the
 first of them lead to the same substates after every step. -/
-theorem stateAfterStep_congr {Q' : QuantumComp M Unit}
+theorem stateAfterStep_congr {Q' : SubInstrument M M Unit}
     (h : ∀ i : Fin q, Q'.post (adv.stateAfterStep Q i.castSucc) () =
       Q.post (adv.stateAfterStep Q i.castSucc) ()) (i : Fin (q + 1)) :
     adv.stateAfterStep Q' i = adv.stateAfterStep Q i := by
@@ -227,7 +227,7 @@ theorem stateAfterStep_congr {Q' : QuantumComp M Unit}
 
 /-- Two query steps that act in the same way on each substate the adversary presents to the
 first of them give the same outcome measure. -/
-theorem outcomeMeasure_run_congr [MeasurableSpace α] {Q' : QuantumComp M Unit}
+theorem outcomeMeasure_run_congr [MeasurableSpace α] {Q' : SubInstrument M M Unit}
     (h : ∀ i : Fin q, Q'.post (adv.stateAfterStep Q i.castSucc) () =
       Q.post (adv.stateAfterStep Q i.castSucc) ()) :
     (adv.run Q').outcomeMeasure adv.init = (adv.run Q).outcomeMeasure adv.init := by
@@ -247,18 +247,18 @@ noncomputable def dropLast (adv : QueryAdversary M α (q + 1)) : QueryAdversary 
 
 /-- The interaction of an adversary with `q + 1` queries: the interaction of the adversary
 without its last query, one query, and the last step. -/
-theorem body_succ (adv : QueryAdversary M α (q + 1)) (Q : QuantumComp M Unit) :
+theorem body_succ (adv : QueryAdversary M α (q + 1)) (Q : SubInstrument M M Unit) :
     adv.body Q = ((adv.dropLast.body Q).bind fun _ ↦ Q).bind fun _ ↦ adv.step (Fin.last _) :=
   rfl
 
 /-- The run of the adversary without its last query is its interaction. -/
 @[simp]
-theorem run_dropLast (adv : QueryAdversary M α (q + 1)) (Q : QuantumComp M Unit) :
+theorem run_dropLast (adv : QueryAdversary M α (q + 1)) (Q : SubInstrument M M Unit) :
     adv.dropLast.run Q = adv.dropLast.body Q :=
   SubInstrument.bind_pure _
 
 /-- Removing the last query does not change the substates after the earlier steps. -/
-theorem stateAfterStep_dropLast (adv : QueryAdversary M α (q + 1)) (Q : QuantumComp M Unit)
+theorem stateAfterStep_dropLast (adv : QueryAdversary M α (q + 1)) (Q : SubInstrument M M Unit)
     (i : Fin (q + 1)) : adv.dropLast.stateAfterStep Q i = adv.stateAfterStep Q i.castSucc :=
   interleavePost_init ..
 
@@ -296,7 +296,7 @@ end classicalTrajectory
 
 section ofClassical
 
-variable [Fintype M] {α : Type*} {q : ℕ} {Q : QuantumComp M Unit} [DecidableEq M]
+variable [Fintype M] {α : Type*} {q : ℕ} {Q : SubInstrument M M Unit} [DecidableEq M]
 
 /-- The adversary that runs a classical deterministic algorithm on basis states: it starts in
 the basis state at `m₀`, step `i` reads the register in the computational basis and rewrites it

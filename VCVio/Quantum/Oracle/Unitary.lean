@@ -156,28 +156,30 @@ theorem oracleUnitary_mem_unitaryGroup (H : X → Y) :
 
 /-- One query to `H` on the register `X × Y × W`: the gate of the oracle unitary. -/
 @[expose]
-noncomputable def oracleQuery (H : X → Y) : QuantumComp (X × Y × W) Unit :=
+noncomputable def oracleQuery (H : X → Y) : SubInstrument (X × Y × W) (X × Y × W) Unit :=
   SubInstrument.ofIsometry (oracleUnitary H) (conjTranspose_oracleUnitary_mul_self H)
 
 /-- The unique branch of a query is conjugation by the oracle unitary. -/
 @[simp]
 theorem branch_oracleQuery_apply (H : X → Y) (u : Unit) :
-    (oracleQuery H : QuantumComp (X × Y × W) Unit).branch u = MatrixMap.conj (oracleUnitary H) :=
+    (oracleQuery H : SubInstrument (X × Y × W) (X × Y × W) Unit).branch u =
+      MatrixMap.conj (oracleUnitary H) :=
   SubInstrument.branch_ofIsometry_apply ..
 
 /-- A query is lossless. -/
 theorem lossless_oracleQuery (H : X → Y) :
-    (oracleQuery H : QuantumComp (X × Y × W) Unit).Lossless :=
+    (oracleQuery H : SubInstrument (X × Y × W) (X × Y × W) Unit).Lossless :=
   SubInstrument.lossless_ofIsometry _ _
 
 /-- A query to the zero function returns without touching the register. -/
 theorem oracleQuery_zero :
-    (oracleQuery (0 : X → Y) : QuantumComp (X × Y × W) Unit) = SubInstrument.pure () :=
+    (oracleQuery (0 : X → Y) : SubInstrument (X × Y × W) (X × Y × W) Unit) =
+      SubInstrument.pure () :=
   SubInstrument.ext <| Finsupp.ext fun u ↦ by simp
 
 /-- A query to `H` followed by a query to `H'` is one query to `H + H'`. -/
 theorem oracleQuery_bind_oracleQuery (H H' : X → Y) :
-    ((oracleQuery H : QuantumComp (X × Y × W) Unit).bind fun _ ↦ oracleQuery H') =
+    ((oracleQuery H : SubInstrument (X × Y × W) (X × Y × W) Unit).bind fun _ ↦ oracleQuery H') =
       oracleQuery (H + H') :=
   SubInstrument.ext <| Finsupp.ext fun u ↦ by
     rw [SubInstrument.branch_bind_unit, branch_oracleQuery_apply, branch_oracleQuery_apply,
