@@ -15,16 +15,23 @@ public import VCVio.Quantum.Oracle.Unitary
 # The quantum random-oracle model
 
 An oracle is realized by a family of runtimes indexed by a sampled value.
-`Quantum.sampledLaw R x ρ` draws the value `ω` uniformly, with VCVio's `$ᵗ`, and observes the
-run of the program `x` against the runtime `R ω` from `ρ` (`Quantum.QuantumRuntime.outcomeLaw`).
+`Quantum.sampledLaw R I x ρ` draws the value `ω` uniformly, with VCVio's `$ᵗ`, and observes the
+run of the program `x`, under the interpretation `I` of its local operations, against the runtime
+`R ω` from `ρ` (`Quantum.QuantumRuntime.outcomeLaw₂`).
 Another realization of the oracle is another family of runtimes for the same signature, and
 "same outcome law" is an equation between two values of `Quantum.sampledLaw`.
 
 The quantum random-oracle model is the instance for the signature `Quantum.qromSpec X Y`, with
 one port acting on `X × Y`, in which the sampled value is a function `H : X → Y` and the runtime
 `Quantum.xorRuntime H` answers each call with the oracle unitary of `H`
-(`Quantum.qromLaw`). Programs are general quantum programs (`Quantum.QuantumComp`): adaptive,
+(`Quantum.qromLaw`). Programs are quantum programs over any primitive signature: adaptive,
 with their own registers, and with any number of calls on each path.
+
+The laws are laws of a returned value, so they are stated for programs on a fixed final register
+(`Quantum.QuantumComp₂`): relabelling the output (`Quantum.sampledLawWith`) and the events about
+a guess need a value type. The statements about runs, budgets and locality hold for general
+programs (`Quantum.QuantumComp`), whose final register may depend on the outcome, and the
+fixed-register forms are their corollaries.
 
 Events that mention the sampled value, such as "the program's guess `(x, y)` satisfies
 `y = H x`", are measured by `Quantum.sampledLawWith`, which relabels the output of each run by a
@@ -38,7 +45,7 @@ function that sees the sampled value.
   of the program's initial substate; `Quantum.isProbabilityMeasure_qromLaw` for a lossless
   program from a normalized state.
 * `Quantum.run_xorRuntime_eq_of_isQueryBound_zero`: a program with query budget zero runs to the
-  same subinstrument against every function.
+  same dependent subinstrument against every function.
 * `Quantum.qromLawWith_guess_zero`: with query budget zero, a guess `(x, y)` satisfies `y = H x`
   with probability the total weight of the run divided by `|Y|`; `1 / |Y|` for a lossless program
   from a normalized state (`Quantum.qromLawWith_guess_zero_of_trace_eq_one`).
@@ -54,7 +61,7 @@ open scoped ENNReal ComplexOrder
 
 namespace Quantum
 
-variable {spec : QuantumOracleSpec} {A B : QReg} {α β : Type}
+variable {spec : QuantumOracleSpec} {L : LocalSig} {W : QReg → Type} {A B : QReg} {α β : Type}
 
 /-! ## Outcome laws against a sampled runtime -/
 
@@ -64,30 +71,33 @@ variable {Ω : Type} [SampleableType Ω]
 
 /-- The law of the output of `x`, relabelled by a function that sees the sampled value, when `ω`
 is drawn uniformly and the oracle is realized by the runtime `R ω`: the mixture over `ω` of the
-outcome laws of `x.map (f ω)` against `R ω` from `ρ`. -/
+outcome laws of `x.map (f ω)` under `I` against `R ω` from `ρ`. The relabelling acts on the
+returned value, so `x` has a fixed final register. -/
 @[expose]
 noncomputable def sampledLawWith [MeasurableSpace β] (R : Ω → QuantumRuntime spec)
-    (x : QuantumComp spec A B α) (ρ : SubState A) (f : Ω → α → β) : Measure β :=
+    (I : L.Interp) (x : QuantumComp₂ L spec A B α) (ρ : SubState A) (f : Ω → α → β) :
+    Measure β :=
   letI : MeasurableSpace Ω := ⊤
-  (𝒟[$ᵗ Ω]).bind fun ω ↦ (R ω).outcomeLaw (x.map (f ω)) ρ
+  (𝒟[$ᵗ Ω]).bind fun ω ↦ (R ω).outcomeLaw₂ I (x.map (f ω)) ρ
 
 /-- The law of the output of `x` when `ω` is drawn uniformly and the oracle is realized by the
-runtime `R ω`: the mixture over `ω` of the outcome laws of `x` against `R ω` from `ρ`. -/
+runtime `R ω`: the mixture over `ω` of the outcome laws of `x` under `I` against `R ω` from `ρ`.
+It is a law of the returned value, so `x` has a fixed final register. -/
 @[expose]
-noncomputable def sampledLaw [MeasurableSpace α] (R : Ω → QuantumRuntime spec)
-    (x : QuantumComp spec A B α) (ρ : SubState A) : Measure α :=
+noncomputable def sampledLaw [MeasurableSpace α] (R : Ω → QuantumRuntime spec) (I : L.Interp)
+    (x : QuantumComp₂ L spec A B α) (ρ : SubState A) : Measure α :=
   letI : MeasurableSpace Ω := ⊤
-  (𝒟[$ᵗ Ω]).bind fun ω ↦ (R ω).outcomeLaw x ρ
+  (𝒟[$ᵗ Ω]).bind fun ω ↦ (R ω).outcomeLaw₂ I x ρ
 
 /-- Relabelling the output without looking at the sampled value or changing the output gives the
 outcome law. -/
-theorem sampledLawWith_id [MeasurableSpace α] (R : Ω → QuantumRuntime spec)
-    (x : QuantumComp spec A B α) (ρ : SubState A) :
-    sampledLawWith R x ρ (fun _ a ↦ a) = sampledLaw R x ρ := by
+theorem sampledLawWith_id [MeasurableSpace α] (R : Ω → QuantumRuntime spec) (I : L.Interp)
+    (x : QuantumComp₂ L spec A B α) (ρ : SubState A) :
+    sampledLawWith R I x ρ (fun _ a ↦ a) = sampledLaw R I x ρ := by
   simp only [sampledLawWith, sampledLaw]
   congr 1
   funext ω
-  rw [show (fun a : α ↦ a) = id from rfl, QuantumComp.map_id]
+  rw [show (fun a : α ↦ a) = id from rfl, QuantumComp₂.map_id]
 
 section fintype
 
@@ -95,50 +105,50 @@ variable [Fintype Ω]
 
 /-- The relabelled law of a measurable set averages, over the sampled values, its measure under
 the relabelled runs. -/
-theorem sampledLawWith_apply [MeasurableSpace β] (R : Ω → QuantumRuntime spec)
-    (x : QuantumComp spec A B α) (ρ : SubState A) (f : Ω → α → β) {s : Set β}
+theorem sampledLawWith_apply [MeasurableSpace β] (R : Ω → QuantumRuntime spec) (I : L.Interp)
+    (x : QuantumComp₂ L spec A B α) (ρ : SubState A) (f : Ω → α → β) {s : Set β}
     (hs : MeasurableSet s) :
-    sampledLawWith R x ρ f s =
-      ∑ ω, (Fintype.card Ω : ℝ≥0∞)⁻¹ * (R ω).outcomeLaw (x.map (f ω)) ρ s := by
+    sampledLawWith R I x ρ f s =
+      ∑ ω, (Fintype.card Ω : ℝ≥0∞)⁻¹ * (R ω).outcomeLaw₂ I (x.map (f ω)) ρ s := by
   let : MeasurableSpace Ω := ⊤
   rw [sampledLawWith, SampleableType.evalDist_uniformSample, uniformOn_univ_bind_apply _ _ hs]
 
 /-- The relabelled law is the average, over the sampled values, of the outcome laws of the
 relabelled runs. -/
-theorem sampledLawWith_eq_sum [MeasurableSpace β] (R : Ω → QuantumRuntime spec)
-    (x : QuantumComp spec A B α) (ρ : SubState A) (f : Ω → α → β) :
-    sampledLawWith R x ρ f =
-      (Fintype.card Ω : ℝ≥0∞)⁻¹ • ∑ ω, (R ω).outcomeLaw (x.map (f ω)) ρ := by
+theorem sampledLawWith_eq_sum [MeasurableSpace β] (R : Ω → QuantumRuntime spec) (I : L.Interp)
+    (x : QuantumComp₂ L spec A B α) (ρ : SubState A) (f : Ω → α → β) :
+    sampledLawWith R I x ρ f =
+      (Fintype.card Ω : ℝ≥0∞)⁻¹ • ∑ ω, (R ω).outcomeLaw₂ I (x.map (f ω)) ρ := by
   refine Measure.ext fun s hs ↦ ?_
-  rw [sampledLawWith_apply _ _ _ _ hs, Measure.smul_apply, Measure.coe_finsetSum,
+  rw [sampledLawWith_apply _ _ _ _ _ hs, Measure.smul_apply, Measure.coe_finsetSum,
     Finset.sum_apply, smul_eq_mul, Finset.mul_sum]
 
 /-- The law of a measurable set averages, over the sampled values, its measure under the runs. -/
-theorem sampledLaw_apply [MeasurableSpace α] (R : Ω → QuantumRuntime spec)
-    (x : QuantumComp spec A B α) (ρ : SubState A) {s : Set α} (hs : MeasurableSet s) :
-    sampledLaw R x ρ s = ∑ ω, (Fintype.card Ω : ℝ≥0∞)⁻¹ * (R ω).outcomeLaw x ρ s := by
+theorem sampledLaw_apply [MeasurableSpace α] (R : Ω → QuantumRuntime spec) (I : L.Interp)
+    (x : QuantumComp₂ L spec A B α) (ρ : SubState A) {s : Set α} (hs : MeasurableSet s) :
+    sampledLaw R I x ρ s = ∑ ω, (Fintype.card Ω : ℝ≥0∞)⁻¹ * (R ω).outcomeLaw₂ I x ρ s := by
   let : MeasurableSpace Ω := ⊤
   rw [sampledLaw, SampleableType.evalDist_uniformSample, uniformOn_univ_bind_apply _ _ hs]
 
 /-- The law is the average, over the sampled values, of the outcome laws of the runs. -/
-theorem sampledLaw_eq_sum [MeasurableSpace α] (R : Ω → QuantumRuntime spec)
-    (x : QuantumComp spec A B α) (ρ : SubState A) :
-    sampledLaw R x ρ = (Fintype.card Ω : ℝ≥0∞)⁻¹ • ∑ ω, (R ω).outcomeLaw x ρ := by
+theorem sampledLaw_eq_sum [MeasurableSpace α] (R : Ω → QuantumRuntime spec) (I : L.Interp)
+    (x : QuantumComp₂ L spec A B α) (ρ : SubState A) :
+    sampledLaw R I x ρ = (Fintype.card Ω : ℝ≥0∞)⁻¹ • ∑ ω, (R ω).outcomeLaw₂ I x ρ := by
   refine Measure.ext fun s hs ↦ ?_
-  rw [sampledLaw_apply _ _ _ hs, Measure.smul_apply, Measure.coe_finsetSum, Finset.sum_apply,
+  rw [sampledLaw_apply _ _ _ _ hs, Measure.smul_apply, Measure.coe_finsetSum, Finset.sum_apply,
     smul_eq_mul, Finset.mul_sum]
 
 end fintype
 
 /-- When every run is lossless and every initial substate has trace `c`, the law has total mass
 the trace of `ρ` times `c`. -/
-theorem sampledLaw_apply_univ [MeasurableSpace α] {R : Ω → QuantumRuntime spec}
-    {x : QuantumComp spec A B α} (h : ∀ ω, ((R ω).run x).Lossless) {c : ℝ}
+theorem sampledLaw_apply_univ [MeasurableSpace α] {R : Ω → QuantumRuntime spec} {I : L.Interp}
+    {x : QuantumComp₂ L spec A B α} (h : ∀ ω, ((R ω).run₂ I x).Lossless) {c : ℝ}
     (hc : ∀ ω, (R ω).init.matrix.trace.re = c) (ρ : SubState A) :
-    sampledLaw R x ρ Set.univ = ENNReal.ofReal (ρ.matrix.trace.re * c) := by
+    sampledLaw R I x ρ Set.univ = ENNReal.ofReal (ρ.matrix.trace.re * c) := by
   let : Fintype Ω := Fintype.ofFinite Ω
-  rw [sampledLaw_apply _ _ _ MeasurableSet.univ]
-  simp only [(R _).outcomeLaw_apply_univ_of_lossless (h _), hc]
+  rw [sampledLaw_apply _ _ _ _ MeasurableSet.univ]
+  simp only [(R _).outcomeLaw₂_apply_univ_of_lossless I (h _), hc]
   rw [Finset.sum_const, Finset.card_univ, nsmul_eq_mul, ← mul_assoc,
     ENNReal.mul_inv_cancel (Nat.cast_ne_zero.mpr Fintype.card_ne_zero) (ENNReal.natCast_ne_top _),
     one_mul]
@@ -249,10 +259,16 @@ theorem xorRuntime_init (H : X → Y) : (xorRuntime H).init = SubState.basis () 
 theorem lossless_xorRuntime_step (H : X → Y) (i : Unit) : ((xorRuntime H).step i).Lossless :=
   (lossless_oracleQuery H).frame Unit
 
-/-- A lossless program runs against the oracle runtime to a lossless subinstrument. -/
-theorem lossless_run_xorRuntime {x : QuantumComp (qromSpec X Y) A B α} (hx : x.Lossless)
-    (H : X → Y) : ((xorRuntime H).run x).Lossless :=
-  (xorRuntime H).lossless_run hx (lossless_xorRuntime_step H)
+/-- A lossless program runs against the oracle runtime to a lossless dependent subinstrument. -/
+theorem lossless_run_xorRuntime (I : L.Interp) {x : QuantumComp L (qromSpec X Y) W A}
+    (hx : x.Lossless I) (H : X → Y) : ((xorRuntime H).run I x).Lossless :=
+  (xorRuntime H).lossless_run I hx (lossless_xorRuntime_step H)
+
+/-- A lossless fixed-register program runs against the oracle runtime to a lossless
+subinstrument. -/
+theorem lossless_run₂_xorRuntime (I : L.Interp) {x : QuantumComp₂ L (qromSpec X Y) A B α}
+    (hx : x.Lossless I) (H : X → Y) : ((xorRuntime H).run₂ I x).Lossless :=
+  (xorRuntime H).lossless_run₂ I hx (lossless_xorRuntime_step H)
 
 /-- The initial substate of the oracle runtime has trace one. -/
 theorem trace_re_xorRuntime_init (H : X → Y) : (xorRuntime H).init.matrix.trace.re = 1 :=
@@ -263,62 +279,66 @@ section sampled
 variable [SampleableType (X → Y)]
 
 /-- The law of the output of `x` from `ρ` in the quantum random-oracle model, relabelled by a
-function that sees the random function: `H : X → Y` is drawn uniformly, the program runs against
-the oracle unitary of `H`, and its output `a` is reported as `f H a`. -/
+function that sees the random function: `H : X → Y` is drawn uniformly, the program runs under
+`I` against the oracle unitary of `H`, and its output `a` is reported as `f H a`. The relabelling
+acts on the returned value, so `x` has a fixed final register. -/
 @[expose]
-noncomputable def qromLawWith [MeasurableSpace β] (x : QuantumComp (qromSpec X Y) A B α)
-    (ρ : SubState A) (f : (X → Y) → α → β) : Measure β :=
-  sampledLawWith xorRuntime x ρ f
+noncomputable def qromLawWith [MeasurableSpace β] (I : L.Interp)
+    (x : QuantumComp₂ L (qromSpec X Y) A B α) (ρ : SubState A) (f : (X → Y) → α → β) :
+    Measure β :=
+  sampledLawWith xorRuntime I x ρ f
 
 /-- The law of the output of `x` from `ρ` in the quantum random-oracle model: `H : X → Y` is
-drawn uniformly and the program runs against the oracle unitary of `H`. -/
+drawn uniformly and the program runs under `I` against the oracle unitary of `H`. It is a law of
+the returned value, so `x` has a fixed final register. -/
 @[expose]
-noncomputable def qromLaw [MeasurableSpace α] (x : QuantumComp (qromSpec X Y) A B α)
-    (ρ : SubState A) : Measure α :=
-  sampledLaw xorRuntime x ρ
+noncomputable def qromLaw [MeasurableSpace α] (I : L.Interp)
+    (x : QuantumComp₂ L (qromSpec X Y) A B α) (ρ : SubState A) : Measure α :=
+  sampledLaw xorRuntime I x ρ
 
 /-- Relabelling the output without looking at the random function or changing the output gives
 the law of the quantum random-oracle model. -/
-theorem qromLawWith_id [MeasurableSpace α] (x : QuantumComp (qromSpec X Y) A B α)
-    (ρ : SubState A) : qromLawWith x ρ (fun _ a ↦ a) = qromLaw x ρ :=
-  sampledLawWith_id _ x ρ
+theorem qromLawWith_id [MeasurableSpace α] (I : L.Interp)
+    (x : QuantumComp₂ L (qromSpec X Y) A B α) (ρ : SubState A) :
+    qromLawWith I x ρ (fun _ a ↦ a) = qromLaw I x ρ :=
+  sampledLawWith_id _ I x ρ
 
 /-- The law of the quantum random-oracle model is the average, over all `|Y| ^ |X|` functions,
 of the outcome laws of the runs against their oracle unitaries. -/
-theorem qromLaw_eq_sum [MeasurableSpace α] (x : QuantumComp (qromSpec X Y) A B α)
-    (ρ : SubState A) :
-    qromLaw x ρ =
+theorem qromLaw_eq_sum [MeasurableSpace α] (I : L.Interp)
+    (x : QuantumComp₂ L (qromSpec X Y) A B α) (ρ : SubState A) :
+    qromLaw I x ρ =
       ((Fintype.card Y : ℝ≥0∞) ^ Fintype.card X)⁻¹ •
-        ∑ H : X → Y, (xorRuntime H).outcomeLaw x ρ := by
+        ∑ H : X → Y, (xorRuntime H).outcomeLaw₂ I x ρ := by
   rw [qromLaw, sampledLaw_eq_sum, Fintype.card_fun, Nat.cast_pow]
 
 /-- The relabelled law of the quantum random-oracle model is the average, over all `|Y| ^ |X|`
 functions, of the outcome laws of the relabelled runs. -/
-theorem qromLawWith_eq_sum [MeasurableSpace β] (x : QuantumComp (qromSpec X Y) A B α)
-    (ρ : SubState A) (f : (X → Y) → α → β) :
-    qromLawWith x ρ f =
+theorem qromLawWith_eq_sum [MeasurableSpace β] (I : L.Interp)
+    (x : QuantumComp₂ L (qromSpec X Y) A B α) (ρ : SubState A) (f : (X → Y) → α → β) :
+    qromLawWith I x ρ f =
       ((Fintype.card Y : ℝ≥0∞) ^ Fintype.card X)⁻¹ •
-        ∑ H : X → Y, (xorRuntime H).outcomeLaw (x.map (f H)) ρ := by
+        ∑ H : X → Y, (xorRuntime H).outcomeLaw₂ I (x.map (f H)) ρ := by
   rw [qromLawWith, sampledLawWith_eq_sum, Fintype.card_fun, Nat.cast_pow]
 
 /-- When the run against every function is lossless, the law of the quantum random-oracle model
 has total mass the trace of the initial substate. -/
-theorem qromLaw_apply_univ [MeasurableSpace α] {x : QuantumComp (qromSpec X Y) A B α}
-    (h : ∀ H, ((xorRuntime H).run x).Lossless) (ρ : SubState A) :
-    qromLaw x ρ Set.univ = ENNReal.ofReal ρ.matrix.trace.re := by
+theorem qromLaw_apply_univ [MeasurableSpace α] {I : L.Interp}
+    {x : QuantumComp₂ L (qromSpec X Y) A B α} (h : ∀ H, ((xorRuntime H).run₂ I x).Lossless)
+    (ρ : SubState A) : qromLaw I x ρ Set.univ = ENNReal.ofReal ρ.matrix.trace.re := by
   rw [qromLaw, sampledLaw_apply_univ h trace_re_xorRuntime_init, mul_one]
 
 /-- The law of a lossless program has total mass the trace of the initial substate. -/
-theorem qromLaw_apply_univ_of_lossless [MeasurableSpace α]
-    {x : QuantumComp (qromSpec X Y) A B α} (hx : x.Lossless) (ρ : SubState A) :
-    qromLaw x ρ Set.univ = ENNReal.ofReal ρ.matrix.trace.re :=
-  qromLaw_apply_univ (lossless_run_xorRuntime hx) ρ
+theorem qromLaw_apply_univ_of_lossless [MeasurableSpace α] {I : L.Interp}
+    {x : QuantumComp₂ L (qromSpec X Y) A B α} (hx : x.Lossless I) (ρ : SubState A) :
+    qromLaw I x ρ Set.univ = ENNReal.ofReal ρ.matrix.trace.re :=
+  qromLaw_apply_univ (lossless_run₂_xorRuntime I hx) ρ
 
 /-- When the run against every function is lossless and the initial state is normalized, the
 law of the quantum random-oracle model is a probability measure. -/
-theorem isProbabilityMeasure_qromLaw [MeasurableSpace α] {x : QuantumComp (qromSpec X Y) A B α}
-    (h : ∀ H, ((xorRuntime H).run x).Lossless) {ρ : SubState A} (hρ : ρ.matrix.trace = 1) :
-    IsProbabilityMeasure (qromLaw x ρ) :=
+theorem isProbabilityMeasure_qromLaw [MeasurableSpace α] {I : L.Interp}
+    {x : QuantumComp₂ L (qromSpec X Y) A B α} (h : ∀ H, ((xorRuntime H).run₂ I x).Lossless)
+    {ρ : SubState A} (hρ : ρ.matrix.trace = 1) : IsProbabilityMeasure (qromLaw I x ρ) :=
   ⟨by rw [qromLaw_apply_univ h, hρ, Complex.one_re, ENNReal.ofReal_one]⟩
 
 end sampled
@@ -326,63 +346,75 @@ end sampled
 /-! ### No queries -/
 
 /-- **No queries, no dependence on the oracle.** A program with query budget zero runs to the
-same subinstrument against every function. -/
-theorem run_xorRuntime_eq_of_isQueryBound_zero {x : QuantumComp (qromSpec X Y) A B α}
-    (hx : x.IsQueryBound 0) (H H' : X → Y) : (xorRuntime H).run x = (xorRuntime H').run x :=
-  QuantumRuntime.run_congr_of_isQueryBound hx fun _ h ↦ absurd rfl h
+same dependent subinstrument against every function. -/
+theorem run_xorRuntime_eq_of_isQueryBound_zero (I : L.Interp) {x : QuantumComp L (qromSpec X Y) W A}
+    (hx : x.IsQueryBound 0) (H H' : X → Y) :
+    (xorRuntime H).run I x = (xorRuntime H').run I x :=
+  QuantumRuntime.run_congr_of_isQueryBound I hx fun _ h ↦ absurd rfl h
+
+/-- **No queries, no dependence on the oracle**, for fixed-register programs: the runs against
+every function are the same subinstrument. -/
+theorem run₂_xorRuntime_eq_of_isQueryBound_zero (I : L.Interp)
+    {x : QuantumComp₂ L (qromSpec X Y) A B α} (hx : x.IsQueryBound 0) (H H' : X → Y) :
+    (xorRuntime H).run₂ I x = (xorRuntime H').run₂ I x :=
+  QuantumRuntime.run₂_congr_of_isQueryBound I hx fun _ h ↦ absurd rfl h
 
 /-- **No queries, no knowledge of the oracle.** In the quantum random-oracle model, a program with
 query budget zero that outputs a guess, an input `gx a` with a value `gy a`, satisfies
 `gy a = H (gx a)` with probability the total weight of its run divided by `|Y|`. The run does not
-depend on the function (`run_xorRuntime_eq_of_isQueryBound_zero`); it is taken against `H₀`. -/
-theorem qromLawWith_guess_zero [SampleableType (X → Y)] {x : QuantumComp (qromSpec X Y) A B α}
-    (hx : x.IsQueryBound 0) (ρ : SubState A) (gx : α → X) (gy : α → Y) (H₀ : X → Y) :
-    qromLawWith x ρ (fun H a ↦ gy a = H (gx a)) {True} =
-      ENNReal.ofReal (((xorRuntime H₀).run x).total (ρ.prod (SubState.basis ())).matrix).trace.re /
+depend on the function (`run₂_xorRuntime_eq_of_isQueryBound_zero`); it is taken against `H₀`. The
+guess is a returned value, so `x` has a fixed final register. -/
+theorem qromLawWith_guess_zero [SampleableType (X → Y)] (I : L.Interp)
+    {x : QuantumComp₂ L (qromSpec X Y) A B α} (hx : x.IsQueryBound 0) (ρ : SubState A)
+    (gx : α → X) (gy : α → Y) (H₀ : X → Y) :
+    qromLawWith I x ρ (fun H a ↦ gy a = H (gx a)) {True} =
+      ENNReal.ofReal
+          (((xorRuntime H₀).run₂ I x).total (ρ.prod (SubState.basis ())).matrix).trace.re /
         Fintype.card Y := by
-  have hrun : ∀ H : X → Y, (xorRuntime H).outcomeLaw (x.map fun a ↦ gy a = H (gx a)) ρ =
-      (((xorRuntime H₀).run x).map fun a ↦ gy a = H (gx a)).outcomeMeasure
+  have hrun : ∀ H : X → Y, (xorRuntime H).outcomeLaw₂ I (x.map fun a ↦ gy a = H (gx a)) ρ =
+      (((xorRuntime H₀).run₂ I x).map fun a ↦ gy a = H (gx a)).outcomeMeasure
         (ρ.prod (SubState.basis ())) := fun H ↦ by
-    rw [QuantumRuntime.outcomeLaw, QuantumRuntime.run_map,
-      run_xorRuntime_eq_of_isQueryBound_zero hx H H₀]
+    rw [QuantumRuntime.outcomeLaw₂, QuantumRuntime.run₂_map,
+      run₂_xorRuntime_eq_of_isQueryBound_zero I hx H H₀]
     rfl
-  rw [qromLawWith, sampledLawWith_apply _ _ _ _ (MeasurableSet.singleton True)]
+  rw [qromLawWith, sampledLawWith_apply _ _ _ _ _ (MeasurableSet.singleton True)]
   simp only [hrun]
   exact sum_outcomeMeasure_map_guess _ _ gx gy
 
 /-- A lossless program with query budget zero guesses a value of the random function with
 probability the trace of its initial substate divided by `|Y|`. -/
-theorem qromLawWith_guess_zero_of_lossless [SampleableType (X → Y)]
-    {x : QuantumComp (qromSpec X Y) A B α} (hx : x.IsQueryBound 0) (hl : x.Lossless)
+theorem qromLawWith_guess_zero_of_lossless [SampleableType (X → Y)] (I : L.Interp)
+    {x : QuantumComp₂ L (qromSpec X Y) A B α} (hx : x.IsQueryBound 0) (hl : x.Lossless I)
     (ρ : SubState A) (gx : α → X) (gy : α → Y) :
-    qromLawWith x ρ (fun H a ↦ gy a = H (gx a)) {True} =
+    qromLawWith I x ρ (fun H a ↦ gy a = H (gx a)) {True} =
       ENNReal.ofReal ρ.matrix.trace.re / Fintype.card Y := by
-  have h : (((xorRuntime 0).run x).total (ρ.prod (SubState.basis ())).matrix).trace =
+  have h : (((xorRuntime 0).run₂ I x).total (ρ.prod (SubState.basis ())).matrix).trace =
       (ρ.prod (SubState.basis ())).matrix.trace :=
-    lossless_run_xorRuntime hl 0 (ρ.prod (SubState.basis ())).matrix
-  rw [qromLawWith_guess_zero hx ρ gx gy 0, h, SubState.trace_re_prod, SubState.trace_basis,
+    lossless_run₂_xorRuntime I hl 0 (ρ.prod (SubState.basis ())).matrix
+  rw [qromLawWith_guess_zero I hx ρ gx gy 0, h, SubState.trace_re_prod, SubState.trace_basis,
     Complex.one_re, mul_one]
 
 /-- In the quantum random-oracle model, a lossless program with query budget zero that starts
 from a normalized state and outputs a guess `(x, y)` satisfies `y = H x` with probability
 `1 / |Y|`. -/
-theorem qromLawWith_guess_zero_of_trace_eq_one [SampleableType (X → Y)]
-    {x : QuantumComp (qromSpec X Y) A B (X × Y)} (hx : x.IsQueryBound 0) (hl : x.Lossless)
+theorem qromLawWith_guess_zero_of_trace_eq_one [SampleableType (X → Y)] (I : L.Interp)
+    {x : QuantumComp₂ L (qromSpec X Y) A B (X × Y)} (hx : x.IsQueryBound 0) (hl : x.Lossless I)
     {ρ : SubState A} (hρ : ρ.matrix.trace = 1) :
-    qromLawWith x ρ (fun H a ↦ a.2 = H a.1) {True} = (Fintype.card Y : ℝ≥0∞)⁻¹ := by
-  rw [qromLawWith_guess_zero_of_lossless hx hl ρ Prod.fst Prod.snd, hρ]
+    qromLawWith I x ρ (fun H a ↦ a.2 = H a.1) {True} = (Fintype.card Y : ℝ≥0∞)⁻¹ := by
+  rw [qromLawWith_guess_zero_of_lossless I hx hl ρ Prod.fst Prod.snd, hρ]
   simp
 
 /-! ### The oracle is only seen where it is queried -/
 
-/-- Every call along every branch of the run of `x` against `H` from `ρ` receives an operator
-supported on the query inputs in `S`: before each call, the joint operator of the query
+/-- Every call along every branch of the run of `x` under `I` against `H` from `ρ` receives an
+operator supported on the query inputs in `S`: before each call, the joint operator of the query
 register, the runtime register and the carried remainder vanishes outside query inputs in `S`.
-Branches of weight zero receive the zero operator and impose nothing. -/
+The input `ρ ⊗ |()⟩⟨()|` is positive semidefinite, so branches of weight zero receive the zero
+operator and impose nothing. -/
 @[expose]
-def QueriesWithin (x : QuantumComp (qromSpec X Y) A B α) (S : Set X) (H : X → Y)
+def QueriesWithin (I : L.Interp) (x : QuantumComp L (qromSpec X Y) W A) (S : Set X) (H : X → Y)
     (ρ : SubState A) : Prop :=
-  (xorRuntime H).ForallQueries
+  (xorRuntime H).ForallQueries I
     (fun _ E σ ↦ QuerySupportedOn (fun m : ((X × Y) × Unit) × E ↦ m.1.1.1) S σ) x
     (ρ.prod (SubState.basis ())).matrix
 
@@ -407,40 +439,51 @@ theorem xorRuntime_step_frame_congr (hH : Set.EqOn H H' S) (i : (qromSpec X Y).P
 
 /-- **The oracle is only seen where it is queried.** If the calls of the run of `x` against `H`
 from `ρ` stay within `S` and `H'` agrees with `H` on `S`, the runs against `H` and `H'` from `ρ`
-have the same branches. -/
-theorem run_branch_xorRuntime_eq_of_eqOn {x : QuantumComp (qromSpec X Y) A B α}
-    {ρ : SubState A} (hS : QueriesWithin x S H ρ) (hH : Set.EqOn H H' S) (a : α) :
-    ((xorRuntime H').run x).branch a (ρ.prod (SubState.basis ())).matrix =
-      ((xorRuntime H).run x).branch a (ρ.prod (SubState.basis ())).matrix :=
+have the same branches, on every leaf. -/
+theorem run_branch_xorRuntime_eq_of_eqOn (I : L.Interp) {x : QuantumComp L (qromSpec X Y) W A}
+    {ρ : SubState A} (hS : QueriesWithin I x S H ρ) (hH : Set.EqOn H H' S) (p : Σ u, W u) :
+    ((xorRuntime H').run I x).branch p (ρ.prod (SubState.basis ())).matrix =
+      ((xorRuntime H).run I x).branch p (ρ.prod (SubState.basis ())).matrix :=
   (QuantumRuntime.run_branch_apply_eq_of_forallQueries (D := QReg.of Unit)
     (σ₁ := SubState.basis ()) (σ₂ := SubState.basis ()) (s₁ := (xorRuntime H).step)
-    (s₂ := (xorRuntime H').step) (fun i E _ hσ r ↦ xorRuntime_step_frame_congr hH i E hσ r) hS
-    a).symm
+    (s₂ := (xorRuntime H').step) I (fun i E _ hσ r ↦ xorRuntime_step_frame_congr hH i E hσ r) hS
+    p).symm
 
 /-- **The oracle is only seen where it is queried.** If the calls of the run of `x` against `H`
 from `ρ` stay within `S` and `H'` agrees with `H` on `S`, the runs against `H` and `H'` from `ρ`
 have the same outcome law. -/
-theorem outcomeLaw_xorRuntime_eq_of_eqOn [MeasurableSpace α]
-    {x : QuantumComp (qromSpec X Y) A B α} {ρ : SubState A} (hS : QueriesWithin x S H ρ)
-    (hH : Set.EqOn H H' S) : (xorRuntime H').outcomeLaw x ρ = (xorRuntime H).outcomeLaw x ρ :=
+theorem outcomeLaw_xorRuntime_eq_of_eqOn [MeasurableSpace (Σ u, W u)] (I : L.Interp)
+    {x : QuantumComp L (qromSpec X Y) W A} {ρ : SubState A} (hS : QueriesWithin I x S H ρ)
+    (hH : Set.EqOn H H' S) : (xorRuntime H').outcomeLaw I x ρ = (xorRuntime H).outcomeLaw I x ρ :=
   (QuantumRuntime.outcomeLaw_eq_of_forallQueries (D := QReg.of Unit) (σ := SubState.basis ())
-    (s₁ := (xorRuntime H).step) (s₂ := (xorRuntime H').step)
+    (s₁ := (xorRuntime H).step) (s₂ := (xorRuntime H').step) I
     (fun i E _ hσ r ↦ xorRuntime_step_frame_congr hH i E hσ r) hS).symm
 
 /-- If the calls of the run of `x` against `H` from `ρ` stay within `S` and `H'` agrees with `H`
 on `S`, the runs against `H` and `H'` from `ρ` leave the same joint post-states. -/
-theorem jointPost_xorRuntime_eq_of_eqOn {x : QuantumComp (qromSpec X Y) A B α}
-    {ρ : SubState A} (hS : QueriesWithin x S H ρ) (hH : Set.EqOn H H' S) (a : α) :
-    (xorRuntime H').jointPost x ρ a = (xorRuntime H).jointPost x ρ a :=
+theorem jointPost_xorRuntime_eq_of_eqOn (I : L.Interp) {x : QuantumComp L (qromSpec X Y) W A}
+    {ρ : SubState A} (hS : QueriesWithin I x S H ρ) (hH : Set.EqOn H H' S) (p : Σ u, W u) :
+    (xorRuntime H').jointPost I x ρ p = (xorRuntime H).jointPost I x ρ p :=
   (QuantumRuntime.jointPost_eq_of_forallQueries (D := QReg.of Unit) (σ := SubState.basis ())
-    (s₁ := (xorRuntime H).step) (s₂ := (xorRuntime H').step)
-    (fun i E _ hσ r ↦ xorRuntime_step_frame_congr hH i E hσ r) hS a).symm
+    (s₁ := (xorRuntime H).step) (s₂ := (xorRuntime H').step) I
+    (fun i E _ hσ r ↦ xorRuntime_step_frame_congr hH i E hσ r) hS p).symm
+
+/-- **The oracle is only seen where it is queried**, for the law of the value returned by a
+fixed-register program. -/
+theorem outcomeLaw₂_xorRuntime_eq_of_eqOn [MeasurableSpace α] (I : L.Interp)
+    {x : QuantumComp₂ L (qromSpec X Y) A B α} {ρ : SubState A} (hS : QueriesWithin I x S H ρ)
+    (hH : Set.EqOn H H' S) :
+    (xorRuntime H').outcomeLaw₂ I x ρ = (xorRuntime H).outcomeLaw₂ I x ρ :=
+  (QuantumRuntime.outcomeLaw₂_eq_of_forallQueries (D := QReg.of Unit) (σ := SubState.basis ())
+    (s₁ := (xorRuntime H).step) (s₂ := (xorRuntime H').step) I
+    (fun i E _ hσ r ↦ xorRuntime_step_frame_congr hH i E hσ r) hS).symm
 
 /-- Staying within `S` transfers to any function that agrees on `S`. -/
-theorem QueriesWithin.of_eqOn {x : QuantumComp (qromSpec X Y) A B α} {ρ : SubState A}
-    (hS : QueriesWithin x S H ρ) (hH : Set.EqOn H H' S) : QueriesWithin x S H' ρ :=
+theorem QueriesWithin.of_eqOn {I : L.Interp} {x : QuantumComp L (qromSpec X Y) W A}
+    {ρ : SubState A} (hS : QueriesWithin I x S H ρ) (hH : Set.EqOn H H' S) :
+    QueriesWithin I x S H' ρ :=
   QuantumRuntime.ForallQueries.of_congr (D := QReg.of Unit) (σ₁ := SubState.basis ())
-    (σ₂ := SubState.basis ()) (s₁ := (xorRuntime H).step) (s₂ := (xorRuntime H').step)
+    (σ₂ := SubState.basis ()) (s₁ := (xorRuntime H).step) (s₂ := (xorRuntime H').step) I
     (fun i E _ hσ r ↦ xorRuntime_step_frame_congr hH i E hσ r) hS
 
 end qrom
