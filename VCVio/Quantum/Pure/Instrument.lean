@@ -98,8 +98,8 @@ section ofContraction
 variable [DecidableEq A]
 
 /-- The subinstrument with one outcome that applies the Kraus map `ρ ↦ K * ρ * Kᴴ` of a
-contraction `K`. On vectors it is the map `ψ ↦ K •ᵥ ψ`; the squared norm lost by `K` is the weight
-of failure. -/
+contraction `K`. On vectors it is the map `ψ ↦ K •ᵥ ψ`; the decrease in squared norm is the
+failure weight this step adds. -/
 @[expose]
 noncomputable def ofContraction (K : Matrix B A ℂ) (hK : ‖K‖ ≤ 1) : SubInstrument A B PUnit :=
   ofMap (MatrixMap.conj K) (MatrixMap.isCP_conj K)

@@ -11,8 +11,9 @@ public import VCVio.Quantum.Pure.Instrument
 # Operators on one register of a product
 
 An operator `K` on the system `A` acts on the product system `A × R` as the Kronecker product
-`K ⊗ₖ 1`, and on `R × A` as `1 ⊗ₖ K`. Either has the operator norm of `K`
-(`Quantum.l2_opNorm_kronecker_one`, `Quantum.l2_opNorm_one_kronecker`), so contractions,
+`K ⊗ₖ 1`, and on `R × A` as `1 ⊗ₖ K`. Either has the operator norm of `K` when the untouched
+register is nonempty (`Quantum.l2_opNorm_kronecker_one`, `Quantum.l2_opNorm_one_kronecker`), and
+norm at most `‖K‖` in general (`Quantum.l2_opNorm_kronecker_one_le`), so contractions,
 isometries and the norm estimates for vectors transfer to an operator that leaves a register
 untouched. Framing a subinstrument built from Kraus operators by an ancilla
 (`Quantum.SubInstrument.frame`) is the subinstrument built from the operators `K ⊗ₖ 1`
