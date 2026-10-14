@@ -216,8 +216,9 @@ section qrom
 variable {X Y : Type} [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y]
 
 /-- The signature of a random oracle `X → Y`: one port, whose call acts on the query register
-`X × Y` and returns no classical result. -/
-@[expose]
+`X × Y` and returns no classical result. It is reducible, so that its ports, registers and
+results unfold to `Unit` and `X × Y` when rewriting. -/
+@[expose, reducible]
 def qromSpec (X Y : Type) [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y] :
     QuantumOracleSpec where
   Port := Unit
