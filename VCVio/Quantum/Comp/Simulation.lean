@@ -25,19 +25,28 @@ When `V` is trace preserving and sends the initial operator of `R₁` to that of
 observation by the program can tell the runtimes apart: the reduced post-states and the outcome
 laws agree (`Quantum.QuantumRuntime.reducedPost_eq_of_simulation` and
 `Quantum.QuantumRuntime.outcomeLaw_eq_of_simulation`). An example is a stateful runtime that
-simulates a stateless one, such as a runtime that also counts the calls in its register (`V`
-appends the counter) or a lazily sampled oracle against an eager one.
+simulates a stateless one, such as a runtime that also counts the calls in its register: `V`
+appends the counter in its initial value.
+
+A second comparison asks less of the steps: they need only agree on the operators that the
+calls of one particular run receive (`Quantum.QuantumRuntime.ForallQueries`). Then the two runs
+agree on that input (`Quantum.QuantumRuntime.run_branch_apply_eq_of_forallQueries`).
 
 ## Main definitions
 
 * `Quantum.SubInstrument.Intertwines L₁ L₂ p p'`: on every outcome, `p'` after `L₁` is `L₂`
   after `p`.
+* `Quantum.QuantumRuntime.ForallQueries R P x ρ`: every call along every branch of the run of
+  `x` from `ρ` receives an operator satisfying `P`.
 
 ## Main statements
 
 * `Quantum.QuantumRuntime.simulation`.
 * `Quantum.QuantumRuntime.reducedPost_eq_of_simulation`,
   `Quantum.QuantumRuntime.outcomeLaw_eq_of_simulation`.
+* `Quantum.QuantumRuntime.run_branch_apply_eq_of_forallQueries`: two runtimes whose steps agree
+  on the operators the calls of a run receive give the same run on that input. This is the
+  general form of "the oracle is only seen where it is queried".
 -/
 
 public section
@@ -69,6 +78,31 @@ theorem branch_bind_apply_of_subset (p : SubInstrument X Y α) (k : α → SubIn
   rw [branch_bind_apply]
   exact Finset.sum_subset hs fun a _ ha ↦ by
     rw [Finsupp.notMem_support_iff.mp ha, LinearMap.comp_zero]
+
+/-- A step, then a step without outcome, then returning the first outcome: the branch at `a` is
+the second step after the branch of the first at `a`. -/
+theorem branch_bind_bind_unit_pure (p : SubInstrument X Y α) (u : SubInstrument Y Z Unit)
+    (a : α) :
+    (p.bind fun a' ↦ u.bind fun _ ↦ SubInstrument.pure a').branch a =
+      u.branch () ∘ₗ p.branch a := by
+  classical
+  rw [branch_bind_apply_of_subset p _ (Finset.subset_insert a p.branch.support),
+    Finset.sum_eq_single_of_mem a (Finset.mem_insert_self _ _)]
+  · rw [branch_bind_unit, branch_pure, Finsupp.single_eq_same, LinearMap.id_comp]
+  · intro b _ hb
+    simp [branch_bind_unit, hb]
+
+/-- Two subinstruments whose branches leave operators of the same trace on two substates, on
+every outcome, have the same outcome measures on them. -/
+theorem outcomeMeasure_congr [MeasurableSpace α] {p : SubInstrument X Y α}
+    {p' : SubInstrument X' Y' α} {ρ : SubState X} {ρ' : SubState X'}
+    (h : ∀ a, (p.branch a ρ.matrix).trace = (p'.branch a ρ'.matrix).trace) :
+    p.outcomeMeasure ρ = p'.outcomeMeasure ρ' := by
+  classical
+  rw [outcomeMeasure_eq_sum_of_subset _ _ (Finset.subset_union_left
+      (s₂ := p'.branch.support)),
+    outcomeMeasure_eq_sum_of_subset _ _ (Finset.subset_union_right (s₁ := p.branch.support))]
+  exact Finset.sum_congr rfl fun a _ ↦ by rw [h a]
 
 namespace Intertwines
 
@@ -220,17 +254,176 @@ theorem outcomeLaw_eq_of_simulation [MeasurableSpace α]
     (h : ∀ i r, (R₂.step i).branch r ∘ₗ V.amplifyLeft (spec.In i) =
       V.amplifyLeft (spec.Out i) ∘ₗ (R₁.step i).branch r)
     (hV : V.IsTP) (hinit : V R₁.init.matrix = R₂.init.matrix) (x : QuantumComp spec A B α)
-    (ρ : SubState A) : R₂.outcomeLaw x ρ = R₁.outcomeLaw x ρ := by
-  classical
-  rw [outcomeLaw, outcomeLaw,
-    outcomeMeasure_eq_sum_of_subset _ _ (Finset.subset_union_left
-      (s₂ := (R₁.run x).branch.support)),
-    outcomeMeasure_eq_sum_of_subset _ _ (Finset.subset_union_right
-      (s₁ := (R₂.run x).branch.support))]
-  refine Finset.sum_congr rfl fun a _ ↦ ?_
-  have := trace_jointPost_eq_of_simulation h hV hinit x ρ a
-  rw [matrix_jointPost, matrix_jointPost] at this
-  rw [SubState.matrix_prod, SubState.matrix_prod, this]
+    (ρ : SubState A) : R₂.outcomeLaw x ρ = R₁.outcomeLaw x ρ :=
+  outcomeMeasure_congr fun a ↦ trace_jointPost_eq_of_simulation h hV hinit x ρ a
+
+/-! ## Agreement on the states presented to the calls -/
+
+section forallQueries
+
+variable (R : QuantumRuntime spec)
+
+/-- A predicate `P` holds of the operator presented to every call along every branch of the run
+from `ρ`: before a call of port `i` with remainder `E`, the operator on `(In i × D) × E` that the
+port's step receives. -/
+@[expose]
+def forallQueriesAux
+    (P : ∀ (i : spec.Port) (E : QReg),
+      Matrix ((spec.In i × R.D) × E) ((spec.In i × R.D) × E) ℂ → Prop) {B : QReg} :
+    {A : QReg} → IPFunctor.IFreeM spec.toIPFunctor (fun u ↦ PSigma fun _ : u = B ↦ α) A →
+      Matrix (A × R.D) (A × R.D) ℂ → Prop
+  | _, .pure _, _ => True
+  | _, .liftBind (.act _ _ p) k, ρ => ∀ b, forallQueriesAux P (k b) ((p.frame R.D).branch b ρ)
+  | _, .liftBind (.query i E ℓ) k, ρ =>
+      P i E ((relabel (queryEquivIn ℓ R.D)).branch () ρ) ∧
+        ∀ r, forallQueriesAux P (k r) ((R.queryStep i E ℓ).branch r ρ)
+
+/-- Every call along every branch of the run of `x` from the operator `ρ` on `A × D`, including
+branches reached with weight zero, receives an operator satisfying `P`. Branches of weight zero
+receive the zero operator. -/
+@[expose]
+def ForallQueries
+    (P : ∀ (i : spec.Port) (E : QReg),
+      Matrix ((spec.In i × R.D) × E) ((spec.In i × R.D) × E) ℂ → Prop)
+    (x : QuantumComp spec A B α) (ρ : Matrix (A × R.D) (A × R.D) ℂ) : Prop :=
+  R.forallQueriesAux P x ρ
+
+variable {R}
+variable {P : ∀ (i : spec.Port) (E : QReg),
+  Matrix ((spec.In i × R.D) × E) ((spec.In i × R.D) × E) ℂ → Prop}
+
+/-- A program that returns at once makes no call. -/
+@[simp]
+theorem forallQueries_pure (a : α) (ρ : Matrix (A × R.D) (A × R.D) ℂ) :
+    R.ForallQueries P (QuantumComp.pure a) ρ :=
+  trivial
+
+/-- After a local subinstrument, the condition is checked on every branch. -/
+theorem forallQueries_act_bind_iff {C : QReg} {β : Type} (p : SubInstrument A B β)
+    (k : β → QuantumComp spec B C α) (ρ : Matrix (A × R.D) (A × R.D) ℂ) :
+    R.ForallQueries P ((QuantumComp.act p).bind k) ρ ↔
+      ∀ b, R.ForallQueries P (k b) ((p.frame R.D).branch b ρ) :=
+  Iff.rfl
+
+/-- A call checks the condition on the operator it presents to the port, and then on every
+branch. -/
+theorem forallQueries_query_bind_iff {C : QReg} (i : spec.Port) (E : QReg)
+    (ℓ : A ≃ spec.In i × E)
+    (k : spec.Result i → QuantumComp spec (QReg.of (spec.Out i × E)) C α)
+    (ρ : Matrix (A × R.D) (A × R.D) ℂ) :
+    R.ForallQueries P ((QuantumComp.query i E ℓ).bind k) ρ ↔
+      P i E ((relabel (queryEquivIn ℓ R.D)).branch () ρ) ∧
+        ∀ r, R.ForallQueries P (k r) ((R.queryStep i E ℓ).branch r ρ) :=
+  Iff.rfl
+
+/-- A weaker condition on the presented operators also holds. -/
+theorem ForallQueries.mono {P' : ∀ (i : spec.Port) (E : QReg),
+      Matrix ((spec.In i × R.D) × E) ((spec.In i × R.D) × E) ℂ → Prop}
+    (hP : ∀ i E σ, P i E σ → P' i E σ) {x : QuantumComp spec A B α}
+    {ρ : Matrix (A × R.D) (A × R.D) ℂ} (hx : R.ForallQueries P x ρ) : R.ForallQueries P' x ρ := by
+  refine QuantumComp.inductionOn (motive := fun A B x ↦ ∀ ρ : Matrix (A × R.D) (A × R.D) ℂ,
+    R.ForallQueries P x ρ → R.ForallQueries P' x ρ) ?_ ?_ ?_ x ρ hx
+  · exact fun _ _ _ _ ↦ trivial
+  · intro _ _ _ _ p k ih ρ hx
+    exact fun b ↦ ih b _ (hx b)
+  · intro _ _ i E ℓ k ih ρ hx
+    exact ⟨hP i E _ hx.1, fun r ↦ ih r _ (hx.2 r)⟩
+
+/-- A call applied to an operator: relabel, apply the port's step framed by the remainder, and
+relabel back. -/
+theorem queryStep_branch_apply (i : spec.Port) (E : QReg) (ℓ : A ≃ spec.In i × E)
+    (r : spec.Result i) (ρ : Matrix (A × R.D) (A × R.D) ℂ) :
+    (R.queryStep i E ℓ).branch r ρ =
+      (relabel (queryEquivOut (spec.Out i) R.D E)).branch ()
+        (((R.step i).frame E).branch r ((relabel (queryEquivIn ℓ R.D)).branch () ρ)) := by
+  rw [queryStep, branch_bind_unit, branch_bind_bind_unit_pure]
+  rfl
+
+end forallQueries
+
+/-- **Only the presented operators matter.** Two runtimes on the same register whose steps,
+framed by any remainder, agree on every operator satisfying `P`, run a program to the same
+branches on an operator `ρ` from which every call of the run against the first runtime receives
+an operator satisfying `P`. -/
+theorem run_branch_apply_eq_of_forallQueries {D : QReg} {σ₁ σ₂ : SubState D}
+    {s₁ s₂ : ∀ i, SubInstrument (spec.In i × D) (spec.Out i × D) (spec.Result i)}
+    {P : ∀ (i : spec.Port) (E : QReg), Matrix ((spec.In i × D) × E) ((spec.In i × D) × E) ℂ → Prop}
+    (hs : ∀ i E σ, P i E σ → ∀ r, ((s₁ i).frame E).branch r σ = ((s₂ i).frame E).branch r σ)
+    {x : QuantumComp spec A B α} {ρ : Matrix (A × D) (A × D) ℂ}
+    (hx : (QuantumRuntime.mk D σ₁ s₁).ForallQueries P x ρ) (a : α) :
+    ((QuantumRuntime.mk D σ₁ s₁).run x).branch a ρ =
+      ((QuantumRuntime.mk D σ₂ s₂).run x).branch a ρ := by
+  revert a
+  refine QuantumComp.inductionOn (motive := fun A B x ↦ ∀ ρ : Matrix (A × D) (A × D) ℂ,
+    (QuantumRuntime.mk D σ₁ s₁).ForallQueries P x ρ → ∀ a,
+      ((QuantumRuntime.mk D σ₁ s₁).run x).branch a ρ =
+        ((QuantumRuntime.mk D σ₂ s₂).run x).branch a ρ) ?_ ?_ ?_ x ρ hx
+  · exact fun _ _ _ _ _ ↦ rfl
+  · intro _ _ _ _ p k ih ρ hx a
+    rw [run_act_bind, run_act_bind, branch_bind_apply, branch_bind_apply, LinearMap.sum_apply,
+      LinearMap.sum_apply]
+    exact Finset.sum_congr rfl fun b _ ↦ ih b _ (hx b) a
+  · intro _ _ i E ℓ k ih ρ hx a
+    classical
+    rw [run_query_bind, run_query_bind,
+      branch_bind_apply_of_subset _ _ (Finset.subset_union_left
+        (s₂ := ((QuantumRuntime.mk D σ₂ s₂).queryStep i E ℓ).branch.support)),
+      branch_bind_apply_of_subset _ _ (Finset.subset_union_right
+        (s₁ := ((QuantumRuntime.mk D σ₁ s₁).queryStep i E ℓ).branch.support)),
+      LinearMap.sum_apply, LinearMap.sum_apply]
+    refine Finset.sum_congr rfl fun r _ ↦ ?_
+    have hq : ((QuantumRuntime.mk D σ₁ s₁).queryStep i E ℓ).branch r ρ =
+        ((QuantumRuntime.mk D σ₂ s₂).queryStep i E ℓ).branch r ρ := by
+      rw [queryStep_branch_apply, queryStep_branch_apply]
+      exact congrArg _ (hs i E _ hx.1 r)
+    rw [LinearMap.comp_apply, LinearMap.comp_apply, ← hq]
+    exact ih r _ (hx.2 r) a
+
+/-- The condition on the presented operators transfers between two runtimes whose steps agree
+on the operators satisfying it. -/
+theorem ForallQueries.of_congr {D : QReg} {σ₁ σ₂ : SubState D}
+    {s₁ s₂ : ∀ i, SubInstrument (spec.In i × D) (spec.Out i × D) (spec.Result i)}
+    {P : ∀ (i : spec.Port) (E : QReg), Matrix ((spec.In i × D) × E) ((spec.In i × D) × E) ℂ → Prop}
+    (hs : ∀ i E σ, P i E σ → ∀ r, ((s₁ i).frame E).branch r σ = ((s₂ i).frame E).branch r σ)
+    {x : QuantumComp spec A B α} {ρ : Matrix (A × D) (A × D) ℂ}
+    (hx : (QuantumRuntime.mk D σ₁ s₁).ForallQueries P x ρ) :
+    (QuantumRuntime.mk D σ₂ s₂).ForallQueries P x ρ := by
+  refine QuantumComp.inductionOn (motive := fun A B x ↦ ∀ ρ : Matrix (A × D) (A × D) ℂ,
+    (QuantumRuntime.mk D σ₁ s₁).ForallQueries P x ρ →
+      (QuantumRuntime.mk D σ₂ s₂).ForallQueries P x ρ) ?_ ?_ ?_ x ρ hx
+  · exact fun _ _ _ _ ↦ trivial
+  · intro _ _ _ _ p k ih ρ hx
+    exact fun b ↦ ih b _ (hx b)
+  · intro _ _ i E ℓ k ih ρ hx
+    refine ⟨hx.1, fun (r : spec.Result i) ↦ ?_⟩
+    have hq : ((QuantumRuntime.mk D σ₁ s₁).queryStep i E ℓ).branch r ρ =
+        ((QuantumRuntime.mk D σ₂ s₂).queryStep i E ℓ).branch r ρ := by
+      rw [queryStep_branch_apply, queryStep_branch_apply]
+      exact congrArg _ (hs i E _ hx.1 r)
+    rw [← hq]
+    exact ih r _ (hx.2 r)
+
+/-- Under the hypotheses of `run_branch_apply_eq_of_forallQueries` from the joint substate
+`ρ ⊗ init`, with the same initial substate, the outcome laws agree. -/
+theorem outcomeLaw_eq_of_forallQueries [MeasurableSpace α] {D : QReg} {σ : SubState D}
+    {s₁ s₂ : ∀ i, SubInstrument (spec.In i × D) (spec.Out i × D) (spec.Result i)}
+    {P : ∀ (i : spec.Port) (E : QReg), Matrix ((spec.In i × D) × E) ((spec.In i × D) × E) ℂ → Prop}
+    (hs : ∀ i E σ, P i E σ → ∀ r, ((s₁ i).frame E).branch r σ = ((s₂ i).frame E).branch r σ)
+    {x : QuantumComp spec A B α} {ρ : SubState A}
+    (hx : (QuantumRuntime.mk D σ s₁).ForallQueries P x (ρ.prod σ).matrix) :
+    (QuantumRuntime.mk D σ s₁).outcomeLaw x ρ = (QuantumRuntime.mk D σ s₂).outcomeLaw x ρ :=
+  outcomeMeasure_congr fun a ↦ by
+    rw [run_branch_apply_eq_of_forallQueries (σ₂ := σ) hs hx a]
+
+/-- Under the hypotheses of `outcomeLaw_eq_of_forallQueries`, the joint post-states agree. -/
+theorem jointPost_eq_of_forallQueries {D : QReg} {σ : SubState D}
+    {s₁ s₂ : ∀ i, SubInstrument (spec.In i × D) (spec.Out i × D) (spec.Result i)}
+    {P : ∀ (i : spec.Port) (E : QReg), Matrix ((spec.In i × D) × E) ((spec.In i × D) × E) ℂ → Prop}
+    (hs : ∀ i E σ, P i E σ → ∀ r, ((s₁ i).frame E).branch r σ = ((s₂ i).frame E).branch r σ)
+    {x : QuantumComp spec A B α} {ρ : SubState A}
+    (hx : (QuantumRuntime.mk D σ s₁).ForallQueries P x (ρ.prod σ).matrix) (a : α) :
+    (QuantumRuntime.mk D σ s₁).jointPost x ρ a = (QuantumRuntime.mk D σ s₂).jointPost x ρ a :=
+  SubState.ext <| run_branch_apply_eq_of_forallQueries (σ₂ := σ) hs hx a
 
 end QuantumRuntime
 
