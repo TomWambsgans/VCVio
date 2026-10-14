@@ -100,7 +100,6 @@ end controlled
 section compressed
 
 variable [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y] [AddCommGroup Y]
- 
 
 /-- **The compressed oracle on a basis state.** A query of `|x, y⟩|D⟩` decompresses the cell
 `x` into `u`, adds `u` (or `0` when `u` is empty) into the response register, and compresses the
