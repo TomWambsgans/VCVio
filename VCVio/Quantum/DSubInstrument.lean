@@ -42,7 +42,7 @@ branch family is the trace after the total map (`Quantum.SubInstrument.familyTra
 ## Main definitions
 
 * `Quantum.DSubInstrument A ι B`: dependent subinstruments, with `ret`, `bind`, `map`, `fail`,
-  `frame` and `ofKraus`.
+  `frame`, `ofKraus` and the restriction `comap` along an injective map of outcomes.
 * `Quantum.DSubInstrument.Lossless`: the trace functional is the trace.
 * `Quantum.SubInstrument.toD`, `Quantum.DSubInstrument.toSubInstrument`,
   `Quantum.SubInstrument.equivD`: the constant-codomain case.
@@ -410,6 +410,32 @@ theorem lossless_ofKraus [Fintype ι] [DecidableEq A] (K : (i : ι) → Matrix (
   rw [MatrixMap.familyTrace_apply_univ]
   simp_rw [branch_ofKraus_apply, MatrixMap.trace_conj_apply]
   rw [← Matrix.trace_sum, ← Finset.sum_mul, hK, Matrix.one_mul]
+
+/-! ### Restricting the outcomes -/
+
+/-- The restriction of a dependent subinstrument along an injective map `f : κ → ι` of outcomes:
+the branch at `k` is the branch of `p` at `f k`, and the branches of `p` outside the range of `f`
+are dropped. -/
+@[expose]
+noncomputable def comap (f : κ → ι) (hf : Function.Injective f) (p : DSubInstrument A ι B) :
+    DSubInstrument A κ fun k ↦ B (f k) where
+  branch k := p.branch (f k)
+  isCP_branch k := p.isCP_branch (f k)
+  trace_le s ρ hρ := by
+    have h := p.trace_le (s.map ⟨f, hf⟩) ρ hρ
+    rwa [Finset.sum_map] at h
+
+/-- The branch of a restriction at `k` is the branch at `f k`. -/
+@[simp]
+theorem branch_comap (f : κ → ι) (hf : Function.Injective f) (p : DSubInstrument A ι B) (k : κ) :
+    (p.comap f hf).branch k = p.branch (f k) :=
+  rfl
+
+/-- Restricting a lossless dependent subinstrument along a bijection of outcomes is lossless. -/
+theorem Lossless.comap {p : DSubInstrument A ι B} (hp : p.Lossless) {f : κ → ι}
+    (hf : Function.Bijective f) : (p.comap f hf.injective).Lossless := fun ρ ↦ by
+  rw [(p.comap f hf.injective).isCPTNIFamily.familyTrace_apply, ← hp.tsum_trace_eq ρ]
+  exact (Equiv.ofBijective f hf).tsum_eq fun i ↦ (p.branch i ρ).trace
 
 end DSubInstrument
 
