@@ -60,7 +60,8 @@ the local operations are always defined.
 * `queryWeight_tsum_state`: on positive semidefinite inputs, weights are countably additive in
   the state when `w` is.
 * `queryWeight_le_tsum_mul_queryMassAt`: a weight bounded by `C i · tr` on port `i` is bounded by
-  the masses weighted by `C`.
+  the masses weighted by `C`; summed over the calls, by the total masses
+  (`tsum_queryWeight_le_tsum_mul_queryMass`).
 * `tsum_queryMassAt_le` (the analogue of Remark 4.2 of ePrint 2025/2166): the masses of the
   `j`-th call over all ports add up to at most the trace of the initial state.
 * `queryWeight_eq_zero_of_isQueryBound`: a program within a finite budget makes no call beyond
@@ -459,6 +460,18 @@ theorem queryMassAt_tsum_state (x : QuantumComp L spec X A) {ι : Type*}
 noncomputable def queryMass (x : QuantumComp L spec X A) (ρ : Matrix (A × R.D) (A × R.D) ℂ)
     (i : spec.Port) : ℝ≥0∞ :=
   ∑' j, R.queryMassAt I x ρ i j
+
+/-- **Summed weights by total masses.** If the weight of a call of port `i` is at most `C i`
+times its trace, the weights summed over all calls are at most the total masses weighted by
+`C`. -/
+theorem tsum_queryWeight_le_tsum_mul_queryMass (C : spec.Port → ℝ≥0∞)
+    (hw : ∀ i σ, σ.PosSemidef → w i σ ≤ C i * ENNReal.ofReal σ.trace.re)
+    (x : QuantumComp L spec X A) {ρ : Matrix (A × R.D) (A × R.D) ℂ} (hρ : ρ.PosSemidef) :
+    ∑' j, R.queryWeight I w x ρ j ≤ ∑' i, C i * R.queryMass I x ρ i := by
+  refine (ENNReal.tsum_le_tsum fun j ↦
+    R.queryWeight_le_tsum_mul_queryMassAt I C hw x hρ j).trans_eq ?_
+  rw [ENNReal.tsum_comm]
+  simp only [queryMass, ENNReal.tsum_mul_left]
 
 /-- A program that stops at once has no mass. -/
 @[simp]
