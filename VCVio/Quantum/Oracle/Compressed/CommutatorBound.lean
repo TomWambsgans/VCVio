@@ -17,22 +17,23 @@ public import VCVio.Quantum.Oracle.Compressed.Phase
 Let `π` label the databases, so that `P^(i)` is the projector onto the databases of label `i`,
 and let `I = I(π, t)` be the instability of `π` with query bound `t`
 (`Quantum.Database.instability`, Definition 5.3 of Chiesa, Di, Hu and Zheng, *How to Prove
-Post-Quantum Security for Succinct Non-Interactive Reductions*, ePrint 2025/2166). This file
-proves, for the truncated compressed oracle `O^(t)`:
+Post-Quantum Security for Succinct Non-Interactive Reductions*, ePrint 2025/2166, cited as [CDHZ]
+below). This file proves, for the truncated compressed oracle `O^(t)`:
 
 * **Lemma 5.9** (`Quantum.l2_opNorm_pinch_truncatedOracle_sub_sq_le`):
   `‖∑ i, P^(i) O^(t) P^(i) - O^(t)‖² ≤ 20 I`, with the paper's constant `20`. The phase-basis
   form is `Quantum.l2_opNorm_pinch_truncatedPhaseOracle_sub_sq_le`.
 * **Lemma 5.10** (`Quantum.l2_opNorm_commutator_truncatedOracle_le_pinch`, after Chiesa, Manohar
   and Spooner, TCC 2019, Lemma 5.10): for a label-controlled unitary
-  `V = ∑ i, P^(i) ⊗ V_i` whose `V_i` preserve the labels and commute with `O^(t) ⊗ 1`,
+  `V = ∑ i, P^(i) W_i` whose `W_i` preserve the labels and commute with `O^(t) ⊗ 1`,
   `‖[V, O^(t) ⊗ 1]‖ ≤ 2 ‖∑ i, P^(i) O^(t) P^(i) - O^(t)‖`.
 * **Theorem 5.4** (`Quantum.l2_opNorm_commutator_truncatedOracle_sq_le`):
   `‖[V, O^(t) ⊗ 1]‖² ≤ 80 I`.
 * **Corollary 5.6** (`Quantum.l2_opNorm_commutator_purifiedMeasurement_sq_le`): the bound for the
   purified measurement `V = ∑ i, P^(i) ⊗ U_i` with any unitaries `U_i` on a separate register `B`,
   and its XOR instance `Quantum.l2_opNorm_commutator_xorMeasurement_sq_le`, which records the
-  label in `B` by `|b⟩ ↦ |b + i⟩` (as in Don, Fehr, Majenz and Schaffner, Crypto 2022, Thm 3.1).
+  label in `B` by `|b⟩ ↦ |b + i⟩` (as in Don, Fehr, Majenz and Schaffner, EUROCRYPT 2022,
+  Thm 3.1).
 
 `∑ i, P^(i) A P^(i)` is the pinching `Matrix.pinch β A` of `A` by the labelling
 `β ((x, y), D) = π D` (`Matrix.pinch_eq_sum`).
@@ -43,20 +44,24 @@ By equation (4) the standard and phase forms have the same norm, and in the phas
 operator `Δ = pinch O_ph^(t) - O_ph^(t)` is block diagonal: its entry at `((x', χ'), D')`,
 `((x, χ), D)` vanishes unless `(x', χ') = (x, χ)` and `D'`, `D` agree off `x`. A block is therefore
 given by `(x, χ)` and a database `r` with `r x = ⊥`, and is indexed by the content `a` of the cell
-`x`. Its entries are `-[π r[x ↦ a'] ≠ π r[x ↦ a]] C a' a`, with `C = Quantum.phaseCell Y χ`, when
-`|r| < t`; when `|r| ≥ t` the truncation kills the whole block. Lemma 4.5 gives the entries of `C`
-for `χ ≠ 0`: `0` at `(⊥, ⊥)`, of square norm `1 / N` between `⊥` and `y`, and of square norm at
-most `9 / N²` between distinct `u` and `w`. Writing `B` for the answers `u` with
-`π r[x ↦ u] ≠ π r`, the squared entries of the block sum to at most
-`|B| / N + |B| / N + 18 |B| / N = 20 |B| / N ≤ 20 I` (`Quantum.sum_phaseCell_sq_le`), and the
+`x`. When `|r| < t` the truncation keeps the whole block, and the entries of the block of `Δ` are
+`-[π r[x ↦ a'] ≠ π r[x ↦ a]] C a' a`, with `C = Quantum.phaseCell Y χ`. When `|r| ≥ t` every
+filled content `r[x ↦ u]` has more than `t` entries, so of the block of `O_ph^(t)` at most the
+empty-to-empty entry, from `r` to `r`, survives. Pinching keeps that entry, so the block of `Δ`
+vanishes. Lemma 4.5 gives the entries of `C` for `χ ≠ 0`: `0` at `(⊥, ⊥)`, of square norm `1 / N`
+between `⊥` and `y`, and of square norm at most `9 / N²` between distinct `u` and `w`. Writing
+`B` for the answers `u` with `π r[x ↦ u] ≠ π r`, the squared entries of the block of `Δ` sum to at
+most `|B| / N + |B| / N + 18 |B| / N = 20 |B| / N ≤ 20 I` (`Quantum.sum_phaseCell_sq_le`), and the
 block Frobenius bound `Matrix.l2_opNorm_le_of_blocks` concludes.
 
-The proof in ePrint 2025/2166 fixes the basis states with `|D| = t`. They are not fixed: for
-`|D| = t` and `D x ≠ ⊥` the truncated phase oracle acts in full, because every database it reaches
-has at most `t` entries, and for `|D| = t` and `D x = ⊥` it gives `0`. The bound `20 I` holds all
-the same, since the blocks with `|r| ≥ t` vanish and the blocks with `|r| < t` are untruncated.
+The decomposition in the proof of [CDHZ, Lemma 5.9] treats inputs with `|D| = t` as acquiring
+only a phase. For a filled queried cell and `χ ≠ 0`, `O_ph^(t)` also produces the `t − 1` and
+resized terms of Lemma 4.5, since every database it reaches has at most `t` entries (for example
+`X = Unit`, `Y = ZMod 2`, `t = 1`). The proof here uses the block decomposition above instead; the
+bound `20 I(π, t)` and the constant are unchanged.
 
-The statements involving the instability take `X Y : Type`, as VCVio's query caches do.
+The statements involving the instability take `X Y : Type`, as VCVio's query caches do; the other
+statements are universe polymorphic.
 -/
 
 public section
@@ -209,11 +214,11 @@ theorem sum_phaseCell_sq_le {ι : Type*} [DecidableEq ι] (χ : AddChar Y ℂ) (
 
 end cell
 
-/-! ## Lemma 5.9 -/
+/-! ## The blocks of the truncated phase oracle -/
 
-section lemma59
+section phaseBlock
 
-variable {X Y : Type} [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y] [AddCommGroup Y]
+variable {X Y : Type*} [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y] [AddCommGroup Y]
 
 /-- Summing over the databases of a block of the phase basis: the basis states
 `((x', χ'), D')` with `(x', χ') = (x, χ)` and `D'[x ↦ ⊥] = r` are the states
@@ -248,7 +253,14 @@ theorem phaseBlock_eq_of_truncatedPhaseOracle_ne_zero {t : ℕ}
     · simp [Function.update_of_ne hjx, hj j hjx]
   · simp only [hc, ↓reduceIte, mul_zero, zero_mul, ne_eq, not_true_eq_false] at h
 
-variable [UniformAnswerMeasure (X →ₒ Y)] {ι : Type*} [DecidableEq ι]
+end phaseBlock
+
+/-! ## Lemma 5.9 -/
+
+section lemma59
+
+variable {X Y : Type} [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y] [AddCommGroup Y]
+  [UniformAnswerMeasure (X →ₒ Y)] {ι : Type*} [DecidableEq ι]
 
 /-- **Lemma 5.9 of ePrint 2025/2166, phase basis.** Pinching the truncated phase oracle by the
 labels of the databases moves it by at most `√(20 I)` in operator norm. -/
@@ -373,11 +385,11 @@ theorem l2_opNorm_pinch_truncatedOracle_sub_sq_le (π : Database X Y → ι) (t 
 
 end lemma59
 
-/-! ## Lemma 5.10, Theorem 5.4 and Corollary 5.6 -/
+/-! ## Lemma 5.10 -/
 
-section theorem54
+section lemma510
 
-variable {X Y : Type} [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y] [AddCommGroup Y]
+variable {X Y : Type*} [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y] [AddCommGroup Y]
   {ι : Type*} {E : Type*} [Fintype E] [DecidableEq E]
 
 /-- **Lemma 5.10 of ePrint 2025/2166** (after Chiesa, Manohar and Spooner, TCC 2019, Lemma 5.10).
@@ -406,7 +418,14 @@ theorem l2_opNorm_commutator_truncatedOracle_le_pinch [DecidableEq ι] (π : Dat
   gcongr
   exact l2_opNorm_kronecker_one_le _
 
-variable [UniformAnswerMeasure (X →ₒ Y)]
+end lemma510
+
+/-! ## Theorem 5.4 and Corollary 5.6 -/
+
+section theorem54
+
+variable {X Y : Type} [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y] [AddCommGroup Y]
+  [UniformAnswerMeasure (X →ₒ Y)] {ι : Type*} {E : Type*} [Fintype E] [DecidableEq E]
 
 /-- **Theorem 5.4 of ePrint 2025/2166.** Let `W i` be unitaries on the joint register
 `((X × Y) × Database X Y) × E` that preserve the label `π D` of the database and commute with

@@ -21,6 +21,7 @@ public import VCVio.Quantum.Oracle.Compressed.CommutatorBound
 * **A concrete instance**, `X = Unit` and `Y = ZMod 2`: the two-block partition at `y₀ = 0` has
   instability exactly `1 / 2` for every query bound `t ≥ 1`, the finest partition (the database
   itself) has instability exactly `1`, and both have instability `0` at query bound `0`.
+* **Universe polymorphism**: the block lemmas and Lemma 5.10 instantiate at `Type 1`.
 -/
 
 public section
@@ -167,5 +168,32 @@ example : Database.instability (fun D : Database Unit (ZMod 2) ↦ D) 0 = 0 :=
   Database.instability_zero _
 
 end concrete
+
+/-! ## Universe polymorphism
+
+The block lemmas and Lemma 5.10 apply at any universe; only the statements involving the
+instability need `X Y : Type`. -/
+
+section universes
+
+variable {X Y : Type 1} [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y] [AddCommGroup Y]
+
+example {t : ℕ} {m' m : (X × AddChar Y ℂ) × Database X Y}
+    (h : truncatedPhaseOracle X Y t m' m ≠ 0) :
+    (m'.1, Function.update m'.2 m'.1.1 none) = (m.1, Function.update m.2 m.1.1 none) :=
+  phaseBlock_eq_of_truncatedPhaseOracle_ne_zero h
+
+example {ι E : Type 1} [DecidableEq ι] [Fintype E] [DecidableEq E] (π : Database X Y → ι)
+    (t : ℕ) {W : ι → Matrix (((X × Y) × Database X Y) × E) (((X × Y) × Database X Y) × E) ℂ}
+    (hW : ∀ k a b, W k a b ≠ 0 → π a.1.2 = π b.1.2) (hU : ∀ k, W k ∈ unitaryGroup _ ℂ)
+    (hA : ∀ k, W k * (truncatedOracle X Y t ⊗ₖ (1 : Matrix E E ℂ)) =
+      (truncatedOracle X Y t ⊗ₖ (1 : Matrix E E ℂ)) * W k) :
+    ‖labelControlled (fun a ↦ π a.1.2) W * (truncatedOracle X Y t ⊗ₖ (1 : Matrix E E ℂ)) -
+        (truncatedOracle X Y t ⊗ₖ (1 : Matrix E E ℂ)) * labelControlled (fun a ↦ π a.1.2) W‖ ≤
+      2 * ‖pinch (fun m : (X × Y) × Database X Y ↦ π m.2) (truncatedOracle X Y t) -
+        truncatedOracle X Y t‖ :=
+  l2_opNorm_commutator_truncatedOracle_le_pinch π t hW hU hA
+
+end universes
 
 end VCVioTest.InstabilityBound
