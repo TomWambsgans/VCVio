@@ -778,7 +778,12 @@ def draw(x: str, comp: str) -> str:
 
 
 def result_ascription(term: str) -> str | None:
-    """An outer type ascription, without inferring the type of an unannotated term."""
+    """An outer type ascription `(e : T)`, without inferring the type of an unannotated term.
+
+    Only a parenthesized term can be an ascription; a colon after a binder keyword (`if h : c`,
+    `fun x : T`, `∀ x : T`, …) is not one."""
+    if not is_parenthesized(term.strip()):
+        return None
     inner = strip_parens(term)
     colon, j = -1, 0
     while j < len(inner):
@@ -801,7 +806,7 @@ def result_ascription(term: str) -> str | None:
             j += 1
     if colon < 0 or inner[colon:colon + 2] == ":=":
         return None
-    if re.match(r"(?:fun|let|have|show)\b", inner):
+    if re.match(r"(?:fun|let|have|show|if|match|do|by|for)\b|[λ∀∃Σ∑∏]", inner):
         return None
     ty = inner[colon + 1:].strip()
     return ty if ty else None

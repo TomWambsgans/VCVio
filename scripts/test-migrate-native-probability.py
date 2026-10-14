@@ -78,6 +78,14 @@ class EventTests(unittest.TestCase):
             _, items = migrate(source)
             self.assertEqual(items, [])
 
+    def test_binder_colons_are_not_ascriptions(self):
+        for comp in ("if h : True then drawTwo else drawTwo",
+                     "(if h : True then drawTwo else drawTwo)", "(fun x : ℕ => mx x) 0"):
+            _, items = migrate(f"Pr[(· < (1 : Fin 2)) | {comp}]")
+            self.assertEqual(len(items), 1, comp)
+        self.assertEqual(codemod.result_ascription("(pure 2 : ProbComp (Fin 2))"),
+                         "ProbComp (Fin 2)")
+
     def test_separators_inside_literals_and_comments(self):
         self.assertMigrates('Pr[fun x => x = "a|b" | mx]', 'Pr{let x ← mx}[x = "a|b"]')
         self.assertMigrates("Pr[fun c => c = '|' | mc]", "Pr{let c ← mc}[c = '|']")
