@@ -13,7 +13,8 @@ public import Mathlib.Data.Fintype.Basic
 A register of a quantum program is a finite basis type with decidable equality: the operators on
 the register are the complex matrices indexed by it. `Quantum.QReg` bundles such a type with its
 instances, so that registers can be the indices of a type family. Quantum programs
-(`Quantum.QuantumComp`) are indexed by the register they start on and the register they end on.
+(`Quantum.QuantumComp`) are indexed by the register they start on, and each leaf of a program
+sits on its own final register.
 
 ## Main definitions
 

@@ -21,6 +21,12 @@ exactly as `oa` is: its continuation after each call is the continuation of `oa`
 
 No query bound, workspace or default value is needed: the program tree is the tree of `oa`.
 
+The embedding is a program over instruments (`Quantum.QComp`): its local steps, the preparation
+of `|t, 0⟩` and the measurement of the register, are subinstruments, and it returns the value of
+`oa` on the trivial register, so its law is a law on `α`. The theorems below are therefore stated
+for this fixed-register form; the statements they rest on (runs, budgets, locality) hold for
+general programs.
+
 ## Main results
 
 * `OracleComp.lossless_toQuantum` and `OracleComp.isQueryBound_toQuantum`: the program is
@@ -53,36 +59,36 @@ the oracle, read the register in the computational basis, return the response an
 register. -/
 @[expose]
 noncomputable def classicalQuery (t : X) :
-    QuantumComp (qromSpec X Y) (QReg.of Unit) (QReg.of Unit) Y :=
-  (QuantumComp.act (B := QReg.of (X × Y))
+    QComp (qromSpec X Y) (QReg.of Unit) (QReg.of Unit) Y :=
+  (QComp.act (B := QReg.of (X × Y))
       (SubInstrument.classical (fun _ : Unit ↦ (t, (0 : Y))) fun _ ↦ ())).bind fun _ ↦
-    (QuantumComp.query (spec := qromSpec X Y) () (QReg.of Unit)
+    (QuantumComp₂.query (L := LocalSig.instruments) (spec := qromSpec X Y) () (QReg.of Unit)
         (Equiv.prodPUnit (X × Y)).symm).bind fun _ ↦
-      QuantumComp.act (A := QReg.of ((X × Y) × Unit))
+      QComp.act (A := QReg.of ((X × Y) × Unit))
         (SubInstrument.classical (fun _ ↦ ()) fun m : (X × Y) × Unit ↦ m.1.2)
 
 /-- The implementation of the classical oracle `X →ₒ Y` by quantum programs on the trivial
 register: query `t` is answered by `Quantum.classicalQuery t`. -/
 @[expose]
 noncomputable def classicalImpl :
-    QueryImpl (X →ₒ Y) (QuantumComp (qromSpec X Y) (QReg.of Unit) (QReg.of Unit)) :=
+    QueryImpl (X →ₒ Y) (QComp (qromSpec X Y) (QReg.of Unit) (QReg.of Unit)) :=
   fun t ↦ classicalQuery t
 
 /-- A classical query is a lossless program. -/
 theorem lossless_classicalQuery (t : X) :
-    (classicalQuery (Y := Y) t).Lossless :=
-  (QuantumComp.lossless_act (SubInstrument.lossless_classical _ _)).bind fun _ ↦
-    (QuantumComp.lossless_query _ _ _).bind fun _ ↦
-      QuantumComp.lossless_act (SubInstrument.lossless_classical _ _)
+    (classicalQuery (Y := Y) t).Lossless .instruments :=
+  QuantumComp₂.lossless_bind (QComp.lossless_act (SubInstrument.lossless_classical _ _)) fun _ ↦
+    QuantumComp₂.lossless_bind (QuantumComp₂.lossless_query _ _ _) fun _ ↦
+      QComp.lossless_act (SubInstrument.lossless_classical _ _)
 
 /-- A classical query makes one call. -/
 theorem isQueryBound_classicalQuery (t : X) :
     (classicalQuery (Y := Y) t).IsQueryBound fun _ ↦ 1 := by
-  rw [classicalQuery, QuantumComp.isQueryBound_act_bind_iff]
+  rw [classicalQuery, QComp.isQueryBound_act_bind_iff]
   intro _
-  refine (QuantumComp.IsQueryBound.bind (b₁ := fun _ ↦ 1) (b₂ := 0) ?_
-    fun _ ↦ QuantumComp.isQueryBound_act _ _).mono (add_zero _).le
-  exact (QuantumComp.isQueryBound_query_iff _ _ _ _).mpr Nat.one_pos
+  refine (QuantumComp₂.isQueryBound_bind (b₁ := fun _ ↦ 1) (b₂ := 0) ?_
+    fun _ ↦ QComp.isQueryBound_act _ _).mono (add_zero _).le
+  exact (QuantumComp₂.isQueryBound_query_iff _ _ _ _).mpr Nat.one_pos
 
 end Quantum
 
@@ -96,13 +102,13 @@ variable {X Y α : Type} [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y]
 trivial register: every query is answered by `Quantum.classicalQuery`. -/
 @[expose]
 noncomputable def toQuantum (oa : OracleComp (X →ₒ Y) α) :
-    QuantumComp (qromSpec X Y) (QReg.of Unit) (QReg.of Unit) α :=
+    QComp (qromSpec X Y) (QReg.of Unit) (QReg.of Unit) α :=
   simulateQ classicalImpl oa
 
 /-- A computation that returns at once runs to the program that returns at once. -/
 @[simp]
 theorem toQuantum_pure (a : α) :
-    (pure a : OracleComp (X →ₒ Y) α).toQuantum = QuantumComp.pure a :=
+    (pure a : OracleComp (X →ₒ Y) α).toQuantum = QuantumComp₂.pure a :=
   rfl
 
 /-- A query followed by a continuation runs to the classical query followed by the programs of
@@ -115,23 +121,24 @@ theorem toQuantum_query_bind (t : X) (k : Y → OracleComp (X →ₒ Y) α) :
   rfl
 
 /-- The quantum program of a classical algorithm is lossless. -/
-theorem lossless_toQuantum (oa : OracleComp (X →ₒ Y) α) : oa.toQuantum.Lossless := by
+theorem lossless_toQuantum (oa : OracleComp (X →ₒ Y) α) : oa.toQuantum.Lossless .instruments := by
   induction oa using OracleComp.inductionOn with
-  | pure a => exact QuantumComp.lossless_pure a
+  | pure a => exact QuantumComp₂.lossless_pure a
   | query_bind t k ih =>
     rw [toQuantum_query_bind]
-    exact (lossless_classicalQuery t).bind ih
+    exact QuantumComp₂.lossless_bind (lossless_classicalQuery t) ih
 
 /-- A classical algorithm making at most `n` queries runs to a program making at most `n`
 calls. -/
 theorem isQueryBound_toQuantum {oa : OracleComp (X →ₒ Y) α} {n : ℕ}
     (h : IsTotalQueryBound oa n) : oa.toQuantum.IsQueryBound fun _ ↦ n := by
   induction oa using OracleComp.inductionOn generalizing n with
-  | pure a => exact QuantumComp.isQueryBound_pure a _
+  | pure a => exact QuantumComp₂.isQueryBound_pure a _
   | query_bind t k ih =>
     rw [isTotalQueryBound_query_bind_iff] at h
     rw [toQuantum_query_bind]
-    refine ((isQueryBound_classicalQuery t).bind fun y ↦ ih y (h.2 y)).mono fun _ ↦ ?_
+    refine (QuantumComp₂.isQueryBound_bind (isQueryBound_classicalQuery t)
+      fun y ↦ ih y (h.2 y)).mono fun _ ↦ ?_
     simp only [Pi.add_apply]
     omega
 
@@ -157,17 +164,17 @@ theorem run_classicalQuery_branch_of_basis (H : X → Y) {R : QuantumRuntime (qr
     (hR : ∀ (m : X × Y) (d : R.D), (R.step ()).branch () (Matrix.single (m, d) (m, d) 1) =
       Matrix.single ((m.1, m.2 + H m.1), d) ((m.1, m.2 + H m.1), d) 1)
     (t : X) (d : R.D) (y : Y) :
-    (R.run (classicalQuery t)).branch y (Matrix.single ((), d) ((), d) 1) =
+    (R.run₂ .instruments (classicalQuery t)).branch y (Matrix.single ((), d) ((), d) 1) =
       if H t = y then Matrix.single ((), d) ((), d) 1 else 0 := by
-  rw [classicalQuery, QuantumRuntime.run_act_bind, SubInstrument.branch_bind_unit,
+  rw [classicalQuery, QuantumRuntime.run₂_act_bind, SubInstrument.branch_bind_unit,
     LinearMap.comp_apply, SubInstrument.branch_frame_single, SubInstrument.branch_classical_basis]
   simp only [↓reduceIte]
-  rw [Matrix.single_kronecker_single, one_mul, QuantumRuntime.run_query_bind,
+  rw [Matrix.single_kronecker_single, one_mul, QuantumRuntime.run₂_query_bind,
     SubInstrument.branch_bind_unit, LinearMap.comp_apply, QuantumRuntime.queryStep_branch_apply,
     SubInstrument.branch_relabel, SubInstrument.branch_relabel, conj_basisMatrix_equiv_single]
   simp only [QuantumRuntime.queryEquivIn_apply, Equiv.prodPUnit_symm_apply]
   rw [SubInstrument.branch_frame_single, hR, Matrix.single_kronecker_single, one_mul,
-    conj_basisMatrix_equiv_single, QuantumRuntime.run_act, SubInstrument.bind_pure]
+    conj_basisMatrix_equiv_single, QuantumRuntime.run₂_act, SubInstrument.bind_pure]
   simp only [QuantumRuntime.queryEquivOut_apply]
   rw [SubInstrument.branch_frame_single, SubInstrument.branch_classical_basis]
   by_cases h : H t = y <;> simp [h, Matrix.single_kronecker_single]
@@ -194,18 +201,18 @@ theorem run_toQuantum_branch_of_basis [DecidableEq α] (H : X → Y)
     (hR : ∀ (m : X × Y) (d : R.D), (R.step ()).branch () (Matrix.single (m, d) (m, d) 1) =
       Matrix.single ((m.1, m.2 + H m.1), d) ((m.1, m.2 + H m.1), d) 1)
     (oa : OracleComp (X →ₒ Y) α) (d : R.D) (a : α) :
-    (R.run oa.toQuantum).branch a (Matrix.single ((), d) ((), d) 1) =
+    (R.run₂ .instruments oa.toQuantum).branch a (Matrix.single ((), d) ((), d) 1) =
       if evalWithAnswerFn (QueryImpl.ofFn H) oa = a then Matrix.single ((), d) ((), d) 1
       else 0 := by
   induction oa using OracleComp.inductionOn with
   | pure b =>
-    rw [OracleComp.toQuantum_pure, QuantumRuntime.run_pure, evalWithAnswerFn_pure]
+    rw [OracleComp.toQuantum_pure, QuantumRuntime.run₂_pure, evalWithAnswerFn_pure]
     by_cases h : b = a
     · subst h
       simp
     · simp [h, SubInstrument.branch_pure_of_ne (Ne.symm h)]
   | query_bind t k ih =>
-    rw [OracleComp.toQuantum_query_bind, QuantumRuntime.run_bind,
+    rw [OracleComp.toQuantum_query_bind, QuantumRuntime.run₂_bind,
       SubInstrument.branch_bind_apply, tsum_eq_single (H t) fun y hy ↦ by
         simp [run_classicalQuery_branch_of_basis H hR, Ne.symm hy],
       run_classicalQuery_branch_of_basis H hR]
@@ -221,10 +228,10 @@ theorem outcomeLaw_toQuantum_of_basis [MeasurableSpace α] (H : X → Y)
     (hR : ∀ (m : X × Y) (d : R.D), (R.step ()).branch () (Matrix.single (m, d) (m, d) 1) =
       Matrix.single ((m.1, m.2 + H m.1), d) ((m.1, m.2 + H m.1), d) 1)
     {d₀ : R.D} (hinit : R.init = SubState.basis d₀) (oa : OracleComp (X →ₒ Y) α) :
-    R.outcomeLaw oa.toQuantum (SubState.basis ()) =
+    R.outcomeLaw₂ .instruments oa.toQuantum (SubState.basis ()) =
       Measure.dirac (evalWithAnswerFn (QueryImpl.ofFn H) oa) := by
   classical
-  rw [QuantumRuntime.outcomeLaw, hinit, SubState.basis_prod_basis]
+  rw [QuantumRuntime.outcomeLaw₂, hinit, SubState.basis_prod_basis]
   ext t ht
   rw [SubInstrument.outcomeMeasure_apply _ _ ht,
     tsum_eq_single (evalWithAnswerFn (QueryImpl.ofFn H) oa) fun b hb ↦ by
@@ -236,7 +243,7 @@ theorem outcomeLaw_toQuantum_of_basis [MeasurableSpace α] (H : X → Y)
 the algorithm against `H` with certainty. -/
 theorem outcomeLaw_xorRuntime_toQuantum [MeasurableSpace α] (H : X → Y)
     (oa : OracleComp (X →ₒ Y) α) :
-    (xorRuntime H).outcomeLaw oa.toQuantum (SubState.basis ()) =
+    (xorRuntime H).outcomeLaw₂ .instruments oa.toQuantum (SubState.basis ()) =
       Measure.dirac (evalWithAnswerFn (QueryImpl.ofFn H) oa) :=
   outcomeLaw_toQuantum_of_basis H (xorRuntime_step_branch_single H) (xorRuntime_init H) oa
 
@@ -249,7 +256,7 @@ The law, in the quantum random-oracle model, of the program of a classical algor
 output measure of the classical experiment that samples a function `H : X → Y` uniformly and
 evaluates the algorithm with every query answered by `H`. No query bound is needed. -/
 theorem qromLaw_toQuantum [MeasurableSpace α] (oa : OracleComp (X →ₒ Y) α) :
-    qromLaw oa.toQuantum (SubState.basis ()) =
+    qromLaw .instruments oa.toQuantum (SubState.basis ()) =
       𝒟[do let H ← $ᵗ (X → Y); pure (evalWithAnswerFn (QueryImpl.ofFn H) oa)] := by
   let : MeasurableSpace (X → Y) := ⊤
   rw [evalDist_bind_of_discrete, qromLaw, sampledLaw]
@@ -262,7 +269,8 @@ theorem qromLaw_toQuantum [MeasurableSpace α] (oa : OracleComp (X →ₒ Y) α)
 output measure of the algorithm under the lazily sampled, cached random oracle. -/
 theorem qromLaw_toQuantum_eq_randomOracle [SampleableType Y] [MeasurableSpace α]
     (oa : OracleComp (X →ₒ Y) α) :
-    qromLaw oa.toQuantum (SubState.basis ()) = 𝒟[(simulateQ randomOracle oa).run' ∅] := by
+    qromLaw .instruments oa.toQuantum (SubState.basis ()) =
+      𝒟[(simulateQ randomOracle oa).run' ∅] := by
   rw [qromLaw_toQuantum, OracleComp.evalDist_simulateQ_randomOracle_run'_empty_eq_uniformTable]
 
 end Quantum
