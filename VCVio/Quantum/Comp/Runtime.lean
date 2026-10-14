@@ -233,7 +233,6 @@ noncomputable def run₂ (x : QuantumComp₂ L spec A B α) : SubInstrument (A �
 
 /-- **Agreement of the two runs.** The branch at `a` of the fixed-register run is the branch of
 the general run at the leaf `⟨B, rfl, a⟩`. -/
-@[simp]
 theorem branch_run₂ (x : QuantumComp₂ L spec A B α) (a : α) :
     (R.run₂ I x).branch a = (R.run I x).branch ⟨B, rfl, a⟩ :=
   rfl
