@@ -384,8 +384,9 @@ example (g : ℕ → ProbComp ℕ) (p : ℕ → ℕ → Prop) :
 -- is rejected.
 /--
 error: the event reads `h`, which the imperative code binds but cannot return to it: a proof,
-a type, or a value whose type depends on another of its bindings. Rename it, or bind what the
-event needs to a value
+a type, a local instance, or a value whose type depends on another of its bindings
+
+Rename it, or bind what the event needs to a value
 -/
 #guard_msgs (whitespace := lax) in
 noncomputable example (h : ℕ) : ℝ≥0∞ := Pr{
@@ -418,8 +419,9 @@ def _p : Prop := True
 local macro "readP" : term => `($(Lean.mkIdent `_p))
 /--
 error: the event reads `_p`, which the imperative code binds but cannot return to it: a proof,
-a type, or a value whose type depends on another of its bindings. Rename it, or bind what the
-event needs to a value
+a type, a local instance, or a value whose type depends on another of its bindings
+
+Rename it, or bind what the event needs to a value
 -/
 #guard_msgs (whitespace := lax) in
 noncomputable example : ℝ≥0∞ := Pr{
@@ -431,7 +433,65 @@ example : Pr{let mut x ← (pure 1 : ProbComp ℕ)}[x = TailResolution.x + 1] = 
 local macro "readX" : term => `($(Lean.mkIdent `x) < (1 : Fin 2))
 example : Pr{let _ ← (pure () : ProbComp Unit); let mut x := 2; x := x + 2}[readX] = 1 := by
   simp
+/-- An event elaborator that needs its expected type: the event is resolved at the end of the tail
+under `Prop`, as it is outside, and reads the hidden `_p`. -/
+local elab "needsProp " p:term : term <= expected => do
+  if expected.isMVar then throwError "expected type required"
+  Lean.Elab.Term.elabTermEnsuringType p expected
+/--
+error: the event reads `_p`, which the imperative code binds but cannot return to it: a proof,
+a type, a local instance, or a value whose type depends on another of its bindings
+
+Rename it, or bind what the event needs to a value
+-/
+#guard_msgs (whitespace := lax) in
+noncomputable example : ℝ≥0∞ := Pr{
+    let mut _n ← (pure 0 : ProbComp ℕ)
+    let _p : Prop := False}[needsProp _p]
+-- A local instance of the tail is found by instance resolution, not by name; it cannot be
+-- returned, so an event that uses it is rejected.
+/--
+error: the event reads an unnamed binding, which the imperative code binds but cannot return to
+it: a proof, a type, a local instance, or a value whose type depends on another of its bindings,
+here
+  Inhabited Prop
+
+Rename it, or bind what the event needs to a value
+-/
+#guard_msgs (whitespace := lax) in
+noncomputable example : ℝ≥0∞ := Pr{
+    let mut _n ← (pure 0 : ProbComp ℕ)
+    let _ : Inhabited Prop := ⟨False⟩}[default]
+/--
+error: the event reads an unnamed binding, which the imperative code binds but cannot return to
+it: a proof, a type, a local instance, or a value whose type depends on another of its bindings,
+here
+  Inhabited ℝ≥0∞
+
+Rename it, or bind what the event needs to a value
+-/
+#guard_msgs (whitespace := lax) in
+noncomputable example : ℝ≥0∞ := 𝔼{
+    let mut _n ← (pure 0 : ProbComp ℕ)
+    let _ : Inhabited ℝ≥0∞ := ⟨7⟩}[default]
+-- An event the elaborator cannot resolve is reported once, from the end of the tail.
+/--
+error: Unknown identifier `nosuch`
+-/
+#guard_msgs (whitespace := lax) in
+noncomputable example : ℝ≥0∞ := Pr{let mut x ← (pure 3 : ProbComp ℕ)}[nosuch x]
 end TailResolution
+
+-- An observation written as a tactic block is completed before it is observed.
+example : Pr{let mut _n ← (pure 0 : ProbComp ℕ)}[by exact True] = 1 := by simp
+example : Pr{let _x ← (pure 0 : ProbComp ℕ)}[by exact True] = 1 := by simp
+example : 𝔼{let mut n ← (pure 2 : ProbComp ℕ)}[by exact (n : ℝ≥0∞)] = 2 := by simp
+example : 𝔼{let n ← (pure 2 : ProbComp ℕ)}[by exact (n : ℝ≥0∞)] = 2 := by simp
+-- A hole for the event is left to unification, as in `do`.
+set_option linter.unusedTactic false in
+example : Pr{let mut n ← (pure 2 : ProbComp ℕ); n := n + 1}[n = 3] = 1 := by
+  change Pr{let mut n ← (pure 2 : ProbComp ℕ); n := n + 1}[_] = _
+  simp
 
 -- `let pat ← e | alt` takes the rest of the block as its body, so the end of the tail is
 -- inside it and the pattern's variables are observed, not an outer `x`.
@@ -460,7 +520,7 @@ example (x : ℕ) : Pr{
   simp
 example : Pr{
     let b ← ($ᵗ Bool : ProbComp Bool)
-    let mut n : ℕ := 0
+    let mut _n : ℕ := 0
     let some x ← (pure (if b then some 3 else none) : OptionT ProbComp (Option ℕ)) | failure}[
     x = 3] = 1 / 2 := by
   simp
@@ -505,19 +565,19 @@ example : Pr{let _ ← outer; let _ ← (failure : OptionT ProbComp Bool)}[True]
 /-- Imperative tails infer their own transformer monad, including through a nested stack. -/
 example : Pr{
     let _ ← (pure () : ProbComp Unit)
-    let mut unused := 0
+    let mut _unused := 0
     let _ ← (failure : OptionT ProbComp Bool)}[True] = 0 := by simp
 example : Pr{
     let _ ← (pure () : ProbComp Unit)
-    let mut unused := 0
+    let mut _unused := 0
     let _ ← (throw "error" : ExceptT String ProbComp Bool)}[True] = 0 := by simp
 example : Pr{
     let _ ← (pure () : ProbComp Unit)
-    let mut unused := 0
+    let mut _unused := 0
     let _ ← (failure : OptionT (ExceptT String ProbComp) Bool)}[True] = 0 := by simp
 example : Pr{
     let _ ← (pure () : ProbComp Unit)
-    let mut unused := 0
+    let mut _unused := 0
     let _ ← (throw "error" : ExceptT String (OptionT ProbComp) Bool)}[True] = 0 := by simp
 
 /-- Base draws use the ordinary lift once the tail's transformer monad is determined. -/

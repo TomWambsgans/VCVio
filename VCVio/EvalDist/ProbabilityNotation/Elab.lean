@@ -203,8 +203,9 @@ index at least `n` (the size of the context before the tail) under its innermost
 binding with macro scopes is returned when the observation names it, so a hygienic binding of a
 macro is observed by that macro's own event. A proof, a type, or a value whose type mentions
 another tail variable cannot be returned, and the observation is resolved here, at the end of the
-tail, to check it reads none. The tuple is annotated with the names; `obs` is carried for this,
-for its identifiers and for source positions. -/
+tail, under its expected type (`obs` is ascribed `Prop` or `ℝ≥0∞`), to check it reads none. The
+tuple is annotated with the names; `obs` is carried for this, for its identifiers and for source
+positions. -/
 syntax (name := tailScopeStx) "tailScope% " num " observing " term : term
 
 /-- The metadata key of the names returned by `tailScope%`. -/
@@ -244,25 +245,52 @@ def elabTailScope (n : Nat) (obs : Term) : TermElabM Expr := do
   let observed := vars.qsort fun a b => first[a.userName]! < first[b.userName]!
   -- The observation is elaborated outside, over the returned variables. Resolving it here, where
   -- ordinary `do` would, shows which bindings it reads; a tail binding it reads that is not
-  -- returned would be seen outside as an outer variable or a constant of the same name.
+  -- returned would be seen outside as an outer variable or a constant of the same name. `obs`
+  -- carries its expected type and its elaboration is completed, so it resolves here as it will
+  -- outside; a resolution that fails is reported, never passed over.
+  let hidden (d : LocalDecl) : Bool :=
+    d.index ≥ n && !d.isImplementationDetail && !observed.any (·.fvarId == d.fvarId)
+  let reject (d : LocalDecl) : TermElabM Unit := do
+    let (what, ty) := if d.userName.hasMacroScopes
+      then (m!"an unnamed binding", m!", here{indentExpr d.type}")
+      else (m!"`{d.userName}`", m!"")
+    throwErrorAt ((findMention? obs d.userName).getD obs) m!"the event reads {what}, which the \
+      imperative code binds but cannot return to it: a proof, a type, a local instance, or a \
+      value whose type depends on another of its bindings{ty}\n\nRename it, or bind what the \
+      event needs to a value"
+  -- When the event does not resolve here, a hidden binding it names is the likely cause.
+  let rejectNamed : TermElabM Unit := do
+    for d in lctx do
+      if hidden d && (lctx.findFromUserName? d.userName).any (·.fvarId == d.fvarId) &&
+          (findMention? obs d.userName).isSome then
+        reject d
   let s ← saveState
-  let read? ← try
-      let e ← withoutErrToSorry <| withSynthesize (postpone := .partial) <| elabTerm obs none
-      pure (some (← instantiateMVars e))
-    catch _ => pure none
+  let read : Sum MessageLog Expr ← try
+      modifyThe Core.State ({ · with messages := {} })
+      let e ← withoutErrToSorry <| withSynthesize (postpone := .no) <| elabTerm obs none
+      let e ← instantiateMVars e
+      let log ← Core.getMessageLog
+      pure <| if log.hasErrors then .inl log else .inr e
+    catch ex =>
+      s.restore (restoreInfo := true)
+      rejectNamed
+      throw ex
   s.restore (restoreInfo := true)
-  if let some e := read? then
-    for f in (collectFVars {} e).fvarIds do
-      let some d := lctx.find? f | continue
-      if d.index ≥ n && !observed.any (·.fvarId == f) then
-        throwErrorAt ((findMention? obs d.userName).getD obs) m!"the event reads `{d.userName}`, \
-          which the imperative code binds but cannot return to it: a proof, a type, or a value \
-          whose type depends on another of its bindings. Rename it, or bind what the event \
-          needs to a value"
-  -- The tail returns its variables to the observation: record each as used there, at the
-  -- identifier naming it, for the unused-variables linter.
+  let e ← match read with
+    | .inl log =>
+      rejectNamed
+      modifyThe Core.State fun st => { st with messages := st.messages ++ log }
+      throwAbortTerm
+    | .inr e => pure e
+  for f in (collectFVars {} e).fvarIds do
+    if let some d := lctx.find? f then
+      if hidden d then reject d
+  -- The tail returns its variables to the observation: record each the observation names as used
+  -- there, at that identifier, for the unused-variables linter, which then warns as it does in
+  -- `do` on a variable neither the tail nor the observation reads.
   for d in observed do
-    addTermInfo' ((findMention? obs d.userName).getD obs) d.toExpr
+    if let some m := findMention? obs d.userName then
+      addTermInfo' m d.toExpr
   let mut tup := Lean.mkConst ``Unit.unit
   if let some last := observed.back? then
     tup := last.toExpr
@@ -335,13 +363,18 @@ def mkTuple (vars : Array Ident) : MacroM (Term × Term) := do
     let t ← go vs
     return (t, t)
 
+/-- `e` eta-reduced, unless it holds a metavariable: `fun x => ?m x` is how a pending tactic block
+under the binder is written, and reducing it to `?m` would lose the binder its proof is given. -/
+def etaObs (e : Expr) : Expr :=
+  if e.hasExprMVar then e else e.eta
+
 /-- The predicate of an indicator observation, eta-reduced: `fun x => p x` for an observation
 `fun x => propInd (p x)`, and `fun b => b` for `propInd`. -/
 def indicatorPred? (g : Expr) : Option Expr :=
   match g.cleanupAnnotations with
   | .lam n ty b bi =>
     let b := b.cleanupAnnotations
-    if b.isAppOfArity ``propInd 1 then some (Expr.lam n ty b.appArg! bi).eta else none
+    if b.isAppOfArity ``propInd 1 then some (etaObs (Expr.lam n ty b.appArg! bi)) else none
   | .const ``propInd _ => some (.lam `b (.sort .zero) (.bvar 0) .default)
   | _ => none
 
@@ -525,11 +558,11 @@ def mkInnermost (binderStx : Term) (α : Expr) (pureItems : Array Item) (val : T
   if event then
     let p ← elabTermEnsuringType (← `(fun $binderStx => ($body : Prop)))
       (← mkArrow α (mkSort .zero))
-    mkAppM ``predInd #[(← instantiateMVars p).eta]
+    mkAppM ``predInd #[etaObs (← instantiateMVars p)]
   else
     let g ← elabTermEnsuringType (← `(fun $binderStx => ($body : ENNReal)))
       (← mkArrow α (Lean.mkConst ``ENNReal))
-    let g := (← instantiateMVars g).eta
+    let g := etaObs (← instantiateMVars g)
     match indicatorPred? g with
     | some p => mkAppM ``predInd #[p]
     | none => pure g
@@ -596,7 +629,8 @@ partial def elabSeq (hint? : Option Expr) (items : Array (TSyntax ``Lean.Parser.
     let guardedItems ← items.mapM fun item => do
       return (⟨← liftMacroM (protectTailDraws item.raw)⟩ : TSyntax ``Lean.Parser.Term.doSeqItem)
     let scope := Syntax.mkNumLit (toString (← getLCtx).numIndices)
-    let endItem ← `(Lean.Parser.Term.doSeqItem| pure (tailScope% $scope observing $val))
+    let obs ← if event then `(($val : Prop)) else `(($val : ENNReal))
+    let endItem ← `(Lean.Parser.Term.doSeqItem| pure (tailScope% $scope observing $obs))
     let progItems := appendAtEnd (guardedItems.map (·.raw)) endItem.raw
     let prog ← `((do $(progItems.map (⟨·⟩)):doSeqItem*))
     let (a, m, β) ← elabTail hint? prog
@@ -605,7 +639,7 @@ partial def elabSeq (hint? : Option Expr) (items : Array (TSyntax ``Lean.Parser.
     checkMeasureSemantics m
     let body ← if event then `(propInd ($val : Prop)) else pure val
     let g ← elabTermEnsuringType (← `(fun $tupPat => ($body : ENNReal))) (← mkArrow β ennreal)
-    let g := (← instantiateMVars g).eta
+    let g := etaObs (← instantiateMVars g)
     let g ← match indicatorPred? g with
       | some p => mkAppM ``predInd #[p]
       | none => pure g
