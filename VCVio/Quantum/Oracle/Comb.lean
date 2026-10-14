@@ -38,12 +38,21 @@ output and private register against the runtime.
 Both hypotheses on top of the idle input are needed for combs as defined here. A comb discards
 the classical result of each call (`Quantum.QuantumRuntime.combQuery`): against a port that
 measures a private uniform bit and returns it, a one-query program outputs a bit correlated with
-the private register, and no comb does. The steps of a comb are lossless, so a comb keeps equal
-weights on a private register that starts uniform, while a program that postselects can leave
-unequal ones. Without an idle input combs are strictly weaker as well: against a runtime that
-counts its calls, a program that calls a different number of times on different paths has a joint
-law that no comb reproduces (see the counting-runtime test in `VCVioTest/Quantum/Oracle.lean`),
-and with several ports a comb fixes the order of its calls in advance.
+the private register, and no comb does. The program must be lossless because the steps of a comb
+are. Take a runtime whose private bit `d` starts uniform and whose port, on a control bit `1`,
+adds `d` to a target bit of the port register, and on control `0` does nothing; no call changes
+`d`. Every operation of a comb against it is lossless and preserves the classical label `d`, so
+the marginal of `d`, after summing over all outputs, keeps equal weights on `0` and `1`. A
+program that copies `d` with one call, reads the copy and fails on `1` leaves weight only on
+`d = 0`, and no comb reproduces its joint law. The invariant belongs to this runtime and not to
+combs in general: calls may change the private register. A port that resets the private bit to
+`0` on control `1` and does nothing on control `0` is lossless with an idle input, and a lossless
+one-slot comb that prepares control `1` turns a uniform private bit into a deterministic one.
+
+Without an idle input combs are strictly weaker as well: against a runtime that counts its calls,
+a program that calls a different number of times on different paths has a joint law that no comb
+reproduces (see the counting-runtime test in `VCVioTest/Quantum/Oracle.lean`), and with several
+ports a comb fixes the order of its calls in advance.
 
 Combs embed as programs over instruments (`Quantum.QComp`): their steps are subinstruments, and
 their output is a value on the fixed register `M`. The statements below are therefore about this
