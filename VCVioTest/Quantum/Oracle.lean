@@ -32,11 +32,13 @@ Oracles `Fin 2 → Fin 2`, queried on the register `Fin 2 × Fin 2`.
   slots cannot.
 * **Guessing without queries.** A lossless program with budget zero, over any primitive
   signature and interpretation, guesses a point of a uniformly sampled oracle with probability
-  `1 / 2`.
+  `1 / 2`, whether it returns its guess on a fixed final register or reads it off a leaf whose
+  register depends on the outcome.
 * **A register that depends on an outcome.** A program calls the oracle with an ancilla as the
   remainder, measures the ancilla and keeps it on `0` or discards it on `1`, so that its final
   register depends on the outcome. Against the oracle unitary it is lossless, makes one call, and
-  keeps the trace of its input.
+  keeps the trace of its input; its law in the quantum random-oracle model has total mass the
+  trace of its input.
 * **Higher universes.** A measurement whose outcomes lie in `Type 1`, and a program whose leaves
   (its final registers) lie in `Type 1`, run against the oracle unitary and keep the trace of
   their input.
@@ -205,9 +207,9 @@ example : queryZero.toQuantum.IsQueryBound fun _ ↦ 1 :=
 /-- The law of the program in the quantum random-oracle model is the law of the algorithm under
 the lazily sampled random oracle; no query bound is used. -/
 example :
-    qromLaw .instruments queryZero.toQuantum (SubState.basis ()) =
+    qromLaw₂ .instruments queryZero.toQuantum (SubState.basis ()) =
       𝒟[(simulateQ randomOracle queryZero).run' ∅] :=
-  qromLaw_toQuantum_eq_randomOracle queryZero
+  qromLaw₂_toQuantum_eq_randomOracle queryZero
 
 /-- The adaptive algorithm that queries `0`, and then queries the answer. -/
 def queryTwice : OracleComp (Fin 2 →ₒ Fin 2) (Fin 2) := do
@@ -493,8 +495,17 @@ theorem jointPost₂_coinProg :
 in a state of trace one, guesses a point of the oracle with probability `1 / 2`. -/
 example {L : LocalSig} (I : L.Interp) {A B : QReg} (x : QuantumComp₂ L qrom2 A B (Fin 2 × Fin 2))
     (hx : x.IsQueryBound 0) (hl : x.Lossless I) {ρ : SubState A} (h : ρ.matrix.trace = 1) :
-    qromLawWith I x ρ (fun H a ↦ a.2 = H a.1) {True} = 2⁻¹ := by
-  simpa using qromLawWith_guess_zero_of_trace_eq_one I hx hl h
+    qromLawWith₂ I x ρ (fun H a ↦ a.2 = H a.1) {True} = 2⁻¹ := by
+  simpa using qromLawWith₂_guess_zero_of_trace_eq_one I hx hl h
+
+/-- The same for a general program, whose final register may depend on the outcome: a lossless
+program with budget zero whose leaves carry guesses guesses a point of the oracle with probability
+`1 / 2`. -/
+example {L : LocalSig} (I : L.Interp) {W : QReg → Type} {A : QReg}
+    (x : QuantumComp L qrom2 W A) (hx : x.IsQueryBound 0) (hl : x.Lossless I)
+    (gx gy : (Σ u, W u) → Fin 2) {ρ : SubState A} (h : ρ.matrix.trace = 1) :
+    qromLawWith I x ρ (fun H p ↦ gy p = H (gx p)) {True} = 2⁻¹ := by
+  simpa using qromLawWith_guess_zero_of_trace_eq_one I hx hl gx gy h
 
 /-! ## The fixed-register run is the general run -/
 
@@ -599,6 +610,14 @@ example (H : Fin 2 → Fin 2) (ρ : SubState (QReg.of (Reg × Fin 2))) :
   rw [(xorRuntime H).outcomeLaw_apply_univ_of_lossless .instruments
     (lossless_run_xorRuntime .instruments lossless_queryKeepOrDiscard H),
     trace_re_xorRuntime_init, mul_one]
+
+/-- In the quantum random-oracle model, the law of the leaf of the program that keeps or discards
+the ancilla, whose two leaves sit on different registers, has the trace of its input as total
+mass. -/
+example [MeasurableSpace (Σ u, {b : Fin 2 // ancReg b = u})]
+    (ρ : SubState (QReg.of (Reg × Fin 2))) :
+    qromLaw .instruments queryKeepOrDiscard ρ Set.univ = ENNReal.ofReal ρ.matrix.trace.re :=
+  qromLaw_apply_univ_of_lossless lossless_queryKeepOrDiscard ρ
 
 /-! ## Outcomes and leaves in a higher universe -/
 

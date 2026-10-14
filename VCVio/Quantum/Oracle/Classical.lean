@@ -23,9 +23,9 @@ No query bound, workspace or default value is needed: the program tree is the tr
 
 The embedding is a program over instruments (`Quantum.QComp`): its local steps, the preparation
 of `|t, 0⟩` and the measurement of the register, are subinstruments, and it returns the value of
-`oa` on the trivial register, so its law is a law on `α`. The theorems below are therefore stated
-for this fixed-register form; the statements they rest on (runs, budgets, locality) hold for
-general programs.
+`oa` on the trivial register. The theorems below are stated for this fixed-register form and the
+law of its value (`Quantum.qromLaw₂`), which is the general law of the quantum random-oracle model
+(`Quantum.qromLawWith`) read through the value of each leaf.
 
 ## Main results
 
@@ -37,9 +37,9 @@ general programs.
 * `Quantum.outcomeLaw_xorRuntime_toQuantum`: against the oracle unitary of `H`, the program
   reports `evalWithAnswerFn (QueryImpl.ofFn H) oa`, the value of `oa` when every query is answered
   by `H`, with certainty.
-* `Quantum.qromLaw_toQuantum`: its law in the quantum random-oracle model is the output measure
+* `Quantum.qromLaw₂_toQuantum`: its law in the quantum random-oracle model is the output measure
   of the classical experiment that samples `H` uniformly and evaluates `oa` against it.
-* `Quantum.qromLaw_toQuantum_eq_randomOracle`: this is also the output measure of `oa` under
+* `Quantum.qromLaw₂_toQuantum_eq_randomOracle`: this is also the output measure of `oa` under
   VCVio's lazily sampled, cached random oracle `randomOracle`.
 -/
 
@@ -255,11 +255,11 @@ variable [SampleableType (X → Y)]
 The law, in the quantum random-oracle model, of the program of a classical algorithm is the
 output measure of the classical experiment that samples a function `H : X → Y` uniformly and
 evaluates the algorithm with every query answered by `H`. No query bound is needed. -/
-theorem qromLaw_toQuantum [MeasurableSpace α] (oa : OracleComp (X →ₒ Y) α) :
-    qromLaw .instruments oa.toQuantum (SubState.basis ()) =
+theorem qromLaw₂_toQuantum [MeasurableSpace α] (oa : OracleComp (X →ₒ Y) α) :
+    qromLaw₂ .instruments oa.toQuantum (SubState.basis ()) =
       𝒟[do let H ← $ᵗ (X → Y); pure (evalWithAnswerFn (QueryImpl.ofFn H) oa)] := by
   let : MeasurableSpace (X → Y) := ⊤
-  rw [evalDist_bind_of_discrete, qromLaw, sampledLaw]
+  rw [evalDist_bind_of_discrete, qromLaw₂, sampledLaw₂_eq_bind]
   congr 1
   funext H
   rw [evalDist_pure]
@@ -267,10 +267,10 @@ theorem qromLaw_toQuantum [MeasurableSpace α] (oa : OracleComp (X →ₒ Y) α)
 
 /-- The law, in the quantum random-oracle model, of the program of a classical algorithm is the
 output measure of the algorithm under the lazily sampled, cached random oracle. -/
-theorem qromLaw_toQuantum_eq_randomOracle [SampleableType Y] [MeasurableSpace α]
+theorem qromLaw₂_toQuantum_eq_randomOracle [SampleableType Y] [MeasurableSpace α]
     (oa : OracleComp (X →ₒ Y) α) :
-    qromLaw .instruments oa.toQuantum (SubState.basis ()) =
+    qromLaw₂ .instruments oa.toQuantum (SubState.basis ()) =
       𝒟[(simulateQ randomOracle oa).run' ∅] := by
-  rw [qromLaw_toQuantum, OracleComp.evalDist_simulateQ_randomOracle_run'_empty_eq_uniformTable]
+  rw [qromLaw₂_toQuantum, OracleComp.evalDist_simulateQ_randomOracle_run'_empty_eq_uniformTable]
 
 end Quantum

@@ -49,17 +49,22 @@ in `init`, that is from the product substate `ρ ⊗ init`:
   `u`, which is all a later program can act on.
 * `Quantum.QuantumRuntime.outcomeLaw R I x ρ`: the law of the leaf reached, a subprobability
   measure whose missing mass is failure.
+* `Quantum.QuantumRuntime.outcomeLawWith R I x ρ f`: the law of an observation `f` of the leaf
+  reached, as a sum of weighted point masses, so that `f` need not be measurable.
 
 The fixed-register versions `jointPost₂`, `reducedPost₂` and `outcomeLaw₂` observe `R.run₂ I x`,
-and agree with the general ones at the leaves `⟨B, rfl, a⟩`.
+and agree with the general ones at the leaves `⟨B, rfl, a⟩`; the law of the value of a
+fixed-register program is the general law observed through the value of the leaf
+(`Quantum.QuantumRuntime.outcomeLaw₂_eq_outcomeLawWith`).
 
 ## Main definitions
 
 * `Quantum.QuantumRuntime spec`: a private register, its initial substate and a step per port.
 * `Quantum.QuantumRuntime.queryStep`, `Quantum.QuantumRuntime.run` and
   `Quantum.QuantumRuntime.run₂`.
-* `Quantum.QuantumRuntime.jointPost`, `Quantum.QuantumRuntime.reducedPost` and
-  `Quantum.QuantumRuntime.outcomeLaw`, with the fixed-register versions.
+* `Quantum.QuantumRuntime.jointPost`, `Quantum.QuantumRuntime.reducedPost`,
+  `Quantum.QuantumRuntime.outcomeLaw` and `Quantum.QuantumRuntime.outcomeLawWith`, with the
+  fixed-register versions.
 
 ## Main statements
 
@@ -403,6 +408,50 @@ theorem outcomeLaw_apply_univ_of_lossless [MeasurableSpace (Σ u, X u)]
       ENNReal.ofReal (ρ.matrix.trace.re * R.init.matrix.trace.re) := by
   rw [outcomeLaw, hx.outcomeMeasure_apply_univ, SubState.trace_re_prod]
 
+/-- The law of the observation `f` of the leaf reached by `x` run from `ρ ⊗ init`: each leaf `p`
+contributes its weight, the trace of the joint post-state, at the point `f p`. It is a sum of
+weighted point masses, so `f` need not be measurable. -/
+@[expose]
+noncomputable def outcomeLawWith {γ : Type*} [MeasurableSpace γ] (x : QuantumComp L spec X A)
+    (ρ : SubState A) (f : (Σ u, X u) → γ) : Measure γ :=
+  Measure.sum fun p ↦ ENNReal.ofReal (R.jointPost I x ρ p).matrix.trace.re • Measure.dirac (f p)
+
+/-- The observed law of a measurable set sums the weights of the leaves observed in it. -/
+theorem outcomeLawWith_apply {γ : Type*} [MeasurableSpace γ] (x : QuantumComp L spec X A)
+    (ρ : SubState A) (f : (Σ u, X u) → γ) {s : Set γ} (hs : MeasurableSet s) :
+    R.outcomeLawWith I x ρ f s =
+      ∑' p, ENNReal.ofReal (R.jointPost I x ρ p).matrix.trace.re * s.indicator 1 (f p) := by
+  simp only [outcomeLawWith, Measure.sum_apply _ hs, Measure.smul_apply,
+    Measure.dirac_apply' _ hs, smul_eq_mul]
+
+/-- Observing the leaf itself gives the outcome law. -/
+theorem outcomeLawWith_id [MeasurableSpace (Σ u, X u)] (x : QuantumComp L spec X A)
+    (ρ : SubState A) : R.outcomeLawWith I x ρ (fun p ↦ p) = R.outcomeLaw I x ρ :=
+  rfl
+
+/-- The total mass of an observed law is the trace functional of the run at `ρ ⊗ init`, whatever
+the observation. -/
+theorem outcomeLawWith_apply_univ {γ : Type*} [MeasurableSpace γ] (x : QuantumComp L spec X A)
+    (ρ : SubState A) (f : (Σ u, X u) → γ) :
+    R.outcomeLawWith I x ρ f Set.univ =
+      ENNReal.ofReal
+        (MatrixMap.familyTrace (R.run I x).branch (ρ.prod R.init).matrix).re := by
+  let : MeasurableSpace (Σ u, X u) := ⊤
+  rw [outcomeLawWith_apply _ _ _ _ _ MeasurableSet.univ,
+    ← DSubInstrument.outcomeMeasure_apply_univ,
+    DSubInstrument.outcomeMeasure_apply _ _ MeasurableSet.univ]
+  rfl
+
+/-- The weights of all leaves sum to the trace functional of the run at `ρ ⊗ init`. -/
+theorem tsum_jointPost_trace (x : QuantumComp L spec X A) (ρ : SubState A) :
+    ∑' p, ENNReal.ofReal (R.jointPost I x ρ p).matrix.trace.re =
+      ENNReal.ofReal
+        (MatrixMap.familyTrace (R.run I x).branch (ρ.prod R.init).matrix).re := by
+  let : MeasurableSpace (Σ u, X u) := ⊤
+  rw [← R.outcomeLawWith_apply_univ I x ρ (fun p ↦ p),
+    R.outcomeLawWith_apply I x ρ _ MeasurableSet.univ]
+  simp
+
 /-! ### Observation of programs on a fixed final register -/
 
 /-- The joint substate of `B` and the runtime register after running the fixed-register program
@@ -454,6 +503,26 @@ theorem outcomeLaw₂_eq_map [MeasurableSpace α] [MeasurableSpace (Σ u, Quantu
   refine tsum_congr fun a ↦ congrArg₂ (· * ·) rfl ?_
   classical
   simp only [Set.indicator_apply, Set.mem_preimage, Equiv.symm_apply_apply, Pi.one_apply]
+
+/-- The law of a relabelled value of a fixed-register program is the general observed law, read
+through the value `(leafEquiv B α).symm p` of each leaf `p`. No measurability is needed. -/
+theorem outcomeLaw₂_map_eq_outcomeLawWith {γ : Type*} [MeasurableSpace γ] (g : α → γ)
+    (x : QuantumComp₂ L spec A B α) (ρ : SubState A) :
+    R.outcomeLaw₂ I (x.map g) ρ =
+      R.outcomeLawWith I x ρ fun p ↦ g ((QuantumComp₂.leafEquiv B α).symm p) := by
+  rw [outcomeLaw₂, run₂_map, SubInstrument.outcomeMeasure_map]
+  exact Measure.sum_comp_equiv (QuantumComp₂.leafEquiv B α) fun p ↦
+    ENNReal.ofReal (R.jointPost I x ρ p).matrix.trace.re •
+      Measure.dirac (g ((QuantumComp₂.leafEquiv B α).symm p))
+
+/-- The law of the value of a fixed-register program is the general observed law, read through
+the value of each leaf. No measurability is needed. -/
+theorem outcomeLaw₂_eq_outcomeLawWith [MeasurableSpace α] (x : QuantumComp₂ L spec A B α)
+    (ρ : SubState A) :
+    R.outcomeLaw₂ I x ρ = R.outcomeLawWith I x ρ (QuantumComp₂.leafEquiv B α).symm := by
+  have h := R.outcomeLaw₂_map_eq_outcomeLawWith I id x ρ
+  rw [QuantumComp₂.map_id] at h
+  exact h
 
 /-- The matrix of the joint post-state of a fixed-register program. -/
 @[simp]
