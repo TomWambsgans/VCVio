@@ -392,6 +392,7 @@ public import VCVio.ProgramLogic.Unary.WP.Probabilistic
 public import VCVio.ProgramLogic.Unary.WP.Probabilistic.Measure
 public import VCVio.ProgramLogic.Unary.WriterTBridge
 public import VCVio.Quantum.Comp.Basic
+public import VCVio.Quantum.Comp.Combinators
 public import VCVio.Quantum.Comp.Hybrid
 public import VCVio.Quantum.Comp.HybridProjected
 public import VCVio.Quantum.Comp.LocalSig
