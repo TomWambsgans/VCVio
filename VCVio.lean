@@ -400,6 +400,7 @@ public import VCVio.Quantum.DSubInstrument
 public import VCVio.Quantum.MatrixMap
 public import VCVio.Quantum.MatrixMap.Family
 public import VCVio.Quantum.MatrixMap.Kraus
+public import VCVio.Quantum.MatrixMap.Norm
 public import VCVio.Quantum.Observe
 public import VCVio.Quantum.Oracle.Basis
 public import VCVio.Quantum.Oracle.Classical
