@@ -112,8 +112,9 @@ theorem compressedOracle_mulVec_single (x : X) (y : Y) (D : Database X Y) :
   rw [compressedOracle_eq_controlled, ← Matrix.mulVec_mulVec, ← Matrix.mulVec_mulVec,
     controlled_compressAt_mulVec_single]
   simp only [Matrix.mulVec_sum, Matrix.mulVec_smul, standardOracle, tableOracle,
-    basisMatrix_mulVec_single, tableOracleEquiv_apply, oracleEquiv_apply, Database.lookup_apply, Function.update_self,
-    controlled_compressAt_mulVec_single, Function.update_idem, Finset.smul_sum, smul_smul]
+    basisMatrix_mulVec_single, tableOracleEquiv_apply, oracleEquiv_apply, Database.lookup_apply,
+    Function.update_self, controlled_compressAt_mulVec_single, Function.update_idem,
+    Finset.smul_sum, smul_smul]
   refine Finset.sum_congr rfl fun u _ ↦ Finset.sum_congr rfl fun u'' _ ↦ ?_
   rw [mul_comm]
 

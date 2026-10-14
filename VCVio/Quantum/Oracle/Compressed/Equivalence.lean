@@ -167,8 +167,9 @@ noncomputable def purifiedRuntime : QuantumRuntime (qromSpec X Y) where
 
 /-- The compressed oracle: the private register is the database register, started with every
 cell empty, and each call applies the compressed oracle to the query register and the
-database. -/
-@[expose]
+database. It is reducible, so that its register is reducibly the database register and an
+operator on `A × Database X Y` can be fed to its runs. -/
+@[expose, reducible]
 noncomputable def compressedRuntime : QuantumRuntime (qromSpec X Y) where
   D := QReg.of (Database X Y)
   init := SubState.basis Database.empty
@@ -282,7 +283,9 @@ theorem outcomeLawWith_compressedRuntime_eq_purifiedRuntime {γ : Type*} [Measur
     (f : (Σ u, W u) → γ) :
     (compressedRuntime X Y).outcomeLawWith I x ρ f =
       (purifiedRuntime X Y).outcomeLawWith I x ρ f := by
-  simp only [QuantumRuntime.outcomeLawWith, trace_jointPost_compressedRuntime]
+  simp only [QuantumRuntime.outcomeLawWith]
+  refine congrArg Measure.sum (funext fun p ↦ ?_)
+  rw [trace_jointPost_compressedRuntime]
 
 end compressedPurified
 

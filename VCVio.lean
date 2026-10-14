@@ -407,6 +407,7 @@ public import VCVio.Quantum.Oracle.Compressed.Action
 public import VCVio.Quantum.Oracle.Compressed.Basic
 public import VCVio.Quantum.Oracle.Compressed.Equivalence
 public import VCVio.Quantum.Oracle.Compressed.Oracle
+public import VCVio.Quantum.Oracle.Compressed.Size
 public import VCVio.Quantum.Oracle.Model
 public import VCVio.Quantum.Oracle.Unitary
 public import VCVio.Quantum.Register
