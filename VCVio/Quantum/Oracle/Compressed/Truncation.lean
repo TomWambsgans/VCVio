@@ -19,14 +19,15 @@ through the size invariant without numbering it.
 
 * `Quantum.sizeProjector X Y t` is `P_size^(t)` acting on the database component of the joint
   register `(X × Y) × Database X Y`, the operator `1 ⊗ P_size^(t)`.
-* `Quantum.truncatedOracle X Y t` is `O^(t)`. It is a contraction but not an isometry
+* `Quantum.truncatedOracle X Y t` is `O^(t)`. It is a contraction, not necessarily an isometry
   (`Quantum.posSemidef_one_sub_conjTranspose_truncatedOracle_mul_self`).
 * `Quantum.truncatedRuntime X Y t` answers each call with the subinstrument
-  `Quantum.truncatedQuery X Y t`, conjugation by `O^(t)`. Since `O^(t)` is only a contraction,
-  this map is trace non-increasing rather than trace preserving: the weight it drops is that of
-  the components whose database would leave the range of `P_size^(t)`. A one-outcome
-  subinstrument expresses exactly this operator, with no completion by an extra failure outcome
-  that the paper does not have, and it is a runtime step of the general model as it stands.
+  `Quantum.truncatedQuery X Y t`, conjugation by `O^(t)`. Since `O^(t)` is a contraction,
+  not necessarily an isometry, this map is trace non-increasing, not necessarily trace preserving:
+  the weight it drops is that of the components whose database would leave the range of
+  `P_size^(t)`. A one-outcome subinstrument expresses exactly this operator, with no completion
+  by an extra failure outcome that the paper does not have, and it is a runtime step of the
+  general model as it stands.
 
 **Truncation is invisible** (`Quantum.jointPost_truncatedRuntime`,
 `Quantum.outcomeLawWith_truncatedRuntime`): for a general program with at most `q` calls on every
@@ -94,12 +95,22 @@ theorem amplify_conj_diagonal_eq_self {q : M → Z} {S : Set Z} {d : M → ℂ}
 
 end QuerySupportedOn
 
-/-- If `P` is a Hermitian projector with `1 - P` positive semidefinite and `U` is an isometry,
-then `P U P` is a contraction: `1 - (P U P)ᴴ (P U P)` is positive semidefinite. -/
+/-- The complement `1 - P` of a Hermitian projector `P` is positive semidefinite, since it is
+`(1 - P)ᴴ (1 - P)`. -/
+theorem posSemidef_one_sub_of_projector {n : Type*} [Fintype n] [DecidableEq n]
+    {P : Matrix n n ℂ} (hP : Pᴴ = P) (hPP : P * P = P) : (1 - P).PosSemidef := by
+  have e : (1 - P)ᴴ * (1 - P) = 1 - P := by
+    rw [conjTranspose_sub, conjTranspose_one, hP, Matrix.sub_mul, Matrix.mul_sub,
+      Matrix.mul_sub, Matrix.one_mul, Matrix.mul_one, Matrix.one_mul, hPP, sub_self, sub_zero]
+  rw [← e]
+  exact posSemidef_conjTranspose_mul_self (1 - P)
+
+/-- If `P` is a Hermitian projector and `U` is an isometry, then `P U P` is a contraction:
+`1 - (P U P)ᴴ (P U P)` is positive semidefinite. -/
 theorem posSemidef_one_sub_conjTranspose_mul_self_of_projector {n : Type*} [Fintype n]
-    [DecidableEq n] {P U : Matrix n n ℂ} (hP : Pᴴ = P) (hPP : P * P = P)
-    (hP₁ : (1 - P).PosSemidef) (hU : Uᴴ * U = 1) :
+    [DecidableEq n] {P U : Matrix n n ℂ} (hP : Pᴴ = P) (hPP : P * P = P) (hU : Uᴴ * U = 1) :
     (1 - (P * U * P)ᴴ * (P * U * P)).PosSemidef := by
+  have hP₁ := posSemidef_one_sub_of_projector hP hPP
   have e : 1 - (P * U * P)ᴴ * (P * U * P) = (1 - P) + Pᴴ * (Uᴴ * (1 - P) * U) * P := by
     rw [conjTranspose_mul, conjTranspose_mul, hP]
     simp only [Matrix.mul_sub, Matrix.sub_mul, Matrix.mul_one, Matrix.mul_assoc]
@@ -112,7 +123,7 @@ theorem posSemidef_one_sub_conjTranspose_mul_self_of_projector {n : Type*} [Fint
 
 section truncated
 
-variable (X Y : Type) [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y]
+variable (X Y : Type*) [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y]
 
 /-- The projector `P_size^(t)` of ePrint 2025/2166 onto the databases with at most `t` nonempty
 cells, acting on the database component of the joint register: the operator `1 ⊗ P_size^(t)`. -/
@@ -152,16 +163,16 @@ noncomputable def truncatedOracle (t : ℕ) :
     Matrix ((X × Y) × Database X Y) ((X × Y) × Database X Y) ℂ :=
   sizeProjector X Y t * compressedOracle X Y * sizeProjector X Y t
 
-/-- The truncated oracle is a contraction. -/
+/-- The truncated oracle is a contraction, not necessarily an isometry. -/
 theorem posSemidef_one_sub_conjTranspose_truncatedOracle_mul_self (t : ℕ) :
     (1 - (truncatedOracle X Y t)ᴴ * truncatedOracle X Y t).PosSemidef :=
   posSemidef_one_sub_conjTranspose_mul_self_of_projector (conjTranspose_sizeProjector t)
-    (sizeProjector_mul_self t) (posSemidef_one_sub_sizeProjector t)
-    conjTranspose_compressedOracle_mul_self
+    (sizeProjector_mul_self t) conjTranspose_compressedOracle_mul_self
 
 variable (X Y) in
-/-- One query to the truncated compressed oracle: conjugation by `O^(t)`, a trace non-increasing
-one-outcome subinstrument, since `O^(t)` is a contraction but not an isometry. -/
+/-- One query to the truncated compressed oracle: conjugation by `O^(t)`. It is a one-outcome
+subinstrument that is trace non-increasing, not necessarily trace preserving, since `O^(t)` is a
+contraction, not necessarily an isometry. -/
 @[expose]
 noncomputable def truncatedQuery (t : ℕ) :
     SubInstrument ((X × Y) × Database X Y) ((X × Y) × Database X Y) Unit :=
@@ -171,20 +182,6 @@ noncomputable def truncatedQuery (t : ℕ) :
 @[simp]
 theorem branch_truncatedQuery_apply (t : ℕ) (u : Unit) :
     (truncatedQuery X Y t).branch u = MatrixMap.conj (truncatedOracle X Y t) :=
-  rfl
-
-variable (X Y) in
-/-- The truncated compressed oracle as a runtime: the database register started with every cell
-empty, each call answered by `Quantum.truncatedQuery X Y t`. It is reducible for the same reason
-as `Quantum.compressedRuntime`. -/
-@[expose, reducible]
-noncomputable def truncatedRuntime (t : ℕ) : QuantumRuntime (qromSpec X Y) where
-  D := QReg.of (Database X Y)
-  init := SubState.basis Database.empty
-  step _ := truncatedQuery X Y t
-
-theorem truncatedRuntime_step (t : ℕ) (i : Unit) :
-    (truncatedRuntime X Y t).step i = truncatedQuery X Y t :=
   rfl
 
 /-- On an operator presented to a call that is supported on databases with at most `n < t`
@@ -203,6 +200,28 @@ theorem amplify_conj_truncatedOracle_eq {E : Type*} {n t : ℕ} (hnt : n < t)
     (hσ.amplify_conj_compressedOracle.mono (Set.Iic_subset_Iic.mpr hnt))
   rw [truncatedOracle, MatrixMap.conj_mul, MatrixMap.conj_mul, MatrixMap.amplify_comp,
     MatrixMap.amplify_comp, LinearMap.comp_apply, LinearMap.comp_apply, sizeProjector, h₁, h₂]
+
+end truncated
+
+/-! ## The truncated runtime -/
+
+section truncatedRuntime
+
+variable {X Y : Type} [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y] [AddCommGroup Y]
+
+variable (X Y) in
+/-- The truncated compressed oracle as a runtime: the database register started with every cell
+empty, each call answered by `Quantum.truncatedQuery X Y t`. It is reducible for the same reason
+as `Quantum.compressedRuntime`. -/
+@[expose, reducible]
+noncomputable def truncatedRuntime (t : ℕ) : QuantumRuntime (qromSpec X Y) where
+  D := QReg.of (Database X Y)
+  init := SubState.basis Database.empty
+  step _ := truncatedQuery X Y t
+
+theorem truncatedRuntime_step (t : ℕ) (i : Unit) :
+    (truncatedRuntime X Y t).step i = truncatedQuery X Y t :=
+  rfl
 
 variable {L : LocalSig.{u, v}} {W : QReg → Type w} {A B : QReg} {α : Type w}
 
@@ -263,6 +282,6 @@ theorem outcomeLaw₂_truncatedRuntime_eq_qromLaw₂ [SampleableType (X → Y)] 
     (truncatedRuntime X Y t).outcomeLaw₂ I x ρ = qromLaw₂ I x ρ := by
   rw [outcomeLaw₂_truncatedRuntime I hx hqt, outcomeLaw₂_compressedRuntime]
 
-end truncated
+end truncatedRuntime
 
 end Quantum

@@ -95,7 +95,7 @@ theorem conj_basisMatrix_single {A B : Type*} [Fintype A] [DecidableEq A] [Decid
 
 section uniform
 
-variable (X Y : Type) [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y]
+variable (X Y : Type*) [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y]
 
 /-- The uniform superposition `|Y|^(-|X|/2) ∑ H, |H⟩` over the functions `X → Y`, as a column. -/
 @[expose]
@@ -151,6 +151,63 @@ theorem basisMatrix_ofFun_mul_uniformColumn :
 
 end uniform
 
+/-! ## Compression and reading the function register -/
+
+section compression
+
+variable {X Y : Type*} [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y]
+
+/-- Reading the function register at `H`: the row `⟨H|`. -/
+@[expose]
+def evalRow (H : X → Y) : Matrix Unit (X → Y) ℂ :=
+  Matrix.of fun _ H' ↦ if H' = H then 1 else 0
+
+/-- The trace of the block of `H`, read off with the row `⟨H|`, is the trace of the diagonal
+block of `H`. -/
+theorem trace_amplifyLeft_conj_evalRow {B : Type*} [Fintype B] (H : X → Y)
+    (M : Matrix (B × (X → Y)) (B × (X → Y)) ℂ) :
+    ((MatrixMap.conj (evalRow H)).amplifyLeft B M).trace = ∑ b, M (b, H) (b, H) := by
+  simp [Matrix.trace, Matrix.mul_apply, evalRow, Fintype.sum_prod_type]
+
+/-- The diagonal blocks of the function register, summed over all functions, give the trace. -/
+theorem sum_trace_amplifyLeft_conj_evalRow {B : Type*} [Fintype B]
+    (M : Matrix (B × (X → Y)) (B × (X → Y)) ℂ) :
+    ∑ H : X → Y, ((MatrixMap.conj (evalRow H)).amplifyLeft B M).trace = M.trace := by
+  simp only [trace_amplifyLeft_conj_evalRow]
+  rw [Matrix.trace, Fintype.sum_prod_type_right]
+  rfl
+
+variable [Nonempty Y]
+
+/-- Compressing every cell after tabulating a total function is an isometry. -/
+theorem conjTranspose_compressAll_mul_basisMatrix_mul_self :
+    (compressAll X Y * basisMatrix (Database.ofFun : (X → Y) → Database X Y))ᴴ *
+      (compressAll X Y * basisMatrix (Database.ofFun : (X → Y) → Database X Y)) = 1 := by
+  rw [conjTranspose_mul, conjTranspose_compressAll, Matrix.mul_assoc,
+    ← Matrix.mul_assoc (compressAll X Y), compressAll_mul_self, Matrix.one_mul,
+    conjTranspose_basisMatrix_mul_self Database.ofFun_injective]
+
+/-- Compressing every cell after tabulating a total function sends the uniform superposition over
+functions to the empty database. -/
+theorem conj_compressAll_mul_basisMatrix_uniformFunctionState :
+    MatrixMap.conj (compressAll X Y * basisMatrix (Database.ofFun : (X → Y) → Database X Y))
+        (uniformFunctionState X Y).matrix =
+      (SubState.basis (Database.empty : Database X Y)).matrix := by
+  rw [matrix_uniformFunctionState, ← LinearMap.comp_apply, ← MatrixMap.conj_mul,
+    Matrix.mul_assoc, basisMatrix_ofFun_mul_uniformColumn, ← Matrix.mul_assoc,
+    compressAll_mul_self, Matrix.one_mul, conj_basisMatrix_single, SubState.matrix_basis]
+
+/-- Reading the uniform superposition over functions at `H` leaves the weight `|Y|^(-|X|)`. -/
+theorem conj_evalRow_uniformFunctionState (H : X → Y) :
+    MatrixMap.conj (evalRow H) (uniformFunctionState X Y).matrix =
+      ((Fintype.card Y : ℂ)⁻¹ ^ Fintype.card X) • (SubState.basis ()).matrix := by
+  rw [matrix_uniformFunctionState, ← LinearMap.comp_apply, ← MatrixMap.conj_mul,
+    SubState.matrix_basis]
+  ext ⟨⟩ ⟨⟩
+  simp [Matrix.mul_apply, evalRow, star_pow, ← mul_pow, cellAmp_mul_self]
+
+end compression
+
 /-! ## The runtimes -/
 
 section runtimes
@@ -200,7 +257,7 @@ end runtimes
 
 section compressedPurified
 
-variable {X Y : Type} [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y] [AddCommGroup Y]
+variable {X Y : Type*} [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y] [AddCommGroup Y]
 
 /-- Compressing every cell after tabulating a total function intertwines the purified oracle
 with the compressed oracle: `cO (1 ⊗ S^{⊗X} E) = (1 ⊗ S^{⊗X} E) StO`. -/
@@ -239,24 +296,11 @@ theorem compressedOracle_mul_one_kronecker_compressAll_mul_basisMatrix :
         rw [one_kronecker_compressAll_mul_self, Matrix.mul_one, Matrix.mul_assoc]
     _ = _ := by rw [hE, Matrix.mul_assoc]
 
-/-- Compressing every cell after tabulating a total function is an isometry. -/
-theorem conjTranspose_compressAll_mul_basisMatrix_mul_self :
-    (compressAll X Y * basisMatrix (Database.ofFun : (X → Y) → Database X Y))ᴴ *
-      (compressAll X Y * basisMatrix (Database.ofFun : (X → Y) → Database X Y)) = 1 := by
-  rw [conjTranspose_mul, conjTranspose_compressAll, Matrix.mul_assoc,
-    ← Matrix.mul_assoc (compressAll X Y), compressAll_mul_self, Matrix.one_mul,
-    conjTranspose_basisMatrix_mul_self Database.ofFun_injective]
+end compressedPurified
 
-/-- Compressing every cell after tabulating a total function sends the uniform superposition over
-functions to the empty database. -/
-theorem conj_compressAll_mul_basisMatrix_uniformFunctionState :
-    MatrixMap.conj (compressAll X Y * basisMatrix (Database.ofFun : (X → Y) → Database X Y))
-        (uniformFunctionState X Y).matrix =
-      (SubState.basis (Database.empty : Database X Y)).matrix := by
-  rw [matrix_uniformFunctionState, ← LinearMap.comp_apply, ← MatrixMap.conj_mul,
-    Matrix.mul_assoc, basisMatrix_ofFun_mul_uniformColumn, ← Matrix.mul_assoc,
-    compressAll_mul_self, Matrix.one_mul, conj_basisMatrix_single, SubState.matrix_basis]
+section compressedPurifiedRuntime
 
+variable {X Y : Type} [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y] [AddCommGroup Y]
 variable {L : LocalSig.{u, v}} {W : QReg → Type w} {A : QReg}
 
 /-- Against the compressed runtime and the purified runtime, every leaf of every program has the
@@ -289,18 +333,13 @@ theorem outcomeLawWith_compressedRuntime_eq_purifiedRuntime {γ : Type*} [Measur
   refine congrArg Measure.sum (funext fun p ↦ ?_)
   rw [trace_jointPost_compressedRuntime]
 
-end compressedPurified
+end compressedPurifiedRuntime
 
 /-! ## The purified runtime is the quantum random-oracle model -/
 
 section purifiedQrom
 
-variable {X Y : Type} [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y] [AddCommGroup Y]
-
-/-- Reading the function register at `H`: the row `⟨H|`. -/
-@[expose]
-def evalRow (H : X → Y) : Matrix Unit (X → Y) ℂ :=
-  Matrix.of fun _ H' ↦ if H' = H then 1 else 0
+variable {X Y : Type*} [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y] [AddCommGroup Y]
 
 /-- Reading the function register at `H` intertwines the purified oracle with the oracle unitary
 of `H`: `(U_H ⊗ 1) (1 ⊗ ⟨H|) = (1 ⊗ ⟨H|) StO`. -/
@@ -317,32 +356,11 @@ theorem oracleUnitary_kronecker_one_mul_one_kronecker_evalRow (H : X → Y) :
   · simp [Matrix.mul_apply, Fintype.sum_prod_type, evalRow, oracleUnitary_apply,
       tableOracle_apply, Matrix.one_apply, hH, Ne.symm hH]
 
-/-- Reading the uniform superposition over functions at `H` leaves the weight `|Y|^(-|X|)`. -/
-theorem conj_evalRow_uniformFunctionState (H : X → Y) :
-    MatrixMap.conj (evalRow H) (uniformFunctionState X Y).matrix =
-      ((Fintype.card Y : ℂ)⁻¹ ^ Fintype.card X) • (SubState.basis ()).matrix := by
-  rw [matrix_uniformFunctionState, ← LinearMap.comp_apply, ← MatrixMap.conj_mul,
-    SubState.matrix_basis]
-  ext ⟨⟩ ⟨⟩
-  simp [Matrix.mul_apply, evalRow, star_pow, ← mul_pow, cellAmp_mul_self]
+end purifiedQrom
 
-omit [AddCommGroup Y] in
-/-- The trace of the block of `H`, read off with the row `⟨H|`, is the trace of the diagonal
-block of `H`. -/
-theorem trace_amplifyLeft_conj_evalRow {B : Type*} [Fintype B] (H : X → Y)
-    (M : Matrix (B × (X → Y)) (B × (X → Y)) ℂ) :
-    ((MatrixMap.conj (evalRow H)).amplifyLeft B M).trace = ∑ b, M (b, H) (b, H) := by
-  simp [Matrix.trace, Matrix.mul_apply, evalRow, Fintype.sum_prod_type]
+section purifiedQromRuntime
 
-omit [AddCommGroup Y] in
-/-- The diagonal blocks of the function register, summed over all functions, give the trace. -/
-theorem sum_trace_amplifyLeft_conj_evalRow {B : Type*} [Fintype B]
-    (M : Matrix (B × (X → Y)) (B × (X → Y)) ℂ) :
-    ∑ H : X → Y, ((MatrixMap.conj (evalRow H)).amplifyLeft B M).trace = M.trace := by
-  simp only [trace_amplifyLeft_conj_evalRow]
-  rw [Matrix.trace, Fintype.sum_prod_type_right]
-  rfl
-
+variable {X Y : Type} [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y] [AddCommGroup Y]
 variable {L : LocalSig.{u, v}} {W : QReg → Type w} {A : QReg}
 
 /-- Against the purified runtime, the weight of every leaf of every program is the average, over
@@ -418,7 +436,7 @@ theorem outcomeLawWith_purifiedRuntime {γ : Type*} [MeasurableSpace γ] (I : L.
   rw [Summable.tsum_finsetSum fun _ _ ↦ ENNReal.summable, Finset.mul_sum]
   simp only [ENNReal.tsum_mul_left]
 
-end purifiedQrom
+end purifiedQromRuntime
 
 /-! ## The main theorem -/
 
