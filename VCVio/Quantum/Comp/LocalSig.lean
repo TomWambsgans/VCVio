@@ -36,7 +36,8 @@ interpretations, and properties of its tree, such as a count of its operations
 * `Quantum.LocalSig`, with `Quantum.LocalSig.OutcomeAt o u`, the outcomes of `o` that leave the
   register `u`.
 * `Quantum.LocalSig.Interp L` and `Quantum.LocalSig.Interp.Lossless`.
-* `Quantum.LocalSig.instruments` and `Quantum.LocalSig.Interp.instruments`.
+* `Quantum.LocalSig.instruments`, whose operations are `Quantum.LocalSig.InstrumentOp`, and
+  `Quantum.LocalSig.Interp.instruments`.
 -/
 
 public section
@@ -77,13 +78,28 @@ subinstrument. -/
 def Interp.Lossless (I : L.Interp) : Prop :=
   ∀ ⦃A : QReg⦄ (o : L.Op A), (I o).Lossless
 
+/-- The operations of the signature of instruments on `A`: a type of outcomes `ι`, output
+registers `B : ι → QReg`, and a dependent subinstrument from `A` with these outcomes and
+outputs. -/
+abbrev InstrumentOp (A : QReg) : Type 1 :=
+  Σ (ι : Type) (B : ι → QReg), DSubInstrument A ι fun i ↦ B i
+
+/-- The outcomes of an operation of the signature of instruments. -/
+abbrev InstrumentOp.Outcome {A : QReg} (o : InstrumentOp A) : Type :=
+  o.1
+
+/-- The register an operation of the signature of instruments leaves on each outcome. -/
+abbrev InstrumentOp.next {A : QReg} (o : InstrumentOp A) : o.Outcome → QReg :=
+  o.2.1
+
 /-- **The signature of instruments.** An operation on `A` is a dependent subinstrument from `A`,
-with any type of outcomes `ι` and output registers `B : ι → QReg`. -/
+with any type of outcomes `ι` and output registers `B : ι → QReg`
+(`Quantum.LocalSig.InstrumentOp`). -/
 @[expose, reducible]
 def instruments : LocalSig where
-  Op A := Σ (ι : Type) (B : ι → QReg), DSubInstrument A ι fun i ↦ B i
-  Outcome o := o.1
-  next o := o.2.1
+  Op := InstrumentOp
+  Outcome := InstrumentOp.Outcome
+  next := InstrumentOp.next
 
 /-- The canonical interpretation of the signature of instruments: every operation means the
 dependent subinstrument it is. -/
