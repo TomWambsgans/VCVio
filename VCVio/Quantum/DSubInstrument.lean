@@ -16,7 +16,8 @@ for example a qubit kept on one outcome and discarded on another. It is a family
 positive maps `branch i : MatrixMap A (B i)` such that, on positive semidefinite inputs, the
 traces of the branches over every finite set of outcomes sum to at most the trace of the input.
 As for `Quantum.SubInstrument`, the family is summable rather than finitely supported, and no
-countability assumption is made on `ι`.
+countability assumption is made on `ι`; only countably many branches are nonzero
+(`Quantum.DSubInstrument.countable_support_branch`).
 
 The branches have different codomains, so they cannot be summed as maps. Trace nonincrease is
 stated through traces, and the trace functional `Quantum.MatrixMap.familyTrace`,
@@ -112,6 +113,12 @@ theorem tsum_trace_re_le (p : DSubInstrument A ι B) {ρ : Matrix A A ℂ} (hρ 
 theorem trace_re_branch_apply_le (p : DSubInstrument A ι B) (i : ι) {ρ : Matrix A A ℂ}
     (hρ : ρ.PosSemidef) : (p.branch i ρ).trace.re ≤ ρ.trace.re :=
   p.isCPTNIFamily.isTNI i ρ hρ
+
+/-- Only countably many branches of a dependent subinstrument are nonzero, whatever the outcome
+type. -/
+theorem countable_support_branch (p : DSubInstrument A ι B) :
+    {i | p.branch i ≠ 0}.Countable :=
+  p.isCPTNIFamily.countable_support
 
 /-! ### Return -/
 
@@ -318,8 +325,7 @@ theorem frame_ret (i : ι) : (ret B i).frame R = ret (fun j ↦ B j × R) i := b
 /-- Framing commutes with sequencing. -/
 theorem frame_bind (p : DSubInstrument A ι B) (k : (i : ι) → DSubInstrument (B i) κ C) :
     (p.bind k).frame R = (p.frame R).bind fun i ↦ (k i).frame R :=
-  DSubInstrument.ext <| MatrixMap.familyBind_mapRange_amplify R p.isCPTNIFamily
-    fun i ↦ (k i).isCPTNIFamily
+  DSubInstrument.ext <| MatrixMap.familyBind_mapRange_amplify R p.branch fun i ↦ (k i).branch
 
 /-- Framing commutes with reindexing outcomes. -/
 theorem frame_map (f : ι → κ) (p : DSubInstrument A ι fun i ↦ C (f i)) :
