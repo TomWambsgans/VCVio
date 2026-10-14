@@ -20,6 +20,10 @@ discarding it to `Unit` on outcome `1`, is a lossless dependent subinstrument wi
 outcome law on `|+⟩⟨+|`. Sequencing it with a continuation whose input register depends on the
 first outcome is lossless, and the computational-basis measurement transported along the
 constant-codomain equivalence keeps its losslessness and its outcome law.
+
+Outcomes need not be finitely many: the instrument on a qubit that reports `n : ℕ` with weight
+`2^{-(n+1)}` and leaves the state unchanged, built directly as a summable family, is lossless,
+and on `|+⟩⟨+|` it gives the outcome `n` mass `2^{-(n+1)}`.
 -/
 
 public section
@@ -59,7 +63,7 @@ example (a b : Fin 2) (h : a ≠ b) :
       pure (x, y) : SubInstrument (Fin 2) (Fin 2) (Fin 2 × Fin 2)).branch (a, b) = 0 := by
   fin_cases a <;> fin_cases b <;>
     simp [measureZ, SubInstrument.branch_bind_apply_univ, Fin.sum_univ_two,
-      Finsupp.single_apply, ← MatrixMap.conj_mul, proj] at h ⊢
+      SubInstrument.branch_pure, Pi.single_apply, ← MatrixMap.conj_mul, proj] at h ⊢
 
 /-- The state `|+⟩⟨+|`. -/
 noncomputable def plus : SubState (Fin 2) where
@@ -175,5 +179,82 @@ example (a : Fin 2) :
   rw [SubInstrument.outcomeMeasure_toD, SubInstrument.outcomeMeasure_apply_singleton]
   congr 1
   fin_cases a <;> simp [measureZ, proj, plus, Matrix.trace]
+
+/-! ## Outcomes on all of `ℕ` -/
+
+/-- The weight `2^{-(n+1)}` of the outcome `n`. -/
+noncomputable def geomWeight (n : ℕ) : ℝ :=
+  (1 / 2) ^ (n + 1)
+
+/-- The weights are nonnegative. -/
+theorem geomWeight_nonneg (n : ℕ) : 0 ≤ geomWeight n := by
+  unfold geomWeight
+  positivity
+
+/-- The weights sum to one. -/
+theorem hasSum_geomWeight : HasSum geomWeight 1 := by
+  have h := hasSum_geometric_two.mul_left (1 / 2 : ℝ)
+  rw [show (1 / 2 : ℝ) * 2 = 1 by norm_num] at h
+  change HasSum (fun n : ℕ ↦ (1 / 2 : ℝ) ^ (n + 1)) 1
+  simp_rw [pow_succ']
+  exact h
+
+/-- A nonnegative real multiple of the identity map is completely positive. -/
+theorem isCP_ofReal_smul_id {r : ℝ} (hr : 0 ≤ r) :
+    ((r : ℂ) • LinearMap.id : MatrixMap (Fin 2) (Fin 2)).IsCP := fun k ρ hρ ↦ by
+  have h : ((r : ℂ) • LinearMap.id : MatrixMap (Fin 2) (Fin 2)).amplify (Fin k) ρ =
+      (r : ℂ) • ρ := by
+    ext x y
+    simp
+  rw [h]
+  exact hρ.smul (Complex.zero_le_real.mpr hr)
+
+/-- The instrument on a qubit that reports the outcome `n : ℕ` with weight `2^{-(n+1)}` and leaves
+the state unchanged. Every outcome has positive weight, so it is not finitely supported. -/
+@[expose]
+noncomputable def geometric : SubInstrument (Fin 2) (Fin 2) ℕ where
+  branch n := (geomWeight n : ℂ) • LinearMap.id
+  isCP_branch n := isCP_ofReal_smul_id (geomWeight_nonneg n)
+  isTNI_sum s ρ hρ := by
+    simp only [LinearMap.sum_apply, LinearMap.smul_apply, LinearMap.id_apply, Matrix.trace_sum,
+      Matrix.trace_smul, smul_eq_mul, Complex.re_sum, Complex.re_ofReal_mul]
+    rw [← Finset.sum_mul]
+    exact mul_le_of_le_one_left hρ.trace_re_nonneg
+      (sum_le_hasSum s (fun n _ ↦ geomWeight_nonneg n) hasSum_geomWeight)
+
+/-- The branch of the geometric instrument at `n` scales the state by `2^{-(n+1)}`. -/
+theorem geometric_branch_apply (n : ℕ) (ρ : Matrix (Fin 2) (Fin 2) ℂ) :
+    geometric.branch n ρ = (geomWeight n : ℂ) • ρ :=
+  rfl
+
+/-- Every outcome of the geometric instrument has a nonzero branch. -/
+example (n : ℕ) : geometric.branch n ≠ 0 := fun h ↦ by
+  have h1 := congrArg (fun Φ : MatrixMap (Fin 2) (Fin 2) ↦ (Φ 1).trace) h
+  simp only [geometric_branch_apply, LinearMap.zero_apply, Matrix.trace_smul, smul_eq_mul,
+    Matrix.trace_zero, Matrix.trace_one, Fintype.card_fin] at h1
+  have h2 : (0 : ℝ) < geomWeight n := by
+    unfold geomWeight
+    positivity
+  norm_num at h1
+  exact h2.ne' h1
+
+/-- The geometric instrument is lossless. -/
+theorem lossless_geometric : geometric.Lossless := fun ρ ↦ by
+  rw [SubInstrument.trace_total_apply]
+  simp only [geometric_branch_apply, Matrix.trace_smul, smul_eq_mul]
+  rw [tsum_mul_right, ← Complex.ofReal_tsum, hasSum_geomWeight.tsum_eq, Complex.ofReal_one,
+    one_mul]
+
+/-- On `|+⟩⟨+|`, the geometric instrument gives the outcome `n` mass `2^{-(n+1)}`. -/
+example (n : ℕ) : geometric.outcomeMeasure plus {n} = ENNReal.ofReal ((1 / 2) ^ (n + 1)) := by
+  rw [SubInstrument.outcomeMeasure_apply_singleton, geometric_branch_apply]
+  congr 1
+  simp only [Matrix.trace_smul, smul_eq_mul, Complex.re_ofReal_mul, geomWeight]
+  simp [plus, Matrix.trace]
+
+/-- On `|+⟩⟨+|`, the outcome law of the geometric instrument has total mass one. -/
+example : geometric.outcomeMeasure plus Set.univ = 1 := by
+  rw [lossless_geometric.outcomeMeasure_apply_univ]
+  simp [plus, Matrix.trace]
 
 end VCVioTest.QuantumBasic
