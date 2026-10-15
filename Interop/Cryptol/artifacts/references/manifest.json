@@ -10,7 +10,7 @@
   "numeric_sha256": "9c0a5c4df4474003545422686a7fa9ab401d309e097f2dba7eedc403da9ee5c8",
   "class_sha256": "06addcaf599dacc61f7b15fc2cbd3fd26203f0ed958c674dc25ba0942eed45c4",
   "scalar_bundle_sha256": "38201d157463c9804b82b92a9ecf1c7f21745898331ce04875e6c99f2870c639",
-  "scalar_lean_sha256": "ad0b2d5ead28f52675e34a3cf832002f62f4e1bfb4b64e85ccebdb8c83fac55d",
+  "scalar_lean_sha256": "bf2dd3c66b4998a7e67eed304d9d273b448f5b2d1dcf0020740b4844a4f05608",
   "entries": [
     {
       "id": "sha256-compression",
