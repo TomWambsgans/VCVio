@@ -5,7 +5,7 @@ Authors: Quang Dao
 -/
 
 module
-public import VCVio.Quantum.Comp.HybridProjected
+public import VCVio.Quantum.Comp.HybridIndex
 
 /-!
 # Leaving a subspace: ePrint 2025/2166, Cor 5.8
@@ -50,6 +50,12 @@ and `M` sends exactly the weight of `S ∉ Q` there.
 * `Quantum.QuantumRuntime.tsum_trace_conj_one_sub_le_of_inImage_of_isQueryBound`: Cor 5.8,
   `Pr[S ∉ Q] ≤ q · ∑ᵢ Cᵢ · TotalMass(i)` for programs within a query budget, with
   `Cᵢ = ∑ᵣ ‖[P̂ Uᵢ,ᵣ P̂, M̂]‖²`.
+* `Quantum.QuantumRuntime.tsum_trace_conj_one_sub_le_of_inImage_indexMass` and
+  `Quantum.QuantumRuntime.tsum_trace_conj_one_sub_le_of_inImage_indexMass_of_isQueryBound`:
+  Cor 5.8 with the masses of a coherent index, as in the paper
+  (`VCVio.Quantum.Comp.HybridIndex`), with the constants `∑ᵣ ‖[P̂ Uᵢ,ᵣ P̂, M̂] B̂ᵢ,ₖ‖²`, when the
+  operators `U i r` respect the index. The extended runtime respects it too
+  (`Quantum.Hybrid.RespectsIndex.ctrl`), and so do the commutators.
 -/
 
 public section
@@ -180,6 +186,25 @@ def measComm (P Q : Matrix D D ℂ)
       (((1 : Matrix (spec.Out i) (spec.Out i) ℂ) ⊗ₖ (P ⊗ₖ (1 : Matrix Bool Bool ℂ))) *
         ctrl (U i r) (U i r) *
         ((1 : Matrix (spec.In i) (spec.In i) ℂ) ⊗ₖ (P ⊗ₖ (1 : Matrix Bool Bool ℂ))))
+
+/-- The steps extended by a bit, `U ⊗ 1_B` (here `ctrl U U`), respect a coherent index when the
+steps `U` do. -/
+theorem RespectsIndex.ctrl {κ : spec.Port → Type*} {B : ∀ i, κ i → Matrix (spec.In i) (spec.In i) ℂ}
+    {B' : ∀ i, κ i → Matrix (spec.Out i) (spec.Out i) ℂ}
+    {U : ∀ i, spec.Result i → Matrix (spec.Out i × D) (spec.In i × D) ℂ}
+    (hU : RespectsIndex B B' U) :
+    RespectsIndex B B' (D := D × Bool) fun i r ↦ ctrl (U i r) (U i r) := fun i r k ↦ by
+  have h : ∀ b, (B' i k ⊗ₖ (1 : Matrix (D × Bool) (D × Bool) ℂ)) *
+      ((sel (D := D) (spec.Out i) b)ᴴ * U i r * sel (D := D) (spec.In i) b) *
+        (B i k ⊗ₖ (1 : Matrix (D × Bool) (D × Bool) ℂ)) =
+      (sel (D := D) (spec.Out i) b)ᴴ * U i r * sel (D := D) (spec.In i) b *
+        (B i k ⊗ₖ (1 : Matrix (D × Bool) (D × Bool) ℂ)) := fun b ↦
+    mul_mul_eq_of_comm_right
+      (by rw [sel]; exact (kronecker_one_mul_one_kronecker (B i k) (inj D b)ᴴ).symm)
+      (mul_mul_eq_of_comm_left
+        (by rw [conjTranspose_sel]; exact kronecker_one_mul_one_kronecker (B' i k) (inj D b))
+        (hU i r k))
+  simp only [Hybrid.ctrl, Matrix.mul_add, Matrix.add_mul, h]
 
 end Hybrid
 
@@ -353,14 +378,19 @@ private theorem conj_sel_true_purifiedMeas_lift {Q : Matrix D D ℂ} (hQ : Qᴴ 
 open scoped Matrix.Norms.L2Operator
 
 omit hU in
+private theorem lemmaKraus_ext_eq_neg (P Q : Matrix D D ℂ) (i : spec.Port) (r : spec.Result i) :
+    lemmaKraus (D := QReg.of (D × Bool)) (P ⊗ₖ (1 : Matrix Bool Bool ℂ)) (purifiedMeas Q)
+        (fun i r ↦ ctrl (U i r) (U i r)) (fun i r ↦ ctrl (U i r) (U i r)) i r =
+      -measComm P Q U i r :=
+  (neg_sub _ _).symm
+
+omit hU in
 private theorem l2_opNorm_lemmaKraus_ext (P Q : Matrix D D ℂ) (i : spec.Port)
     (r : spec.Result i) :
     ‖lemmaKraus (D := QReg.of (D × Bool)) (P ⊗ₖ (1 : Matrix Bool Bool ℂ)) (purifiedMeas Q)
         (fun i r ↦ ctrl (U i r) (U i r)) (fun i r ↦ ctrl (U i r) (U i r)) i r‖ =
       ‖measComm P Q U i r‖ := by
-  rw [show lemmaKraus (D := QReg.of (D × Bool)) (P ⊗ₖ (1 : Matrix Bool Bool ℂ)) (purifiedMeas Q)
-      (fun i r ↦ ctrl (U i r) (U i r)) (fun i r ↦ ctrl (U i r) (U i r)) i r =
-      -measComm P Q U i r from (neg_sub _ _).symm, norm_neg]
+  rw [lemmaKraus_ext_eq_neg, norm_neg]
 
 omit hU in
 private theorem C_eq (P Q : Matrix D D ℂ) (i : spec.Port) (c : ℝ≥0∞) :
@@ -454,7 +484,9 @@ and `Q` an orthogonal projector of the register `D`, with `σ` in the image of `
 and let the operator presented to every call of the run from `ρ ⊗ σ`, and every output of the
 step on it, be fixed by `1 ⊗ P` (condition 1). Then the probability that `D`, measured by `Q`
 at the end, has left `Q` is at most `(∑ⱼ √(∑ᵢ Cᵢ · mass(i, j)))²`, with
-`Cᵢ = ∑ᵣ ‖[P̂ Uᵢ,ᵣ P̂, M̂]‖²` for the purified measurement `M` of `Q` and the masses of §4.2.
+`Cᵢ = ∑ᵣ ‖[P̂ Uᵢ,ᵣ P̂, M̂]‖²` for the purified measurement `M` of `Q` and the masses of the ports.
+The masses of a coherent index, as in §4.2, are in
+`Quantum.QuantumRuntime.tsum_trace_conj_one_sub_le_of_inImage_indexMass`.
 
 No commutation of `P` and `Q` is assumed (condition 3 of the paper), and the paper's
 `Pr[S ∈ Q]` is read as `Pr[S ∉ Q]`, which is what its proof bounds. -/
@@ -494,6 +526,129 @@ theorem tsum_trace_conj_one_sub_le_of_inImage_of_isQueryBound {x : QuantumComp L
     ((tsum_rpow_inv_two_queryWeight_le_of_isQueryBound I _ hx t ht _).trans ?_)
   gcongr
   exact tsum_queryWeight_ext_le I hU x ρ P Q
+
+/-! ### Cor 5.8 with the masses of a coherent index -/
+
+omit hU in
+private theorem trace_conj_kronecker_one_amplifyLeft {J : Type*} [Fintype J] [DecidableEq J]
+    (M : Matrix J J ℂ) (τ : Matrix (J × D) (J × D) ℂ) :
+    (MatrixMap.conj (M ⊗ₖ (1 : Matrix (QReg.of (D × Bool)) (QReg.of (D × Bool)) ℂ))
+        ((MatrixMap.conj (inj D false)).amplifyLeft J τ)).trace =
+      (MatrixMap.conj (M ⊗ₖ (1 : Matrix D D ℂ)) τ).trace := by
+  classical
+  have h : (inj D false)ᴴ * inj D false = 1 := by
+    simpa using conjTranspose_inj_mul_inj (D := D) false false
+  rw [MatrixMap.amplifyLeft_conj, ← LinearMap.comp_apply (MatrixMap.conj _),
+    ← MatrixMap.conj_mul, kronecker_one_mul_one_kronecker, MatrixMap.conj_mul,
+    LinearMap.comp_apply, trace_conj_of_isometry (one_kronecker_isometry h)]
+
+private theorem indexMassAt_ext {κ : spec.Port → Type*}
+    (B : ∀ i, κ i → Matrix (spec.In i) (spec.In i) ℂ) (x : QuantumComp L spec X A)
+    (ρ : Matrix (A × D) (A × D) ℂ) (c : Σ i, κ i) (j : ℕ) :
+    (QuantumRuntime.mk (QReg.of (D × Bool)) (zeroInit _) (extSteps hU)).indexMassAt I B x
+        ((MatrixMap.conj (inj D false)).amplifyLeft A ρ) c j =
+      (QuantumRuntime.mk D σ s).indexMassAt I B x ρ c j := by
+  simp only [indexMassAt]
+  rw [queryWeight_simulation I (R₁ := QuantumRuntime.mk D σ s)
+    (R₂ := QuantumRuntime.mk (QReg.of (D × Bool)) (zeroInit _) (extSteps hU))
+    (V := MatrixMap.conj (inj D false)) (extSteps_simulation hU)]
+  refine congrArg (fun w ↦ (QuantumRuntime.mk D σ s).queryWeight I w x ρ j)
+    (funext fun i' ↦ funext fun τ ↦ tsum_congr fun k ↦ ?_)
+  split_ifs
+  · rw [trace_conj_kronecker_one_amplifyLeft]
+  · rfl
+
+omit hU in
+private theorem respectsIndex_lemmaKraus_ext {κ : spec.Port → Type*}
+    {B : ∀ i, κ i → Matrix (spec.In i) (spec.In i) ℂ}
+    {B' : ∀ i, κ i → Matrix (spec.Out i) (spec.Out i) ℂ} (hUB : RespectsIndex B B' U)
+    (P Q : Matrix D D ℂ) :
+    RespectsIndex B B' (lemmaKraus (D := QReg.of (D × Bool)) (P ⊗ₖ (1 : Matrix Bool Bool ℂ))
+      (purifiedMeas Q) (fun i r ↦ ctrl (U i r) (U i r)) (fun i r ↦ ctrl (U i r) (U i r))) :=
+  RespectsIndex.lemmaKraus hUB.ctrl hUB.ctrl _ _
+
+/-- The Kraus weight of the commutators at the `j`-th call of the run against the extended
+runtime is at most the index masses of the `j`-th call of the run against the runtime. -/
+private theorem queryWeight_ext_le_indexMassAt {κ : spec.Port → Type*} [∀ i, Fintype (κ i)]
+    {B : ∀ i, κ i → Matrix (spec.In i) (spec.In i) ℂ}
+    {B' : ∀ i, κ i → Matrix (spec.Out i) (spec.Out i) ℂ} (hB : IsCoherentIndex B B')
+    (hUB : RespectsIndex B B' U) (x : QuantumComp L spec X A) (ρ : SubState A)
+    (P Q : Matrix D D ℂ) (j : ℕ) :
+    (QuantumRuntime.mk (QReg.of (D × Bool)) (zeroInit _) (extSteps hU)).queryWeight I
+        (krausWeight (lemmaKraus (D := QReg.of (D × Bool)) (P ⊗ₖ (1 : Matrix Bool Bool ℂ))
+          (purifiedMeas Q) (fun i r ↦ ctrl (U i r) (U i r)) (fun i r ↦ ctrl (U i r) (U i r))))
+        x ((MatrixMap.conj (inj D false)).amplifyLeft A (ρ.matrix ⊗ₖ σ.matrix)) j ≤
+      ∑' c, (∑' r, ENNReal.ofReal (‖measComm P Q U c.1 r *
+          (B c.1 c.2 ⊗ₖ (1 : Matrix (D × Bool) (D × Bool) ℂ))‖ ^ 2)) *
+        (QuantumRuntime.mk D σ s).indexMassAt I B x (ρ.matrix ⊗ₖ σ.matrix) c j := by
+  have hΓ : (((MatrixMap.conj (inj D false)).amplifyLeft A (ρ.matrix ⊗ₖ σ.matrix) :
+      Matrix (A × (QuantumRuntime.mk (QReg.of (D × Bool)) (zeroInit _) (extSteps hU)).D)
+        (A × (QuantumRuntime.mk (QReg.of (D × Bool)) (zeroInit _) (extSteps hU)).D) ℂ)).PosSemidef
+      := by
+    convert (ρ.prod σ).posSemidef.mul_mul_conjTranspose_same ((1 : Matrix A A ℂ) ⊗ₖ inj D false)
+      using 1
+    exact LinearMap.congr_fun (MatrixMap.amplifyLeft_conj _) _
+  refine ((QuantumRuntime.mk (QReg.of (D × Bool)) (zeroInit _)
+    (extSteps hU)).queryWeight_krausWeight_le_tsum_mul_indexMassAt I hB
+    (respectsIndex_lemmaKraus_ext hUB P Q) x hΓ j).trans_eq ?_
+  simp only [indexMassAt_ext (σ := σ) I hU]
+  refine tsum_congr fun c ↦ congrArg (· * _) (tsum_congr fun r ↦ ?_)
+  rw [lemmaKraus_ext_eq_neg, Matrix.neg_mul, norm_neg]
+
+/-- **ePrint 2025/2166, Cor 5.8, with the masses of a coherent index, per call** (§4.1–4.2, for
+general programs). Under the hypotheses of
+`Quantum.QuantumRuntime.tsum_trace_conj_one_sub_le_of_inImage`, if the steps `U i r` respect a
+coherent index `B, B'`, the probability that `D` has left `Q` is at most
+`(∑ⱼ √(∑_{i,k} Cᵢ,ₖ · mass(⟨i, k⟩, j)))²`, with `Cᵢ,ₖ = ∑ᵣ ‖[P̂ Uᵢ,ᵣ P̂, M̂] (B i k ⊗ 1)‖²` and
+the index masses of the run. For the paper's emulated oracles `B i k` projects the index
+register onto `k`, and `Cᵢ,ₖ` is the commutator of the block `k`, `‖[P Uₖ P, M]‖²`. -/
+theorem tsum_trace_conj_one_sub_le_of_inImage_indexMass {κ : spec.Port → Type*}
+    [∀ i, Fintype (κ i)] {B : ∀ i, κ i → Matrix (spec.In i) (spec.In i) ℂ}
+    {B' : ∀ i, κ i → Matrix (spec.Out i) (spec.Out i) ℂ} (hB : IsCoherentIndex B B')
+    (hUB : RespectsIndex B B' U) (x : QuantumComp L spec X A) (ρ : SubState A)
+    {P Q : Matrix D D ℂ} (hP : (1 - Pᴴ * P).PosSemidef) (hQ : Qᴴ = Q) (hQQ : Q * Q = Q)
+    (hQσ : Q * σ.matrix = σ.matrix)
+    (h : (QuantumRuntime.mk D σ s).ForallQueries I (InImageAt P s) x (ρ.matrix ⊗ₖ σ.matrix)) :
+    ∑' p, ENNReal.ofReal (MatrixMap.conj ((1 : Matrix p.1 p.1 ℂ) ⊗ₖ (1 - Q))
+        ((QuantumRuntime.mk D σ s).jointPost I x ρ p).matrix).trace.re ≤
+      (∑' j, (∑' c, (∑' r, ENNReal.ofReal (‖measComm P Q U c.1 r *
+          (B c.1 c.2 ⊗ₖ (1 : Matrix (D × Bool) (D × Bool) ℂ))‖ ^ 2)) *
+        (QuantumRuntime.mk D σ s).indexMassAt I B x (ρ.matrix ⊗ₖ σ.matrix) c j) ^ (2⁻¹ : ℝ)) ^
+          2 := by
+  have hw := (rpow_inv_two_tsum_trace_conj_one_sub_le I hU x ρ hP hQ hQQ hQσ h).trans <|
+    ENNReal.tsum_le_tsum fun j ↦
+      ENNReal.rpow_le_rpow (queryWeight_ext_le_indexMassAt I hU hB hUB x ρ P Q j) (by norm_num)
+  rw [← ENNReal.rpow_two]
+  calc _ = ((∑' p, ENNReal.ofReal (MatrixMap.conj ((1 : Matrix p.1 p.1 ℂ) ⊗ₖ (1 - Q))
+        ((QuantumRuntime.mk D σ s).jointPost I x ρ p).matrix).trace.re) ^ (2⁻¹ : ℝ)) ^
+          (2 : ℝ) := (rpow_inv_two_rpow_two _).symm
+    _ ≤ _ := ENNReal.rpow_le_rpow hw (by norm_num)
+
+/-- **ePrint 2025/2166, Cor 5.8, with the masses of a coherent index**, for general programs
+within a query budget: with at most `q = ∑ i ∈ t, b i` calls, the probability that `D` has left
+`Q` is at most `q · ∑_{i,k} Cᵢ,ₖ · TotalMass(⟨i, k⟩)`,
+`Cᵢ,ₖ = ∑ᵣ ‖[P̂ Uᵢ,ᵣ P̂, M̂] (B i k ⊗ 1)‖²`. -/
+theorem tsum_trace_conj_one_sub_le_of_inImage_indexMass_of_isQueryBound {κ : spec.Port → Type*}
+    [∀ i, Fintype (κ i)] {B : ∀ i, κ i → Matrix (spec.In i) (spec.In i) ℂ}
+    {B' : ∀ i, κ i → Matrix (spec.Out i) (spec.Out i) ℂ} (hB : IsCoherentIndex B B')
+    (hUB : RespectsIndex B B' U) {x : QuantumComp L spec X A} {b : spec.Port → ℕ}
+    (hx : x.IsQueryBound b) (t : Finset spec.Port) (ht : ∀ i ∉ t, b i = 0) (ρ : SubState A)
+    {P Q : Matrix D D ℂ} (hP : (1 - Pᴴ * P).PosSemidef) (hQ : Qᴴ = Q) (hQQ : Q * Q = Q)
+    (hQσ : Q * σ.matrix = σ.matrix)
+    (h : (QuantumRuntime.mk D σ s).ForallQueries I (InImageAt P s) x (ρ.matrix ⊗ₖ σ.matrix)) :
+    ∑' p, ENNReal.ofReal (MatrixMap.conj ((1 : Matrix p.1 p.1 ℂ) ⊗ₖ (1 - Q))
+        ((QuantumRuntime.mk D σ s).jointPost I x ρ p).matrix).trace.re ≤
+      ((∑ i ∈ t, b i : ℕ) : ℝ≥0∞) * ∑' c, (∑' r, ENNReal.ofReal (‖measComm P Q U c.1 r *
+          (B c.1 c.2 ⊗ₖ (1 : Matrix (D × Bool) (D × Bool) ℂ))‖ ^ 2)) *
+        (QuantumRuntime.mk D σ s).indexMass I B x (ρ.matrix ⊗ₖ σ.matrix) c := by
+  refine (ENNReal.rpow_le_rpow_iff (by norm_num : (0 : ℝ) < 2⁻¹)).mp ?_
+  refine (rpow_inv_two_tsum_trace_conj_one_sub_le I hU x ρ hP hQ hQQ hQσ h).trans
+    ((tsum_rpow_inv_two_queryWeight_le_of_isQueryBound I _ hx t ht _).trans ?_)
+  gcongr
+  refine (ENNReal.tsum_le_tsum fun j ↦
+    queryWeight_ext_le_indexMassAt I hU hB hUB x ρ P Q j).trans_eq ?_
+  rw [ENNReal.tsum_comm]
+  simp only [indexMass, ENNReal.tsum_mul_left]
 
 end Extended
 
