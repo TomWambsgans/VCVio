@@ -394,11 +394,14 @@ include hU hW hP hV hB
 /-- **ePrint 2025/2166, Lemma 5.7, in the form of the paper** (with the masses of a coherent
 index, §4.1–4.2, for general programs). Under conditions 1 to 3 for a contraction `P` and a
 unitary `V`, if the operators `lemmaKraus P V U W` respect a coherent index `B, B'` (as they do
-when `U` and `W` respect it, `Quantum.Hybrid.RespectsIndex.lemmaKraus`), the square roots of the
-probabilities of an event differ by at most
+when `U` and `W` respect it, `Quantum.Hybrid.RespectsIndex.lemmaKraus`), the square root of the
+probability of an event against the first runtime exceeds the one against the second by at most
 `∑ⱼ √(∑_{i,k} (∑ᵣ ‖P̂ (V̂ Uᵢ,ᵣ V̂ᴴ - Wᵢ,ᵣ) P̂ (B i k ⊗ 1)‖²) · mass(⟨i, k⟩, j))`, with the index
 masses of the run against the first runtime. For the paper's emulated oracles `B i k` projects
-the index register onto `k`, and the constant is the norm of the change on the block `k`. -/
+the index register onto `k`, and the constant is the norm of the change on the block `k`.
+
+This is one direction. The other direction, with the masses of the first runtime, follows in the
+same way from `Quantum.QuantumRuntime.rpow_inv_two_outcomeLawWith_le_of_inImage'`. -/
 theorem rpow_inv_two_outcomeLawWith_le_of_inImage_indexMass {γ : Type*} [MeasurableSpace γ]
     (x : QuantumComp L spec X A) (ρ : SubState A) (f : (Σ u, X u) → γ) {s : Set γ}
     (hs : MeasurableSet s) (hVσ : MatrixMap.conj V σ₀.matrix = σ₀.matrix)
@@ -421,7 +424,8 @@ theorem rpow_inv_two_outcomeLawWith_le_of_inImage_indexMass {γ : Type*} [Measur
 
 /-- **ePrint 2025/2166, Lemma 5.7, in the form of the paper, for programs within a query
 budget**: with at most `q = ∑ i ∈ t, b i` calls, the sum over the calls is at most
-`√(q · ∑_{i,k} Cᵢ,ₖ · TotalMass(⟨i, k⟩))`, `Cᵢ,ₖ = ∑ᵣ ‖P̂ (V̂ Uᵢ,ᵣ V̂ᴴ - Wᵢ,ᵣ) P̂ (B i k ⊗ 1)‖²`. -/
+`√(q · ∑_{i,k} Cᵢ,ₖ · TotalMass(⟨i, k⟩))`, `Cᵢ,ₖ = ∑ᵣ ‖P̂ (V̂ Uᵢ,ᵣ V̂ᴴ - Wᵢ,ᵣ) P̂ (B i k ⊗ 1)‖²`.
+Like `rpow_inv_two_outcomeLawWith_le_of_inImage_indexMass`, it bounds one direction. -/
 theorem rpow_inv_two_outcomeLawWith_le_of_inImage_indexMass_of_isQueryBound {γ : Type*}
     [MeasurableSpace γ] {x : QuantumComp L spec X A} {b : spec.Port → ℕ} (hx : x.IsQueryBound b)
     (t : Finset spec.Port) (ht : ∀ i ∉ t, b i = 0) (ρ : SubState A) (f : (Σ u, X u) → γ)
