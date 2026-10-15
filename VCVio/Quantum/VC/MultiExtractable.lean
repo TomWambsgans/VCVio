@@ -121,6 +121,7 @@ coherent emulated oracle and against the reference model differ by at most `κsi
 directions. The reference model is a family `Ref` of runtimes on the coherent signature, sampled
 uniformly from `Ω` (the paper's `D(λ)`, l.2838); the random-oracle model is the family of
 `Quantum.romVCOracle`. -/
+@[expose]
 def Simulates {Ω : Type} [SampleableType Ω] (Ref : Ω → QuantumRuntime (cohSpec (oIn k X Y)))
     (E : VCOracle k X Y) (κsim : ℕ → ℝ≥0∞) : Prop :=
   ∀ (t : ℕ) {A : QReg} {W : QReg → Type}
@@ -202,6 +203,7 @@ variable {k : ℕ} {X Y Cm Z : Type} [Fintype X] [DecidableEq X] [Fintype Y] [De
 /-- **First half of P2** (ePrint 2025/2166, Def 7.3, l.2841–2843): the oracle unitaries commute
 when applied to two query registers `X₁Y₁` and `X₂Y₂` sharing the private register,
 `[(O_i)_{X₂Y₂S}, (O_j)_{X₁Y₁S}] = 0` for all `i, j`, including `i = j`. -/
+@[expose]
 def OraclesCommute (E : VCOracle k X Y) : Prop :=
   ∀ i j : Fin k, onFactor (slotSnd (X × Y) (X × Y) E.S) (E.U i) *
       onFactor (slotFst (X × Y) (X × Y) E.S) (E.U j) =
@@ -244,6 +246,7 @@ noncomputable def comError (i : Fin k) {A Env : QReg} {α : Type}
 /-- **Second half of P2** (ePrint 2025/2166, Def 7.3, l.2844–2857): against every `t`-query
 adversary querying `EO^(Ext)`, the commutation distance of every oracle `i` with the extractor is
 at most `κcom t`. -/
+@[expose]
 def ComBound (κcom : ℕ → ℝ≥0∞) : Prop :=
   ∀ (i : Fin k) (t : ℕ) {A Env : QReg} {α : Type}
     (x : QuantumComp₂ LocalSig.instruments.{0} (cohSpec (extIn k X Y Cm Z)) A
@@ -527,6 +530,7 @@ variable (E : VCOracle k X Y) (ME : MultiExtractor k Cm (DmOf ℓ Msg Td) E.S)
 `t`-query adversary querying `EO^(Ext)` whose oracle masses sum to at most `wVC` and whose
 extraction mass is at most `wME`, and every `n ≤ k`, the P3 challenger reports its event with
 probability at most `κ t wVC wME n`. -/
+@[expose]
 def ExtractionCorrect (κ : ℕ → ℝ≥0∞ → ℝ≥0∞ → ℕ → ℝ≥0∞) : Prop :=
   ∀ (hk : 1 ≤ k) (t n : ℕ) (wVC wME : ℝ≥0∞) {A : QReg} {W : QReg → Type}
     (x : QuantumComp LocalSig.instruments.{0} (cohSpec (extIn k X Y Cm Z)) W A)
@@ -543,6 +547,7 @@ def ExtractionCorrect (κ : ℕ → ℝ≥0∞ → ℝ≥0∞ → ℕ → ℝ≥
 /-- **P4, offline extractability** (ePrint 2025/2166, Def 7.3, l.2879–2911): against every
 `t`-query adversary querying `EO^(Ext)` with the mass bounds of P3, the P4 challenger reports
 its event with probability at most `κ t wVC wME qs`. -/
+@[expose]
 def OfflineExtractable [DecidableEq Msg] [∀ i, DecidableEq (Pf i)]
     (κ : ℕ → ℝ≥0∞ → ℝ≥0∞ → ℕ → ℝ≥0∞) : Prop :=
   ∀ (hk : 1 ≤ k) (t qs : ℕ) (wVC wME : ℝ≥0∞) {A : QReg} {W : QReg → Type}
@@ -631,6 +636,7 @@ whose oracle, extraction and record masses in the world `Record(U)` are at most 
 `Record(MultiExtract, U)` satisfy `√p₁ ≤ √p₂ + √κ` and `√p₂ ≤ √p₁ + √κ`, that is,
 `(√p₁ − √p₂)² ≤ κ t wVC wME wRec`. Both worlds start with every cell of the recording register
 at `bot`. -/
+@[expose]
 def OnlineIndistinguishable (κ : ℕ → ℝ≥0∞ → ℝ≥0∞ → ℝ≥0∞ → ℝ≥0∞) : Prop :=
   ∀ (Yr Cell : Type) [Fintype Yr] [DecidableEq Yr] [Fintype Cell] [DecidableEq Cell] (bot : Cell)
     (U : Matrix (Yr × Cell) (Yr × Cell) ℂ) (hU : U ∈ unitaryGroup (Yr × Cell) ℂ)
@@ -729,6 +735,7 @@ theorem le_def {κ κ' : MEErrors} : κ ≤ κ' ↔ κ.sim ≤ κ'.sim ∧ κ.co
 /-- **Monotonicity of the errors** (ePrint 2025/2166, l.2937): `κsim`, `κcom`, `κoffline` and
 `κonline` are monotone in all their arguments. It is a hypothesis to be assumed where needed, not
 part of `Quantum.IsMultiExtractableWith`. -/
+@[expose]
 def Monotone (κ : MEErrors) : Prop :=
   _root_.Monotone κ.sim ∧ _root_.Monotone κ.com ∧
     _root_.Monotone (fun p : ℕ × ℝ≥0∞ × ℝ≥0∞ × ℕ ↦ κ.offline p.1 p.2.1 p.2.2.1 p.2.2.2) ∧
@@ -769,6 +776,7 @@ structure IsMultiExtractableWith {Z : Type} [Fintype Z] [DecidableEq Z] [AddGrou
 l.2829–2939): there are an emulated oracle, a multi-extractor and an encoding of decommitment
 tuples for which `Quantum.IsMultiExtractableWith` holds. The existential is the paper's
 definition. -/
+@[expose]
 def IsMultiExtractable (tdBot : ∀ i, Td i) {Ω : Type} [SampleableType Ω]
     (Ref : Ω → QuantumRuntime (cohSpec (oIn k X Y))) (κ : MEErrors) : Prop :=
   ∃ (E : VCOracle k X Y) (ME : MultiExtractor k Cm (DmOf ℓ Msg Td) E.S) (Z : Type)
