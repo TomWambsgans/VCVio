@@ -76,7 +76,7 @@ public section
 open MeasureTheory Matrix
 open scoped ENNReal Kronecker ComplexOrder
 
-universe u v u₁ v₁ uL vL w
+universe u v u₁ v₁ uL vL w w₁
 
 namespace Quantum
 
@@ -85,7 +85,7 @@ namespace Quantum
 namespace QuantumRuntime
 
 variable {spec : QuantumOracleSpec.{u₁, v₁}} (R : QuantumRuntime spec) {L : LocalSig.{uL, vL}}
-  (I : L.Interp) {X : QReg → Type w} {Y : QReg → Type w} {A : QReg}
+  (I : L.Interp) {X : QReg → Type w} {Y : QReg → Type w₁} {A : QReg}
 
 /-- The weight `w` summed over all calls of `x` run against `R` from `ρ`. The total query mass
 `Quantum.QuantumRuntime.queryMass` is the case of the trace on one port. -/
@@ -470,7 +470,7 @@ theorem sum_totalMass_le {x : QuantumComp L (cohSpec In) W A} {t : ℕ}
 
 /-- **Masses add under sequencing.** The mass of `x.bind k` on `i` is the mass of `x` plus, for
 every leaf `p` of `x`, the mass of the continuation from the branch of the run of `x` at `p`. -/
-theorem totalMass_bind {Y : QReg → Type w} (x : QuantumComp L (cohSpec In) W A)
+theorem totalMass_bind {Y : QReg → Type w₁} (x : QuantumComp L (cohSpec In) W A)
     (k : ∀ u, W u → QuantumComp L (cohSpec In) Y u) {ρ : Matrix (A × E.S) (A × E.S) ℂ}
     (hρ : ρ.PosSemidef) (i : P) :
     E.totalMass I (x.bind k) ρ i =
