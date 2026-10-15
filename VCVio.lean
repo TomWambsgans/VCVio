@@ -419,6 +419,7 @@ public import VCVio.Quantum.MatrixMap.Pinching
 public import VCVio.Quantum.Observe
 public import VCVio.Quantum.Oracle.Basis
 public import VCVio.Quantum.Oracle.Classical
+public import VCVio.Quantum.Oracle.ClassicalCalls
 public import VCVio.Quantum.Oracle.Comb
 public import VCVio.Quantum.Oracle.Compressed.Action
 public import VCVio.Quantum.Oracle.Compressed.Basic
@@ -439,6 +440,7 @@ public import VCVio.Quantum.Semantics
 public import VCVio.Quantum.SubInstrument
 public import VCVio.Quantum.VC.MultiExtractor
 public import VCVio.Quantum.VC.Tuples
+public import VCVio.Quantum.VC.Unitaries
 public import VCVio.StateSeparating.Advantage.Measure
 public import VCVio.StateSeparating.CellRef
 public import VCVio.StateSeparating.DistEquiv
