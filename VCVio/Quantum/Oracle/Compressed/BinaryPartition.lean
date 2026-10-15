@@ -33,7 +33,7 @@ and Zheng, ePrint 2025/2166). This file proves:
   (`Quantum.l2_opNorm_commutator_truncatedOracle_sq_le_twentyFour_mul`): through Lemma 5.10 of
   [CDHZ], `‖[V, O^(t) ⊗ 1]‖² ≤ 24 I` when `π` takes at most two values, and its purified and XOR
   forms (as in Don, Fehr, Majenz and Schaffner, EUROCRYPT 2022, Thm 3.1). The constant `24` is
-  optimal for two labels.
+  optimal for two labels (proved on paper).
 
 ## Proof
 
@@ -246,7 +246,7 @@ theorem l2_opNorm_labelProjector_commutator_truncatedOracle_sq_le_six_mul
 /-- **Pinching for two labels with the constant `6`.** If the labelling `π` takes at most two
 values, pinching the truncated compressed oracle moves it by at most `√(6 I)`:
 `‖∑ i, P^(i) O^(t) P^(i) - O^(t)‖² ≤ 6 I(π, t)`. This is the constant of Chiesa, Manohar and
-Spooner (TCC 2019, Lemma 5.10), and it is optimal for two labels. -/
+Spooner (TCC 2019, Lemma 5.10), and it is optimal for two labels (proved on paper). -/
 theorem l2_opNorm_pinch_truncatedOracle_sub_sq_le_six_mul (π : Database X Y → ι) (t : ℕ)
     (hπ : ∃ i₀ i₁, ∀ D, π D = i₀ ∨ π D = i₁) :
     ‖pinch (fun m : (X × Y) × Database X Y ↦ π m.2) (truncatedOracle X Y t) -

@@ -24,9 +24,10 @@ below). This file proves, for the truncated compressed oracle `O^(t)`:
 * **Lemma 5.9 with the constant `8`**
   (`Quantum.l2_opNorm_pinch_truncatedOracle_sub_sq_le_eight_mul`):
   `‖∑ i, P^(i) O^(t) P^(i) - O^(t)‖² ≤ 8 I`. [CDHZ] state the constant `20`. The constant `8` is
-  optimal: an explicit family of labellings attains it (proved on paper, not formalized here). The
-  phase-basis form is `Quantum.l2_opNorm_pinch_truncatedPhaseOracle_sub_sq_le_eight_mul`; the
-  statements with the paper's constant, `Quantum.l2_opNorm_pinch_truncatedOracle_sub_sq_le` and
+  optimal: an explicit family of one-cell labellings approaches it (proved on paper, not
+  formalized here). The phase-basis form is
+  `Quantum.l2_opNorm_pinch_truncatedPhaseOracle_sub_sq_le_eight_mul`; the statements with the
+  paper's constant, `Quantum.l2_opNorm_pinch_truncatedOracle_sub_sq_le` and
   `Quantum.l2_opNorm_pinch_truncatedPhaseOracle_sub_sq_le`, are corollaries.
 * **Lemma 5.10** (`Quantum.l2_opNorm_commutator_truncatedOracle_le_pinch`, after Chiesa, Manohar
   and Spooner, TCC 2019, Lemma 5.10): for a label-controlled unitary
@@ -552,7 +553,8 @@ theorem l2_opNorm_pinch_truncatedPhaseOracle_sub_sq_le_eight_mul (π : Database 
 
 /-- **Lemma 5.9 of ePrint 2025/2166 with the constant `8`.** Pinching the truncated compressed
 oracle by the labels of the databases, `∑ i, P^(i) O^(t) P^(i)`, moves it by at most `√(8 I)` in
-operator norm: `‖∑ i, P^(i) O^(t) P^(i) - O^(t)‖² ≤ 8 I(π, t)`. The constant `8` is optimal. -/
+operator norm: `‖∑ i, P^(i) O^(t) P^(i) - O^(t)‖² ≤ 8 I(π, t)`. The constant `8` is optimal
+(proved on paper). -/
 theorem l2_opNorm_pinch_truncatedOracle_sub_sq_le_eight_mul (π : Database X Y → ι) (t : ℕ) :
     ‖pinch (fun m : (X × Y) × Database X Y ↦ π m.2) (truncatedOracle X Y t) -
         truncatedOracle X Y t‖ ^ 2 ≤ 8 * (Database.instability π t).toReal :=
