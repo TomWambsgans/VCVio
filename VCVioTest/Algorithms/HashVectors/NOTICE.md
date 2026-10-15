@@ -22,4 +22,3 @@ the RFC's four-byte big-endian counter grammar and are explicitly classified as 
 RFC 8017 is Copyright (c) 2016 IETF Trust and the persons identified as its authors, subject to the
 IETF Trust's Legal Provisions Relating to IETF Documents. No RFC text or code component is copied
 into this projection.
-
