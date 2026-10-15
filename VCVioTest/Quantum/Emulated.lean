@@ -62,6 +62,10 @@ local notation "spec2" => uSpec (Fin 2) fun _ ↦ QReg.of (Fin 2)
 example : ((spec2).sum (uSpec Unit fun _ ↦ Qubit)).Port = (Fin 2 ⊕ Unit) :=
   rfl
 
+/-- The ports of the two signatures of a sum may live in different universes. -/
+example : ((spec2).sum (uSpec (ULift.{1} Unit) fun _ ↦ Qubit)).Port = (Fin 2 ⊕ ULift.{1} Unit) :=
+  rfl
+
 /-- Unitary ports return no classical result. -/
 example (i : Fin 2) : (spec2).Result i = Unit :=
   rfl
@@ -102,6 +106,13 @@ example :
     (swapOracle.extend (P' := Unit) (In' := fun _ ↦ Qubit) (fun _ ↦ 1)
       (fun _ ↦ one_mem _)).toRuntime.step (.inl 1) = swapOracle.toRuntime.step 1 :=
   swapOracle.toRuntime_extend_step_inl _ _ 1
+
+/-- Extending by a port indexed in another universe needs no lifting of the old ports. -/
+example :
+    (swapOracle.extend (P' := ULift.{1} Unit) (In' := fun _ ↦ Qubit) (fun _ ↦ 1)
+      (fun _ ↦ one_mem _)).toRuntime.step (.inr ⟨()⟩) =
+      SubInstrument.ofIsometry 1 (Matrix.mem_unitaryGroup_iff'.mp (one_mem _)) :=
+  swapOracle.toRuntime_extend_step_inr _ _ (ULift.up ())
 
 /-- The general extension of a runtime answers the new ports by the added steps. -/
 example (s : Unit → SubInstrument (Qubit × swapOracle.toRuntime.D)
@@ -152,6 +163,23 @@ theorem totalMass_toCoherent_oneCall_zero {ρ : Matrix (Reg × swapOracle.S) (Re
     (QuantumComp.isQueryBound_query_iff _ _ _ _).mpr (by simp)
   have h0 := swapOracle.toRuntime.queryMass_le_of_isQueryBoundAt .instruments (h 0) hρ
   simpa using h0
+
+/-- The masses are the index masses of the index projectors, so the vanishing mass on the index
+`0` is a vanishing index mass, in the form consumed by the hybrid bounds with index masses. -/
+example {ρ : Matrix (Reg × swapOracle.S) (Reg × swapOracle.S) ℂ} (hρ : ρ.PosSemidef) :
+    swapOracle.coherent.toRuntime.indexMass .instruments
+      (fun _ ↦ EmulatedOracle.cohIndexProj fun _ : Fin 2 ↦ Qubit) oneCall.toCoherent ρ
+        ⟨(), 0⟩ = 0 := by
+  rw [← swapOracle.totalMass_eq_indexMass]
+  exact totalMass_toCoherent_oneCall_zero hρ
+
+/-- The index projectors of the coherent oracle form a coherent index that its unitary
+respects. -/
+example :
+    Hybrid.RespectsIndex (spec := EmulatedOracle.cohSpec fun _ : Fin 2 ↦ Qubit)
+      (fun _ ↦ EmulatedOracle.cohIndexProj _) (fun _ ↦ EmulatedOracle.cohIndexProj _)
+      fun _ _ ↦ swapOracle.coherent.U () - swapOracle.coherent.U () :=
+  swapOracle.respectsIndex_coherent_U.sub swapOracle.respectsIndex_coherent_U
 
 /-- **Remark 4.2 with a budget.** The masses on the indices add up to at most the number of
 coherent calls times the trace. -/
@@ -477,5 +505,12 @@ example (ρ : Matrix (TProgReg × swapOracle.S) (TProgReg × swapOracle.S) ℂ) 
     swapOracle.totalMass .instruments oneTensorCall.tensorToCoherent ρ i =
       swapOracle.tensorMass .instruments oneTensorCall ρ i :=
   swapOracle.totalMass_tensorToCoherent oneTensorCall ρ i
+
+/-- The masses on the tensor-product interface are the index masses of its index projectors. -/
+example (ρ : Matrix (TProgReg × swapOracle.S) (TProgReg × swapOracle.S) ℂ) (i : Fin 2) :
+    swapOracle.tensorMass .instruments oneTensorCall ρ i =
+      swapOracle.tensor.toRuntime.indexMass .instruments
+        (fun _ ↦ EmulatedOracle.tensIndexProj fun _ : Fin 2 ↦ Qubit) oneTensorCall ρ ⟨(), i⟩ :=
+  swapOracle.tensorMass_eq_indexMass _ _ _ _
 
 end VCVioTest.QuantumEmulated

@@ -6,6 +6,7 @@ Authors: Quang Dao
 
 module
 public import VCVio.Quantum.Comp.Combinators
+public import VCVio.Quantum.Comp.HybridIndex
 public import VCVio.Quantum.Comp.QueryMass
 public import VCVio.Quantum.Oracle.Basis
 
@@ -38,6 +39,14 @@ queries. `Quantum.EmulatedOracle.totalMass` is the case of a general program and
 (mixed, subnormalised) state: the summed trace of the index-`i` component of the input of each
 call to the coherent port, a query weight in the sense of `VCVio.Quantum.Comp.QueryMass`.
 
+It is an index mass of `VCVio.Quantum.Comp.QueryMass`: the projector onto `i` is
+`Quantum.EmulatedOracle.cohIndexProj In i ⊗ 1`, with `Quantum.EmulatedOracle.cohIndexProj` the
+projector onto the fibre `Quantum.fiberProj` of `i` under the index of the coherent register, and
+`Quantum.EmulatedOracle.totalMass_eq_indexMass` identifies the two masses. These projectors form
+a coherent index (`Quantum.EmulatedOracle.isCoherentIndex_cohIndexProj`) that the coherent unitary
+respects (`Quantum.EmulatedOracle.respectsIndex_coherent_U`), so the square-root hybrid bounds of
+`VCVio.Quantum.Comp.HybridIndex` apply to emulated oracles with these masses.
+
 ## Main statements
 
 * `Quantum.EmulatedOracle.toRuntime_step_branch`: each step is the Kraus map of its unitary, the
@@ -48,6 +57,9 @@ call to the coherent port, a query weight in the sense of `VCVio.Quantum.Comp.Qu
   the trace of the initial state (`Quantum.EmulatedOracle.sum_totalMass_le`).
 * `Quantum.EmulatedOracle.totalMass_bind`: masses add under sequencing, from the general
   `Quantum.QuantumRuntime.totalWeight_bind`.
+* `Quantum.EmulatedOracle.totalMass_eq_indexMass`: the mass on `i` is the total index mass of the
+  block `⟨(), i⟩`; `Quantum.EmulatedOracle.sum_totalMass` follows from
+  `Quantum.QuantumRuntime.tsum_indexMass_eq_queryMass`.
 
 ## Calls through a basis embedding
 
@@ -98,7 +110,7 @@ public section
 open MeasureTheory Matrix
 open scoped ENNReal Kronecker ComplexOrder
 
-universe u v u₁ v₁ uL vL w w₁
+universe u u' v u₁ v₁ uL vL w w₁
 
 namespace Quantum
 
@@ -291,6 +303,87 @@ private theorem conj_reindex_prodAssoc_kronecker_one {a s g : Type*} [Fintype a]
   rw [MatrixMap.amplify_conj, MatrixMap.conj_apply]
   exact MatrixMap.conj_reindex_apply _ _ ρ
 
+/-! ## Projectors onto the fibres of a labelling -/
+
+section fiberProj
+
+variable {J K : Type*} [DecidableEq J] [DecidableEq K]
+
+/-- The orthogonal projector onto the basis vectors of `J` labelled `k` by `f : J → K`: the
+diagonal matrix with entry `1` at `a` when `f a = k`, and `0` otherwise. When `f` reads the index
+carried by a query register, it is the paper's `P_mass^(k) = |k⟩⟨k|_I` (ePrint 2025/2166,
+l.1364). -/
+@[expose]
+noncomputable def fiberProj (f : J → K) (k : K) : Matrix J J ℂ :=
+  Matrix.diagonal fun a ↦ if f a = k then 1 else 0
+
+/-- Projectors onto fibres are self-adjoint. -/
+@[simp]
+theorem conjTranspose_fiberProj (f : J → K) (k : K) : (fiberProj f k)ᴴ = fiberProj f k := by
+  rw [fiberProj, Matrix.diagonal_conjTranspose]
+  congr 1
+  funext a
+  by_cases h : f a = k <;> simp [h]
+
+/-- Projectors onto fibres are idempotent. -/
+@[simp]
+theorem fiberProj_mul_self [Fintype J] (f : J → K) (k : K) :
+    fiberProj f k * fiberProj f k = fiberProj f k := by
+  rw [fiberProj, Matrix.diagonal_mul_diagonal]
+  congr 1
+  funext a
+  by_cases h : f a = k <;> simp [h]
+
+/-- Projectors onto distinct fibres are orthogonal. -/
+theorem fiberProj_mul_of_ne [Fintype J] (f : J → K) {k k' : K} (h : k ≠ k') :
+    fiberProj f k * fiberProj f k' = 0 := by
+  rw [fiberProj, fiberProj, Matrix.diagonal_mul_diagonal, ← Matrix.diagonal_zero]
+  congr 1
+  funext a
+  by_cases ha : f a = k
+  · simp [ha, h]
+  · simp [ha]
+
+/-- The projectors onto the fibres add up to the identity. -/
+theorem sum_fiberProj [Fintype K] (f : J → K) : ∑ k, fiberProj f k = 1 := by
+  ext a b
+  by_cases hab : a = b
+  · subst hab
+    simp [fiberProj, Matrix.sum_apply]
+  · simp [fiberProj, Matrix.sum_apply, hab]
+
+/-- The projectors onto the fibres form a complete family: `∑ₖ (P k)ᴴ P k = 1`. -/
+theorem sum_conjTranspose_mul_fiberProj [Fintype J] [Fintype K] (f : J → K) :
+    ∑ k, (fiberProj f k)ᴴ * fiberProj f k = 1 := by
+  simp only [conjTranspose_fiberProj, fiberProj_mul_self, sum_fiberProj]
+
+/-- A projector onto a fibre beside an identity is the projector onto the fibre of the labelling
+read from the first factor. -/
+theorem fiberProj_kronecker_one {D : Type*} [DecidableEq D] (f : J → K) (k : K) :
+    fiberProj f k ⊗ₖ (1 : Matrix D D ℂ) = fiberProj (fun a : J × D ↦ f a.1) k := by
+  ext ⟨a, c⟩ ⟨b, d⟩
+  by_cases hab : a = b
+  · subst hab
+    by_cases hcd : c = d
+    · subst hcd
+      simp [fiberProj]
+    · simp [fiberProj, hcd]
+  · simp [fiberProj, hab]
+
+/-- **Basis labels of the port registers form a coherent index.** On a signature of unitary
+ports, the projectors onto the fibres of labellings `f i` of the port registers are a coherent
+index (`Quantum.Hybrid.IsCoherentIndex`), with the same projectors on input and output. -/
+theorem isCoherentIndex_fiberProj {P : Type u} {In : P → QReg} {κ : P → Type*}
+    [∀ i, Fintype (κ i)] [∀ i, DecidableEq (κ i)] (f : ∀ i, In i → κ i) :
+    Hybrid.IsCoherentIndex (spec := uSpec P In) (fun i ↦ fiberProj (f i))
+      (fun i ↦ fiberProj (f i)) where
+  sum_eq_one i := sum_fiberProj (f i)
+  mul_self i k := fiberProj_mul_self (f i) k
+  conjTranspose_mul_of_ne i a b h := by
+    rw [conjTranspose_fiberProj, fiberProj_mul_of_ne _ (Ne.symm h)]
+
+end fiberProj
+
 namespace EmulatedOracle
 
 variable {P : Type u} {In : P → QReg} (E : EmulatedOracle P In)
@@ -332,7 +425,7 @@ theorem lossless_toRuntime_step (i : P) : (E.toRuntime.step i).Lossless :=
 /-- Add unitary ports `U' j` on the same private register (the step from `EO` to `EO^(Ext)` of
 ePrint 2025/2166, l.2846–2847). -/
 @[expose]
-def extend {P' : Type u} {In' : P' → QReg} (U' : ∀ j, Matrix (In' j × E.S) (In' j × E.S) ℂ)
+def extend {P' : Type u'} {In' : P' → QReg} (U' : ∀ j, Matrix (In' j × E.S) (In' j × E.S) ℂ)
     (hU' : ∀ j, U' j ∈ Matrix.unitaryGroup (In' j × E.S) ℂ) :
     EmulatedOracle (P ⊕ P') (Sum.elim In In') where
   S := E.S
@@ -346,7 +439,7 @@ def extend {P' : Type u} {In' : P' → QReg} (U' : ∀ j, Matrix (In' j × E.S) 
 
 section extend
 
-variable {P' : Type u} {In' : P' → QReg} (U' : ∀ j, Matrix (In' j × E.S) (In' j × E.S) ℂ)
+variable {P' : Type u'} {In' : P' → QReg} (U' : ∀ j, Matrix (In' j × E.S) (In' j × E.S) ℂ)
   (hU' : ∀ j, U' j ∈ Matrix.unitaryGroup (In' j × E.S) ℂ)
 
 /-- The old ports of an extended oracle are answered as before. Port-wise agreement with
@@ -421,6 +514,28 @@ private register (the paper's `P_mass^(i) = |i⟩⟨i|_I`, l.1364). -/
 noncomputable def indexProj (i : P) : Matrix (cohIn In × E.S) (cohIn In × E.S) ℂ :=
   Matrix.diagonal fun a ↦ if a.1.1 = i then 1 else 0
 
+/-- The projector of the coherent register onto the index `i`, on the input register of the
+coherent port alone (the paper's `|i⟩⟨i|_I`, l.1364): the projector onto the fibre of `i` under
+`Sigma.fst`. These are the blocks of the coherent index of `Quantum.EmulatedOracle.cohSpec`
+(`Quantum.EmulatedOracle.isCoherentIndex_cohIndexProj`). -/
+@[expose, reducible]
+noncomputable def cohIndexProj (In : P → QReg) (i : P) : Matrix (cohIn In) (cohIn In) ℂ :=
+  fiberProj (fun a : cohIn In ↦ a.1) i
+
+/-- The projector onto an index, with the private register, is the projector of the coherent
+register beside the identity. -/
+theorem indexProj_eq_kronecker (i : P) :
+    E.indexProj i = cohIndexProj In i ⊗ₖ (1 : Matrix E.S E.S ℂ) := by
+  rw [cohIndexProj, fiberProj_kronecker_one]
+  rfl
+
+/-- The projectors onto the indices form a coherent index on the signature of the coherent
+oracle, so the square-root hybrid bounds of `VCVio.Quantum.Comp.HybridIndex` apply to it. -/
+theorem isCoherentIndex_cohIndexProj :
+    Hybrid.IsCoherentIndex (spec := cohSpec In) (fun _ ↦ cohIndexProj In)
+      (fun _ ↦ cohIndexProj In) :=
+  isCoherentIndex_fiberProj fun _ (a : cohIn In) ↦ a.1
+
 /-- The weight of the index-`i` component of an operator: the trace of its compression by the
 projector onto `i`, the squared norm `‖P_mass^(i) |ψ⟩‖²` for a pure state. -/
 theorem trace_conj_indexProj (i : P) (σ : Matrix (cohIn In × E.S) (cohIn In × E.S) ℂ) :
@@ -451,29 +566,28 @@ noncomputable def totalMass {L : LocalSig.{uL, vL}} (I : L.Interp) {W : QReg →
 
 variable {L : LocalSig.{uL, vL}} (I : L.Interp) {W : QReg → Type w} {A : QReg}
 
+/-- **Total masses are index masses.** The mass on `i` is the total index mass
+`Quantum.QuantumRuntime.indexMass` of the block `⟨(), i⟩` for the projectors
+`Quantum.EmulatedOracle.cohIndexProj`, the masses consumed by the square-root hybrid bounds of
+`VCVio.Quantum.Comp.HybridIndex`. -/
+theorem totalMass_eq_indexMass (x : QuantumComp L (cohSpec In) W A)
+    (ρ : Matrix (A × E.S) (A × E.S) ℂ) (i : P) :
+    E.totalMass I x ρ i =
+      E.coherent.toRuntime.indexMass I (fun _ ↦ cohIndexProj In) x ρ ⟨(), i⟩ := by
+  refine tsum_congr fun j ↦ congrArg (fun w ↦ E.coherent.toRuntime.queryWeight I w x ρ j)
+    (funext fun _ ↦ funext fun σ ↦ ?_)
+  rw [tsum_eq_single i fun k hk ↦ by simp [hk], ite_eq_left rfl, indexProj_eq_kronecker]
+
 /-- **Remark 4.2** (l.1370–1373): on a positive semidefinite input, the masses on the indices add
-up to the query mass of the coherent port. -/
+up to the query mass of the coherent port. It is the completeness of the index projectors in
+`Quantum.QuantumRuntime.tsum_indexMass_eq_queryMass`. -/
 theorem sum_totalMass (x : QuantumComp L (cohSpec In) W A) {ρ : Matrix (A × E.S) (A × E.S) ℂ}
     (hρ : ρ.PosSemidef) :
     ∑ i, E.totalMass I x ρ i = E.coherent.toRuntime.queryMass I x ρ () := by
-  rw [QuantumRuntime.queryMass_eq_totalWeight]
-  simp only [totalMass, QuantumRuntime.totalWeight]
-  rw [← tsum_fintype (L := .unconditional P), ENNReal.tsum_comm]
-  refine tsum_congr fun j ↦ ?_
-  refine (E.coherent.toRuntime.tsum_queryWeight I _ x ρ j).trans ?_
-  have h : ∀ σ : Matrix (cohIn In × E.S) (cohIn In × E.S) ℂ, σ.PosSemidef →
-      ∑' i, ENNReal.ofReal (MatrixMap.conj (E.indexProj i) σ).trace.re =
-        ENNReal.ofReal σ.trace.re := fun σ hσ ↦ by
-    rw [tsum_fintype, ← ENNReal.ofReal_sum_of_nonneg fun i _ ↦
-      ((MatrixMap.isCP_conj _).posSemidef hσ).trace_re_nonneg, ← Complex.re_sum,
-      sum_trace_conj_indexProj]
-  exact le_antisymm
-    (E.coherent.toRuntime.queryWeight_mono I (fun i' σ hσ ↦ by
-      simp only [↓reduceIte]
-      exact (h σ hσ).le) x hρ j)
-    (E.coherent.toRuntime.queryWeight_mono I (fun i' σ hσ ↦ by
-      simp only [↓reduceIte]
-      exact (h σ hσ).ge) x hρ j)
+  simp only [E.totalMass_eq_indexMass I x ρ]
+  rw [← tsum_fintype (L := .unconditional P)]
+  exact E.coherent.toRuntime.tsum_indexMass_eq_queryMass I (fun _ ↦ cohIndexProj In) ()
+    (sum_conjTranspose_mul_fiberProj _) x hρ
 
 /-- The mass on one index is at most the query mass of the coherent port. -/
 theorem totalMass_le_queryMass (x : QuantumComp L (cohSpec In) W A)
@@ -990,6 +1104,23 @@ theorem coherent_U_apply_of_ne {i i' : P} (h : i ≠ i') (a : In i) (a' : In i')
     E.coherent.U () (⟨i, a⟩, d) (⟨i', a'⟩, d') = 0 := by
   change Matrix.blockDiagonal' E.U ⟨i, (a, d)⟩ ⟨i', (a', d')⟩ = _
   exact Matrix.blockDiagonal'_apply_ne _ _ _ h
+
+/-- **The coherent unitary respects the index**: it sends the block of each index into itself,
+`(Pᵢ ⊗ 1) U (Pᵢ ⊗ 1) = U (Pᵢ ⊗ 1)` for the projectors `Quantum.EmulatedOracle.cohIndexProj`. By
+`Quantum.Hybrid.RespectsIndex.sub`, so does the difference of two coherent unitaries, as the
+square-root hybrid bounds of `VCVio.Quantum.Comp.HybridIndex` require. -/
+theorem respectsIndex_coherent_U :
+    Hybrid.RespectsIndex (spec := cohSpec In) (fun _ ↦ cohIndexProj In)
+      (fun _ ↦ cohIndexProj In) fun _ _ ↦ E.coherent.U () := fun _ _ i ↦ by
+  beta_reduce
+  rw [← indexProj_eq_kronecker]
+  ext ⟨⟨k, a⟩, d⟩ ⟨⟨k', a'⟩, d'⟩
+  rw [indexProj, Matrix.mul_diagonal, Matrix.mul_diagonal, Matrix.diagonal_mul]
+  by_cases h : k = k'
+  · subst h
+    by_cases hk : k = i <;> simp [hk]
+  · rw [E.coherent_U_apply_of_ne h]
+    simp
 
 /-- The coherent unitary compressed on the summand `i` is the unitary of the port `i`. -/
 theorem coherent_compress_sigmaEmbedding (i : P) :
