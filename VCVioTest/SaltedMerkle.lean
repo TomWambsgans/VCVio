@@ -196,4 +196,18 @@ example (D : PMF (ULift.{1} X → Bool)) :
     (scheme (Msg := ULift.{2} Bool) encX 1).toVectorCommitment.PerfectlyComplete D :=
   perfectlyComplete_toVectorCommitment encX 1 D
 
+/-! ## Half-preimages over an infinite oracle domain -/
+
+/-- The tagged encoding into an oracle domain with an unused infinite summand. -/
+def encN : Encoding (X ⊕ ℕ) Bool Bool Bool where
+  node c := .inl (enc.node c)
+  leaf p := .inl (enc.leaf p)
+  node_injective := Sum.inl_injective.comp enc.node_injective
+  leaf_injective := Sum.inl_injective.comp enc.leaf_injective
+
+/-- `|HP(D)| ≤ 2 |dom D|` for a database with finite support over the infinite domain `X ⊕ ℕ`. -/
+example (D : Database (X ⊕ ℕ) Bool) (hD : {x | D x ≠ none}.Finite) :
+    (halfPreimages encN D).ncard ≤ 2 * {x | D x ≠ none}.ncard :=
+  ncard_halfPreimages_le encN D hD
+
 end VCVioTest.SaltedMerkleCanary

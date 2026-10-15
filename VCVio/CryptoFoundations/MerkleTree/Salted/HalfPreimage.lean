@@ -36,16 +36,19 @@ Lemma 8.6 for one database of a tuple.
 * `SaltedMerkle.extract_eq_of_not_mem`: Lemma 8.6.
 * `SaltedMerkle.mem_of_extract_ne`: Lemma 8.6, in the paper's contrapositive form.
 * `SaltedMerkle.multiExtract_update_eq`: Lemma 8.6 for `MTMultiExtract`.
-* `SaltedMerkle.ncard_halfPreimages_le`: `|HP(D)| ≤ 2 |dom D|`.
+* `SaltedMerkle.ncard_halfPreimages_le`: `|HP(D)| ≤ 2 |dom D|` for every database with finite
+  support; `SaltedMerkle.ncard_halfPreimages_le_of_finite` for a finite oracle domain.
 -/
 
 public section
 
 open Quantum
 
+universe uX uY uM uS
+
 namespace SaltedMerkle
 
-variable {X Y Msg Salt : Type}
+variable {X : Type uX} {Y : Type uY} {Msg : Type uM} {Salt : Type uS}
 
 /-- The half-preimages `HP(D)` of a database (Def 8.5, l.3126–3129): the values `u` with a node
 input `(u, u')` or `(u', u)` in the domain of `D`. -/
@@ -65,23 +68,29 @@ theorem snd_mem_halfPreimages {D : Database X Y} {c : Y × Y} (h : D (enc.node c
     c.2 ∈ halfPreimages enc D :=
   ⟨c.1, Or.inr h⟩
 
-/-- `|HP(D)| ≤ 2 |dom D|`: every input in the domain contributes at most its two halves. -/
-theorem ncard_halfPreimages_le [Finite X] (D : Database X Y) :
+/-- `|HP(D)| ≤ 2 |dom D|` for a database with finite support: every input in the domain contributes
+at most its two halves. The oracle domain `X` may be infinite. -/
+theorem ncard_halfPreimages_le (D : Database X Y) (hD : {x | D x ≠ none}.Finite) :
     (halfPreimages enc D).ncard ≤ 2 * {x | D x ≠ none}.ncard := by
   set P : Set (Y × Y) := {c | D (enc.node c) ≠ none}
-  have hP : P.Finite := (Set.toFinite {x | D x ≠ none}).preimage enc.node_injective.injOn
+  have hP : P.Finite := hD.preimage enc.node_injective.injOn
   have hsub : halfPreimages enc D ⊆ Prod.fst '' P ∪ Prod.snd '' P := by
     rintro u ⟨u', h | h⟩
     · exact Or.inl ⟨(u, u'), h, rfl⟩
     · exact Or.inr ⟨(u', u), h, rfl⟩
   have hcard : P.ncard ≤ {x | D x ≠ none}.ncard :=
-    Set.ncard_le_ncard_of_injOn enc.node (fun _ hc ↦ hc) enc.node_injective.injOn
+    Set.ncard_le_ncard_of_injOn enc.node (fun _ hc ↦ hc) enc.node_injective.injOn hD
   calc (halfPreimages enc D).ncard
       ≤ (Prod.fst '' P ∪ Prod.snd '' P).ncard :=
         Set.ncard_le_ncard hsub ((hP.image _).union (hP.image _))
     _ ≤ (Prod.fst '' P).ncard + (Prod.snd '' P).ncard := Set.ncard_union_le _ _
     _ ≤ P.ncard + P.ncard := add_le_add (Set.ncard_image_le hP) (Set.ncard_image_le hP)
     _ ≤ 2 * {x | D x ≠ none}.ncard := by omega
+
+/-- `|HP(D)| ≤ 2 |dom D|` over a finite oracle domain, where every database has finite support. -/
+theorem ncard_halfPreimages_le_of_finite [Finite X] (D : Database X Y) :
+    (halfPreimages enc D).ncard ≤ 2 * {x | D x ≠ none}.ncard :=
+  ncard_halfPreimages_le enc D (Set.toFinite _)
 
 section Extract
 
