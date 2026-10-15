@@ -37,7 +37,7 @@ public section
 open MeasureTheory
 open scoped Kronecker
 
-universe u u₁ v₁ v w
+universe u u₁ u₂ v₁ v w
 
 namespace Quantum
 
@@ -54,9 +54,12 @@ def uSpec (P : Type u) (In : P → QReg) : QuantumOracleSpec.{u, 0} where
   Result _ := Unit
 
 /-- The disjoint union of two signatures: the ports of `s`, then the ports of `t`, each with its
-registers and result type. -/
+registers and result type. The port types may live in different universes; the result types
+share one, since `Result` is a single family on `s.Port ⊕ t.Port` and the results of each side
+are kept as they are, without lifting. -/
 @[expose, reducible]
-def QuantumOracleSpec.sum (s t : QuantumOracleSpec.{u₁, v₁}) : QuantumOracleSpec.{u₁, v₁} where
+def QuantumOracleSpec.sum (s : QuantumOracleSpec.{u₁, v₁}) (t : QuantumOracleSpec.{u₂, v₁}) :
+    QuantumOracleSpec.{max u₁ u₂, v₁} where
   Port := s.Port ⊕ t.Port
   In := Sum.elim s.In t.In
   Out := Sum.elim s.Out t.Out
@@ -96,7 +99,7 @@ end SubInstrument
 
 namespace QuantumRuntime
 
-variable {s t : QuantumOracleSpec.{u₁, v₁}}
+variable {s : QuantumOracleSpec.{u₁, v₁}} {t : QuantumOracleSpec.{u₂, v₁}}
 
 /-- Add ports `t` that act on the private register of `R`. The ports of `s` are answered by `R`
 and the ports of `t` by `step'`. This is the step from `EO` to `EO^(Ext)` of ePrint 2025/2166

@@ -98,7 +98,7 @@ public section
 open MeasureTheory Matrix
 open scoped ENNReal Kronecker ComplexOrder
 
-universe u v u₁ v₁ uL vL w w₁
+universe u u' v u₁ v₁ uL vL w w₁
 
 namespace Quantum
 
@@ -332,7 +332,7 @@ theorem lossless_toRuntime_step (i : P) : (E.toRuntime.step i).Lossless :=
 /-- Add unitary ports `U' j` on the same private register (the step from `EO` to `EO^(Ext)` of
 ePrint 2025/2166, l.2846–2847). -/
 @[expose]
-def extend {P' : Type u} {In' : P' → QReg} (U' : ∀ j, Matrix (In' j × E.S) (In' j × E.S) ℂ)
+def extend {P' : Type u'} {In' : P' → QReg} (U' : ∀ j, Matrix (In' j × E.S) (In' j × E.S) ℂ)
     (hU' : ∀ j, U' j ∈ Matrix.unitaryGroup (In' j × E.S) ℂ) :
     EmulatedOracle (P ⊕ P') (Sum.elim In In') where
   S := E.S
@@ -346,7 +346,7 @@ def extend {P' : Type u} {In' : P' → QReg} (U' : ∀ j, Matrix (In' j × E.S) 
 
 section extend
 
-variable {P' : Type u} {In' : P' → QReg} (U' : ∀ j, Matrix (In' j × E.S) (In' j × E.S) ℂ)
+variable {P' : Type u'} {In' : P' → QReg} (U' : ∀ j, Matrix (In' j × E.S) (In' j × E.S) ℂ)
   (hU' : ∀ j, U' j ∈ Matrix.unitaryGroup (In' j × E.S) ℂ)
 
 /-- The old ports of an extended oracle are answered as before. Port-wise agreement with

@@ -62,6 +62,10 @@ local notation "spec2" => uSpec (Fin 2) fun _ ↦ QReg.of (Fin 2)
 example : ((spec2).sum (uSpec Unit fun _ ↦ Qubit)).Port = (Fin 2 ⊕ Unit) :=
   rfl
 
+/-- The ports of the two signatures of a sum may live in different universes. -/
+example : ((spec2).sum (uSpec (ULift.{1} Unit) fun _ ↦ Qubit)).Port = (Fin 2 ⊕ ULift.{1} Unit) :=
+  rfl
+
 /-- Unitary ports return no classical result. -/
 example (i : Fin 2) : (spec2).Result i = Unit :=
   rfl
@@ -102,6 +106,13 @@ example :
     (swapOracle.extend (P' := Unit) (In' := fun _ ↦ Qubit) (fun _ ↦ 1)
       (fun _ ↦ one_mem _)).toRuntime.step (.inl 1) = swapOracle.toRuntime.step 1 :=
   swapOracle.toRuntime_extend_step_inl _ _ 1
+
+/-- Extending by a port indexed in another universe needs no lifting of the old ports. -/
+example :
+    (swapOracle.extend (P' := ULift.{1} Unit) (In' := fun _ ↦ Qubit) (fun _ ↦ 1)
+      (fun _ ↦ one_mem _)).toRuntime.step (.inr ⟨()⟩) =
+      SubInstrument.ofIsometry 1 (Matrix.mem_unitaryGroup_iff'.mp (one_mem _)) :=
+  swapOracle.toRuntime_extend_step_inr _ _ (ULift.up ())
 
 /-- The general extension of a runtime answers the new ports by the added steps. -/
 example (s : Unit → SubInstrument (Qubit × swapOracle.toRuntime.D)
