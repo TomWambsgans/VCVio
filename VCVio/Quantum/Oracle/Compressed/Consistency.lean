@@ -44,6 +44,8 @@ for Succinct Non-Interactive Reductions* (ePrint 2025/2166), and sharpens their 
 * `Quantum.checkProjector_mul_compressedCheckProjector_mul_checkProjector`: `P P̂ P = α² P`.
 * `Quantum.compressedCheckProjector_mul_checkProjector_mul_compressedCheckProjector`:
   `P̂ P P̂ = α² P̂`.
+* `Quantum.piKron_checkProjector_mul_piKron_compressedCheckProjector_mul`: the same identity for
+  prescriptions on several databases, with `d` the total number of prescribed cells.
 * `Quantum.l2_opNorm_compressedCheckProjector_sub_sq`: the exact distance for a consistent list.
 * `Quantum.checkProjector_eq_zero_of_not_consistentIO`,
   `Quantum.compressedCheckProjector_eq_zero_of_not_consistentIO`: the inconsistent case.
