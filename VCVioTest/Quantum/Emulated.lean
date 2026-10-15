@@ -33,9 +33,11 @@ open scoped ENNReal ComplexOrder
 
 namespace VCVioTest.QuantumEmulated
 
+/- Registers are written as notations rather than constants, so that no finiteness instance is
+evaluated when the module is loaded. -/
+
 /-- The qubit register. -/
-abbrev Qubit : QReg :=
-  QReg.of (Fin 2)
+local notation "Qubit" => QReg.of (Fin 2)
 
 /-- The signature of two unitary ports on qubits. -/
 abbrev spec2 : QuantumOracleSpec.{0, 0} :=
@@ -98,8 +100,7 @@ example :
   swapOracle.toRuntime_addRegister _ _
 
 /-- The register of a program holding one qubit and nothing beside it. -/
-abbrev Reg : QReg :=
-  QReg.of (Fin 2 × Unit)
+local notation "Reg" => QReg.of (Fin 2 × Unit)
 
 /-- One call of the swap port on the program's qubit. -/
 noncomputable def oneCall :=
