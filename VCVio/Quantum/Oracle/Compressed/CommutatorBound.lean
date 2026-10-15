@@ -39,8 +39,15 @@ Prove Post-Quantum Security for Succinct Non-Interactive Reductions*, ePrint 202
 ## Comparison with [CDHZ]
 
 * [CDHZ] prove Lemma 5.9 with the constant `20`; this file proves `8`. The constant `8` is
-  optimal: a family of labellings that look at one cell has ratio approaching `8` as `|Y|` grows.
-  This optimality is proved on paper only; it is not formalized.
+  optimal. This optimality is not formalized; the argument is as follows. Take `X` a point,
+  `t = 1`, `Y = Fin s → ZMod 2` with `N = 2 ^ s`, a nonzero character `χ`, and `m` contents `u`
+  with `χ u = -1`, each its own label, every other content (and `⊥`) in the label of `⊥`. Then
+  `I = b = m / N`. In the block of the empty database, the defect `Δ` restricted to the span of
+  the uniform vector on these `m` contents and its normalized image is
+  `[[0, √(6b - 9b²)], [√(6b - 9b²), 3 (m - 1) / N]]` (after a sign change of the empty basis
+  vector), and `Δ` is `-3 / N` or `0` on the complement. With `m` the nearest integer to `2N / 9`
+  and `s → ∞`, `b → 2 / 9` and the largest eigenvalue tends to `4 / 3`, so
+  `‖Δ‖² / I → (4 / 3)² / (2 / 9) = 8`.
 * For labellings with at most two values the pinching constant is `6`, the constant of [CMS19,
   Lemma 5.10], here with a proof that also covers databases of size exactly `t`
   (`VCVio.Quantum.Oracle.Compressed.BinaryPartition`).

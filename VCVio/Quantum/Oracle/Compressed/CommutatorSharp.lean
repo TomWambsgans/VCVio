@@ -1063,11 +1063,6 @@ noncomputable def signChar : AddChar (ZMod 2) ℂ where
     rcases h a with rfl | rfl <;> rcases h b with rfl | rfl <;>
       simp [show (1 : ZMod 2) + 1 = 0 from rfl]
 
-/-- The sign character is `1` at `0`. -/
-@[simp]
-theorem signChar_zero : signChar 0 = 1 := by
-  simp [signChar]
-
 /-- The sign character is `-1` at `1`. -/
 @[simp]
 theorem signChar_one : signChar 1 = -1 := by
