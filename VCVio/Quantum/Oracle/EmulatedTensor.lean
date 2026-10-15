@@ -33,7 +33,11 @@ states the query masses.
   `∑ᵢ |i⟩⟨i| ⊗ U_i ⊗ 1` (`Quantum.EmulatedOracle.tensor_U_apply`).
 * `Quantum.EmulatedOracle.tensorMass`: the total mass `TotalMass(A, i)` of Definitions 4.1 and 4.3
   (l.1359–1386) for programs against the tensor-product interface. Its masses add up to the query
-  mass of the port (`Quantum.EmulatedOracle.sum_tensorMass`, Remark 4.2).
+  mass of the port (`Quantum.EmulatedOracle.sum_tensorMass`, Remark 4.2). They are the index
+  masses of the projectors `Quantum.EmulatedOracle.tensIndexProj` onto the values of the index
+  register (`Quantum.EmulatedOracle.tensorMass_eq_indexMass`), a coherent index that the
+  tensor-product unitary respects (`Quantum.EmulatedOracle.isCoherentIndex_tensIndexProj`,
+  `Quantum.EmulatedOracle.respectsIndex_tensor_U`).
 
 ## Main statements
 
@@ -180,6 +184,45 @@ on the private register (the paper's `P_mass^(i) = |i⟩⟨i|_I`, l.1364). -/
 noncomputable def tensorProj (i : P) : Matrix (tensIn In × E.S) (tensIn In × E.S) ℂ :=
   Matrix.diagonal fun a ↦ if a.1.1 = i then 1 else 0
 
+/-- The projector of the tensor-product register onto the index `i`, on the input register of
+the port alone (the paper's `|i⟩⟨i|_I`, l.1364): the projector onto the fibre of `i` under
+`Prod.fst`. These are the blocks of the coherent index of `Quantum.EmulatedOracle.tensSpec`
+(`Quantum.EmulatedOracle.isCoherentIndex_tensIndexProj`). -/
+@[expose, reducible]
+noncomputable def tensIndexProj (In : P → QReg) (i : P) : Matrix (tensIn In) (tensIn In) ℂ :=
+  fiberProj (fun a : tensIn In ↦ a.1) i
+
+/-- The projector onto an index, with the private register, is the projector of the
+tensor-product register beside the identity. -/
+theorem tensorProj_eq_kronecker (i : P) :
+    E.tensorProj i = tensIndexProj In i ⊗ₖ (1 : Matrix E.S E.S ℂ) := by
+  rw [tensIndexProj, fiberProj_kronecker_one]
+  rfl
+
+/-- The projectors onto the indices form a coherent index on the signature of the
+tensor-product interface, so the square-root hybrid bounds of
+`VCVio.Quantum.Comp.HybridIndex` apply to it. -/
+theorem isCoherentIndex_tensIndexProj :
+    Hybrid.IsCoherentIndex (spec := tensSpec In) (fun _ ↦ tensIndexProj In)
+      (fun _ ↦ tensIndexProj In) :=
+  isCoherentIndex_fiberProj fun _ (a : tensIn In) ↦ a.1
+
+/-- **The tensor-product unitary respects the index**: it sends the block of each index into
+itself, `(Pᵢ ⊗ 1) U (Pᵢ ⊗ 1) = U (Pᵢ ⊗ 1)` for the projectors
+`Quantum.EmulatedOracle.tensIndexProj`. -/
+theorem respectsIndex_tensor_U :
+    Hybrid.RespectsIndex (spec := tensSpec In) (fun _ ↦ tensIndexProj In)
+      (fun _ ↦ tensIndexProj In) fun _ _ ↦ E.tensor.U () := fun _ _ i ↦ by
+  beta_reduce
+  rw [← tensorProj_eq_kronecker]
+  ext ⟨⟨k, x⟩, d⟩ ⟨⟨k', x'⟩, d'⟩
+  rw [tensorProj, Matrix.mul_diagonal, Matrix.mul_diagonal, Matrix.diagonal_mul]
+  by_cases h : k = k'
+  · subst h
+    by_cases hk : k = i <;> simp [hk]
+  · rw [E.tensor_U_apply]
+    simp [h]
+
 /-- The weight of the index-`i` component of an operator on the tensor-product register. -/
 theorem trace_conj_tensorProj (i : P) (σ : Matrix (tensIn In × E.S) (tensIn In × E.S) ℂ) :
     (MatrixMap.conj (E.tensorProj i) σ).trace = ∑ a, if a.1.1 = i then σ a a else 0 := by
@@ -212,29 +255,28 @@ section mass
 
 variable {L : LocalSig.{uL, vL}} (I : L.Interp) {W : QReg → Type w} {A : QReg}
 
+/-- **Total masses are index masses** on the tensor-product interface. The mass on `i` is the
+total index mass `Quantum.QuantumRuntime.indexMass` of the block `⟨(), i⟩` for the projectors
+`Quantum.EmulatedOracle.tensIndexProj`, the masses consumed by the square-root hybrid bounds of
+`VCVio.Quantum.Comp.HybridIndex`. -/
+theorem tensorMass_eq_indexMass (x : QuantumComp L (tensSpec In) W A)
+    (ρ : Matrix (A × E.S) (A × E.S) ℂ) (i : P) :
+    E.tensorMass I x ρ i =
+      E.tensor.toRuntime.indexMass I (fun _ ↦ tensIndexProj In) x ρ ⟨(), i⟩ := by
+  refine tsum_congr fun j ↦ congrArg (fun w ↦ E.tensor.toRuntime.queryWeight I w x ρ j)
+    (funext fun _ ↦ funext fun σ ↦ ?_)
+  rw [tsum_eq_single i fun k hk ↦ by simp [hk], ite_eq_left rfl, tensorProj_eq_kronecker]
+
 /-- **Remark 4.2** (l.1370–1373) on the tensor-product interface: on a positive semidefinite
-input, the masses on the indices add up to the query mass of the port. -/
+input, the masses on the indices add up to the query mass of the port. It is the completeness of
+the index projectors in `Quantum.QuantumRuntime.tsum_indexMass_eq_queryMass`. -/
 theorem sum_tensorMass (x : QuantumComp L (tensSpec In) W A)
     {ρ : Matrix (A × E.S) (A × E.S) ℂ} (hρ : ρ.PosSemidef) :
     ∑ i, E.tensorMass I x ρ i = E.tensor.toRuntime.queryMass I x ρ () := by
-  rw [QuantumRuntime.queryMass_eq_totalWeight]
-  simp only [tensorMass, QuantumRuntime.totalWeight]
-  rw [← tsum_fintype (L := .unconditional P), ENNReal.tsum_comm]
-  refine tsum_congr fun j ↦ ?_
-  refine (E.tensor.toRuntime.tsum_queryWeight I _ x ρ j).trans ?_
-  have h : ∀ σ : Matrix (tensIn In × E.S) (tensIn In × E.S) ℂ, σ.PosSemidef →
-      ∑' i, ENNReal.ofReal (MatrixMap.conj (E.tensorProj i) σ).trace.re =
-        ENNReal.ofReal σ.trace.re := fun σ hσ ↦ by
-    rw [tsum_fintype, ← ENNReal.ofReal_sum_of_nonneg fun i _ ↦
-      ((MatrixMap.isCP_conj _).posSemidef hσ).trace_re_nonneg, ← Complex.re_sum,
-      sum_trace_conj_tensorProj]
-  exact le_antisymm
-    (E.tensor.toRuntime.queryWeight_mono I (fun i' σ hσ ↦ by
-      simp only [↓reduceIte]
-      exact (h σ hσ).le) x hρ j)
-    (E.tensor.toRuntime.queryWeight_mono I (fun i' σ hσ ↦ by
-      simp only [↓reduceIte]
-      exact (h σ hσ).ge) x hρ j)
+  simp only [E.tensorMass_eq_indexMass I x ρ]
+  rw [← tsum_fintype (L := .unconditional P)]
+  exact E.tensor.toRuntime.tsum_indexMass_eq_queryMass I (fun _ ↦ tensIndexProj In) ()
+    (sum_conjTranspose_mul_fiberProj _) x hρ
 
 /-- **Masses and query budgets on the tensor-product interface.** A program making at most `t`
 queries has masses on the indices adding up to at most `t` times the trace of the initial

@@ -164,6 +164,23 @@ theorem totalMass_toCoherent_oneCall_zero {ρ : Matrix (Reg × swapOracle.S) (Re
   have h0 := swapOracle.toRuntime.queryMass_le_of_isQueryBoundAt .instruments (h 0) hρ
   simpa using h0
 
+/-- The masses are the index masses of the index projectors, so the vanishing mass on the index
+`0` is a vanishing index mass, in the form consumed by the hybrid bounds with index masses. -/
+example {ρ : Matrix (Reg × swapOracle.S) (Reg × swapOracle.S) ℂ} (hρ : ρ.PosSemidef) :
+    swapOracle.coherent.toRuntime.indexMass .instruments
+      (fun _ ↦ EmulatedOracle.cohIndexProj fun _ : Fin 2 ↦ Qubit) oneCall.toCoherent ρ
+        ⟨(), 0⟩ = 0 := by
+  rw [← swapOracle.totalMass_eq_indexMass]
+  exact totalMass_toCoherent_oneCall_zero hρ
+
+/-- The index projectors of the coherent oracle form a coherent index that its unitary
+respects. -/
+example :
+    Hybrid.RespectsIndex (spec := EmulatedOracle.cohSpec fun _ : Fin 2 ↦ Qubit)
+      (fun _ ↦ EmulatedOracle.cohIndexProj _) (fun _ ↦ EmulatedOracle.cohIndexProj _)
+      fun _ _ ↦ swapOracle.coherent.U () - swapOracle.coherent.U () :=
+  swapOracle.respectsIndex_coherent_U.sub swapOracle.respectsIndex_coherent_U
+
 /-- **Remark 4.2 with a budget.** The masses on the indices add up to at most the number of
 coherent calls times the trace. -/
 example {ρ : Matrix (Reg × swapOracle.S) (Reg × swapOracle.S) ℂ} (hρ : ρ.PosSemidef) :
@@ -488,5 +505,12 @@ example (ρ : Matrix (TProgReg × swapOracle.S) (TProgReg × swapOracle.S) ℂ) 
     swapOracle.totalMass .instruments oneTensorCall.tensorToCoherent ρ i =
       swapOracle.tensorMass .instruments oneTensorCall ρ i :=
   swapOracle.totalMass_tensorToCoherent oneTensorCall ρ i
+
+/-- The masses on the tensor-product interface are the index masses of its index projectors. -/
+example (ρ : Matrix (TProgReg × swapOracle.S) (TProgReg × swapOracle.S) ℂ) (i : Fin 2) :
+    swapOracle.tensorMass .instruments oneTensorCall ρ i =
+      swapOracle.tensor.toRuntime.indexMass .instruments
+        (fun _ ↦ EmulatedOracle.tensIndexProj fun _ : Fin 2 ↦ Qubit) oneTensorCall ρ ⟨(), i⟩ :=
+  swapOracle.tensorMass_eq_indexMass _ _ _ _
 
 end VCVioTest.QuantumEmulated
