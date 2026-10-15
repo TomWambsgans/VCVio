@@ -406,12 +406,9 @@ theorem tsum_rpow_indexMass_indexCall :
           (idxProj c.1 c.2 ⊗ₖ (1 : Matrix (QReg.of Unit) (QReg.of Unit) ℂ))‖ ^ 2)) *
         idBitRuntime.indexMassAt I idxProj indexCall idxInput c j = 0 := by
     rintro ⟨⟨⟩, k⟩ (_ | j)
-    · fin_cases k
-      · simp only [mul_eq_zero]
-        simp
-        exact Or.inl one_sub_signFlip_mul_zero
-      · simp
-        exact Or.inr (indexMassAt_indexCall_one I)
+    · match k with
+      | 0 => rw [one_sub_signFlip_mul_zero]; simp
+      | 1 => rw [indexMassAt_indexCall_one]; simp
     · simp [indexCall]
   simp only [h, tsum_zero, ENNReal.zero_rpow_of_pos (by norm_num : (0 : ℝ) < 2⁻¹)]
 

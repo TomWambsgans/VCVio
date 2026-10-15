@@ -530,7 +530,7 @@ theorem tsum_trace_conj_one_sub_le_of_inImage_of_isQueryBound {x : QuantumComp L
 /-! ### Cor 5.8 with the masses of a coherent index -/
 
 omit hU in
-private theorem trace_conj_kronecker_one_amplifyLeft {J : Type*} [Fintype J] [DecidableEq J]
+private theorem trace_conj_kronecker_one_amplifyLeft {J : Type*} [Fintype J]
     (M : Matrix J J ℂ) (τ : Matrix (J × D) (J × D) ℂ) :
     (MatrixMap.conj (M ⊗ₖ (1 : Matrix (QReg.of (D × Bool)) (QReg.of (D × Bool)) ℂ))
         ((MatrixMap.conj (inj D false)).amplifyLeft J τ)).trace =

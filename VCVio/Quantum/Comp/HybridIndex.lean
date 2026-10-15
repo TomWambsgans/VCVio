@@ -26,6 +26,12 @@ on its output register. The masses are the index masses
 The single-port case is the paper's coherent index; one block per port with `B i k = 1` gives
 back the classical-port bounds.
 
+These index masses, of the projections onto the values of the index, are what the hybrid
+argument of the paper needs. The bounds with the masses of the classical ports charge each call
+the operator norm of the whole change, which can be strictly larger: for `U = 1` and
+`W = diag(1, -1)` called from the index `0`, the blockwise bound is `0` and the whole-operator
+bound is `2`.
+
 ## Hypotheses
 
 * `Quantum.Hybrid.IsCoherentIndex B B'`: on every port, the `B i k` are idempotents adding up to
