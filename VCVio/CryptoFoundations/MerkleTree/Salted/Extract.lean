@@ -51,8 +51,9 @@ The classical conditions of Thm 8.4 (l.3036–3054) that §8.3 verifies for salt
 * `SaltedMerkle.nodePre`, `SaltedMerkle.leafPre`: the lexicographically first preimages.
 * `SaltedMerkle.extLabel`, `SaltedMerkle.extract`: `MTExtract`.
 * `SaltedMerkle.multiExtract`: `MTMultiExtract`, with the distinctness guard.
-* `SaltedMerkle.collisionFree`: `P_good`, through `Quantum.Database.equivQueryCache` and
-  `OracleComp.CacheHasCollision`.
+* `SaltedMerkle.collisionFree`: `P_good`, the databases in which an output determines its input;
+  for `X Y : Type` it is the absence of `OracleComp.CacheHasCollision` on
+  `Quantum.Database.equivQueryCache` (`mem_collisionFree_iff`).
 
 ## Main results
 
@@ -60,25 +61,31 @@ The classical conditions of Thm 8.4 (l.3036–3054) that §8.3 verifies for salt
   `Quantum.MultiExtractor.Admissible`.
 * `SaltedMerkle.consistent_extract`: the extracted trapdoor is consistent with `D`.
 * `SaltedMerkle.extract_binding`, `SaltedMerkle.extract_valid` and their multi-extractor forms.
+
+The extractor and conditions 2 and 3 are stated with `SaltedMerkle.checkOn`, the table check of
+`SaltedMerkle.checkIOForm` (`checkIOForm_checkOn`), and take `X`, `Y`, `Msg` and `Salt` in
+independent universes.
 -/
 
 public section
 
 open OracleComp OracleSpec Quantum
 
+universe uX uY uM uS
+
 namespace SaltedMerkle
 
-variable {X Y Msg Salt : Type}
+variable {X : Type uX} {Y : Type uY} {Msg : Type uM} {Salt : Type uS}
 
 /-! ## Least preimages -/
 
 /-- The least element of a finite set, if it is nonempty. -/
 @[expose]
-def leastOf {α : Type} [LinearOrder α] (s : Finset α) : Option α :=
+def leastOf {α : Type*} [LinearOrder α] (s : Finset α) : Option α :=
   if h : s.Nonempty then some (s.min' h) else none
 
 /-- The least element of a set belongs to it. -/
-theorem mem_of_leastOf_eq_some {α : Type} [LinearOrder α] {s : Finset α} {a : α}
+theorem mem_of_leastOf_eq_some {α : Type*} [LinearOrder α] {s : Finset α} {a : α}
     (h : leastOf s = some a) : a ∈ s := by
   unfold leastOf at h
   split_ifs at h with hs
@@ -86,7 +93,7 @@ theorem mem_of_leastOf_eq_some {α : Type} [LinearOrder α] {s : Finset α} {a :
   exact s.min'_mem hs
 
 /-- The least element of a set with only one element is that element. -/
-theorem leastOf_eq_some {α : Type} [LinearOrder α] {s : Finset α} {a : α} (ha : a ∈ s)
+theorem leastOf_eq_some {α : Type*} [LinearOrder α] {s : Finset α} {a : α} (ha : a ∈ s)
     (huniq : ∀ b ∈ s, b = a) : leastOf s = some a := by
   unfold leastOf
   rw [dite_eq_left ⟨a, ha⟩]
@@ -94,13 +101,13 @@ theorem leastOf_eq_some {α : Type} [LinearOrder α] {s : Finset α} {a : α} (h
 
 /-- The least `a` with `D (f a) = some u`, if there is one. -/
 @[expose]
-def leastPre {α : Type} [Fintype α] [LinearOrder α] [DecidableEq Y] (f : α → X)
+def leastPre {α : Type*} [Fintype α] [LinearOrder α] [DecidableEq Y] (f : α → X)
     (D : Database X Y) (u : Y) : Option α :=
   leastOf (Finset.univ.filter fun a ↦ D (f a) = some u)
 
 section leastPre
 
-variable {α : Type} [Fintype α] [LinearOrder α] [DecidableEq Y] {f : α → X} {D : Database X Y}
+variable {α : Type*} [Fintype α] [LinearOrder α] [DecidableEq Y] {f : α → X} {D : Database X Y}
   {u : Y} {a : α}
 
 /-- The least preimage is a preimage. -/
@@ -127,21 +134,35 @@ end leastPre
 
 /-! ## The collision-free databases -/
 
-/-- `P_good` of §8.3 (l.3140): the databases without a collision, through #851's
-`OracleComp.CacheHasCollision` on `Quantum.Database.equivQueryCache`. -/
+/-- `P_good` of §8.3 (l.3140): the databases without a collision, that is, in which an output
+determines its input. For `X Y : Type` this is the absence of #851's
+`OracleComp.CacheHasCollision` on `Quantum.Database.equivQueryCache` (`mem_collisionFree_iff`). -/
 @[expose]
 def collisionFree : Set (Database X Y) :=
-  {D | ¬ CacheHasCollision (Database.equivQueryCache D)}
+  {D | ∀ ⦃x₀ x₁ : X⦄ ⦃y : Y⦄, D x₀ = some y → D x₁ = some y → x₀ = x₁}
 
 /-- `∅ ∈ P_good` (Thm 8.4 condition 2, l.3036). -/
 theorem empty_mem_collisionFree : (Database.empty : Database X Y) ∈ collisionFree := by
-  rintro ⟨t₁, t₂, u₁, u₂, -, h₁, -⟩
-  simp at h₁
+  intro x₀ x₁ y h₀
+  simp [Database.empty] at h₀
 
 /-- In a collision-free database, an output determines its input. -/
 theorem eq_of_mem_collisionFree {D : Database X Y} (hD : D ∈ collisionFree) {x₀ x₁ : X} {y : Y}
     (h₀ : D x₀ = some y) (h₁ : D x₁ = some y) : x₀ = x₁ :=
-  cache_lookup_eq_of_noCollision hD h₀ ⟨y, h₁, HEq.rfl⟩
+  hD h₀ h₁
+
+/-- `collisionFree` is the absence of `OracleComp.CacheHasCollision` on the query cache of the
+database. -/
+theorem mem_collisionFree_iff {X Y : Type} {D : Database X Y} :
+    D ∈ collisionFree ↔ ¬ CacheHasCollision (Database.equivQueryCache D) := by
+  constructor
+  · rintro hD ⟨t₁, t₂, u₁, u₂, hne, h₁, h₂, heq⟩
+    rw [Database.equivQueryCache_apply] at h₁ h₂
+    exact hne (hD h₁ (h₂.trans (congrArg some (eq_of_heq heq).symm)))
+  · intro hD x₀ x₁ y h₀ h₁
+    exact cache_lookup_eq_of_noCollision hD
+      (by rw [Database.equivQueryCache_apply]; exact h₀)
+      ⟨y, by rw [Database.equivQueryCache_apply]; exact h₁, HEq.rfl⟩
 
 /-! ## The extractor -/
 
@@ -226,12 +247,12 @@ end Leaf
 
 section Parse
 
-variable [DecidableEq X] [SampleableType Salt] (enc : Encoding X Y Msg Salt)
+variable [DecidableEq X] (enc : Encoding X Y Msg Salt)
 
 /-- If a database accepts `(rt, ans, pf)`, every pair that `OutputIO` lists for an opened position
 is an entry of the database. -/
 theorem leafIO_sub_of_checkOn {d : ℕ} {rt : Y} {ans : PartialVec (2 ^ d) Msg} {pf : Pf Y Salt d}
-    {D : Database X Y} (h : (checkIOForm enc d).checkOn D rt ans pf = true) :
+    {D : Database X Y} (h : checkOn enc d D rt ans pf = true) :
     (∀ ι, (pf ι).isSome = (ans ι).isSome) ∧ ∀ ι a pp, ans ι = some a → pf ι = some pp →
       ∀ p ∈ leafIO enc rt ι a pp, D p.1 = some p.2 := by
   change (outputIO enc d rt ans pf).elim false (checkIOOn D) = true at h
@@ -323,12 +344,12 @@ theorem consistent_extract (d : ℕ) (rt : Y) (D : Database X Y) :
 
 section Valid
 
-variable [DecidableEq X] [SampleableType Salt]
+variable [DecidableEq X]
 
 /-- **Validity** (Thm 8.4 condition 3, l.3049–3054; §8.3, l.3170–3177): every database accepts the
 extracted message on its domain, with the opening of the extracted trapdoor. -/
 theorem extract_valid (d : ℕ) (rt : Y) (D : Database X Y) :
-    (checkIOForm enc d).checkOn D rt (extract enc d rt D).1
+    checkOn enc d D rt (extract enc d rt D).1
       (opening d (extract enc d rt D).1.dom (extract enc d rt D).2) = true := by
   obtain ⟨io, hio, hG⟩ := (consistent_extract enc d rt D).outputIO_opening
   change (outputIO enc d rt _ _).elim false (checkIOOn D) = true
@@ -388,14 +409,14 @@ theorem extract_path_of_checkOn {d : ℕ} {rt : Y} {D : Database X Y} (hD : D �
     exact leafPre_eq_of_mem_collisionFree enc hD hleaf
   · rw [hlab _ j.isLt, hnode_succ]
 
-variable [DecidableEq X] [SampleableType Salt]
+variable [DecidableEq X]
 
 /-- **Binding** (Thm 8.4 condition 2, l.3036–3043; §8.3, l.3144–3168): if a collision-free
 database accepts `(rt, ans, pf)`, then the extracted message agrees with `ans` on `dom ans`, and the
 extracted trapdoor opens `dom ans` to exactly `pf`. -/
 theorem extract_binding {d : ℕ} {rt : Y} {ans : PartialVec (2 ^ d) Msg} {pf : Pf Y Salt d}
     {D : Database X Y} (hD : D ∈ collisionFree)
-    (h : (checkIOForm enc d).checkOn D rt ans pf = true) :
+    (h : checkOn enc d D rt ans pf = true) :
     (extract enc d rt D).1.Agrees ans ∧ opening d ans.dom (extract enc d rt D).2 = pf := by
   obtain ⟨hpf, hmem⟩ := leafIO_sub_of_checkOn enc h
   have key : ∀ ι a pp, ans ι = some a → pf ι = some pp →
@@ -440,7 +461,7 @@ and every extracted trapdoor opens to its proof. -/
 theorem multiExtract_binding (hk : 1 ≤ k) (idx : Fin k → Fin k) (hidx : Function.Injective idx)
     (cm : Fin k → Y) (ans : ∀ i, PartialVec (2 ^ d i) Msg) (pf : ∀ i, Pf Y Salt (d i))
     (Ds : Fin k → Database X Y) (hD : ∀ i, Ds i ∈ collisionFree)
-    (h : ∀ i, (checkIOForm enc (d i)).checkOn (Ds (idx i)) (cm i) (ans i) (pf i) = true)
+    (h : ∀ i, checkOn enc (d i) (Ds (idx i)) (cm i) (ans i) (pf i) = true)
     (i : Fin k) :
     ((multiExtract enc d).extract (TpIC.full hk idx cm) Ds i).1.Agrees (ans i) ∧
       opening (d i) (ans i).dom ((multiExtract enc d).extract (TpIC.full hk idx cm) Ds i).2 =
@@ -454,7 +475,7 @@ any databases, every extracted message passes the check on its domain with the o
 extracted trapdoor. -/
 theorem multiExtract_valid (hk : 1 ≤ k) (idx : Fin k → Fin k) (hidx : Function.Injective idx)
     (cm : Fin k → Y) (Ds : Fin k → Database X Y) (i : Fin k) :
-    (checkIOForm enc (d i)).checkOn (Ds (idx i)) (cm i)
+    checkOn enc (d i) (Ds (idx i)) (cm i)
       ((multiExtract enc d).extract (TpIC.full hk idx cm) Ds i).1
       (opening (d i) ((multiExtract enc d).extract (TpIC.full hk idx cm) Ds i).1.dom
         ((multiExtract enc d).extract (TpIC.full hk idx cm) Ds i).2) = true := by

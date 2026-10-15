@@ -46,14 +46,25 @@ from one trapdoor contain at most `2 ^ d + (2 ^ d - 1) = 2 · 2 ^ d - 1` distinc
 ePrint 2025/2166, §8.3 (l.3140–3142), which leave out the leaf hash; for `ℓ = 1` the verifier
 still makes one query.
 
+## Universes
+
+The tree data, the opening, `OutputIO`, `checkOn` and the consistency lemmas take `X`, `Y`, `Msg`
+and `Salt` in independent universes. `commitTree`, `scheme`, `checkIOForm` and completeness take
+`Y` and `Salt` in `Type`: `Y` is the answer type of the oracle, which is combined with the
+uniform-sampling oracle `unifSpec`, and the salts are sampled uniformly. `X` and `Msg` stay in
+arbitrary universes.
+
 ## Main definitions
 
 * `SaltedMerkle.Encoding`, `SaltedMerkle.Labels`, `SaltedMerkle.Td`, `SaltedMerkle.PathProof`,
   `SaltedMerkle.Pf`.
 * `SaltedMerkle.commitTree`, `SaltedMerkle.opening`, `SaltedMerkle.outputIO`.
-* `SaltedMerkle.scheme enc d : VectorCommitment X Y Msg Y (Td Y Salt d) (Pf Y Salt d) (2 ^ d)`.
-* `SaltedMerkle.checkIOForm enc d`: the check is `OutputIO` then `CheckIO`, with
-  `qVC q = q * (d + 1)`.
+* `SaltedMerkle.scheme enc d : DetVectorCommitment X Y Msg Y (Td Y Salt d) (Pf Y Salt d) (2 ^ d)`,
+  a deterministic vector commitment; `(scheme enc d).toVectorCommitment` is the general form.
+* `SaltedMerkle.checkIOForm enc d : (scheme enc d).toVectorCommitment.CheckIOForm`: the check is
+  coin-free, `OutputIO` then `CheckIO`, with `qVC q = q * (d + 1)`.
+* `SaltedMerkle.checkOn enc d D`: the check against a partial table `D : X → Option Y`; it is
+  `(checkIOForm enc d).checkOn D` (`checkIOForm_checkOn`).
 * `SaltedMerkle.Consistent G enc rt ans td`: every hash relation that the opening of `dom ans`
   from `td` lists holds for the relation `G`.
 
@@ -62,7 +73,8 @@ still makes one query.
 * `SaltedMerkle.Consistent.outputIO_opening`: the opening of a consistent trapdoor parses, and
   every listed pair satisfies `G`.
 * `SaltedMerkle.consistent_honestTree`, `SaltedMerkle.perfectlyComplete`: perfect completeness
-  (Def 3.7).
+  against every fixed oracle function; `SaltedMerkle.perfectlyComplete_toVectorCommitment`: perfect
+  completeness relative to every oracle distribution (Def 3.7).
 * `SaltedMerkle.length_outputIO_opening_le`: the openings read from one trapdoor list at most
   `2 · 2 ^ d - 1` distinct pairs.
 -/
@@ -70,6 +82,8 @@ still makes one query.
 public section
 
 open OracleComp OracleSpec
+
+universe uX uY uM uS
 
 namespace SaltedMerkle
 
@@ -79,7 +93,7 @@ namespace SaltedMerkle
 hashes a pair of labels and a leaf hashes a message with its salt. The paper uses one function `f`
 with no domain separation, distinguishing node and leaf inputs only by their length (l.2977–2978,
 l.3104, l.3112); tagged domains are the special case `X = (Y × Y) ⊕ (Msg × Salt)`. -/
-structure Encoding (X Y Msg Salt : Type) where
+structure Encoding (X : Type uX) (Y : Type uY) (Msg : Type uM) (Salt : Type uS) where
   /-- The input of an internal node with children labels `(L, R)`. -/
   node : Y × Y → X
   /-- The input of a leaf with message `m` and salt `γ`. -/
@@ -91,20 +105,20 @@ structure Encoding (X Y Msg Salt : Type) where
 
 /-- A table of node labels: level `j ∈ {0, …, d}`, position `ι < 2 ^ j` (the list `C`, l.2975).
 `none` is `⊥` (l.3114). -/
-abbrev Labels (Y : Type) (d : ℕ) := (j : Fin (d + 1)) → Fin (2 ^ (j : ℕ)) → Option Y
+abbrev Labels (Y : Type uY) (d : ℕ) := (j : Fin (d + 1)) → Fin (2 ^ (j : ℕ)) → Option Y
 
 /-- A trapdoor `td = (γ, C)` (l.2981): the salts and the label table. Both are `Option`-valued, so
 an extracted trapdoor with `⊥` entries has the same type. -/
-abbrev Td (Y Salt : Type) (d : ℕ) := (Fin (2 ^ d) → Option Salt) × Labels Y d
+abbrev Td (Y : Type uY) (Salt : Type uS) (d : ℕ) := (Fin (2 ^ d) → Option Salt) × Labels Y d
 
 /-- The all-`⊥` trapdoor. -/
 @[expose]
-def tdBot {Y Salt : Type} {d : ℕ} : Td Y Salt d := (fun _ ↦ none, fun _ _ ↦ none)
+def tdBot {Y : Type uY} {Salt : Type uS} {d : ℕ} : Td Y Salt d := (fun _ ↦ none, fun _ _ ↦ none)
 
 /-- The opening `ST_ι` of one leaf (l.2983): its salt and, for `j ∈ [1, d]` (stored at `j - 1`),
 the node `a_{ι,j}` on the path from the root to the leaf and its sibling `b_{ι,j}`. The leaf label
 is `a_{ι,d}`. The root in `ST_ι` is the commitment and is not repeated. -/
-structure PathProof (Y Salt : Type) (d : ℕ) where
+structure PathProof (Y : Type uY) (Salt : Type uS) (d : ℕ) where
   /-- The salt `γ_ι`. -/
   salt : Salt
   /-- The pairs `(a_{ι,j+1}, b_{ι,j+1})` for `j < d`. -/
@@ -112,9 +126,11 @@ structure PathProof (Y Salt : Type) (d : ℕ) where
   deriving DecidableEq
 
 /-- A proof `pf = (ST_ι)_{ι ∈ Q}`: the entry is `none` off `Q`. -/
-abbrev Pf (Y Salt : Type) (d : ℕ) := Fin (2 ^ d) → Option (PathProof Y Salt d)
+abbrev Pf (Y : Type uY) (Salt : Type uS) (d : ℕ) := Fin (2 ^ d) → Option (PathProof Y Salt d)
 
-variable {X Y Msg Salt : Type} {d : ℕ}
+section Generic
+
+variable {X : Type uX} {Y : Type uY} {Msg : Type uM} {Salt : Type uS} {d : ℕ}
 
 /-! ## Positions -/
 
@@ -188,7 +204,7 @@ def PathProof.node (rt : Y) (pp : PathProof Y Salt d) (j : ℕ) : Y :=
 
 section Hashing
 
-variable {m : Type → Type} [Monad m]
+variable {m : Type uY → Type*} [Monad m]
 
 /-- Hash every entry of a vector of inputs, from the first to the last. -/
 @[expose]
@@ -219,7 +235,7 @@ def buildUp (enc : Encoding X Y Msg Salt) (hash : X → m Y) :
         if i = j + 1 then (if h : q < 2 ^ (j + 1) then some (c ⟨q, h⟩) else none) else r.2 i q)
 
 /-- Simulating `hashAll` simulates each hash. -/
-theorem simulateQ_hashAll {ι : Type} {spec : OracleSpec ι} {r : Type → Type} [Monad r]
+theorem simulateQ_hashAll {ι : Type*} {spec : OracleSpec ι} {r : Type uY → Type*} [Monad r]
     [LawfulMonad r] (impl : QueryImpl spec r) (hash : X → OracleComp spec Y) (n : ℕ)
     (f : Fin n → X) :
     simulateQ impl (hashAll hash n f) = hashAll (fun x ↦ simulateQ impl (hash x)) n f := by
@@ -228,7 +244,7 @@ theorem simulateQ_hashAll {ι : Type} {spec : OracleSpec ι} {r : Type → Type}
   | succ n ih => simp [hashAll, ih]
 
 /-- Simulating `buildUp` simulates each hash. -/
-theorem simulateQ_buildUp {ι : Type} {spec : OracleSpec ι} {r : Type → Type} [Monad r]
+theorem simulateQ_buildUp {ι : Type*} {spec : OracleSpec ι} {r : Type uY → Type*} [Monad r]
     [LawfulMonad r] (impl : QueryImpl spec r) (enc : Encoding X Y Msg Salt)
     (hash : X → OracleComp spec Y) (j : ℕ) (c : Fin (2 ^ j) → Y) :
     simulateQ impl (buildUp enc hash j c) =
@@ -266,7 +282,7 @@ def hashTable (enc : Encoding X Y Msg Salt) (H : X → Y) :
         if i = j + 1 then (if h : q < 2 ^ (j + 1) then some (c ⟨q, h⟩) else none) else r.2 i q)
 
 /-- `buildUp` with a deterministic hash is `hashTable`. -/
-theorem buildUp_pure {m : Type → Type} [Monad m] [LawfulMonad m] (enc : Encoding X Y Msg Salt)
+theorem buildUp_pure {m : Type uY → Type*} [Monad m] [LawfulMonad m] (enc : Encoding X Y Msg Salt)
     (H : X → Y) (j : ℕ) (c : Fin (2 ^ j) → Y) :
     buildUp enc (fun x ↦ (pure (H x) : m Y)) j c = pure (hashTable enc H j c) := by
   induction j with
@@ -315,16 +331,6 @@ theorem hashTable_snd_closed (j : ℕ) (c : Fin (2 ^ j) → Y) (i : ℕ) (hi : i
 
 end HonestTable
 
-/-- `Commit^f(m)` after the salts are fixed (l.2974–2981): hash the leaves `f(m_ι, γ_ι)` and then
-the tree bottom-up. It returns the root and the trapdoor `(γ, C)`. -/
-@[expose]
-def commitTree (enc : Encoding X Y Msg Salt) (d : ℕ) (msg : Fin (2 ^ d) → Msg)
-    (γ : Fin (2 ^ d) → Salt) : OracleComp (X →ₒ Y) (Y × Td Y Salt d) := do
-  let leaves ← hashAll (fun x ↦ ((X →ₒ Y).query x : OracleComp (X →ₒ Y) Y)) (2 ^ d)
-    fun ι ↦ enc.leaf (msg ι, γ ι)
-  let r ← buildUp enc (fun x ↦ ((X →ₒ Y).query x : OracleComp (X →ₒ Y) Y)) d leaves
-  pure (r.1, (fun ι ↦ some (γ ι), fun j q ↦ r.2 j q))
-
 /-- The honest root and trapdoor for the function `H`. -/
 @[expose]
 def honestTree (enc : Encoding X Y Msg Salt) (d : ℕ) (H : X → Y) (msg : Fin (2 ^ d) → Msg)
@@ -332,25 +338,15 @@ def honestTree (enc : Encoding X Y Msg Salt) (d : ℕ) (H : X → Y) (msg : Fin 
   let r := hashTable enc H d fun ι ↦ H (enc.leaf (msg ι, γ ι))
   (r.1, (fun ι ↦ some (γ ι), fun j q ↦ r.2 j q))
 
-/-- Answering the queries of `commitTree` with `H` gives the honest root and trapdoor. -/
-theorem simulateQ_commitTree {m : Type → Type} [Monad m] [LawfulMonad m]
-    (enc : Encoding X Y Msg Salt) (d : ℕ) (H : X → Y) (msg : Fin (2 ^ d) → Msg)
-    (γ : Fin (2 ^ d) → Salt) :
-    simulateQ (fun x ↦ (pure (H x) : m Y)) (commitTree enc d msg γ) =
-      pure (honestTree enc d H msg γ) := by
-  simp only [commitTree, simulateQ_bind, simulateQ_hashAll, simulateQ_buildUp,
-    simulateQ_spec_query, hashAll_pure, pure_bind, buildUp_pure, simulateQ_pure]
-  rfl
-
 /-! ## Opening and the check -/
 
 /-- Collect a vector of options into an optional vector: `some` exactly when every entry is. -/
 @[expose]
-def optionPi {n : ℕ} {α : Type} (f : Fin n → Option α) : Option (Fin n → α) :=
+def optionPi {n : ℕ} {α : Type*} (f : Fin n → Option α) : Option (Fin n → α) :=
   if h : ∀ i, (f i).isSome then some fun i ↦ (f i).get (h i) else none
 
 /-- `optionPi f = some g` exactly when every entry of `f` is the entry of `g`. -/
-theorem optionPi_eq_some_iff {n : ℕ} {α : Type} {f : Fin n → Option α} {g : Fin n → α} :
+theorem optionPi_eq_some_iff {n : ℕ} {α : Type*} {f : Fin n → Option α} {g : Fin n → α} :
     optionPi f = some g ↔ ∀ i, f i = some (g i) := by
   unfold optionPi
   split_ifs with h
@@ -363,7 +359,7 @@ theorem optionPi_eq_some_iff {n : ℕ} {α : Type} {f : Fin n → Option α} {g 
     exact ⟨i, fun hg ↦ by simp [hg] at hi⟩
 
 /-- `optionPi f` is present exactly when every entry of `f` is. -/
-theorem isSome_optionPi {n : ℕ} {α : Type} {f : Fin n → Option α} :
+theorem isSome_optionPi {n : ℕ} {α : Type*} {f : Fin n → Option α} :
     (optionPi f).isSome ↔ ∀ i, (f i).isSome := by
   unfold optionPi
   split_ifs with h <;> simp [h]
@@ -409,17 +405,14 @@ def outputIO [DecidableEq X] [DecidableEq Y] (enc : Encoding X Y Msg Salt) (d : 
     some ((List.finRange (2 ^ d)).flatMap fun ι ↦ entryIO enc rt ι (ans ι) (pf ι)).dedup
   else none
 
-/-- The salted Merkle commitment `MT[σ, Σ, ℓ = 2 ^ d, ν]` (Def 8.2, l.2971–3000). `Commit` samples
-the salts uniformly with `unifSpec` and hashes bottom-up, `Open` reads the paths from the
-trapdoor, and `Check` is `OutputIO` then `CheckIO`. -/
+/-- The check of `scheme enc d` against a partial table `D : X → Option Y`: reject if `OutputIO`
+does not parse, and otherwise accept exactly when `D` holds every listed pair. Against the total
+table of a function `H` it is the check evaluated at `H` (`checkIOForm_checkOn` and
+`VectorCommitment.CheckIOForm.simulateQ_check`). -/
 @[expose]
-def scheme [DecidableEq X] [DecidableEq Y] [SampleableType Salt] (enc : Encoding X Y Msg Salt)
-    (d : ℕ) : VectorCommitment X Y Msg Y (Td Y Salt d) (Pf Y Salt d) (2 ^ d) where
-  commit msg := do
-    let γ ← OracleComp.liftComp ($ᵗ (Fin (2 ^ d) → Salt)) (unifSpec + (X →ₒ Y))
-    OracleComp.liftComp (commitTree enc d msg γ) (unifSpec + (X →ₒ Y))
-  opening := opening d
-  check rt ans pf := (outputIO enc d rt ans pf).elim (pure false) checkIO
+def checkOn [DecidableEq X] [DecidableEq Y] (enc : Encoding X Y Msg Salt) (d : ℕ)
+    (D : X → Option Y) (rt : Y) (ans : PartialVec (2 ^ d) Msg) (pf : Pf Y Salt d) : Bool :=
+  (outputIO enc d rt ans pf).elim false (checkIOOn D)
 
 section Lemmas
 
@@ -472,15 +465,6 @@ theorem length_outputIO_le (rt : Y) (ans : PartialVec (2 ^ d) Msg) (pf : Pf Y Sa
     _ = ans.dom.card * (d + 1) := by
         rw [← Finset.sum_filter, Finset.sum_const, smul_eq_mul]
         rfl
-
-/-- The check of `scheme enc d` has the `CheckIO` form, with `d + 1` pairs per opened position. -/
-@[expose]
-def checkIOForm [SampleableType Salt] (d : ℕ) :
-    VectorCommitment.CheckIOForm (scheme (Msg := Msg) enc d) where
-  outputIO := outputIO enc d
-  check_eq _ _ _ := rfl
-  qVC q := q * (d + 1)
-  length_le rt ans pf io h := length_outputIO_le enc rt ans pf io h
 
 end Lemmas
 
@@ -659,26 +643,6 @@ theorem consistent_honestTree (enc : Encoding X Y Msg Salt) (d : ℕ) (H : X →
     rw [hT _ _ le_rfl ι.isLt]
     exact hashTable_snd_self enc H d _ ι ι.isLt
 
-/-- **Perfect completeness** of the salted Merkle commitment (Def 3.7, l.1316; §8.3, l.3138). -/
-theorem perfectlyComplete [DecidableEq X] [DecidableEq Y] [SampleableType Salt]
-    (enc : Encoding X Y Msg Salt) (d : ℕ) : (scheme (Msg := Msg) enc d).PerfectlyComplete := by
-  unfold VectorCommitment.PerfectlyComplete
-  intro H msg Q z hz
-  simp only [scheme, VectorCommitment.fixedOracleImpl, simulateQ_bind] at hz
-  rw [mem_support_bind_iff] at hz
-  obtain ⟨γ, -, hz⟩ := hz
-  rw [QueryImpl.simulateQ_add_liftComp_right (QueryImpl.id' unifSpec)
-    (fun x ↦ (pure (H x) : ProbComp Y)) (commitTree enc d msg γ)] at hz
-  rw [simulateQ_commitTree] at hz
-  rw [support_pure, Set.mem_singleton_iff] at hz
-  subst hz
-  obtain ⟨io, hio, hG⟩ := (consistent_honestTree enc d H msg γ Q).outputIO_opening
-  rw [PartialVec.dom_restrict] at hio
-  change evalWithAnswerFn _ ((outputIO enc d _ _ (opening d Q _)).elim (pure false) checkIO) = true
-  rw [hio, Option.elim_some, evalWithAnswerFn_checkIO, List.all_eq_true]
-  intro p hp
-  simp [hG p hp]
-
 /-! ## The number of distinct pairs -/
 
 section Count
@@ -691,11 +655,9 @@ private def leafPair (d : ℕ) (rt : Y) (ans : PartialVec (2 ^ d) Msg) (pf : Pf 
   (ans ι).bind fun a ↦ (pf ι).map fun pp ↦ (enc.leaf (a, pp.salt), pp.node rt d)
 
 /-- The node pair of the internal vertex `(j, q)` of a label table, if its labels are present. -/
-private def nodePair (rt : Y) (C : Labels Y d) (j q : ℕ) : Option (X × Y) := do
-  let L ← labelAt C (j + 1) (2 * q)
-  let R ← labelAt C (j + 1) (2 * q + 1)
-  let u ← if j = 0 then some rt else labelAt C j q
-  pure (enc.node (L, R), u)
+private def nodePair (rt : Y) (C : Labels Y d) (j q : ℕ) : Option (X × Y) :=
+  (labelAt C (j + 1) (2 * q)).bind fun L ↦ (labelAt C (j + 1) (2 * q + 1)).bind fun R ↦
+    (if j = 0 then some rt else labelAt C j q).map fun u ↦ (enc.node (L, R), u)
 
 /-- The node pair at level `j` of an opening read from a trapdoor depends only on the vertex
 `(j, anc d ι j)`. -/
@@ -758,7 +720,7 @@ private theorem mem_entryIO_opening (rt : Y) {ans : PartialVec (2 ^ d) Msg}
             simp [leafPair, ha, hpp]
           · exact Or.inr ⟨j, nodePair_opening enc rt hpp j⟩
 
-private theorem card_toFinset_le {α : Type} (o : Option α) : o.toFinset.card ≤ 1 := by
+private theorem card_toFinset_le {α : Type*} (o : Option α) : o.toFinset.card ≤ 1 := by
   cases o <;> simp
 
 private theorem sum_two_pow_fin (d : ℕ) : ∑ j : Fin d, 2 ^ (j : ℕ) + 1 = 2 ^ d := by
@@ -811,5 +773,97 @@ theorem length_outputIO_opening_le (rt : Y) (ans : PartialVec (2 ^ d) Msg)
     _ ≤ 2 * 2 ^ d - 1 := by omega
 
 end Count
+
+end Generic
+
+/-! ## The scheme
+
+`Commit` samples the salts with `unifSpec` and queries `X →ₒ Y`, so this section takes `Y` and
+`Salt` in `Type`. -/
+
+section Scheme
+
+variable {X : Type uX} {Y Salt : Type} {Msg : Type uM}
+
+/-- `Commit^f(m)` after the salts are fixed (l.2974–2981): hash the leaves `f(m_ι, γ_ι)` and then
+the tree bottom-up. It returns the root and the trapdoor `(γ, C)`. -/
+@[expose]
+def commitTree (enc : Encoding X Y Msg Salt) (d : ℕ) (msg : Fin (2 ^ d) → Msg)
+    (γ : Fin (2 ^ d) → Salt) : OracleComp (X →ₒ Y) (Y × Td Y Salt d) := do
+  let leaves ← hashAll (fun x ↦ ((X →ₒ Y).query x : OracleComp (X →ₒ Y) Y)) (2 ^ d)
+    fun ι ↦ enc.leaf (msg ι, γ ι)
+  let r ← buildUp enc (fun x ↦ ((X →ₒ Y).query x : OracleComp (X →ₒ Y) Y)) d leaves
+  pure (r.1, (fun ι ↦ some (γ ι), fun j q ↦ r.2 j q))
+
+/-- Answering the queries of `commitTree` with `H` gives the honest root and trapdoor. -/
+theorem simulateQ_commitTree {m : Type → Type} [Monad m] [LawfulMonad m]
+    (enc : Encoding X Y Msg Salt) (d : ℕ) (H : X → Y) (msg : Fin (2 ^ d) → Msg)
+    (γ : Fin (2 ^ d) → Salt) :
+    simulateQ (fun x ↦ (pure (H x) : m Y)) (commitTree enc d msg γ) =
+      pure (honestTree enc d H msg γ) := by
+  simp only [commitTree, simulateQ_bind, simulateQ_hashAll, simulateQ_buildUp,
+    simulateQ_spec_query, hashAll_pure, pure_bind, buildUp_pure, simulateQ_pure]
+  rfl
+
+/-- The salted Merkle commitment `MT[σ, Σ, ℓ = 2 ^ d, ν]` (Def 8.2, l.2971–3000). `Commit` samples
+the salts uniformly with `unifSpec` and hashes bottom-up, `Open` reads the paths from the
+trapdoor, and `Check` is `OutputIO` then `CheckIO`. `Open` is deterministic and `Check` is
+coin-free, so the scheme is a `DetVectorCommitment`. -/
+@[expose]
+def scheme [DecidableEq X] [DecidableEq Y] [SampleableType Salt] (enc : Encoding X Y Msg Salt)
+    (d : ℕ) : DetVectorCommitment X Y Msg Y (Td Y Salt d) (Pf Y Salt d) (2 ^ d) where
+  commit msg := do
+    let γ ← OracleComp.liftComp ($ᵗ (Fin (2 ^ d) → Salt)) (unifSpec + (X →ₒ Y))
+    OracleComp.liftComp (commitTree enc d msg γ) (unifSpec + (X →ₒ Y))
+  opening := opening d
+  check rt ans pf := (outputIO enc d rt ans pf).elim (pure false) checkIO
+
+/-- The check of `scheme enc d` has the `CheckIO` form, with `d + 1` pairs per opened position. -/
+@[expose]
+def checkIOForm [DecidableEq X] [DecidableEq Y] [SampleableType Salt]
+    (enc : Encoding X Y Msg Salt) (d : ℕ) :
+    (scheme (Msg := Msg) enc d).toVectorCommitment.CheckIOForm where
+  outputIO := outputIO enc d
+  check_eq _ _ _ := rfl
+  qVC q := q * (d + 1)
+  qVC_mono _ _ h := Nat.mul_le_mul_right _ h
+  length_le rt ans pf io h := length_outputIO_le enc rt ans pf io h
+
+/-- The table check of `checkIOForm enc d` is `checkOn enc d`. -/
+theorem checkIOForm_checkOn [DecidableEq X] [DecidableEq Y] [SampleableType Salt]
+    (enc : Encoding X Y Msg Salt) (d : ℕ) :
+    (checkIOForm enc d).checkOn = checkOn enc d :=
+  rfl
+
+/-- **Perfect completeness** of the salted Merkle commitment against every fixed oracle function
+(Def 3.7, l.1316; §8.3, l.3138). -/
+theorem perfectlyComplete [DecidableEq X] [DecidableEq Y] [SampleableType Salt]
+    (enc : Encoding X Y Msg Salt) (d : ℕ) : (scheme (Msg := Msg) enc d).PerfectlyComplete := by
+  unfold DetVectorCommitment.PerfectlyComplete
+  intro H msg Q z hz
+  simp only [scheme, VectorCommitment.fixedOracleImpl, simulateQ_bind] at hz
+  rw [mem_support_bind_iff] at hz
+  obtain ⟨γ, -, hz⟩ := hz
+  rw [QueryImpl.simulateQ_add_liftComp_right (QueryImpl.id' unifSpec)
+    (fun x ↦ (pure (H x) : ProbComp Y)) (commitTree enc d msg γ)] at hz
+  rw [simulateQ_commitTree] at hz
+  rw [support_pure, Set.mem_singleton_iff] at hz
+  subst hz
+  obtain ⟨io, hio, hG⟩ := (consistent_honestTree enc d H msg γ Q).outputIO_opening
+  rw [PartialVec.dom_restrict] at hio
+  change evalWithAnswerFn _ ((outputIO enc d _ _ (opening d Q _)).elim (pure false) checkIO) = true
+  rw [hio, Option.elim_some, evalWithAnswerFn_checkIO, List.all_eq_true]
+  intro p hp
+  simp [hG p hp]
+
+/-- **Perfect completeness relative to every oracle distribution** (Def 3.7, l.1316): the salted
+Merkle commitment, as a general vector commitment, is perfectly complete for every distribution `D`
+on oracle functions. -/
+theorem perfectlyComplete_toVectorCommitment [DecidableEq X] [DecidableEq Y] [SampleableType Salt]
+    (enc : Encoding X Y Msg Salt) (d : ℕ) (D : PMF (X → Y)) :
+    (scheme (Msg := Msg) enc d).toVectorCommitment.PerfectlyComplete D :=
+  (perfectlyComplete enc d).toVectorCommitment D
+
+end Scheme
 
 end SaltedMerkle

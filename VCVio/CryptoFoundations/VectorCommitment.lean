@@ -8,6 +8,8 @@ module
 public import VCVio.OracleComp.ProbComp.Basic
 public import VCVio.OracleComp.SimSemantics.Append
 public import VCVio.OracleComp.Support
+public import VCVio.OracleComp.EvalDist.Measure
+public import Mathlib.Probability.ProbabilityMassFunction.Basic
 
 /-!
 # Vector commitments in the model of one oracle
@@ -17,39 +19,73 @@ A vector commitment to messages `m : Fin ℓ → Msg` relative to one classical 
 Reductions*, ePrint 2025/2166, §3.5, Def 3.5 and Def 3.7) consists of three algorithms:
 
 * `Commit^f(m) → (cm, td)` samples coins and queries the oracle;
-* `Open(Q, td) → pf` is oracle-free and deterministic;
-* `Check^f(cm, Q, ans, pf) → {0, 1}` queries the oracle and is deterministic given it.
+* `Open(Q, td) → pf` is oracle-free and may sample coins;
+* `Check^f(cm, Q, ans, pf) → {0, 1}` queries the oracle and may sample coins.
+
+`VectorCommitment` is this general form: coins come from `unifSpec`, oracle queries go to
+`X →ₒ Y`. `DetVectorCommitment` is the specialization with a deterministic `Open` and a coin-free
+`Check`, the form of every scheme in §8 of ePrint 2025/2166;
+`DetVectorCommitment.toVectorCommitment` embeds it into the general form.
 
 The pair `(Q, ans)` with `ans ∈ Σ^Q` is one partial vector `ans : Fin ℓ → Option Msg` with
 `Q = dom ans`; the same type holds the extracted messages `m ∈ (Σ ∪ {⊥})^ℓ` of §7
 (ePrint 2025/2166, l.2769).
 
+Perfect completeness (Def 3.7) is relative to a distribution `D` on oracle functions
+(`VectorCommitment.PerfectlyComplete`): the honest experiment accepts with probability `1` when
+the oracle is sampled from `D`. Completeness against every fixed function
+(`VectorCommitment.PerfectlyCompleteForAll`, and `DetVectorCommitment.PerfectlyComplete` for a
+deterministic scheme) is a sufficient condition for every `D`.
+
 The check of every vector commitment in §8 of ePrint 2025/2166 has a special form
 (Def 8.1 and Thm 8.4 condition 1, l.2960–2969 and l.3031–3034): an oracle-free, non-adaptive
 `OutputIO` step lists input-output pairs, and `CheckIO^f` queries every input and compares the
-answer with the listed output. `CheckIOForm` records this form together with a bound on the
-number of pairs.
+answer with the listed output. `VectorCommitment.CheckIOForm` records this form, which makes
+`Check` deterministic and coin-free while leaving `Open` general, together with a non-decreasing
+bound `qVC` on the number of pairs (§3.5, l.1311–1314).
+
+## Universes
+
+The oracle input type `X` and the message type `Msg` are in arbitrary universes. The oracle
+output type `Y`, the commitments `Cm`, the trapdoors `Td` and the proofs `Pf` are in `Type`: they
+are answers of oracle queries or outputs of oracle computations whose combined specification
+includes the uniform-sampling oracle `unifSpec`, and the semantics of `OracleComp` (`simulateQ`,
+`evalDist`) places outputs in the universe of the oracle answers. The partial vectors and the
+table check `checkIOOn` are fully universe-polymorphic.
 
 ## Main definitions
 
 * `PartialVec ℓ Msg`, with `PartialVec.dom`, `PartialVec.Agrees` and `PartialVec.restrict`.
-* `VectorCommitment X Y Msg Cm Td Pf ℓ` and `VectorCommitment.PerfectlyComplete`.
+* `VectorCommitment X Y Msg Cm Td Pf ℓ`, `VectorCommitment.completenessExp`,
+  `VectorCommitment.PerfectlyComplete` and `VectorCommitment.PerfectlyCompleteForAll`.
+* `DetVectorCommitment X Y Msg Cm Td Pf ℓ`, `DetVectorCommitment.toVectorCommitment` and
+  `DetVectorCommitment.PerfectlyComplete`.
 * `checkIO io`: query every listed input and compare; `checkIOOn D io`: the same check against a
   partial table `D : X → Option Y`, rejecting at an empty cell.
 * `VectorCommitment.CheckIOForm`: `Check` is `OutputIO` followed by `CheckIO`.
 
 ## Main results
 
+* `VectorCommitment.PerfectlyCompleteForAll.perfectlyComplete`: completeness against every fixed
+  function gives Def 3.7 for every oracle distribution.
+* `VectorCommitment.perfectlyComplete_iff`: Def 3.7 holds for `D` exactly when the honest
+  experiment accepts on every outcome, for every function in the support of `D`.
+* `DetVectorCommitment.PerfectlyComplete.toVectorCommitment`: the same sufficient condition for a
+  deterministic scheme.
 * `evalWithAnswerFn_checkIO`: against a fixed function `H`, `checkIO io` accepts exactly when
   `H x = y` for every listed pair.
 * `checkIOOn_dedup`: removing duplicate pairs does not change acceptance.
+* `VectorCommitment.CheckIOForm.simulateQ_check`: against a fixed function, a check of the
+  `CheckIO` form returns the table check `checkOn`.
+* `VectorCommitment.CheckIOForm.length_le_of_card_le`: `qVC qs` bounds the check for every
+  budget `qs ≥ |Q|`.
 -/
 
 public section
 
 open OracleComp OracleSpec
 
-universe u
+universe u v uX uM
 
 /-! ## Partial vectors -/
 
@@ -107,21 +143,36 @@ end PartialVec
 /-! ## Vector commitments -/
 
 /-- A vector commitment to messages `Fin ℓ → Msg` in the model of one oracle `X →ₒ Y`
-(ePrint 2025/2166, Def 3.5, l.1291–1310).
+(ePrint 2025/2166, Def 3.5, l.1291–1310), in its general form.
 
-`commit` samples coins with `unifSpec` and queries the oracle. `opening` is oracle-free. `check`
-makes classical queries and has no coins, so it is deterministic given the oracle. -/
-structure VectorCommitment (X Y Msg Cm Td Pf : Type) (ℓ : ℕ) where
+`commit` and `check` sample coins with `unifSpec` and query the oracle; `opening` is oracle-free
+and samples coins. A scheme with a deterministic `Open` and a coin-free `Check` is a
+`DetVectorCommitment`. -/
+structure VectorCommitment (X : Type uX) (Y : Type) (Msg : Type uM) (Cm Td Pf : Type)
+    (ℓ : ℕ) where
   /-- `Commit^f(m) → (cm, td)`. -/
   commit : (Fin ℓ → Msg) → OracleComp (unifSpec + (X →ₒ Y)) (Cm × Td)
   /-- `Open(Q, td) → pf`. -/
-  opening : Finset (Fin ℓ) → Td → Pf
+  opening : Finset (Fin ℓ) → Td → ProbComp Pf
   /-- `Check^f(cm, Q, ans, pf) → {0, 1}`, with `Q = dom ans`. -/
-  check : Cm → PartialVec ℓ Msg → Pf → OracleComp (X →ₒ Y) Bool
+  check : Cm → PartialVec ℓ Msg → Pf → OracleComp (unifSpec + (X →ₒ Y)) Bool
 
 namespace VectorCommitment
 
-variable {X Y Msg Cm Td Pf : Type} {ℓ : ℕ}
+/-! ### Answering the oracle with a fixed function -/
+
+section FixedOracle
+
+variable {X : Type uX} {Y : Type}
+
+/-- Answering every query of `X →ₒ Y` with `pure (H x)` evaluates the computation at `H`. -/
+theorem simulateQ_pure_eq_evalWithAnswerFn {m : Type → Type v} [Monad m] [LawfulMonad m]
+    (H : X → Y) {α : Type} (oa : OracleComp (X →ₒ Y) α) :
+    simulateQ (fun x ↦ (pure (H x) : m Y)) oa =
+      pure (evalWithAnswerFn (QueryImpl.ofFn H) oa) := by
+  induction oa using OracleComp.inductionOn with
+  | pure a => simp
+  | query_bind t k ih => simp [ih]
 
 /-- The implementation of `unifSpec + (X →ₒ Y)` in `ProbComp` that passes the coins through and
 answers every oracle query with the fixed function `H`. -/
@@ -129,23 +180,188 @@ answers every oracle query with the fixed function `H`. -/
 def fixedOracleImpl (H : X → Y) : QueryImpl (unifSpec + (X →ₒ Y)) ProbComp :=
   QueryImpl.id' unifSpec + fun x ↦ (pure (H x) : ProbComp Y)
 
-/-- Perfect completeness (ePrint 2025/2166, Def 3.7, l.1316) against every fixed function `H`:
-for every message `m`, every query set `Q` and every outcome of `Commit^H(m)`, the honest opening
-of `Q` passes `Check^H` on `m[Q]`. Quantifying over all `H` covers every oracle distribution. -/
+/-- Against `fixedOracleImpl H`, a coin-free computation over `X →ₒ Y` is evaluated at `H`. -/
+@[simp]
+theorem simulateQ_fixedOracleImpl_liftComp (H : X → Y) {α : Type}
+    (oa : OracleComp (X →ₒ Y) α) :
+    simulateQ (fixedOracleImpl H) (liftComp oa (unifSpec + (X →ₒ Y))) =
+      pure (evalWithAnswerFn (QueryImpl.ofFn H) oa) := by
+  rw [fixedOracleImpl, QueryImpl.simulateQ_add_liftComp_right (QueryImpl.id' unifSpec)
+    (fun x ↦ (pure (H x) : ProbComp Y)) oa, simulateQ_pure_eq_evalWithAnswerFn]
+
+end FixedOracle
+
+/-! ### Completeness -/
+
+variable {X : Type uX} {Y : Type} {Msg : Type uM} {Cm Td Pf : Type} {ℓ : ℕ}
+
+/-- The experiment of Def 3.7 (l.1316–1320) for a message `m` and a query set `Q`, with the oracle
+left abstract: `(cm, td) ← Commit^f(m)`, `pf ← Open(Q, td)`, and return
+`Check^f(cm, Q, m[Q], pf)`. -/
 @[expose]
-def PerfectlyComplete (vc : VectorCommitment X Y Msg Cm Td Pf ℓ) : Prop :=
+def completenessExp (vc : VectorCommitment X Y Msg Cm Td Pf ℓ) (m : Fin ℓ → Msg)
+    (Q : Finset (Fin ℓ)) : OracleComp (unifSpec + (X →ₒ Y)) Bool := do
+  let z ← vc.commit m
+  let pf ← liftComp (vc.opening Q z.2) (unifSpec + (X →ₒ Y))
+  vc.check z.1 (PartialVec.restrict m Q) pf
+
+/-- The acceptance probability of the experiment of Def 3.7 (l.1316–1320) when the oracle is
+sampled from `D`:
+`Pr[Check^f(cm, Q, m[Q], pf) = 1 : f ← D, (cm, td) ← Commit^f(m), pf ← Open(Q, td)]`. -/
+@[expose]
+noncomputable def completenessProb (vc : VectorCommitment X Y Msg Cm Td Pf ℓ) (D : PMF (X → Y))
+    (m : Fin ℓ → Msg) (Q : Finset (Fin ℓ)) : ENNReal :=
+  ∑' H, D H * Pr{let b ← simulateQ (fixedOracleImpl H) (vc.completenessExp m Q)}[b = true]
+
+/-- **Perfect completeness** in the `D`-oracle model (ePrint 2025/2166, Def 3.7, l.1316–1320):
+for every message `m` and every query set `Q`, the experiment accepts with probability `1` when
+the oracle is sampled from `D`. -/
+@[expose]
+def PerfectlyComplete (vc : VectorCommitment X Y Msg Cm Td Pf ℓ) (D : PMF (X → Y)) : Prop :=
+  ∀ (m : Fin ℓ → Msg) (Q : Finset (Fin ℓ)), vc.completenessProb D m Q = 1
+
+/-- Perfect completeness against every fixed function `H`: for every message and query set, every
+outcome of the experiment with the oracle answered by `H` accepts. It implies Def 3.7 for every
+oracle distribution (`PerfectlyCompleteForAll.perfectlyComplete`). -/
+@[expose]
+def PerfectlyCompleteForAll (vc : VectorCommitment X Y Msg Cm Td Pf ℓ) : Prop :=
   ∀ (H : X → Y) (m : Fin ℓ → Msg) (Q : Finset (Fin ℓ)),
-    ∀ z ∈ support (simulateQ (fixedOracleImpl H) (vc.commit m)),
-      evalWithAnswerFn (QueryImpl.ofFn H)
-        (vc.check z.1 (PartialVec.restrict m Q) (vc.opening Q z.2)) = true
+    ∀ b ∈ support (simulateQ (fixedOracleImpl H) (vc.completenessExp m Q)), b = true
+
+/-- Def 3.7 holds for `D` exactly when, for every function `H` in the support of `D`, every outcome
+of the experiment with the oracle answered by `H` accepts. -/
+theorem perfectlyComplete_iff (vc : VectorCommitment X Y Msg Cm Td Pf ℓ) (D : PMF (X → Y)) :
+    vc.PerfectlyComplete D ↔ ∀ H ∈ D.support, ∀ (m : Fin ℓ → Msg) (Q : Finset (Fin ℓ)),
+      ∀ b ∈ support (simulateQ (fixedOracleImpl H) (vc.completenessExp m Q)), b = true := by
+  have hp : ∀ H m Q,
+      Pr{let b ← simulateQ (fixedOracleImpl H) (vc.completenessExp m Q)}[b = true] = 1 ↔
+        ∀ b ∈ support (simulateQ (fixedOracleImpl H) (vc.completenessExp m Q)), b = true :=
+    fun H m Q ↦ prEvent_eq_one_iff _ _
+  constructor
+  · intro h H hH m Q
+    refine (hp H m Q).mp ?_
+    set p : (X → Y) → ENNReal :=
+      fun H ↦ Pr{let b ← simulateQ (fixedOracleImpl H) (vc.completenessExp m Q)}[b = true]
+    have hle : ∀ H, p H ≤ 1 := fun H ↦ prEvent_le_one _
+    have hsum : ∑' H, D H * p H + ∑' H, D H * (1 - p H) = 1 + 0 := by
+      rw [← ENNReal.tsum_add, add_zero]
+      simp_rw [← mul_add, add_tsub_cancel_of_le (hle _), mul_one]
+      exact D.tsum_coe
+    have h0 : ∑' H, D H * (1 - p H) = 0 := by
+      have h1 : vc.completenessProb D m Q = 1 := h m Q
+      rw [completenessProb] at h1
+      rw [h1] at hsum
+      exact (ENNReal.add_right_inj ENNReal.one_ne_top).mp hsum
+    have hH0 := ENNReal.tsum_eq_zero.mp h0 H
+    rcases mul_eq_zero.mp hH0 with hD | hp1
+    · exact absurd hD ((PMF.mem_support_iff D H).mp hH)
+    · exact le_antisymm (hle H) (tsub_eq_zero_iff_le.mp hp1)
+  · intro h m Q
+    rw [completenessProb]
+    calc ∑' H, D H * Pr{let b ← simulateQ (fixedOracleImpl H) (vc.completenessExp m Q)}[b = true]
+        = ∑' H, D H := by
+          refine tsum_congr fun H ↦ ?_
+          by_cases hH : H ∈ D.support
+          · rw [(hp H m Q).mpr (h H hH m Q), mul_one]
+          · rw [(PMF.mem_support_iff D H).not_left.mp hH, zero_mul]
+      _ = 1 := D.tsum_coe
+
+/-- Completeness against every fixed function gives Def 3.7 for every oracle distribution `D`. -/
+theorem PerfectlyCompleteForAll.perfectlyComplete {vc : VectorCommitment X Y Msg Cm Td Pf ℓ}
+    (h : vc.PerfectlyCompleteForAll) (D : PMF (X → Y)) : vc.PerfectlyComplete D :=
+  (perfectlyComplete_iff vc D).mpr fun H _ ↦ h H
 
 end VectorCommitment
 
+/-! ## Deterministic vector commitments -/
+
+/-- A vector commitment with a deterministic `Open` and a coin-free `Check`
+(ePrint 2025/2166, Def 3.5, l.1291–1310, specialized). `Commit` still samples coins. Every scheme of
+§8 has this form, and Thm 8.4 condition 1 (l.3031–3034) asks for a deterministic `Check`.
+`toVectorCommitment` embeds it into the general form. -/
+structure DetVectorCommitment (X : Type uX) (Y : Type) (Msg : Type uM) (Cm Td Pf : Type)
+    (ℓ : ℕ) where
+  /-- `Commit^f(m) → (cm, td)`. -/
+  commit : (Fin ℓ → Msg) → OracleComp (unifSpec + (X →ₒ Y)) (Cm × Td)
+  /-- `Open(Q, td) → pf`, deterministic. -/
+  opening : Finset (Fin ℓ) → Td → Pf
+  /-- `Check^f(cm, Q, ans, pf) → {0, 1}`, with `Q = dom ans`, deterministic given the oracle. -/
+  check : Cm → PartialVec ℓ Msg → Pf → OracleComp (X →ₒ Y) Bool
+
+namespace DetVectorCommitment
+
+variable {X : Type uX} {Y : Type} {Msg : Type uM} {Cm Td Pf : Type} {ℓ : ℕ}
+
+/-- A deterministic vector commitment as a general one: `Open` returns its proof without coins, and
+`Check` is lifted to the combined specification without using the coins. -/
+@[expose]
+def toVectorCommitment (vc : DetVectorCommitment X Y Msg Cm Td Pf ℓ) :
+    VectorCommitment X Y Msg Cm Td Pf ℓ where
+  commit := vc.commit
+  opening Q td := pure (vc.opening Q td)
+  check cm ans pf := liftComp (vc.check cm ans pf) (unifSpec + (X →ₒ Y))
+
+/-- Perfect completeness of a deterministic scheme against every fixed function `H`
+(ePrint 2025/2166, Def 3.7, l.1316): for every message `m`, every query set `Q` and every outcome
+of `Commit^H(m)`, the honest opening of `Q` passes `Check^H` on `m[Q]`. It implies Def 3.7 for
+every oracle distribution (`PerfectlyComplete.toVectorCommitment`). -/
+@[expose]
+def PerfectlyComplete (vc : DetVectorCommitment X Y Msg Cm Td Pf ℓ) : Prop :=
+  ∀ (H : X → Y) (m : Fin ℓ → Msg) (Q : Finset (Fin ℓ)),
+    ∀ z ∈ support (simulateQ (VectorCommitment.fixedOracleImpl H) (vc.commit m)),
+      evalWithAnswerFn (QueryImpl.ofFn H)
+        (vc.check z.1 (PartialVec.restrict m Q) (vc.opening Q z.2)) = true
+
+/-- Pointwise completeness of a deterministic scheme is pointwise completeness of its general
+form. -/
+theorem PerfectlyComplete.perfectlyCompleteForAll {vc : DetVectorCommitment X Y Msg Cm Td Pf ℓ}
+    (h : vc.PerfectlyComplete) : vc.toVectorCommitment.PerfectlyCompleteForAll := by
+  intro H m Q b hb
+  simp only [VectorCommitment.completenessExp, toVectorCommitment, simulateQ_bind] at hb
+  rw [mem_support_bind_iff] at hb
+  obtain ⟨z, hz, hb⟩ := hb
+  rw [liftComp_pure, simulateQ_pure, pure_bind,
+    VectorCommitment.simulateQ_fixedOracleImpl_liftComp, support_pure,
+    Set.mem_singleton_iff] at hb
+  exact hb ▸ h H m Q z hz
+
+/-- **Perfect completeness relative to every oracle distribution** (Def 3.7, l.1316–1320) of a
+deterministic scheme that is complete against every fixed function. -/
+theorem PerfectlyComplete.toVectorCommitment {vc : DetVectorCommitment X Y Msg Cm Td Pf ℓ}
+    (h : vc.PerfectlyComplete) (D : PMF (X → Y)) : vc.toVectorCommitment.PerfectlyComplete D :=
+  h.perfectlyCompleteForAll.perfectlyComplete D
+
+end DetVectorCommitment
+
 /-! ## Input-output checks -/
+
+section CheckIOOn
+
+variable {X : Type u} {Y : Type v} [DecidableEq Y]
+
+/-- `CheckIO` against a partial table `D` (l.3043): accept when every listed input has the listed
+output in `D`; an empty cell rejects. Stated on `X → Option Y`, the type of
+`Quantum.Database X Y`. -/
+@[expose]
+def checkIOOn (D : X → Option Y) (io : List (X × Y)) : Bool :=
+  io.all fun p ↦ decide (D p.1 = some p.2)
+
+/-- `checkIOOn` accepts exactly when every listed pair is in the table. -/
+theorem checkIOOn_eq_true_iff (D : X → Option Y) (io : List (X × Y)) :
+    checkIOOn D io = true ↔ ∀ p ∈ io, D p.1 = some p.2 := by
+  simp [checkIOOn]
+
+/-- Repeating a check is idempotent: removing duplicate pairs does not change acceptance. -/
+theorem checkIOOn_dedup [DecidableEq X] (D : X → Option Y) (io : List (X × Y)) :
+    checkIOOn D io.dedup = checkIOOn D io := by
+  rw [Bool.eq_iff_iff, checkIOOn_eq_true_iff, checkIOOn_eq_true_iff]
+  simp [List.mem_dedup]
+
+end CheckIOOn
 
 section CheckIO
 
-variable {X Y : Type} [DecidableEq Y]
+variable {X : Type uX} {Y : Type} [DecidableEq Y]
 
 /-- One step of `CheckIO`: query `p.1`, compare the answer with `p.2`, and conjoin the result
 with the running verdict `acc`. -/
@@ -159,13 +375,6 @@ compare the answer with the listed output `y`. Every query is made, with no shor
 @[expose]
 def checkIO (io : List (X × Y)) : OracleComp (X →ₒ Y) Bool :=
   io.foldlM checkIOStep true
-
-/-- `CheckIO` against a partial table `D` (l.3043): accept when every listed input has the listed
-output in `D`; an empty cell rejects. Stated on `X → Option Y`, the type of
-`Quantum.Database X Y`. -/
-@[expose]
-def checkIOOn (D : X → Option Y) (io : List (X × Y)) : Bool :=
-  io.all fun p ↦ decide (D p.1 = some p.2)
 
 /-- One step of `CheckIO` against a fixed function compares the answer with the expected output. -/
 @[simp]
@@ -195,17 +404,6 @@ theorem checkIOOn_some (H : X → Y) (io : List (X × Y)) :
       evalWithAnswerFn (QueryImpl.ofFn H) (checkIO io) := by
   simp [checkIOOn, evalWithAnswerFn_checkIO]
 
-/-- `checkIOOn` accepts exactly when every listed pair is in the table. -/
-theorem checkIOOn_eq_true_iff (D : X → Option Y) (io : List (X × Y)) :
-    checkIOOn D io = true ↔ ∀ p ∈ io, D p.1 = some p.2 := by
-  simp [checkIOOn]
-
-/-- Repeating a check is idempotent: removing duplicate pairs does not change acceptance. -/
-theorem checkIOOn_dedup [DecidableEq X] (D : X → Option Y) (io : List (X × Y)) :
-    checkIOOn D io.dedup = checkIOOn D io := by
-  rw [Bool.eq_iff_iff, checkIOOn_eq_true_iff, checkIOOn_eq_true_iff]
-  simp [List.mem_dedup]
-
 /-- Removing duplicate pairs does not change the acceptance of `checkIO` against any fixed
 function. -/
 theorem evalWithAnswerFn_checkIO_dedup [DecidableEq X] (H : X → Y) (io : List (X × Y)) :
@@ -217,26 +415,39 @@ end CheckIO
 
 namespace VectorCommitment
 
-variable {X Y Msg Cm Td Pf : Type} {ℓ : ℕ} [DecidableEq Y]
+variable {X : Type uX} {Y : Type} {Msg : Type uM} {Cm Td Pf : Type} {ℓ : ℕ} [DecidableEq Y]
 
 /-- The `CheckIO` form of a check (ePrint 2025/2166, Thm 8.4 condition 1, l.3031–3034): `Check`
-runs an oracle-free, non-adaptive `OutputIO` and then `CheckIO`, and `OutputIO` lists at most
-`qVC |Q|` pairs. `OutputIO` returns `none` when the proof does not parse; the check then rejects
-without a query, the projector `P̂ = 0` of l.2966. The paper's second argument `ℓ` of
-`q_VC(qs, ℓ)` (l.3077) is fixed by the scheme and absorbed into `qVC`. -/
+uses no coins and runs an oracle-free, non-adaptive `OutputIO` followed by `CheckIO`; `Open` is
+unconstrained. `OutputIO` returns `none` when the proof does not parse; the check then rejects
+without a query, the projector `P̂ = 0` of l.2966.
+
+`qVC` bounds the number of listed pairs by the size of the opened set and is non-decreasing, as
+§3.5 assumes (l.1311–1314), so `qVC qs` bounds the check of every opened set of size at most `qs`
+(`length_le_of_card_le`). The paper's second argument `ℓ` of `q_VC(qs, ℓ)` (l.3077) is fixed by
+the scheme and absorbed into `qVC`. -/
 structure CheckIOForm (vc : VectorCommitment X Y Msg Cm Td Pf ℓ) where
   /-- `OutputIO(cm, Q, ans, pf) → (x, y)`, or `none` when `pf` does not parse. -/
   outputIO : Cm → PartialVec ℓ Msg → Pf → Option (List (X × Y))
-  /-- `Check` is `OutputIO` followed by `CheckIO`. -/
-  check_eq : ∀ cm ans pf, vc.check cm ans pf = (outputIO cm ans pf).elim (pure false) checkIO
+  /-- `Check` is `OutputIO` followed by `CheckIO`, with no coins. -/
+  check_eq : ∀ cm ans pf, vc.check cm ans pf =
+    liftComp ((outputIO cm ans pf).elim (pure false) checkIO) (unifSpec + (X →ₒ Y))
   /-- The query complexity, as a function of the size of the opened set. -/
   qVC : ℕ → ℕ
+  /-- The query complexity is non-decreasing (l.1313–1314). -/
+  qVC_mono : Monotone qVC
   /-- `OutputIO` lists at most `qVC |Q|` pairs. -/
   length_le : ∀ cm ans pf io, outputIO cm ans pf = some io → io.length ≤ qVC ans.dom.card
 
 namespace CheckIOForm
 
 variable {vc : VectorCommitment X Y Msg Cm Td Pf ℓ}
+
+/-- `qVC qs` bounds the number of listed pairs for every budget `qs ≥ |Q|` (l.1311–1314). -/
+theorem length_le_of_card_le (h : CheckIOForm vc) {cm : Cm} {ans : PartialVec ℓ Msg} {pf : Pf}
+    {io : List (X × Y)} (hio : h.outputIO cm ans pf = some io) {qs : ℕ}
+    (hqs : ans.dom.card ≤ qs) : io.length ≤ h.qVC qs :=
+  (h.length_le cm ans pf io hio).trans (h.qVC_mono hqs)
 
 /-- `Check^D` against a partial table `D` (l.3043): reject when the proof does not parse, and
 otherwise run `checkIOOn D` on the listed pairs. -/
@@ -245,13 +456,22 @@ def checkOn (h : CheckIOForm vc) (D : X → Option Y) (cm : Cm) (ans : PartialVe
     (pf : Pf) : Bool :=
   (h.outputIO cm ans pf).elim false (checkIOOn D)
 
-/-- Against a total table, `checkOn` is `Check` evaluated at the tabulated function. -/
+/-- Against a total table, `checkOn` is the coin-free check evaluated at the tabulated
+function. -/
 theorem checkOn_some (h : CheckIOForm vc) (H : X → Y) (cm : Cm) (ans : PartialVec ℓ Msg)
     (pf : Pf) :
     h.checkOn (fun x ↦ some (H x)) cm ans pf =
-      evalWithAnswerFn (QueryImpl.ofFn H) (vc.check cm ans pf) := by
-  rw [h.check_eq, checkOn]
+      evalWithAnswerFn (QueryImpl.ofFn H) ((h.outputIO cm ans pf).elim (pure false) checkIO) := by
+  rw [checkOn]
   cases h.outputIO cm ans pf <;> simp [checkIOOn_some]
+
+/-- Against a fixed function `H`, a check of the `CheckIO` form deterministically returns the table
+check at the tabulated function. -/
+theorem simulateQ_check (h : CheckIOForm vc) (H : X → Y) (cm : Cm) (ans : PartialVec ℓ Msg)
+    (pf : Pf) :
+    simulateQ (fixedOracleImpl H) (vc.check cm ans pf) =
+      pure (h.checkOn (fun x ↦ some (H x)) cm ans pf) := by
+  rw [h.check_eq, simulateQ_fixedOracleImpl_liftComp, checkOn_some]
 
 end CheckIOForm
 
