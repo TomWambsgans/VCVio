@@ -25,10 +25,11 @@ assumed to commute with `S`; the proof replaces `S` by a label-preserving matrix
 ## Proof
 
 Among the label-preserving matrices `X` with `‖A - X‖ ≤ ‖A - S‖`, a compact set, choose `S₀` of
-least Frobenius norm `re (trace (S₀ᴴ S₀))`. Conjugation by `W k` maps this set to itself, because
-`W k` preserves the labels and commutes with `A`, and preserves the Frobenius norm. By the
-parallelogram law the midpoint of `S₀` and `W k S₀ (W k)ᴴ`, which lies in the set, has Frobenius
-norm `‖S₀‖_F² - ‖S₀ - W k S₀ (W k)ᴴ‖_F² / 4`, so minimality forces `W k S₀ = S₀ W k`. Then
+least squared Frobenius norm `‖S₀‖_F² = re (trace (S₀ᴴ S₀))`. Conjugation by `W k` maps this set
+to itself, because `W k` preserves the labels and commutes with `A`, and it preserves the squared
+Frobenius norm. By the parallelogram law the midpoint of `S₀` and `W k S₀ (W k)ᴴ`, which lies in
+the set, has squared Frobenius norm `‖S₀‖_F² - ‖S₀ - W k S₀ (W k)ᴴ‖_F² / 4`, so minimality forces
+`W k S₀ = S₀ W k`. Then
 `S₀` commutes with `V` (`Matrix.labelControlled_mul_pinch`), and
 `[V, A] = [V, A - S₀]` has norm at most `2 ‖A - S₀‖ ≤ 2 ‖A - S‖`.
 
@@ -41,12 +42,12 @@ norm `‖S₀‖_F² - ‖S₀ - W k S₀ (W k)ᴴ‖_F² / 4`, so minimality fo
 
 ## References
 
-* A. Chiesa, Z. Di, Z. Hu and Z. Zheng, *How to Prove Post-Quantum Security for Succinct
+* A. Chiesa, Z. Di, Z. Hu and Y. Zheng, *How to Prove Post-Quantum Security for Succinct
   Non-Interactive Reductions*, ePrint 2025/2166, Lemma 5.10, of which this is a strengthening.
 * A. Chiesa, P. Manohar and N. Spooner, *Succinct Arguments in the Quantum Random Oracle Model*,
   TCC 2019, Lemma 5.10.
-* J. Don, S. Fehr, C. Majenz and C. Schaffner, *Efficient NIZKs and Signatures from Commit-and-Open
-  Protocols in the QROM*, EUROCRYPT 2022, Theorem 3.1.
+* J. Don, S. Fehr, C. Majenz and C. Schaffner, *Online-Extractability in the Quantum Random-Oracle
+  Model*, EUROCRYPT 2022, Theorem 3.1.
 -/
 
 public section
@@ -57,7 +58,7 @@ namespace Matrix
 
 variable {𝕜 : Type*} [RCLike 𝕜] {n : Type*} [Fintype n] [DecidableEq n]
 
-/-! ## The Frobenius norm through the trace -/
+/-! ## The squared Frobenius norm through the trace -/
 
 
 omit [DecidableEq n] in
@@ -85,7 +86,7 @@ theorem eq_zero_of_re_trace_conjTranspose_mul_self_nonpos {X : Matrix n n 𝕜}
   ext i j
   simpa using h0 i j
 
-/-- Conjugating by an isometry preserves the Frobenius norm `re (trace (Xᴴ X))`. -/
+/-- Conjugating by an isometry preserves the squared Frobenius norm `re (trace (Xᴴ X))`. -/
 theorem re_trace_conjTranspose_mul_self_mul_mul_conjTranspose {U : Matrix n n 𝕜}
     (hU : Uᴴ * U = 1) (X : Matrix n n 𝕜) :
     RCLike.re (trace ((U * X * Uᴴ)ᴴ * (U * X * Uᴴ))) = RCLike.re (trace (Xᴴ * X)) := by
@@ -96,7 +97,7 @@ theorem re_trace_conjTranspose_mul_self_mul_mul_conjTranspose {U : Matrix n n �
   rw [e, trace_mul_comm, ← Matrix.mul_assoc, hU, Matrix.one_mul]
 
 omit [DecidableEq n] in
-/-- The parallelogram law for the Frobenius norm `re (trace (Xᴴ X))`. -/
+/-- The parallelogram law for the squared Frobenius norm `re (trace (Xᴴ X))`. -/
 theorem re_trace_parallelogram (X Y : Matrix n n 𝕜) :
     RCLike.re (trace ((X + Y)ᴴ * (X + Y))) + RCLike.re (trace ((X - Y)ᴴ * (X - Y))) =
       2 * RCLike.re (trace (Xᴴ * X)) + 2 * RCLike.re (trace (Yᴴ * Y)) := by
@@ -106,7 +107,7 @@ theorem re_trace_parallelogram (X Y : Matrix n n 𝕜) :
   ring
 
 omit [DecidableEq n] in
-/-- Halving a matrix divides its Frobenius norm `re (trace (Xᴴ X))` by `4`. -/
+/-- Halving a matrix divides its squared Frobenius norm `re (trace (Xᴴ X))` by `4`. -/
 theorem re_trace_half_smul (X : Matrix n n 𝕜) :
     RCLike.re (trace (((2 : 𝕜)⁻¹ • X)ᴴ * ((2 : 𝕜)⁻¹ • X))) = RCLike.re (trace (Xᴴ * X)) / 4 := by
   rw [conjTranspose_smul, Matrix.smul_mul, Matrix.mul_smul, smul_smul, trace_smul, smul_eq_mul]
