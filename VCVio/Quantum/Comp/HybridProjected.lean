@@ -25,8 +25,10 @@ same register `D` whose steps are Kraus maps, `conj (U i r)` and `conj (W i r)`,
 many outcomes. Condition 1 is the hypothesis `ForallQueries (InImageAt P s)` on the run against
 each runtime: the operator presented to every call, and every output of the step on it, are
 fixed by the Kraus map of `1 ⊗ P` (`Quantum.Hybrid.InImageAt`). Condition 2 is asked of the
-initial joint operator. Condition 3 is needed only to put the bound in the form of the paper
-(`Quantum.QuantumRuntime.rpow_inv_two_outcomeLawWith_le_of_inImage_mass`); the general bound
+initial joint operator. Condition 3 is needed only to put the constants in the form of the paper
+(`Quantum.QuantumRuntime.rpow_inv_two_outcomeLawWith_le_of_inImage_mass`, with the masses of the
+classical ports; the masses of a coherent index, as in §4.2, are in
+`VCVio.Quantum.Comp.HybridIndex`); the general bound
 (`Quantum.QuantumRuntime.rpow_inv_two_tsum_trace_conj_run_le_of_inImage`) holds without it, with
 the Kraus weights of `(1 ⊗ V) P̂ U P̂ - P̂ W P̂ (1 ⊗ V)`, `P̂ = 1 ⊗ P`. Neither `P` nor `V` needs to
 be more than a contraction and an isometry respectively.
@@ -59,8 +61,8 @@ second compressed runtime.
   under agreement on the presented operators.
 * `Quantum.QuantumRuntime.rpow_inv_two_tsum_trace_conj_run_le_of_inImage` and its converse.
 * `Quantum.QuantumRuntime.rpow_inv_two_outcomeLawWith_le_of_inImage` and its converse, for
-  events, and `Quantum.QuantumRuntime.rpow_inv_two_outcomeLawWith_le_of_inImage_mass`, the form
-  of ePrint 2025/2166, Lemma 5.7, with
+  events, and `Quantum.QuantumRuntime.rpow_inv_two_outcomeLawWith_le_of_inImage_mass`, ePrint
+  2025/2166, Lemma 5.7, with the masses of the classical ports, and
   `Quantum.QuantumRuntime.rpow_inv_two_outcomeLawWith_le_of_inImage_of_isQueryBound` for
   programs within a query budget.
 -/
@@ -651,10 +653,12 @@ private theorem krausWeight_lemmaKraus_le (hPV : P * V = V * P) (i : spec.Port)
   refine (krausWeight_le _ i hτ).trans_eq ?_
   simp only [l2_opNorm_lemmaKraus hV hPV]
 
-/-- **ePrint 2025/2166, Lemma 5.7, in the form of the paper**, for general programs: under
-conditions 1 to 3, the square roots of the probabilities of an event differ by at most
-`∑ⱼ √(∑ᵢ (∑ᵣ ‖P̂ (V̂ U V̂ᴴ - W) P̂‖²) · mass(i, j))`, with the masses of the `j`-th calls of the run
-against the first runtime (§4.2). -/
+/-- **ePrint 2025/2166, Lemma 5.7, with the masses of the classical ports**, for general
+programs: under conditions 1 to 3, the square roots of the probabilities of an event differ by at
+most `∑ⱼ √(∑ᵢ (∑ᵣ ‖P̂ (V̂ U V̂ᴴ - W) P̂‖²) · mass(i, j))`, with the masses of the ports at the
+`j`-th calls of the run against the first runtime. The paper's masses are those of a coherent
+index (§4.2); that form is
+`Quantum.QuantumRuntime.rpow_inv_two_outcomeLawWith_le_of_inImage_indexMass`. -/
 theorem rpow_inv_two_outcomeLawWith_le_of_inImage_mass {γ : Type*} [MeasurableSpace γ]
     (x : QuantumComp L spec X A) (ρ : SubState A) (f : (Σ u, X u) → γ) {s : Set γ}
     (hs : MeasurableSet s) (hVσ : MatrixMap.conj V σ₀.matrix = σ₀.matrix)
@@ -676,8 +680,9 @@ theorem rpow_inv_two_outcomeLawWith_le_of_inImage_mass {γ : Type*} [MeasurableS
 
 /-- **ePrint 2025/2166, Lemma 5.7, for programs within a query budget**: with at most
 `q = ∑ i ∈ t, b i` calls, the sum over the calls is at most `√(q · ∑ᵢ Cᵢ · mass i)`, where
-`Cᵢ = ∑ᵣ ‖P̂ (V̂ Uᵢ V̂ᴴ - Wᵢ) P̂‖²` and `mass i` is the total query mass of port `i` (§4.2), by
-Cauchy–Schwarz as in Cor 5.8. -/
+`Cᵢ = ∑ᵣ ‖P̂ (V̂ Uᵢ V̂ᴴ - Wᵢ) P̂‖²` and `mass i` is the total query mass of port `i`, by
+Cauchy–Schwarz as in Cor 5.8. For the masses of a coherent index, see
+`Quantum.QuantumRuntime.rpow_inv_two_outcomeLawWith_le_of_inImage_indexMass_of_isQueryBound`. -/
 theorem rpow_inv_two_outcomeLawWith_le_of_inImage_of_isQueryBound {γ : Type*}
     [MeasurableSpace γ] {x : QuantumComp L spec X A} {b : spec.Port → ℕ} (hx : x.IsQueryBound b)
     (t : Finset spec.Port) (ht : ∀ i ∉ t, b i = 0) (ρ : SubState A) (f : (Σ u, X u) → γ)
