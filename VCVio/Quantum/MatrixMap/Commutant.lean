@@ -51,7 +51,7 @@ norm `‖S₀‖_F² - ‖S₀ - W k S₀ (W k)ᴴ‖_F² / 4`, so minimality fo
 
 public section
 
-open scoped Matrix.Norms.L2Operator
+open scoped Matrix.Norms.L2Operator Kronecker
 
 namespace Matrix
 
@@ -272,6 +272,55 @@ theorem l2_opNorm_commutator_labelControlled_le_of_pinch_eq {β : n → κ} {W :
         (norm_sub_le _ _).trans (add_le_add (l2_opNorm_mul _ _) (l2_opNorm_mul _ _))
     _ ≤ 1 * c + c * 1 := by gcongr; exacts [hS₀.2, hS₀.2]
     _ = 2 * c := by ring
+
+/-! ## A label of the first register and an ancilla -/
+
+variable {m : Type*} [Fintype m] [DecidableEq m]
+
+/-- **Commutators with an ancilla.** Let `S` preserve the labels of `β`, and let `W k` be
+unitaries on `n × m` that preserve the label of the first register and commute with `A ⊗ 1_m`.
+Then `‖[V, A ⊗ 1_m]‖ ≤ 2 ‖A - S‖` for `V = labelControlled (β ∘ Prod.fst) W`. -/
+theorem l2_opNorm_commutator_labelControlled_kronecker_one_le {β : n → κ} {A S : Matrix n n 𝕜}
+    (hS : pinch β S = S) {W : κ → Matrix (n × m) (n × m) 𝕜}
+    (hW : ∀ k a b, W k a b ≠ 0 → β a.1 = β b.1) (hU : ∀ k, W k ∈ unitaryGroup (n × m) 𝕜)
+    (hA : ∀ k, W k * (A ⊗ₖ (1 : Matrix m m 𝕜)) = (A ⊗ₖ (1 : Matrix m m 𝕜)) * W k) :
+    ‖labelControlled (fun a ↦ β a.1) W * (A ⊗ₖ (1 : Matrix m m 𝕜)) -
+        (A ⊗ₖ (1 : Matrix m m 𝕜)) * labelControlled (fun a ↦ β a.1) W‖ ≤ 2 * ‖A - S‖ := by
+  have hS' : pinch (fun a : n × m ↦ β a.1) (S ⊗ₖ (1 : Matrix m m 𝕜)) = S ⊗ₖ 1 := by
+    rw [pinch_kronecker_one, hS]
+  refine (l2_opNorm_commutator_labelControlled_le_of_pinch_eq hW hU hA hS').trans ?_
+  have hsub : A ⊗ₖ (1 : Matrix m m 𝕜) - S ⊗ₖ (1 : Matrix m m 𝕜) =
+      (A - S) ⊗ₖ (1 : Matrix m m 𝕜) := by
+    ext a b
+    simp only [Matrix.sub_apply, kroneckerMap_apply, sub_mul]
+  rw [hsub]
+  gcongr
+  exact l2_opNorm_kronecker_one_le _
+
+/-- **Purified measurements.** Let `S` preserve the labels of `β`, and let `U k` be any unitaries
+on an ancilla `m`. Then `V = ∑ k, P k ⊗ U k`, the label-controlled operator of the `1 ⊗ U k`,
+satisfies `‖[V, A ⊗ 1_m]‖ ≤ 2 ‖A - S‖`. -/
+theorem l2_opNorm_commutator_labelControlled_one_kronecker_le {β : n → κ}
+    {A S : Matrix n n 𝕜} (hS : pinch β S = S) {U : κ → Matrix m m 𝕜}
+    (hU : ∀ k, U k ∈ unitaryGroup m 𝕜) :
+    ‖labelControlled (fun a ↦ β a.1) (fun k ↦ (1 : Matrix n n 𝕜) ⊗ₖ U k) *
+          (A ⊗ₖ (1 : Matrix m m 𝕜)) -
+        (A ⊗ₖ (1 : Matrix m m 𝕜)) *
+          labelControlled (fun a ↦ β a.1) (fun k ↦ (1 : Matrix n n 𝕜) ⊗ₖ U k)‖ ≤
+      2 * ‖A - S‖ := by
+  refine l2_opNorm_commutator_labelControlled_kronecker_one_le hS ?_ ?_ ?_
+  · intro k a b h
+    have hab : a.1 = b.1 := by
+      by_contra hne
+      simp [kroneckerMap_apply, one_apply_ne hne] at h
+    rw [hab]
+  · intro k
+    rw [mem_unitaryGroup_iff, star_eq_conjTranspose, conjTranspose_kronecker, conjTranspose_one,
+      ← mul_kronecker_mul, Matrix.one_mul, ← star_eq_conjTranspose,
+      mem_unitaryGroup_iff.mp (hU k), one_kronecker_one]
+  · intro k
+    rw [← mul_kronecker_mul, ← mul_kronecker_mul, Matrix.one_mul, Matrix.mul_one, Matrix.mul_one,
+      Matrix.one_mul]
 
 end pinch
 
