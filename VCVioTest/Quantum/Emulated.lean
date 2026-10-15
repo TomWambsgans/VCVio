@@ -33,22 +33,21 @@ open scoped ENNReal ComplexOrder
 
 namespace VCVioTest.QuantumEmulated
 
-/- Registers are written as notations rather than constants, so that no finiteness instance is
-evaluated when the module is loaded. -/
+/- Registers and signatures are written as notations rather than constants, so that no
+finiteness instance is evaluated when the module is loaded. -/
 
 /-- The qubit register. -/
 local notation "Qubit" => QReg.of (Fin 2)
 
 /-- The signature of two unitary ports on qubits. -/
-abbrev spec2 : QuantumOracleSpec.{0, 0} :=
-  uSpec (Fin 2) fun _ ↦ Qubit
+local notation "spec2" => uSpec (Fin 2) fun _ ↦ QReg.of (Fin 2)
 
 /-- Ports of a sum of signatures are the sum of the ports. -/
-example : (spec2.sum (uSpec Unit fun _ ↦ Qubit)).Port = (Fin 2 ⊕ Unit) :=
+example : ((spec2).sum (uSpec Unit fun _ ↦ Qubit)).Port = (Fin 2 ⊕ Unit) :=
   rfl
 
 /-- Unitary ports return no classical result. -/
-example (i : Fin 2) : spec2.Result i = Unit :=
+example (i : Fin 2) : (spec2).Result i = Unit :=
   rfl
 
 /-- The unitaries of the swap oracle: the identity on port `0`, the swap of the port qubit with
