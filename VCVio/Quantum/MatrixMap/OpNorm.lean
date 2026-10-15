@@ -30,6 +30,7 @@ squares over the entries of `A *ᵥ v`.
 * `Matrix.l2_opNorm_le_of_blocks`: a matrix whose nonzero entries stay inside the blocks of a
   labelling has norm at most `c` as soon as, for every block, the sum of the squared entries of
   the rows in that block is at most `c ^ 2`. This is the Frobenius bound applied block by block.
+* `Matrix.l2_opNorm_submatrix_equiv`: reindexing rows and columns does not change the norm.
 * `Matrix.l2_opNorm_le_of_submatrix_le`: the same reduction with an arbitrary bound on each block,
   the norm being the largest norm of a block.
 * `Matrix.l2_opNorm_le_of_corner_eq_zero`: a matrix with a vanishing corner block has norm at most
@@ -170,6 +171,29 @@ theorem l2_opNorm_sq_le_sum_sq [DecidableEq n] (A : Matrix m n 𝕜) :
       simp
   calc ‖A‖ ^ 2 ≤ √(∑ i, ∑ j, ‖A i j‖ ^ 2) ^ 2 := pow_le_pow_left₀ (norm_nonneg _) h 2
     _ = _ := Real.sq_sqrt h0
+
+/-- Reindexing the rows and the columns by equivalences does not increase the norm. -/
+theorem l2_opNorm_submatrix_equiv_le [DecidableEq n] {m' n' : Type*} [Fintype m'] [Fintype n']
+    [DecidableEq n'] (A : Matrix m n 𝕜) (e : m' ≃ m) (f : n' ≃ n) :
+    ‖A.submatrix e f‖ ≤ ‖A‖ := by
+  refine l2_opNorm_le_of_sum_norm_mulVec_sq_le (norm_nonneg A) fun v ↦ ?_
+  have hv : ∀ i, (A.submatrix e f *ᵥ v) i = (A *ᵥ (v ∘ f.symm)) (e i) := fun i ↦ by
+    simp only [mulVec, dotProduct, submatrix_apply, Function.comp_apply]
+    exact Fintype.sum_equiv f _ _ fun j ↦ by simp
+  calc ∑ i, ‖(A.submatrix e f *ᵥ v) i‖ ^ 2 = ∑ i, ‖(A *ᵥ (v ∘ f.symm)) i‖ ^ 2 :=
+        Fintype.sum_equiv e _ _ fun i ↦ by rw [hv]
+    _ ≤ ‖A‖ ^ 2 * ∑ j, ‖(v ∘ f.symm) j‖ ^ 2 := sum_norm_mulVec_sq_le A _
+    _ = ‖A‖ ^ 2 * ∑ j, ‖v j‖ ^ 2 := by
+        congr 1
+        exact Fintype.sum_equiv f.symm _ _ fun j ↦ rfl
+
+/-- Reindexing the rows and the columns by equivalences does not change the norm. -/
+theorem l2_opNorm_submatrix_equiv [DecidableEq n] {m' n' : Type*} [Fintype m'] [Fintype n']
+    [DecidableEq n'] (A : Matrix m n 𝕜) (e : m' ≃ m) (f : n' ≃ n) :
+    ‖A.submatrix e f‖ = ‖A‖ := by
+  refine le_antisymm (l2_opNorm_submatrix_equiv_le A e f) ?_
+  have h := l2_opNorm_submatrix_equiv_le (A.submatrix e f) e.symm f.symm
+  rwa [submatrix_submatrix, Equiv.self_comp_symm, Equiv.self_comp_symm, submatrix_id_id] at h
 
 /-! ## The operator norm block by block -/
 
