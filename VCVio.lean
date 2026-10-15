@@ -420,6 +420,7 @@ public import VCVio.Quantum.MatrixMap.Norm
 public import VCVio.Quantum.MatrixMap.OpNorm
 public import VCVio.Quantum.MatrixMap.Pinching
 public import VCVio.Quantum.MatrixMap.ProjectorEvent
+public import VCVio.Quantum.MatrixMap.ProjectorPair
 public import VCVio.Quantum.Observe
 public import VCVio.Quantum.Oracle.Basis
 public import VCVio.Quantum.Oracle.Classical
@@ -430,6 +431,7 @@ public import VCVio.Quantum.Oracle.Compressed.Basic
 public import VCVio.Quantum.Oracle.Compressed.BinaryPartition
 public import VCVio.Quantum.Oracle.Compressed.CommutatorBound
 public import VCVio.Quantum.Oracle.Compressed.CommutatorSharp
+public import VCVio.Quantum.Oracle.Compressed.Consistency
 public import VCVio.Quantum.Oracle.Compressed.Equivalence
 public import VCVio.Quantum.Oracle.Compressed.Instability
 public import VCVio.Quantum.Oracle.Compressed.Measurement
