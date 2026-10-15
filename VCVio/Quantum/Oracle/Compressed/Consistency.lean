@@ -305,6 +305,26 @@ theorem compressedCheckProjector_mul_checkProjector_mul_compressedCheckProjector
     _ = _ := by
         rw [h, Matrix.mul_smul, Matrix.smul_mul, compressedCheckProjector]
 
+/-! ## Several databases -/
+
+omit [Fintype ι] [Fintype Y] [DecidableEq Y] [Nonempty Y] in
+/-- A list prescribes at most as many inputs as it has pairs. -/
+theorem card_ioCells_le_length (io : List (ι × Y)) : (ioCells io).card ≤ io.length :=
+  (List.toFinset_card_le _).trans (List.length_map _).le
+
+/-- **Several databases.** For prescriptions `L j` on a family of databases `(D_j)_j`, the
+pi-tensor products `P = ⊗_j P_{L j}` and `P̂ = ⊗_j P̂_{L j}` satisfy `P P̂ P = α² P` with
+`α = (1 - 1/N)^d`, where `d = ∑_j d_j` counts the prescribed inputs of every database. -/
+theorem piKron_checkProjector_mul_piKron_compressedCheckProjector_mul {κ : Type*} [Fintype κ]
+    [DecidableEq κ] (L : κ → List (ι × Y)) :
+    piKron (fun j ↦ checkProjector Y (L j)) * piKron (fun j ↦ compressedCheckProjector (L j)) *
+        piKron (fun j ↦ checkProjector Y (L j)) =
+      ((1 - (Fintype.card Y : ℂ)⁻¹) ^ (2 * ∑ j, (ioCells (L j)).card)) •
+        piKron (fun j ↦ checkProjector Y (L j)) := by
+  rw [piKron_mul, piKron_mul]
+  simp_rw [checkProjector_mul_compressedCheckProjector_mul_checkProjector, piKron_smul]
+  rw [Finset.prod_pow_eq_pow_sum, Finset.mul_sum]
+
 /-! ## The exact distance (26) -/
 
 omit [DecidableEq Y] in
