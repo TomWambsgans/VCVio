@@ -18,11 +18,11 @@ block, that commutes with the adversary operations and annihilates the initial s
 the projector onto a bad event that is initially impossible). Then the final state `ψ_q`
 satisfies
 `‖Q ψ_q‖ ≤ ∑ j, √(∑ i, ‖[Q, T_j i]‖² m_j i)`, where `m_j i` is the mass of the state before the
-`j`-th query on the selector `i`, so the probability of the event is at most the square of the
-right side. This is the estimate (18) of the note on sharp instability constants, an event form of
-the hybrid argument of Chiesa, Di, Hu and Zheng (ePrint 2025/2166, Lemma 5.7) that avoids a
-purified measurement, and so saves the factor four of `‖[M, T ⊗ 1]‖ = 2 ‖[Q, T]‖` for the binary
-measurement `M = Q ⊗ 1 + (1 - Q) ⊗ X`.
+`j`-th query on the selector `i`. When `Q` is an orthogonal projector and the initial state is
+normalized, `‖Q ψ_q‖²` is the probability of the event, so it is at most the square of the right
+side. This is an event form of the hybrid argument of Chiesa, Di, Hu and Zheng (ePrint 2025/2166,
+Lemma 5.7) that avoids a purified measurement, and so saves the factor four of
+`‖[M, T ⊗ 1]‖ = 2 ‖[Q, T]‖` for the binary measurement `M = Q ⊗ 1 + (1 - Q) ⊗ X`.
 
 ## Main results
 
@@ -164,8 +164,9 @@ theorem sqrt_sum_norm_blockDiagonal_mulVec_le_sum_sqrt (Q : Matrix n n 𝕜) (q 
     · exact (hAv _).trans (Real.sqrt_le_sqrt (sum_norm_blockDiagonal_mulVec_sq_le _ _))
 
 /-- **The event bound of a query computation, squared.** Under the hypotheses of
-`Matrix.sqrt_sum_norm_blockDiagonal_mulVec_le_sum_sqrt`, the probability `‖Q ψ q‖²` of the event
-is at most `(∑ j < q, √(∑ i, ‖[Q, T j i]‖² m j i))²`. -/
+`Matrix.sqrt_sum_norm_blockDiagonal_mulVec_le_sum_sqrt`, the squared projected mass `‖Q ψ q‖²` is
+at most `(∑ j < q, √(∑ i, ‖[Q, T j i]‖² m j i))²`. It is the probability of the event when `Q` is
+an orthogonal projector and the initial state is normalized. -/
 theorem sum_norm_blockDiagonal_mulVec_sq_le_sq_sum_sqrt (Q : Matrix n n 𝕜) (q : ℕ)
     (ψ : ℕ → n × ι → 𝕜) (A : ℕ → Matrix (n × ι) (n × ι) 𝕜) (T : ℕ → ι → Matrix n n 𝕜)
     (hA : ∀ j < q, ‖A j‖ ≤ 1)

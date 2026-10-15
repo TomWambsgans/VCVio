@@ -17,17 +17,24 @@ Let `π` label the databases and let `Q = P^(i) ⊗ 1_E` project the joint regis
 databases of label `i`. A computation queries, at its `j`-th step, the truncated compressed oracle
 `O^(t) ⊗ 1_E` on the selectors of a set `S`, and on the other selectors applies contractions that
 commute with `Q`, such as other oracles that do not touch the database. If the adversary operations
-commute with `Q` and the initial state has no database of label `i`, then the probability that the
-final database has label `i` is
-`Pr[Q] ≤ 6 I (∑ j < q, √m_j)² ≤ 6 q I w`,
-where `I = I(π, t)` is the instability (Definition 5.3 of Chiesa, Di, Hu and Zheng, ePrint
-2025/2166), `m_j` is the mass of the state on the selectors of `S` before the `j`-th step, and
-`w = ∑ j, m_j` is the total query mass. This is the estimate (20) of the note on sharp instability
-constants: it combines the event bound `Matrix.sum_norm_blockDiagonal_mulVec_sq_le_sq_sum_sqrt`
-with the projector commutator bound
-`Quantum.l2_opNorm_labelProjector_commutator_truncatedOracle_sq_le_six_mul`, and so the constant
-is `6` for every labelling, against the `4 · 24` of the hybrid argument through a purified binary
-measurement.
+commute with `Q` and the initial state has no database of label `i`, then the squared projected
+mass of the final state, which is the probability that the final database has label `i` when the
+initial state is normalized, satisfies
+`‖Q ψ_q‖² ≤ 6 I (∑ j < q, √m_j)² ≤ 6 q I w`,
+where `I = I(π, t)` is the instability ([CDHZ, Definition 5.3]), `m_j` is the mass of the state
+on the selectors of `S` before the `j`-th step, and `w = ∑ j, m_j` is the total query mass.
+
+## Comparison with [CDHZ]
+
+The bound combines the event bound `Matrix.sum_norm_blockDiagonal_mulVec_sq_le_sq_sum_sqrt` with
+the projector commutator bound
+`Quantum.l2_opNorm_labelProjector_commutator_truncatedOracle_sq_le_six_mul`, so its constant is
+`6` for every labelling. The hybrid argument of [CDHZ, Lemma 5.7] through a purified binary
+measurement `M` instead pays `‖[M, O^(t) ⊗ 1]‖²`: this is at most `24 I` by
+`Quantum.l2_opNorm_commutator_purifiedMeasurement_sq_le_twentyFour_mul`, and at most `80 I` with
+the constant of [CDHZ, Theorem 5.4]. All three constants are formalized.
+
+[CDHZ]: A. Chiesa, Z. Di, Z. Hu and Y. Zheng, ePrint 2025/2166.
 
 ## Main results
 
@@ -100,8 +107,9 @@ A j (blockDiagonal (T j) ψ j)` for `j < q`, where the selector register `κ` ch
 `T j k` on the joint register `((X × Y) × Database X Y) × E`. Suppose that the selectors in `S`
 query the truncated oracle `O^(t) ⊗ 1_E`, that the other selectors apply contractions commuting
 with `Q = P^(i) ⊗ 1_E`, that the contractions `A j` commute with `Q` on every selector, and that
-`Q` annihilates `ψ 0`. Then the probability that the final database has label `i` is at most
-`6 I(π, t) (∑ j < q, √m_j)²`, where `m_j` is the mass of `ψ j` on the selectors of `S`. -/
+`Q` annihilates `ψ 0`. Then the squared projected mass `‖Q ψ q‖²` is at most
+`6 I(π, t) (∑ j < q, √m_j)²`, where `m_j` is the mass of `ψ j` on the selectors of `S`. For a
+normalized `ψ 0`, `‖Q ψ q‖²` is the probability that the final database has label `i`. -/
 theorem sum_norm_labelProjector_mulVec_sq_le_six_mul_sq_sum_sqrt (π : Database X Y → ι) (t : ℕ)
     (i : ι) (S : Finset κ) (q : ℕ) (ψ : ℕ → (((X × Y) × Database X Y) × E) × κ → ℂ)
     (A : ℕ → Matrix ((((X × Y) × Database X Y) × E) × κ) ((((X × Y) × Database X Y) × E) × κ) ℂ)
@@ -162,8 +170,8 @@ theorem sum_norm_labelProjector_mulVec_sq_le_six_mul_sq_sum_sqrt (π : Database 
         rw [← Finset.mul_sum, mul_pow, Real.sq_sqrt hc₀]
 
 /-- **Database events of a query computation, by the total query mass.** Under the hypotheses of
-`Quantum.sum_norm_labelProjector_mulVec_sq_le_six_mul_sq_sum_sqrt`, the probability that the
-final database has label `i` is at most `6 q I(π, t) w`, where `w = ∑ j < q, m_j` is the total
+`Quantum.sum_norm_labelProjector_mulVec_sq_le_six_mul_sq_sum_sqrt`, the squared projected mass
+`‖Q ψ q‖²` is at most `6 q I(π, t) w`, where `w = ∑ j < q, m_j` is the total
 mass of the computation on the selectors of `S`. -/
 theorem sum_norm_labelProjector_mulVec_sq_le_six_mul_mul_sum (π : Database X Y → ι) (t : ℕ)
     (i : ι) (S : Finset κ) (q : ℕ) (ψ : ℕ → (((X × Y) × Database X Y) × E) × κ → ℂ)
