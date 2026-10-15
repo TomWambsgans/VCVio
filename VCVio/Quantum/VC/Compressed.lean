@@ -56,10 +56,12 @@ oracles and pass to the coherent oracles (`Quantum.EmulatedOracle.coherent_U_mul
 
 ## Departures from the paper
 
-* The equality of laws needs a family of functions, `Nonempty (Fin k → X → Y)`. Without one the
-  random-oracle side has no models, so its law is `0`, while a program against the compressed
-  oracles still has a law. The hypothesis is weaker than `Nonempty Y`, and holds under
-  `SampleableType (Fin k → X → Y)`.
+* Answers lie in any finite additive group `Y`, as in `Quantum.romVCOracle`; the paper's
+  bitstrings with XOR are one instance. The statements about the oracles carry no nonemptiness
+  hypothesis: the zero of `Y` already makes `Y` and `Fin k → X → Y` nonempty. Only the
+  algebra-free helpers on compression and on the uniform superposition
+  (`Quantum.compressDatabases_mul_self`, `Quantum.compressDatabases_mul_self_of_nonempty`,
+  `Quantum.uniformState`) assume nonemptiness.
 * `Quantum.compressedVCOracle_commute` is stated on the register `Fin k → Database X Y`;
   `Quantum.oraclesCommute_compressedVCOracle` is the form of Definition 7.3.
 -/
@@ -369,9 +371,6 @@ theorem compressedVCOracle_commute (i j : Fin k) :
           ((compressedVCOracle k X Y).U j) *
         onFactor (slotSnd (X × Y) (X × Y) (Fin k → Database X Y))
           ((compressedVCOracle k X Y).U i) := by
-  rcases isEmpty_or_nonempty Y with hY | hY
-  · ext ⟨⟨⟨_, y⟩, _⟩, _⟩
-    exact isEmptyElim y
   rw [compressedVCOracle_U_eq_conj, compressedVCOracle_U_eq_conj]
   simp only [onFactor_mul, onFactor_slotFst_one_kronecker, onFactor_slotSnd_one_kronecker]
   refine conj_mul_conj_comm ?_ (tableOracle_slotSnd_mul_slotFst_comm _ _)
@@ -610,7 +609,7 @@ theorem basisMatrix_ofFunDatabases_mul_uniformColumnOn :
     rintro rfl
     simp [ofFunDatabases, Database.ofFun] at hx
 
-variable [AddCommGroup Y] [Nonempty (Fin k → X → Y)]
+variable [AddCommGroup Y]
 
 /-- **The purified k-fold random oracle**: the private register holds `k` total functions
 `X → Y`, started in the uniform superposition over all families, and port `i` applies the table
@@ -655,7 +654,7 @@ theorem compressedVCOracle_U_mul_one_kronecker (i : Fin k) :
 
 omit [AddCommGroup Y] in
 /-- The tabulate-and-compress map is an isometry. -/
-theorem conjTranspose_compressDatabases_mul_basisMatrix_mul_self :
+theorem conjTranspose_compressDatabases_mul_basisMatrix_mul_self [Nonempty (Fin k → X → Y)] :
     (compressDatabases k X Y * basisMatrix (ofFunDatabases k X Y))ᴴ *
       (compressDatabases k X Y * basisMatrix (ofFunDatabases k X Y)) = 1 := by
   rw [conjTranspose_mul, conjTranspose_compressDatabases, Matrix.mul_assoc,
@@ -674,7 +673,6 @@ theorem conj_compressDatabases_mul_basisMatrix_init :
     compressDatabases_mul_self_of_nonempty, Matrix.one_mul, conj_basisMatrix_single,
     SubState.matrix_basis]
 
-omit [Nonempty (Fin k → X → Y)] in
 /-- Reading the `k` functions at `H` intertwines the purified oracle with the random oracles of
 `H`: `(U_{H i} ⊗ 1) (1 ⊗ ⟨H|) = (1 ⊗ ⟨H|) StOᵢ`. -/
 theorem oracleUnitary_kronecker_one_mul_one_kronecker_evalRow_apply (H : Fin k → X → Y)
@@ -692,7 +690,7 @@ theorem oracleUnitary_kronecker_one_mul_one_kronecker_evalRow_apply (H : Fin k �
   · simp [Matrix.mul_apply, Fintype.sum_prod_type, evalRow, oracleUnitary_apply,
       tableOracle_apply, Matrix.one_apply, hH, Ne.symm hH]
 
-omit [AddCommGroup Y] [Nonempty (Fin k → X → Y)] in
+omit [AddCommGroup Y] in
 /-- The rows `⟨H|` resolve the identity on the register of `k` functions. -/
 theorem sum_conjTranspose_evalRow_mul_self :
     ∑ H : Fin k → X → Y, (evalRow H)ᴴ * evalRow H = 1 := by
@@ -724,7 +722,7 @@ end purified
 section main
 
 variable {k : ℕ} {X Y : Type} [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y]
-  [AddCommGroup Y] [Nonempty (Fin k → X → Y)] {L : LocalSig.{uL, vL}} (I : L.Interp)
+  [AddCommGroup Y] {L : LocalSig.{uL, vL}} (I : L.Interp)
   {W : QReg → Type w} {A : QReg} {γ : Type*} [MeasurableSpace γ]
 
 /-- Against the k compressed oracles and the purified k-fold random oracle, called through their
@@ -752,7 +750,7 @@ theorem outcomeLawWith_coherent_compressedVCOracle_eq_purifiedVCOracle
 
 omit [DecidableEq Y] [AddCommGroup Y] in
 /-- The weight `|Fin k → X → Y|⁻¹` of each family of functions, as an extended real. -/
-theorem coe_inv_card_fun_eq :
+theorem coe_inv_card_fun_eq [Nonempty (Fin k → X → Y)] :
     (((Fintype.card (Fin k → X → Y) : ℝ≥0)⁻¹ : ℝ≥0) : ℝ≥0∞) =
       (Fintype.card (Fin k → X → Y) : ℝ≥0∞)⁻¹ := by
   rw [ENNReal.coe_inv (Nat.cast_ne_zero.mpr Fintype.card_ne_zero), ENNReal.coe_natCast]
@@ -839,8 +837,8 @@ theorem mixedLawWith_barycenter {spec : QuantumOracleSpec.{u₁, v₁}} {L : Loc
 /-- **P1 for the k compressed oracles with `κsim = 0`** (ePrint 2025/2166, Lemma 4.4, l.1422, for
 `k` oracles, as used in Lemma 9.2, l.3264): the coherent k compressed oracles simulate the
 random-oracle model, the uniform distribution over the families `H : Fin k → X → Y` of
-`Quantum.romVCOracle k X Y H`, with no error. Only a family of functions need exist. -/
-theorem simulates_compressedVCOracle [Nonempty (Fin k → X → Y)] :
+`Quantum.romVCOracle k X Y H`, with no error. -/
+theorem simulates_compressedVCOracle :
     Simulates (StdSimplex.barycenter : StdSimplex ℝ (Fin k → X → Y))
       (fun H ↦ (romVCOracle k X Y H).coherent.toRuntime) (compressedVCOracle k X Y) 0 := by
   intro t A W x f ρ _
