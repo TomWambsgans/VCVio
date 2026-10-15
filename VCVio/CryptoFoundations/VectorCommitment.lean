@@ -9,7 +9,6 @@ public import VCVio.OracleComp.ProbComp.Basic
 public import VCVio.OracleComp.SimSemantics.Append
 public import VCVio.OracleComp.Support
 public import VCVio.OracleComp.EvalDist.Measure
-public import Mathlib.Probability.ProbabilityMassFunction.Basic
 
 /-!
 # Vector commitments in the model of one oracle
@@ -31,11 +30,12 @@ The pair `(Q, ans)` with `ans ∈ Σ^Q` is one partial vector `ans : Fin ℓ →
 `Q = dom ans`; the same type holds the extracted messages `m ∈ (Σ ∪ {⊥})^ℓ` of §7
 (ePrint 2025/2166, l.2769).
 
-Perfect completeness (Def 3.7) is relative to a distribution `D` on oracle functions
-(`VectorCommitment.PerfectlyComplete`): the honest experiment accepts with probability `1` when
-the oracle is sampled from `D`. Completeness against every fixed function
-(`VectorCommitment.PerfectlyCompleteForAll`, and `DetVectorCommitment.PerfectlyComplete` for a
-deterministic scheme) is a sufficient condition for every `D`.
+Perfect completeness (Def 3.7) is relative to a distribution `D` on oracle functions, a
+probability measure on `X → Y` (`VectorCommitment.PerfectlyComplete`): the honest experiment
+accepts with probability `1` when the oracle is sampled from `D`. Completeness against every
+fixed function (`VectorCommitment.PerfectlyCompleteForAll`, and
+`DetVectorCommitment.PerfectlyComplete` for a deterministic scheme) is a sufficient condition for
+every `D`.
 
 The check of every vector commitment in §8 of ePrint 2025/2166 has a special form
 (Def 8.1 and Thm 8.4 condition 1, l.2960–2969 and l.3031–3034): an oracle-free, non-adaptive
@@ -69,7 +69,7 @@ table check `checkIOOn` are fully universe-polymorphic.
 * `VectorCommitment.PerfectlyCompleteForAll.perfectlyComplete`: completeness against every fixed
   function gives Def 3.7 for every oracle distribution.
 * `VectorCommitment.perfectlyComplete_iff`: Def 3.7 holds for `D` exactly when the honest
-  experiment accepts on every outcome, for every function in the support of `D`.
+  experiment accepts on every outcome, for `D`-almost every function.
 * `DetVectorCommitment.PerfectlyComplete.toVectorCommitment`: the same sufficient condition for a
   deterministic scheme.
 * `evalWithAnswerFn_checkIO`: against a fixed function `H`, `checkIO io` accepts exactly when
@@ -83,7 +83,7 @@ table check `checkIOOn` are fully universe-polymorphic.
 
 public section
 
-open OracleComp OracleSpec
+open OracleComp OracleSpec MeasureTheory
 
 universe u v uX uM
 
@@ -181,7 +181,6 @@ def fixedOracleImpl (H : X → Y) : QueryImpl (unifSpec + (X →ₒ Y)) ProbComp
   QueryImpl.id' unifSpec + fun x ↦ (pure (H x) : ProbComp Y)
 
 /-- Against `fixedOracleImpl H`, a coin-free computation over `X →ₒ Y` is evaluated at `H`. -/
-@[simp]
 theorem simulateQ_fixedOracleImpl_liftComp (H : X → Y) {α : Type}
     (oa : OracleComp (X →ₒ Y) α) :
     simulateQ (fixedOracleImpl H) (liftComp oa (unifSpec + (X →ₒ Y))) =
@@ -206,18 +205,20 @@ def completenessExp (vc : VectorCommitment X Y Msg Cm Td Pf ℓ) (m : Fin ℓ �
   vc.check z.1 (PartialVec.restrict m Q) pf
 
 /-- The acceptance probability of the experiment of Def 3.7 (l.1316–1320) when the oracle is
-sampled from `D`:
+sampled from the measure `D` on functions:
 `Pr[Check^f(cm, Q, m[Q], pf) = 1 : f ← D, (cm, td) ← Commit^f(m), pf ← Open(Q, td)]`. -/
 @[expose]
-noncomputable def completenessProb (vc : VectorCommitment X Y Msg Cm Td Pf ℓ) (D : PMF (X → Y))
-    (m : Fin ℓ → Msg) (Q : Finset (Fin ℓ)) : ENNReal :=
-  ∑' H, D H * Pr{let b ← simulateQ (fixedOracleImpl H) (vc.completenessExp m Q)}[b = true]
+noncomputable def completenessProb [MeasurableSpace (X → Y)]
+    (vc : VectorCommitment X Y Msg Cm Td Pf ℓ) (D : Measure (X → Y)) (m : Fin ℓ → Msg)
+    (Q : Finset (Fin ℓ)) : ENNReal :=
+  ∫⁻ H, Pr{let b ← simulateQ (fixedOracleImpl H) (vc.completenessExp m Q)}[b = true] ∂D
 
 /-- **Perfect completeness** in the `D`-oracle model (ePrint 2025/2166, Def 3.7, l.1316–1320):
 for every message `m` and every query set `Q`, the experiment accepts with probability `1` when
-the oracle is sampled from `D`. -/
+the oracle is sampled from `D`. `D` is meant to be a probability measure. -/
 @[expose]
-def PerfectlyComplete (vc : VectorCommitment X Y Msg Cm Td Pf ℓ) (D : PMF (X → Y)) : Prop :=
+def PerfectlyComplete [MeasurableSpace (X → Y)] (vc : VectorCommitment X Y Msg Cm Td Pf ℓ)
+    (D : Measure (X → Y)) : Prop :=
   ∀ (m : Fin ℓ → Msg) (Q : Finset (Fin ℓ)), vc.completenessProb D m Q = 1
 
 /-- Perfect completeness against every fixed function `H`: for every message and query set, every
@@ -228,48 +229,39 @@ def PerfectlyCompleteForAll (vc : VectorCommitment X Y Msg Cm Td Pf ℓ) : Prop 
   ∀ (H : X → Y) (m : Fin ℓ → Msg) (Q : Finset (Fin ℓ)),
     ∀ b ∈ support (simulateQ (fixedOracleImpl H) (vc.completenessExp m Q)), b = true
 
-/-- Def 3.7 holds for `D` exactly when, for every function `H` in the support of `D`, every outcome
-of the experiment with the oracle answered by `H` accepts. -/
-theorem perfectlyComplete_iff (vc : VectorCommitment X Y Msg Cm Td Pf ℓ) (D : PMF (X → Y)) :
-    vc.PerfectlyComplete D ↔ ∀ H ∈ D.support, ∀ (m : Fin ℓ → Msg) (Q : Finset (Fin ℓ)),
+/-- Def 3.7 holds for a probability measure `D` exactly when, for every message and query set and
+for `D`-almost every function `H`, every outcome of the experiment with the oracle answered by `H`
+accepts. No measurability of the acceptance probability in `H` is needed. -/
+theorem perfectlyComplete_iff [MeasurableSpace (X → Y)]
+    (vc : VectorCommitment X Y Msg Cm Td Pf ℓ) (D : Measure (X → Y)) [IsProbabilityMeasure D] :
+    vc.PerfectlyComplete D ↔ ∀ (m : Fin ℓ → Msg) (Q : Finset (Fin ℓ)), ∀ᵐ H ∂D,
       ∀ b ∈ support (simulateQ (fixedOracleImpl H) (vc.completenessExp m Q)), b = true := by
-  have hp : ∀ H m Q,
-      Pr{let b ← simulateQ (fixedOracleImpl H) (vc.completenessExp m Q)}[b = true] = 1 ↔
-        ∀ b ∈ support (simulateQ (fixedOracleImpl H) (vc.completenessExp m Q)), b = true :=
-    fun H m Q ↦ prEvent_eq_one_iff _ _
+  refine forall₂_congr fun m Q ↦ ?_
+  set p : (X → Y) → ENNReal :=
+    fun H ↦ Pr{let b ← simulateQ (fixedOracleImpl H) (vc.completenessExp m Q)}[b = true]
+  have hp : ∀ H, p H = 1 ↔
+      ∀ b ∈ support (simulateQ (fixedOracleImpl H) (vc.completenessExp m Q)), b = true :=
+    fun H ↦ prEvent_eq_one_iff _ _
+  have hle : ∀ H, p H ≤ 1 := fun H ↦ prEvent_le_one _
+  change ∫⁻ H, p H ∂D = 1 ↔ _
   constructor
-  · intro h H hH m Q
-    refine (hp H m Q).mp ?_
-    set p : (X → Y) → ENNReal :=
-      fun H ↦ Pr{let b ← simulateQ (fixedOracleImpl H) (vc.completenessExp m Q)}[b = true]
-    have hle : ∀ H, p H ≤ 1 := fun H ↦ prEvent_le_one _
-    have hsum : ∑' H, D H * p H + ∑' H, D H * (1 - p H) = 1 + 0 := by
-      rw [← ENNReal.tsum_add, add_zero]
-      simp_rw [← mul_add, add_tsub_cancel_of_le (hle _), mul_one]
-      exact D.tsum_coe
-    have h0 : ∑' H, D H * (1 - p H) = 0 := by
-      have h1 : vc.completenessProb D m Q = 1 := h m Q
-      rw [completenessProb] at h1
-      rw [h1] at hsum
-      exact (ENNReal.add_right_inj ENNReal.one_ne_top).mp hsum
-    have hH0 := ENNReal.tsum_eq_zero.mp h0 H
-    rcases mul_eq_zero.mp hH0 with hD | hp1
-    · exact absurd hD ((PMF.mem_support_iff D H).mp hH)
-    · exact le_antisymm (hle H) (tsub_eq_zero_iff_le.mp hp1)
-  · intro h m Q
-    rw [completenessProb]
-    calc ∑' H, D H * Pr{let b ← simulateQ (fixedOracleImpl H) (vc.completenessExp m Q)}[b = true]
-        = ∑' H, D H := by
-          refine tsum_congr fun H ↦ ?_
-          by_cases hH : H ∈ D.support
-          · rw [(hp H m Q).mpr (h H hH m Q), mul_one]
-          · rw [(PMF.mem_support_iff D H).not_left.mp hH, zero_mul]
-      _ = 1 := D.tsum_coe
+  · intro h
+    obtain ⟨g, hg, hgp, hint⟩ := exists_measurable_le_lintegral_eq D p
+    have hg1 : g =ᵐ[D] fun _ ↦ 1 :=
+      ae_eq_of_ae_le_of_lintegral_le (Filter.Eventually.of_forall fun H ↦ (hgp H).trans (hle H))
+        (by rw [← hint, h]; exact ENNReal.one_ne_top) aemeasurable_const
+        (by rw [← hint, h, lintegral_const, measure_univ, mul_one])
+    filter_upwards [hg1] with H hH
+    exact (hp H).mp (le_antisymm (hle H) (hH ▸ hgp H))
+  · intro h
+    rw [lintegral_congr_ae (h.mono fun H hH ↦ (hp H).mpr hH), lintegral_const, measure_univ,
+      mul_one]
 
 /-- Completeness against every fixed function gives Def 3.7 for every oracle distribution `D`. -/
-theorem PerfectlyCompleteForAll.perfectlyComplete {vc : VectorCommitment X Y Msg Cm Td Pf ℓ}
-    (h : vc.PerfectlyCompleteForAll) (D : PMF (X → Y)) : vc.PerfectlyComplete D :=
-  (perfectlyComplete_iff vc D).mpr fun H _ ↦ h H
+theorem PerfectlyCompleteForAll.perfectlyComplete [MeasurableSpace (X → Y)]
+    {vc : VectorCommitment X Y Msg Cm Td Pf ℓ} (h : vc.PerfectlyCompleteForAll)
+    (D : Measure (X → Y)) [IsProbabilityMeasure D] : vc.PerfectlyComplete D :=
+  (perfectlyComplete_iff vc D).mpr fun m Q ↦ Filter.Eventually.of_forall fun H ↦ h H m Q
 
 end VectorCommitment
 
@@ -327,8 +319,9 @@ theorem PerfectlyComplete.perfectlyCompleteForAll {vc : DetVectorCommitment X Y 
 
 /-- **Perfect completeness relative to every oracle distribution** (Def 3.7, l.1316–1320) of a
 deterministic scheme that is complete against every fixed function. -/
-theorem PerfectlyComplete.toVectorCommitment {vc : DetVectorCommitment X Y Msg Cm Td Pf ℓ}
-    (h : vc.PerfectlyComplete) (D : PMF (X → Y)) : vc.toVectorCommitment.PerfectlyComplete D :=
+theorem PerfectlyComplete.toVectorCommitment [MeasurableSpace (X → Y)]
+    {vc : DetVectorCommitment X Y Msg Cm Td Pf ℓ} (h : vc.PerfectlyComplete)
+    (D : Measure (X → Y)) [IsProbabilityMeasure D] : vc.toVectorCommitment.PerfectlyComplete D :=
   h.perfectlyCompleteForAll.perfectlyComplete D
 
 end DetVectorCommitment

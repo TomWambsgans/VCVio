@@ -47,7 +47,7 @@ example : (scheme (Msg := Bool) enc 0).PerfectlyComplete := perfectlyComplete en
 example : (scheme (Msg := Bool) enc 1).PerfectlyComplete := perfectlyComplete enc 1
 
 /-- Perfect completeness relative to an arbitrary oracle distribution (Def 3.7). -/
-example (D : PMF (X → Bool)) :
+example (D : MeasureTheory.Measure (X → Bool)) [MeasureTheory.IsProbabilityMeasure D] :
     (scheme (Msg := Bool) enc 1).toVectorCommitment.PerfectlyComplete D :=
   perfectlyComplete_toVectorCommitment enc 1 D
 
@@ -152,7 +152,8 @@ theorem coinVC_perfectlyCompleteForAll : coinVC.PerfectlyCompleteForAll := by
   revert hb
   simp [VectorCommitment.completenessExp, coinVC]
 
-example (D : PMF (Bool → Bool)) : coinVC.PerfectlyComplete D :=
+example (D : MeasureTheory.Measure (Bool → Bool)) [MeasureTheory.IsProbabilityMeasure D] :
+    coinVC.PerfectlyComplete D :=
   coinVC_perfectlyCompleteForAll.perfectlyComplete D
 
 /-! ## Universe canaries -/
@@ -193,7 +194,8 @@ def encX : Encoding (ULift.{1} X) Bool (ULift.{2} Bool) Bool where
 
 /-- The salted Merkle scheme over an oracle with inputs in `Type 1` and messages in `Type 2` is
 perfectly complete for every oracle distribution. -/
-example (D : PMF (ULift.{1} X → Bool)) :
+example (D : MeasureTheory.Measure (ULift.{1} X → Bool))
+    [MeasureTheory.IsProbabilityMeasure D] :
     (scheme (Msg := ULift.{2} Bool) encX 1).toVectorCommitment.PerfectlyComplete D :=
   perfectlyComplete_toVectorCommitment encX 1 D
 

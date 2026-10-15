@@ -862,7 +862,8 @@ theorem perfectlyComplete [DecidableEq X] [DecidableEq Y] [SampleableType Salt]
 Merkle commitment, as a general vector commitment, is perfectly complete for every distribution `D`
 on oracle functions. -/
 theorem perfectlyComplete_toVectorCommitment [DecidableEq X] [DecidableEq Y] [SampleableType Salt]
-    (enc : Encoding X Y Msg Salt) (d : ℕ) (D : PMF (X → Y)) :
+    [MeasurableSpace (X → Y)] (enc : Encoding X Y Msg Salt) (d : ℕ)
+    (D : MeasureTheory.Measure (X → Y)) [MeasureTheory.IsProbabilityMeasure D] :
     (scheme (Msg := Msg) enc d).toVectorCommitment.PerfectlyComplete D :=
   (perfectlyComplete enc d).toVectorCommitment D
 
