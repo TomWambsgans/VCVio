@@ -38,9 +38,13 @@ properties:
   `Quantum.ExtractionCorrect.{v, w}`, …), and the bundle `Quantum.IsMultiExtractable.{v, w}` uses
   one pair for all five properties. The challengers' local operations have outcomes in `Type`;
   the experiment lifts them to the adversary's universe (`Quantum.QuantumComp.liftInstruments`),
-  which changes no run (`Quantum.run_experiment`). What remains fixed to `Type` is inherited: the
-  carriers of registers (`Quantum.QReg`), the data of the vector commitments (`X`, `Y`, `Msg`,
-  `Cm`, `Td`, `Pf`) and the extraction register `Z`. No bridge between the instances of a
+  which changes no run (`Quantum.run_experiment`). What remains fixed to `Type`: the carriers of
+  registers (`Quantum.QReg`), hence the oracle's `X` and `Y` and the extraction register `Z`; the
+  vector-commitment fields `Cm`, `Td`, `Pf`, which `VectorCommitment` keeps in `Type`; and, as a
+  choice of this file, the messages `Msg` (which `VectorCommitment` allows in any universe). The
+  uniform form of P1 (`Quantum.uniformWeights`, `Quantum.simulates_uniformWeights_iff`) needs
+  `Ω : Type`, and `Quantum.EmulatedOracle.branch_run₂_callBasis` has its result in `Type` (its
+  present proof goes through a lemma stated for `Unit`). No bridge between the instances of a
   property at different universes is proved, so a property at `v, w` is not known to imply it at
   other universes.
 * **"t-query"** (l.2836, l.2845) is `x.IsQueryBound fun _ ↦ t` on the coherent port: every call,
