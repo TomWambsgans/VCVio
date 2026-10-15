@@ -10,12 +10,13 @@ public import Mathlib.Analysis.CStarAlgebra.ContinuousFunctionalCalculus.Commute
 public import Mathlib.Analysis.CStarAlgebra.ContinuousFunctionalCalculus.Order
 public import Mathlib.Analysis.Matrix.Order
 public import Mathlib.Analysis.SpecialFunctions.ContinuousFunctionalCalculus.Rpow.Basic
+public import VCVio.Quantum.MatrixMap.OpNorm
 
 /-!
 # Completing a matrix outside a projection without increasing its norm
 
-Let `P` be an orthogonal projection on `ℂ^n` and `M` a square matrix. The products `P * M` and
-`M * P` fix every block of `M` with respect to the decomposition `ℂ^n = range P ⊕ ker P` except
+Let `P` be an orthogonal projection on `𝕜^n` and `M` a square matrix. The products `P * M` and
+`M * P` fix every block of `M` with respect to the decomposition `𝕜^n = range P ⊕ ker P` except
 the block `(1 - P) * M * (1 - P)`. **Parrott's theorem** says that this last block can be chosen
 so that the norm of the completed matrix is the larger of the two norms `‖P * M‖` and `‖M * P‖`,
 which are obvious lower bounds:
@@ -24,8 +25,12 @@ which are obvious lower bounds:
   as soon as `‖P * M‖ ≤ h` and `‖M * P‖ ≤ h` (`Matrix.exists_completion`).
 
 The norm is the `L²` operator norm (open `Matrix.Norms.L2Operator`), and the order on Hermitian
-matrices is the Loewner order (open `MatrixOrder`). The statements are over `ℂ`, the scalars of
-Mathlib's C⋆-algebra structure on matrices.
+matrices is the Loewner order (open `MatrixOrder`). The scalars are any `RCLike` field `𝕜`, so
+real and complex matrices are both covered. The proof uses Mathlib's real continuous functional
+calculus for Hermitian matrices over `𝕜` (for square roots) and the C⋆-identity of the operator
+norm; the bridge `‖X‖ ≤ 1 ↔ Xᴴ X ≤ 1` between the norm and the Loewner order is proved from
+quadratic forms (`Matrix.l2_opNorm_le_one_iff_conjTranspose_mul_self_le_one`), so no
+`CStarAlgebra` (complex) structure is needed.
 
 ## Proof
 
@@ -44,8 +49,8 @@ itself, by compactness of the set of completions of norm at most `h + 1`.
 
 ## Main results
 
-* `Matrix.exists_defect`: defect operators of a contraction.
 * `Matrix.l2_opNorm_le_one_iff_conjTranspose_mul_self_le_one`: `‖X‖ ≤ 1 ↔ Xᴴ X ≤ 1`.
+* `Matrix.exists_defect`: defect operators of a contraction.
 * `Matrix.exists_completion_of_lt`, `Matrix.exists_completion`: Parrott's theorem.
 
 ## References
@@ -58,23 +63,65 @@ itself, by compactness of the set of completions of norm at most `h + 1`.
 
 public section
 
-open scoped Matrix.Norms.L2Operator MatrixOrder
+open scoped Matrix.Norms.L2Operator MatrixOrder ComplexOrder
 
 namespace Matrix
 
-variable {n : Type*} [Fintype n] [DecidableEq n]
+variable {𝕜 : Type*} [RCLike 𝕜] {n : Type*} [Fintype n] [DecidableEq n]
+
+/-! ## The operator norm and the Loewner order -/
+
+omit [DecidableEq n] in
+/-- `star w ⬝ᵥ w` is the squared Euclidean norm of `w`. -/
+theorem star_dotProduct_self_eq_sum_norm_sq (w : n → 𝕜) :
+    star w ⬝ᵥ w = ((∑ i, ‖w i‖ ^ 2 : ℝ) : 𝕜) := by
+  push_cast
+  refine Finset.sum_congr rfl fun i _ ↦ ?_
+  rw [Pi.star_apply, RCLike.star_def, RCLike.conj_mul]
+
+omit [DecidableEq n] in
+/-- The quadratic form of `Xᴴ X` at `v` is the squared norm of `X v`. -/
+theorem star_dotProduct_conjTranspose_mul_self_mulVec {m : Type*} [Fintype m]
+    (X : Matrix m n 𝕜) (v : n → 𝕜) :
+    star v ⬝ᵥ ((Xᴴ * X) *ᵥ v) = ((∑ i, ‖(X *ᵥ v) i‖ ^ 2 : ℝ) : 𝕜) := by
+  rw [← mulVec_mulVec, dotProduct_mulVec, ← star_mulVec, star_dotProduct_self_eq_sum_norm_sq]
+
+/-- A square matrix is a contraction if and only if `Xᴴ X ≤ 1`. -/
+theorem l2_opNorm_le_one_iff_conjTranspose_mul_self_le_one (X : Matrix n n 𝕜) :
+    ‖X‖ ≤ 1 ↔ Xᴴ * X ≤ 1 := by
+  have hq : ∀ v : n → 𝕜, star v ⬝ᵥ ((1 - Xᴴ * X) *ᵥ v) =
+      ((∑ j, ‖v j‖ ^ 2 - ∑ i, ‖(X *ᵥ v) i‖ ^ 2 : ℝ) : 𝕜) := fun v ↦ by
+    rw [sub_mulVec, one_mulVec, dotProduct_sub, star_dotProduct_conjTranspose_mul_self_mulVec,
+      star_dotProduct_self_eq_sum_norm_sq, RCLike.ofReal_sub]
+  have hH : (1 - Xᴴ * X).IsHermitian := by
+    rw [IsHermitian, conjTranspose_sub, conjTranspose_one, conjTranspose_mul,
+      conjTranspose_conjTranspose]
+  rw [le_iff, posSemidef_iff_dotProduct_mulVec]
+  simp only [hH, true_and, hq, RCLike.ofReal_nonneg, sub_nonneg]
+  constructor
+  · intro h v
+    simpa using (sum_norm_mulVec_sq_le X v).trans
+      (mul_le_of_le_one_left (Finset.sum_nonneg fun _ _ ↦ sq_nonneg _)
+        (pow_le_one₀ (norm_nonneg _) h))
+  · intro h
+    exact l2_opNorm_le_of_sum_norm_mulVec_sq_le zero_le_one fun v ↦ by simpa using h v
+
+/-- A square matrix is a contraction if and only if `X Xᴴ ≤ 1`. -/
+theorem l2_opNorm_le_one_iff_mul_conjTranspose_le_one (X : Matrix n n 𝕜) :
+    ‖X‖ ≤ 1 ↔ X * Xᴴ ≤ 1 := by
+  rw [← l2_opNorm_conjTranspose, l2_opNorm_le_one_iff_conjTranspose_mul_self_le_one,
+    conjTranspose_conjTranspose]
+
+/-! ## Defect operators -/
 
 
 /-- For a contraction `D`, the matrix `1 - D Dᴴ` is positive semidefinite. -/
-theorem one_sub_mul_conjTranspose_nonneg {D : Matrix n n ℂ} (hD : ‖D‖ ≤ 1) :
+theorem one_sub_mul_conjTranspose_nonneg {D : Matrix n n 𝕜} (hD : ‖D‖ ≤ 1) :
     0 ≤ 1 - D * Dᴴ := by
-  rw [sub_nonneg, ← star_eq_conjTranspose]
-  refine (CStarAlgebra.norm_le_one_iff_of_nonneg _ (mul_star_self_nonneg D)).mp ?_
-  rw [CStarRing.norm_self_mul_star]
-  nlinarith [norm_nonneg D]
+  rwa [sub_nonneg, ← l2_opNorm_le_one_iff_mul_conjTranspose_le_one]
 
 /-- For a contraction `D`, the matrix `1 - Dᴴ D` is positive semidefinite. -/
-theorem one_sub_conjTranspose_mul_nonneg {D : Matrix n n ℂ} (hD : ‖D‖ ≤ 1) :
+theorem one_sub_conjTranspose_mul_nonneg {D : Matrix n n 𝕜} (hD : ‖D‖ ≤ 1) :
     0 ≤ 1 - Dᴴ * D := by
   have h := one_sub_mul_conjTranspose_nonneg (D := Dᴴ) (by rwa [l2_opNorm_conjTranspose])
   rwa [conjTranspose_conjTranspose] at h
@@ -82,12 +129,12 @@ theorem one_sub_conjTranspose_mul_nonneg {D : Matrix n n ℂ} (hD : ‖D‖ ≤ 
 /-- **Defect operators.** A contraction `D` has Hermitian square roots `DL` of `1 - D Dᴴ` and `DR`
 of `1 - Dᴴ D` that intertwine it: `DL * D = D * DR`. They are the blocks of the square root of
 `1 - N ^ 2`, where `N` is the Hermitian dilation of `D`, which commutes with `N`. -/
-theorem exists_defect (D : Matrix n n ℂ) (hD : ‖D‖ ≤ 1) :
-    ∃ DL DR : Matrix n n ℂ, DLᴴ = DL ∧ DRᴴ = DR ∧ DL * DL = 1 - D * Dᴴ ∧
+theorem exists_defect (D : Matrix n n 𝕜) (hD : ‖D‖ ≤ 1) :
+    ∃ DL DR : Matrix n n 𝕜, DLᴴ = DL ∧ DRᴴ = DR ∧ DL * DL = 1 - D * Dᴴ ∧
       DR * DR = 1 - Dᴴ * D ∧ DL * D = D * DR := by
-  set N : Matrix (n ⊕ n) (n ⊕ n) ℂ := fromBlocks 0 D Dᴴ 0 with hN
-  set G : Matrix (n ⊕ n) (n ⊕ n) ℂ := fromBlocks (1 - D * Dᴴ) 0 0 (1 - Dᴴ * D) with hG
-  set E : Matrix (n ⊕ n) (n ⊕ n) ℂ := fromBlocks 1 0 0 0 with hE
+  set N : Matrix (n ⊕ n) (n ⊕ n) 𝕜 := fromBlocks 0 D Dᴴ 0 with hN
+  set G : Matrix (n ⊕ n) (n ⊕ n) 𝕜 := fromBlocks (1 - D * Dᴴ) 0 0 (1 - Dᴴ * D) with hG
+  set E : Matrix (n ⊕ n) (n ⊕ n) 𝕜 := fromBlocks 1 0 0 0 with hE
   have hGN : G = 1 - N * N := by
     rw [hG, hN, fromBlocks_multiply, ← fromBlocks_one, sub_eq_add_neg, sub_eq_add_neg,
       sub_eq_add_neg, fromBlocks_neg, fromBlocks_add]
@@ -130,21 +177,7 @@ theorem exists_defect (D : Matrix n n ℂ) (hD : ‖D‖ ≤ 1) :
   simp only [Matrix.mul_zero, Matrix.zero_mul, add_zero, zero_add, fromBlocks_inj] at hSS hSh hSN
   exact ⟨S₁, S₄, hSh.1, hSh.2.2.2, hSS.1, hSS.2.2.2, hSN.2.1⟩
 
-/-- A square matrix is a contraction if and only if `Xᴴ X ≤ 1`. -/
-theorem l2_opNorm_le_one_iff_conjTranspose_mul_self_le_one (X : Matrix n n ℂ) :
-    ‖X‖ ≤ 1 ↔ Xᴴ * X ≤ 1 := by
-  rw [← CStarAlgebra.norm_le_one_iff_of_nonneg (Xᴴ * X) (by
-    simpa only [star_eq_conjTranspose] using star_mul_self_nonneg X),
-    l2_opNorm_conjTranspose_mul_self]
-  constructor <;> intro h <;> nlinarith [norm_nonneg X]
-
-/-- A square matrix is a contraction if and only if `X Xᴴ ≤ 1`. -/
-theorem l2_opNorm_le_one_iff_mul_conjTranspose_le_one (X : Matrix n n ℂ) :
-    ‖X‖ ≤ 1 ↔ X * Xᴴ ≤ 1 := by
-  rw [← l2_opNorm_conjTranspose, l2_opNorm_le_one_iff_conjTranspose_mul_self_le_one,
-    conjTranspose_conjTranspose]
-
-private theorem isUnit_det_of_mul_self_eq {S G : Matrix n n ℂ} (h : S * S = G) (hG : IsUnit G) :
+private theorem isUnit_det_of_mul_self_eq {S G : Matrix n n 𝕜} (h : S * S = G) (hG : IsUnit G) :
     IsUnit S.det := by
   rw [isUnit_iff_isUnit_det, ← h, det_mul] at hG
   exact isUnit_of_mul_isUnit_left hG
@@ -152,7 +185,7 @@ private theorem isUnit_det_of_mul_self_eq {S G : Matrix n n ℂ} (h : S * S = G)
 /-- The algebra behind Parrott's theorem: given the defect operators of `D = P M P` and
 contractions `K`, `L` that solve `DL K = P M (1 - P)` and `L DR = (1 - P) M P`, the explicit
 completion has the prescribed row and column and is a contraction. -/
-private theorem completion_aux {P M DL DR K L : Matrix n n ℂ} (hPh : Pᴴ = P) (hPP : P * P = P)
+private theorem completion_aux {P M DL DR K L : Matrix n n 𝕜} (hPh : Pᴴ = P) (hPP : P * P = P)
     (hDLh : DLᴴ = DL) (hDRh : DRᴴ = DR)
     (hDL : DL * DL = 1 - (P * M * P) * (P * M * P)ᴴ)
     (hDR : DR * DR = 1 - (P * M * P)ᴴ * (P * M * P))
@@ -221,7 +254,7 @@ private theorem completion_aux {P M DL DR K L : Matrix n n ℂ} (hPh : Pᴴ = P)
       _ = 1 := sub_add_cancel 1 P
 
 /-- Parrott's theorem with a strict row bound, normalized to `1`. -/
-private theorem exists_completion_of_norm_lt_one {P M : Matrix n n ℂ} (hP : IsStarProjection P)
+private theorem exists_completion_of_norm_lt_one {P M : Matrix n n 𝕜} (hP : IsStarProjection P)
     (hrow : ‖P * M‖ < 1) (hcol : ‖M * P‖ ≤ 1) :
     ∃ T, P * T = P * M ∧ T * P = M * P ∧ ‖T‖ ≤ 1 := by
   have hPh : Pᴴ = P := hP.isSelfAdjoint
@@ -287,28 +320,31 @@ private theorem exists_completion_of_norm_lt_one {P M : Matrix n n ℂ} (hP : Is
 /-- Parrott's theorem up to an arbitrarily small loss: if `‖P M‖ ≤ h`, `‖M P‖ ≤ h` and `h < c`,
 then `M` has a completion of norm at most `c` that agrees with it on the range of `P`, on both
 sides. -/
-theorem exists_completion_of_lt {P M : Matrix n n ℂ} (hP : IsStarProjection P) {h c : ℝ}
+theorem exists_completion_of_lt {P M : Matrix n n 𝕜} (hP : IsStarProjection P) {h c : ℝ}
     (hrow : ‖P * M‖ ≤ h) (hcol : ‖M * P‖ ≤ h) (hc : h < c) :
     ∃ T, P * T = P * M ∧ T * P = M * P ∧ ‖T‖ ≤ c := by
   have hc0 : 0 < c := (norm_nonneg _).trans_lt (hrow.trans_lt hc)
-  obtain ⟨T, h₁, h₂, h₃⟩ := exists_completion_of_norm_lt_one hP (M := c⁻¹ • M)
-    (by rw [Matrix.mul_smul, norm_smul, norm_inv, Real.norm_of_nonneg hc0.le,
-      inv_mul_lt_one₀ hc0]; exact hrow.trans_lt hc)
-    (by rw [Matrix.smul_mul, norm_smul, norm_inv, Real.norm_of_nonneg hc0.le,
-      inv_mul_le_one₀ hc0]; exact hcol.trans hc.le)
-  refine ⟨c • T, ?_, ?_, ?_⟩
-  · rw [Matrix.mul_smul, h₁, Matrix.mul_smul, smul_inv_smul₀ hc0.ne']
-  · rw [Matrix.smul_mul, h₂, Matrix.smul_mul, smul_inv_smul₀ hc0.ne']
-  · rw [norm_smul, Real.norm_of_nonneg hc0.le]
+  have hk : ‖((c : ℝ) : 𝕜)‖ = c := by rw [RCLike.norm_ofReal, abs_of_pos hc0]
+  have hk0 : ((c : ℝ) : 𝕜) ≠ 0 := RCLike.ofReal_ne_zero.mpr hc0.ne'
+  obtain ⟨T, h₁, h₂, h₃⟩ := exists_completion_of_norm_lt_one hP (M := ((c : ℝ) : 𝕜)⁻¹ • M)
+    (by rw [Matrix.mul_smul, norm_smul, norm_inv, hk, inv_mul_lt_one₀ hc0]
+        exact hrow.trans_lt hc)
+    (by rw [Matrix.smul_mul, norm_smul, norm_inv, hk, inv_mul_le_one₀ hc0]
+        exact hcol.trans hc.le)
+  refine ⟨((c : ℝ) : 𝕜) • T, ?_, ?_, ?_⟩
+  · rw [Matrix.mul_smul, h₁, Matrix.mul_smul, smul_inv_smul₀ hk0]
+  · rw [Matrix.smul_mul, h₂, Matrix.smul_mul, smul_inv_smul₀ hk0]
+  · rw [norm_smul, hk]
     nlinarith
 
 /-- **Parrott's theorem.** Let `P` be an orthogonal projection. If `‖P M‖ ≤ h` and `‖M P‖ ≤ h`,
 there is a matrix `T` with `P T = P M`, `T P = M P` and `‖T‖ ≤ h`: the block of `M` outside the
 range of `P` on both sides can be replaced so that the norm drops to `max ‖P M‖ ‖M P‖`. -/
-theorem exists_completion {P M : Matrix n n ℂ} (hP : IsStarProjection P) {h : ℝ}
+theorem exists_completion {P M : Matrix n n 𝕜} (hP : IsStarProjection P) {h : ℝ}
     (hrow : ‖P * M‖ ≤ h) (hcol : ‖M * P‖ ≤ h) :
     ∃ T, P * T = P * M ∧ T * P = M * P ∧ ‖T‖ ≤ h := by
-  set S : Set (Matrix n n ℂ) :=
+  have : ProperSpace (Matrix n n 𝕜) := FiniteDimensional.proper 𝕜 _
+  set S : Set (Matrix n n 𝕜) :=
     {T | P * T = P * M ∧ T * P = M * P} ∩ Metric.closedBall 0 (h + 1) with hS
   have hSc : IsCompact S := by
     refine Metric.isCompact_of_isClosed_isBounded (IsClosed.inter ?_ Metric.isClosed_closedBall)
