@@ -22,8 +22,11 @@ denotation and a proved lowering; the text printer is
 validated with executable comparisons, not a parser/printer correctness proof.
 Certified inbound clients supply a resolved, well-typed representation. The
 versioned typed-AST input path separately checks scopes and kinds and evaluates
-closed numeric and class constraints. It does not yet produce that resolved
-representation or prove expression typing. There is no Cryptol source parser,
+closed numeric and class constraints. `SourceElaboration` additionally constructs
+intrinsically typed resolved terms for a checked nonrecursive scalar fragment,
+retaining the exact acceptance equation. `ImportedScalar` connects its output
+to the existing partial semantics and core SHA-2 implementation. General
+expression elaboration and its preservation theorem remain open. There is no Cryptol source parser,
 type inference engine, or open-constraint entailment solver in Lean.
 
 | Axis | Checked model |
@@ -51,9 +54,9 @@ term containing `force`. Neither `trace` nor `deepseq` is substituted for it.
 
 The source path is documented in [the exporter guide](../exporter/README.md).
 Its current boundary is deliberately visible in the `scoped` inspection result.
-Checked expression elaboration, reference/core correspondence, resumable shared
-evaluation of the imported graph remain required before these bundles can support
-additional semantic certificates. Separate component proofs establish Keccak's
+The separate `typed` scalar path is narrower than the `scoped` corpus. General
+reference/core correspondence and resumable shared evaluation of the imported
+graph remain required for broader certificates. Separate component proofs establish Keccak's
 state-conversion inverses and the byte-aligned CRC update law for their explicit
 transcribed equations. Connecting those equations to checked source elaboration,
 and proving full hash equivalence, remain further obligations.
@@ -483,7 +486,7 @@ upgrade. Probability and security interpretations belong downstream in VCVio.
 | Polymorphic recursion | Finite recursive-group syntax, one scheme-environment fixed point, changing-instantiation and mutual-recursion proofs | No general compiler from polymorphic recursive groups to finite native implementations |
 | Language semantics | Closed typed core and adequacy; partial numeric substitution; structural logic/ring preservation; lazy record spines; sequential finite/infinite and independent parallel generator lowerings | General source elaboration, open constraint entailment, nominal/enumeration types, rational/modular integers and trace/deepseq/random remain absent |
 | Opaque operations | Unsupported operations are rejected by the importer | Floating point, arrays and foreign backends need explicit semantic interfaces and conditional correspondence proofs |
-| Inbound transport | SHA256 certificate path plus a versioned typed-AST exporter, Lean decoder, scope/kind gate and 31 full source dependency closures | The broader bundle has no expression-typing certificate, checked elaboration or source/core correspondence; expression locations are erased |
+| Inbound transport | SHA256 certificate path, versioned typed-AST exporter, 31 scoped dependency closures, and a checked scalar elaborator whose exact output has an all-input SHA-2 theorem | General AST elaboration/preservation remains open; expression locations are erased |
 | Outbound transport | Typed resolved printer and comparisons with both pinned evaluators | No formal parser/printer round trip or Haskell correctness proof |
 | Foundation | SHA-256 compression for all finite state/block values and valid byte windows; adaptive VCVio replacement | CRC, whole-hash padding and cryptographic security claims remain outside the certificate |
 
@@ -510,15 +513,16 @@ independent consumer before adding its first algorithm client.
 | Stage | Work and ownership | Completion evidence |
 |---|---|---|
 | 1 — complete | VCVio Model: whole-term parameter identity/composition, binder squares, parameter/value fusion, lawful value substitution, both general denotation-preservation theorems. PolyFun: generic map congruence, positional environments and whole-group fusion. | Arbitrary annotation/context witnesses, noninjective maps, mixed binders, partial values and recursive groups are covered without new axioms. |
-| 2 — inbound frontend | Translation: versioned, pinned exporter over Cryptol's typechecked AST and a checked Lean decoder. Model: explicit well-formedness and supported-fragment judgments. | Decode types/schemes, ordered abstractions/applications, constraints, guard order, declaration groups and dependencies; reject unsupported nodes with locations. Reproduce SHA-256 artifacts and its existing certificate through both paths. Mutation tests reject changed types, binder positions, evidence and source identities. |
+| 2 — inbound frontend | Versioned export, decoding, 31 scoped closures and a checked scalar specialization are implemented. Extend the supported fragment to aggregates, guards, local declarations and recursive groups. | Preserve source annotations and locations; reconstruct typing obligations and reject unsupported nodes. The scalar acceptance equation, native certificate and typing mutations are the first pilot; reproduce the full compression certificate through this path next. |
 | 3 — official reference connection | Model and a pinned upstream adapter: define a reference-core judgment and a value/environment relation following Cryptol 3.6.0's reference evaluator. | Constructor correspondence for the accepted frontend fragment, including error/demand stages and recursive groups; a composition theorem from decoded reference core to Lean meaning. State the remaining exporter and Haskell trust assumptions explicitly. |
 | 4 — broader language and execution | Model: partial numeric operations, class constraints, records/tuples and lazy selection/update, complete comprehension structure and nominal cases; then modular/rational and remaining reference primitives. Extend the machine and logical relation to ordered polymorphic syntax. | Per-feature reference equations and demand regressions; polymorphic value/error/bottom adequacy, including changing-instantiation recursion. External normal/reference disagreements have separate expected results. |
 | 5 — syntax-producing specialization and compilation | Translation: specialize checked finite polymorphic terms to resolved syntax; compile an explicitly bounded/total fragment to the native IR. Keep correspondence certificates independent of the compiler's implementation. | Preservation of source meaning, binding and constraints; represented-input/output theorem with explicit admissibility; reproducible compiler output. Bounded folds, prefix recurrences and finite observations supply reusable certified rules. Unsupported recursion is rejected, not silently approximated. |
 | 6 — outbound transport | Translation: polymorphic typed export with retained quantifiers, constraints, local declarations and names; compose it with the inbound path. | Alpha/binding round trips and a semantic round-trip theorem for the supported fragment; pinned frontend acceptance plus partial-value differential tests. Internal `force` remains excluded unless an actual source correspondence is proved. |
 | 7 — algorithm expansion | Bridge and core algorithm owners: full SHA-256 padding/block iteration and SHA2 variants; CRC/AES; Keccak/SHA3/SHAKE; remaining catalogue families, then P-256. | Independent source properties, codecs and explicit profiles, all-input implementation correspondence, and specification transfer. Source coverage, probes, certificates and security theorems remain separately recorded. |
 
-Stages 2 and 3 should begin with the currently certified fragment, then grow
-alongside stage 4. Stage 5 consumes the substitution laws now proved. Stage 6
+The scalar pilot begins stages 2 and 5 without claiming the general preservation
+theorem in stage 3. Extend those stages alongside stage 4. Stage 5 also consumes
+the substitution laws now proved. Stage 6
 uses the checked inbound representation; executable printer acceptance alone
 is not its correctness theorem. Algorithm slices may proceed once their
 specific semantic and compilation prerequisites have passed.

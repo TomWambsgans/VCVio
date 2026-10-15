@@ -45,6 +45,22 @@ graph still needs checked elaboration, a shared executable evaluator, and a
 correspondence theorem before it can supply broader semantic certificates.
 The existing SHA256 compression certificate uses its separately checked path.
 
+The driver also exports the seven-declaration closure for
+`(sigma_256_0 : [32] -> [32])` to `scalar-bundle.json` and quotes its constructors
+into `Bridge/ImportedScalarSource.lean`. The quote generator does no semantic
+normalization. `source elaborate …/scalar-bundle.json` reports **typed**, with
+the checked resolved expression. `Bridge.ImportedScalar.accepted` verifies that
+exact output in the kernel, and `core_correct` relates it to core `Sha2.ssig0`
+on every 32-bit input. Its deliberately small elaboration fragment rejects
+unsupported syntax and primitives; general frontend semantic preservation is
+still a separate obligation. Both additional artifacts have manifest digests
+and participate in byte-identical regeneration and negative typing tests.
+
+`ImportedScalar.compiled` retains the finite native IR with a correctness
+certificate for this exact imported source. `core_contract_iff` transfers
+arbitrary bitvector pre/postconditions to core `Sha2.ssig0` through the shared
+PolyFun correspondence machinery.
+
 To include regeneration in optional external validation, set `CRYPTOL_EXPORTER`
 and `CRYPTOL_SOURCE` alongside `CRYPTOL_BINARY` and `FOUNDATION_PATH`. Ordinary
 validation checks the committed artifacts and all rejection cases without GHC,

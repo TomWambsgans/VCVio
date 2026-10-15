@@ -9,6 +9,8 @@
   "class_cases": 345,
   "numeric_sha256": "9c0a5c4df4474003545422686a7fa9ab401d309e097f2dba7eedc403da9ee5c8",
   "class_sha256": "06addcaf599dacc61f7b15fc2cbd3fd26203f0ed958c674dc25ba0942eed45c4",
+  "scalar_bundle_sha256": "38201d157463c9804b82b92a9ecf1c7f21745898331ce04875e6c99f2870c639",
+  "scalar_lean_sha256": "ad0b2d5ead28f52675e34a3cf832002f62f4e1bfb4b64e85ccebdb8c83fac55d",
   "entries": [
     {
       "id": "sha256-compression",

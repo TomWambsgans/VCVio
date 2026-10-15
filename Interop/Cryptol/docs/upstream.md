@@ -1,10 +1,16 @@
 # Dependency and source provenance
 
+The [evaluator audit](evaluators.md) records the current production/reference
+decision, exact upstream issue #2060, related demand discussions and the
+Foundation theta consequence. Generic interop work belongs in PolyFun #290;
+Cryptol semantics, checked source specialization and Foundation/core
+correspondences belong in VCVio #840.
+
 
 The optional [Cryptol model](../README.md) pins the published PolyFun companion
-at `a5d19b760a44a53a74e7f5c75e4bb80117ee07f3`. The companion
-[PR 290](https://github.com/Verified-zkEVM/PolyFun/pull/290) includes main
-`bf635d02d7070022c986f8646992e5dba176a96e` (`v4.35.0-patch1`), including the merged
+at `c026908c752879cd08bf5fdc079162d543795476`. The companion
+[PR 290](https://github.com/Verified-zkEVM/PolyFun/pull/290) includes the main merge at
+`9b1b3658df62557c669fe7d3373c49b7c4b18d85`, including the merged
 [#271](https://github.com/Verified-zkEVM/PolyFun/pull/271) work. The shared toolchain
 is Lean `v4.35.0`, Mathlib `56a005855ea17e0b0958f73ec801ae140b0a1679`, and CSLib
 `5b56df99362532c46e1175381fbbdd755bd56030`. Exact weakest preconditions are

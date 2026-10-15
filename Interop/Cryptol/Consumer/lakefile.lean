@@ -8,3 +8,4 @@ require VCVio from "../../.." with
   | some p => ({} : Lean.NameMap String).insert `polyfunPath p
   | none => {}
 @[default_target] lean_lib Consumer
+@[default_target] lean_lib Foundation

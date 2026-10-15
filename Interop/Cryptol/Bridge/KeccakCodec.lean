@@ -7,6 +7,8 @@ Authors: Devon Tuma
 module
 
 public import Mathlib.Logic.Equiv.Fin.Basic
+import Mathlib.Tactic.FinCases
+import Mathlib.Data.Fintype.Fin
 
 /-!
 # Keccak state-coordinate conversions
@@ -23,6 +25,17 @@ no correspondence from the imported source AST is assumed.
 public section
 
 namespace Interop.Cryptol.Bridge.KeccakCodec
+
+/-- The nonnegative theta predecessor agrees with Euclidean wraparound on all five lanes.
+`tmod` models reference remainder; `%` on `Int` is Lean's Euclidean remainder. -/
+theorem theta_predecessor (x : Fin 5) :
+    Int.tmod ((x.val : Int) + 4) 5 = ((x.val : Int) - 1) % 5 := by
+  fin_cases x <;> decide
+
+/-- The portable theta predecessor always supplies a valid lane index. -/
+theorem theta_predecessor_range (x : Fin 5) :
+    0 ≤ Int.tmod ((x.val : Int) + 4) 5 ∧ Int.tmod ((x.val : Int) + 4) 5 < 5 := by
+  fin_cases x <;> decide
 
 /-- A Keccak state with explicit x, y and lane coordinates. -/
 abbrev State (w : Nat) (α : Type*) := Fin 5 → Fin 5 → Fin w → α

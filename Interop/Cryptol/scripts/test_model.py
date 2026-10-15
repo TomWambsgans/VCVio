@@ -236,6 +236,7 @@ def check_reference_demand(cryptol):
         ('(zero : [inf]Integer) @ (100000 : Integer)', "0", "0"),
         ('map (\\x -> 7 : Integer) (error "generator" : [3]Integer)', "[7, 7, 7]", "[7, 7, 7]"),
     ]
+    observations = []
     for expression, reference, normal in cases:
         if expression.startswith("update "):
             expression = "toInteger (" + expression + ")"
@@ -254,7 +255,10 @@ def check_reference_demand(cryptol):
                     re.search(pattern, output, re.MULTILINE) and
                     not re.search(r"parse error|type error|\[error\]", output, re.IGNORECASE),
                     "Cryptol 3.6.0 reference-demand behavior changed: " + expression + "\n" + output)
+            observations.append({"expression": expression,
+                                 "mode": "reference" if prefix else "normal", "result": expected})
     print(f"Versioned demand checks: {2 * len(cases)} normal/reference observations passed")
+    return observations
 
 
 def check_polymorphic(cryptol):

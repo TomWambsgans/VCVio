@@ -11,6 +11,8 @@ public import Interop.Cryptol.Bridge.CompressionTotal
 public import Interop.Cryptol.Bridge.Correspondence
 public import Interop.Cryptol.Bridge.Foundation
 public import Interop.Cryptol.Bridge.HashCLI
+public import Interop.Cryptol.Bridge.ImportedScalar
+public import Interop.Cryptol.Bridge.ImportedScalarSource
 public import Interop.Cryptol.Bridge.KeccakCodec
 public import Interop.Cryptol.Bridge.KeccakStatement
 public import Interop.Cryptol.Bridge.Probability

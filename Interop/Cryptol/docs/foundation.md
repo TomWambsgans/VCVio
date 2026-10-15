@@ -15,8 +15,9 @@ correspondence, byte encodings and adaptive probability theorems. Core VCVio
 and HashSig never import the bridge. SHA2 and Keccak implementations belong to
 `VCVio/Algorithms/`; the bridge has no HashSig dependency.
 
-PolyFun owns generic scoped syntax, folds, continuous domains and prefix
-recurrences. All targets use VCVio's Lean `v4.35.0` toolchain and common
+PolyFun owns generic scoped syntax, folds, continuous domains, prefix
+recurrences, represented-data correspondence and deterministic execution adapters.
+All targets use VCVio's Lean `v4.35.0` toolchain and common
 Mathlib/CSLib pins. The [upstream ledger](upstream.md) records the fork and
 external PR audit. The root manifest pins the published companion PolyFun
 revision, so the bridge and its separate consumer build without a local override.
@@ -56,6 +57,33 @@ The target for partial behavior is Cryptol's pinned reference evaluator;
 [documented evaluator differences](model.md#external-evidence-and-evaluator-discrepancies)
 still apply. No SAW proof artifact, solver certificate, FFI assumption,
 `native_decide` axiom or admitted proof is used by the bridge certificate.
+
+## Checked typed-AST scalar
+
+`ImportedScalarSource.lean` is a constructor-only quotation of
+`artifacts/references/scalar-bundle.json`, exported for
+`(sigma_256_0 : [32] -> [32])`. It retains all seven dependencies, source schemes,
+ordered type/proof applications and module digests. The Python quotation does
+not specialize, normalize or typecheck the expression.
+
+`SourceElaboration.check` validates scopes, kinds, closed constraints, binder
+identities, application types and result annotations before building typed
+resolved syntax. `ImportedScalar.accepted` checks the exact output in the kernel;
+`partial_correct` retains the existing partial-input equation and `core_correct`
+proves agreement with the actual `Sha2.ssig0` for every `UInt32`. No sampled
+evaluation or native proof oracle is used in that theorem. Mutation tests reject
+wrong result/argument types, missing proofs, failed constraints and unsupported
+primitives.
+
+`ImportedScalar.compiled` retains the finite native IR with a correctness
+certificate for this exact imported source. `core_contract_iff` transfers
+arbitrary bitvector pre/postconditions to core `Sha2.ssig0` through the shared
+PolyFun correspondence machinery.
+
+This pilot does not turn the whole corpus into a verified frontend. Source-byte
+provenance still uses the pinned exporter and regeneration hashes, and general
+semantic preservation of the source-AST elaborator is a further obligation.
+The existing compression path and probability theorems retain their boundaries.
 
 ## Reproduce
 

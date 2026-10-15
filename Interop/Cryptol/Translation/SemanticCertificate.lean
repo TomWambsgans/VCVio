@@ -32,8 +32,8 @@ No behavior is asserted outside `valid`; source errors and divergence remain pos
 @[expose] def CorrespondsOn {a b : Ty} (ha : DataShape a) (hb : DataShape b)
     (valid : a.Native → Prop) (meaning : Computation (.arrow a.core b.core))
     (implementation : a.Native → b.Native) : Prop :=
-  ∀ x, valid x → DomainResult.applyContinuous meaning (encodeData ha x) =
-    encodeData hb (implementation x)
+  Control.Semantics.CorrespondsOn (dataEmbedding ha) (dataEmbedding hb) valid
+    (DomainResult.applyContinuous meaning) implementation
 
 namespace CorrespondsOn
 
@@ -45,31 +45,28 @@ variable {a b : Ty} {ha : DataShape a} {hb : DataShape b}
 theorem mono (h : CorrespondsOn ha hb valid meaning implementation)
     {valid' : a.Native → Prop} (hvalid : ∀ x, valid' x → valid x) :
     CorrespondsOn ha hb valid' meaning implementation :=
-  fun x hx => h x (hvalid x hx)
+  Control.Semantics.CorrespondsOn.mono h hvalid
 
 /-- An implementation equality is needed only on the certified domain. -/
 theorem congr (h : CorrespondsOn ha hb valid meaning implementation)
     {other : a.Native → b.Native} (he : ∀ x, valid x → implementation x = other x) :
-    CorrespondsOn ha hb valid meaning other := by
-  intro x hx
-  rw [h x hx, he x hx]
+    CorrespondsOn ha hb valid meaning other :=
+  Control.Semantics.CorrespondsOn.congr h he
 
 /-- Preconditions and postconditions transfer when the precondition implies admissibility. -/
 theorem contract_iff (h : CorrespondsOn ha hb valid meaning implementation)
     (pre : a.Native → Prop) (post : a.Native → b.Native → Prop)
     (admissible : ∀ x, pre x → valid x) :
     DataMeaningContract ha meaning pre post ↔ ∀ x, pre x → post x (implementation x) := by
-  have hr (x : a.Native) (hx : pre x) : Represents b (implementation x)
-      (DomainResult.applyContinuous meaning (encodeData ha x)) := by
-    rw [h x (admissible x hx)]
-    exact represents_encodeData hb _
+  have transfer := Control.Semantics.CorrespondsOn.contract_iff h pre post admissible
+  refine Iff.trans ?_ transfer
   constructor
   · intro hc x hx
     obtain ⟨y, hy, hp⟩ := hc x hx
-    have he := Represents.functional hb hy (hr x hx)
-    simpa only [he] using hp
-  · intro hp x hx
-    exact ⟨implementation x, hr x hx, hp x hx⟩
+    exact ⟨y, Represents.eq_encodeData hb hy, hp⟩
+  · intro hc x hx
+    obtain ⟨y, hy, hp⟩ := hc x hx
+    exact ⟨y, hy ▸ represents_encodeData hb y, hp⟩
 
 /-- A source Boolean proposition is true exactly when its native counterpart is true.
 Truth here means a fully defined `true`, never error or divergence. -/
@@ -77,13 +74,8 @@ theorem property_iff {meaning : Computation (.arrow a.core .bit)}
     {implementation : a.Native → Bool}
     (h : CorrespondsOn ha .bit valid meaning implementation) (x : a.Native) (hx : valid x) :
     DomainResult.applyContinuous meaning (encodeData ha x) = encodeData .bit true ↔
-      implementation x = true := by
-  rw [h x hx]
-  constructor
-  · intro he
-    exact DiscreteOrder.mk.inj (DomainResult.value_inj.mp he)
-  · intro he
-    exact congrArg (encodeData .bit) he
+      implementation x = true :=
+  Control.Semantics.CorrespondsOn.eq_iff h x hx true
 
 end CorrespondsOn
 
@@ -97,10 +89,19 @@ structure CertifiedMeaning {a b : Ty} (ha : DataShape a) (hb : DataShape b) wher
   correct : ∀ x, DomainResult.applyContinuous meaning (encodeData ha x) =
     encodeData hb (implementation x)
 
+/-- The language-independent certificate instantiated with Cryptol's data representations. -/
+@[expose] noncomputable def CertifiedMeaning.semanticCertificate {a b : Ty}
+    {ha : DataShape a} {hb : DataShape b} (f : CertifiedMeaning ha hb) :
+    Control.Semantics.CertifiedMeaning (dataEmbedding ha) (dataEmbedding hb) where
+  meaning := DomainResult.applyContinuous f.meaning
+  implementation := f.implementation
+  correct := f.correct
+
 /-- An all-input certificate supplies every restricted admissibility profile. -/
 theorem CertifiedMeaning.correspondsOn {a b : Ty} {ha : DataShape a} {hb : DataShape b}
     (f : CertifiedMeaning ha hb) (valid : a.Native → Prop) :
-    CorrespondsOn ha hb valid f.meaning f.implementation := fun x _ => f.correct x
+    CorrespondsOn ha hb valid f.meaning f.implementation :=
+  f.semanticCertificate.correspondsOn valid
 
 /-- Preconditions and postconditions transfer in both directions through the certificate. -/
 theorem CertifiedMeaning.contract_iff {a b : Ty} {ha : DataShape a} {hb : DataShape b}

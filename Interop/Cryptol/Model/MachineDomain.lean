@@ -39,13 +39,13 @@ theorem MachineState.treeDenote_step {r : ClosedTy} (state : MachineState r) :
       | .inl result => result.denote
       | .inr next => next.treeDenote := by
   rw [treeDenote, ITree.denote_eq]
-  simp only [tree, ITree.shape'_corec_apply]
+  simp only [tree, Control.Transition.tree, ITree.shape'_corec_apply]
   cases state.step <;> rfl
 
 /-- The generic least interpretation is bounded by the machine invariant. -/
 theorem MachineState.treeDenote_le {r : ClosedTy} (state : MachineState r) :
     state.treeDenote ≤ state.denote := by
-  unfold treeDenote tree
+  unfold treeDenote tree Control.Transition.tree
   rw [ITree.denote_corec]
   refine (ContinuousHom.fix_le _ (x := MachineState.denote) ?_) state
   intro s

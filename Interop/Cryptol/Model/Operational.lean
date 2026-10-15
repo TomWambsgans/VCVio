@@ -7,7 +7,7 @@ Authors: Devon Tuma
 module
 
 public import Interop.Cryptol.Model.Primitives
-public import PolyFun.ITree.Basic
+public import PolyFun.ITree.Transition
 
 /-!
 # Call-by-name abstract machine
@@ -123,41 +123,29 @@ namespace MachineState
     | .intLt x y => .eval x (.push (.ltLeft y) stack))
 
 /-- An execution chunk either finishes or retains the exact paused state. -/
-@[expose] def run {r : ClosedTy} : Nat → MachineState r → Outcome r ⊕ MachineState r
-  | 0, state => .inr state
-  | n + 1, state => match state.step with
-      | .inl result => .inl result
-      | .inr next => run n next
+abbrev run {r : ClosedTy} : Nat → MachineState r → Outcome r ⊕ MachineState r :=
+  Control.Transition.run step
 
 /-- Continue a paused chunk; a completed chunk is already final. -/
-@[expose] def continueRun {r : ClosedTy} (fuel : Nat) :
-    Outcome r ⊕ MachineState r → Outcome r ⊕ MachineState r
-  | .inl result => .inl result
-  | .inr state => run fuel state
+abbrev continueRun {r : ClosedTy} (fuel : Nat) :
+    Outcome r ⊕ MachineState r → Outcome r ⊕ MachineState r :=
+  Control.Transition.continueRun step fuel
 
 /-- Splitting the fuel budget preserves the exact result or residual state. -/
 theorem run_add {r : ClosedTy} (n m : Nat) (state : MachineState r) :
-    run (n + m) state = continueRun m (run n state) := by
-  induction n generalizing state with
-  | zero => simp [run, continueRun]
-  | succ n ih =>
-      simp only [Nat.succ_add, run]
-      cases h : step state with
-      | inl result => rfl
-      | inr next => exact ih next
+    run (n + m) state = continueRun m (run n state) :=
+  Control.Transition.run_add step n m state
 
 /-- The language is pure: its evaluator has no externally answered events. -/
-@[expose] def events : PFunctor.{0, 0} := ⟨Empty, Empty.elim⟩
+abbrev events : PFunctor.{0, 0} := Control.Transition.events
 
 /-- Unbounded evaluation as a guarded interaction tree. -/
-@[expose] def tree {r : ClosedTy} : MachineState r → ITree events (Outcome r) :=
-  ITree.corec fun state => match state.step with
-    | .inl result => .mk (.pure result) PEmpty.elim
-    | .inr next => .mk .step (fun _ => next)
+abbrev tree {r : ClosedTy} : MachineState r → ITree events (Outcome r) :=
+  Control.Transition.tree step
 
 /-- A finite successful execution, without fixing any fuel bound. -/
-@[expose] def Terminates {r : ClosedTy} (state : MachineState r) (result : Outcome r) : Prop :=
-  ∃ fuel, run fuel state = .inl result
+abbrev Terminates {r : ClosedTy} (state : MachineState r) (result : Outcome r) : Prop :=
+  Control.Transition.Terminates step state result
 
 end MachineState
 

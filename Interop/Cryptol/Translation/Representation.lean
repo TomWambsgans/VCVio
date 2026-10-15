@@ -7,6 +7,7 @@ Authors: Devon Tuma
 module
 
 public import Interop.Cryptol.Translation.Finite
+public import PolyFun.Control.Semantics.Correspondence
 
 /-!
 # Total data representations
@@ -84,6 +85,15 @@ theorem Represents.eq_encodeData {a : Ty} (ha : DataShape a) {x : a.Native}
       apply congrArg DomainResult.value
       funext i
       exact ih (hs i)
+
+/-- Fully defined data embeds faithfully into Cryptol's partial semantic carrier. -/
+@[expose] noncomputable def dataEmbedding {a : Ty} (ha : DataShape a) :
+    a.Native ↪ Computation a.core where
+  toFun := encodeData ha
+  inj' := by
+    intro x y he
+    exact Represents.functional ha (represents_encodeData ha x)
+      (he ▸ represents_encodeData ha y)
 
 /-- Apply a lowered finite function to any fully defined data argument. -/
 theorem Term.denote_apply_data {a b : Ty} (ha : DataShape a) (hb : DataShape b)

@@ -154,7 +154,7 @@ theorem StateRelated.prev {a : ClosedTy} {d : Computation a} {state next : Machi
 /-- The error state is related to its semantic error. -/
 theorem StateRelated.error {a : ClosedTy} (e : EvalError) :
     StateRelated (DomainResult.error e : Computation a) (.error e) :=
-  MachineState.Executes.done rfl
+  Control.Transition.Executes.done rfl
 
 /-- A returned outer value is related when its components are related. -/
 theorem StateRelated.value {a : ClosedTy} {v : Value a} {w : RuntimeValue a}

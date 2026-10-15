@@ -12,8 +12,8 @@ ROOT = Path(__file__).resolve().parents[1]
 LEAN = ROOT.parents[1] / ".lake/build/bin/cryptol-interop"
 
 
-def run(path):
-    result = subprocess.run([str(LEAN), "source", "inspect", str(path)],
+def run(path, mode="inspect"):
+    result = subprocess.run([str(LEAN), "source", mode, str(path)],
                             text=True, capture_output=True)
     return result.returncode, json.loads(result.stdout)
 
@@ -86,6 +86,38 @@ def main():
             code, report = run(path)
             assert code != 0 and report["status"] == "rejected", (label, report)
     print(f"Source bundle: 31 scoped roots, {len(mutations)} malformed bundles rejected")
+    scalar_path = artifacts / "scalar-bundle.json"
+    scalar_bytes = scalar_path.read_bytes()
+    assert hashlib.sha256(scalar_bytes).hexdigest() == manifest["scalar_bundle_sha256"]
+    assert hashlib.sha256((ROOT / "Bridge/ImportedScalarSource.lean").read_bytes()).hexdigest() == \
+        manifest["scalar_lean_sha256"]
+    scalar = json.loads(scalar_bytes)
+    code, report = run(scalar_path, "elaborate")
+    assert code == 0 and len(report) == 1 and report[0]["status"] == "typed", report
+    mutations = []
+    bundle = scalar
+    add("root result type", lambda b: b["roots"][0]["schema"].update(
+        body={"tag": "con", "args": ["TC TCInteger", []]}))
+    add("missing proof argument", lambda b: b["roots"][0].update(
+        expression=b["roots"][0]["expression"]["args"][0]))
+    add("unsatisfied width constraint", lambda b: next(n for n in nodes(b["roots"][0])
+        if n.get("tag") == "num")["args"].__setitem__(0, "1"))
+    add("lambda annotation", lambda b: next(n for n in nodes(b["groups"])
+        if n.get("tag") == "abs")["args"].__setitem__(1,
+            {"tag": "con", "args": ["TC TCInteger", []]}))
+    add("unsupported primitive", lambda b: [n.update(text="unsupported", origin="Cryptol::unsupported")
+        for n in nodes(b) if n.get("text") == "^"])
+    add("application argument", lambda b: b["roots"][0].update(expression={"tag": "app",
+        "args": [deepcopy(b["roots"][0]["expression"]), deepcopy(b["roots"][0]["expression"])]}))
+    with tempfile.TemporaryDirectory(prefix="cryptol-typing-rejections-") as temporary:
+        path = Path(temporary) / "mutated.json"
+        for label, changed in mutations:
+            path.write_text(json.dumps(changed))
+            code, report = run(path)
+            assert code == 0 and report["status"] == "scoped", (label, report)
+            code, report = run(path, "elaborate")
+            assert code != 0 and report["status"] == "rejected", (label, report)
+    print(f"Scalar elaboration: imported root typed, {len(mutations)} malformed terms rejected")
 
 
 if __name__ == "__main__":

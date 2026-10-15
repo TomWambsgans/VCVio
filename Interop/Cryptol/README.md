@@ -17,7 +17,7 @@ lake exe cryptol-interop model arx-native 32 8
 ```
 
 The root manifest pins the companion PolyFun development at
-`a5d19b760a44a53a74e7f5c75e4bb80117ee07f3`. The commands above and the separate
+`c026908c752879cd08bf5fdc079162d543795476`. The commands above and the separate
 `Consumer` use that published dependency; no sibling checkout is required.
 For local development against a different PolyFun checkout:
 
@@ -48,6 +48,10 @@ new modules have been staged.
 Both resolved source and the native IR are PolyFun scoped polynomial trees.
 Variables are leaves; operations describe child types and their binders.
 Renaming, substitution, interpretation and their general laws live upstream.
+PolyFun also owns represented-data correspondence and deterministic transition
+execution, including the adapter to resumable machines. Its strict scoped
+arithmetic/let/loop example exercises these interfaces independently of Cryptol.
+Cryptol typing, demand rules, adequacy and Foundation specialization stay here.
 Native lowering has one semantic route: native IR → resolved source → core.
 A source certificate then transports arbitrary pre/postconditions, and the bridge
 connects the certified compression function to VCVio's byte implementation and
@@ -93,13 +97,25 @@ the certified importer still targets the Foundation SHA-256 subset. The
 [pinned typed-AST exporter](exporter/README.md) additionally retains complete
 definitions for 31 SHA2/SHA3/SHAKE, Keccak, AES and CRC entries. Lean checks their
 scope and kinds, and separately checks closed numeric and class constraints.
-This source graph does not yet have checked expression elaboration or a shared
-evaluator. Component theorems cover Keccak coordinate inverses and byte-aligned
+The scalar `(sigma_256_0 : [32] -> [32])` additionally has checked expression
+elaboration from its exact quoted seven-declaration dependency graph. The kernel
+checks its resolved output, and `ImportedScalar.core_correct` proves agreement
+with `VCVio.Algorithms.Sha2.ssig0` for every input. This gate supports explicit
+nonrecursive specialization, lambdas, applications, conditionals and the scalar
+primitive fragment; it rejects other constructs. The broader graph still needs
+checked elaboration and a shared evaluator. Component theorems cover Keccak coordinate inverses and byte-aligned
 CRC polynomial updates; whole-algorithm differential tests exercise all SHA2,
 SHA3 and SHAKE cores, AES vectors and CRC splits. The tests retain the pinned
 reference evaluator's negative-index failure in Foundation Keccak separately
 from normal-evaluator agreement. No full Cryptol soundness theorem or imported
 CRC implementation certificate is claimed.
+
+The [evaluator audit](docs/evaluators.md) compares the release with upstream
+`51405420cb90cf9959ca4349eea0ae8b77487855`, maps the integer discrepancy to
+Cryptol #2060, and records why reference evaluation remains the semantic target.
+Set `CRYPTOL_UPSTREAM_BINARY` during external validation to reproduce its
+152 observations and compare the committed report. The portable theta variant
+is tested separately; the imported Foundation source retains its original bytes.
 
 The [coverage catalogue](docs/coverage.md) separates planned reference coverage,
 external probes and all-input Lean certificates, and records the next semantic

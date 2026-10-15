@@ -55,7 +55,7 @@ theorem MachineState.runCounted_snd {a : ClosedTy} (fuel : Nat) (state : Machine
   induction fuel generalizing state count with
   | zero => rfl
   | succ fuel ih =>
-      simp only [runCounted, run]
+      simp only [runCounted, run, Control.Transition.run]
       cases state.step with
       | inl result => rfl
       | inr next => exact ih next (count + 1)

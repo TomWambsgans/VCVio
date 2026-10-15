@@ -68,53 +68,23 @@ theorem step_attach {a b : ClosedTy} (state : MachineState a) (rest : Stack a b)
       case var v => cases v
 
 /-- A finite derivation of a terminating execution. -/
-inductive Executes {r : ClosedTy} : MachineState r → Outcome r → Prop where
-  | done {state result} (h : state.step = .inl result) : Executes state result
-  | next {state next result} (h : state.step = .inr next) (tail : Executes next result) :
-      Executes state result
+abbrev Executes {r : ClosedTy} : MachineState r → Outcome r → Prop :=
+  Control.Transition.Executes step
 
 /-- Inductive execution and successful finite chunks describe the same runs. -/
 theorem executes_iff_terminates {r : ClosedTy} (state : MachineState r) (result : Outcome r) :
-    Executes state result ↔ state.Terminates result := by
-  constructor
-  · intro h
-    induction h with
-    | done hs => exact ⟨1, by simp [run, hs]⟩
-    | next hs _ ih =>
-        obtain ⟨n, hn⟩ := ih
-        exact ⟨n + 1, by simp [run, hs, hn]⟩
-  · rintro ⟨n, hn⟩
-    induction n generalizing state with
-    | zero => cases hn
-    | succ n ih =>
-        cases hs : state.step with
-        | inl out =>
-            have : out = result := by simpa [run, hs] using hn
-            exact .done (this ▸ hs)
-        | inr next => exact .next hs (ih next (by simpa [run, hs] using hn))
+    Executes state result ↔ state.Terminates result :=
+  Control.Transition.executes_iff_terminates step state result
 
 /-- A deterministic transition function admits at most one terminating result. -/
 theorem Executes.unique {r : ClosedTy} {state : MachineState r} {left right : Outcome r}
-    (hl : Executes state left) (hr : Executes state right) : left = right := by
-  induction hl with
-  | done h =>
-      cases hr with
-      | done h' => exact Sum.inl.inj (h.symm.trans h')
-      | next h' _ => cases h.symm.trans h'
-  | next h _ ih =>
-      cases hr with
-      | done h' => cases h.symm.trans h'
-      | next h' tail =>
-          have heq := Sum.inr.inj (h.symm.trans h')
-          subst heq
-          exact ih tail
+    (hl : Executes state left) (hr : Executes state right) : left = right :=
+  Control.Transition.Executes.unique step hl hr
 
 /-- States with the same next transition have the same terminating outcomes. -/
 theorem Executes.of_step_eq {r : ClosedTy} {state state' : MachineState r} {result : Outcome r}
-    (h : state.step = state'.step) (hr : Executes state' result) : Executes state result := by
-  cases hr with
-  | done h' => exact .done (h.trans h')
-  | next h' tail => exact .next (h.trans h') tail
+    (h : state.step = state'.step) (hr : Executes state' result) : Executes state result :=
+  Control.Transition.Executes.of_step_eq step h hr
 
 /-- Run a subcomputation and then resume its caller. -/
 theorem Executes.attach {a b : ClosedTy} {state : MachineState a} {result : Outcome a}

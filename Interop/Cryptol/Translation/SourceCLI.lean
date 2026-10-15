@@ -7,6 +7,8 @@ Authors: Devon Tuma
 module
 
 import Interop.Cryptol.Translation.SourceScope
+import Interop.Cryptol.Translation.SourceElaboration
+import Interop.Cryptol.Translation.Export
 import Interop.Cryptol.Model.Reference.Types
 
 /-! # Source-bundle validation and inspection -/
@@ -22,6 +24,33 @@ public def run (args : List String) : IO UInt32 := do
   let out ← IO.getStdout
   let err ← IO.getStderr
   match args with
+  | ["elaborate", file] =>
+      let text ← IO.FS.readFile file
+      let input : Except ImportError SourceBundle := do
+        let json ← (Lean.Json.parse text).mapError (⟨["json"], ·⟩)
+        SourceBundle.decode json
+      match input with
+      | .error error => out.putStrLn (errorJson error).compress; return 1
+      | .ok bundle =>
+          let reports : List (Except ImportError (ULift.{1} Lean.Json)) :=
+            bundle.roots.map fun root => do
+            let certificate ← SourceElaboration.certify bundle root.expression
+            let ⟨(_, type)⟩ ← SourceElaboration.liftCheck
+              ((root.schema.instantiate 1000 [] []).mapError (⟨["root schema"], ·⟩))
+            let ⟨expected⟩ ← SourceElaboration.liftCheck
+              ((SourceElaboration.coreType type).mapError (⟨["root type"], ·⟩))
+            let term ← (SourceElaboration.expect expected certificate.result).mapError
+              (⟨["root type"], ·⟩)
+            pure ⟨Lean.Json.mkObj [("root", .str root.text), ("status", .str "typed"),
+              ("type", .str (reprStr expected)),
+              ("source", .str (Export.expression term))]⟩
+          let mut results := #[]
+          for result in reports do
+            match result with
+            | .error error => out.putStrLn (errorJson error).compress; return 1
+            | .ok ⟨result⟩ => results := results.push result
+          out.putStrLn (Lean.Json.arr results).compress
+          return 0
   | ["constraints", file] =>
       let text ← IO.FS.readFile file
       let result : Except ImportError Lean.Json := do
@@ -57,7 +86,7 @@ public def run (args : List String) : IO UInt32 := do
             ("modules", Lean.toJson bundle.modules.length)]).compress
           return 0
   | _ =>
-      err.putStrLn "Usage: cryptol-interop source {inspect BUNDLE.json | constraints CASES.json}"
+      err.putStrLn "Usage: cryptol-interop source {inspect | elaborate | constraints} FILE.json"
       return 1
 
 end Interop.Cryptol.Translation.SourceCLI
