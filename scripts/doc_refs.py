@@ -109,6 +109,9 @@ def local_references(root: Path, path: Path) -> list[str]:
     pattern = r"(?<![\w/])(?:" + "|".join(sorted(map(re.escape, roots))) + r")/" \
         r"[\w/.-]+\.(?:lean|md|json|toml|py|sh|tsv|ya?ml)(?![\w.])"
     for match in re.finditer(pattern, text):
+        # Markdown destinations were already resolved relative to the document above.
+        if any(link.start() <= match.start() < link.end() for link in links):
+            continue
         line = text.count("\n", 0, match.start()) + 1
         content = text.splitlines()[line - 1]
         # URLs are immutable source citations, not paths in the adjacent checkout.
