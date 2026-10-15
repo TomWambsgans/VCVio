@@ -28,9 +28,16 @@ before the `j`-th query and `P_mass^(i)` projects a coherent index register onto
 `∑ᵢ mass(A, i, j) = 1`. The ports of a signature are classical: the program decides which port it
 calls, possibly depending on classical outcomes. The mass on port `i` before the `j`-th call is
 therefore the trace of the state reaching the `j`-th call when that call is on port `i`, and zero
-otherwise. This is the specialisation of the paper's mass to a classical index. Coherent access
-to several oracles is a single port whose input register carries the index; its finer masses are
-weighted forms `queryWeight` (below) with a projector on the index.
+otherwise. This is the specialisation of the paper's mass to a classical index.
+
+Coherent access to several oracles is a port whose input register carries the index. Its masses
+are the *index masses* `indexMassAt B x ρ ⟨i, k⟩ j`: for operators `B i k` on the input register
+of port `i`, typically the projections `|k⟩⟨k| ⊗ 1` onto the values of the index, the trace of
+`(B i k ⊗ 1) σ (B i k ⊗ 1)ᴴ` for the input `σ` of the `j`-th call. They are query weights, and
+with a single port they are exactly the masses of the paper. When the blocks of a port are
+complete they add up to its query mass (`tsum_indexMassAt_eq_queryMassAt`). The square-root
+hybrid bounds in terms of index masses, with the operator norms of the change on each block, are
+in `VCVio.Quantum.Comp.HybridIndex`.
 
 ## Weights
 
@@ -57,6 +64,8 @@ the local operations are always defined.
 * `Quantum.QuantumRuntime.queryWeight R I w x ρ j`: the weight `w` of the `j`-th call.
 * `Quantum.QuantumRuntime.queryMassAt R I x ρ i j`: the mass on port `i` of the `j`-th call.
 * `Quantum.QuantumRuntime.queryMass R I x ρ i`: the total query mass on port `i`.
+* `Quantum.QuantumRuntime.indexMassAt R I B x ρ c j`, `Quantum.QuantumRuntime.indexMass`: the
+  masses of a coherent index, on the block `c = ⟨i, k⟩`.
 
 ## Main statements
 
@@ -73,12 +82,15 @@ the local operations are always defined.
 * `queryMass_le_of_isQueryBoundAt`: the mass on port `i` is at most the budget of `i` times the
   trace of the initial state.
 * `queryMass_bind`: masses add under sequencing.
+* `queryWeight_le_tsum_mul_indexMassAt` and `tsum_queryWeight_le_tsum_mul_indexMass`: a weight
+  bounded block by block is bounded by the index masses; `tsum_indexMassAt_eq_queryMassAt`: index
+  masses refine query masses.
 -/
 
 public section
 
 open IPFunctor
-open scoped ENNReal ComplexOrder
+open scoped ENNReal ComplexOrder Kronecker Matrix
 
 universe u v u₁ v₁ w w₁
 
@@ -272,6 +284,15 @@ theorem queryWeight_mono {w' : ∀ i, Matrix (spec.In i × R.D) (spec.In i × R.
       exact ENNReal.tsum_le_tsum fun r ↦
         ih r ((R.queryStep i E ℓ).posSemidef_branch_apply r hρ) j
 
+/-- On positive semidefinite inputs, weights depend only on the values of `w` on positive
+semidefinite operators. -/
+theorem queryWeight_congr {w' : ∀ i, Matrix (spec.In i × R.D) (spec.In i × R.D) ℂ → ℝ≥0∞}
+    (h : ∀ i σ, σ.PosSemidef → w i σ = w' i σ) (x : QuantumComp L spec X A)
+    {ρ : Matrix (A × R.D) (A × R.D) ℂ} (hρ : ρ.PosSemidef) (j : ℕ) :
+    R.queryWeight I w x ρ j = R.queryWeight I w' x ρ j :=
+  le_antisymm (R.queryWeight_mono I (fun i σ hσ ↦ (h i σ hσ).le) x hρ j)
+    (R.queryWeight_mono I (fun i σ hσ ↦ (h i σ hσ).ge) x hρ j)
+
 /-- Weights are countably additive in `w`. -/
 theorem tsum_queryWeight {κ : Type*}
     (w : κ → ∀ i, Matrix (spec.In i × R.D) (spec.In i × R.D) ℂ → ℝ≥0∞)
@@ -359,7 +380,8 @@ theorem queryWeight_eq_zero_of_isQueryBound {x : QuantumComp L spec X A} {b : sp
 /-! ## Query mass -/
 
 open Classical in
-/-- **Query mass of the `j`-th call** (ePrint 2025/2166, §4.2). The trace of the state reaching
+/-- **Query mass of the `j`-th call** (ePrint 2025/2166, §4.2, for the classical ports; the
+paper's coherent index is `Quantum.QuantumRuntime.indexMassAt`). The trace of the state reaching
 the `j`-th call of `x`, run against `R` from `ρ`, on the paths where that call is on port `i`.
 Calls are counted over all ports, from `0`. -/
 @[expose]
@@ -458,8 +480,9 @@ theorem queryMassAt_tsum_state (x : QuantumComp L spec X A) {ι : Type*}
   · exact ofReal_trace_re_tsum hg hgpos
   · simp
 
-/-- **Total query mass** (ePrint 2025/2166, §4.2): the sum over all calls of the masses on port
-`i`, that is the total trace with which `x`, run against `R` from `ρ`, calls port `i`. -/
+/-- **Total query mass** (ePrint 2025/2166, §4.2, for the classical ports): the sum over all
+calls of the masses on port `i`, that is the total trace with which `x`, run against `R` from
+`ρ`, calls port `i`. -/
 @[expose]
 noncomputable def queryMass (x : QuantumComp L spec X A) (ρ : Matrix (A × R.D) (A × R.D) ℂ)
     (i : spec.Port) : ℝ≥0∞ :=
@@ -615,6 +638,167 @@ theorem queryMass_bind (x : QuantumComp L spec X A) (k : ∀ u, X u → QuantumC
       simp only [fun r ↦ ih r (hb r)]
     · rw [queryMass_queryBind_of_ne R I h, queryMass_queryBind_of_ne R I h, ← ENNReal.tsum_add]
       simp only [fun r ↦ ih r (hb r)]
+
+
+/-! ## Index masses -/
+
+section IndexMass
+
+variable {κ : spec.Port → Type*} (B : ∀ i, κ i → Matrix (spec.In i) (spec.In i) ℂ)
+
+open Classical in
+/-- **Index mass of the `j`-th call** (ePrint 2025/2166, §4.1–4.2, for a coherent index). For
+operators `B i k` on the input register of each port `i`, typically the orthogonal projections
+onto the values `k` of an index register carried by the input, the weight of the `j`-th call of
+`x`, run against `R` from `ρ`, in the block `k` of port `i`: the trace of
+`(B i k ⊗ 1) σ (B i k ⊗ 1)ᴴ` for the input `σ` of the call, on the paths where that call is on
+port `i`. Index masses are labelled by the pairs `c = ⟨i, k⟩`.
+
+With a single port and the projections `|k⟩⟨k| ⊗ 1` of the index register, these are the masses
+`mass(A, k, j) = ‖P_mass^(k) |ψ_j⟩‖²` of the paper. With one block per port and `B i k = 1` they
+are the query masses (`tsum_indexMassAt_eq_queryMassAt`). -/
+@[expose]
+noncomputable def indexMassAt (x : QuantumComp L spec X A) (ρ : Matrix (A × R.D) (A × R.D) ℂ)
+    (c : Σ i, κ i) (j : ℕ) : ℝ≥0∞ :=
+  R.queryWeight I (fun i σ ↦ ∑' k : κ i, if (⟨i, k⟩ : Σ i, κ i) = c then
+    ENNReal.ofReal (MatrixMap.conj (B i k ⊗ₖ (1 : Matrix R.D R.D ℂ)) σ).trace.re else 0) x ρ j
+
+/-- **Total index mass** (ePrint 2025/2166, §4.2, `TotalMass` for a coherent index): the sum
+over all calls of the index masses of the block `c = ⟨i, k⟩`. -/
+@[expose]
+noncomputable def indexMass (x : QuantumComp L spec X A) (ρ : Matrix (A × R.D) (A × R.D) ℂ)
+    (c : Σ i, κ i) : ℝ≥0∞ :=
+  ∑' j, R.indexMassAt I B x ρ c j
+
+/-- A program that stops at once has no index mass. -/
+@[simp]
+theorem indexMassAt_pure (y : X A) (ρ : Matrix (A × R.D) (A × R.D) ℂ) (c : Σ i, κ i) (j : ℕ) :
+    R.indexMassAt I B (QuantumComp.pure (L := L) (spec := spec) y) ρ c j = 0 :=
+  rfl
+
+/-- The index masses of a local operation followed by a continuation are those of the
+continuations, from the branches of the operation. -/
+@[simp]
+theorem indexMassAt_primBind (o : L.Op A)
+    (k : (b : L.Outcome o) → QuantumComp L spec X (L.next o b))
+    (ρ : Matrix (A × R.D) (A × R.D) ℂ) (c : Σ i, κ i) (j : ℕ) :
+    R.indexMassAt I B (QuantumComp.primBind o k) ρ c j =
+      ∑' b, R.indexMassAt I B (k b) (((I o).frame R.D).branch b ρ) c j :=
+  rfl
+
+/-- A program that starts with a call of port `i` puts on the block `k` of its first call the
+weight of the block in the input of the call. -/
+theorem indexMassAt_queryBind_self_zero (i : spec.Port) (E : QReg) (ℓ : A ≃ spec.In i × E)
+    (k : spec.Result i → QuantumComp L spec X (QReg.of (spec.Out i × E)))
+    (ρ : Matrix (A × R.D) (A × R.D) ℂ) (b : κ i) :
+    R.indexMassAt I B (QuantumComp.queryBind i E ℓ k) ρ ⟨i, b⟩ 0 =
+      ENNReal.ofReal (MatrixMap.conj (B i b ⊗ₖ (1 : Matrix R.D R.D ℂ))
+        (callInput ℓ R.D ρ)).trace.re := by
+  classical
+  rw [indexMassAt, queryWeight_queryBind_zero, tsum_eq_single b fun b' hb' ↦ by simp [hb']]
+  simp
+
+/-- The index masses of the later calls of a program that starts with a call are those of the
+continuations, from the branches of the call. -/
+@[simp]
+theorem indexMassAt_queryBind_succ (i : spec.Port) (E : QReg) (ℓ : A ≃ spec.In i × E)
+    (k : spec.Result i → QuantumComp L spec X (QReg.of (spec.Out i × E)))
+    (ρ : Matrix (A × R.D) (A × R.D) ℂ) (c : Σ i, κ i) (j : ℕ) :
+    R.indexMassAt I B (QuantumComp.queryBind i E ℓ k) ρ c (j + 1) =
+      ∑' r, R.indexMassAt I B (k r) ((R.queryStep i E ℓ).branch r ρ) c j :=
+  rfl
+
+omit B in
+open Classical in
+/-- The blocks of a port, summed against constants. -/
+private theorem tsum_mul_tsum_ite_sigma (C : (Σ i, κ i) → ℝ≥0∞) (i : spec.Port) (f : κ i → ℝ≥0∞) :
+    ∑' c, C c * ∑' k : κ i, (if (⟨i, k⟩ : Σ i, κ i) = c then f k else 0) =
+      ∑' k, C ⟨i, k⟩ * f k := by
+  simp_rw [← ENNReal.tsum_mul_left]
+  rw [ENNReal.tsum_comm]
+  refine tsum_congr fun k ↦ ?_
+  rw [tsum_eq_single ⟨i, k⟩ fun c hc ↦ by simp [Ne.symm hc]]
+  simp
+
+/-- **Weights by index masses.** If the weight of a call of port `i` is at most the weights
+`tr ((B i k ⊗ 1) σ (B i k ⊗ 1)ᴴ)` of its blocks, weighted by `C ⟨i, k⟩`, the weight of the `j`-th
+call is at most the index masses of the `j`-th call weighted by `C`. -/
+theorem queryWeight_le_tsum_mul_indexMassAt (C : (Σ i, κ i) → ℝ≥0∞)
+    (hw : ∀ i σ, σ.PosSemidef → w i σ ≤ ∑' k, C ⟨i, k⟩ *
+      ENNReal.ofReal (MatrixMap.conj (B i k ⊗ₖ (1 : Matrix R.D R.D ℂ)) σ).trace.re)
+    (x : QuantumComp L spec X A) {ρ : Matrix (A × R.D) (A × R.D) ℂ} (hρ : ρ.PosSemidef)
+    (j : ℕ) : R.queryWeight I w x ρ j ≤ ∑' c, C c * R.indexMassAt I B x ρ c j := by
+  classical
+  refine (R.queryWeight_mono I hw x hρ j).trans_eq ?_
+  simp only [indexMassAt, ← queryWeight_const_mul, tsum_queryWeight]
+  congr 1
+  funext i σ
+  exact (tsum_mul_tsum_ite_sigma C i _).symm
+
+/-- **Summed weights by total index masses.** Under the hypothesis of
+`queryWeight_le_tsum_mul_indexMassAt`, the weights summed over all calls are at most the total
+index masses weighted by `C`. -/
+theorem tsum_queryWeight_le_tsum_mul_indexMass (C : (Σ i, κ i) → ℝ≥0∞)
+    (hw : ∀ i σ, σ.PosSemidef → w i σ ≤ ∑' k, C ⟨i, k⟩ *
+      ENNReal.ofReal (MatrixMap.conj (B i k ⊗ₖ (1 : Matrix R.D R.D ℂ)) σ).trace.re)
+    (x : QuantumComp L spec X A) {ρ : Matrix (A × R.D) (A × R.D) ℂ} (hρ : ρ.PosSemidef) :
+    ∑' j, R.queryWeight I w x ρ j ≤ ∑' c, C c * R.indexMass I B x ρ c := by
+  refine (ENNReal.tsum_le_tsum fun j ↦
+    R.queryWeight_le_tsum_mul_indexMassAt I B C hw x hρ j).trans_eq ?_
+  rw [ENNReal.tsum_comm]
+  simp only [indexMass, ENNReal.tsum_mul_left]
+
+omit B in
+/-- The blocks of a complete family `∑ₖ (B k)ᴴ B k = 1` split the trace. -/
+theorem tsum_ofReal_trace_conj_kronecker_one {J D : Type*} [Fintype J] [DecidableEq J]
+    [Fintype D] [DecidableEq D] {K : Type*} [Fintype K] {B : K → Matrix J J ℂ}
+    (hB : ∑ k, (B k)ᴴ * B k = 1) {σ : Matrix (J × D) (J × D) ℂ} (hσ : σ.PosSemidef) :
+    ∑' k, ENNReal.ofReal (MatrixMap.conj (B k ⊗ₖ (1 : Matrix D D ℂ)) σ).trace.re =
+      ENNReal.ofReal σ.trace.re := by
+  have hnn : ∀ k, 0 ≤ (MatrixMap.conj (B k ⊗ₖ (1 : Matrix D D ℂ)) σ).trace.re := fun k ↦
+    (hσ.mul_mul_conjTranspose_same _).trace_re_nonneg
+  have h1 : ∑ k, (B k ⊗ₖ (1 : Matrix D D ℂ))ᴴ * (B k ⊗ₖ (1 : Matrix D D ℂ)) = 1 := by
+    simp only [Matrix.conjTranspose_kronecker, Matrix.conjTranspose_one, ← Matrix.mul_kronecker_mul,
+      Matrix.one_mul]
+    rw [← Matrix.one_kronecker_one, ← hB]
+    ext ⟨a, b⟩ ⟨c, d⟩
+    simp [Matrix.sum_apply, Finset.sum_mul]
+  rw [tsum_fintype, ← ENNReal.ofReal_sum_of_nonneg fun k _ ↦ hnn k]
+  congr 1
+  simp only [MatrixMap.trace_conj_apply, ← Complex.re_sum, ← Matrix.trace_sum, ← Matrix.sum_mul,
+    h1, Matrix.one_mul]
+
+/-- **Index masses refine query masses** (the analogue of Remark 4.2 of ePrint 2025/2166 for a
+coherent index): if the blocks of port `i` are complete, `∑ₖ (B i k)ᴴ B i k = 1`, the index
+masses of its blocks at the `j`-th call add up to its query mass. -/
+theorem tsum_indexMassAt_eq_queryMassAt (i : spec.Port) [Fintype (κ i)]
+    (hB : ∑ k, (B i k)ᴴ * B i k = 1) (x : QuantumComp L spec X A)
+    {ρ : Matrix (A × R.D) (A × R.D) ℂ} (hρ : ρ.PosSemidef) (j : ℕ) :
+    ∑' k, R.indexMassAt I B x ρ ⟨i, k⟩ j = R.queryMassAt I x ρ i j := by
+  classical
+  simp only [indexMassAt, queryMassAt, tsum_queryWeight]
+  refine R.queryWeight_congr I (fun i' σ hσ ↦ ?_) x hρ j
+  by_cases h : i' = i
+  · subst h
+    simp only [↓reduceIte]
+    rw [ENNReal.tsum_comm, ← tsum_ofReal_trace_conj_kronecker_one hB hσ]
+    refine tsum_congr fun k ↦ ?_
+    rw [tsum_eq_single k fun k' hk' ↦ by simp [Ne.symm hk']]
+    simp
+  · simp [h]
+
+/-- **Total index masses refine total query masses**: under the hypothesis of
+`tsum_indexMassAt_eq_queryMassAt`, the total index masses of the blocks of port `i` add up to
+its total query mass. -/
+theorem tsum_indexMass_eq_queryMass (i : spec.Port) [Fintype (κ i)]
+    (hB : ∑ k, (B i k)ᴴ * B i k = 1) (x : QuantumComp L spec X A)
+    {ρ : Matrix (A × R.D) (A × R.D) ℂ} (hρ : ρ.PosSemidef) :
+    ∑' k, R.indexMass I B x ρ ⟨i, k⟩ = R.queryMass I x ρ i := by
+  simp only [indexMass, queryMass]
+  rw [ENNReal.tsum_comm]
+  exact tsum_congr fun j ↦ R.tsum_indexMassAt_eq_queryMassAt I B i hB x hρ j
+
+end IndexMass
 
 end QuantumRuntime
 
