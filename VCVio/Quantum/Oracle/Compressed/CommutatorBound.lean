@@ -462,6 +462,42 @@ theorem sum_ite_le_mul_instability (π : Database X Y → ι) (t : ℕ) {r : Dat
   · simp only [hs, ↓reduceIte, ite_self, Finset.sum_const_zero]
     positivity
 
+/-- **The rows of a block that change the label.** In the block of `((x, χ), r)` of the truncated
+phase oracle, the rows of the contents `a` with `π r[x ↦ a] ≠ π r` carry, off the diagonal,
+squared entries summing to at most `6 I(π, t)`. -/
+theorem sum_ite_sum_norm_truncatedPhaseOracle_row_sq_le (π : Database X Y → ι) (t : ℕ) (x : X)
+    (χ : AddChar Y ℂ) {r : Database X Y} (hr : r x = none) :
+    ∑ a', (if π (Function.update r x a') = π r then 0 else
+      ∑ a, (if a' = a then 0 else ‖truncatedPhaseOracle X Y t ((x, χ), Function.update r x a')
+        ((x, χ), Function.update r x a)‖ ^ 2)) ≤ 6 * (Database.instability π t).toReal := by
+  have hnone : π (Function.update r x none) = π r := by
+    rw [Database.update_none_of_eq_none hr]
+  refine le_trans ?_ (sum_ite_le_mul_instability π t hr (c := 6) (by norm_num))
+  rw [Fintype.sum_option, ite_eq_left hnone, zero_add]
+  refine Finset.sum_le_sum fun u _ ↦ ?_
+  by_cases h : π (Function.update r x (some u)) = π r
+  · simp only [h, ↓reduceIte, le_refl]
+  · rw [ite_eq_right h, ite_eq_right h]
+    exact sum_ite_norm_truncatedPhaseOracle_row_sq_le t x χ hr u
+
+/-- **The columns of a block that change the label.** In the block of `((x, χ), r)` of the
+truncated phase oracle, the columns of the contents `a` with `π r[x ↦ a] ≠ π r` carry, off the
+diagonal, squared entries summing to at most `6 I(π, t)`. -/
+theorem sum_ite_sum_norm_truncatedPhaseOracle_col_sq_le (π : Database X Y → ι) (t : ℕ) (x : X)
+    (χ : AddChar Y ℂ) {r : Database X Y} (hr : r x = none) :
+    ∑ a, (if π (Function.update r x a) = π r then 0 else
+      ∑ a', (if a' = a then 0 else ‖truncatedPhaseOracle X Y t ((x, χ), Function.update r x a')
+        ((x, χ), Function.update r x a)‖ ^ 2)) ≤ 6 * (Database.instability π t).toReal := by
+  have hnone : π (Function.update r x none) = π r := by
+    rw [Database.update_none_of_eq_none hr]
+  refine le_trans ?_ (sum_ite_le_mul_instability π t hr (c := 6) (by norm_num))
+  rw [Fintype.sum_option, ite_eq_left hnone, zero_add]
+  refine Finset.sum_le_sum fun u _ ↦ ?_
+  by_cases h : π (Function.update r x (some u)) = π r
+  · simp only [h, ↓reduceIte, le_refl]
+  · rw [ite_eq_right h, ite_eq_right h]
+    exact sum_ite_norm_truncatedPhaseOracle_col_sq_le t x χ hr u
+
 /-- **Lemma 5.9 of ePrint 2025/2166 with the constant `8`, phase basis.** Pinching the truncated
 phase oracle by the labels of the databases moves it by at most `√(8 I)` in operator norm. -/
 theorem l2_opNorm_pinch_truncatedPhaseOracle_sub_sq_le_eight_mul (π : Database X Y → ι) (t : ℕ) :
@@ -493,8 +529,6 @@ theorem l2_opNorm_pinch_truncatedPhaseOracle_sub_sq_le_eight_mul (π : Database 
     · subst h
       simp
     · split_ifs <;> simp
-  have hnone : π (Function.update r x none) = π r := by
-    rw [Database.update_none_of_eq_none hr]
   rw [← Real.sqrt_sq (norm_nonneg _)]
   refine Real.sqrt_le_sqrt ?_
   have hcorner := l2_opNorm_sq_le_of_corner_eq_zero
@@ -502,25 +536,19 @@ theorem l2_opNorm_pinch_truncatedPhaseOracle_sub_sq_le_eight_mul (π : Database 
       ((x, χ), Function.update r x a))
     (fun a ↦ π (Function.update r x a) = π r) (fun a ↦ π (Function.update r x a) = π r)
     (fun a' a ha' ha ↦ by rw [of_apply, hΔ, ite_eq_left (ha'.trans ha.symm)])
-    (c := 6 * (Database.instability π t).toReal) ?_ ?_
+    (c := 6 * (Database.instability π t).toReal)
+    ((Finset.sum_le_sum fun a' _ ↦ ?_).trans
+      (sum_ite_sum_norm_truncatedPhaseOracle_row_sq_le π t x χ hr))
+    ((Finset.sum_le_sum fun a _ ↦ ?_).trans
+      (sum_ite_sum_norm_truncatedPhaseOracle_col_sq_le π t x χ hr))
   · calc _ ≤ 4 / 3 * (6 * (Database.instability π t).toReal) := hcorner
       _ = 8 * (Database.instability π t).toReal := by ring
-  · refine le_trans ?_ (sum_ite_le_mul_instability π t hr (c := 6) (by norm_num))
-    rw [Fintype.sum_option, ite_eq_left hnone, zero_add]
-    refine Finset.sum_le_sum fun u _ ↦ ?_
-    by_cases h : π (Function.update r x (some u)) = π r
-    · simp only [h, ↓reduceIte, le_refl]
-    · rw [ite_eq_right h, ite_eq_right h]
-      exact (Finset.sum_le_sum fun a _ ↦ by simpa only [of_apply] using hle (some u) a).trans
-        (sum_ite_norm_truncatedPhaseOracle_row_sq_le t x χ hr u)
-  · refine le_trans ?_ (sum_ite_le_mul_instability π t hr (c := 6) (by norm_num))
-    rw [Fintype.sum_option, ite_eq_left hnone, zero_add]
-    refine Finset.sum_le_sum fun u _ ↦ ?_
-    by_cases h : π (Function.update r x (some u)) = π r
-    · simp only [h, ↓reduceIte, le_refl]
-    · rw [ite_eq_right h, ite_eq_right h]
-      exact (Finset.sum_le_sum fun a _ ↦ by simpa only [of_apply] using hle a (some u)).trans
-        (sum_ite_norm_truncatedPhaseOracle_col_sq_le t x χ hr u)
+  · split_ifs
+    · exact le_rfl
+    · exact Finset.sum_le_sum fun a _ ↦ hle a' a
+  · split_ifs
+    · exact le_rfl
+    · exact Finset.sum_le_sum fun a' _ ↦ hle a' a
 
 /-- **Lemma 5.9 of ePrint 2025/2166 with the constant `8`.** Pinching the truncated compressed
 oracle by the labels of the databases, `∑ i, P^(i) O^(t) P^(i)`, moves it by at most `√(8 I)` in
