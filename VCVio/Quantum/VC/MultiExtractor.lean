@@ -25,9 +25,13 @@ Def 7.1 (l.2777–2784) calls a multi-extractor admissible when
 Taken literally, the two properties force every position `i` with `i + 1 < k` of every tuple to
 extract to `⊥`. Extend the length-`(i + 1)` prefix by repeating `idx_i`: property 1 makes that
 extension all `⊥`, and property 2 carries the `⊥` back to the prefix and then to the original tuple
-(`Quantum.MultiExtractor.AdmissibleLiteral.extract_eq_bot`). So, for `k ≥ 2`, no non-trivial
-multi-extractor satisfies the literal definition, and in particular the Merkle multi-extractor of
-§8.3 does not.
+(`Quantum.MultiExtractor.AdmissibleLiteral.extract_eq_bot`). Hence every tuple shorter than `k`
+extracts to all `⊥`, and so does every full tuple with a repeated index (property 1). On a full
+tuple with distinct indices, every position but the last, `k - 1`, extracts to `⊥`; the last
+position is left unconstrained, so the literal definition still admits multi-extractors that are
+non-trivial there (for `k = 2`, one returning `(⊥, v)` on full distinct-index tuples). In
+particular, for `k ≥ 2` the Merkle multi-extractor of §8.3, which extracts at every position of a
+shorter tuple, does not satisfy it.
 
 `Quantum.MultiExtractor.Admissible` requires prefix consistency only for tuples with distinct
 indices. The literal definition is kept as `Quantum.MultiExtractor.AdmissibleLiteral` so that its
@@ -101,7 +105,8 @@ tuple extracts to `⊥`:
   property 1 makes its extraction all `⊥`;
 * property 2 carries this `⊥` to the prefix of length `i + 1`, and then to the original tuple.
 
-So for `k ≥ 2` the extraction of a full tuple is `⊥` everywhere except at its last position. -/
+So every position of a tuple shorter than `k`, and every position but the last of a full tuple,
+extracts to `⊥`. The last position of a full tuple with distinct indices is not constrained. -/
 theorem AdmissibleLiteral.extract_eq_bot {ME : MultiExtractor k Cm Dm S} {bot : ∀ i, Dm i}
     (h : ME.AdmissibleLiteral bot) (tic : TpIC k Cm) (s : S) (i : Fin tic.1.len)
     (hi : i.val + 1 < k) : ME.extract tic s i = bot _ := by

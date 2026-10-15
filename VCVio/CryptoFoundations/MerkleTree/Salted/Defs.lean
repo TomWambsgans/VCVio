@@ -39,12 +39,13 @@ exactly at the positions of `Q = dom ans`: the paper's proof `pf = (ST_ι)_{ι �
 `Q`. Identical pairs are listed once; repeating a check is idempotent, so this does not change the
 acceptance predicate (`checkIOOn_dedup`).
 
-The verifier hashes the leaf as well as the `d` internal nodes of a path, so one opening makes
-`d + 1` queries, and `checkIOForm` has `qVC q = q * (d + 1)`. The openings of all positions read
-from one trapdoor contain at most `2 ^ d + (2 ^ d - 1) = 2 · 2 ^ d - 1` distinct pairs
-(`length_outputIO_opening_le`). These counts differ from the `q_s · log ℓ` and `ℓ` of
-ePrint 2025/2166, §8.3 (l.3140–3142), which leave out the leaf hash; for `ℓ = 1` the verifier
-still makes one query.
+The verifier hashes the leaf as well as the `d` internal nodes of a path. One opened position
+therefore lists `d + 1` pairs before deduplication, so the check makes at most `d + 1` queries per
+opened position (fewer when pairs repeat), and `checkIOForm` has `qVC q = q * (d + 1)`. The
+openings of all positions read from one trapdoor contain at most
+`2 ^ d + (2 ^ d - 1) = 2ℓ - 1` distinct pairs, with `ℓ = 2 ^ d` (`length_outputIO_opening_le`).
+These counts differ from the `q_s · log ℓ` and `ℓ` stated in ePrint 2025/2166, §8.3
+(l.3140–3142), which do not count the leaf hash; for `ℓ = 1` the verifier still makes one query.
 
 ## Universes
 
@@ -818,7 +819,8 @@ def scheme [DecidableEq X] [DecidableEq Y] [SampleableType Salt] (enc : Encoding
   opening := opening d
   check rt ans pf := (outputIO enc d rt ans pf).elim (pure false) checkIO
 
-/-- The check of `scheme enc d` has the `CheckIO` form, with `d + 1` pairs per opened position. -/
+/-- The check of `scheme enc d` has the `CheckIO` form, with at most `d + 1` pairs per opened
+position. -/
 @[expose]
 def checkIOForm [DecidableEq X] [DecidableEq Y] [SampleableType Salt]
     (enc : Encoding X Y Msg Salt) (d : ℕ) :

@@ -26,8 +26,10 @@ on every commitment of a tuple, against the database of its oracle.
   level `j + 1` and position `p` is the left or right half of the node preimage of the label at
   level `j` and position `p / 2`.
 * A vertex is expanded only on a *node-shaped* preimage `D (enc.node (y₀, y₁)) = some u`. The paper
-  asks for `u ∈ im(D)` (l.3104) and then for the first preimage of the right length; the two agree
-  when node and leaf inputs are told apart, which is the paper's setting.
+  tests `u ∈ im(D)` (l.3104) and then takes the first preimage of node length (l.3106). When `u` has
+  a preimage but none of node length, which can happen under domain separation (for example a leaf
+  input mapped to `u`), the paper's step is undefined; expanding only on a node-shaped preimage
+  repairs that case by leaving the children `⊥`.
 * "Lexicographically first" is the least element in `Lex (Y × Y)` and `Lex (Msg × Salt)`, which
   needs `LinearOrder` on `Y`, `Msg` and `Salt`. Any finite type has one, so this is a choice of
   extractor rather than a restriction; Lemma 8.6 holds for every such choice.

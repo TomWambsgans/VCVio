@@ -113,7 +113,8 @@ example : (extract enc 1 true D).2.1 = ![some false, some false] := by decide
 example : labelAt (extract enc 1 true D).2.2 1 0 = some true ∧
     labelAt (extract enc 1 true D).2.2 1 1 = some false := by decide
 
-/-- From the root `false`, which has no preimage in `D`, nothing is extracted. -/
+/-- From the root `false`, which has no node-shaped preimage in `D` (its only preimage is the leaf
+input `(false, false)`), nothing is extracted. -/
 example : (extract enc 1 false D).1 = fun _ ↦ none := by decide
 
 /-- The extracted message passes the check on its domain (Thm 8.4 condition 3). -/
