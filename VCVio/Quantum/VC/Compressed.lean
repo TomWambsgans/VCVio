@@ -17,10 +17,10 @@ l.3264–3268): `k` compressed oracles, one database per oracle, all started emp
 
 public section
 
-open Matrix MeasureTheory
+open Matrix MeasureTheory Convexity
 open scoped Kronecker ENNReal NNReal
 
-universe u uL vL w
+universe u uL vL w u₁ v₁
 
 namespace Quantum
 
@@ -684,7 +684,8 @@ theorem outcomeLawWith_compressedVCOracle_eq_purifiedVCOracle
 /-- Against the coherent forms of the k compressed oracles and of the purified k-fold random
 oracle, every program has the same observed law. -/
 theorem outcomeLawWith_coherent_compressedVCOracle_eq_purifiedVCOracle
-    (x : QuantumComp L (EmulatedOracle.cohSpec (oIn k X Y)) W A) (ρ : SubState A) (f : (Σ u, W u) → γ) :
+    (x : QuantumComp L (EmulatedOracle.cohSpec (oIn k X Y)) W A) (ρ : SubState A)
+    (f : (Σ u, W u) → γ) :
     (compressedVCOracle k X Y).coherent.toRuntime.outcomeLawWith I x ρ f =
       (purifiedVCOracle k X Y).coherent.toRuntime.outcomeLawWith I x ρ f :=
   EmulatedOracle.outcomeLawWith_eq_of_intertwine _ _ _
@@ -717,7 +718,8 @@ theorem outcomeLawWith_purifiedVCOracle
 /-- Against the coherent form of the purified k-fold random oracle, the law of every program is
 the average over all families `H` of its laws against the coherent random oracles `H`. -/
 theorem outcomeLawWith_coherent_purifiedVCOracle
-    (x : QuantumComp L (EmulatedOracle.cohSpec (oIn k X Y)) W A) (ρ : SubState A) (f : (Σ u, W u) → γ) :
+    (x : QuantumComp L (EmulatedOracle.cohSpec (oIn k X Y)) W A) (ρ : SubState A)
+    (f : (Σ u, W u) → γ) :
     (purifiedVCOracle k X Y).coherent.toRuntime.outcomeLawWith I x ρ f =
       ∑ H : Fin k → X → Y, (Fintype.card (Fin k → X → Y) : ℝ≥0∞)⁻¹ •
         (romVCOracle k X Y H).coherent.toRuntime.outcomeLawWith I x ρ f := by
@@ -748,33 +750,82 @@ oracles** (ePrint 2025/2166, Lemma 4.4 for `k` oracles, l.3264–3268): the form
 `Quantum.outcomeLawWith_compressedVCOracle` for programs against the coherent oracle, the form in
 which `Quantum.VCOracle.Simulates` states property P1 with `κsim = 0`. -/
 theorem outcomeLawWith_coherent_compressedVCOracle
-    (x : QuantumComp L (EmulatedOracle.cohSpec (oIn k X Y)) W A) (ρ : SubState A) (f : (Σ u, W u) → γ) :
+    (x : QuantumComp L (EmulatedOracle.cohSpec (oIn k X Y)) W A) (ρ : SubState A)
+    (f : (Σ u, W u) → γ) :
     (compressedVCOracle k X Y).coherent.toRuntime.outcomeLawWith I x ρ f =
       ∑ H : Fin k → X → Y, (Fintype.card (Fin k → X → Y) : ℝ≥0∞)⁻¹ •
         (romVCOracle k X Y H).coherent.toRuntime.outcomeLawWith I x ρ f := by
   rw [outcomeLawWith_coherent_compressedVCOracle_eq_purifiedVCOracle,
     outcomeLawWith_coherent_purifiedVCOracle]
 
-variable [SampleableType (Fin k → X → Y)]
+end main
 
-/-- **P1 with `κsim = 0`, as an equality of laws**: against the coherent k compressed oracles,
-every program has the law it has when `H` is sampled uniformly and the oracle is the coherent
-random oracle `H` (`Quantum.sampledLawWith`). Both inequalities of
-`Quantum.VCOracle.Simulates (fun H ↦ (romVCOracle k X Y H).coherent.toRuntime)
-(compressedVCOracle k X Y) 0` are instances of this equality. -/
+/-! ## P1 and the oracle commutation in the form of Definition 7.3 -/
+
+section definition
+
+variable {k : ℕ} {X Y : Type} [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y]
+  [AddCommGroup Y]
+
+/-- The mixed law against the barycenter of the standard simplex, the uniform distribution on a
+nonempty finite type, is the average of the laws. -/
+theorem mixedLawWith_barycenter {spec : QuantumOracleSpec.{u₁, v₁}} {L : LocalSig.{uL, vL}}
+    {W : QReg → Type w} {A : QReg} {Ω : Type*} [Fintype Ω] [Nonempty Ω] {β : Type*}
+    [MeasurableSpace β] (R : Ω → QuantumRuntime spec) (I : L.Interp)
+    (x : QuantumComp L spec W A) (ρ : SubState A) (f : Ω → (Σ u, W u) → β) :
+    mixedLawWith (StdSimplex.barycenter : StdSimplex ℝ Ω) R I x ρ f =
+      ∑ ω, (Fintype.card Ω : ℝ≥0∞)⁻¹ • (R ω).outcomeLawWith I x ρ (f ω) := by
+  rw [mixedLawWith, Finsupp.sum_fintype _ _ fun _ ↦ by simp]
+  refine Finset.sum_congr rfl fun ω _ ↦ ?_
+  rw [StdSimplex.weights_barycenter_apply,
+    ENNReal.ofReal_inv_of_pos (Nat.cast_pos.mpr Fintype.card_pos), ENNReal.ofReal_natCast]
+
+/-- **P1 for the k compressed oracles with `κsim = 0`** (ePrint 2025/2166, Lemma 4.4 for `k`
+oracles, as used in Lemma 9.2, l.3264–3268): the coherent k compressed oracles simulate the
+random-oracle model, the uniform distribution over the families `H : Fin k → X → Y` of
+`Quantum.romVCOracle k X Y H`, with no error. Only a family of functions need exist. -/
+theorem simulates_compressedVCOracle [Nonempty (Fin k → X → Y)] :
+    Simulates (StdSimplex.barycenter : StdSimplex ℝ (Fin k → X → Y))
+      (fun H ↦ (romVCOracle k X Y H).coherent.toRuntime) (compressedVCOracle k X Y) 0 := by
+  intro t A W x f ρ _
+  rw [mixedLawWith_barycenter, outcomeLawWith_coherent_compressedVCOracle]
+  simp only [Pi.zero_apply, add_zero, le_refl, and_self]
+
+/-- Against a uniformly sampled random oracle, every program has the same law against the
+coherent k compressed oracles as in the random-oracle model (`Quantum.sampledLawWith`). -/
 theorem outcomeLawWith_coherent_compressedVCOracle_eq_sampledLawWith
-    (x : QuantumComp L (EmulatedOracle.cohSpec (oIn k X Y)) W A) (ρ : SubState A) (f : (Σ u, W u) → γ) :
+    [SampleableType (Fin k → X → Y)] {L : LocalSig.{uL, vL}} (I : L.Interp) {W : QReg → Type w}
+    {A : QReg} {γ : Type*} [MeasurableSpace γ]
+    (x : QuantumComp L (EmulatedOracle.cohSpec (oIn k X Y)) W A) (ρ : SubState A)
+    (f : (Σ u, W u) → γ) :
     (compressedVCOracle k X Y).coherent.toRuntime.outcomeLawWith I x ρ f =
       sampledLawWith (fun H ↦ (romVCOracle k X Y H).coherent.toRuntime) I x ρ fun _ ↦ f := by
   rw [outcomeLawWith_coherent_compressedVCOracle, sampledLawWith_eq_sum, Finset.smul_sum]
 
 /-- The classical-port form of `outcomeLawWith_coherent_compressedVCOracle_eq_sampledLawWith`. -/
-theorem outcomeLawWith_compressedVCOracle_eq_sampledLawWith
-    (x : QuantumComp L (uSpec (Fin k) (oIn k X Y)) W A) (ρ : SubState A) (f : (Σ u, W u) → γ) :
+theorem outcomeLawWith_compressedVCOracle_eq_sampledLawWith [SampleableType (Fin k → X → Y)]
+    {L : LocalSig.{uL, vL}} (I : L.Interp) {W : QReg → Type w} {A : QReg} {γ : Type*}
+    [MeasurableSpace γ] (x : QuantumComp L (uSpec (Fin k) (oIn k X Y)) W A) (ρ : SubState A)
+    (f : (Σ u, W u) → γ) :
     (compressedVCOracle k X Y).toRuntime.outcomeLawWith I x ρ f =
       sampledLawWith (fun H ↦ (romVCOracle k X Y H).toRuntime) I x ρ fun _ ↦ f := by
   rw [outcomeLawWith_compressedVCOracle, sampledLawWith_eq_sum, Finset.smul_sum]
 
-end main
+/-- **P1 for the k compressed oracles with `κsim = 0`, against a sampleable random oracle**: the
+form of `Quantum.simulates_compressedVCOracle` for the uniform distribution
+`Quantum.uniformWeights` of a sampleable type of families. -/
+theorem simulates_uniformWeights_compressedVCOracle [SampleableType (Fin k → X → Y)] :
+    Simulates (uniformWeights (Fin k → X → Y))
+      (fun H ↦ (romVCOracle k X Y H).coherent.toRuntime) (compressedVCOracle k X Y) 0 :=
+  Simulates.ofUniform fun t A W x f ρ _ ↦ by
+    rw [outcomeLawWith_coherent_compressedVCOracle_eq_sampledLawWith]
+    simp only [Pi.zero_apply, add_zero, le_refl, and_self]
+
+/-- **The k compressed oracles commute** (ePrint 2025/2166, Lemma 9.2 part 1, l.3268–3272), in
+the form of the first half of property P2 (Definition 7.3, l.2841–2843). -/
+theorem oraclesCommute_compressedVCOracle : OraclesCommute (compressedVCOracle k X Y) :=
+  fun i j ↦ compressedVCOracle_commute i j
+
+end definition
 
 end Quantum
