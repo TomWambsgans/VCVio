@@ -58,12 +58,13 @@ def trivialVC : VectorCommitment (Fin 2) (Fin 2) Bool Unit Unit Unit 0 where
 noncomputable def zeroOracle : VCOracle 1 (Fin 2) (Fin 2) :=
   romVCOracle 1 (Fin 2) (Fin 2) fun _ _ ↦ 0
 
-/-- The constant extractor: every position extracts to the all-`⊥` decommitment. -/
-def toyME : MultiExtractor 1 Unit Dm0 zeroOracle.S :=
-  ⟨fun _ _ _ ↦ (fun _ ↦ none, ())⟩
+/-- The constant extractor: every position extracts to the all-`⊥` decommitment. A notation
+rather than a constant, since a constant of this type would enumerate a type at load. -/
+local notation "toyME" =>
+  (MultiExtractor.mk (fun _ _ _ ↦ (fun _ ↦ none, ())) : MultiExtractor 1 Unit Dm0 zeroOracle.S)
 
 /-- The constant extractor is admissible. -/
-theorem toyME_admissible : toyME.Admissible fun _ ↦ ((fun _ ↦ none), ()) where
+theorem toyME_admissible : MultiExtractor.Admissible toyME fun _ ↦ ((fun _ ↦ none), ()) where
   eq_bot_of_not_injective _ _ _ _ := rfl
   prefix_eq _ _ _ _ _ _ := rfl
 
@@ -112,8 +113,8 @@ extraction is the identity. -/
 theorem extractProj_toyME (tic : TpIC 1 Unit) (tdm : TpDLen 1 Dm0 tic.1) :
     extractProj toyME tic tdm = 1 := by
   ext s s'
-  have h : ∀ s, toyME.extract tic s = tdm := fun _ ↦ Subsingleton.elim _ _
-  by_cases hs : s = s' <;> simp [extractProj, h, hs, one_apply]
+  obtain rfl : (fun _ ↦ (fun _ ↦ none, ()) : TpDLen 1 Dm0 tic.1) = tdm := Subsingleton.elim _ _
+  by_cases hs : s = s' <;> simp [extractProj, hs, one_apply]
 
 /-- Non-vacuity of `Quantum.run₂_extractQuery_branch`: on the toy instance every branch of
 extraction at `some tdm` is the identity. -/
