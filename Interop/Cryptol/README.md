@@ -41,7 +41,8 @@ comparisons remain an explicit local validation option.
 | `Consumer` | A separate ordinary-import consumer using the root toolchain and dependencies | The public APIs |
 
 Default VCVio libraries and tests do not import Cryptol. The dormant Rust/hax/aeneas
-aggregate remains separate. The isolation checker enforces each direction.
+aggregate remains separate. The isolation checker enforces the core/interop, native-FFI
+and pure-algorithm boundaries; the internal Model/Translation/Bridge direction guides review.
 The three generated umbrellas are maintained by `scripts/update-lib.sh` after
 new modules have been staged.
 
