@@ -205,8 +205,15 @@ def completenessExp (vc : VectorCommitment X Y Msg Cm Td Pf ℓ) (m : Fin ℓ �
   vc.check z.1 (PartialVec.restrict m Q) pf
 
 /-- The acceptance probability of the experiment of Def 3.7 (l.1316–1320) when the oracle is
-sampled from the measure `D` on functions:
-`Pr[Check^f(cm, Q, m[Q], pf) = 1 : f ← D, (cm, td) ← Commit^f(m), pf ← Open(Q, td)]`. -/
+sampled from the measure `D` on functions,
+`Pr[Check^f(cm, Q, m[Q], pf) = 1 : f ← D, (cm, td) ← Commit^f(m), pf ← Open(Q, td)]`, extended to
+an arbitrary measurable space on `X → Y` as the lower integral over `D` of the acceptance
+probability against each fixed function. The integrand need not be measurable, and the lower
+integral then may undercount: with the indiscrete σ-algebra on `Unit → Bool`, `D` the Dirac
+measure at `fun _ ↦ true`, and a check that returns the oracle answer, the value is `0` although
+the experiment against that function accepts. When the integrand is measurable, for example on a
+countable function space with the discrete σ-algebra, the value is the operational acceptance
+probability. `perfectlyComplete_iff` characterizes the value `1` without any measurability. -/
 @[expose]
 noncomputable def completenessProb [MeasurableSpace (X → Y)]
     (vc : VectorCommitment X Y Msg Cm Td Pf ℓ) (D : Measure (X → Y)) (m : Fin ℓ → Msg)
