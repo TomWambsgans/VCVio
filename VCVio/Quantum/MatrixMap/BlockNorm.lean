@@ -37,17 +37,18 @@ variable {𝕜 : Type*} [RCLike 𝕜] {m n : Type*} [Fintype m] [Fintype n]
 /-! ## Restriction along injective maps -/
 
 /-- The columns of the identity along an injective map form an isometry. -/
-theorem conjTranspose_one_submatrix_mul_self [DecidableEq m] {m' : Type*} [Fintype m']
-    [DecidableEq m'] {f : m' → m} (hf : Function.Injective f) :
+theorem conjTranspose_one_submatrix_mul_self [DecidableEq m] {m' : Type*} [DecidableEq m']
+    {f : m' → m} (hf : Function.Injective f) :
     ((1 : Matrix m m 𝕜).submatrix id f)ᴴ * (1 : Matrix m m 𝕜).submatrix id f = 1 := by
   ext a b
   simp [mul_apply, one_apply, hf.eq_iff]
 
 /-- Restricting the rows and the columns along injective maps does not increase the norm. -/
-theorem l2_opNorm_submatrix_le_of_injective [DecidableEq m] [DecidableEq n] {m' n' : Type*}
-    [Fintype m'] [Fintype n'] [DecidableEq m'] [DecidableEq n'] (A : Matrix m n 𝕜) {f : m' → m}
-    {g : n' → n} (hf : Function.Injective f) (hg : Function.Injective g) :
+theorem l2_opNorm_submatrix_le_of_injective [DecidableEq n] {m' n' : Type*} [Fintype m']
+    [Fintype n'] [DecidableEq n'] (A : Matrix m n 𝕜) {f : m' → m} {g : n' → n}
+    (hf : Function.Injective f) (hg : Function.Injective g) :
     ‖A.submatrix f g‖ ≤ ‖A‖ := by
+  classical
   have hP := l2_opNorm_le_one_of_conjTranspose_mul_self (conjTranspose_one_submatrix_mul_self
     (𝕜 := 𝕜) hf)
   have hQ := l2_opNorm_le_one_of_conjTranspose_mul_self (conjTranspose_one_submatrix_mul_self
@@ -96,8 +97,9 @@ theorem submatrix_sum_single_kronecker (A : C → Matrix m n 𝕜) (c : C) :
 /-- **The norm of a classically controlled operator** is the largest norm of its blocks:
 `‖∑ c, |c⟩⟨c| ⊗ A c‖ = ⨆ c, ‖A c‖`, for any finite control register `C` (the supremum over an
 empty `C` is `0`). -/
-theorem l2_opNorm_sum_single_kronecker [DecidableEq m] [DecidableEq n] (A : C → Matrix m n 𝕜) :
+theorem l2_opNorm_sum_single_kronecker [DecidableEq n] (A : C → Matrix m n 𝕜) :
     ‖∑ c, single c c (1 : 𝕜) ⊗ₖ A c‖ = ⨆ c, ‖A c‖ := by
+  classical
   set M := ∑ c, single c c (1 : 𝕜) ⊗ₖ A c
   have hbdd : BddAbove (Set.range fun c ↦ ‖A c‖) := (Set.finite_range _).bddAbove
   refine le_antisymm ?_ ?_

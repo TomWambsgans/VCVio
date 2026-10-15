@@ -11,13 +11,13 @@ public import VCVio.Quantum.Oracle.Compressed.Equivalence
 /-!
 # k compressed oracles
 
-The emulated oracle of Lemma 9.2 of Chiesa, Di, Hu and Zheng (ePrint 2025/2166, l.3262–3268):
+The emulated oracle of Lemma 9.2 of Chiesa, Di, Hu and Zheng (ePrint 2025/2166, l.3262–3267):
 `k` compressed standard oracles `COstd` (Section 4.3, l.1400–1420), one database `D_i` per
 oracle, all started empty. Port `i` applies the compressed standard oracle to the query register
 and to `D_i` and leaves the other databases alone. This file proves the two facts about it that
 Definition 7.3 asks of an emulated oracle and that hold for every multi-extractor: P1 with
 `κsim = 0` and the first half of P2, the commutation of the ports (Lemma 9.2, first equation,
-l.3266–3268).
+l.3265–3267).
 
 ## Main definitions
 
@@ -188,8 +188,8 @@ theorem compressDatabases_mul_self [Nonempty Y] :
 
 variable [AddCommGroup Y]
 
-/-- **k compressed oracles** (ePrint 2025/2166, Lemma 9.2, l.3264–3268): the emulated oracle whose
-private register holds `k` databases `(D_i)_{i ∈ [k]}`, all started empty (`COInit`, l.3267), and
+/-- **k compressed oracles** (ePrint 2025/2166, Lemma 9.2, l.3262–3265): the emulated oracle whose
+private register holds `k` databases `(D_i)_{i ∈ [k]}`, all started empty (`COInit`, l.3264), and
 whose port `i` applies the compressed oracle `Quantum.compressedOracle X Y` to the query register
 and the database `D_i`, and the identity to the other databases. -/
 @[expose]
@@ -330,7 +330,7 @@ theorem onFactor_slotSnd_one_kronecker (K : Matrix S S ℂ) :
 variable {X Y : Type*} [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y] [AddCommGroup Y]
 
 /-- **Table oracles on two query registers commute** (the step of ePrint 2025/2166, Lemma 9.2
-part 1, l.3270–3272, after the compression has been factored out): the oracle that reads the
+proof, l.3291–3292, after the compression has been factored out): the oracle that reads the
 function `read t` into the second query register commutes with the oracle that reads the function
 `read' t` into the first query register, for any two reading maps on a shared register. -/
 theorem tableOracle_slotSnd_mul_slotFst_comm (read read' : S → X → Y) :
@@ -356,7 +356,7 @@ theorem conj_mul_conj_comm {M : Type*} [Monoid M] {P A B : M} (hP : P * P = 1)
 variable {k : ℕ} {X Y : Type} [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y]
   [AddCommGroup Y]
 
-/-- **The k compressed oracles commute** (ePrint 2025/2166, Lemma 9.2 part 1, l.3268–3272):
+/-- **The k compressed oracles commute** (ePrint 2025/2166, Lemma 9.2 first equation, l.3265–3267):
 for all `i j : Fin k`, port `i` acting on the second query register and the databases commutes
 with port `j` acting on the first query register and the databases. The case `i = j` is the
 statement for one database queried through two registers. This is the equation of
@@ -788,7 +788,7 @@ theorem outcomeLawWith_coherent_purifiedVCOracle
   simp only [coe_inv_card_fun_eq]
 
 /-- **The k compressed oracles are perfectly indistinguishable from k random oracles**
-(ePrint 2025/2166, Lemma 4.4 for `k` oracles, as used in Lemma 9.2, l.3264–3268), for programs
+(ePrint 2025/2166, Lemma 4.4, l.1422, for `k` oracles, as used in Lemma 9.2, l.3264), for programs
 calling the oracles through their classical ports: every program, observed through any function
 of its leaf, has the same law against `Quantum.compressedVCOracle k X Y` as on average over
 uniformly random families `H : Fin k → X → Y` against `Quantum.romVCOracle k X Y H`. Programs are
@@ -802,9 +802,9 @@ theorem outcomeLawWith_compressedVCOracle
   rw [outcomeLawWith_compressedVCOracle_eq_purifiedVCOracle, outcomeLawWith_purifiedVCOracle]
 
 /-- **The coherent k compressed oracles are perfectly indistinguishable from coherent k random
-oracles** (ePrint 2025/2166, Lemma 4.4 for `k` oracles, l.3264–3268): the form of
+oracles** (ePrint 2025/2166, Lemma 4.4 for `k` oracles, l.1422): the form of
 `Quantum.outcomeLawWith_compressedVCOracle` for programs against the coherent oracle, the form in
-which `Quantum.VCOracle.Simulates` states property P1 with `κsim = 0`. -/
+which `Quantum.Simulates` states property P1 with `κsim = 0`. -/
 theorem outcomeLawWith_coherent_compressedVCOracle
     (x : QuantumComp L (EmulatedOracle.cohSpec (oIn k X Y)) W A) (ρ : SubState A)
     (f : (Σ u, W u) → γ) :
@@ -836,8 +836,8 @@ theorem mixedLawWith_barycenter {spec : QuantumOracleSpec.{u₁, v₁}} {L : Loc
   rw [StdSimplex.weights_barycenter_apply,
     ENNReal.ofReal_inv_of_pos (Nat.cast_pos.mpr Fintype.card_pos), ENNReal.ofReal_natCast]
 
-/-- **P1 for the k compressed oracles with `κsim = 0`** (ePrint 2025/2166, Lemma 4.4 for `k`
-oracles, as used in Lemma 9.2, l.3264–3268): the coherent k compressed oracles simulate the
+/-- **P1 for the k compressed oracles with `κsim = 0`** (ePrint 2025/2166, Lemma 4.4, l.1422, for
+`k` oracles, as used in Lemma 9.2, l.3264): the coherent k compressed oracles simulate the
 random-oracle model, the uniform distribution over the families `H : Fin k → X → Y` of
 `Quantum.romVCOracle k X Y H`, with no error. Only a family of functions need exist. -/
 theorem simulates_compressedVCOracle [Nonempty (Fin k → X → Y)] :
@@ -877,8 +877,8 @@ theorem simulates_uniformWeights_compressedVCOracle [SampleableType (Fin k → X
     rw [outcomeLawWith_coherent_compressedVCOracle_eq_sampledLawWith]
     simp only [Pi.zero_apply, add_zero, le_refl, and_self]
 
-/-- **The k compressed oracles commute** (ePrint 2025/2166, Lemma 9.2 part 1, l.3268–3272), in
-the form of the first half of property P2 (Definition 7.3, l.2841–2843). -/
+/-- **The k compressed oracles commute** (ePrint 2025/2166, Lemma 9.2 first equation,
+l.3265–3267), in the form of the first half of property P2 (Definition 7.3, l.2841–2843). -/
 theorem oraclesCommute_compressedVCOracle : OraclesCommute (compressedVCOracle k X Y) :=
   fun i j ↦ compressedVCOracle_commute i j
 
