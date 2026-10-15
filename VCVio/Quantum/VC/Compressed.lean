@@ -11,8 +11,57 @@ public import VCVio.Quantum.Oracle.Compressed.Equivalence
 /-!
 # k compressed oracles
 
-The emulated oracle `Quantum.compressedVCOracle k X Y` of ePrint 2025/2166 (Lemma 9.2,
-l.3264–3268): `k` compressed oracles, one database per oracle, all started empty.
+The emulated oracle of Lemma 9.2 of Chiesa, Di, Hu and Zheng (ePrint 2025/2166, l.3262–3268):
+`k` compressed standard oracles `COstd` (Section 4.3, l.1400–1420), one database `D_i` per
+oracle, all started empty. Port `i` applies the compressed standard oracle to the query register
+and to `D_i` and leaves the other databases alone. This file proves the two facts about it that
+Definition 7.3 asks of an emulated oracle and that hold for every multi-extractor: P1 with
+`κsim = 0` and the first half of P2, the commutation of the ports (Lemma 9.2, first equation,
+l.3266–3268).
+
+## Main definitions
+
+* `Quantum.compressDatabases k X Y`: the compression unitary on every database, `C^{⊗k}`.
+* `Quantum.compressedVCOracle k X Y`: the k compressed oracles, a `Quantum.VCOracle k X Y`.
+* `Quantum.purifiedVCOracle k X Y`: the purified random oracle, which holds the uniform
+  superposition of the families `H : Fin k → X → Y` and answers port `i` from `H i`.
+
+## Main results
+
+* `Quantum.compressedVCOracle_U_mem_unitaryGroup`: every port is unitary.
+* `Quantum.compressedVCOracle_U_eq_conj`: port `i` is the table oracle reading `D_i`, conjugated by
+  `1 ⊗ C^{⊗k}`.
+* `Quantum.compressedVCOracle_commute`, `Quantum.oraclesCommute_compressedVCOracle`: the ports
+  commute, in the form `Quantum.OraclesCommute` of Definition 7.3 (l.2841–2843).
+* `Quantum.outcomeLawWith_coherent_compressedVCOracle`: every program, with any local operations,
+  leaves and outcome map, has the same law against the coherent k compressed oracles as the
+  average of its laws against the random oracles `Quantum.romVCOracle k X Y H`. The classical-port
+  form is `Quantum.outcomeLawWith_compressedVCOracle`.
+* `Quantum.simulates_compressedVCOracle`: P1 with `κsim = 0` against the uniform weights
+  `StdSimplex.barycenter`, and `Quantum.simulates_uniformWeights_compressedVCOracle` against
+  `Quantum.uniformWeights` of a sampleable type of families (Lemma 4.4 for `k` oracles, l.1422).
+
+## Proof
+
+The equality of laws is proved at the level of matrices, without a hybrid argument. Port `i` is
+`(1 ⊗ C^{⊗k}) T_i (1 ⊗ C^{⊗k})`, where `T_i` is the table oracle reading `D_i`. The isometry
+`V = C^{⊗k} B`, where `B` embeds a family of functions as a tuple of total databases, intertwines
+the ports of the purified oracle with those of the k compressed oracles and carries the initial
+state of the purified oracle, the uniform superposition, to the empty databases
+(`Quantum.EmulatedOracle.outcomeLawWith_eq_of_intertwine`). The rows `⟨H|` resolve the identity,
+intertwine the ports of the purified oracle with those of the random oracle `H`, and read the
+uniform superposition with weight `|Y|^{-k|X|}`
+(`Quantum.EmulatedOracle.outcomeLawWith_eq_sum_of_intertwine`). Both steps hold for any emulated
+oracles and pass to the coherent oracles (`Quantum.EmulatedOracle.coherent_U_mul_one_kronecker`).
+
+## Departures from the paper
+
+* The equality of laws needs a family of functions, `Nonempty (Fin k → X → Y)`. Without one the
+  random-oracle side has no models, so its law is `0`, while a program against the compressed
+  oracles still has a law. The hypothesis is weaker than `Nonempty Y`, and holds under
+  `SampleableType (Fin k → X → Y)`.
+* `Quantum.compressedVCOracle_commute` is stated on the register `Fin k → Database X Y`;
+  `Quantum.oraclesCommute_compressedVCOracle` is the form of Definition 7.3.
 -/
 
 public section
@@ -361,9 +410,10 @@ theorem outcomeLawWith_eq_of_intertwine (E₁ E₂ : EmulatedOracle P In) (M : M
 /-- Kraus maps whose operators `M ω` resolve the identity (`∑ ω, (M ω)ᴴ M ω = 1`), applied on the
 second factor, preserve the trace in sum. -/
 theorem sum_trace_amplifyLeft_conj {Ω S B : Type*} {S' : Ω → Type*} [Fintype Ω] [Fintype S]
-    [DecidableEq S] [∀ ω, Fintype (S' ω)] [Fintype B] [DecidableEq B] (M : ∀ ω, Matrix (S' ω) S ℂ)
+    [DecidableEq S] [∀ ω, Fintype (S' ω)] [Fintype B] (M : ∀ ω, Matrix (S' ω) S ℂ)
     (hM : ∑ ω, (M ω)ᴴ * M ω = 1) (N : Matrix (B × S) (B × S) ℂ) :
     ∑ ω, ((MatrixMap.conj (M ω)).amplifyLeft B N).trace = N.trace := by
+  classical
   simp only [MatrixMap.amplifyLeft_conj, MatrixMap.conj_apply]
   have h (ω : Ω) : (((1 : Matrix B B ℂ) ⊗ₖ M ω) * N * ((1 : Matrix B B ℂ) ⊗ₖ M ω)ᴴ).trace =
       (((1 : Matrix B B ℂ) ⊗ₖ ((M ω)ᴴ * M ω)) * N).trace := by
@@ -657,7 +707,13 @@ theorem conj_evalRow_purifiedVCOracle_init (H : Fin k → X → Y) :
     _ • (SubState.basis ()).matrix
   rw [matrix_uniformState, ← LinearMap.comp_apply, ← MatrixMap.conj_mul, SubState.matrix_basis]
   ext ⟨⟩ ⟨⟩
-  simp [Matrix.mul_apply, evalRow, uniformColumnOn, cellAmp_mul_self]
+  simp only [evalRow, uniformColumnOn, MatrixMap.conj_apply, conjTranspose_mul, Matrix.mul_apply,
+    Finset.univ_unique, PUnit.default_eq_unit, of_apply, ite_mul, one_mul, zero_mul,
+    Finset.sum_ite_eq', Finset.mem_univ, ↓reduceIte, single_apply_same, mul_one, Finset.sum_const,
+    Finset.card_singleton, one_smul, conjTranspose_apply, star_cellAmp, RCLike.star_def,
+    MonoidWithZeroHom.map_ite_one_zero, mul_ite, mul_zero, cellAmp_mul_self, Fintype.card_pi,
+    Finset.prod_const, Finset.card_univ, Fintype.card_fin, Nat.cast_pow, NNReal.coe_pow,
+    NNReal.coe_natCast, Complex.ofReal_inv, Complex.ofReal_pow, Complex.ofReal_natCast]
   change _ = _ * Matrix.single () () (1 : ℂ) () ()
   rw [Matrix.single_apply_same, mul_one]
 

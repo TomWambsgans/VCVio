@@ -21,15 +21,15 @@ register of the emulated oracle of the theorem is the tuple of databases `(D_i)_
 * `Quantum.Conditions`: conditions 1–3 of Theorem 8.4 (l.3031–3054), stated against the general
   vector-commitment interface `VectorCommitment` with a randomized opening. Condition 1 is the
   data of a `VectorCommitment.CheckIOForm` for every scheme.
-* `Quantum.offlineLabel`: the partition `P_offline = (P_good, P_bad)` (l.3029) as a labelling of
-  databases.
+* `Quantum.offlineLabel`: the partition `P_offline = (P_good, P_bad)` (l.3028–3029) as a labelling
+  of databases.
 * `Quantum.onlineLabel`: the partition `P_online^{(tic_i)_{i ∈ [j]}, (D_i)_{i ≠ j'}}` of the
-  database `D_{j'}` (l.3076–3088), by the extractions of the tuples `tic_i` with the other
+  database `D_{j'}` (l.3078–3088), by the extractions of the tuples `tic_i` with the other
   databases fixed.
 * `Quantum.q1`, `Quantum.q2`: the query counts `q1` and `q2` of the error bounds (l.3077–3078).
 
 The labels are the arguments of `Quantum.Database.instability` in the error bounds of Theorem 8.4
-(l.3058–3075). This file states no bound.
+(l.3056–3074). This file states no bound.
 
 ## Departures from the paper
 
@@ -40,8 +40,9 @@ The labels are the arguments of `Quantum.Database.instability` in the error boun
   (`DetVectorCommitment.toVectorCommitment`) the support is a single proof.
 * The paper's `Check^{D}` (l.3043) is `VectorCommitment.CheckIOForm.checkOn`: the check runs
   `OutputIO` and rejects any listed query outside the domain of the database.
-* The paper's `q_VC(qs, ℓ)` has the length as a second argument; `CheckIOForm.qVC` absorbs it, so
-  `q1` and `q2` use `qVC` of the size of the opened set alone.
+* The paper's `q_VC(qs, ℓ)` has the length as a second argument; `CheckIOForm.qVC` is the query
+  complexity of `VC i` at its own length `ℓ i`, so `q1` and `q2` use `qVC` of the size of the opened
+  set alone. The paper evaluates `q1` at `ℓmax` (l.3078); here each `VC i` is evaluated at `ℓ i`.
 * Conditions 2 and 3 are stated for the full tuples `Quantum.TpIC.full` of `k` distinct indices
   (`hk : 1 ≤ k`), as in the paper (tuples of length `k`, l.3036, l.3049).
 -/
@@ -61,8 +62,8 @@ section labels
 variable {X : Type uX} {Y : Type}
 
 /-- **The offline partition** `P_offline = (P_good, P_bad)` of Theorem 8.4 (ePrint 2025/2166,
-l.3029), as the labelling of a database by its membership in `P_good`. Its instability
-`Quantum.Database.instability (offlineLabel Pgood) t` enters the offline error (l.3068–3071). -/
+l.3028–3029), as the labelling of a database by its membership in `P_good`. Its instability
+`Quantum.Database.instability (offlineLabel Pgood) t` enters the offline error (l.3067). -/
 @[expose]
 def offlineLabel (Pgood : Set (Database X Y)) [DecidablePred (· ∈ Pgood)] :
     Database X Y → Bool :=
@@ -77,7 +78,7 @@ theorem offlineLabel_eq_true_iff (Pgood : Set (Database X Y)) [DecidablePred (·
 variable {k : ℕ} {Cm : Type*} {Dm : Fin k → Type*}
 
 /-- **The online partition** `P_online^{(tic_i)_{i ∈ [j]}, (D_i)_{i ≠ j'}}` of Theorem 8.4
-(ePrint 2025/2166, l.3076–3088): with the databases other than `D_{j'}` fixed to those of `Dfix`,
+(ePrint 2025/2166, l.3078–3088): with the databases other than `D_{j'}` fixed to those of `Dfix`,
 a database `D` for `D_{j'}` is labelled by the extractions of the `j` tuples `tics a` from the
 tuple of databases `Dfix` with `D` in place `j'`. The partition element of a tuple
 `(tdm_a)_{a ∈ [j]}` of extractions is the set of databases with that label. -/
@@ -160,7 +161,7 @@ variable {k : ℕ} {X : Type uX} {Y : Type} {Msg : Type uM} {Cm : Type} {ℓ : F
 /-- **The query count `q1`** of Theorem 8.4 (ePrint 2025/2166, l.3077):
 `q1 := max_{Σ_i qs_i ≤ qs} Σ_i qVC_i(qs_i)`, the largest total number of queries of the `k`
 checks when the opened sets have sizes summing to at most `qs`. It enters the offline error
-(l.3068–3071). -/
+(l.3067). -/
 @[expose]
 def q1 (io : ∀ i, (VC i).CheckIOForm) (qs : ℕ) : ℕ :=
   ((Finset.univ : Finset (Fin k → Fin (qs + 1))).filter fun v ↦ ∑ i, (v i : ℕ) ≤ qs).sup
@@ -168,7 +169,7 @@ def q1 (io : ∀ i, (VC i).CheckIOForm) (qs : ℕ) : ℕ :=
 
 /-- **The query count `q2`** of Theorem 8.4 (ePrint 2025/2166, l.3078): `q2 := max_i qVC_i(ℓ_i)`,
 the largest number of queries of a check that opens a whole vector. It enters the extraction
-error (l.3065–3067). -/
+error (l.3063–3065). -/
 @[expose]
 def q2 (io : ∀ i, (VC i).CheckIOForm) : ℕ :=
   Finset.univ.sup fun i ↦ (io i).qVC (ℓ i)
