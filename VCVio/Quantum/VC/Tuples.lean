@@ -21,7 +21,8 @@ Multi-extraction for a family of `k` vector commitments works on tuples
 * `TpICD k Cm Dm`: pairs of a `TpIC` and a `TpD` of the same length.
 
 The definitions are classical. Lengths range over `TupleLen k`, the nonzero elements of
-`Fin (k + 1)`, so that every type here is finite as soon as its components are.
+`Fin (k + 1)`, so that every type here is finite as soon as its components are. The
+commitment type `Cm` and the decommitment family `Dm` live in independent universes.
 
 ## Main definitions
 
@@ -32,6 +33,8 @@ The definitions are classical. Lengths range over `TupleLen k`, the nonzero elem
 -/
 
 public section
+
+universe u v
 
 namespace Quantum
 
@@ -88,33 +91,34 @@ end TupleLen
 /-- `TpIC` (l.2766): tuples `((idx_i, cm_i))_{i ∈ [j]}`. Position `i` belongs to the scheme
 `VC_i`, and `idx_i` names its oracle. -/
 @[expose]
-def TpIC (k : ℕ) (Cm : Type) : Type :=
+def TpIC (k : ℕ) (Cm : Type u) : Type u :=
   Σ j : TupleLen k, Fin j.len → Fin k × Cm
 
 /-- Decommitment tuples of length `j` (l.2769): position `i` holds `dm_i : Dm i` of the scheme
 `VC_i`. -/
-abbrev TpDLen (k : ℕ) (Dm : Fin k → Type) (j : TupleLen k) : Type :=
+abbrev TpDLen (k : ℕ) (Dm : Fin k → Type v) (j : TupleLen k) : Type v :=
   ∀ i : Fin j.len, Dm (Fin.castLE j.len_le i)
 
 /-- `TpD` (l.2769): decommitment tuples of every length. -/
 @[expose]
-def TpD (k : ℕ) (Dm : Fin k → Type) : Type :=
+def TpD (k : ℕ) (Dm : Fin k → Type v) : Type v :=
   Σ j : TupleLen k, TpDLen k Dm j
 
 /-- `TpICD` (l.2771): a commitment tuple with a decommitment tuple of the same length. Equal
 lengths are enforced by the type. -/
 @[expose]
-def TpICD (k : ℕ) (Cm : Type) (Dm : Fin k → Type) : Type :=
+def TpICD (k : ℕ) (Cm : Type u) (Dm : Fin k → Type v) : Type (max u v) :=
   Σ tic : TpIC k Cm, TpDLen k Dm tic.1
 
 /-- The decommitment type of the scheme `VC_i` in a family of vector commitments:
 `dm_i = (m_i, td_i)` with `m_i ∈ (Σ ∪ {⊥})^{ℓ_i}` (l.2769). -/
-abbrev DmOf {k : ℕ} (ℓ : Fin k → ℕ) (Msg : Type) (Td : Fin k → Type) (i : Fin k) : Type :=
+abbrev DmOf {k : ℕ} (ℓ : Fin k → ℕ) (Msg : Type u) (Td : Fin k → Type v) (i : Fin k) :
+    Type (max u v) :=
   PartialVec (ℓ i) Msg × Td i
 
 section instances
 
-variable {k : ℕ} {Cm : Type} {Dm : Fin k → Type}
+variable {k : ℕ} {Cm : Type u} {Dm : Fin k → Type v}
 
 /-- Commitment tuples over a finite type form a finite type. -/
 instance [Fintype Cm] : Fintype (TpIC k Cm) :=
@@ -144,7 +148,7 @@ end instances
 
 namespace TpIC
 
-variable {k : ℕ} {Cm : Type}
+variable {k : ℕ} {Cm : Type u}
 
 /-- The oracle indices `(idx_i)_{i ∈ [j]}` of a tuple. -/
 @[expose]

@@ -124,4 +124,16 @@ and the leaves swap. -/
 example : (extract enc 1 true (Function.update D (.inl (false, true)) (some true))).1 =
     ![some false, some true] := by decide
 
+/-! ## Universe canaries -/
+
+/-- Commitment tuples over a type in `Type 1` are finite. -/
+example : Fintype (TpIC 2 (ULift.{1} Bool)) := inferInstance
+
+/-- Pairs of tuples with commitments and decommitments in different universes are finite. -/
+example : Fintype (TpICD 2 (ULift.{1} Bool) fun _ ↦ ULift.{2} Bool) := inferInstance
+
+/-- A multi-extractor with commitments, decommitments and states in three nonzero universes. -/
+example : MultiExtractor 2 (ULift.{1} Bool) (fun _ ↦ ULift.{2} Bool) (ULift.{3} Unit) :=
+  ⟨fun _ _ _ ↦ ⟨true⟩⟩
+
 end VCVioTest.SaltedMerkleCanary

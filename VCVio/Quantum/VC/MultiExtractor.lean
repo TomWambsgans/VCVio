@@ -50,19 +50,21 @@ top of them.
 
 public section
 
+universe u v w
+
 namespace Quantum
 
 /-- A multi-extractor (ePrint 2025/2166, §7, l.2773–2776): a deterministic classical map from a
 commitment tuple and a basis state `s : S` of the oracle's private register to a decommitment tuple
 of the same length. The length is preserved by the type. "Polynomial time" (l.2784) is not part
 of the definition; `extract` is any function. -/
-structure MultiExtractor (k : ℕ) (Cm : Type) (Dm : Fin k → Type) (S : Type) where
+structure MultiExtractor (k : ℕ) (Cm : Type u) (Dm : Fin k → Type v) (S : Type w) where
   /-- `MultiExtract(tic, S)`. -/
   extract : (tic : TpIC k Cm) → S → TpDLen k Dm tic.1
 
 namespace MultiExtractor
 
-variable {k : ℕ} {Cm : Type} {Dm : Fin k → Type} {S : Type}
+variable {k : ℕ} {Cm : Type u} {Dm : Fin k → Type v} {S : Type w}
 
 /-- Admissibility (ePrint 2025/2166, Def 7.1, l.2777–2783), with prefix consistency required only
 for tuples with distinct indices; see the module docstring for why the literal definition is
