@@ -30,7 +30,7 @@ properties:
   general initial substate `ρ`, against the coherent single-port view of the oracle
   (`Quantum.EmulatedOracle.coherent`, l.1339–1342). The paper's start state `|0^ℓ⟩` (l.2849) is
   the case of a pure `ρ`. Adversaries with classically named ports translate to the coherent view
-  through `Quantum.QuantumComp.toCoherent`, and every property has a corollary for them
+  through `Quantum.QuantumComp.toCoherent`, and P1, P3, P4 and P5 have corollaries for them
   (`…_of_classicalPorts`).
 * **Universes.** The outcomes of the adversary's local operations (`LocalSig.instruments.{v}`)
   and its leaves (`W : QReg → Type w`) may lie in any universes: every property is universe
