@@ -19,8 +19,9 @@ the emulated oracle, and the constant extractor.
   the toy instance; the reference model is the random-oracle model, the uniform distribution
   over all functions.
 * The constant extractor is admissible (Def 7.1).
-* `Quantum.run₂_extractQuery_branch` applies: on the toy instance every extraction branch is the
-  identity, so extraction is lossless there.
+* `Quantum.run₂_extractQuery_branch` applies: on the toy instance the unique successful
+  extraction branch, at `some tdm`, is the identity (the branch at `none` is zero), so extraction
+  is lossless there.
 * `Quantum.comError_of_pure` applies: its hypotheses hold for the program that returns at once,
   from a basis state. Since the zero oracle is the identity, the commutation defect vanishes and
   the distance is zero.
@@ -95,17 +96,17 @@ noncomputable def romRef (H : Fin 1 → Fin 2 → Fin 2) :
     QuantumRuntime (cohSpec (oIn 1 (Fin 2) (Fin 2))) :=
   (romVCOracle 1 (Fin 2) (Fin 2) H).coherent.toRuntime
 
-/-- The five properties elaborate on the toy instance. -/
+/-- The five properties elaborate on the toy instance, against adversaries in `Type`. -/
 example (κ : MEErrors) : Prop :=
-  Simulates (uniformWeights _) romRef zeroOracle κ.sim ∧ OraclesCommute zeroOracle ∧
-    ComBound zeroOracle toyME code0 κ.com ∧
-    ExtractionCorrect (fun _ ↦ trivialVC) zeroOracle toyME code0 κ.extract ∧
-    OfflineExtractable (fun _ ↦ trivialVC) zeroOracle toyME code0 κ.offline ∧
-    OnlineIndistinguishable zeroOracle toyME code0 κ.online
+  Simulates.{0, 0} (uniformWeights _) romRef zeroOracle κ.sim ∧ OraclesCommute zeroOracle ∧
+    ComBound.{0, 0} zeroOracle toyME code0 κ.com ∧
+    ExtractionCorrect.{0, 0} (fun _ ↦ trivialVC) zeroOracle toyME code0 κ.extract ∧
+    OfflineExtractable.{0, 0} (fun _ ↦ trivialVC) zeroOracle toyME code0 κ.offline ∧
+    OnlineIndistinguishable.{0, 0} zeroOracle toyME code0 κ.online
 
-/-- The bundle of Def 7.3 elaborates on the toy instance. -/
+/-- The bundle of Def 7.3 elaborates on the toy instance, against adversaries in `Type`. -/
 example (κ : MEErrors) : Prop :=
-  IsMultiExtractable (fun _ ↦ trivialVC) (fun _ ↦ ()) (uniformWeights _) romRef κ
+  IsMultiExtractable.{0, 0} (fun _ ↦ trivialVC) (fun _ ↦ ()) (uniformWeights _) romRef κ
 
 /-! ## Extraction on the toy instance -/
 
@@ -117,8 +118,8 @@ theorem extractProj_toyME (tic : TpIC 1 Unit) (tdm : TpDLen 1 Dm0 tic.1) :
   obtain rfl : (fun _ ↦ (fun _ ↦ none, ()) : TpDLen 1 Dm0 tic.1) = tdm := Subsingleton.elim _ _
   by_cases hs : s = s' <;> simp [extractProj, hs, one_apply]
 
-/-- Non-vacuity of `Quantum.run₂_extractQuery_branch`: on the toy instance every branch of
-extraction at `some tdm` is the identity. -/
+/-- Non-vacuity of `Quantum.run₂_extractQuery_branch`: on the toy instance the unique successful
+branch of extraction, at `some tdm`, is the identity. -/
 example (B : QReg) (tic : TpIC 1 Unit) (tdm : TpDLen 1 Dm0 tic.1) :
     ((zeroOracle.withExtract toyME code0).coherent.toRuntime.run₂ .instruments
       (extractQuery code0 B tic)).branch (some tdm) = LinearMap.id := by
