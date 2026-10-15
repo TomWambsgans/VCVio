@@ -9,6 +9,7 @@ public import Mathlib.Analysis.CStarAlgebra.ContinuousFunctionalCalculus.Order
 public import Mathlib.Analysis.CStarAlgebra.Matrix
 public import Mathlib.Analysis.MeanInequalities
 public import VCVio.Quantum.MatrixMap
+public import VCVio.Quantum.MatrixMap.OpNorm
 
 /-!
 # Norms of matrices and square roots of weights
@@ -24,12 +25,16 @@ facts, collected here so that they depend on Mathlib and `Quantum.MatrixMap` onl
 * **The operator norm.** Mathlib's `ℓ²` operator norm on matrices (scoped to
   `Matrix.Norms.L2Operator`) controls Kraus maps: `Xᴴ X ≤ ‖X‖² • 1`, so
   `re tr (X Y Xᴴ) ≤ ‖X‖² re tr Y` for positive semidefinite `Y`
-  (`Quantum.MatrixMap.re_trace_conj_le`). It is invariant under isometries
+  (`Quantum.MatrixMap.re_trace_conj_le`). The identity and isometries have norm at most one
+  (`Matrix.l2_opNorm_one_le`, `Matrix.l2_opNorm_le_one_of_conjTranspose_mul_self`, in
+  `VCVio.Quantum.MatrixMap.OpNorm`). The norm is invariant under isometries
   (`Quantum.MatrixMap.l2_opNorm_isometry_mul`, `Quantum.MatrixMap.l2_opNorm_mul_coisometry`),
   orthogonal projections have norm at most one (`Quantum.MatrixMap.l2_opNorm_le_one_of_proj`),
   and the deviation of a conjugate from the original is a commutator
-  (`Quantum.MatrixMap.l2_opNorm_conj_sub_self`). Submultiplicativity is Mathlib's
-  `Matrix.l2_opNorm_mul`.
+  (`Quantum.MatrixMap.l2_opNorm_conj_sub_self`). An operator that sends the blocks of an
+  orthogonal decomposition of its input into mutually orthogonal blocks of its output is
+  controlled block by block (`Quantum.MatrixMap.re_trace_conj_le_sum_of_blocks`).
+  Submultiplicativity is Mathlib's `Matrix.l2_opNorm_mul`.
 * **Square roots of series.** The `ℓ²` Minkowski inequality for series in `ℝ≥0∞`, in the form
   that a recursion on a program tree consumes: if each term is controlled by a sum of square
   roots, so is the series (`Quantum.rpow_inv_two_tsum_le_of_le_add` and
@@ -224,17 +229,59 @@ theorem sum_re_trace_conj_le [DecidableEq n] {ι : Type*} (s : Finset ι) (F : �
   rw [Finset.sum_mul]
   exact Finset.sum_le_sum fun r _ ↦ re_trace_conj_le (F r) hY
 
-/-- The identity matrix has operator norm at most one. -/
-theorem l2_opNorm_one_le [DecidableEq n] : ‖(1 : Matrix n n ℂ)‖ ≤ 1 := by
-  rw [Matrix.cstar_norm_def, map_one]
-  exact ContinuousLinearMap.norm_id_le
+/-- **Operator-norm bound block by block** (the blockwise estimate behind the coherent-index
+masses of ePrint 2025/2166, §4.2 and Lemma 5.7). Let `B k` be idempotents on the input of `F`
+that add up to the identity, let `B' k` be operators on its output with `(B' b)ᴴ B' a = 0` for
+`a ≠ b`, and let `F` send the block `B k` into the block `B' k`: `B' k F B k = F B k`. Then on a
+positive semidefinite `Y`, `re tr (F Y Fᴴ) ≤ ∑ₖ ‖F B k‖² re tr (B k Y (B k)ᴴ)`.
 
-/-- An isometry has operator norm at most one. -/
-theorem l2_opNorm_le_one_of_isometry [DecidableEq n] {U : Matrix m n ℂ} (hU : Uᴴ * U = 1) :
-    ‖U‖ ≤ 1 := by
-  have h := Matrix.l2_opNorm_conjTranspose_mul_self U
-  rw [hU] at h
-  nlinarith [l2_opNorm_one_le (n := n), norm_nonneg U]
+Orthogonal projections onto the values of a coherent index register, `|k⟩⟨k| ⊗ 1`, satisfy the
+hypotheses with `B' = B`, and an operator `∑ₖ |k⟩⟨k| ⊗ Fₖ` that is block diagonal in the index
+sends each block into itself. -/
+theorem re_trace_conj_le_sum_of_blocks [DecidableEq n] {κ : Type*} [Fintype κ]
+    (F : Matrix m n ℂ) {B : κ → Matrix n n ℂ} {B' : κ → Matrix m m ℂ} (hB : ∑ k, B k = 1)
+    (hBB : ∀ k, B k * B k = B k) (hB' : ∀ a b, a ≠ b → (B' b)ᴴ * B' a = 0)
+    (hF : ∀ k, B' k * F * B k = F * B k) {Y : Matrix n n ℂ} (hY : Y.PosSemidef) :
+    (conj F Y).trace.re ≤ ∑ k, ‖F * B k‖ ^ 2 * (conj (B k) Y).trace.re := by
+  classical
+  have hG : ∀ k, F * B k = B' k * (F * B k) := fun k ↦ by rw [← Matrix.mul_assoc, hF k]
+  have hsum : F = ∑ k, F * B k := by rw [← Matrix.mul_sum, hB, Matrix.mul_one]
+  have hcross : ∀ a b, a ≠ b → (F * B a * Y * (F * B b)ᴴ).trace = 0 := by
+    intro a b hab
+    have e : (F * B a * Y * (F * B b)ᴴ).trace =
+        (B' a * ((F * B a) * (Y * ((F * B b)ᴴ * (B' b)ᴴ)))).trace := by
+      conv_lhs => rw [hG a, hG b]
+      simp only [Matrix.conjTranspose_mul, Matrix.mul_assoc]
+    rw [e, Matrix.trace_mul_comm]
+    simp only [Matrix.mul_assoc, hB' a b hab, Matrix.mul_zero, Matrix.trace_zero]
+  have hdiag : ∀ a, (conj (F * B a) Y).trace.re ≤ ‖F * B a‖ ^ 2 * (conj (B a) Y).trace.re := by
+    intro a
+    have e : conj (F * B a) (conj (B a) Y) = conj (F * B a) Y := by
+      rw [← LinearMap.comp_apply (conj (F * B a)), ← conj_mul, Matrix.mul_assoc, hBB]
+    rw [← e]
+    exact re_trace_conj_le _ (hY.mul_mul_conjTranspose_same _)
+  have htr : (conj F Y).trace = ∑ a, (conj (F * B a) Y).trace := by
+    conv_lhs => rw [hsum]
+    simp only [conj_apply, Matrix.conjTranspose_sum, Matrix.sum_mul, Matrix.mul_sum,
+      Matrix.trace_sum]
+    refine Finset.sum_congr rfl fun a _ ↦ ?_
+    rw [Finset.sum_eq_single a (fun b _ hba ↦ hcross b a hba) (by simp)]
+  rw [htr, Complex.re_sum]
+  exact Finset.sum_le_sum fun a _ ↦ hdiag a
+
+/-- **Operator-norm bound block by block**, in `ℝ≥0∞`. -/
+theorem ofReal_trace_conj_le_sum_of_blocks [DecidableEq n] {κ : Type*} [Fintype κ]
+    (F : Matrix m n ℂ) {B : κ → Matrix n n ℂ} {B' : κ → Matrix m m ℂ} (hB : ∑ k, B k = 1)
+    (hBB : ∀ k, B k * B k = B k) (hB' : ∀ a b, a ≠ b → (B' b)ᴴ * B' a = 0)
+    (hF : ∀ k, B' k * F * B k = F * B k) {Y : Matrix n n ℂ} (hY : Y.PosSemidef) :
+    ENNReal.ofReal (conj F Y).trace.re ≤
+      ∑ k, ENNReal.ofReal (‖F * B k‖ ^ 2) * ENNReal.ofReal (conj (B k) Y).trace.re := by
+  refine (ENNReal.ofReal_le_ofReal
+    (re_trace_conj_le_sum_of_blocks F hB hBB hB' hF hY)).trans_eq ?_
+  have hnn : ∀ k, 0 ≤ (conj (B k) Y).trace.re := fun k ↦
+    (hY.mul_mul_conjTranspose_same (B k)).trace_re_nonneg
+  rw [ENNReal.ofReal_sum_of_nonneg fun k _ ↦ mul_nonneg (sq_nonneg _) (hnn k)]
+  exact Finset.sum_congr rfl fun k _ ↦ ENNReal.ofReal_mul (sq_nonneg _)
 
 /-- An orthogonal projection has operator norm at most one. -/
 theorem l2_opNorm_le_one_of_proj [DecidableEq n] {P : Matrix n n ℂ} (hP : Pᴴ = P)
@@ -251,14 +298,14 @@ theorem l2_opNorm_isometry_mul [DecidableEq m] [DecidableEq n] {U : Matrix l m �
   classical
   refine le_antisymm ?_ ?_
   · calc ‖U * X‖ ≤ ‖U‖ * ‖X‖ := Matrix.l2_opNorm_mul _ _
-      _ ≤ 1 * ‖X‖ := by gcongr; exact l2_opNorm_le_one_of_isometry hU
+      _ ≤ 1 * ‖X‖ := by gcongr; exact Matrix.l2_opNorm_le_one_of_conjTranspose_mul_self hU
       _ = ‖X‖ := one_mul _
   · calc ‖X‖ = ‖Uᴴ * (U * X)‖ := by rw [← Matrix.mul_assoc, hU, Matrix.one_mul]
       _ ≤ ‖Uᴴ‖ * ‖U * X‖ := Matrix.l2_opNorm_mul _ _
       _ ≤ 1 * ‖U * X‖ := by
           gcongr
           rw [Matrix.l2_opNorm_conjTranspose]
-          exact l2_opNorm_le_one_of_isometry hU
+          exact Matrix.l2_opNorm_le_one_of_conjTranspose_mul_self hU
       _ = ‖U * X‖ := one_mul _
 
 /-- **Unitary invariance, on the right.** Multiplying by a coisometry on the right preserves the
@@ -274,8 +321,9 @@ theorem l2_opNorm_mul_coisometry [DecidableEq n] [DecidableEq l] {V : Matrix n l
 `W X Vᴴ` from `X` has the operator norm of `W X - X V`. With `W = V` this is the norm of the
 commutator `[X, V]`. -/
 theorem l2_opNorm_conj_sub_self [DecidableEq n] (W : Matrix m m ℂ) {V : Matrix n n ℂ}
-    (hV : Vᴴ * V = 1) (hV' : V * Vᴴ = 1) (X : Matrix m n ℂ) :
+    (hV : Vᴴ * V = 1) (X : Matrix m n ℂ) :
     ‖W * X * Vᴴ - X‖ = ‖W * X - X * V‖ := by
+  have hV' : V * Vᴴ = 1 := _root_.mul_eq_one_comm.mp hV
   have h : W * X * Vᴴ - X = (W * X - X * V) * Vᴴ := by
     rw [Matrix.sub_mul, Matrix.mul_assoc X V, hV', Matrix.mul_one]
   rw [h, l2_opNorm_mul_coisometry (by rwa [Matrix.conjTranspose_conjTranspose])]

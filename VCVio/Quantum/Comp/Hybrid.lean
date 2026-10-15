@@ -25,7 +25,9 @@ against runtimes whose branches are contractions.
 
 A Kraus weight is at most the query mass times `∑ᵣ ‖U i r − W i r‖²` for the `ℓ²` operator norm
 (`Quantum.QuantumRuntime.krausWeight_le`), which gives the bound in terms of the query masses of
-ePrint 2025/2166, §4.2 (`Quantum.QuantumRuntime.rpow_inv_two_tsum_trace_conj_run_le_mass`).
+the ports (`Quantum.QuantumRuntime.rpow_inv_two_tsum_trace_conj_run_le_mass`). The masses of
+ePrint 2025/2166, §4.2, are those of a coherent index register, with the operator norm of each
+block; that form is in `VCVio.Quantum.Comp.HybridIndex`.
 
 ## The controlled runtime
 
@@ -262,7 +264,6 @@ end MatrixMap
 namespace SubInstrument
 
 /-- A relabelling gate preserves the trace. -/
-@[simp]
 theorem trace_relabel_branch_apply {A B : Type*} [Fintype A] [Fintype B] [DecidableEq A]
     [DecidableEq B] (e : A ≃ B) (u : Unit) (ρ : Matrix A A ℂ) :
     ((relabel e).branch u ρ).trace = ρ.trace := by
@@ -682,7 +683,9 @@ theorem rpow_inv_two_tsum_trace_conj_run_le' (x : QuantumComp L spec X A)
 
 /-- **The square-root hybrid bound by query masses**: the Kraus weight of the `j`-th call is at
 most the masses of the `j`-th call weighted by `∑ᵣ ‖U i r - W i r‖²`, for the `ℓ²` operator
-norm (ePrint 2025/2166, Lemma 5.7, with the masses of §4.2). -/
+norm (ePrint 2025/2166, Lemma 5.7, with the masses of the classical ports). The bound with the
+masses of a coherent index, as in §4.2, is
+`Quantum.QuantumRuntime.rpow_inv_two_tsum_trace_conj_run_le_indexMass`. -/
 theorem rpow_inv_two_tsum_trace_conj_run_le_mass (x : QuantumComp L spec X A)
     {Z : (Σ u, X u) → Type*} [∀ p, Fintype (Z p)] (O : ∀ p : Σ u, X u, Matrix (Z p) (p.1 × D) ℂ)
     (hO : ∀ p, (1 - (O p)ᴴ * O p).PosSemidef) {ρ : Matrix (A × D) (A × D) ℂ}
@@ -750,7 +753,7 @@ theorem rpow_inv_two_outcomeLawWith_le' {γ : Type*} [MeasurableSpace γ]
 /-- **The square-root hybrid bound for events, for programs within a query budget**: with at
 most `q = ∑ i ∈ t, b i` calls, the sum over the calls is at most `√(q · ∑ᵢ Cᵢ · mass i)`, where
 `Cᵢ = ∑ᵣ ‖U i r - W i r‖²` and `mass i` is the total query mass of port `i` (ePrint 2025/2166,
-Lemma 5.7 and §4.2, with Cauchy–Schwarz as in Cor 5.8). -/
+Lemma 5.7, with Cauchy–Schwarz as in Cor 5.8). -/
 theorem rpow_inv_two_outcomeLawWith_le_of_isQueryBound {γ : Type*} [MeasurableSpace γ]
     {x : QuantumComp L spec X A} {b : spec.Port → ℕ} (hx : x.IsQueryBound b)
     (t : Finset spec.Port) (ht : ∀ i ∉ t, b i = 0) (ρ : SubState A) (f : (Σ u, X u) → γ)

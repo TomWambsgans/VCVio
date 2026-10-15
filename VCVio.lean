@@ -394,6 +394,8 @@ public import VCVio.ProgramLogic.Unary.WriterTBridge
 public import VCVio.Quantum.Comp.Basic
 public import VCVio.Quantum.Comp.Combinators
 public import VCVio.Quantum.Comp.Hybrid
+public import VCVio.Quantum.Comp.HybridIndex
+public import VCVio.Quantum.Comp.HybridMeasure
 public import VCVio.Quantum.Comp.HybridProjected
 public import VCVio.Quantum.Comp.LocalSig
 public import VCVio.Quantum.Comp.QueryBound
@@ -405,6 +407,7 @@ public import VCVio.Quantum.MatrixMap
 public import VCVio.Quantum.MatrixMap.Family
 public import VCVio.Quantum.MatrixMap.Kraus
 public import VCVio.Quantum.MatrixMap.Norm
+public import VCVio.Quantum.MatrixMap.OpNorm
 public import VCVio.Quantum.Observe
 public import VCVio.Quantum.Oracle.Basis
 public import VCVio.Quantum.Oracle.Classical
