@@ -16,7 +16,8 @@ with trivial commitments, openings and checks, the random-oracle model at the ze
 the emulated oracle, and the constant extractor.
 
 * The challengers of P3 and P4, the experiment, the five properties and the bundle elaborate on
-  the toy instance; the reference model is the random-oracle model over all functions.
+  the toy instance; the reference model is the random-oracle model, the uniform distribution
+  over all functions.
 * The constant extractor is admissible (Def 7.1).
 * `Quantum.run₂_extractQuery_branch` applies: on the toy instance every extraction branch is the
   identity, so extraction is lossless there.
@@ -96,7 +97,7 @@ noncomputable def romRef (H : Fin 1 → Fin 2 → Fin 2) :
 
 /-- The five properties elaborate on the toy instance. -/
 example (κ : MEErrors) : Prop :=
-  Simulates romRef zeroOracle κ.sim ∧ OraclesCommute zeroOracle ∧
+  Simulates (uniformWeights _) romRef zeroOracle κ.sim ∧ OraclesCommute zeroOracle ∧
     ComBound zeroOracle toyME code0 κ.com ∧
     ExtractionCorrect (fun _ ↦ trivialVC) zeroOracle toyME code0 κ.extract ∧
     OfflineExtractable (fun _ ↦ trivialVC) zeroOracle toyME code0 κ.offline ∧
@@ -104,7 +105,7 @@ example (κ : MEErrors) : Prop :=
 
 /-- The bundle of Def 7.3 elaborates on the toy instance. -/
 example (κ : MEErrors) : Prop :=
-  IsMultiExtractable (fun _ ↦ trivialVC) (fun _ ↦ ()) romRef κ
+  IsMultiExtractable (fun _ ↦ trivialVC) (fun _ ↦ ()) (uniformWeights _) romRef κ
 
 /-! ## Extraction on the toy instance -/
 

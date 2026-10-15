@@ -39,18 +39,32 @@ variable {k : ℕ} {X Y Msg Cm Z : Type} [Fintype X] [DecidableEq X] [Fintype Y]
 /-! ## P1 -/
 
 /-- P1 is introduced against its quantifiers: every model simulates with the error `⊤`. -/
-example {Ω : Type} [SampleableType Ω] (Ref : Ω → QuantumRuntime (cohSpec (oIn k X Y))) :
-    Simulates Ref E ⊤ :=
+example {Ω : Type*} (p : Convexity.StdSimplex ℝ Ω)
+    (Ref : Ω → QuantumRuntime (cohSpec (oIn k X Y))) : Simulates p Ref E ⊤ :=
   fun _ _ _ _ _ _ _ ↦ ⟨by simp, by simp⟩
 
 /-- P1 is eliminated by application. -/
-example {Ω : Type} [SampleableType Ω] {Ref : Ω → QuantumRuntime (cohSpec (oIn k X Y))}
-    {κ : ℕ → ℝ≥0∞} (h : Simulates Ref E κ) {A : QReg} {W : QReg → Type}
+example {Ω : Type*} {p : Convexity.StdSimplex ℝ Ω} {Ref : Ω → QuantumRuntime (cohSpec (oIn k X Y))}
+    {κ : ℕ → ℝ≥0∞} (h : Simulates p Ref E κ) {A : QReg} {W : QReg → Type}
     (x : QuantumComp LocalSig.instruments.{0} (cohSpec (oIn k X Y)) W A) (f : (Σ u, W u) → Bool)
     (ρ : SubState A) (hx : x.IsQueryBound fun _ ↦ 0) :
     E.coherent.toRuntime.outcomeLawWith .instruments x ρ f {true} ≤
-      sampledLawWith Ref .instruments x ρ (fun _ ↦ f) {true} + κ 0 :=
+      mixedLawWith p Ref .instruments x ρ (fun _ ↦ f) {true} + κ 0 :=
   (h 0 x f ρ hx).1
+
+/-- P1 against a uniformly sampled model is introduced from bounds against the sampled law. -/
+example {Ω : Type} [SampleableType Ω] {Ref : Ω → QuantumRuntime (cohSpec (oIn k X Y))} :
+    Simulates (uniformWeights Ω) Ref E ⊤ :=
+  Simulates.ofUniform fun _ _ _ _ _ _ _ ↦ ⟨by simp, by simp⟩
+
+/-- P1 against a uniformly sampled model is eliminated to bounds against the sampled law. -/
+example {Ω : Type} [SampleableType Ω] {Ref : Ω → QuantumRuntime (cohSpec (oIn k X Y))}
+    {κ : ℕ → ℝ≥0∞} (h : Simulates (uniformWeights Ω) Ref E κ) {A : QReg} {W : QReg → Type}
+    (x : QuantumComp LocalSig.instruments.{0} (cohSpec (oIn k X Y)) W A) (f : (Σ u, W u) → Bool)
+    (ρ : SubState A) (hx : x.IsQueryBound fun _ ↦ 0) :
+    sampledLawWith Ref .instruments x ρ (fun _ ↦ f) {true} ≤
+      E.coherent.toRuntime.outcomeLawWith .instruments x ρ f {true} + κ 0 :=
+  (simulates_uniformWeights_iff.mp h 0 x f ρ hx).2
 
 /-! ## P2 -/
 
@@ -151,16 +165,16 @@ example {κ κ' : MEErrors} (h : κ ≤ κ') : κ.sim ≤ κ'.sim :=
   h.1
 
 /-- `IsMultiExtractable` is built from a witness. -/
-example {tdBot : ∀ i, Td i} {Ω : Type} [SampleableType Ω]
+example {tdBot : ∀ i, Td i} {Ω : Type*} {p : Convexity.StdSimplex ℝ Ω}
     {Ref : Ω → QuantumRuntime (cohSpec (oIn k X Y))} {κ : MEErrors}
-    (h : IsMultiExtractableWith VC E ME code tdBot Ref κ) :
-    IsMultiExtractable VC tdBot Ref κ :=
+    (h : IsMultiExtractableWith VC E ME code tdBot p Ref κ) :
+    IsMultiExtractable VC tdBot p Ref κ :=
   ⟨E, ME, Z, inferInstance, inferInstance, inferInstance, code, h⟩
 
 /-- `IsMultiExtractable` is destructured into its witness. -/
-example {tdBot : ∀ i, Td i} {Ω : Type} [SampleableType Ω]
+example {tdBot : ∀ i, Td i} {Ω : Type*} {p : Convexity.StdSimplex ℝ Ω}
     {Ref : Ω → QuantumRuntime (cohSpec (oIn k X Y))} {κ : MEErrors}
-    (h : IsMultiExtractable VC tdBot Ref κ) :
+    (h : IsMultiExtractable VC tdBot p Ref κ) :
     ∃ E : VCOracle k X Y, OraclesCommute E := by
   obtain ⟨E, _, _, _, _, _, _, hE⟩ := h
   exact ⟨E, hE.commute⟩
