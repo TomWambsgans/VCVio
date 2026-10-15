@@ -54,6 +54,17 @@ class DocumentationTests(unittest.TestCase):
         self.assertIn("Proof.lean:2:", errors[0])
         self.assertNotIn("not a comment", prose(doc))
 
+    def test_relative_links_are_not_checked_again_as_root_paths(self):
+        self.write("docs/root.md", "# Root\n")
+        self.write("Interop/Cryptol/docs/model.md", "# Model\n")
+        doc = self.write("Interop/Cryptol/README.md", "[model](docs/model.md#model)\n"
+                         "[reference]: docs/model.md\n")
+        self.assertEqual(local_references(self.root, doc), [])
+        doc.write_text("[model](docs/missing.md)\n")
+        errors = local_references(self.root, doc)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("missing link target", errors[0])
+
     def test_plans_and_pinned_sources_do_not_hide_broken_links(self):
         self.write("VCVio/Present.lean", "module\n")
         doc = self.write("docs/history.md", "Status: historical record.\n"
