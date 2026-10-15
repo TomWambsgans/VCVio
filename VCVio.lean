@@ -405,6 +405,7 @@ public import VCVio.Quantum.Comp.HybridIndex
 public import VCVio.Quantum.Comp.HybridMeasure
 public import VCVio.Quantum.Comp.HybridProjected
 public import VCVio.Quantum.Comp.LocalSig
+public import VCVio.Quantum.Comp.Potential
 public import VCVio.Quantum.Comp.QueryBound
 public import VCVio.Quantum.Comp.QueryMass
 public import VCVio.Quantum.Comp.Runtime
