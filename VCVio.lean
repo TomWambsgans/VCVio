@@ -404,6 +404,7 @@ public import VCVio.Quantum.MatrixMap
 public import VCVio.Quantum.MatrixMap.Family
 public import VCVio.Quantum.MatrixMap.OpNorm
 public import VCVio.Quantum.MatrixMap.Pinching
+public import VCVio.Quantum.MatrixMap.ProjectorEvent
 public import VCVio.Quantum.Observe
 public import VCVio.Quantum.Oracle.Basis
 public import VCVio.Quantum.Oracle.Classical
@@ -417,6 +418,7 @@ public import VCVio.Quantum.Oracle.Compressed.Instability
 public import VCVio.Quantum.Oracle.Compressed.Measurement
 public import VCVio.Quantum.Oracle.Compressed.Oracle
 public import VCVio.Quantum.Oracle.Compressed.Phase
+public import VCVio.Quantum.Oracle.Compressed.ProjectorEvent
 public import VCVio.Quantum.Oracle.Compressed.Size
 public import VCVio.Quantum.Oracle.Compressed.Truncation
 public import VCVio.Quantum.Oracle.Model
