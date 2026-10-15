@@ -440,6 +440,7 @@ public import VCVio.Quantum.Register
 public import VCVio.Quantum.Semantics
 public import VCVio.Quantum.SubInstrument
 public import VCVio.Quantum.VC.Compressed
+public import VCVio.Quantum.VC.Conditions
 public import VCVio.Quantum.VC.Emulated
 public import VCVio.Quantum.VC.MultiExtractable
 public import VCVio.Quantum.VC.MultiExtractor
