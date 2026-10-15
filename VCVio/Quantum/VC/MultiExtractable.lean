@@ -5,6 +5,7 @@ Authors: Quang Dao
 -/
 
 module
+public import Mathlib.Geometry.Convex.ConvexSpace.Barycenter
 public import VCVio.Quantum.VC.Emulated
 public import VCVio.Quantum.Oracle.ClassicalCalls
 public import VCVio.Quantum.Oracle.Model
@@ -47,9 +48,12 @@ properties:
 
 ## Departures from the paper
 
-* P1 bounds both differences, where the paper writes one (l.2836–2837). The reference model is any
-  sampled family of runtimes on the coherent signature; the random-oracle model is the family of
-  `Quantum.romVCOracle`.
+* P1 bounds both differences, where the paper writes one (l.2836–2837). The paper's distribution
+  `D(λ)` (l.2838) is a finitely supported distribution with real weights (Mathlib's
+  `Convexity.StdSimplex ℝ Ω`) over a family of runtimes on the coherent signature
+  (`Quantum.mixedLawWith`). The random-oracle model is the uniform distribution
+  (`Quantum.uniformWeights`) over the family of `Quantum.romVCOracle`, for which P1 reads as a
+  bound against `Quantum.sampledLawWith` (`Quantum.simulates_uniformWeights_iff`).
 * P2's distance `‖Ψ − Ψ′‖²` (l.2849–2851) is `Quantum.comError`, the trace of the defect
   `C = U_ME O_i − O_i U_ME` against the joint post-state of the oracle register and the adversary's
   output, summed over outcomes. On a unitary adversary from a pure state it is `‖C V |ψ⟩|ϕ⟩‖²`
@@ -64,6 +68,7 @@ properties:
 
 ## Main definitions
 
+* `Quantum.mixedLawWith`, `Quantum.uniformWeights`.
 * `Quantum.experiment`, `Quantum.oracleCall`, `Quantum.checkAt`, `Quantum.openAt`,
   `Quantum.extractQuery`, `Quantum.extractChallenger`, `Quantum.offlineChallenger`.
 * `Quantum.Simulates`, `Quantum.OraclesCommute`, `Quantum.comDefect`, `Quantum.comError`,
@@ -73,6 +78,7 @@ properties:
 
 ## Main results
 
+* `Quantum.mixedLawWith_uniformWeights`: the uniform mixture of runtimes is uniform sampling.
 * `Quantum.run₂_extractQuery_branch`: extraction is the measurement `{Π_tdm}` of
   `MultiExtract(tic, ·)` on the private register (the reading of game G0 of Lemma 9.3, l.3378).
 * `Quantum.comError_of_pure`: the pure form of P2's distance.
@@ -84,10 +90,10 @@ properties:
 
 public section
 
-open Matrix MeasureTheory OracleSpec
+open Matrix MeasureTheory OracleSpec Convexity
 open scoped ENNReal Kronecker
 
-universe u₁ v₁
+universe u v w u₁ v₁
 
 namespace Quantum
 
@@ -111,6 +117,57 @@ end experiment
 
 /-! ## P1: simulation indistinguishability -/
 
+section mixture
+
+variable {spec : QuantumOracleSpec.{u₁, v₁}} {L : LocalSig.{u, v}} {W : QReg → Type w}
+  {A : QReg} {Ω : Type*} {β : Type*} [MeasurableSpace β]
+
+/-- **The law against a finite mixture of runtimes.** For a finitely supported distribution `p`
+on `Ω` (Mathlib's `Convexity.StdSimplex ℝ Ω`: real weights `p.weights ω ≥ 0` with finite support
+summing to `1`) and a family of runtimes `R`, the law of an observation of the leaf reached by
+`x` when the oracle is realized by `R ω` with probability `p.weights ω`: the mixture
+`∑ ω, p.weights ω • (R ω).outcomeLawWith I x ρ (f ω)`. The observation sees the sampled value. -/
+@[expose]
+noncomputable def mixedLawWith (p : StdSimplex ℝ Ω) (R : Ω → QuantumRuntime spec)
+    (I : L.Interp) (x : QuantumComp L spec W A) (ρ : SubState A) (f : Ω → (Σ u, W u) → β) :
+    Measure β :=
+  p.weights.sum fun ω r ↦ ENNReal.ofReal r • (R ω).outcomeLawWith I x ρ (f ω)
+
+/-- The mixed law of a set is the weighted sum of its measures under the runs. -/
+theorem mixedLawWith_apply (p : StdSimplex ℝ Ω) (R : Ω → QuantumRuntime spec) (I : L.Interp)
+    (x : QuantumComp L spec W A) (ρ : SubState A) (f : Ω → (Σ u, W u) → β) (s : Set β) :
+    mixedLawWith p R I x ρ f s =
+      p.weights.sum fun ω r ↦ ENNReal.ofReal r * (R ω).outcomeLawWith I x ρ (f ω) s := by
+  simp only [mixedLawWith, Finsupp.sum, Measure.coe_finsetSum, Finset.sum_apply,
+    Measure.smul_apply, smul_eq_mul]
+
+/-- The uniform distribution on a sampleable type, as a finitely supported distribution: the
+barycenter of the standard simplex. -/
+@[expose]
+noncomputable def uniformWeights (Ω : Type) [SampleableType Ω] : StdSimplex ℝ Ω :=
+  letI := Fintype.ofFinite Ω
+  StdSimplex.barycenter
+
+/-- Every weight of the uniform distribution is `1 / |Ω|`. -/
+theorem uniformWeights_weights_apply (Ω : Type) [SampleableType Ω] (ω : Ω) :
+    (uniformWeights Ω).weights ω = (Nat.card Ω : ℝ)⁻¹ := by
+  let := Fintype.ofFinite Ω
+  rw [uniformWeights, StdSimplex.weights_barycenter_apply, Nat.card_eq_fintype_card]
+
+/-- **The uniform mixture is uniform sampling.** Against the uniform distribution, the mixed law
+is `Quantum.sampledLawWith`, the law of `R ω` for `ω` drawn with VCVio's `$ᵗ`. -/
+theorem mixedLawWith_uniformWeights {Ω : Type} [SampleableType Ω] (R : Ω → QuantumRuntime spec)
+    (I : L.Interp) (x : QuantumComp L spec W A) (ρ : SubState A) (f : Ω → (Σ u, W u) → β) :
+    mixedLawWith (uniformWeights Ω) R I x ρ f = sampledLawWith R I x ρ f := by
+  let := Fintype.ofFinite Ω
+  rw [sampledLawWith_eq_sum, mixedLawWith, Finsupp.sum_fintype _ _ fun _ ↦ by simp,
+    Finset.smul_sum]
+  refine Finset.sum_congr rfl fun ω _ ↦ ?_
+  rw [uniformWeights_weights_apply, Nat.card_eq_fintype_card,
+    ENNReal.ofReal_inv_of_pos (Nat.cast_pos.mpr Fintype.card_pos), ENNReal.ofReal_natCast]
+
+end mixture
+
 section simulation
 
 variable {k : ℕ} {X Y : Type} [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y]
@@ -118,43 +175,73 @@ variable {k : ℕ} {X Y : Type} [Fintype X] [DecidableEq X] [Fintype Y] [Decidab
 /-- **P1, simulation indistinguishability** (ePrint 2025/2166, Def 7.3, l.2835–2838): against
 every `t`-query adversary and every observation, the probability of observing `true` against the
 coherent emulated oracle and against the reference model differ by at most `κsim t`, in both
-directions. The reference model is a family `Ref` of runtimes on the coherent signature, sampled
-uniformly from `Ω` (the paper's `D(λ)`, l.2838); the random-oracle model is the family of
-`Quantum.romVCOracle`. -/
-def Simulates {Ω : Type} [SampleableType Ω] (Ref : Ω → QuantumRuntime (cohSpec (oIn k X Y)))
+directions. The reference model is the paper's `D(λ)` (l.2838): a finitely supported distribution
+`p` over a family `Ref` of runtimes on the coherent signature (`Quantum.mixedLawWith`). The
+random-oracle model is the uniform distribution (`Quantum.uniformWeights`) over the family of
+`Quantum.romVCOracle`; see `Quantum.simulates_uniformWeights_iff`. -/
+@[expose]
+def Simulates {Ω : Type*} (p : StdSimplex ℝ Ω) (Ref : Ω → QuantumRuntime (cohSpec (oIn k X Y)))
     (E : VCOracle k X Y) (κsim : ℕ → ℝ≥0∞) : Prop :=
   ∀ (t : ℕ) {A : QReg} {W : QReg → Type}
     (x : QuantumComp LocalSig.instruments.{0} (cohSpec (oIn k X Y)) W A)
     (f : (Σ u, W u) → Bool) (ρ : SubState A), x.IsQueryBound (fun _ ↦ t) →
     E.coherent.toRuntime.outcomeLawWith .instruments x ρ f {true} ≤
-        sampledLawWith Ref .instruments x ρ (fun _ ↦ f) {true} + κsim t ∧
-      sampledLawWith Ref .instruments x ρ (fun _ ↦ f) {true} ≤
+        mixedLawWith p Ref .instruments x ρ (fun _ ↦ f) {true} + κsim t ∧
+      mixedLawWith p Ref .instruments x ρ (fun _ ↦ f) {true} ≤
         E.coherent.toRuntime.outcomeLawWith .instruments x ρ f {true} + κsim t
 
-variable {Ω : Type} [SampleableType Ω] {Ref : Ω → QuantumRuntime (cohSpec (oIn k X Y))}
+variable {Ω : Type*} {p : StdSimplex ℝ Ω} {Ref : Ω → QuantumRuntime (cohSpec (oIn k X Y))}
   {E : VCOracle k X Y}
 
 /-- P1 is monotone in the error. -/
-theorem Simulates.mono {κ κ' : ℕ → ℝ≥0∞} (h : Simulates Ref E κ) (hκ : κ ≤ κ') :
-    Simulates Ref E κ' := fun t _ _ x f ρ hx ↦
+theorem Simulates.mono {κ κ' : ℕ → ℝ≥0∞} (h : Simulates p Ref E κ) (hκ : κ ≤ κ') :
+    Simulates p Ref E κ' := fun t _ _ x f ρ hx ↦
   ⟨(h t x f ρ hx).1.trans (add_le_add le_rfl (hκ t)),
     (h t x f ρ hx).2.trans (add_le_add le_rfl (hκ t))⟩
+
+/-- **P1 against a uniformly sampled reference model**, such as the random-oracle model: the
+mixture is `Quantum.sampledLawWith`. -/
+theorem simulates_uniformWeights_iff {Ω : Type} [SampleableType Ω]
+    {Ref : Ω → QuantumRuntime (cohSpec (oIn k X Y))} {κ : ℕ → ℝ≥0∞} :
+    Simulates (uniformWeights Ω) Ref E κ ↔
+      ∀ (t : ℕ) {A : QReg} {W : QReg → Type}
+        (x : QuantumComp LocalSig.instruments.{0} (cohSpec (oIn k X Y)) W A)
+        (f : (Σ u, W u) → Bool) (ρ : SubState A), x.IsQueryBound (fun _ ↦ t) →
+        E.coherent.toRuntime.outcomeLawWith .instruments x ρ f {true} ≤
+            sampledLawWith Ref .instruments x ρ (fun _ ↦ f) {true} + κ t ∧
+          sampledLawWith Ref .instruments x ρ (fun _ ↦ f) {true} ≤
+            E.coherent.toRuntime.outcomeLawWith .instruments x ρ f {true} + κ t := by
+  simp only [Simulates, mixedLawWith_uniformWeights]
+
+/-- **P1 from its uniform form**: bounds against `Quantum.sampledLawWith` give P1 against the
+uniform distribution. -/
+theorem Simulates.ofUniform {Ω : Type} [SampleableType Ω]
+    {Ref : Ω → QuantumRuntime (cohSpec (oIn k X Y))} {κ : ℕ → ℝ≥0∞}
+    (h : ∀ (t : ℕ) {A : QReg} {W : QReg → Type}
+      (x : QuantumComp LocalSig.instruments.{0} (cohSpec (oIn k X Y)) W A)
+      (f : (Σ u, W u) → Bool) (ρ : SubState A), x.IsQueryBound (fun _ ↦ t) →
+      E.coherent.toRuntime.outcomeLawWith .instruments x ρ f {true} ≤
+          sampledLawWith Ref .instruments x ρ (fun _ ↦ f) {true} + κ t ∧
+        sampledLawWith Ref .instruments x ρ (fun _ ↦ f) {true} ≤
+          E.coherent.toRuntime.outcomeLawWith .instruments x ρ f {true} + κ t) :
+    Simulates (uniformWeights Ω) Ref E κ :=
+  simulates_uniformWeights_iff.mpr h
 
 /-- **P1 for adversaries with classically named ports.** When the reference model is a family of
 emulated oracles, an adversary that names the port of each call classically and makes at most
 `b i` calls of port `i` sees the oracle and the model within `κsim (∑ i, b i)`. -/
 theorem Simulates.of_classicalPorts {F : Ω → VCOracle k X Y} {κ : ℕ → ℝ≥0∞}
-    (h : Simulates (fun ω ↦ (F ω).coherent.toRuntime) E κ) {A : QReg} {W : QReg → Type}
+    (h : Simulates p (fun ω ↦ (F ω).coherent.toRuntime) E κ) {A : QReg} {W : QReg → Type}
     (x : QuantumComp LocalSig.instruments.{0} (uSpec (Fin k) (oIn k X Y)) W A)
     (f : (Σ u, W u) → Bool) (ρ : SubState A) {b : Fin k → ℕ} (hx : x.IsQueryBound b) :
     E.toRuntime.outcomeLawWith .instruments x ρ f {true} ≤
-        sampledLawWith (fun ω ↦ (F ω).toRuntime) .instruments x ρ (fun _ ↦ f) {true} +
+        mixedLawWith p (fun ω ↦ (F ω).toRuntime) .instruments x ρ (fun _ ↦ f) {true} +
           κ (∑ i, b i) ∧
-      sampledLawWith (fun ω ↦ (F ω).toRuntime) .instruments x ρ (fun _ ↦ f) {true} ≤
+      mixedLawWith p (fun ω ↦ (F ω).toRuntime) .instruments x ρ (fun _ ↦ f) {true} ≤
         E.toRuntime.outcomeLawWith .instruments x ρ f {true} + κ (∑ i, b i) := by
   have h' := h (∑ i, b i) x.toCoherent f ρ (QuantumComp.isQueryBound_toCoherent hx)
-  simp only [sampledLawWith, EmulatedOracle.outcomeLawWith_toCoherent] at h'
-  simpa only [sampledLawWith] using h'
+  simp only [mixedLawWith, EmulatedOracle.outcomeLawWith_toCoherent] at h'
+  simpa only [mixedLawWith] using h'
 
 end simulation
 
@@ -202,6 +289,7 @@ variable {k : ℕ} {X Y Cm Z : Type} [Fintype X] [DecidableEq X] [Fintype Y] [De
 /-- **First half of P2** (ePrint 2025/2166, Def 7.3, l.2841–2843): the oracle unitaries commute
 when applied to two query registers `X₁Y₁` and `X₂Y₂` sharing the private register,
 `[(O_i)_{X₂Y₂S}, (O_j)_{X₁Y₁S}] = 0` for all `i, j`, including `i = j`. -/
+@[expose]
 def OraclesCommute (E : VCOracle k X Y) : Prop :=
   ∀ i j : Fin k, onFactor (slotSnd (X × Y) (X × Y) E.S) (E.U i) *
       onFactor (slotFst (X × Y) (X × Y) E.S) (E.U j) =
@@ -244,6 +332,7 @@ noncomputable def comError (i : Fin k) {A Env : QReg} {α : Type}
 /-- **Second half of P2** (ePrint 2025/2166, Def 7.3, l.2844–2857): against every `t`-query
 adversary querying `EO^(Ext)`, the commutation distance of every oracle `i` with the extractor is
 at most `κcom t`. -/
+@[expose]
 def ComBound (κcom : ℕ → ℝ≥0∞) : Prop :=
   ∀ (i : Fin k) (t : ℕ) {A Env : QReg} {α : Type}
     (x : QuantumComp₂ LocalSig.instruments.{0} (cohSpec (extIn k X Y Cm Z)) A
@@ -527,6 +616,7 @@ variable (E : VCOracle k X Y) (ME : MultiExtractor k Cm (DmOf ℓ Msg Td) E.S)
 `t`-query adversary querying `EO^(Ext)` whose oracle masses sum to at most `wVC` and whose
 extraction mass is at most `wME`, and every `n ≤ k`, the P3 challenger reports its event with
 probability at most `κ t wVC wME n`. -/
+@[expose]
 def ExtractionCorrect (κ : ℕ → ℝ≥0∞ → ℝ≥0∞ → ℕ → ℝ≥0∞) : Prop :=
   ∀ (hk : 1 ≤ k) (t n : ℕ) (wVC wME : ℝ≥0∞) {A : QReg} {W : QReg → Type}
     (x : QuantumComp LocalSig.instruments.{0} (cohSpec (extIn k X Y Cm Z)) W A)
@@ -543,6 +633,7 @@ def ExtractionCorrect (κ : ℕ → ℝ≥0∞ → ℝ≥0∞ → ℕ → ℝ≥
 /-- **P4, offline extractability** (ePrint 2025/2166, Def 7.3, l.2879–2911): against every
 `t`-query adversary querying `EO^(Ext)` with the mass bounds of P3, the P4 challenger reports
 its event with probability at most `κ t wVC wME qs`. -/
+@[expose]
 def OfflineExtractable [DecidableEq Msg] [∀ i, DecidableEq (Pf i)]
     (κ : ℕ → ℝ≥0∞ → ℝ≥0∞ → ℕ → ℝ≥0∞) : Prop :=
   ∀ (hk : 1 ≤ k) (t qs : ℕ) (wVC wME : ℝ≥0∞) {A : QReg} {W : QReg → Type}
@@ -631,6 +722,7 @@ whose oracle, extraction and record masses in the world `Record(U)` are at most 
 `Record(MultiExtract, U)` satisfy `√p₁ ≤ √p₂ + √κ` and `√p₂ ≤ √p₁ + √κ`, that is,
 `(√p₁ − √p₂)² ≤ κ t wVC wME wRec`. Both worlds start with every cell of the recording register
 at `bot`. -/
+@[expose]
 def OnlineIndistinguishable (κ : ℕ → ℝ≥0∞ → ℝ≥0∞ → ℝ≥0∞ → ℝ≥0∞) : Prop :=
   ∀ (Yr Cell : Type) [Fintype Yr] [DecidableEq Yr] [Fintype Cell] [DecidableEq Cell] (bot : Cell)
     (U : Matrix (Yr × Cell) (Yr × Cell) ℂ) (hU : U ∈ unitaryGroup (Yr × Cell) ℂ)
@@ -729,6 +821,7 @@ theorem le_def {κ κ' : MEErrors} : κ ≤ κ' ↔ κ.sim ≤ κ'.sim ∧ κ.co
 /-- **Monotonicity of the errors** (ePrint 2025/2166, l.2937): `κsim`, `κcom`, `κoffline` and
 `κonline` are monotone in all their arguments. It is a hypothesis to be assumed where needed, not
 part of `Quantum.IsMultiExtractableWith`. -/
+@[expose]
 def Monotone (κ : MEErrors) : Prop :=
   _root_.Monotone κ.sim ∧ _root_.Monotone κ.com ∧
     _root_.Monotone (fun p : ℕ × ℝ≥0∞ × ℝ≥0∞ × ℕ ↦ κ.offline p.1 p.2.1 p.2.2.1 p.2.2.2) ∧
@@ -748,12 +841,12 @@ extractor is admissible (Def 7.1, repaired as in `Quantum.MultiExtractor.Admissi
 `⊥ = (⊥^ℓ_i, tdBot i)`, and P1–P5 hold with the errors `κ`. -/
 structure IsMultiExtractableWith {Z : Type} [Fintype Z] [DecidableEq Z] [AddGroup Z]
     (E : VCOracle k X Y) (ME : MultiExtractor k Cm (DmOf ℓ Msg Td) E.S)
-    (code : TpDCode k (DmOf ℓ Msg Td) Z) (tdBot : ∀ i, Td i) {Ω : Type} [SampleableType Ω]
+    (code : TpDCode k (DmOf ℓ Msg Td) Z) (tdBot : ∀ i, Td i) {Ω : Type*} (p : StdSimplex ℝ Ω)
     (Ref : Ω → QuantumRuntime (cohSpec (oIn k X Y))) (κ : MEErrors) : Prop where
   /-- Def 7.1: the extractor is admissible. -/
   admissible : ME.Admissible fun i ↦ ((fun _ ↦ none), tdBot i)
   /-- P1: the oracle simulates the reference model. -/
-  sim : Simulates Ref E κ.sim
+  sim : Simulates p Ref E κ.sim
   /-- P2, first half: the oracle unitaries commute. -/
   commute : OraclesCommute E
   /-- P2, second half: the oracles almost commute with the extractor. -/
@@ -769,21 +862,22 @@ structure IsMultiExtractableWith {Z : Type} [Fintype Z] [DecidableEq Z] [AddGrou
 l.2829–2939): there are an emulated oracle, a multi-extractor and an encoding of decommitment
 tuples for which `Quantum.IsMultiExtractableWith` holds. The existential is the paper's
 definition. -/
-def IsMultiExtractable (tdBot : ∀ i, Td i) {Ω : Type} [SampleableType Ω]
+@[expose]
+def IsMultiExtractable (tdBot : ∀ i, Td i) {Ω : Type*} (p : StdSimplex ℝ Ω)
     (Ref : Ω → QuantumRuntime (cohSpec (oIn k X Y))) (κ : MEErrors) : Prop :=
   ∃ (E : VCOracle k X Y) (ME : MultiExtractor k Cm (DmOf ℓ Msg Td) E.S) (Z : Type)
     (_ : Fintype Z) (_ : DecidableEq Z) (_ : AddGroup Z) (code : TpDCode k (DmOf ℓ Msg Td) Z),
-    IsMultiExtractableWith VC E ME code tdBot Ref κ
+    IsMultiExtractableWith VC E ME code tdBot p Ref κ
 
 variable {VC}
 
 /-- Def 7.3 for a given oracle is monotone in the errors. -/
 theorem IsMultiExtractableWith.mono {Z : Type} [Fintype Z] [DecidableEq Z] [AddGroup Z]
     {E : VCOracle k X Y} {ME : MultiExtractor k Cm (DmOf ℓ Msg Td) E.S}
-    {code : TpDCode k (DmOf ℓ Msg Td) Z} {tdBot : ∀ i, Td i} {Ω : Type} [SampleableType Ω]
+    {code : TpDCode k (DmOf ℓ Msg Td) Z} {tdBot : ∀ i, Td i} {Ω : Type*} {p : StdSimplex ℝ Ω}
     {Ref : Ω → QuantumRuntime (cohSpec (oIn k X Y))} {κ κ' : MEErrors}
-    (h : IsMultiExtractableWith VC E ME code tdBot Ref κ) (hκ : κ ≤ κ') :
-    IsMultiExtractableWith VC E ME code tdBot Ref κ' where
+    (h : IsMultiExtractableWith VC E ME code tdBot p Ref κ) (hκ : κ ≤ κ') :
+    IsMultiExtractableWith VC E ME code tdBot p Ref κ' where
   admissible := h.admissible
   sim := h.sim.mono hκ.1
   commute := h.commute
@@ -793,9 +887,10 @@ theorem IsMultiExtractableWith.mono {Z : Type} [Fintype Z] [DecidableEq Z] [AddG
   online := h.online.mono hκ.2.2.2.2
 
 /-- Def 7.3 is monotone in the errors. -/
-theorem IsMultiExtractable.mono {tdBot : ∀ i, Td i} {Ω : Type} [SampleableType Ω]
+theorem IsMultiExtractable.mono {tdBot : ∀ i, Td i} {Ω : Type*} {p : StdSimplex ℝ Ω}
     {Ref : Ω → QuantumRuntime (cohSpec (oIn k X Y))} {κ κ' : MEErrors}
-    (h : IsMultiExtractable VC tdBot Ref κ) (hκ : κ ≤ κ') : IsMultiExtractable VC tdBot Ref κ' :=
+    (h : IsMultiExtractable VC tdBot p Ref κ) (hκ : κ ≤ κ') :
+    IsMultiExtractable VC tdBot p Ref κ' :=
   let ⟨E, ME, Z, i₁, i₂, i₃, code, hE⟩ := h
   ⟨E, ME, Z, i₁, i₂, i₃, code, hE.mono hκ⟩
 
