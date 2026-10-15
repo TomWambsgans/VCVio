@@ -27,7 +27,8 @@ Lemma 5.7, its form with the masses of a coherent index, and its Cor 5.8 on leav
   differ only on the block of the index `1`, and the input lies in the block `0`. The error term
   with the index masses of §4.2 is `0` (the block `0` has constant `0`, the block `1` has mass
   `0`), so Lemma 5.7 in that form compares the two runs with no error, while the term with the
-  mass of the port and the whole operator norm `‖U - W‖ = 2` is `2`.
+  mass of the port and the whole operator norm `‖U - W‖ = 2` is `2`. The two-sided form of
+  Lemma 5.7, with `P = V = 1`, then shows that the two runs have the same law.
 -/
 
 public section
@@ -442,6 +443,65 @@ example :
     indexCall (Z := fun p ↦ p.1 × idBitRuntime.D) (fun _ ↦ 1)
     (fun _ ↦ by simpa using Matrix.PosSemidef.zero) hρ
   rwa [tsum_rpow_indexMass_indexCall I, add_zero] at h
+
+/-- `U = 1` is block diagonal in the index, so it respects it. -/
+theorem respectsIndex_one :
+    RespectsIndex idxProj idxProj (D := QReg.of Unit)
+      fun _ _ ↦ (1 : Matrix (Fin 2 × Unit) (Fin 2 × Unit) ℂ) := by
+  intro _ _ k
+  ext ⟨a, u⟩ ⟨b, v⟩
+  fin_cases k <;> fin_cases a <;> fin_cases b <;>
+    simp [idxProj, Matrix.mul_apply, Fintype.sum_prod_type, Matrix.single_apply,
+      Matrix.one_apply]
+
+/-- `W = diag(1, -1) ⊗ 1` is block diagonal in the index, so it respects it. -/
+theorem respectsIndex_signFlip :
+    RespectsIndex idxProj idxProj (D := QReg.of Unit) fun _ _ ↦ signFlip := by
+  intro _ _ k
+  ext ⟨a, u⟩ ⟨b, v⟩
+  fin_cases k <;> fin_cases a <;> fin_cases b <;>
+    simp [idxProj, signFlip, Matrix.mul_apply, Fintype.sum_prod_type, Matrix.single_apply,
+      Matrix.diagonal_apply]
+
+/-- Condition 1 of Lemma 5.7 for `P = 1` holds at every call. -/
+theorem inImageAt_one {s : ∀ i, SubInstrument (bitSpec.In i × QReg.of Unit)
+      (bitSpec.Out i × QReg.of Unit) (bitSpec.Result i)} (i : bitSpec.Port) (E : QReg)
+    (τ : Matrix ((bitSpec.In i × QReg.of Unit) × E) ((bitSpec.In i × QReg.of Unit) × E) ℂ) :
+    InImageAt (1 : Matrix (QReg.of Unit) (QReg.of Unit) ℂ) s i E τ := by
+  simp only [InImageAt, one_kronecker_one, MatrixMap.conj_one, LinearMap.id_apply]
+  exact ⟨trivial, fun _ ↦ trivial⟩
+
+/-- With `P = V = 1`, the operators of the paper are the differences `U - W`. -/
+theorem projDiff_one_one :
+    projDiff (1 : Matrix (QReg.of Unit) (QReg.of Unit) ℂ) 1
+        (fun _ _ ↦ (1 : Matrix (Fin 2 × Unit) (Fin 2 × Unit) ℂ)) (fun _ _ ↦ signFlip) =
+      fun (_ : bitSpec.Port) (_ : bitSpec.Result ()) ↦
+        (1 : Matrix (Fin 2 × Unit) (Fin 2 × Unit) ℂ) - signFlip := by
+  funext i r
+  simp [projDiff]
+
+/-- **Lemma 5.7 with the index masses, two-sided**: from the index `0`, the runs against
+`U = 1` and `W = diag(1, -1)` have the same law for every observation of the leaves. The
+two-sided form, with the index masses of the run against `U` only, bounds
+`|√p₀ - √p₁|` by an error term that vanishes. -/
+example {γ : Type*} [MeasurableSpace γ] (f : (Σ u, (fun _ : QReg ↦ Unit) u) → γ) {s : Set γ}
+    (hs : MeasurableSet s) :
+    idBitRuntime.outcomeLawWith I indexCall (SubState.basis ((0 : Fin 2), ())) f s =
+      flipRuntime.outcomeLawWith I indexCall (SubState.basis ((0 : Fin 2), ())) f s := by
+  have hin : ∀ {s : ∀ i, SubInstrument (bitSpec.In i × QReg.of Unit)
+      (bitSpec.Out i × QReg.of Unit) (bitSpec.Result i)},
+      (QuantumRuntime.mk (QReg.of Unit) (SubState.basis ()) s).ForallQueries I
+        (InImageAt 1 s) indexCall idxInput := fun {_} ↦
+    (forallQueries_queryBind_iff I _ _ _ _ _).2
+      ⟨inImageAt_one _ _ _, fun _ ↦ forallQueries_pure I _ _⟩
+  have h := max_tsub_rpow_inv_two_outcomeLawWith_le_of_inImage_indexMass I
+    (s₀ := fun _ ↦ idBitStep) (s₁ := fun _ ↦ flipStep) idBitStep_branch flipStep_branch
+    (P := 1) (V := 1) (by simpa using Matrix.PosSemidef.zero) (by simp) isCoherentIndex_idxProj
+    indexCall (SubState.basis ((0 : Fin 2), ())) f hs (by simp [MatrixMap.conj_one]) rfl
+    (respectsIndex_one.lemmaKraus respectsIndex_signFlip 1 1) hin hin
+  rw [projDiff_one_one, tsum_rpow_indexMass_indexCall I, max_le_iff, nonpos_iff_eq_zero,
+    nonpos_iff_eq_zero, tsub_eq_zero_iff_le, tsub_eq_zero_iff_le] at h
+  exact ENNReal.rpow_left_injective (by norm_num) (le_antisymm h.1 h.2)
 
 end TwoIndices
 

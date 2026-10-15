@@ -63,7 +63,14 @@ by the index masses (`Quantum.QuantumRuntime.queryWeight_krausWeight_le_tsum_mul
 * `Quantum.QuantumRuntime.rpow_inv_two_outcomeLawWith_le_of_inImage_indexMass`: ePrint 2025/2166,
   Lemma 5.7, in the form of the paper, with the constants `‖P̂ (V̂ Uᵢ,ᵣ V̂ᴴ - Wᵢ,ᵣ) P̂ B̂ᵢ,ₖ‖²`;
   `Quantum.QuantumRuntime.rpow_inv_two_outcomeLawWith_le_of_inImage_indexMass_of_isQueryBound`
-  with a query budget.
+  with a query budget. Both bound `√p₀ - √p₁` with the index masses of the run against the first
+  runtime; the primed forms bound `√p₁ - √p₀` with the same masses.
+* `Quantum.QuantumRuntime.max_tsub_rpow_inv_two_outcomeLawWith_le_of_inImage_indexMass`: the
+  two-sided statement `|√p₀ - √p₁| ≤ ∑ⱼ √(…)` of Lemma 5.7, with the masses of one run;
+  with a query budget,
+  `max_tsub_rpow_inv_two_outcomeLawWith_le_of_inImage_indexMass_of_isQueryBound`, and squared,
+  as in the paper,
+  `max_tsub_rpow_inv_two_outcomeLawWith_sq_le_of_inImage_indexMass_of_isQueryBound`.
 
 The same bounds for Cor 5.8 are in `VCVio.Quantum.Comp.HybridMeasure`.
 -/
@@ -389,6 +396,42 @@ private theorem l2_opNorm_lemmaKraus_mul_kronecker_one (hV : Vᴴ * V = 1) (hPV 
     MatrixMap.l2_opNorm_mul_coisometry
       (one_kronecker_mul_conjTranspose (_root_.mul_eq_one_comm.mp hV))]
 
+include hV hB in
+/-- The Kraus weights of `lemmaKraus P V U W` on the calls of a run, under condition 3 and when
+they respect a coherent index, by the index masses of that run. -/
+private theorem tsum_rpow_queryWeight_lemmaKraus_le_indexMass (hPV : P * V = V * P)
+    (hK : RespectsIndex B B' (lemmaKraus P V U W)) (x : QuantumComp L spec X A)
+    (ρ : SubState A) :
+    ∑' j, (QuantumRuntime.mk D σ₀ s₀).queryWeight I (krausWeight (lemmaKraus P V U W)) x
+        (ρ.matrix ⊗ₖ σ₀.matrix) j ^ (2⁻¹ : ℝ) ≤
+      ∑' j, (∑' c, (∑' r, ENNReal.ofReal
+          (‖projDiff P V U W c.1 r * (B c.1 c.2 ⊗ₖ (1 : Matrix D D ℂ))‖ ^ 2)) *
+            (QuantumRuntime.mk D σ₀ s₀).indexMassAt I B x (ρ.matrix ⊗ₖ σ₀.matrix) c j) ^
+          (2⁻¹ : ℝ) :=
+  ENNReal.tsum_le_tsum fun j ↦ ENNReal.rpow_le_rpow
+    (((QuantumRuntime.mk D σ₀ s₀).queryWeight_krausWeight_le_tsum_mul_indexMassAt I hB hK x
+      (ρ := ρ.matrix ⊗ₖ σ₀.matrix) (ρ.prod σ₀).posSemidef j).trans_eq
+        (by simp only [l2_opNorm_lemmaKraus_mul_kronecker_one hV hPV])) (by norm_num)
+
+include hV hB in
+/-- The Kraus weights of `lemmaKraus P V U W` on the calls of a run within a query budget, under
+condition 3 and when they respect a coherent index, by the total index masses of that run. -/
+private theorem tsum_rpow_queryWeight_lemmaKraus_le_indexMass_of_isQueryBound
+    (hPV : P * V = V * P) (hK : RespectsIndex B B' (lemmaKraus P V U W))
+    {x : QuantumComp L spec X A} {b : spec.Port → ℕ} (hx : x.IsQueryBound b)
+    (t : Finset spec.Port) (ht : ∀ i ∉ t, b i = 0) (ρ : SubState A) :
+    ∑' j, (QuantumRuntime.mk D σ₀ s₀).queryWeight I (krausWeight (lemmaKraus P V U W)) x
+        (ρ.matrix ⊗ₖ σ₀.matrix) j ^ (2⁻¹ : ℝ) ≤
+      (((∑ i ∈ t, b i : ℕ) : ℝ≥0∞) * ∑' c, (∑' r, ENNReal.ofReal
+          (‖projDiff P V U W c.1 r * (B c.1 c.2 ⊗ₖ (1 : Matrix D D ℂ))‖ ^ 2)) *
+            (QuantumRuntime.mk D σ₀ s₀).indexMass I B x (ρ.matrix ⊗ₖ σ₀.matrix) c) ^
+          (2⁻¹ : ℝ) := by
+  refine (tsum_rpow_inv_two_queryWeight_le_of_isQueryBound I _ hx t ht _).trans ?_
+  gcongr
+  refine ((QuantumRuntime.mk D σ₀ s₀).tsum_queryWeight_krausWeight_le_tsum_mul_indexMass I hB hK x
+    (ρ := ρ.matrix ⊗ₖ σ₀.matrix) (ρ.prod σ₀).posSemidef).trans_eq ?_
+  simp only [l2_opNorm_lemmaKraus_mul_kronecker_one hV hPV]
+
 include hU hW hP hV hB
 
 /-- **ePrint 2025/2166, Lemma 5.7, in the form of the paper** (with the masses of a coherent
@@ -400,8 +443,10 @@ probability of an event against the first runtime exceeds the one against the se
 masses of the run against the first runtime. For the paper's emulated oracles `B i k` projects
 the index register onto `k`, and the constant is the norm of the change on the block `k`.
 
-This is one direction. The other direction, with the masses of the first runtime, follows in the
-same way from `Quantum.QuantumRuntime.rpow_inv_two_outcomeLawWith_le_of_inImage'`. -/
+This is one direction. The converse, with the same masses of the run against the first runtime,
+is `Quantum.QuantumRuntime.rpow_inv_two_outcomeLawWith_le_of_inImage_indexMass'`, and the
+two-sided form of the paper is
+`Quantum.QuantumRuntime.max_tsub_rpow_inv_two_outcomeLawWith_le_of_inImage_indexMass`. -/
 theorem rpow_inv_two_outcomeLawWith_le_of_inImage_indexMass {γ : Type*} [MeasurableSpace γ]
     (x : QuantumComp L spec X A) (ρ : SubState A) (f : (Σ u, X u) → γ) {s : Set γ}
     (hs : MeasurableSet s) (hVσ : MatrixMap.conj V σ₀.matrix = σ₀.matrix)
@@ -415,17 +460,72 @@ theorem rpow_inv_two_outcomeLawWith_le_of_inImage_indexMass {γ : Type*} [Measur
         ∑' j, (∑' c, (∑' r, ENNReal.ofReal
           (‖projDiff P V U W c.1 r * (B c.1 c.2 ⊗ₖ (1 : Matrix D D ℂ))‖ ^ 2)) *
             (QuantumRuntime.mk D σ₀ s₀).indexMassAt I B x (ρ.matrix ⊗ₖ σ₀.matrix) c j) ^
-          (2⁻¹ : ℝ) := by
-  refine (rpow_inv_two_outcomeLawWith_le_of_inImage I hU hW hP hV x ρ f hs hVσ h₀ h₁).trans
-    (add_le_add le_rfl (ENNReal.tsum_le_tsum fun j ↦ ENNReal.rpow_le_rpow
-      (((QuantumRuntime.mk D σ₀ s₀).queryWeight_krausWeight_le_tsum_mul_indexMassAt I hB hK x
-        (ρ := ρ.matrix ⊗ₖ σ₀.matrix) (ρ.prod σ₀).posSemidef j).trans_eq ?_) (by norm_num)))
-  simp only [l2_opNorm_lemmaKraus_mul_kronecker_one hV hPV]
+          (2⁻¹ : ℝ) :=
+  (rpow_inv_two_outcomeLawWith_le_of_inImage I hU hW hP hV x ρ f hs hVσ h₀ h₁).trans <|
+    add_le_add le_rfl <| tsum_rpow_queryWeight_lemmaKraus_le_indexMass I hV hB hPV hK x ρ
+
+/-- **ePrint 2025/2166, Lemma 5.7, in the form of the paper**, converse direction: under the
+hypotheses of `Quantum.QuantumRuntime.rpow_inv_two_outcomeLawWith_le_of_inImage_indexMass`, the
+square root of the probability of an event against the second runtime exceeds the one against
+the first by at most the same
+`∑ⱼ √(∑_{i,k} (∑ᵣ ‖P̂ (V̂ Uᵢ,ᵣ V̂ᴴ - Wᵢ,ᵣ) P̂ (B i k ⊗ 1)‖²) · mass(⟨i, k⟩, j))`, with the index
+masses of the run against the first runtime. -/
+theorem rpow_inv_two_outcomeLawWith_le_of_inImage_indexMass' {γ : Type*} [MeasurableSpace γ]
+    (x : QuantumComp L spec X A) (ρ : SubState A) (f : (Σ u, X u) → γ) {s : Set γ}
+    (hs : MeasurableSet s) (hVσ : MatrixMap.conj V σ₀.matrix = σ₀.matrix)
+    (hPV : P * V = V * P) (hK : RespectsIndex B B' (lemmaKraus P V U W))
+    (h₀ : (QuantumRuntime.mk D σ₀ s₀).ForallQueries I (InImageAt P s₀) x
+      (ρ.matrix ⊗ₖ σ₀.matrix))
+    (h₁ : (QuantumRuntime.mk D σ₀ s₁).ForallQueries I (InImageAt P s₁) x
+      (ρ.matrix ⊗ₖ σ₀.matrix)) :
+    (QuantumRuntime.mk D σ₀ s₁).outcomeLawWith I x ρ f s ^ (2⁻¹ : ℝ) ≤
+      (QuantumRuntime.mk D σ₀ s₀).outcomeLawWith I x ρ f s ^ (2⁻¹ : ℝ) +
+        ∑' j, (∑' c, (∑' r, ENNReal.ofReal
+          (‖projDiff P V U W c.1 r * (B c.1 c.2 ⊗ₖ (1 : Matrix D D ℂ))‖ ^ 2)) *
+            (QuantumRuntime.mk D σ₀ s₀).indexMassAt I B x (ρ.matrix ⊗ₖ σ₀.matrix) c j) ^
+          (2⁻¹ : ℝ) :=
+  (rpow_inv_two_outcomeLawWith_le_of_inImage' I hU hW hP hV x ρ f hs hVσ h₀ h₁).trans <|
+    add_le_add le_rfl <| tsum_rpow_queryWeight_lemmaKraus_le_indexMass I hV hB hPV hK x ρ
+
+/-- **ePrint 2025/2166, Lemma 5.7, in the form of the paper**, two-sided: under the hypotheses of
+`Quantum.QuantumRuntime.rpow_inv_two_outcomeLawWith_le_of_inImage_indexMass`, the probabilities
+`p₀` and `p₁` of an event against the two runtimes satisfy
+`|√p₀ - √p₁| ≤ ∑ⱼ √(∑_{i,k} (∑ᵣ ‖P̂ (V̂ Uᵢ,ᵣ V̂ᴴ - Wᵢ,ᵣ) P̂ (B i k ⊗ 1)‖²) · mass(⟨i, k⟩, j))`,
+with the index masses of the run against the first runtime only, as in the paper. In `ℝ≥0∞`
+the distance `|a - b|` is `max (a - b) (b - a)`. -/
+theorem max_tsub_rpow_inv_two_outcomeLawWith_le_of_inImage_indexMass {γ : Type*}
+    [MeasurableSpace γ] (x : QuantumComp L spec X A) (ρ : SubState A) (f : (Σ u, X u) → γ)
+    {s : Set γ}
+    (hs : MeasurableSet s) (hVσ : MatrixMap.conj V σ₀.matrix = σ₀.matrix)
+    (hPV : P * V = V * P) (hK : RespectsIndex B B' (lemmaKraus P V U W))
+    (h₀ : (QuantumRuntime.mk D σ₀ s₀).ForallQueries I (InImageAt P s₀) x
+      (ρ.matrix ⊗ₖ σ₀.matrix))
+    (h₁ : (QuantumRuntime.mk D σ₀ s₁).ForallQueries I (InImageAt P s₁) x
+      (ρ.matrix ⊗ₖ σ₀.matrix)) :
+    max ((QuantumRuntime.mk D σ₀ s₀).outcomeLawWith I x ρ f s ^ (2⁻¹ : ℝ) -
+        (QuantumRuntime.mk D σ₀ s₁).outcomeLawWith I x ρ f s ^ (2⁻¹ : ℝ))
+      ((QuantumRuntime.mk D σ₀ s₁).outcomeLawWith I x ρ f s ^ (2⁻¹ : ℝ) -
+        (QuantumRuntime.mk D σ₀ s₀).outcomeLawWith I x ρ f s ^ (2⁻¹ : ℝ)) ≤
+      ∑' j, (∑' c, (∑' r, ENNReal.ofReal
+          (‖projDiff P V U W c.1 r * (B c.1 c.2 ⊗ₖ (1 : Matrix D D ℂ))‖ ^ 2)) *
+            (QuantumRuntime.mk D σ₀ s₀).indexMassAt I B x (ρ.matrix ⊗ₖ σ₀.matrix) c j) ^
+          (2⁻¹ : ℝ) :=
+  max_le
+    (tsub_le_iff_left.2 (rpow_inv_two_outcomeLawWith_le_of_inImage_indexMass I hU hW hP hV hB x
+      ρ f hs hVσ hPV hK h₀ h₁))
+    (tsub_le_iff_left.2 (rpow_inv_two_outcomeLawWith_le_of_inImage_indexMass' I hU hW hP hV hB x
+      ρ f hs hVσ hPV hK h₀ h₁))
 
 /-- **ePrint 2025/2166, Lemma 5.7, in the form of the paper, for programs within a query
-budget**: with at most `q = ∑ i ∈ t, b i` calls, the sum over the calls is at most
-`√(q · ∑_{i,k} Cᵢ,ₖ · TotalMass(⟨i, k⟩))`, `Cᵢ,ₖ = ∑ᵣ ‖P̂ (V̂ Uᵢ,ᵣ V̂ᴴ - Wᵢ,ᵣ) P̂ (B i k ⊗ 1)‖²`.
-Like `rpow_inv_two_outcomeLawWith_le_of_inImage_indexMass`, it bounds one direction. -/
+budget**: with at most `q = ∑ i ∈ t, b i` calls, the square root of the probability of an event
+against the first runtime exceeds the one against the second by at most
+`√(q · ∑_{i,k} Cᵢ,ₖ · TotalMass(⟨i, k⟩))`, `Cᵢ,ₖ = ∑ᵣ ‖P̂ (V̂ Uᵢ,ᵣ V̂ᴴ - Wᵢ,ᵣ) P̂ (B i k ⊗ 1)‖²`,
+with the total index masses of the run against the first runtime. The converse, with the same
+masses, is `rpow_inv_two_outcomeLawWith_le_of_inImage_indexMass_of_isQueryBound'`; the
+two-sided form is `max_tsub_rpow_inv_two_outcomeLawWith_le_of_inImage_indexMass_of_isQueryBound`
+and the squared form of the paper is
+`max_tsub_rpow_inv_two_outcomeLawWith_sq_le_of_inImage_indexMass_of_isQueryBound`, all in
+`Quantum.QuantumRuntime`. -/
 theorem rpow_inv_two_outcomeLawWith_le_of_inImage_indexMass_of_isQueryBound {γ : Type*}
     [MeasurableSpace γ] {x : QuantumComp L spec X A} {b : spec.Port → ℕ} (hx : x.IsQueryBound b)
     (t : Finset spec.Port) (ht : ∀ i ∉ t, b i = 0) (ρ : SubState A) (f : (Σ u, X u) → γ)
@@ -440,14 +540,85 @@ theorem rpow_inv_two_outcomeLawWith_le_of_inImage_indexMass_of_isQueryBound {γ 
         (((∑ i ∈ t, b i : ℕ) : ℝ≥0∞) * ∑' c, (∑' r, ENNReal.ofReal
           (‖projDiff P V U W c.1 r * (B c.1 c.2 ⊗ₖ (1 : Matrix D D ℂ))‖ ^ 2)) *
             (QuantumRuntime.mk D σ₀ s₀).indexMass I B x (ρ.matrix ⊗ₖ σ₀.matrix) c) ^
-          (2⁻¹ : ℝ) := by
-  refine (rpow_inv_two_outcomeLawWith_le_of_inImage I hU hW hP hV x ρ f hs hVσ h₀ h₁).trans
-    (add_le_add le_rfl ?_)
-  refine (tsum_rpow_inv_two_queryWeight_le_of_isQueryBound I _ hx t ht _).trans ?_
-  gcongr
-  refine ((QuantumRuntime.mk D σ₀ s₀).tsum_queryWeight_krausWeight_le_tsum_mul_indexMass I hB hK x
-    (ρ := ρ.matrix ⊗ₖ σ₀.matrix) (ρ.prod σ₀).posSemidef).trans_eq ?_
-  simp only [l2_opNorm_lemmaKraus_mul_kronecker_one hV hPV]
+          (2⁻¹ : ℝ) :=
+  (rpow_inv_two_outcomeLawWith_le_of_inImage I hU hW hP hV x ρ f hs hVσ h₀ h₁).trans <|
+    add_le_add le_rfl <|
+      tsum_rpow_queryWeight_lemmaKraus_le_indexMass_of_isQueryBound I hV hB hPV hK hx t ht ρ
+
+/-- **ePrint 2025/2166, Lemma 5.7, in the form of the paper, for programs within a query
+budget**, converse direction: the square root of the probability of an event against the second
+runtime exceeds the one against the first by at most the same
+`√(q · ∑_{i,k} Cᵢ,ₖ · TotalMass(⟨i, k⟩))`, with the total index masses of the run against the
+first runtime. -/
+theorem rpow_inv_two_outcomeLawWith_le_of_inImage_indexMass_of_isQueryBound' {γ : Type*}
+    [MeasurableSpace γ] {x : QuantumComp L spec X A} {b : spec.Port → ℕ} (hx : x.IsQueryBound b)
+    (t : Finset spec.Port) (ht : ∀ i ∉ t, b i = 0) (ρ : SubState A) (f : (Σ u, X u) → γ)
+    {s : Set γ} (hs : MeasurableSet s) (hVσ : MatrixMap.conj V σ₀.matrix = σ₀.matrix)
+    (hPV : P * V = V * P) (hK : RespectsIndex B B' (lemmaKraus P V U W))
+    (h₀ : (QuantumRuntime.mk D σ₀ s₀).ForallQueries I (InImageAt P s₀) x
+      (ρ.matrix ⊗ₖ σ₀.matrix))
+    (h₁ : (QuantumRuntime.mk D σ₀ s₁).ForallQueries I (InImageAt P s₁) x
+      (ρ.matrix ⊗ₖ σ₀.matrix)) :
+    (QuantumRuntime.mk D σ₀ s₁).outcomeLawWith I x ρ f s ^ (2⁻¹ : ℝ) ≤
+      (QuantumRuntime.mk D σ₀ s₀).outcomeLawWith I x ρ f s ^ (2⁻¹ : ℝ) +
+        (((∑ i ∈ t, b i : ℕ) : ℝ≥0∞) * ∑' c, (∑' r, ENNReal.ofReal
+          (‖projDiff P V U W c.1 r * (B c.1 c.2 ⊗ₖ (1 : Matrix D D ℂ))‖ ^ 2)) *
+            (QuantumRuntime.mk D σ₀ s₀).indexMass I B x (ρ.matrix ⊗ₖ σ₀.matrix) c) ^
+          (2⁻¹ : ℝ) :=
+  (rpow_inv_two_outcomeLawWith_le_of_inImage' I hU hW hP hV x ρ f hs hVσ h₀ h₁).trans <|
+    add_le_add le_rfl <|
+      tsum_rpow_queryWeight_lemmaKraus_le_indexMass_of_isQueryBound I hV hB hPV hK hx t ht ρ
+
+/-- **ePrint 2025/2166, Lemma 5.7, in the form of the paper, for programs within a query
+budget**, two-sided: `|√p₀ - √p₁| ≤ √(q · ∑_{i,k} Cᵢ,ₖ · TotalMass(⟨i, k⟩))`, with the total
+index masses of the run against the first runtime. In `ℝ≥0∞` the distance `|a - b|` is
+`max (a - b) (b - a)`. -/
+theorem max_tsub_rpow_inv_two_outcomeLawWith_le_of_inImage_indexMass_of_isQueryBound {γ : Type*}
+    [MeasurableSpace γ] {x : QuantumComp L spec X A} {b : spec.Port → ℕ} (hx : x.IsQueryBound b)
+    (t : Finset spec.Port) (ht : ∀ i ∉ t, b i = 0) (ρ : SubState A) (f : (Σ u, X u) → γ)
+    {s : Set γ} (hs : MeasurableSet s) (hVσ : MatrixMap.conj V σ₀.matrix = σ₀.matrix)
+    (hPV : P * V = V * P) (hK : RespectsIndex B B' (lemmaKraus P V U W))
+    (h₀ : (QuantumRuntime.mk D σ₀ s₀).ForallQueries I (InImageAt P s₀) x
+      (ρ.matrix ⊗ₖ σ₀.matrix))
+    (h₁ : (QuantumRuntime.mk D σ₀ s₁).ForallQueries I (InImageAt P s₁) x
+      (ρ.matrix ⊗ₖ σ₀.matrix)) :
+    max ((QuantumRuntime.mk D σ₀ s₀).outcomeLawWith I x ρ f s ^ (2⁻¹ : ℝ) -
+        (QuantumRuntime.mk D σ₀ s₁).outcomeLawWith I x ρ f s ^ (2⁻¹ : ℝ))
+      ((QuantumRuntime.mk D σ₀ s₁).outcomeLawWith I x ρ f s ^ (2⁻¹ : ℝ) -
+        (QuantumRuntime.mk D σ₀ s₀).outcomeLawWith I x ρ f s ^ (2⁻¹ : ℝ)) ≤
+      (((∑ i ∈ t, b i : ℕ) : ℝ≥0∞) * ∑' c, (∑' r, ENNReal.ofReal
+          (‖projDiff P V U W c.1 r * (B c.1 c.2 ⊗ₖ (1 : Matrix D D ℂ))‖ ^ 2)) *
+            (QuantumRuntime.mk D σ₀ s₀).indexMass I B x (ρ.matrix ⊗ₖ σ₀.matrix) c) ^
+          (2⁻¹ : ℝ) :=
+  max_le
+    (tsub_le_iff_left.2 (rpow_inv_two_outcomeLawWith_le_of_inImage_indexMass_of_isQueryBound I hU
+      hW hP hV hB hx t ht ρ f hs hVσ hPV hK h₀ h₁))
+    (tsub_le_iff_left.2 (rpow_inv_two_outcomeLawWith_le_of_inImage_indexMass_of_isQueryBound' I
+      hU hW hP hV hB hx t ht ρ f hs hVσ hPV hK h₀ h₁))
+
+/-- **ePrint 2025/2166, Lemma 5.7, in the form of the paper, for programs within a query
+budget**, squared as in the paper: `(√p₀ - √p₁)² ≤ q · ∑_{i,k} Cᵢ,ₖ · TotalMass(⟨i, k⟩)`, where
+`Cᵢ,ₖ = ∑ᵣ ‖P̂ (V̂ Uᵢ,ᵣ V̂ᴴ - Wᵢ,ᵣ) P̂ (B i k ⊗ 1)‖²` and the total index masses are those of the
+run against the first runtime. In `ℝ≥0∞` the distance `|a - b|` is `max (a - b) (b - a)`. -/
+theorem max_tsub_rpow_inv_two_outcomeLawWith_sq_le_of_inImage_indexMass_of_isQueryBound {γ : Type*}
+    [MeasurableSpace γ] {x : QuantumComp L spec X A} {b : spec.Port → ℕ} (hx : x.IsQueryBound b)
+    (t : Finset spec.Port) (ht : ∀ i ∉ t, b i = 0) (ρ : SubState A) (f : (Σ u, X u) → γ)
+    {s : Set γ} (hs : MeasurableSet s) (hVσ : MatrixMap.conj V σ₀.matrix = σ₀.matrix)
+    (hPV : P * V = V * P) (hK : RespectsIndex B B' (lemmaKraus P V U W))
+    (h₀ : (QuantumRuntime.mk D σ₀ s₀).ForallQueries I (InImageAt P s₀) x
+      (ρ.matrix ⊗ₖ σ₀.matrix))
+    (h₁ : (QuantumRuntime.mk D σ₀ s₁).ForallQueries I (InImageAt P s₁) x
+      (ρ.matrix ⊗ₖ σ₀.matrix)) :
+    max ((QuantumRuntime.mk D σ₀ s₀).outcomeLawWith I x ρ f s ^ (2⁻¹ : ℝ) -
+        (QuantumRuntime.mk D σ₀ s₁).outcomeLawWith I x ρ f s ^ (2⁻¹ : ℝ))
+      ((QuantumRuntime.mk D σ₀ s₁).outcomeLawWith I x ρ f s ^ (2⁻¹ : ℝ) -
+        (QuantumRuntime.mk D σ₀ s₀).outcomeLawWith I x ρ f s ^ (2⁻¹ : ℝ)) ^ 2 ≤
+      ((∑ i ∈ t, b i : ℕ) : ℝ≥0∞) * ∑' c, (∑' r, ENNReal.ofReal
+          (‖projDiff P V U W c.1 r * (B c.1 c.2 ⊗ₖ (1 : Matrix D D ℂ))‖ ^ 2)) *
+            (QuantumRuntime.mk D σ₀ s₀).indexMass I B x (ρ.matrix ⊗ₖ σ₀.matrix) c :=
+  sq_le_of_le_rpow_inv_two
+    (max_tsub_rpow_inv_two_outcomeLawWith_le_of_inImage_indexMass_of_isQueryBound I hU hW hP hV hB
+      hx t ht ρ f hs hVσ hPV hK h₀ h₁)
 
 end Projected
 
