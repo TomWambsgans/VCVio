@@ -55,10 +55,12 @@ def halfPreimages (enc : Encoding X Y Msg Salt) (D : Database X Y) : Set Y :=
 
 variable (enc : Encoding X Y Msg Salt)
 
+/-- The left half of a node input in the domain is a half-preimage. -/
 theorem fst_mem_halfPreimages {D : Database X Y} {c : Y × Y} (h : D (enc.node c) ≠ none) :
     c.1 ∈ halfPreimages enc D :=
   ⟨c.2, Or.inl h⟩
 
+/-- The right half of a node input in the domain is a half-preimage. -/
 theorem snd_mem_halfPreimages {D : Database X Y} {c : Y × Y} (h : D (enc.node c) ≠ none) :
     c.2 ∈ halfPreimages enc D :=
   ⟨c.1, Or.inr h⟩

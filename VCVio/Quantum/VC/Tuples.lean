@@ -48,6 +48,7 @@ variable {k : ℕ}
 @[expose]
 def len (j : TupleLen k) : ℕ := j.1
 
+/-- The length of `⟨j, h⟩` is `j`. -/
 @[simp]
 theorem len_mk (j : Fin (k + 1)) (h : j ≠ 0) : len ⟨j, h⟩ = j :=
   rfl
@@ -65,6 +66,7 @@ theorem len_pos (j : TupleLen k) : 0 < j.len :=
 def ofNat (n : ℕ) (h₀ : 0 < n) (hk : n ≤ k) : TupleLen k :=
   ⟨⟨n, Nat.lt_succ_of_le hk⟩, fun h ↦ by simp [Fin.ext_iff] at h; omega⟩
 
+/-- The length of `ofNat n` is `n`. -/
 @[simp]
 theorem len_ofNat (n : ℕ) (h₀ : 0 < n) (hk : n ≤ k) : (ofNat n h₀ hk).len = n :=
   rfl
@@ -74,6 +76,7 @@ theorem len_ofNat (n : ℕ) (h₀ : 0 < n) (hk : n ≤ k) : (ofNat n h₀ hk).le
 def full (hk : 1 ≤ k) : TupleLen k :=
   ofNat k hk le_rfl
 
+/-- The full length is `k`. -/
 @[simp]
 theorem len_full (hk : 1 ≤ k) : (full hk).len = k :=
   rfl
@@ -113,21 +116,27 @@ section instances
 
 variable {k : ℕ} {Cm : Type} {Dm : Fin k → Type}
 
+/-- Commitment tuples over a finite type form a finite type. -/
 instance [Fintype Cm] : Fintype (TpIC k Cm) :=
   inferInstanceAs (Fintype (Σ j : TupleLen k, Fin j.len → Fin k × Cm))
 
+/-- Commitment tuples have decidable equality. -/
 instance [DecidableEq Cm] : DecidableEq (TpIC k Cm) :=
   inferInstanceAs (DecidableEq (Σ j : TupleLen k, Fin j.len → Fin k × Cm))
 
+/-- Decommitment tuples over finite types form a finite type. -/
 instance [∀ i, Fintype (Dm i)] : Fintype (TpD k Dm) :=
   inferInstanceAs (Fintype (Σ j : TupleLen k, TpDLen k Dm j))
 
+/-- Decommitment tuples have decidable equality. -/
 instance [∀ i, DecidableEq (Dm i)] : DecidableEq (TpD k Dm) :=
   inferInstanceAs (DecidableEq (Σ j : TupleLen k, TpDLen k Dm j))
 
+/-- Pairs of tuples over finite types form a finite type. -/
 instance [Fintype Cm] [∀ i, Fintype (Dm i)] : Fintype (TpICD k Cm Dm) :=
   inferInstanceAs (Fintype (Σ tic : TpIC k Cm, TpDLen k Dm tic.1))
 
+/-- Pairs of tuples have decidable equality. -/
 instance [DecidableEq Cm] [∀ i, DecidableEq (Dm i)] : DecidableEq (TpICD k Cm Dm) :=
   inferInstanceAs (DecidableEq (Σ tic : TpIC k Cm, TpDLen k Dm tic.1))
 
@@ -153,11 +162,13 @@ l.2781–2783). -/
 def «prefix» (tic : TpIC k Cm) (j' : TupleLen k) (h : j'.len ≤ tic.1.len) : TpIC k Cm :=
   ⟨j', fun i ↦ tic.2 (Fin.castLE h i)⟩
 
+/-- The length of a prefix is the requested length. -/
 @[simp]
 theorem prefix_fst (tic : TpIC k Cm) (j' : TupleLen k) (h : j'.len ≤ tic.1.len) :
     (tic.prefix j' h).1 = j' :=
   rfl
 
+/-- The indices of a prefix are a prefix of the indices. -/
 @[simp]
 theorem idx_prefix (tic : TpIC k Cm) (j' : TupleLen k) (h : j'.len ≤ tic.1.len)
     (i : Fin j'.len) : (tic.prefix j' h).idx i = tic.idx (Fin.castLE h i) :=
@@ -174,11 +185,13 @@ extraction games of Def 7.3 (l.2869, l.2889). -/
 def full (hk : 1 ≤ k) (idx : Fin k → Fin k) (cm : Fin k → Cm) : TpIC k Cm :=
   ⟨TupleLen.full hk, fun i ↦ (idx i, cm i)⟩
 
+/-- The indices of a full tuple. -/
 @[simp]
 theorem idx_full (hk : 1 ≤ k) (idx : Fin k → Fin k) (cm : Fin k → Cm) (i : Fin k) :
     (full hk idx cm).idx i = idx i :=
   rfl
 
+/-- The commitments of a full tuple. -/
 @[simp]
 theorem cm_full (hk : 1 ≤ k) (idx : Fin k → Fin k) (cm : Fin k → Cm) (i : Fin k) :
     (full hk idx cm).cm i = cm i :=

@@ -84,7 +84,9 @@ structure Encoding (X Y Msg Salt : Type) where
   node : Y × Y → X
   /-- The input of a leaf with message `m` and salt `γ`. -/
   leaf : Msg × Salt → X
+  /-- Distinct children give distinct node inputs. -/
   node_injective : Function.Injective node
+  /-- Distinct messages or salts give distinct leaf inputs. -/
   leaf_injective : Function.Injective leaf
 
 /-- A table of node labels: level `j ∈ {0, …, d}`, position `ι < 2 ^ j` (the list `C`, l.2975).
@@ -121,6 +123,7 @@ variable {X Y Msg Salt : Type} {d : ℕ}
 def labelAt (C : Labels Y d) (j p : ℕ) : Option Y :=
   if h : j ≤ d ∧ p < 2 ^ j then C ⟨j, Nat.lt_succ_of_le h.1⟩ ⟨p, h.2⟩ else none
 
+/-- In range, `labelAt` reads the table. -/
 theorem labelAt_of_lt (C : Labels Y d) {j p : ℕ} (hj : j ≤ d) (hp : p < 2 ^ j) :
     labelAt C j p = C ⟨j, Nat.lt_succ_of_le hj⟩ ⟨p, hp⟩ := by
   simp [labelAt, hj, hp]
@@ -139,9 +142,11 @@ def anc (d : ℕ) (ι : ℕ) (j : ℕ) : ℕ := ι / 2 ^ (d - j)
 @[expose]
 def sib (p : ℕ) : ℕ := if p % 2 = 0 then p + 1 else p - 1
 
+/-- The ancestor of a leaf at the leaf level is the leaf. -/
 theorem anc_self (ι : ℕ) : anc d ι d = ι := by
   simp [anc]
 
+/-- The parent of the ancestor at level `j + 1` is the ancestor at level `j`. -/
 theorem anc_succ_div_two {ι j : ℕ} (hj : j < d) : anc d ι (j + 1) / 2 = anc d ι j := by
   simp only [anc, Nat.div_div_eq_div_mul]
   congr 1
@@ -149,18 +154,22 @@ theorem anc_succ_div_two {ι j : ℕ} (hj : j < d) : anc d ι (j + 1) / 2 = anc 
   congr 1
   omega
 
+/-- The ancestor at level `j` is a position of level `j`. -/
 theorem anc_lt {ι j : ℕ} (hι : ι < 2 ^ d) (hj : j ≤ d) : anc d ι j < 2 ^ j := by
   rw [anc, Nat.div_lt_iff_lt_mul (Nat.two_pow_pos _), ← pow_add]
   convert hι using 2
   omega
 
+/-- The ancestor at level `0` is the root position. -/
 theorem anc_zero {ι : ℕ} (hι : ι < 2 ^ d) : anc d ι 0 = 0 := by
   have := anc_lt (j := 0) hι (Nat.zero_le d)
   simpa using this
 
+/-- A position and its sibling have the same parent. -/
 theorem sib_div_two (p : ℕ) : sib p / 2 = p / 2 := by
   unfold sib; split_ifs <;> omega
 
+/-- The sibling of a position of level `j + 1` is a position of level `j + 1`. -/
 theorem sib_lt {p j : ℕ} (hp : p < 2 ^ (j + 1)) : sib p < 2 ^ (j + 1) := by
   have h2 : 2 ^ (j + 1) = 2 * 2 ^ j := by rw [pow_succ]; ring
   unfold sib; split_ifs <;> omega
@@ -209,6 +218,7 @@ def buildUp (enc : Encoding X Y Msg Salt) (hash : X → m Y) :
       pure (r.1, fun i q ↦
         if i = j + 1 then (if h : q < 2 ^ (j + 1) then some (c ⟨q, h⟩) else none) else r.2 i q)
 
+/-- Simulating `hashAll` simulates each hash. -/
 theorem simulateQ_hashAll {ι : Type} {spec : OracleSpec ι} {r : Type → Type} [Monad r]
     [LawfulMonad r] (impl : QueryImpl spec r) (hash : X → OracleComp spec Y) (n : ℕ)
     (f : Fin n → X) :
@@ -217,6 +227,7 @@ theorem simulateQ_hashAll {ι : Type} {spec : OracleSpec ι} {r : Type → Type}
   | zero => rfl
   | succ n ih => simp [hashAll, ih]
 
+/-- Simulating `buildUp` simulates each hash. -/
 theorem simulateQ_buildUp {ι : Type} {spec : OracleSpec ι} {r : Type → Type} [Monad r]
     [LawfulMonad r] (impl : QueryImpl spec r) (enc : Encoding X Y Msg Salt)
     (hash : X → OracleComp spec Y) (j : ℕ) (c : Fin (2 ^ j) → Y) :
@@ -228,6 +239,7 @@ theorem simulateQ_buildUp {ι : Type} {spec : OracleSpec ι} {r : Type → Type}
 
 variable [LawfulMonad m]
 
+/-- `hashAll` with a deterministic hash applies it to every entry. -/
 theorem hashAll_pure (H : X → Y) (n : ℕ) (f : Fin n → X) :
     hashAll (fun x ↦ (pure (H x) : m Y)) n f = pure fun i ↦ H (f i) := by
   induction n with
@@ -253,6 +265,7 @@ def hashTable (enc : Encoding X Y Msg Salt) (H : X → Y) :
       (r.1, fun i q ↦
         if i = j + 1 then (if h : q < 2 ^ (j + 1) then some (c ⟨q, h⟩) else none) else r.2 i q)
 
+/-- `buildUp` with a deterministic hash is `hashTable`. -/
 theorem buildUp_pure {m : Type → Type} [Monad m] [LawfulMonad m] (enc : Encoding X Y Msg Salt)
     (H : X → Y) (j : ℕ) (c : Fin (2 ^ j) → Y) :
     buildUp enc (fun x ↦ (pure (H x) : m Y)) j c = pure (hashTable enc H j c) := by
@@ -319,6 +332,7 @@ def honestTree (enc : Encoding X Y Msg Salt) (d : ℕ) (H : X → Y) (msg : Fin 
   let r := hashTable enc H d fun ι ↦ H (enc.leaf (msg ι, γ ι))
   (r.1, (fun ι ↦ some (γ ι), fun j q ↦ r.2 j q))
 
+/-- Answering the queries of `commitTree` with `H` gives the honest root and trapdoor. -/
 theorem simulateQ_commitTree {m : Type → Type} [Monad m] [LawfulMonad m]
     (enc : Encoding X Y Msg Salt) (d : ℕ) (H : X → Y) (msg : Fin (2 ^ d) → Msg)
     (γ : Fin (2 ^ d) → Salt) :
@@ -335,6 +349,7 @@ theorem simulateQ_commitTree {m : Type → Type} [Monad m] [LawfulMonad m]
 def optionPi {n : ℕ} {α : Type} (f : Fin n → Option α) : Option (Fin n → α) :=
   if h : ∀ i, (f i).isSome then some fun i ↦ (f i).get (h i) else none
 
+/-- `optionPi f = some g` exactly when every entry of `f` is the entry of `g`. -/
 theorem optionPi_eq_some_iff {n : ℕ} {α : Type} {f : Fin n → Option α} {g : Fin n → α} :
     optionPi f = some g ↔ ∀ i, f i = some (g i) := by
   unfold optionPi
@@ -347,6 +362,7 @@ theorem optionPi_eq_some_iff {n : ℕ} {α : Type} {f : Fin n → Option α} {g 
     obtain ⟨i, hi⟩ := not_forall.mp h
     exact ⟨i, fun hg ↦ by simp [hg] at hi⟩
 
+/-- `optionPi f` is present exactly when every entry of `f` is. -/
 theorem isSome_optionPi {n : ℕ} {α : Type} {f : Fin n → Option α} :
     (optionPi f).isSome ↔ ∀ i, (f i).isSome := by
   unfold optionPi
@@ -409,10 +425,12 @@ section Lemmas
 
 variable (enc : Encoding X Y Msg Salt)
 
+/-- One opened leaf lists `d + 1` pairs: the leaf pair and one node pair per level. -/
 theorem length_leafIO (rt : Y) (ι : Fin (2 ^ d)) (a : Msg) (pp : PathProof Y Salt d) :
     (leafIO enc rt ι a pp).length = d + 1 := by
   simp [leafIO]
 
+/-- A position lists `d + 1` pairs if it is answered, and none otherwise. -/
 theorem length_entryIO_le (rt : Y) (ι : Fin (2 ^ d)) (a : Option Msg)
     (pp : Option (PathProof Y Salt d)) :
     (entryIO enc rt ι a pp).length ≤ if a.isSome then d + 1 else 0 := by
@@ -482,10 +500,13 @@ The honest trapdoor is consistent for `G x y := H x = y` (`consistent_honestTree
 trapdoor of §8.3 is consistent for `G x y := D x = some y`. -/
 structure Consistent (G : X → Y → Prop) (enc : Encoding X Y Msg Salt) (rt : Y)
     (ans : PartialVec (2 ^ d) Msg) (td : Td Y Salt d) : Prop where
+  /-- The root label is `rt`. -/
   root : labelAt td.2 0 0 = some rt
+  /-- Above a present label, the parent and both children are present and hash under `G`. -/
   closed : ∀ i < d, ∀ p < 2 ^ (i + 1), (labelAt td.2 (i + 1) p).isSome →
     ∃ u L R, labelAt td.2 i (p / 2) = some u ∧ labelAt td.2 (i + 1) (2 * (p / 2)) = some L ∧
       labelAt td.2 (i + 1) (2 * (p / 2) + 1) = some R ∧ G (enc.node (L, R)) u
+  /-- At an answered position, the salt and the leaf label are present and hash under `G`. -/
   leaf : ∀ ι a, ans ι = some a → ∃ s l, td.1 ι = some s ∧ labelAt td.2 d ι = some l ∧
     G (enc.leaf (a, s)) l
 

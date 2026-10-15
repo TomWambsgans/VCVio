@@ -77,6 +77,7 @@ variable {X Y Msg Salt : Type}
 def leastOf {α : Type} [LinearOrder α] (s : Finset α) : Option α :=
   if h : s.Nonempty then some (s.min' h) else none
 
+/-- The least element of a set belongs to it. -/
 theorem mem_of_leastOf_eq_some {α : Type} [LinearOrder α] {s : Finset α} {a : α}
     (h : leastOf s = some a) : a ∈ s := by
   unfold leastOf at h
@@ -84,6 +85,7 @@ theorem mem_of_leastOf_eq_some {α : Type} [LinearOrder α] {s : Finset α} {a :
   cases h
   exact s.min'_mem hs
 
+/-- The least element of a set with only one element is that element. -/
 theorem leastOf_eq_some {α : Type} [LinearOrder α] {s : Finset α} {a : α} (ha : a ∈ s)
     (huniq : ∀ b ∈ s, b = a) : leastOf s = some a := by
   unfold leastOf
@@ -101,9 +103,11 @@ section leastPre
 variable {α : Type} [Fintype α] [LinearOrder α] [DecidableEq Y] {f : α → X} {D : Database X Y}
   {u : Y} {a : α}
 
+/-- The least preimage is a preimage. -/
 theorem leastPre_spec (h : leastPre f D u = some a) : D (f a) = some u := by
   simpa using mem_of_leastOf_eq_some h
 
+/-- A unique preimage is the least preimage. -/
 theorem leastPre_eq_some (h : D (f a) = some u) (huniq : ∀ b, D (f b) = some u → b = a) :
     leastPre f D u = some a :=
   leastOf_eq_some (by simpa using h) fun b hb ↦ huniq b (by simpa using hb)
@@ -165,14 +169,17 @@ def extLabel (enc : Encoding X Y Msg Salt) (D : Database X Y) (rt : Y) : ℕ →
 
 variable (enc : Encoding X Y Msg Salt)
 
+/-- The extracted label at level `0` is the root. -/
 theorem extLabel_zero (D : Database X Y) (rt : Y) (p : ℕ) : extLabel enc D rt 0 p = some rt :=
   rfl
 
+/-- The extracted label at level `j + 1` is a half of the node preimage of its parent label. -/
 theorem extLabel_succ (D : Database X Y) (rt : Y) (j p : ℕ) :
     extLabel enc D rt (j + 1) p = (extLabel enc D rt j (p / 2)).bind fun u ↦
       (nodePre enc D u).map fun c ↦ if p % 2 = 0 then c.1 else c.2 :=
   rfl
 
+/-- The node preimage of `u` is a node input that `D` maps to `u`. -/
 theorem nodePre_spec {D : Database X Y} {u : Y} {c : Y × Y} (h : nodePre enc D u = some c) :
     D (enc.node c) = some u := by
   obtain ⟨c', hc', rfl⟩ := Option.map_eq_some_iff.mp h
@@ -199,6 +206,7 @@ def leafPre (enc : Encoding X Y Msg Salt) (D : Database X Y) (u : Y) : Option (M
 
 variable (enc : Encoding X Y Msg Salt)
 
+/-- The leaf preimage of `u` is a leaf input that `D` maps to `u`. -/
 theorem leafPre_spec {D : Database X Y} {u : Y} {c : Msg × Salt} (h : leafPre enc D u = some c) :
     D (enc.leaf c) = some u := by
   obtain ⟨c', hc', rfl⟩ := Option.map_eq_some_iff.mp h
@@ -276,6 +284,7 @@ theorem multiExtract_admissible (enc : Encoding X Y Msg Salt) {k : ℕ} (d : Fin
 
 variable (enc : Encoding X Y Msg Salt)
 
+/-- In range, the extracted table holds the extracted labels. -/
 theorem labelAt_extract (d : ℕ) (rt : Y) (D : Database X Y) {j p : ℕ} (hj : j ≤ d)
     (hp : p < 2 ^ j) : labelAt (extract enc d rt D).2.2 j p = extLabel enc D rt j p :=
   labelAt_mk _ hj hp

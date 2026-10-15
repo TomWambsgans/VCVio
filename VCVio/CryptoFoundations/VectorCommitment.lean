@@ -67,6 +67,7 @@ variable {ℓ : ℕ} {Msg : Type u}
 def dom (v : PartialVec ℓ Msg) : Finset (Fin ℓ) :=
   Finset.univ.filter fun q ↦ (v q).isSome
 
+/-- A position is in the domain exactly when the entry is present. -/
 @[simp]
 theorem mem_dom {v : PartialVec ℓ Msg} {q : Fin ℓ} : q ∈ v.dom ↔ (v q).isSome := by
   simp [dom]
@@ -76,6 +77,7 @@ theorem mem_dom {v : PartialVec ℓ Msg} {q : Fin ℓ} : q ∈ v.dom ↔ (v q).i
 def Agrees (m ans : PartialVec ℓ Msg) : Prop :=
   ∀ q a, ans q = some a → m q = some a
 
+/-- Agreement is decidable: it is a finite conjunction. -/
 instance [DecidableEq Msg] (m ans : PartialVec ℓ Msg) : Decidable (Agrees m ans) :=
   decidable_of_iff (∀ q, ∀ a ∈ ans q, m q = some a) (by simp [Agrees])
 
@@ -84,6 +86,7 @@ instance [DecidableEq Msg] (m ans : PartialVec ℓ Msg) : Decidable (Agrees m an
 def restrict (m : Fin ℓ → Msg) (Q : Finset (Fin ℓ)) : PartialVec ℓ Msg :=
   fun q ↦ if q ∈ Q then some (m q) else none
 
+/-- The entries of a restriction. -/
 @[simp]
 theorem restrict_apply (m : Fin ℓ → Msg) (Q : Finset (Fin ℓ)) (q : Fin ℓ) :
     restrict m Q q = if q ∈ Q then some (m q) else none :=
@@ -164,6 +167,7 @@ output in `D`; an empty cell rejects. Stated on `X → Option Y`, the type of
 def checkIOOn (D : X → Option Y) (io : List (X × Y)) : Bool :=
   io.all fun p ↦ decide (D p.1 = some p.2)
 
+/-- One step of `CheckIO` against a fixed function compares the answer with the expected output. -/
 @[simp]
 theorem evalWithAnswerFn_checkIOStep (H : X → Y) (acc : Bool) (p : X × Y) :
     evalWithAnswerFn (QueryImpl.ofFn H) (checkIOStep acc p) = (acc && decide (H p.1 = p.2)) :=
