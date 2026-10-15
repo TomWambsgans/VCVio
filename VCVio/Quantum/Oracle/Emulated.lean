@@ -49,26 +49,48 @@ call to the coherent port, a query weight in the sense of `VCVio.Quantum.Comp.Qu
 * `Quantum.EmulatedOracle.totalMass_bind`: masses add under sequencing, from the general
   `Quantum.QuantumRuntime.totalWeight_bind`.
 
+## Calls through a basis embedding
+
+`Quantum.QuantumComp.embedCalls` makes the calls of a program over a signature of unitary ports
+through one port on a register `T`, along a basis embedding `Quantum.PortEmbedding` of each port
+register into `T` beside a further register: an isometry before each call, its adjoint after it.
+When the unitary on `T`, compressed along the embedding, is the unitary of each port:
+
+* `Quantum.EmulatedOracle.run_embedCalls`, `Quantum.EmulatedOracle.outcomeLawWith_embedCalls`:
+  the translation runs as the original program and has its observed laws;
+* `Quantum.EmulatedOracle.queryWeight_embedCalls`: query weights of a diagonal form are kept,
+  call by call;
+* `Quantum.QuantumComp.isQueryBound_embedCalls`: a budget `b` becomes the budget `∑ q, b q`.
+
 ## Classical-port programs
 
-A program over `Quantum.uSpec P In`, which names the port of each call classically, is a special
-coherent program: `Quantum.QuantumComp.toCoherent` embeds the input of each call of port `i` into
-the summand `i` of the coherent register, calls the coherent port, and reads the summand back.
+A program over `Quantum.uSpec P In`, which names the port of each call classically, translates to
+a coherent program: `Quantum.QuantumComp.toCoherent` embeds the input of each call of port `i`
+into the summand `i` of the coherent register, calls the coherent port, and reads the summand
+back.
 
-* `Quantum.EmulatedOracle.run_toCoherent`: the translation runs as the original program.
+* `Quantum.EmulatedOracle.run_toCoherent`, `Quantum.EmulatedOracle.outcomeLawWith_toCoherent`:
+  the translation runs as the original program and has its observed laws.
 * `Quantum.EmulatedOracle.totalMass_toCoherent`: its mass on `i` is the query mass of port `i`.
 * `Quantum.QuantumComp.isQueryBound_toCoherent`: a budget `b` becomes the budget `∑ i, b i`.
+* `Quantum.EmulatedOracle.lossless_run_toCoherent`: a lossless program runs losslessly after
+  translation.
 
-Every statement about programs against `E.coherent.toRuntime` therefore specialises to
-classical-port programs against `E.toRuntime`, with per-port query masses in place of total
-masses.
+A statement about programs against `E.coherent.toRuntime` therefore specialises to
+classical-port programs against `E.toRuntime` when its hypotheses on the program are about its
+run, its observed laws, its masses or its query budget, with per-port query masses in place of
+total masses. Syntactic losslessness (`Quantum.QuantumComp.Lossless`) is not preserved: the
+read-back after a call is a contraction that is not trace preserving on the whole coherent
+register. Losslessness of the run is preserved (`Quantum.EmulatedOracle.lossless_run_toCoherent`).
+The translation is defined for programs over `Quantum.LocalSig.instruments`.
 
 ## Implementation notes
 
-The paper's index register is `I ⊗ X_1 ⊗ … ⊗ X_k` with `U_i` acting on `X_i`; ours is the direct
-sum `Σ i, In i`. The basis injection `|i, x_1 … x_k⟩ ↦ |i, x_i⟩ ⊗ |x_1 … 0 … x_k⟩` intertwines the
-two oracles, and an adversary can apply it before each query and undo it after, so the two
-adversary classes have the same laws and the same masses.
+The paper's query register is `I ⊗ X_1 ⊗ ⋯ ⊗ X_k`, with `U_i` acting on `X_i`; ours is the direct
+sum `Σ i, In i`. `VCVio.Quantum.Oracle.EmulatedTensor` defines the tensor-product interface and
+proves the two interfaces equivalent: programs translate in both directions by calls through
+basis embeddings, preserving runs, observed laws, masses and query budgets (the direction into
+the tensor-product interface needs every port register to be nonempty).
 -/
 
 public section
@@ -538,48 +560,447 @@ theorem QuantumRuntime.queryStep_branch_eq_conj {spec : QuantumOracleSpec.{u₁,
     MatrixMap.conj_mul, MatrixMap.conj_mul]
   rfl
 
+
+/-! ## Calls through a basis embedding
+
+A call of a port `q` of a signature of unitary ports can be made through a single port on a
+register `T`, given a basis injection of the register of `q` into `T` beside a register `G q`:
+move the input into `T` by the isometry of the injection, call the port on `T`, and read the
+result back by the adjoint of the isometry. When the unitary on `T`, compressed along the
+injection, is the unitary of `q`, this translation preserves runs, query weights of a diagonal
+form, and query budgets. The classical-port translation `Quantum.QuantumComp.toCoherent` below
+and the translations between the coherent and the tensor-product interfaces
+(`VCVio.Quantum.Oracle.EmulatedTensor`) are instances. -/
+
+namespace EmulatedOracle
+
+/-- The emulated oracle with one port on `T`, answered by the unitary `U`, with the private
+register and the initial substate of `E`. -/
+@[expose, reducible]
+def onePort {P : Type u} {In : P → QReg} (E : EmulatedOracle P In) {T : QReg}
+    (U : Matrix (T × E.S) (T × E.S) ℂ) (hU : U ∈ Matrix.unitaryGroup (T × E.S) ℂ) :
+    EmulatedOracle Unit fun _ ↦ T where
+  S := E.S
+  init := E.init
+  U _ := U
+  unitary _ := hU
+
+end EmulatedOracle
+
+/-- **A basis embedding of port registers** into one register `T`: for each port `q`, a register
+`G q` and an injection of the basis of the register `J q` into the basis of `T × G q`. -/
+structure PortEmbedding {Q : Type u} (J : Q → QReg) (T : QReg) where
+  /-- The register that receives, beside `T`, the rest of the input of the port `q`. -/
+  G : Q → QReg
+  /-- The basis map of the port `q`. -/
+  toFun : ∀ q, J q → T × G q
+  /-- Each basis map is injective. -/
+  injective : ∀ q, Function.Injective (toFun q)
+
+namespace PortEmbedding
+
+variable {Q : Type u} {J : Q → QReg} {T : QReg} (ι : PortEmbedding J T)
+
+/-- The basis map of the port `q` beside a remainder `F`: `|y, f⟩ ↦ |t, (g, f)⟩` for
+`ι q y = (t, g)`. -/
+@[expose]
+def call (q : Q) (F : Type*) : J q × F → T × (ι.G q × F) :=
+  fun p ↦ ((ι.toFun q p.1).1, ((ι.toFun q p.1).2, p.2))
+
+/-- The basis map beside a remainder is injective. -/
+theorem call_injective (q : Q) (F : Type*) : Function.Injective (ι.call q F) := by
+  rintro ⟨y, f⟩ ⟨y', f'⟩ h
+  simp only [call, Prod.mk.injEq] at h
+  rw [ι.injective q (Prod.ext h.1 h.2.1), h.2.2]
+
+/-- The basis map of the port `q` beside the private register `D` of a runtime, grouped as the
+input of a call on `T`: `|y, d⟩ ↦ |(t, d), g⟩` for `ι q y = (t, g)`. -/
+@[expose]
+def withPrivate (q : Q) (D : Type*) : J q × D → (T × D) × ι.G q :=
+  fun p ↦ (((ι.toFun q p.1).1, p.2), (ι.toFun q p.1).2)
+
+/-- Before a call of the port `q` made through the port on `T`: the isometry that moves the input
+`J q`, exposed by `ℓ`, into `T`, with the rest in `G q` beside the remainder `F`. -/
+@[expose]
+noncomputable def embed (q : Q) (F : QReg) {A : QReg} (ℓ : A ≃ J q × F) :
+    SubInstrument A (T × QReg.of (ι.G q × F)) PUnit.{v + 1} :=
+  SubInstrument.ofMap (MatrixMap.conj (basisMatrix (ι.call q F ∘ ℓ))) (MatrixMap.isCP_conj _)
+    (MatrixMap.isTNI_conj (by
+      rw [conjTranspose_basisMatrix_mul_self ((ι.call_injective q F).comp ℓ.injective), sub_self]
+      exact Matrix.PosSemidef.zero))
+
+/-- After a call of the port `q` made through the port on `T`: the contraction that reads the
+image of the basis map of `q` back into `J q`. -/
+@[expose]
+noncomputable def project (q : Q) (F : QReg) :
+    SubInstrument (T × QReg.of (ι.G q × F)) (J q × F) PUnit.{v + 1} :=
+  SubInstrument.ofMap (MatrixMap.conj (basisMatrix (ι.call q F))ᴴ)
+    (MatrixMap.isCP_conj _)
+    (MatrixMap.isTNI_conj (posSemidef_one_sub_conjTranspose_mul_self (by
+      rw [Matrix.conjTranspose_conjTranspose,
+        conjTranspose_basisMatrix_mul_self (ι.call_injective q F)])))
+
+end PortEmbedding
+
+namespace QuantumComp
+
+variable {Q : Type u} {J : Q → QReg} {T : QReg} {W : QReg → Type w}
+
+/-- Recursion for `Quantum.QuantumComp.embedCalls` on the underlying trees. -/
+@[expose]
+noncomputable def embedCallsAux (ι : PortEmbedding J T) : {A : QReg} →
+    IPFunctor.IFreeM (QuantumComp.toIPFunctor LocalSig.instruments.{v} (uSpec Q J)) W A →
+      QuantumComp LocalSig.instruments.{v} (uSpec Unit fun _ ↦ T) W A
+  | _, .pure y => QuantumComp.pure y
+  | _, .liftBind (.prim o) k => QuantumComp.primBind o fun b ↦ embedCallsAux ι (k (ULift.up b))
+  | _, .liftBind (.query q F ℓ) k =>
+      QuantumComp.primBind (L := LocalSig.instruments.{v})
+        ⟨PUnit, fun _ ↦ QReg.of (T × QReg.of (ι.G q × F)), SubInstrument.toD (ι.embed q F ℓ)⟩
+        fun _ ↦ QuantumComp.queryBind (A := QReg.of (T × QReg.of (ι.G q × F))) ()
+          (QReg.of (ι.G q × F)) (Equiv.refl _) fun _ ↦
+          QuantumComp.primBind (L := LocalSig.instruments.{v})
+            ⟨PUnit, fun _ ↦ QReg.of (J q × F), SubInstrument.toD (ι.project q F)⟩ fun _ ↦
+            embedCallsAux ι (k (ULift.up ()))
+
+/-- **Calls through a basis embedding.** A call of the port `q` on `J q × F` becomes a call of the
+single port on `T` with the remainder `G q × F`: before it, the isometry
+`Quantum.PortEmbedding.embed` moves the input into `T`; after it, the contraction
+`Quantum.PortEmbedding.project` reads it back. Local operations are kept. -/
+@[expose]
+noncomputable def embedCalls (ι : PortEmbedding J T) {A : QReg}
+    (x : QuantumComp LocalSig.instruments.{v} (uSpec Q J) W A) :
+    QuantumComp LocalSig.instruments.{v} (uSpec Unit fun _ ↦ T) W A :=
+  embedCallsAux ι x
+
+variable (ι : PortEmbedding J T)
+
+/-- A leaf is translated to itself. -/
+@[simp]
+theorem embedCalls_pure {A : QReg} (y : W A) :
+    (QuantumComp.pure (L := LocalSig.instruments.{v}) (spec := uSpec Q J) y).embedCalls ι =
+      QuantumComp.pure y :=
+  rfl
+
+/-- Local operations are kept. -/
+@[simp]
+theorem embedCalls_primBind {A : QReg} (o : LocalSig.instruments.{v}.Op A)
+    (k : (b : LocalSig.instruments.{v}.Outcome o) →
+      QuantumComp LocalSig.instruments.{v} (uSpec Q J) W (LocalSig.instruments.{v}.next o b)) :
+    (QuantumComp.primBind o k).embedCalls ι =
+      QuantumComp.primBind o fun b ↦ (k b).embedCalls ι :=
+  rfl
+
+/-- A call of the port `q` becomes an embedding, a call of the port on `T` and a projection. -/
+theorem embedCalls_queryBind {A : QReg} (q : Q) (F : QReg) (ℓ : A ≃ J q × F)
+    (k : Unit → QuantumComp LocalSig.instruments.{v} (uSpec Q J) W (QReg.of (J q × F))) :
+    (QuantumComp.queryBind (spec := uSpec Q J) q F ℓ k).embedCalls ι =
+      QuantumComp.primBind (L := LocalSig.instruments.{v})
+        ⟨PUnit, fun _ ↦ QReg.of (T × QReg.of (ι.G q × F)), SubInstrument.toD (ι.embed q F ℓ)⟩
+        fun _ ↦ QuantumComp.queryBind (A := QReg.of (T × QReg.of (ι.G q × F))) ()
+          (QReg.of (ι.G q × F)) (Equiv.refl _) fun _ ↦
+          QuantumComp.primBind (L := LocalSig.instruments.{v})
+            ⟨PUnit, fun _ ↦ QReg.of (J q × F), SubInstrument.toD (ι.project q F)⟩ fun _ ↦
+            (k ()).embedCalls ι :=
+  rfl
+
+/-- **Budgets of calls through an embedding.** A program within the budget `b` makes at most the
+total budget `∑ q, b q` of calls to the port on `T`. -/
+theorem isQueryBound_embedCalls [Fintype Q] {A : QReg}
+    {x : QuantumComp LocalSig.instruments.{v} (uSpec Q J) W A} {b : Q → ℕ}
+    (hx : x.IsQueryBound b) : (x.embedCalls ι).IsQueryBound fun _ ↦ ∑ q, b q := by
+  have := Classical.decEq Q
+  induction x using QuantumComp.inductionOn generalizing b with
+  | pure _ _ => exact isQueryBound_pure _ _
+  | primBind _ o k ih =>
+    rw [embedCalls_primBind, isQueryBound_primBind_iff]
+    exact fun c ↦ ih c ((isQueryBound_primBind_iff o k b).mp hx c)
+  | queryBind _ q F ℓ k ih =>
+    obtain ⟨hpos, hk⟩ := (isQueryBound_queryBind_iff q F ℓ k b).mp hx
+    rw [embedCalls_queryBind, isQueryBound_primBind_iff]
+    intro _
+    rw [isQueryBound_queryBind_iff]
+    refine ⟨Finset.sum_pos' (fun _ _ ↦ Nat.zero_le _) ⟨q, Finset.mem_univ q, hpos⟩, fun _ ↦ ?_⟩
+    rw [isQueryBound_primBind_iff]
+    intro _
+    have hsum : ∑ j, Function.update b q (b q - 1) j = ∑ j, b j - 1 := by
+      rw [Finset.sum_update_of_mem (Finset.mem_univ q), ← Finset.add_sum_erase _ _
+        (Finset.mem_univ q), Finset.sdiff_singleton_eq_erase]
+      omega
+    have h := ih () (hk ())
+    convert h using 1
+    funext u
+    rw [Function.update_self, hsum]
+
+end QuantumComp
+
+/-- The weight of the input of a call on the diagonal entries selected by `c` is the weight of the
+state on the diagonal entries whose port input `c` selects. -/
+theorem QuantumRuntime.sum_ite_callInput_apply {A J E : Type*} [Fintype A] [Fintype J]
+    [Fintype E] [DecidableEq A] [DecidableEq J] [DecidableEq E] (ℓ : A ≃ J × E) {D : Type*}
+    [Fintype D] [DecidableEq D] (c : J → Prop) [DecidablePred c] (ρ : Matrix (A × D) (A × D) ℂ) :
+    (∑ a : J × D, if c a.1 then QuantumRuntime.callInput ℓ D ρ a a else 0) =
+      ∑ a : A × D, if c (ℓ a.1).1 then ρ a a else 0 := by
+  have hc : ∀ b : (J × D) × E, b.1.1 = (ℓ ((QuantumRuntime.queryEquivIn ℓ D).symm b).1).1 :=
+    fun b ↦ by
+      conv_lhs => rw [← (QuantumRuntime.queryEquivIn ℓ D).apply_symm_apply b]
+      rfl
+  conv_rhs => rw [← (QuantumRuntime.queryEquivIn ℓ D).symm.sum_comp
+    (fun a : A × D ↦ if c (ℓ a.1).1 then ρ a a else 0), Fintype.sum_prod_type]
+  refine Fintype.sum_congr _ _ fun a ↦ ?_
+  simp only [QuantumRuntime.callInput, LinearMap.comp_apply, MatrixMap.traceRight_apply,
+    SubInstrument.relabel_branch_apply, Matrix.submatrix_apply]
+  split_ifs with h
+  · refine Finset.sum_congr rfl fun f _ ↦ ?_
+    rw [← hc (a, f)]
+    simp [h]
+  · refine (Finset.sum_eq_zero fun f _ ↦ ?_).symm
+    rw [← hc (a, f)]
+    simp [h]
+
+namespace EmulatedOracle
+
+section embed
+
+variable {Q : Type u} {J : Q → QReg} (E : EmulatedOracle Q J) {T : QReg}
+  (ι : PortEmbedding J T) {U : Matrix (T × E.S) (T × E.S) ℂ}
+  (hU : U ∈ Matrix.unitaryGroup (T × E.S) ℂ) {W : QReg → Type w}
+
+/-- The matrix identity behind calls through an embedding: if the unitary `U` on `T`, beside
+`G q` and compressed along the basis map of `q`, is the unitary of `q`, then the call on `T`,
+regrouped for a call on `T × (G q × F)` and compressed along the basis map of `q` beside `F`, is
+the call of `q`. -/
+theorem embedCall_matrix
+    (hcomp : ∀ q, (U ⊗ₖ (1 : Matrix (ι.G q) (ι.G q) ℂ)).submatrix (ι.withPrivate q E.S)
+      (ι.withPrivate q E.S) = E.U q)
+    (q : Q) (F : QReg) {A : QReg} (ℓ : A ≃ J q × F) :
+    ((basisMatrix (ι.call q F))ᴴ ⊗ₖ (1 : Matrix E.S E.S ℂ)) *
+        (basisMatrix (QuantumRuntime.queryEquivOut T E.S (QReg.of (ι.G q × F))) *
+          (U ⊗ₖ (1 : Matrix (QReg.of (ι.G q × F)) (QReg.of (ι.G q × F)) ℂ)) *
+          basisMatrix (QuantumRuntime.queryEquivIn (Equiv.refl (T × QReg.of (ι.G q × F))) E.S)) *
+        (basisMatrix (ι.call q F ∘ ℓ) ⊗ₖ (1 : Matrix E.S E.S ℂ)) =
+      basisMatrix (QuantumRuntime.queryEquivOut (J q) E.S F) * (E.U q ⊗ₖ (1 : Matrix F F ℂ)) *
+        basisMatrix (QuantumRuntime.queryEquivIn ℓ E.S) := by
+  rw [← Matrix.conjTranspose_one, ← Matrix.conjTranspose_kronecker, Matrix.conjTranspose_one,
+    basisMatrix_kronecker_one, basisMatrix_kronecker_one,
+    basisMatrix_equiv_eq_conjTranspose (QuantumRuntime.queryEquivOut T E.S _),
+    basisMatrix_equiv_eq_conjTranspose (QuantumRuntime.queryEquivOut (J q) E.S F),
+    conjTranspose_basisMatrix_mul_mul_basisMatrix, conjTranspose_basisMatrix_mul_mul_basisMatrix,
+    conjTranspose_basisMatrix_mul_mul_basisMatrix, ← hcomp q]
+  ext ⟨⟨y, f⟩, d⟩ ⟨a, d'⟩
+  simp only [Matrix.submatrix_apply, Function.comp_apply, Prod.map, id, Matrix.kroneckerMap_apply,
+    Matrix.one_apply, PortEmbedding.call, PortEmbedding.withPrivate,
+    QuantumRuntime.queryEquivOut, QuantumRuntime.queryEquivIn, Equiv.symm_trans_apply,
+    Equiv.prodAssoc_symm_apply, Equiv.prodAssoc_apply, Equiv.prodCongr_apply,
+    Equiv.prodComm_apply, Equiv.refl_apply, Prod.swap, Equiv.trans_apply, Equiv.symm_symm]
+  by_cases hg : (ι.toFun q y).2 = (ι.toFun q (ℓ a).1).2 <;>
+    by_cases hf : f = (ℓ a).2 <;> simp [hg, hf]
+
+/-- **One call through an embedding.** Embedding the input of a call of the port `q`, calling
+the port on `T`, and projecting back is the call of `q`. -/
+theorem branch_project_comp_queryStep_comp_embed
+    (hcomp : ∀ q, (U ⊗ₖ (1 : Matrix (ι.G q) (ι.G q) ℂ)).submatrix (ι.withPrivate q E.S)
+      (ι.withPrivate q E.S) = E.U q)
+    (q : Q) (F : QReg) {A : QReg} (ℓ : A ≃ J q × F) :
+    ((ι.project.{u, v} q F).frame E.S).branch PUnit.unit ∘ₗ
+      (((E.onePort U hU).toRuntime.queryStep (A := QReg.of (T × QReg.of (ι.G q × F))) ()
+        (QReg.of (ι.G q × F)) (Equiv.refl _)).branch () ∘ₗ
+        ((ι.embed.{u, v} q F ℓ).frame E.S).branch PUnit.unit) =
+      (E.toRuntime.queryStep q F ℓ).branch () := by
+  rw [(E.onePort U hU).toRuntime.queryStep_branch_eq_conj (M := U) rfl,
+    E.toRuntime.queryStep_branch_eq_conj (M := E.U q) rfl, SubInstrument.branch_frame_apply,
+    SubInstrument.branch_frame_apply]
+  change LinearMap.comp ((MatrixMap.conj _).amplify E.S)
+    (LinearMap.comp _ ((MatrixMap.conj _).amplify E.S)) = _
+  rw [MatrixMap.amplify_conj, MatrixMap.amplify_conj, ← MatrixMap.conj_mul, ← MatrixMap.conj_mul]
+  exact congrArg MatrixMap.conj
+    ((Matrix.mul_assoc _ _ _).symm.trans (E.embedCall_matrix ι hcomp q F ℓ))
+
+/-- **Calls through an embedding run as the original program**, when the unitary on `T`
+compressed along each basis map is the unitary of the port. -/
+theorem run_embedCalls
+    (hcomp : ∀ q, (U ⊗ₖ (1 : Matrix (ι.G q) (ι.G q) ℂ)).submatrix (ι.withPrivate q E.S)
+      (ι.withPrivate q E.S) = E.U q)
+    {A : QReg} (x : QuantumComp LocalSig.instruments.{v} (uSpec Q J) W A) :
+    (E.onePort U hU).toRuntime.run .instruments (x.embedCalls ι) =
+      E.toRuntime.run .instruments x := by
+  induction x using QuantumComp.inductionOn with
+  | pure _ _ => rfl
+  | primBind _ o k ih =>
+    exact congrArg (((LocalSig.Interp.instruments o).frame E.S).bind) (funext ih)
+  | queryBind _ q F ℓ k ih =>
+    refine DSubInstrument.ext (funext fun p ↦ ?_)
+    change ((((ι.embed.{u, v} q F ℓ).toD).frame E.S).bind fun _ ↦
+        (((E.onePort U hU).toRuntime.queryStep (A := QReg.of (T × QReg.of (ι.G q × F))) ()
+          (QReg.of (ι.G q × F)) (Equiv.refl _)).toD).bind fun _ ↦
+          (((ι.project.{u, v} q F).toD).frame E.S).bind fun _ ↦
+            (E.onePort U hU).toRuntime.run .instruments ((k ()).embedCalls ι)).branch p =
+      ((E.toRuntime.queryStep q F ℓ).toD.bind fun r ↦ E.toRuntime.run .instruments (k r)).branch p
+    simp only [ih, DSubInstrument.branch_bind_apply_univ, Fintype.sum_unique, LinearMap.comp_assoc]
+    exact congrArg (LinearMap.comp _)
+      (branch_project_comp_queryStep_comp_embed.{u, v} E ι hU hcomp q F ℓ)
+
+/-- **Calls through an embedding change no observed law.** -/
+theorem outcomeLawWith_embedCalls
+    (hcomp : ∀ q, (U ⊗ₖ (1 : Matrix (ι.G q) (ι.G q) ℂ)).submatrix (ι.withPrivate q E.S)
+      (ι.withPrivate q E.S) = E.U q)
+    {A : QReg} (x : QuantumComp LocalSig.instruments.{v} (uSpec Q J) W A) {γ : Type*}
+    [MeasurableSpace γ] (ρ : SubState A) (f : (Σ u, W u) → γ) :
+    (E.onePort U hU).toRuntime.outcomeLawWith .instruments (x.embedCalls ι) ρ f =
+      E.toRuntime.outcomeLawWith .instruments x ρ f := by
+  simp only [QuantumRuntime.outcomeLawWith, QuantumRuntime.jointPost,
+    E.run_embedCalls ι hU hcomp x]
+
+/-- **Calls through an embedding run losslessly** when the original program is lossless. The
+translation itself is not syntactically lossless: the read-back after each call is a
+contraction. -/
+theorem lossless_run_embedCalls
+    (hcomp : ∀ q, (U ⊗ₖ (1 : Matrix (ι.G q) (ι.G q) ℂ)).submatrix (ι.withPrivate q E.S)
+      (ι.withPrivate q E.S) = E.U q)
+    {A : QReg} {x : QuantumComp LocalSig.instruments.{v} (uSpec Q J) W A}
+    (hx : x.Lossless .instruments) :
+    ((E.onePort U hU).toRuntime.run .instruments (x.embedCalls ι)).Lossless := by
+  rw [E.run_embedCalls ι hU hcomp x]
+  exact E.toRuntime.lossless_run .instruments hx E.lossless_toRuntime_step
+
+/-- The input of a call made through an embedding, weighted on the diagonal entries of `T × D`
+selected by `c`, has the weight of the input of the original call on the entries whose image
+under the basis map `c` selects. -/
+theorem _root_.Quantum.PortEmbedding.sum_ite_callInput_embed (c : T → Prop) [DecidablePred c]
+    (q : Q) (F : QReg) {A : QReg} (ℓ : A ≃ J q × F) {D : Type*} [Fintype D] [DecidableEq D]
+    (ρ : Matrix (A × D) (A × D) ℂ) :
+    (∑ a : T × D, if c a.1 then QuantumRuntime.callInput (Equiv.refl (T × QReg.of (ι.G q × F)))
+      D (((ι.embed.{u, v} q F ℓ).frame D).branch PUnit.unit ρ) a a else 0) =
+      ∑ a : J q × D, if c (ι.toFun q a.1).1 then QuantumRuntime.callInput ℓ D ρ a a else 0 := by
+  refine (QuantumRuntime.sum_ite_callInput_apply (Equiv.refl _) c _).trans (Eq.trans ?_
+    (QuantumRuntime.sum_ite_callInput_apply ℓ (fun y ↦ c (ι.toFun q y).1) ρ).symm)
+  set g : A × D → (T × QReg.of (ι.G q × F)) × D := Prod.map (ι.call q F ∘ ℓ) id
+  have hg : Function.Injective g :=
+    ((ι.call_injective q F).comp ℓ.injective).prodMap Function.injective_id
+  have h2 : ((ι.embed.{u, v} q F ℓ).frame D).branch PUnit.unit ρ =
+      MatrixMap.conj (basisMatrix g) ρ := by
+    rw [SubInstrument.branch_frame_apply]
+    change (MatrixMap.conj _).amplify D ρ = _
+    rw [MatrixMap.amplify_conj, basisMatrix_kronecker_one]
+  set w : (T × QReg.of (ι.G q × F)) × D → ℂ := fun b ↦ if c b.1.1 then 1 else 0
+  have h3 : ∀ σ : Matrix ((T × QReg.of (ι.G q × F)) × D) ((T × QReg.of (ι.G q × F)) × D) ℂ,
+      (∑ b : (T × QReg.of (ι.G q × F)) × D, if c ((Equiv.refl _) b.1).1 then σ b b else 0) =
+        (Matrix.diagonal w * σ).trace := fun σ ↦ by
+    simp only [Matrix.trace, Matrix.diag_apply, Matrix.diagonal_mul, w, ite_mul, one_mul,
+      zero_mul, Equiv.refl_apply]
+    rfl
+  rw [h3, h2, MatrixMap.conj_apply, ← Matrix.mul_assoc, ← Matrix.mul_assoc,
+    Matrix.trace_mul_comm, ← Matrix.mul_assoc, ← Matrix.mul_assoc,
+    conjTranspose_basisMatrix_mul_mul_basisMatrix, Matrix.submatrix_diagonal _ _ hg]
+  simp only [Matrix.trace, Matrix.diag_apply, Matrix.diagonal_mul]
+  refine Fintype.sum_congr _ _ fun a ↦ ?_
+  change (if c (ι.toFun q (ℓ a.1).1).1 then (1 : ℂ) else 0) * ρ a a = _
+  split_ifs <;> simp
+
+/-- **Query weights of calls through an embedding, call by call.** For weights of the diagonal
+form selected by `c` on `T`, and by `c` after the basis maps on the ports, the weight of the
+`j`-th call of `x.embedCalls ι` is the weight of the `j`-th call of `x`. -/
+theorem queryWeight_embedCalls
+    (hcomp : ∀ q, (U ⊗ₖ (1 : Matrix (ι.G q) (ι.G q) ℂ)).submatrix (ι.withPrivate q E.S)
+      (ι.withPrivate q E.S) = E.U q)
+    (c : T → Prop) [DecidablePred c] {w₂ : Matrix (T × E.S) (T × E.S) ℂ → ℝ≥0∞}
+    (hw₂ : ∀ σ, w₂ σ = ENNReal.ofReal (∑ a, if c a.1 then σ a a else 0).re)
+    {w₁ : ∀ q, Matrix (J q × E.S) (J q × E.S) ℂ → ℝ≥0∞}
+    (hw₁ : ∀ q σ, w₁ q σ = ENNReal.ofReal (∑ a, if c (ι.toFun q a.1).1 then σ a a else 0).re)
+    {A : QReg} (x : QuantumComp LocalSig.instruments.{v} (uSpec Q J) W A)
+    (ρ : Matrix (A × E.S) (A × E.S) ℂ) (j : ℕ) :
+    (E.onePort U hU).toRuntime.queryWeight .instruments (fun _ ↦ w₂) (x.embedCalls ι) ρ j =
+      E.toRuntime.queryWeight .instruments w₁ x ρ j := by
+  induction x using QuantumComp.inductionOn generalizing j with
+  | pure _ _ => rfl
+  | primBind _ o k ih => exact tsum_congr fun b ↦ ih b _ j
+  | queryBind _ q F ℓ k ih =>
+    cases j with
+    | zero =>
+      change ∑' b : PUnit.{v + 1}, w₂ (QuantumRuntime.callInput
+          (Equiv.refl (T × QReg.of (ι.G q × F))) E.S
+            (((ι.embed.{u, v} q F ℓ).frame E.S).branch b ρ)) =
+        w₁ q (QuantumRuntime.callInput ℓ E.S ρ)
+      rw [tsum_fintype, Fintype.sum_unique, hw₂, hw₁]
+      exact congrArg (fun z : ℂ ↦ ENNReal.ofReal z.re)
+        (PortEmbedding.sum_ite_callInput_embed.{u, v} ι c q F ℓ ρ)
+    | succ j =>
+      change ∑' b : PUnit.{v + 1}, ∑' r : Unit, ∑' b' : PUnit.{v + 1},
+          (E.onePort U hU).toRuntime.queryWeight .instruments (fun _ ↦ w₂)
+            ((k ()).embedCalls ι) (((ι.project.{u, v} q F).frame E.S).branch b'
+              (((E.onePort U hU).toRuntime.queryStep
+                (A := QReg.of (T × QReg.of (ι.G q × F))) () (QReg.of (ι.G q × F))
+                (Equiv.refl _)).branch r (((ι.embed.{u, v} q F ℓ).frame E.S).branch b ρ))) j =
+        ∑' r : Unit, E.toRuntime.queryWeight .instruments w₁ (k r)
+          ((E.toRuntime.queryStep q F ℓ).branch r ρ) j
+      simp only [tsum_fintype, Fintype.sum_unique]
+      exact (congrArg (fun σ ↦ (E.onePort U hU).toRuntime.queryWeight .instruments
+          (fun _ ↦ w₂) ((k ()).embedCalls ι) σ j)
+        (LinearMap.congr_fun
+          (branch_project_comp_queryStep_comp_embed.{u, v} E ι hU hcomp q F ℓ) ρ)).trans
+        (ih () _ j)
+
+/-- **Query masses of calls through an embedding.** The query mass of the port on `T` is the
+summed query mass of the ports. -/
+theorem queryMass_embedCalls
+    (hcomp : ∀ q, (U ⊗ₖ (1 : Matrix (ι.G q) (ι.G q) ℂ)).submatrix (ι.withPrivate q E.S)
+      (ι.withPrivate q E.S) = E.U q)
+    {A : QReg} (x : QuantumComp LocalSig.instruments.{v} (uSpec Q J) W A)
+    (ρ : Matrix (A × E.S) (A × E.S) ℂ) :
+    (E.onePort U hU).toRuntime.queryMass .instruments (x.embedCalls ι) ρ () =
+      ∑' j, E.toRuntime.queryWeight .instruments (fun _ σ ↦ ENNReal.ofReal σ.trace.re) x ρ j := by
+  rw [QuantumRuntime.queryMass_eq_totalWeight]
+  refine tsum_congr fun j ↦ (congrArg (fun w ↦ (E.onePort U hU).toRuntime.queryWeight
+    .instruments w (x.embedCalls ι) ρ j) (funext fun i' ↦ funext fun σ ↦ ?_)).trans
+    (E.queryWeight_embedCalls ι hU hcomp (fun _ ↦ True)
+      (w₂ := fun σ ↦ ENNReal.ofReal σ.trace.re) (fun σ ↦ ?_) (fun q σ ↦ ?_) x ρ j) <;>
+    simp [Matrix.trace]
+
+end embed
+
+end EmulatedOracle
+
 /-! ## Classical-port programs as coherent programs -/
 
 namespace EmulatedOracle
 
-section bridge
+variable {P : Type} [Fintype P] [DecidableEq P]
 
-variable {P : Type} [Fintype P] [DecidableEq P] {In : P → QReg}
-
-/-- The injection of the register of port `i`, beside a remainder `F`, into the coherent
-register beside `F`: the basis vector `|x, f⟩` goes to `|⟨i, x⟩, f⟩`. -/
+/-- The embedding of the port registers into the coherent register: the basis vector `|x⟩` of
+the port `i` goes to `|⟨i, x⟩⟩`, with nothing beside it. -/
 @[expose]
-def cohInj (i : P) (F : Type*) : In i × F → cohIn In × F :=
-  fun p ↦ (⟨i, p.1⟩, p.2)
+def sigmaEmbedding (In : P → QReg) : PortEmbedding In (cohIn In) where
+  G _ := QReg.of Unit
+  toFun i x := (⟨i, x⟩, ())
+  injective i := by
+    rintro x x' h
+    simp only [Prod.mk.injEq, Sigma.mk.inj_iff, heq_eq_eq, true_and, and_true] at h
+    exact h
 
-/-- The injection of summand `i` is injective. -/
-theorem cohInj_injective (i : P) (F : Type*) : Function.Injective (cohInj (In := In) i F) := by
-  rintro ⟨y, f⟩ ⟨y', f'⟩ h
-  simp only [cohInj, Prod.mk.injEq, Sigma.mk.inj_iff, heq_eq_eq, true_and] at h
-  rw [h.1, h.2]
+variable {In : P → QReg} (E : EmulatedOracle P In)
 
-/-- Before a call of port `i` made through the coherent port: the isometry that moves the input
-`In i`, exposed by `ℓ`, into the summand `i` of the coherent register. -/
-@[expose]
-noncomputable def cohEmbed (i : P) (F : QReg) {A : QReg} (ℓ : A ≃ In i × F) :
-    SubInstrument A (cohIn In × F) PUnit.{v + 1} :=
-  SubInstrument.ofMap (MatrixMap.conj (basisMatrix (cohInj i F ∘ ℓ))) (MatrixMap.isCP_conj _)
-    (MatrixMap.isTNI_conj (by
-      rw [conjTranspose_basisMatrix_mul_self ((cohInj_injective i F).comp ℓ.injective), sub_self]
-      exact Matrix.PosSemidef.zero))
+/-- The entries of the coherent unitary on a summand are the entries of the unitary of the
+port. -/
+@[simp]
+theorem coherent_U_apply_self (i : P) (a a' : In i) (d d' : E.S) :
+    E.coherent.U () (⟨i, a⟩, d) (⟨i, a'⟩, d') = E.U i (a, d) (a', d') := by
+  change Matrix.blockDiagonal' E.U ⟨i, (a, d)⟩ ⟨i, (a', d')⟩ = _
+  exact Matrix.blockDiagonal'_apply_eq _ _ _ _
 
-/-- After a call of port `i` made through the coherent port: the contraction that reads the
-summand `i` of the coherent register back into `In i`. -/
-@[expose]
-noncomputable def cohProject (i : P) (F : QReg) :
-    SubInstrument (cohIn In × F) (In i × F) PUnit.{v + 1} :=
-  SubInstrument.ofMap (MatrixMap.conj (basisMatrix (cohInj (In := In) i F))ᴴ)
-    (MatrixMap.isCP_conj _)
-    (MatrixMap.isTNI_conj (posSemidef_one_sub_conjTranspose_mul_self (by
-      rw [Matrix.conjTranspose_conjTranspose,
-        conjTranspose_basisMatrix_mul_self (cohInj_injective i F)])))
+/-- The coherent unitary does not mix different summands. -/
+theorem coherent_U_apply_of_ne {i i' : P} (h : i ≠ i') (a : In i) (a' : In i') (d d' : E.S) :
+    E.coherent.U () (⟨i, a⟩, d) (⟨i', a'⟩, d') = 0 := by
+  change Matrix.blockDiagonal' E.U ⟨i, (a, d)⟩ ⟨i', (a', d')⟩ = _
+  exact Matrix.blockDiagonal'_apply_ne _ _ _ h
 
-end bridge
+/-- The coherent unitary compressed on the summand `i` is the unitary of the port `i`. -/
+theorem coherent_compress_sigmaEmbedding (i : P) :
+    (E.coherent.U () ⊗ₖ (1 : Matrix ((sigmaEmbedding In).G i) ((sigmaEmbedding In).G i) ℂ)
+      ).submatrix ((sigmaEmbedding In).withPrivate i E.S)
+        ((sigmaEmbedding In).withPrivate i E.S) = E.U i := by
+  ext ⟨y, d⟩ ⟨y', d'⟩
+  change E.coherent.U () (⟨i, y⟩, d) (⟨i, y'⟩, d') * (1 : Matrix Unit Unit ℂ) () () = _
+  rw [Matrix.one_apply_eq, mul_one]
+  exact E.coherent_U_apply_self i y y' d d'
 
 end EmulatedOracle
 
@@ -588,89 +1009,26 @@ namespace QuantumComp
 variable {P : Type} [Fintype P] [DecidableEq P] {In : P → QReg} {W : QReg → Type w}
 
 open EmulatedOracle in
-/-- Recursion for `Quantum.QuantumComp.toCoherent` on the underlying trees. -/
-@[expose]
-noncomputable def toCoherentAux : {A : QReg} →
-    IPFunctor.IFreeM (QuantumComp.toIPFunctor LocalSig.instruments.{v} (uSpec P In)) W A →
-      QuantumComp LocalSig.instruments.{v} (cohSpec In) W A
-  | _, .pure y => QuantumComp.pure y
-  | _, .liftBind (.prim o) k => QuantumComp.primBind o fun b ↦ toCoherentAux (k (ULift.up b))
-  | _, .liftBind (.query i F ℓ) k =>
-      QuantumComp.primBind (L := LocalSig.instruments.{v})
-        ⟨PUnit, fun _ ↦ QReg.of (cohIn In × F), SubInstrument.toD (cohEmbed i F ℓ)⟩ fun _ ↦
-        QuantumComp.queryBind (A := QReg.of (cohIn In × F)) () F (Equiv.refl _) fun _ ↦
-          QuantumComp.primBind (L := LocalSig.instruments.{v})
-            ⟨PUnit, fun _ ↦ QReg.of (In i × F), SubInstrument.toD (cohProject i F)⟩ fun _ ↦
-            toCoherentAux (k (ULift.up ()))
-
-open EmulatedOracle in
-/-- **Classical-port programs as coherent programs** (design §2.5). A call of port `i` on
-`In i × F` becomes a call of the coherent port on `cohIn In × F`: before it, the isometry
-`Quantum.EmulatedOracle.cohEmbed` moves the input into the summand `i`; after it, the contraction
-`Quantum.EmulatedOracle.cohProject` reads it back. No weight is lost, since the coherent unitary
-preserves the summand `i` (`Quantum.EmulatedOracle.run_toCoherent`). The contraction is not
-trace preserving on the whole coherent register, so `toCoherent` is not syntactically lossless,
-even though its runs are those of the original program. -/
+/-- **Classical-port programs as coherent programs** (design §2.5). A call of the port `i` on
+`In i × F` becomes a call of the coherent port: before it, the input is moved into the summand `i`
+of the coherent register; after it, the summand `i` is read back
+(`Quantum.QuantumComp.embedCalls` along `Quantum.EmulatedOracle.sigmaEmbedding`). No weight is
+lost, since the coherent unitary preserves the summand `i`
+(`Quantum.EmulatedOracle.run_toCoherent`). The read-back is not trace preserving on the whole
+coherent register, so `toCoherent` is not syntactically lossless, even though its runs are those
+of the original program. -/
 @[expose]
 noncomputable def toCoherent {A : QReg}
     (x : QuantumComp LocalSig.instruments.{v} (uSpec P In) W A) :
     QuantumComp LocalSig.instruments.{v} (cohSpec In) W A :=
-  toCoherentAux x
-
-/-- A leaf is translated to itself. -/
-@[simp]
-theorem toCoherent_pure {A : QReg} (y : W A) :
-    (QuantumComp.pure (L := LocalSig.instruments.{v}) (spec := uSpec P In) y).toCoherent =
-      QuantumComp.pure y :=
-  rfl
-
-/-- Local operations are kept. -/
-@[simp]
-theorem toCoherent_primBind {A : QReg} (o : LocalSig.instruments.{v}.Op A)
-    (k : (b : LocalSig.instruments.{v}.Outcome o) →
-      QuantumComp LocalSig.instruments.{v} (uSpec P In) W (LocalSig.instruments.{v}.next o b)) :
-    (QuantumComp.primBind o k).toCoherent = QuantumComp.primBind o fun b ↦ (k b).toCoherent :=
-  rfl
-
-open EmulatedOracle in
-/-- A call of port `i` becomes an embedding, a call of the coherent port and a projection. -/
-theorem toCoherent_queryBind {A : QReg} (i : P) (F : QReg) (ℓ : A ≃ In i × F)
-    (k : Unit → QuantumComp LocalSig.instruments.{v} (uSpec P In) W (QReg.of (In i × F))) :
-    (QuantumComp.queryBind (spec := uSpec P In) i F ℓ k).toCoherent =
-      QuantumComp.primBind (L := LocalSig.instruments.{v})
-        ⟨PUnit, fun _ ↦ QReg.of (cohIn In × F), SubInstrument.toD (cohEmbed i F ℓ)⟩ fun _ ↦
-        QuantumComp.queryBind (A := QReg.of (cohIn In × F)) () F (Equiv.refl _) fun _ ↦
-          QuantumComp.primBind (L := LocalSig.instruments.{v})
-            ⟨PUnit, fun _ ↦ QReg.of (In i × F), SubInstrument.toD (cohProject i F)⟩ fun _ ↦
-            (k ()).toCoherent :=
-  rfl
+  x.embedCalls (sigmaEmbedding In)
 
 /-- **Budgets of the coherent translation.** A program within the budget `b` makes, through the
 coherent port, at most the total budget `∑ i, b i` of calls. -/
 theorem isQueryBound_toCoherent {A : QReg}
     {x : QuantumComp LocalSig.instruments.{v} (uSpec P In) W A} {b : P → ℕ}
-    (hx : x.IsQueryBound b) : x.toCoherent.IsQueryBound fun _ ↦ ∑ i, b i := by
-  induction x using QuantumComp.inductionOn generalizing b with
-  | pure _ _ => exact isQueryBound_pure _ _
-  | primBind _ o k ih =>
-    rw [toCoherent_primBind, isQueryBound_primBind_iff]
-    exact fun c ↦ ih c ((isQueryBound_primBind_iff o k b).mp hx c)
-  | queryBind _ i F ℓ k ih =>
-    obtain ⟨hpos, hk⟩ := (isQueryBound_queryBind_iff i F ℓ k b).mp hx
-    rw [toCoherent_queryBind, isQueryBound_primBind_iff]
-    intro _
-    rw [isQueryBound_queryBind_iff]
-    refine ⟨Finset.sum_pos' (fun _ _ ↦ Nat.zero_le _) ⟨i, Finset.mem_univ i, hpos⟩, fun _ ↦ ?_⟩
-    rw [isQueryBound_primBind_iff]
-    intro _
-    have hsum : ∑ j, Function.update b i (b i - 1) j = ∑ j, b j - 1 := by
-      rw [Finset.sum_update_of_mem (Finset.mem_univ i), ← Finset.add_sum_erase _ _
-        (Finset.mem_univ i), Finset.sdiff_singleton_eq_erase]
-      omega
-    have h := ih () (hk ())
-    convert h using 1
-    funext u
-    rw [Function.update_self, hsum]
+    (hx : x.IsQueryBound b) : x.toCoherent.IsQueryBound fun _ ↦ ∑ i, b i :=
+  isQueryBound_embedCalls _ hx
 
 end QuantumComp
 
@@ -681,101 +1039,27 @@ section bridge
 variable {P : Type} [Fintype P] [DecidableEq P] {In : P → QReg} (E : EmulatedOracle P In)
   {W : QReg → Type w}
 
-/-- The matrix identity behind the coherent translation: compressing the coherent call, regrouped
-for a call on `cohIn In × F`, by the basis injection of summand `i` gives the call of port `i`. -/
-theorem cohCall_matrix (i : P) (F : QReg) {A : QReg} (ℓ : A ≃ In i × F) :
-    ((basisMatrix (cohInj (In := In) i F))ᴴ ⊗ₖ (1 : Matrix E.S E.S ℂ)) *
-        (basisMatrix (QuantumRuntime.queryEquivOut (cohIn In) E.S F) *
-          (E.coherent.U () ⊗ₖ (1 : Matrix F F ℂ)) *
-          basisMatrix (QuantumRuntime.queryEquivIn (Equiv.refl (cohIn In × F)) E.S)) *
-        (basisMatrix (cohInj i F ∘ ℓ) ⊗ₖ (1 : Matrix E.S E.S ℂ)) =
-      basisMatrix (QuantumRuntime.queryEquivOut (In i) E.S F) * (E.U i ⊗ₖ (1 : Matrix F F ℂ)) *
-        basisMatrix (QuantumRuntime.queryEquivIn ℓ E.S) := by
-  rw [← Matrix.conjTranspose_one, ← Matrix.conjTranspose_kronecker, Matrix.conjTranspose_one,
-    basisMatrix_kronecker_one, basisMatrix_kronecker_one,
-    basisMatrix_equiv_eq_conjTranspose (QuantumRuntime.queryEquivOut (cohIn In) E.S F),
-    basisMatrix_equiv_eq_conjTranspose (QuantumRuntime.queryEquivOut (In i) E.S F),
-    conjTranspose_basisMatrix_mul_mul_basisMatrix, conjTranspose_basisMatrix_mul_mul_basisMatrix,
-    conjTranspose_basisMatrix_mul_mul_basisMatrix]
-  ext ⟨⟨y, f⟩, d⟩ ⟨a, d'⟩
-  simp [cohInj, QuantumRuntime.queryEquivOut, QuantumRuntime.queryEquivIn,
-    Matrix.blockDiagonal'_apply_eq]
-
-/-- **One call, coherently.** Embedding the input of a call of port `i` into the coherent
-register, calling the coherent port, and projecting back onto the summand `i` is the call of
-port `i`. -/
-theorem branch_cohProject_comp_queryStep_comp_cohEmbed (i : P) (F : QReg) {A : QReg}
-    (ℓ : A ≃ In i × F) :
-    ((cohProject.{v} (In := In) i F).frame E.S).branch PUnit.unit ∘ₗ
-      ((E.coherent.toRuntime.queryStep (A := QReg.of (cohIn In × F)) () F
-        (Equiv.refl _)).branch () ∘ₗ ((cohEmbed.{v} i F ℓ).frame E.S).branch PUnit.unit) =
-      (E.toRuntime.queryStep i F ℓ).branch () := by
-  rw [E.coherent.toRuntime.queryStep_branch_eq_conj (M := E.coherent.U ()) rfl,
-    E.toRuntime.queryStep_branch_eq_conj (M := E.U i) rfl, SubInstrument.branch_frame_apply,
-    SubInstrument.branch_frame_apply]
-  change LinearMap.comp ((MatrixMap.conj _).amplify E.S)
-    (LinearMap.comp _ ((MatrixMap.conj _).amplify E.S)) = _
-  rw [MatrixMap.amplify_conj, MatrixMap.amplify_conj, ← MatrixMap.conj_mul, ← MatrixMap.conj_mul]
-  exact congrArg MatrixMap.conj ((Matrix.mul_assoc _ _ _).symm.trans (E.cohCall_matrix i F ℓ))
-
 /-- **The coherent translation runs as the original program.** Run against the coherent oracle,
 `x.toCoherent` has the branches that `x` has against the runtime with one port per unitary. -/
 theorem run_toCoherent {A : QReg} (x : QuantumComp LocalSig.instruments.{v} (uSpec P In) W A) :
-    E.coherent.toRuntime.run .instruments x.toCoherent = E.toRuntime.run .instruments x := by
-  induction x using QuantumComp.inductionOn with
-  | pure _ _ => rfl
-  | primBind _ o k ih =>
-    exact congrArg (((LocalSig.Interp.instruments o).frame E.S).bind) (funext ih)
-  | queryBind _ i F ℓ k ih =>
-    refine DSubInstrument.ext (funext fun p ↦ ?_)
-    change ((((cohEmbed.{v} i F ℓ).toD).frame E.S).bind fun _ ↦
-        ((E.coherent.toRuntime.queryStep (A := QReg.of (cohIn In × F)) () F
-          (Equiv.refl _)).toD).bind fun _ ↦
-          (((cohProject.{v} (In := In) i F).toD).frame E.S).bind fun _ ↦
-            E.coherent.toRuntime.run .instruments (k ()).toCoherent).branch p =
-      ((E.toRuntime.queryStep i F ℓ).toD.bind fun r ↦ E.toRuntime.run .instruments (k r)).branch p
-    simp only [ih, DSubInstrument.branch_bind_apply_univ, Fintype.sum_unique, LinearMap.comp_assoc]
-    exact congrArg (LinearMap.comp _)
-      (branch_cohProject_comp_queryStep_comp_cohEmbed.{v} E i F ℓ)
+    E.coherent.toRuntime.run .instruments x.toCoherent = E.toRuntime.run .instruments x :=
+  E.run_embedCalls (sigmaEmbedding In) (E.coherent.unitary ()) E.coherent_compress_sigmaEmbedding x
 
-/-- The input of a call made coherently, compressed onto the index `i`, has the trace of the
-original state when the call is of port `i`, and no trace otherwise. -/
-theorem trace_conj_indexProj_callInput_cohEmbed (i i' : P) (F : QReg) {A : QReg}
-    (ℓ : A ≃ In i' × F) (ρ : Matrix (A × E.S) (A × E.S) ℂ) :
-    (MatrixMap.conj (E.indexProj i) (QuantumRuntime.callInput (Equiv.refl (cohIn In × F)) E.S
-      (((cohEmbed.{v} i' F ℓ).frame E.S).branch PUnit.unit ρ))).trace =
-      if i' = i then ρ.trace else 0 := by
-  set σ := ((cohEmbed.{v} i' F ℓ).frame E.S).branch PUnit.unit ρ with hσ
-  have h1 : (MatrixMap.conj (E.indexProj i) (QuantumRuntime.callInput
-      (Equiv.refl (cohIn In × F)) E.S σ)).trace =
-      ∑ q : (cohIn In × F) × E.S, if q.1.1.1 = i then σ q q else 0 := by
-    rw [trace_conj_indexProj]
-    conv_rhs => rw [← (QuantumRuntime.queryEquivIn (Equiv.refl (cohIn In × F)) E.S).symm.sum_comp
-      (fun q : (cohIn In × F) × E.S ↦ if q.1.1.1 = i then σ q q else 0), Fintype.sum_prod_type]
-    refine Finset.sum_congr rfl fun a _ ↦ ?_
-    simp only [QuantumRuntime.callInput, LinearMap.comp_apply, MatrixMap.traceRight_apply,
-      SubInstrument.relabel_branch_apply, Matrix.submatrix_apply]
-    split_ifs with h
-    · exact Finset.sum_congr rfl fun f _ ↦ (ite_eq_left_of_eq_true _ _ (eq_true h)).symm
-    · exact (Finset.sum_eq_zero fun f _ ↦ ite_eq_right_of_eq_false _ _ (eq_false h)).symm
-  set g : A × E.S → (cohIn In × F) × E.S := Prod.map (cohInj i' F ∘ ℓ) id
-  have hg : Function.Injective g :=
-    ((cohInj_injective i' F).comp ℓ.injective).prodMap Function.injective_id
-  have h2 : σ = MatrixMap.conj (basisMatrix g) ρ := by
-    rw [hσ, SubInstrument.branch_frame_apply]
-    change (MatrixMap.conj _).amplify E.S ρ = _
-    rw [MatrixMap.amplify_conj, basisMatrix_kronecker_one]
-  set w : (cohIn In × F) × E.S → ℂ := fun q ↦ if q.1.1.1 = i then 1 else 0
-  have h3 : (∑ q : (cohIn In × F) × E.S, if q.1.1.1 = i then σ q q else 0) =
-      (Matrix.diagonal w * σ).trace := by
-    simp only [Matrix.trace, Matrix.diag_apply, Matrix.diagonal_mul, w, ite_mul, one_mul,
-      zero_mul]
-  rw [h1, h3, h2, MatrixMap.conj_apply, ← Matrix.mul_assoc, ← Matrix.mul_assoc,
-    Matrix.trace_mul_comm, ← Matrix.mul_assoc, ← Matrix.mul_assoc,
-    conjTranspose_basisMatrix_mul_mul_basisMatrix, Matrix.submatrix_diagonal _ _ hg]
-  have hw : w ∘ g = fun _ ↦ if i' = i then 1 else 0 := rfl
-  rw [hw]
-  split_ifs <;> simp [Matrix.trace]
+/-- **The coherent translation changes no observed law.** -/
+theorem outcomeLawWith_toCoherent {A : QReg}
+    (x : QuantumComp LocalSig.instruments.{v} (uSpec P In) W A) {γ : Type*} [MeasurableSpace γ]
+    (ρ : SubState A) (f : (Σ u, W u) → γ) :
+    E.coherent.toRuntime.outcomeLawWith .instruments x.toCoherent ρ f =
+      E.toRuntime.outcomeLawWith .instruments x ρ f :=
+  E.outcomeLawWith_embedCalls (sigmaEmbedding In) (E.coherent.unitary ())
+    E.coherent_compress_sigmaEmbedding x ρ f
+
+/-- **The coherent translation of a lossless program runs losslessly.** -/
+theorem lossless_run_toCoherent {A : QReg}
+    {x : QuantumComp LocalSig.instruments.{v} (uSpec P In) W A} (hx : x.Lossless .instruments) :
+    (E.coherent.toRuntime.run .instruments x.toCoherent).Lossless :=
+  E.lossless_run_embedCalls (sigmaEmbedding In) (E.coherent.unitary ())
+    E.coherent_compress_sigmaEmbedding hx
 
 /-- **Masses of the coherent translation, call by call.** For a weight on the ports of `x` that
 is the trace on the port `i` and zero elsewhere, the weight of the `j`-th call of `x` is the
@@ -788,38 +1072,12 @@ theorem queryWeight_toCoherent (i : P)
     E.coherent.toRuntime.queryWeight .instruments
         (fun _ σ ↦ ENNReal.ofReal (MatrixMap.conj (E.indexProj i) σ).trace.re) x.toCoherent ρ j =
       E.toRuntime.queryWeight .instruments w x ρ j := by
-  induction x using QuantumComp.inductionOn generalizing j with
-  | pure _ _ => rfl
-  | primBind _ o k ih => exact tsum_congr fun b ↦ ih b _ j
-  | queryBind _ i' F ℓ k ih =>
-    cases j with
-    | zero =>
-      change ∑' b : PUnit.{v + 1}, ENNReal.ofReal (MatrixMap.conj (E.indexProj i)
-          (QuantumRuntime.callInput (Equiv.refl (cohIn In × F)) E.S
-            (((cohEmbed.{v} i' F ℓ).frame E.S).branch b ρ))).trace.re =
-        w i' (QuantumRuntime.callInput ℓ E.S ρ)
-      rw [tsum_fintype, Fintype.sum_unique, hw, QuantumRuntime.trace_callInput]
-      change ENNReal.ofReal (MatrixMap.conj (E.indexProj i) (QuantumRuntime.callInput
-        (Equiv.refl (cohIn In × F)) E.S (((cohEmbed.{v} i' F ℓ).frame E.S).branch PUnit.unit
-          ρ))).trace.re = _
-      rw [E.trace_conj_indexProj_callInput_cohEmbed]
-      split_ifs <;> simp
-    | succ j =>
-      change ∑' b : PUnit.{v + 1}, ∑' r : Unit, ∑' b' : PUnit.{v + 1},
-          E.coherent.toRuntime.queryWeight .instruments
-            (fun _ σ ↦ ENNReal.ofReal (MatrixMap.conj (E.indexProj i) σ).trace.re)
-            (k ()).toCoherent (((cohProject.{v} (In := In) i' F).frame E.S).branch b'
-              ((E.coherent.toRuntime.queryStep (A := QReg.of (cohIn In × F)) () F
-                (Equiv.refl _)).branch r (((cohEmbed.{v} i' F ℓ).frame E.S).branch b ρ))) j =
-        ∑' r : Unit, E.toRuntime.queryWeight .instruments w (k r)
-          ((E.toRuntime.queryStep i' F ℓ).branch r ρ) j
-      simp only [tsum_fintype, Fintype.sum_unique]
-      exact (congrArg (fun σ ↦ E.coherent.toRuntime.queryWeight .instruments
-          (fun _ σ ↦ ENNReal.ofReal (MatrixMap.conj (E.indexProj i) σ).trace.re)
-          (k ()).toCoherent σ j)
-        (LinearMap.congr_fun (branch_cohProject_comp_queryStep_comp_cohEmbed.{v} E i' F ℓ)
-          ρ)).trans
-        (ih () _ j)
+  refine E.queryWeight_embedCalls (sigmaEmbedding In) (E.coherent.unitary ())
+    E.coherent_compress_sigmaEmbedding (fun a ↦ a.1 = i)
+    (w₂ := fun σ ↦ ENNReal.ofReal (MatrixMap.conj (E.indexProj i) σ).trace.re)
+    (fun σ ↦ by rw [E.trace_conj_indexProj]) (fun i' σ ↦ ?_) x ρ j
+  rw [hw]
+  by_cases h : i' = i <;> simp [h, sigmaEmbedding, Matrix.trace]
 
 /-- **Masses of the coherent translation** (design §2.5): the total mass on `i` of
 `x.toCoherent` against the coherent oracle is the query mass of the port `i` of `x` against the
