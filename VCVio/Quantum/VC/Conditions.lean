@@ -12,15 +12,18 @@ public import VCVio.CryptoFoundations.VectorCommitment
 /-!
 # Sufficient conditions for post-quantum multi-extractability
 
-The hypotheses of Theorem 8.4 of Chiesa, Di, Hu and Zheng (ePrint 2025/2166, l.3026–3090), which
-derives the post-quantum multi-extractability of `k` vector commitments `(VC_i)_{i ∈ [k]}` from
-classical conditions on a multi-extractor and on a binary partition of databases. The private
-register of the emulated oracle of the theorem is the tuple of databases `(D_i)_{i ∈ [k]}`
-(`Quantum.compressedVCOracle`), so the multi-extractor reads a tuple `Fin k → Database X Y`.
+The algebraic conditions of Theorem 8.4 of Chiesa, Di, Hu and Zheng (ePrint 2025/2166,
+l.3026–3090), which derives the post-quantum multi-extractability of `k` vector commitments
+`(VC_i)_{i ∈ [k]}` from classical conditions on a multi-extractor and on a binary partition of
+databases. The private register of the emulated oracle of the theorem is the tuple of databases
+`(D_i)_{i ∈ [k]}` (`Quantum.compressedVCOracle`), so the multi-extractor reads a tuple
+`Fin k → Database X Y`.
 
-* `Quantum.Conditions`: conditions 1–3 of Theorem 8.4 (l.3031–3054), stated against the general
+* `Quantum.Conditions`: the algebraic conditions of Theorem 8.4, admissibility of the
+  multi-extractor (l.3027) and conditions 1–3 (l.3031–3054), stated against the general
   vector-commitment interface `VectorCommitment` with a randomized opening. Condition 1 is the
-  data of a `VectorCommitment.CheckIOForm` for every scheme.
+  data of a `VectorCommitment.CheckIOForm` for every scheme. The efficiency of the extractor is
+  not among them (see the departures).
 * `Quantum.offlineLabel`: the partition `P_offline = (P_good, P_bad)` (l.3028–3029) as a labelling
   of databases.
 * `Quantum.onlineLabel`: the partition `P_online^{(tic_i)_{i ∈ [j]}, (D_i)_{i ≠ j'}}` of the
@@ -33,6 +36,14 @@ The labels are the arguments of `Quantum.Database.instability` in the error boun
 
 ## Departures from the paper
 
+* Admissibility is `Quantum.MultiExtractor.Admissible`, the repaired form of Def 7.1 that asks
+  prefix consistency only of tuples with distinct indices; the module docstring of
+  `VCVio.Quantum.VC.MultiExtractor` explains why the literal definition
+  (`Quantum.MultiExtractor.AdmissibleLiteral`, which implies the repaired one) is repaired. So
+  `Quantum.Conditions` is not the literal hypothesis of Theorem 8.4.
+* The theorem also assumes that the multi-extractor runs in polynomial time (l.3027). That is a
+  resource hypothesis, not part of `Quantum.Conditions`; a security statement that uses these
+  conditions has to assume it separately.
 * The paper's `Open` is a randomized algorithm (l.3043, l.3051), as in the interface
   `VectorCommitment`. Condition 2 asks every possible opening `pf'ᵢ ← Open(Qᵢ, tdᵢ)` to equal `pfᵢ`,
   and condition 3 asks every possible opening `pfᵢ ← Open(Dom(mᵢ), tdᵢ)` to pass the check: both
@@ -111,13 +122,16 @@ section conditions
 variable {k : ℕ} {X : Type uX} {Y : Type} {Msg : Type uM} {Cm : Type} {ℓ : Fin k → ℕ}
   {Td Pf : Fin k → Type} [DecidableEq Y]
 
-/-- **The conditions of Theorem 8.4** (ePrint 2025/2166, l.3026–3054) on `k` vector commitments
-`VC i`, a multi-extractor `ME` reading the tuple of databases, the trapdoors `tdBot i` of its
-`⊥` and the good databases `Pgood`. Condition 1 (l.3031–3034), that every check is deterministic
+/-- **The algebraic conditions of Theorem 8.4** (ePrint 2025/2166, l.3026–3054) on `k` vector
+commitments `VC i`, a multi-extractor `ME` reading the tuple of databases, the trapdoors `tdBot i`
+of its `⊥` and the good databases `Pgood`. Admissibility is the repaired, distinct-index form of
+Def 7.1 (`Quantum.MultiExtractor.Admissible`), and the efficiency of `ME` (l.3027) is not
+included: it is a separate hypothesis. Condition 1 (l.3031–3034), that every check is deterministic
 and classical, of the form `OutputIO` followed by `CheckIO` with query complexity `qVC_i`, is the
 data `io i : (VC i).CheckIOForm`.
 
-* `admissible`: the multi-extractor is admissible (l.3027), with `⊥ = (⊥^{ℓ_i}, tdBot i)`.
+* `admissible`: the multi-extractor is admissible (l.3027) in the repaired sense of
+  `Quantum.MultiExtractor.Admissible`, with `⊥ = (⊥^{ℓ_i}, tdBot i)`.
 * `empty_mem`: condition 2, first half, `∅ ∈ P_good` (l.3036).
 * `binding`: condition 2 (l.3036–3043). For distinct indices `idx`, if every database `D_i` is
   good and every check `VC_i.Check^{D_{idx i}}(cm_i, Q_i, ans_i, pf_i)` passes, then every extracted
@@ -130,7 +144,8 @@ structure Conditions (VC : ∀ i, VectorCommitment X Y Msg Cm (Td i) (Pf i) (ℓ
     (io : ∀ i, (VC i).CheckIOForm)
     (ME : MultiExtractor k Cm (DmOf ℓ Msg Td) (Fin k → Database X Y)) (tdBot : ∀ i, Td i)
     (Pgood : Set (Database X Y)) : Prop where
-  /-- The multi-extractor is admissible (Def 7.1, l.3027). -/
+  /-- The multi-extractor is admissible (Def 7.1, l.3027), in the repaired form with prefix
+  consistency on distinct-index tuples (`Quantum.MultiExtractor.Admissible`). -/
   admissible : ME.Admissible fun i ↦ ((fun _ ↦ none), tdBot i)
   /-- Condition 2, first half: the empty database is good (l.3036). -/
   empty_mem : Database.empty ∈ Pgood
