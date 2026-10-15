@@ -715,7 +715,7 @@ variable {X Y : Type} [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y] [A
 
 /-- Inside an active block, a query `(x, χ)` to a database `r` of size below `t`, the truncated
 phase oracle is the phase cell. -/
-theorem truncatedPhaseOracle_apply_update {t : ℕ} (x : X) (χ : AddChar Y ℂ)
+theorem truncatedPhaseOracle_apply_update_of_size_lt {t : ℕ} (x : X) (χ : AddChar Y ℂ)
     {r : Database X Y} (hsize : r.size < t) (a' a : Option Y) :
     truncatedPhaseOracle X Y t ((x, χ), Function.update r x a') ((x, χ), Function.update r x a) =
       phaseCell Y χ a' a := by
@@ -812,7 +812,7 @@ theorem le_l2_opNorm_commutator_truncatedOracle_sq (x₀ : X) {y₀ : Y} {χ : A
     have h0 : truncatedPhaseOracle X Y t i m ≠ 0 := fun h ↦ hi (by rw [h]; simp)
     rw [phaseBlock_eq_of_truncatedPhaseOracle_ne_zero h0, hm]
     simp only [hblk]]
-  simp only [hm, truncatedPhaseOracle_apply_update x₀ χ hrs]
+  simp only [hm, truncatedPhaseOracle_apply_update_of_size_lt x₀ χ hrs]
   have hsa : ∀ a, s (Function.update r x₀ a) = if a = some y₀ then -1 else 1 := fun a ↦ by
     simp [hs]
   have hterm : ∀ a, ‖(s (Function.update r x₀ a) + 1) * phaseCell Y χ a (some y₀)‖ ^ 2 =
