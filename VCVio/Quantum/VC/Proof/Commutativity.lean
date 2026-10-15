@@ -48,6 +48,7 @@ The paper's commutation error is `80 · sup I(P_online, t + 1)` (l.3261–3350),
 `80` of its Theorem 5.4. This file proves it with `24`, the constant of the sharpened
 Corollary 5.6 (`Quantum.l2_opNorm_commutator_purifiedMeasurement_sq_le_twentyFour_mul`). The
 paper's statement is the corollary `Quantum.comBound_compressedVCOracle_eighty`.
+The argument and the constant follow the bounds note, eq. (27), item 1.
 
 ## Main results
 

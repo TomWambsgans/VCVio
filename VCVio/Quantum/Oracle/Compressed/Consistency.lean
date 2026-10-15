@@ -71,11 +71,13 @@ def ConsistentIO (io : List (ι × Y)) : Prop :=
   ∀ p ∈ io, ∀ q ∈ io, p.1 = q.1 → p.2 = q.2
 
 omit [Fintype ι] [DecidableEq ι] [Fintype Y] [DecidableEq Y] in
+/-- The empty prescription is consistent. -/
 @[simp]
 theorem consistentIO_nil : ConsistentIO ([] : List (ι × Y)) := by
   simp [ConsistentIO]
 
 omit [Fintype ι] [DecidableEq ι] [Fintype Y] [DecidableEq Y] in
+/-- A single input-output pair is consistent. -/
 @[simp]
 theorem consistentIO_singleton (p : ι × Y) : ConsistentIO [p] := by
   intro q hq r hr _
@@ -87,6 +89,7 @@ def ioCells (io : List (ι × Y)) : Finset ι :=
   (io.map Prod.fst).toFinset
 
 omit [Fintype ι] [Fintype Y] [DecidableEq Y] in
+/-- An input is prescribed exactly when some pair of the list has it as input. -/
 theorem mem_ioCells {io : List (ι × Y)} {i : ι} : i ∈ ioCells io ↔ ∃ p ∈ io, p.1 = i := by
   simp [ioCells]
 
@@ -104,6 +107,8 @@ noncomputable def compressedCheckProjector (io : List (ι × Y)) :
     Matrix (Database ι Y) (Database ι Y) ℂ :=
   compressAll ι Y * checkProjector Y io * compressAll ι Y
 
+/-- The entries of the consistency projector: `1` on the diagonal at the databases that hold every
+prescribed output, `0` elsewhere. -/
 theorem checkProjector_apply (io : List (ι × Y)) (D D' : Database ι Y) :
     checkProjector Y io D D' = if D = D' ∧ ∀ p ∈ io, D p.1 = some p.2 then 1 else 0 := by
   rw [checkProjector, diagonal_apply]
@@ -188,6 +193,7 @@ theorem compressedCheckProjector_mul_self (io : List (ι × Y)) :
     compressAll_mul_self, Matrix.mul_one, Matrix.mul_assoc (compressAll ι Y),
     checkProjector_mul_self]
 
+/-- The empty prescription has compressed projector the identity. -/
 @[simp]
 theorem compressedCheckProjector_nil : compressedCheckProjector ([] : List (ι × Y)) = 1 := by
   rw [compressedCheckProjector, checkProjector_nil, Matrix.mul_one, compressAll_mul_self]
