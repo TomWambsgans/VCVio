@@ -70,12 +70,19 @@ the decomposition itself, so filled cells of databases of size exactly `t` are c
 
 ## Optimality
 
-The constant `24` cannot be lowered, already for `X` a point, `t = 1`, `Y = (ZMod 2)^s` and the
-scalar control `V = P_A - P_B` of a binary labelling. Take a character `χ` and an answer `y₀` with
-`χ y₀ = -1`, give `y₀` the label `B` and every other content of the cell, including `⊥`, the label
-`A`, so that `I = 1 / N`. Then `‖[V, O^(t)]‖² = 4 (6 / N - 9 / N²)`, and the ratio is `24 - 36 / N`,
-which tends to `24`. This is proved on paper (the research note accompanying this file, §2–3) and
-is not formalized here.
+The constant `24` cannot be lowered, already for the scalar control `V = P_A - P_B` of a binary
+labelling. Take a character `χ` and an answer `y₀` with `χ y₀ = -1` (for instance `Y = (ZMod 2)^s`
+and any nontrivial `χ`), a point `x₀`, and `t ≥ 1`, and label a database by whether `D x₀ = y₀`.
+Then `I ≤ 1 / N` and `‖[V, O^(t)]‖² ≥ 24 / N - 36 / N²`, read off the column of the bad state
+`((x₀, χ), ∅[x₀ ↦ y₀])` in the phase basis
+(`Quantum.le_l2_opNorm_commutator_truncatedOracle_sq`). Hence
+`(24 - 36 / N) I ≤ ‖[V, O^(t)]‖²`
+(`Quantum.mul_instability_le_l2_opNorm_commutator_truncatedOracle_sq`), and the constant `20`
+already fails once `N ≥ 10`
+(`Quantum.twenty_mul_instability_lt_l2_opNorm_commutator_truncatedOracle_sq`). These lower bounds
+are formalized. That they are equalities (`I = 1 / N`, and `‖[V, O^(1)]‖² = 4 (6 / N - 9 / N²)` for
+`X` a point), so that the ratio is exactly `24 - 36 / N`, is proved on paper only (the research
+note accompanying this file, §2–3); it is not needed for optimality.
 
 ## Main results
 
@@ -87,6 +94,8 @@ is not formalized here.
   `Quantum.l2_opNorm_commutator_truncatedOracle_sq_le_sharp`: Theorem 5.4 with `24`.
 * `Quantum.l2_opNorm_commutator_purifiedMeasurement_sq_le_sharp`,
   `Quantum.l2_opNorm_commutator_xorMeasurement_sq_le_sharp`: Corollary 5.6 with `24`.
+* `Quantum.mul_instability_le_l2_opNorm_commutator_truncatedOracle_sq`,
+  `Quantum.twenty_mul_instability_lt_l2_opNorm_commutator_truncatedOracle_sq`: optimality of `24`.
 
 ## References
 
@@ -696,5 +705,220 @@ theorem l2_opNorm_commutator_xorMeasurement_sq_le_sharp (π : Database X Y → B
   l2_opNorm_commutator_purifiedMeasurement_sq_le_sharp π t xorShift_mem_unitaryGroup
 
 end xor
+
+/-! ## Optimality -/
+
+
+section sharpness
+
+variable {X Y : Type} [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y] [AddCommGroup Y]
+
+/-- Inside an active block, a query `(x, χ)` to a database `r` of size below `t`, the truncated
+phase oracle is the phase cell. -/
+theorem truncatedPhaseOracle_apply_update {t : ℕ} (x : X) (χ : AddChar Y ℂ)
+    {r : Database X Y} (hsize : r.size < t) (a' a : Option Y) :
+    truncatedPhaseOracle X Y t ((x, χ), Function.update r x a') ((x, χ), Function.update r x a) =
+      phaseCell Y χ a' a := by
+  have hmask : ∀ a, Database.size (Function.update r x a) ≤ t := fun a ↦
+    (Database.size_update_le r x a).trans hsize
+  have hcond : (x, χ) = (x, χ) ∧
+      ∀ j ≠ x, Function.update r x a' j = Function.update r x a j :=
+    ⟨rfl, fun j hj ↦ by rw [Function.update_of_ne hj, Function.update_of_ne hj]⟩
+  rw [truncatedPhaseOracle_apply, phaseOracle_apply, ite_eq_left hcond]
+  simp only [hmask, ite_true, one_mul, mul_one, Function.update_self]
+
+omit [Fintype X] [Fintype Y] [AddCommGroup Y] in
+/-- A label-controlled operator of scalars is diagonal. -/
+theorem labelControlled_smul_one {n κ : Type*} [DecidableEq n] (β : n → κ) (c : κ → ℂ) :
+    labelControlled β (fun k ↦ c k • (1 : Matrix n n ℂ)) = diagonal fun a ↦ c (β a) := by
+  ext a b
+  rw [labelControlled_apply, Matrix.smul_apply, one_apply, diagonal_apply]
+  split_ifs <;> simp
+
+/-- **Sharpness of the constant `24`, the commutator.** Let `χ y₀ = -1`, `t ≥ 1`, and label the
+databases by whether `D x₀ = y₀`. For the scalar control `V = P_A - P_B`,
+`‖[V, O^(t)]‖² ≥ 24 / N - 36 / N²`. -/
+theorem le_l2_opNorm_commutator_truncatedOracle_sq (x₀ : X) {y₀ : Y} {χ : AddChar Y ℂ}
+    (hχ : χ y₀ = -1) {t : ℕ} (ht : 1 ≤ t) :
+    24 / (Fintype.card Y : ℝ) - 36 / (Fintype.card Y : ℝ) ^ 2 ≤
+      ‖labelControlled (fun m : (X × Y) × Database X Y ↦ decide (m.2 x₀ = some y₀))
+            (fun b ↦ (if b then -1 else 1 : ℂ) • (1 : Matrix _ _ ℂ)) * truncatedOracle X Y t -
+          truncatedOracle X Y t *
+            labelControlled (fun m : (X × Y) × Database X Y ↦ decide (m.2 x₀ = some y₀))
+              (fun b ↦ (if b then -1 else 1 : ℂ) • (1 : Matrix _ _ ℂ))‖ ^ 2 := by
+  have hχ0 : χ ≠ 0 := fun h ↦ by
+    rw [h, AddChar.zero_apply] at hχ
+    norm_num at hχ
+  have hN : (0 : ℝ) < Fintype.card Y := Nat.cast_pos.mpr Fintype.card_pos
+  set s : Database X Y → ℂ := fun D ↦ if D x₀ = some y₀ then -1 else 1 with hs
+  rw [labelControlled_smul_one]
+  have hV : (diagonal fun m : (X × Y) × Database X Y ↦
+      if decide (m.2 x₀ = some y₀) then (-1 : ℂ) else 1) = diagonal fun m ↦ s m.2 := by
+    congr 1
+    funext m
+    simp [hs]
+  rw [hV]
+  -- move to the phase basis
+  set Vs : Matrix ((X × Y) × Database X Y) ((X × Y) × Database X Y) ℂ :=
+    diagonal fun m ↦ s m.2 with hVs
+  set Vp : Matrix ((X × AddChar Y ℂ) × Database X Y) ((X × AddChar Y ℂ) × Database X Y) ℂ :=
+    diagonal fun m ↦ s m.2 with hVp
+  have hFV : queryFourier X Y * Vs = Vp * queryFourier X Y := by
+    ext ⟨⟨x', χ'⟩, D'⟩ ⟨⟨x, y⟩, D⟩
+    rw [hVs, hVp, mul_diagonal, diagonal_mul, queryFourier_apply]
+    split_ifs with h
+    · rw [h.2]; ring
+    · simp
+  have hVF : Vs * (queryFourier X Y)ᴴ = (queryFourier X Y)ᴴ * Vp := by
+    ext ⟨⟨x, y⟩, D⟩ ⟨⟨x', χ'⟩, D'⟩
+    rw [hVs, hVp, mul_diagonal, diagonal_mul, conjTranspose_apply, queryFourier_apply]
+    split_ifs with h
+    · rw [h.2]; ring
+    · simp
+  have hconj : queryFourier X Y * (Vs * truncatedOracle X Y t - truncatedOracle X Y t * Vs) *
+      (queryFourier X Y)ᴴ = Vp * truncatedPhaseOracle X Y t - truncatedPhaseOracle X Y t * Vp := by
+    rw [truncatedPhaseOracle_eq, Matrix.mul_sub, Matrix.sub_mul]
+    simp only [← Matrix.mul_assoc, hFV]
+    simp only [Matrix.mul_assoc, hVF]
+  have hle : ‖Vp * truncatedPhaseOracle X Y t - truncatedPhaseOracle X Y t * Vp‖ ≤
+      ‖Vs * truncatedOracle X Y t - truncatedOracle X Y t * Vs‖ := by
+    rw [← hconj]
+    exact l2_opNorm_mul_mul_conjTranspose_le (conjTranspose_queryFourier_mul X Y) _
+  refine le_trans ?_ (pow_le_pow_left₀ (norm_nonneg _) hle 2)
+  -- the column of a bad state
+  set r : Database X Y := Database.empty with hr
+  have hr0 : r x₀ = none := Database.empty_apply x₀
+  have hrs : r.size < t := by rw [hr, Database.size_empty]; omega
+  set m : (X × AddChar Y ℂ) × Database X Y := ((x₀, χ), Function.update r x₀ (some y₀)) with hm
+  have h1 := sum_norm_mulVec_sq_le (Vp * truncatedPhaseOracle X Y t -
+    truncatedPhaseOracle X Y t * Vp) (Pi.single m 1)
+  have hsingle : ∑ j, ‖(Pi.single m (1 : ℂ) : _ → ℂ) j‖ ^ 2 = 1 := by
+    rw [Finset.sum_eq_single m]
+    · simp
+    · intro j _ hj; simp [hj]
+    · simp
+  rw [hsingle, mul_one, mulVec_single_one] at h1
+  refine le_trans (le_of_eq ?_) h1
+  simp only [col_apply]
+  have hsm : s m.2 = -1 := by simp [hs, hm]
+  have hentry : ∀ i, (Vp * truncatedPhaseOracle X Y t - truncatedPhaseOracle X Y t * Vp) i m =
+      (s i.2 + 1) * truncatedPhaseOracle X Y t i m := fun i ↦ by
+    rw [Matrix.sub_apply, hVp, diagonal_mul, mul_diagonal, hsm]
+    ring
+  simp only [hentry]
+  have hblk : Function.update (Function.update r x₀ (some y₀)) x₀ none = r := by
+    rw [Function.update_idem, Database.update_none_of_eq_none hr0]
+  rw [sum_eq_sum_phaseBlock x₀ χ hr0 fun i hi ↦ by
+    have h0 : truncatedPhaseOracle X Y t i m ≠ 0 := fun h ↦ hi (by rw [h]; simp)
+    rw [phaseBlock_eq_of_truncatedPhaseOracle_ne_zero h0, hm]
+    simp only [hblk]]
+  simp only [hm, truncatedPhaseOracle_apply_update x₀ χ hrs]
+  have hsa : ∀ a, s (Function.update r x₀ a) = if a = some y₀ then -1 else 1 := fun a ↦ by
+    simp [hs]
+  have hterm : ∀ a, ‖(s (Function.update r x₀ a) + 1) * phaseCell Y χ a (some y₀)‖ ^ 2 =
+      4 * ‖phaseCell Y χ (some y₀) a - if a = some y₀ then χ y₀ else 0‖ ^ 2 -
+        if a = some y₀ then 36 / (Fintype.card Y : ℝ) ^ 2 else 0 := fun a ↦ by
+    rw [hsa]
+    by_cases ha : a = some y₀
+    · subst ha
+      rw [phaseCell_some_some hχ0, hχ]
+      simp only [ite_true, neg_add_cancel, zero_mul, norm_zero]
+      rw [show (-1 : ℂ) + (Fintype.card Y : ℂ)⁻¹ * (1 - -1 - -1) - -1 =
+        ((3 / Fintype.card Y : ℝ) : ℂ) by push_cast; ring, Complex.norm_real,
+        Real.norm_of_nonneg (by positivity)]
+      field_simp
+      ring
+    · simp only [ha, ite_false, sub_zero]
+      rw [show (1 : ℂ) + 1 = 2 by norm_num, norm_mul, mul_pow, phaseCell_comm χ a]
+      norm_num
+  rw [Finset.sum_congr rfl fun a _ ↦ hterm a, Finset.sum_sub_distrib, ← Finset.mul_sum,
+    sum_norm_phaseCell_sub_sq hχ0, hχ, Finset.sum_ite_eq', ite_eq_left (Finset.mem_univ _)]
+  simp only [Complex.neg_re, Complex.one_re]
+  field_simp
+  ring
+
+omit [Fintype X] [AddCommGroup Y] in
+/-- **Sharpness of the constant `24`, the instability.** Labelling the databases by whether
+`D x₀ = y₀` has instability at most `1 / N`: only the answer `y₀` at `x₀` changes the label. -/
+theorem instability_decide_eq_some_le [Finite X] [Nonempty Y] [UniformAnswerMeasure (X →ₒ Y)]
+    (x₀ : X) (y₀ : Y) (t : ℕ) :
+    (Database.instability (fun D : Database X Y ↦ decide (D x₀ = some y₀)) t).toReal ≤
+      1 / Fintype.card Y := by
+  have := Fintype.ofFinite X
+  have h : Database.instability (fun D : Database X Y ↦ decide (D x₀ = some y₀)) t ≤
+      1 / Fintype.card Y := by
+    rw [Database.instability_eq_iSup]
+    refine iSup_le fun i ↦ iSup_le fun D ↦ iSup_le fun hi ↦ iSup_le fun _ ↦ iSup_le fun x ↦
+      iSup_le fun hx ↦ ?_
+    gcongr
+    suffices hc : (Finset.univ.filter fun u : Y ↦
+        decide (Function.update D x (some u) x₀ = some y₀) ≠ i).card ≤ 1 by exact_mod_cast hc
+    refine (Finset.card_le_card fun u hu ↦ ?_).trans (Finset.card_singleton y₀).le
+    simp only [Finset.mem_filter, Finset.mem_univ, true_and] at hu
+    rw [Finset.mem_singleton]
+    by_cases hxx : x = x₀
+    · subst hxx
+      subst hi
+      simp only [hx, Function.update_self, Option.some.injEq, reduceCtorEq, decide_false,
+        ne_eq, decide_eq_false_iff_not, not_not] at hu
+      exact hu
+    · subst hi
+      exact absurd (by rw [Function.update_of_ne (Ne.symm hxx)]) hu
+  have h' := ENNReal.toReal_mono (by simp) h
+  simpa using h'
+
+/-- **The constant `24` is optimal up to `36 / N`.** For `χ y₀ = -1` and `t ≥ 1`, the scalar
+control `V = P_A - P_B` of the labelling by whether `D x₀ = y₀` satisfies
+`(24 - 36 / N) I(π, t) ≤ ‖[V, O^(t)]‖²`. -/
+theorem mul_instability_le_l2_opNorm_commutator_truncatedOracle_sq
+    [UniformAnswerMeasure (X →ₒ Y)] (x₀ : X) {y₀ : Y} {χ : AddChar Y ℂ} (hχ : χ y₀ = -1) {t : ℕ}
+    (ht : 1 ≤ t) :
+    (24 - 36 / (Fintype.card Y : ℝ)) *
+        (Database.instability (fun D : Database X Y ↦ decide (D x₀ = some y₀)) t).toReal ≤
+      ‖labelControlled (fun m : (X × Y) × Database X Y ↦ decide (m.2 x₀ = some y₀))
+            (fun b ↦ (if b then -1 else 1 : ℂ) • (1 : Matrix _ _ ℂ)) * truncatedOracle X Y t -
+          truncatedOracle X Y t *
+            labelControlled (fun m : (X × Y) × Database X Y ↦ decide (m.2 x₀ = some y₀))
+              (fun b ↦ (if b then -1 else 1 : ℂ) • (1 : Matrix _ _ ℂ))‖ ^ 2 := by
+  have hN : (0 : ℝ) < Fintype.card Y := Nat.cast_pos.mpr Fintype.card_pos
+  have h2 : (2 : ℝ) ≤ Fintype.card Y := by
+    have : 1 < Fintype.card Y := by
+      by_contra h
+      have hsub : Subsingleton Y := Fintype.card_le_one_iff_subsingleton.mp (not_lt.mp h)
+      have : χ y₀ = 1 := by rw [Subsingleton.elim y₀ 0, AddChar.map_zero_eq_one]
+      rw [this] at hχ
+      norm_num at hχ
+    exact_mod_cast this
+  refine le_trans ?_ (le_l2_opNorm_commutator_truncatedOracle_sq x₀ hχ ht)
+  have hc : 0 ≤ 24 - 36 / (Fintype.card Y : ℝ) := by
+    rw [sub_nonneg, div_le_iff₀ hN]; linarith
+  calc (24 - 36 / (Fintype.card Y : ℝ)) *
+        (Database.instability (fun D : Database X Y ↦ decide (D x₀ = some y₀)) t).toReal
+      ≤ (24 - 36 / (Fintype.card Y : ℝ)) * (1 / Fintype.card Y) :=
+        mul_le_mul_of_nonneg_left (instability_decide_eq_some_le x₀ y₀ t) hc
+    _ = 24 / (Fintype.card Y : ℝ) - 36 / (Fintype.card Y : ℝ) ^ 2 := by
+        field_simp
+
+/-- **The constant `20` fails.** For `χ y₀ = -1`, `t ≥ 1` and `|Y| ≥ 10`, the scalar control of
+the labelling by whether `D x₀ = y₀` violates `‖[V, O^(t)]‖² ≤ 20 I(π, t)`. -/
+theorem twenty_mul_instability_lt_l2_opNorm_commutator_truncatedOracle_sq
+    [UniformAnswerMeasure (X →ₒ Y)] (x₀ : X) {y₀ : Y} {χ : AddChar Y ℂ} (hχ : χ y₀ = -1) {t : ℕ}
+    (ht : 1 ≤ t) (hY : 10 ≤ Fintype.card Y) :
+    20 * (Database.instability (fun D : Database X Y ↦ decide (D x₀ = some y₀)) t).toReal <
+      ‖labelControlled (fun m : (X × Y) × Database X Y ↦ decide (m.2 x₀ = some y₀))
+            (fun b ↦ (if b then -1 else 1 : ℂ) • (1 : Matrix _ _ ℂ)) * truncatedOracle X Y t -
+          truncatedOracle X Y t *
+            labelControlled (fun m : (X × Y) × Database X Y ↦ decide (m.2 x₀ = some y₀))
+              (fun b ↦ (if b then -1 else 1 : ℂ) • (1 : Matrix _ _ ℂ))‖ ^ 2 := by
+  have hN : (10 : ℝ) ≤ Fintype.card Y := by exact_mod_cast hY
+  refine lt_of_lt_of_le ?_ (le_l2_opNorm_commutator_truncatedOracle_sq x₀ hχ ht)
+  calc 20 * (Database.instability (fun D : Database X Y ↦ decide (D x₀ = some y₀)) t).toReal
+      ≤ 20 * (1 / Fintype.card Y) := by gcongr; exact instability_decide_eq_some_le x₀ y₀ t
+    _ < 24 / (Fintype.card Y : ℝ) - 36 / (Fintype.card Y : ℝ) ^ 2 := by
+        rw [div_sub_div _ _ (by positivity) (by positivity), lt_div_iff₀ (by positivity)]
+        field_simp
+        nlinarith
+
+end sharpness
 
 end Quantum
