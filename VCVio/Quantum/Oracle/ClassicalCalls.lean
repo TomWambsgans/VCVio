@@ -21,6 +21,11 @@ challengers of the security experiments of ePrint 2025/2166 (§7, l.2866–2905)
   experiment by `OracleComp.toQuantumAt`.
 * **Sequencing.** `Quantum.QComp.pi f` runs the programs `f 0, …, f (k - 1)` in order on a held
   register and returns the dependent tuple of their results.
+* **Lifting outcomes.** `Quantum.QuantumComp.liftInstruments` reads a program over instruments
+  with outcomes in `Type v` as one over instruments with outcomes in `Type (max v w)`, by lifting
+  the outcomes of every local operation with `ULift`; it runs as the original program
+  (`Quantum.QuantumComp.run_liftInstruments`). It sequences a challenger with small outcomes
+  after an adversary in a larger universe.
 * **Basis calls against an emulated oracle.** The branch of `Quantum.QComp.callBasis` at a
   reading is the sum, over the port outputs giving that reading, of the Kraus map of
   `1_B ⊗ ⟨o|U_p|a⟩` (`Quantum.EmulatedOracle.branch_run₂_callBasis`).
@@ -28,12 +33,15 @@ challengers of the security experiments of ePrint 2025/2166 (§7, l.2866–2905)
 ## Main definitions
 
 * `Quantum.SubInstrument.uniform`, `Quantum.QComp.coinImpl`, `Quantum.QComp.pi`,
+  `Quantum.LocalSig.InstrumentOp.lift`, `Quantum.QuantumComp.liftInstruments`,
   `Quantum.EmulatedOracle.block`.
 
 ## Main results
 
 * `Quantum.SubInstrument.branch_uniform_apply`, `Quantum.SubInstrument.lossless_uniform`.
 * `Quantum.QComp.lossless_pi`, `Quantum.QComp.isQueryBound_pi`.
+* `Quantum.QuantumComp.run_liftInstruments`, `Quantum.QuantumComp.isQueryBound_liftInstruments_iff`,
+  `Quantum.QuantumComp.lossless_liftInstruments_iff`.
 * `Quantum.EmulatedOracle.branch_run₂_callBasis`.
 -/
 
@@ -42,7 +50,7 @@ public section
 open Matrix OracleSpec
 open scoped Kronecker
 
-universe u u₁ v₁ w
+universe u v u₁ v₁ w w₁
 
 namespace Quantum
 
@@ -148,6 +156,139 @@ theorem isQueryBound_pi : {k : ℕ} → {β : Fin k → Type w} →
         QuantumComp₂.isQueryBound_pure _ _
 
 end QComp
+
+/-! ## Lifting the outcomes of local operations -/
+
+namespace DSubInstrument
+
+variable {A : Type*} [Fintype A] {ι : Type*} {B : ι → Type*} [∀ i, Fintype (B i)] {κ : Type*}
+  {C : κ → Type*} [∀ c, Fintype (C c)]
+
+/-- Restricting the outcomes along `ULift.down` and continuing with a function of the unlifted
+outcome is the original sequencing. -/
+theorem comap_down_bind (p : DSubInstrument A ι B) (g : (i : ι) → DSubInstrument (B i) κ C) :
+    (p.comap ULift.down.{w} ULift.down_injective).bind (fun b ↦ g b.down) = p.bind g := by
+  refine DSubInstrument.ext (funext fun c ↦ LinearMap.ext fun ρ ↦ ?_)
+  rw [branch_bind_apply, branch_bind_apply]
+  exact Equiv.ulift.tsum_eq fun i ↦ (g i).branch c (p.branch i ρ)
+
+end DSubInstrument
+
+namespace LocalSig
+
+/-- An operation of the signature of instruments with its outcomes lifted to
+`Type (max v w)`: the same dependent subinstrument, on the outcomes `ULift ι`. -/
+@[expose, reducible]
+noncomputable def InstrumentOp.lift {A : QReg} (o : InstrumentOp.{v} A) :
+    InstrumentOp.{max v w} A :=
+  ⟨ULift.{w} o.1, fun b ↦ o.2.1 b.down, o.2.2.comap ULift.down ULift.down_injective⟩
+
+end LocalSig
+
+namespace QuantumComp
+
+variable {spec : QuantumOracleSpec.{u₁, v₁}} {X : QReg → Type w₁}
+
+/-- Recursion for `Quantum.QuantumComp.liftInstruments` on the underlying trees. -/
+@[expose]
+noncomputable def liftInstrumentsAux : {A : QReg} →
+    IPFunctor.IFreeM (QuantumComp.toIPFunctor LocalSig.instruments.{v} spec) X A →
+      QuantumComp LocalSig.instruments.{max v w} spec X A
+  | _, .pure y => QuantumComp.pure y
+  | _, .liftBind (.prim o) k =>
+      QuantumComp.primBind (L := LocalSig.instruments.{max v w}) o.lift fun b ↦
+        liftInstrumentsAux (k (ULift.up b.down))
+  | _, .liftBind (.query i E ℓ) k =>
+      QuantumComp.queryBind i E ℓ fun r ↦ liftInstrumentsAux (k (ULift.up r))
+
+/-- **Lifting the outcomes of local operations.** A program over instruments with outcomes in
+`Type v` as a program over instruments with outcomes in `Type (max v w)`: every local operation
+is the same dependent subinstrument on the lifted outcomes (`LocalSig.InstrumentOp.lift`), and
+calls and leaves are kept. It runs as the original program (`run_liftInstruments`). This is how a
+program whose local operations have small outcomes, such as a challenger, is sequenced after a
+program in a larger universe. -/
+@[expose]
+noncomputable def liftInstruments {A : QReg}
+    (x : QuantumComp LocalSig.instruments.{v} spec X A) :
+    QuantumComp LocalSig.instruments.{max v w} spec X A :=
+  liftInstrumentsAux x
+
+/-- A leaf is lifted to itself. -/
+@[simp]
+theorem liftInstruments_pure {A : QReg} (y : X A) :
+    ((QuantumComp.pure (L := LocalSig.instruments.{v}) (spec := spec) y).liftInstruments :
+      QuantumComp LocalSig.instruments.{max v w} spec X A) = QuantumComp.pure y :=
+  rfl
+
+/-- A local operation is lifted to the same operation on lifted outcomes. -/
+@[simp]
+theorem liftInstruments_primBind {A : QReg} (o : LocalSig.instruments.{v}.Op A)
+    (k : (b : LocalSig.instruments.{v}.Outcome o) →
+      QuantumComp LocalSig.instruments.{v} spec X (LocalSig.instruments.{v}.next o b)) :
+    ((QuantumComp.primBind o k).liftInstruments :
+      QuantumComp LocalSig.instruments.{max v w} spec X A) =
+      QuantumComp.primBind (L := LocalSig.instruments.{max v w}) o.lift fun b ↦
+        (k b.down).liftInstruments :=
+  rfl
+
+/-- A call is kept. -/
+@[simp]
+theorem liftInstruments_queryBind {A : QReg} (i : spec.Port) (E : QReg)
+    (ℓ : A ≃ spec.In i × E)
+    (k : spec.Result i → QuantumComp LocalSig.instruments.{v} spec X (QReg.of (spec.Out i × E))) :
+    ((QuantumComp.queryBind i E ℓ k).liftInstruments :
+      QuantumComp LocalSig.instruments.{max v w} spec X A) =
+      QuantumComp.queryBind i E ℓ fun r ↦ (k r).liftInstruments :=
+  rfl
+
+/-- **Lifted programs run as the original.** -/
+theorem run_liftInstruments (R : QuantumRuntime spec) {A : QReg}
+    (x : QuantumComp LocalSig.instruments.{v} spec X A) :
+    R.run .instruments
+      (x.liftInstruments : QuantumComp LocalSig.instruments.{max v w} spec X A) =
+      R.run .instruments x := by
+  induction x using QuantumComp.inductionOn with
+  | pure _ _ => rfl
+  | primBind _ o k ih =>
+    rw [liftInstruments_primBind, QuantumRuntime.run_primBind, QuantumRuntime.run_primBind]
+    simp only [ih]
+    exact DSubInstrument.comap_down_bind ((o.2.2).frame R.D) fun b ↦ R.run .instruments (k b)
+  | queryBind _ i E ℓ k ih =>
+    rw [liftInstruments_queryBind, QuantumRuntime.run_queryBind, QuantumRuntime.run_queryBind]
+    simp only [ih]
+
+/-- Lifting keeps every query budget. -/
+theorem isQueryBound_liftInstruments_iff {A : QReg}
+    {x : QuantumComp LocalSig.instruments.{v} spec X A} {b : spec.Port → ℕ} :
+    (x.liftInstruments : QuantumComp LocalSig.instruments.{max v w} spec X A).IsQueryBound b ↔
+      x.IsQueryBound b := by
+  classical
+  induction x using QuantumComp.inductionOn generalizing b with
+  | pure _ _ => exact iff_of_true (isQueryBound_pure _ _) (isQueryBound_pure _ _)
+  | primBind _ o k ih =>
+    rw [liftInstruments_primBind, isQueryBound_primBind_iff, isQueryBound_primBind_iff]
+    exact ⟨fun h c ↦ ih c |>.mp (h ⟨c⟩), fun h c ↦ ih c.down |>.mpr (h c.down)⟩
+  | queryBind _ i E ℓ k ih =>
+    rw [liftInstruments_queryBind, isQueryBound_queryBind_iff, isQueryBound_queryBind_iff]
+    exact and_congr_right fun _ ↦ forall_congr' fun r ↦ ih r
+
+/-- Lifting keeps losslessness. -/
+theorem lossless_liftInstruments_iff {A : QReg}
+    {x : QuantumComp LocalSig.instruments.{v} spec X A} :
+    (x.liftInstruments : QuantumComp LocalSig.instruments.{max v w} spec X A).Lossless
+      .instruments ↔ x.Lossless .instruments := by
+  induction x using QuantumComp.inductionOn with
+  | pure _ _ => exact Iff.rfl
+  | primBind _ o k ih =>
+    rw [liftInstruments_primBind, lossless_primBind_iff, lossless_primBind_iff]
+    exact and_congr ⟨fun h ↦ h.comap (f := ULift.up.{w}) ULift.up_bijective,
+      fun h ↦ h.comap ULift.down_bijective⟩
+      ⟨fun h c ↦ ih c |>.mp (h ⟨c⟩), fun h c ↦ ih c.down |>.mpr (h c.down)⟩
+  | queryBind _ i E ℓ k ih =>
+    rw [liftInstruments_queryBind, lossless_queryBind_iff, lossless_queryBind_iff]
+    exact forall_congr' fun r ↦ ih r
+
+end QuantumComp
 
 /-! ## Basis calls against an emulated oracle -/
 

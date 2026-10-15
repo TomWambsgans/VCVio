@@ -95,17 +95,17 @@ noncomputable def romRef (H : Fin 1 → Fin 2 → Fin 2) :
     QuantumRuntime (cohSpec (oIn 1 (Fin 2) (Fin 2))) :=
   (romVCOracle 1 (Fin 2) (Fin 2) H).coherent.toRuntime
 
-/-- The five properties elaborate on the toy instance. -/
+/-- The five properties elaborate on the toy instance, against adversaries in `Type`. -/
 example (κ : MEErrors) : Prop :=
-  Simulates (uniformWeights _) romRef zeroOracle κ.sim ∧ OraclesCommute zeroOracle ∧
-    ComBound zeroOracle toyME code0 κ.com ∧
-    ExtractionCorrect (fun _ ↦ trivialVC) zeroOracle toyME code0 κ.extract ∧
-    OfflineExtractable (fun _ ↦ trivialVC) zeroOracle toyME code0 κ.offline ∧
-    OnlineIndistinguishable zeroOracle toyME code0 κ.online
+  Simulates.{0, 0} (uniformWeights _) romRef zeroOracle κ.sim ∧ OraclesCommute zeroOracle ∧
+    ComBound.{0, 0} zeroOracle toyME code0 κ.com ∧
+    ExtractionCorrect.{0, 0} (fun _ ↦ trivialVC) zeroOracle toyME code0 κ.extract ∧
+    OfflineExtractable.{0, 0} (fun _ ↦ trivialVC) zeroOracle toyME code0 κ.offline ∧
+    OnlineIndistinguishable.{0, 0} zeroOracle toyME code0 κ.online
 
-/-- The bundle of Def 7.3 elaborates on the toy instance. -/
+/-- The bundle of Def 7.3 elaborates on the toy instance, against adversaries in `Type`. -/
 example (κ : MEErrors) : Prop :=
-  IsMultiExtractable (fun _ ↦ trivialVC) (fun _ ↦ ()) (uniformWeights _) romRef κ
+  IsMultiExtractable.{0, 0} (fun _ ↦ trivialVC) (fun _ ↦ ()) (uniformWeights _) romRef κ
 
 /-! ## Extraction on the toy instance -/
 
