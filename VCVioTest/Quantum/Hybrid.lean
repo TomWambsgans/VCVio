@@ -279,7 +279,7 @@ theorem queryMass_callIfOne_basis (R : QuantumRuntime unitSpec) (c : Fin 2) :
 /-- One port whose input and output registers are a bit `Fin 2`, read as a coherent index with
 two values. -/
 @[expose, reducible]
-def bitSpec : QuantumOracleSpec where
+noncomputable def bitSpec : QuantumOracleSpec where
   Port := Unit
   In _ := QReg.of (Fin 2)
   Out _ := QReg.of (Fin 2)
