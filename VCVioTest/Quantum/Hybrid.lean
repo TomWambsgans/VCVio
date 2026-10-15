@@ -12,7 +12,7 @@ public import VCVio.Quantum.Oracle.Basis
 # Query-mass and square-root hybrid regression tests
 
 Tests for the query masses of ePrint 2025/2166, §4.2, the square-root hybrid bound of its
-Lemma 5.7, and its Cor 5.8 on leaving a subspace.
+Lemma 5.7, its form with the masses of a coherent index, and its Cor 5.8 on leaving a subspace.
 
 * **Identical runtimes.** For any program, the error term of Lemma 5.7 for a runtime against
   itself vanishes, in its Kraus-weight form and in its mass form. The bound of Cor 5.8 vanishes
@@ -23,6 +23,11 @@ Lemma 5.7, and its Cor 5.8 on leaving a subspace.
 * **An adaptive program** measures a bit and calls only when it reads `1`. Its mass splits over
   the two outcomes and is the weight of reading `1`: it is the trace of the runtime's initial
   state on `|1⟩` and zero on `|0⟩`, and there is never a second call.
+* **Two coherent indices.** One port carries an index bit; `U = 1` and `W = diag(1, -1) ⊗ 1`
+  differ only on the block of the index `1`, and the input lies in the block `0`. The error term
+  with the index masses of §4.2 is `0` (the block `0` has constant `0`, the block `1` has mass
+  `0`), so Lemma 5.7 in that form compares the two runs with no error, while the term with the
+  mass of the port and the whole operator norm `‖U - W‖ = 2` is `2`.
 -/
 
 public section
@@ -268,5 +273,179 @@ theorem queryMass_callIfOne_basis (R : QuantumRuntime unitSpec) (c : Fin 2) :
   rw [queryMass_callIfOne, MatrixMap.amplify_kronecker, SubState.matrix_basis,
     SubInstrument.branch_classical_basis, Matrix.trace_kronecker]
   split_ifs <;> simp_all
+
+/-! ## Two coherent indices -/
+
+/-- One port whose input and output registers are a bit `Fin 2`, read as a coherent index with
+two values. -/
+@[expose, reducible]
+def bitSpec : QuantumOracleSpec where
+  Port := Unit
+  In _ := QReg.of (Fin 2)
+  Out _ := QReg.of (Fin 2)
+  Result _ := Unit
+
+/-- Call once on the index bit, with the trivial rest `Unit`, and stop. -/
+@[expose]
+noncomputable def indexCall {L : LocalSig} :
+    QuantumComp L bitSpec (fun _ ↦ Unit) (QReg.of (Fin 2 × Unit)) :=
+  QuantumComp.queryBind () (QReg.of Unit) (Equiv.refl (Fin 2 × Unit)) fun _ ↦
+    QuantumComp.pure ()
+
+/-- The projections `|k⟩⟨k|` onto the two values of the index. -/
+@[expose]
+noncomputable def idxProj (i : bitSpec.Port) (k : Fin 2) :
+    Matrix (bitSpec.In i) (bitSpec.In i) ℂ :=
+  Matrix.single k k 1
+
+/-- The oracle `W = diag(1, -1) ⊗ 1`: the identity on the block of the index `0`, and `-1` on the
+block of the index `1`. -/
+@[expose]
+noncomputable def signFlip : Matrix (Fin 2 × Unit) (Fin 2 × Unit) ℂ :=
+  Matrix.diagonal fun m ↦ if m.1 = 1 then -1 else 1
+
+theorem conjTranspose_signFlip_mul_self : signFlipᴴ * signFlip = 1 := by
+  ext ⟨a, u⟩ ⟨b, v⟩
+  fin_cases a <;> fin_cases b <;> simp [signFlip]
+
+/-- The step `conj 1` on the call register `Fin 2 × Unit`. -/
+@[expose]
+noncomputable def idBitStep : SubInstrument (Fin 2 × Unit) (Fin 2 × Unit) Unit :=
+  SubInstrument.ofKraus (fun _ ↦ 1) (by simp)
+
+/-- The step `conj W`. -/
+@[expose]
+noncomputable def flipStep : SubInstrument (Fin 2 × Unit) (Fin 2 × Unit) Unit :=
+  SubInstrument.ofKraus (fun _ ↦ signFlip) (by simp [conjTranspose_signFlip_mul_self])
+
+/-- The runtime with the trivial register `Unit` whose calls apply `U = 1`. -/
+@[expose, reducible]
+noncomputable def idBitRuntime : QuantumRuntime bitSpec :=
+  QuantumRuntime.mk (QReg.of Unit) (SubState.basis ()) fun _ ↦ idBitStep
+
+/-- The runtime with the trivial register `Unit` whose calls apply `W`. -/
+@[expose, reducible]
+noncomputable def flipRuntime : QuantumRuntime bitSpec :=
+  QuantumRuntime.mk (QReg.of Unit) (SubState.basis ()) fun _ ↦ flipStep
+
+/-- The joint input: the index in the block `0`, and the runtime at its initial state. -/
+@[expose, reducible]
+noncomputable def idxInput : Matrix ((Fin 2 × Unit) × Unit) ((Fin 2 × Unit) × Unit) ℂ :=
+  (SubState.basis ((0 : Fin 2), ())).matrix ⊗ₖ (SubState.basis ()).matrix
+
+section TwoIndices
+
+variable {L : LocalSig} (I : L.Interp)
+
+theorem idBitStep_branch (i : bitSpec.Port) (r : bitSpec.Result i) :
+    idBitStep.branch r =
+      MatrixMap.conj ((fun _ _ ↦ (1 : Matrix (Fin 2 × Unit) (Fin 2 × Unit) ℂ)) i r) :=
+  rfl
+
+theorem flipStep_branch (i : bitSpec.Port) (r : bitSpec.Result i) :
+    flipStep.branch r = MatrixMap.conj ((fun _ _ ↦ signFlip) i r) :=
+  rfl
+
+/-- The index projections are a coherent index, with the same blocks on the output. -/
+theorem isCoherentIndex_idxProj : IsCoherentIndex idxProj idxProj where
+  sum_eq_one _ := by
+    ext a b
+    fin_cases a <;> fin_cases b <;> simp [idxProj]
+  mul_self _ k := by simp [idxProj]
+  conjTranspose_mul_of_ne _ a b h := by
+    simp only [idxProj, Matrix.conjTranspose_single, star_one]
+    exact Matrix.single_mul_single_of_ne _ _ _ _ h.symm _
+
+/-- `U - W` is block diagonal in the index, so it respects it. -/
+theorem respectsIndex_one_sub_signFlip :
+    RespectsIndex idxProj idxProj (D := QReg.of Unit) fun _ _ ↦ 1 - signFlip := by
+  intro _ _ k
+  ext ⟨a, u⟩ ⟨b, v⟩
+  fin_cases k <;> fin_cases a <;> fin_cases b <;>
+    simp [idxProj, signFlip, Matrix.mul_apply, Fintype.sum_prod_type, Matrix.single_apply,
+      Matrix.diagonal_apply, Matrix.one_apply]
+
+/-- `U` and `W` agree on the block of the index `0`. -/
+theorem one_sub_signFlip_mul_zero :
+    (1 - signFlip) * (idxProj () 0 ⊗ₖ (1 : Matrix (QReg.of Unit) (QReg.of Unit) ℂ)) = 0 := by
+  ext ⟨a, u⟩ ⟨b, v⟩
+  fin_cases a <;> fin_cases b <;>
+    simp [idxProj, signFlip, Matrix.mul_apply, Fintype.sum_prod_type, Matrix.single_apply,
+      Matrix.diagonal_apply, Matrix.one_apply]
+
+/-- `‖U - W‖ = 2`. -/
+theorem l2_opNorm_one_sub_signFlip :
+    ‖(1 : Matrix (Fin 2 × Unit) (Fin 2 × Unit) ℂ) - signFlip‖ = 2 := by
+  have h : (1 : Matrix (Fin 2 × Unit) (Fin 2 × Unit) ℂ) - signFlip =
+      Matrix.diagonal fun m ↦ if m.1 = 1 then 2 else 0 := by
+    ext ⟨a, u⟩ ⟨b, v⟩
+    fin_cases a <;> fin_cases b <;> norm_num [signFlip, Matrix.diagonal_apply, Matrix.one_apply]
+  rw [h, Matrix.l2_opNorm_diagonal]
+  refine le_antisymm ((pi_norm_le_iff_of_nonneg (by norm_num)).2 fun m ↦ ?_) ?_
+  · split_ifs <;> simp
+  · simpa using norm_le_pi_norm (fun m : Fin 2 × Unit ↦ if m.1 = 1 then (2 : ℂ) else 0) (1, ())
+
+/-- The index `1` carries no mass at the call. -/
+theorem indexMassAt_indexCall_one :
+    idBitRuntime.indexMassAt I idxProj indexCall idxInput ⟨(), 1⟩ 0 = 0 := by
+  rw [indexCall, indexMassAt_queryBind_self_zero]
+  simp [idxProj, callInput, MatrixMap.conj_apply, MatrixMap.traceRight_apply,
+    SubInstrument.relabel_branch_apply, queryEquivIn, SubState.matrix_basis, Matrix.trace,
+    Matrix.mul_apply, Fintype.sum_prod_type, Matrix.single_apply]
+
+/-- **The coherent error term vanishes**: the index `0` has constant `‖(U - W) (|0⟩⟨0| ⊗ 1)‖ = 0`
+and the index `1` has mass `0`. -/
+theorem tsum_rpow_indexMass_indexCall :
+    ∑' j, (∑' c, (∑' _r : bitSpec.Result c.1, ENNReal.ofReal
+      (‖((1 : Matrix (Fin 2 × Unit) (Fin 2 × Unit) ℂ) - signFlip) *
+        (idxProj c.1 c.2 ⊗ₖ (1 : Matrix (QReg.of Unit) (QReg.of Unit) ℂ))‖ ^ 2)) *
+          idBitRuntime.indexMassAt I idxProj indexCall idxInput c j) ^ (2⁻¹ : ℝ) = 0 := by
+  have h : ∀ (c : Σ _ : bitSpec.Port, Fin 2) (j : ℕ),
+      (∑' _r : bitSpec.Result c.1, ENNReal.ofReal
+        (‖((1 : Matrix (Fin 2 × Unit) (Fin 2 × Unit) ℂ) - signFlip) *
+          (idxProj c.1 c.2 ⊗ₖ (1 : Matrix (QReg.of Unit) (QReg.of Unit) ℂ))‖ ^ 2)) *
+        idBitRuntime.indexMassAt I idxProj indexCall idxInput c j = 0 := by
+    rintro ⟨⟨⟩, k⟩ (_ | j)
+    · fin_cases k
+      · simp only [mul_eq_zero]
+        simp
+        exact Or.inl one_sub_signFlip_mul_zero
+      · simp
+        exact Or.inr (indexMassAt_indexCall_one I)
+    · simp [indexCall]
+  simp only [h, tsum_zero, ENNReal.zero_rpow_of_pos (by norm_num : (0 : ℝ) < 2⁻¹)]
+
+/-- **The whole-operator error term is `2`**: the port carries mass `1` and `‖U - W‖ = 2`. -/
+theorem tsum_rpow_queryMass_indexCall :
+    ∑' j, (∑' i, (∑' _r : bitSpec.Result i,
+      ENNReal.ofReal (‖(1 : Matrix (Fin 2 × Unit) (Fin 2 × Unit) ℂ) - signFlip‖ ^ 2)) *
+        idBitRuntime.queryMassAt I indexCall idxInput i j) ^ (2⁻¹ : ℝ) = 2 := by
+  rw [tsum_eq_single 0 fun j hj ↦ ?_]
+  · rw [indexCall]
+    simp only [l2_opNorm_one_sub_signFlip, queryMassAt_queryBind_self_zero]
+    simp [idxInput, SubState.matrix_basis, Matrix.trace_kronecker]
+    simpa using ENNReal.pow_rpow_inv_natCast (n := 2) two_ne_zero (2 : ℝ≥0∞)
+  · obtain ⟨j, rfl⟩ := Nat.exists_eq_succ_of_ne_zero hj
+    simp [indexCall, ENNReal.zero_rpow_of_pos]
+
+/-- **Lemma 5.7 with the index masses** compares the runs against `U = 1` and `W = diag(1, -1)`
+from the index `0` with error `0`; the bound with the masses of the port gives `2`. -/
+example :
+    (∑' p, ENNReal.ofReal (MatrixMap.conj
+      (1 : Matrix (p.1 × idBitRuntime.D) (p.1 × idBitRuntime.D) ℂ)
+        ((idBitRuntime.run I indexCall).branch p idxInput)).trace.re) ^ (2⁻¹ : ℝ) ≤
+      (∑' p, ENNReal.ofReal (MatrixMap.conj
+        (1 : Matrix (p.1 × idBitRuntime.D) (p.1 × idBitRuntime.D) ℂ)
+          ((flipRuntime.run I indexCall).branch p idxInput)).trace.re) ^ (2⁻¹ : ℝ) := by
+  have hρ : idxInput.PosSemidef := ((SubState.basis ((0 : Fin 2), ())).prod
+    (SubState.basis ())).posSemidef
+  have h := rpow_inv_two_tsum_trace_conj_run_le_indexMass I (D := QReg.of Unit)
+    (s₀ := fun _ ↦ idBitStep) (s₁ := fun _ ↦ flipStep) (SubState.basis ()) (SubState.basis ())
+    idBitStep_branch flipStep_branch isCoherentIndex_idxProj respectsIndex_one_sub_signFlip
+    indexCall (Z := fun p ↦ p.1 × idBitRuntime.D) (fun _ ↦ 1)
+    (fun _ ↦ by simpa using Matrix.PosSemidef.zero) hρ
+  rwa [tsum_rpow_indexMass_indexCall I, add_zero] at h
+
+end TwoIndices
 
 end VCVioTest.QuantumHybrid
