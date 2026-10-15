@@ -206,6 +206,14 @@ variable [Fintype Cm] [DecidableEq Cm] [Fintype S] [DecidableEq S] [Fintype Z] [
 noncomputable def extractUnitary : Matrix ((TpIC k Cm × Z) × S) ((TpIC k Cm × Z) × S) ℂ :=
   basisMatrix (extractPerm ME code)
 
+omit [Fintype Cm] [Fintype S] [Fintype Z] in
+/-- The entries of `U_MultiExtract`: `⟨(tic, z), s| U |(tic', z'), s'⟩` is one exactly when
+`tic = tic'`, `s = s'` and `z = z' + enc(MultiExtract(tic', s'))`. -/
+theorem extractUnitary_apply (tic tic' : TpIC k Cm) (z z' : Z) (s s' : S) :
+    extractUnitary ME code ((tic, z), s) ((tic', z'), s') =
+      if tic = tic' ∧ z = z' + code.enc ⟨tic'.1, ME.extract tic' s'⟩ ∧ s = s' then 1 else 0 := by
+  simp only [extractUnitary, basisMatrix_apply, extractPerm_apply, Prod.mk.injEq, and_assoc]
+
 /-- `U_MultiExtract` is unitary. -/
 theorem extractUnitary_mem_unitaryGroup :
     extractUnitary ME code ∈ unitaryGroup ((TpIC k Cm × Z) × S) ℂ :=
