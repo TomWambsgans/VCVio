@@ -149,8 +149,8 @@ theorem posSemidef_one_sub_of_isometry {m n : Type*} [Fintype m] [DecidableEq n]
 /-- The Kraus map of an isometry preserves the trace. -/
 theorem trace_conj_of_isometry {m n : Type*} [Fintype m] [Fintype n] [DecidableEq n]
     {K : Matrix m n ℂ}
-    (hK : Kᴴ * K = 1) (M : Matrix n n ℂ) : (MatrixMap.conj K M).trace = M.trace := by
-  rw [MatrixMap.conj_apply, Matrix.trace_mul_comm, ← Matrix.mul_assoc, hK, Matrix.one_mul]
+    (hK : Kᴴ * K = 1) (M : Matrix n n ℂ) : (MatrixMap.conj K M).trace = M.trace :=
+  MatrixMap.isTP_conj hK M
 
 /-- `(1 ⊗ V)ᴴ (1 ⊗ V) = 1` for an isometry `V`. -/
 theorem one_kronecker_isometry {k m n : Type*} [Fintype k] [DecidableEq k] [Fintype m]

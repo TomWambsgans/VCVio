@@ -9,6 +9,7 @@ public import Mathlib.Analysis.CStarAlgebra.ContinuousFunctionalCalculus.Order
 public import Mathlib.Analysis.CStarAlgebra.Matrix
 public import Mathlib.Analysis.MeanInequalities
 public import VCVio.Quantum.MatrixMap
+public import VCVio.Quantum.MatrixMap.OpNorm
 
 /-!
 # Norms of matrices and square roots of weights
@@ -24,7 +25,9 @@ facts, collected here so that they depend on Mathlib and `Quantum.MatrixMap` onl
 * **The operator norm.** Mathlib's `ℓ²` operator norm on matrices (scoped to
   `Matrix.Norms.L2Operator`) controls Kraus maps: `Xᴴ X ≤ ‖X‖² • 1`, so
   `re tr (X Y Xᴴ) ≤ ‖X‖² re tr Y` for positive semidefinite `Y`
-  (`Quantum.MatrixMap.re_trace_conj_le`). It is invariant under isometries
+  (`Quantum.MatrixMap.re_trace_conj_le`). The identity and isometries have norm at most one
+  (`Matrix.l2_opNorm_one_le`, `Matrix.l2_opNorm_le_one_of_conjTranspose_mul_self`, in
+  `VCVio.Quantum.MatrixMap.OpNorm`). The norm is invariant under isometries
   (`Quantum.MatrixMap.l2_opNorm_isometry_mul`, `Quantum.MatrixMap.l2_opNorm_mul_coisometry`),
   orthogonal projections have norm at most one (`Quantum.MatrixMap.l2_opNorm_le_one_of_proj`),
   and the deviation of a conjugate from the original is a commutator
@@ -224,18 +227,6 @@ theorem sum_re_trace_conj_le [DecidableEq n] {ι : Type*} (s : Finset ι) (F : �
   rw [Finset.sum_mul]
   exact Finset.sum_le_sum fun r _ ↦ re_trace_conj_le (F r) hY
 
-/-- The identity matrix has operator norm at most one. -/
-theorem l2_opNorm_one_le [DecidableEq n] : ‖(1 : Matrix n n ℂ)‖ ≤ 1 := by
-  rw [Matrix.cstar_norm_def, map_one]
-  exact ContinuousLinearMap.norm_id_le
-
-/-- An isometry has operator norm at most one. -/
-theorem l2_opNorm_le_one_of_isometry [DecidableEq n] {U : Matrix m n ℂ} (hU : Uᴴ * U = 1) :
-    ‖U‖ ≤ 1 := by
-  have h := Matrix.l2_opNorm_conjTranspose_mul_self U
-  rw [hU] at h
-  nlinarith [l2_opNorm_one_le (n := n), norm_nonneg U]
-
 /-- An orthogonal projection has operator norm at most one. -/
 theorem l2_opNorm_le_one_of_proj [DecidableEq n] {P : Matrix n n ℂ} (hP : Pᴴ = P)
     (hPP : P * P = P) :
@@ -251,14 +242,14 @@ theorem l2_opNorm_isometry_mul [DecidableEq m] [DecidableEq n] {U : Matrix l m �
   classical
   refine le_antisymm ?_ ?_
   · calc ‖U * X‖ ≤ ‖U‖ * ‖X‖ := Matrix.l2_opNorm_mul _ _
-      _ ≤ 1 * ‖X‖ := by gcongr; exact l2_opNorm_le_one_of_isometry hU
+      _ ≤ 1 * ‖X‖ := by gcongr; exact Matrix.l2_opNorm_le_one_of_conjTranspose_mul_self hU
       _ = ‖X‖ := one_mul _
   · calc ‖X‖ = ‖Uᴴ * (U * X)‖ := by rw [← Matrix.mul_assoc, hU, Matrix.one_mul]
       _ ≤ ‖Uᴴ‖ * ‖U * X‖ := Matrix.l2_opNorm_mul _ _
       _ ≤ 1 * ‖U * X‖ := by
           gcongr
           rw [Matrix.l2_opNorm_conjTranspose]
-          exact l2_opNorm_le_one_of_isometry hU
+          exact Matrix.l2_opNorm_le_one_of_conjTranspose_mul_self hU
       _ = ‖U * X‖ := one_mul _
 
 /-- **Unitary invariance, on the right.** Multiplying by a coisometry on the right preserves the
@@ -274,8 +265,9 @@ theorem l2_opNorm_mul_coisometry [DecidableEq n] [DecidableEq l] {V : Matrix n l
 `W X Vᴴ` from `X` has the operator norm of `W X - X V`. With `W = V` this is the norm of the
 commutator `[X, V]`. -/
 theorem l2_opNorm_conj_sub_self [DecidableEq n] (W : Matrix m m ℂ) {V : Matrix n n ℂ}
-    (hV : Vᴴ * V = 1) (hV' : V * Vᴴ = 1) (X : Matrix m n ℂ) :
+    (hV : Vᴴ * V = 1) (X : Matrix m n ℂ) :
     ‖W * X * Vᴴ - X‖ = ‖W * X - X * V‖ := by
+  have hV' : V * Vᴴ = 1 := _root_.mul_eq_one_comm.mp hV
   have h : W * X * Vᴴ - X = (W * X - X * V) * Vᴴ := by
     rw [Matrix.sub_mul, Matrix.mul_assoc X V, hV', Matrix.mul_one]
   rw [h, l2_opNorm_mul_coisometry (by rwa [Matrix.conjTranspose_conjTranspose])]
