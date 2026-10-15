@@ -44,7 +44,7 @@ The partition instability is stated for `X Y : Type` because VCVio's query cache
 * `Quantum.Database.instability_const`, `Quantum.Database.instability_zero`: a constant labelling
   and the query bound `0` give instability `0`.
 * `Quantum.Database.instability_comp_le`: coarsening a labelling does not increase the
-  instability.
+  instability, for every answer measure and arbitrary `X`, `Y`.
 -/
 
 public section
@@ -163,6 +163,25 @@ theorem instability_const (i₀ : ι) (t : ℕ) : instability (fun _ : Database 
       simp [h]
     rw [this, QueryCache.flip_empty_left]
 
+/-- **Coarsening a labelling does not increase the instability.** An answer that changes the
+label `f (π D)` also changes the label `π D`. This holds for every answer measure and for
+arbitrary (possibly infinite) `X` and `Y`. -/
+theorem instability_comp_le {κ : Type*} (f : ι → κ) (π : Database X Y → ι) (t : ℕ) :
+    instability (f ∘ π) t ≤ instability π t := by
+  rw [instability_eq_iSup_flip_compl, instability_eq_iSup_flip_compl]
+  refine iSup_le fun k ↦ QueryCache.flip_le_iff.mpr fun D hD hlt x hx ↦ ?_
+  refine le_iSup_of_le (π (equivQueryCache.symm D)) <|
+    (QueryCache.extendProb_mono D x fun c hc ↦ ?_).trans
+      (QueryCache.extendProb_le_flip rfl hlt hx)
+  simp only [Set.mem_compl_iff, mem_labelPartition, Function.comp_apply] at hD hc ⊢
+  exact fun h ↦ hc (h ▸ hD)
+
+/-- The instability of the labelling `D ↦ decide (π D = i)`, which only records whether the label
+is `i`, is at most that of `π`, for every answer measure. -/
+theorem instability_decide_eq_le [DecidableEq ι] (π : Database X Y → ι) (i : ι) (t : ℕ) :
+    instability (fun D ↦ decide (π D = i)) t ≤ instability π t :=
+  instability_comp_le (fun j ↦ decide (j = i)) π t
+
 end instability
 
 section uniform
@@ -203,31 +222,6 @@ theorem card_div_le_instability (π : Database X Y → ι) {t : ℕ} {D : Databa
       le_iSup_of_le x <| le_iSup_of_le hx le_rfl
   have h' := ENNReal.toReal_mono (instability_ne_top π t) h
   rwa [ENNReal.toReal_div, ENNReal.toReal_natCast, ENNReal.toReal_natCast] at h'
-
-omit [Fintype X] [Fintype Y] [DecidableEq ι] in
-/-- **Coarsening a labelling does not increase the instability.** An answer that changes the
-label `f (π D)` also changes the label `π D`. -/
-theorem instability_comp_le [Finite X] [Finite Y] {κ : Type*} (f : ι → κ)
-    (π : Database X Y → ι) (t : ℕ) : instability (f ∘ π) t ≤ instability π t := by
-  classical
-  have := Fintype.ofFinite X
-  have := Fintype.ofFinite Y
-  rw [instability_eq_iSup, instability_eq_iSup]
-  refine iSup_le fun i ↦ iSup_le fun D ↦ iSup_le fun hD ↦ iSup_le fun hs ↦ iSup_le fun x ↦
-    iSup_le fun hx ↦ ?_
-  refine le_iSup_of_le (π D) <| le_iSup_of_le D <| le_iSup_of_le rfl <| le_iSup_of_le hs <|
-    le_iSup_of_le x <| le_iSup_of_le hx ?_
-  refine ENNReal.div_le_div_right (Nat.cast_le.mpr (Finset.card_le_card fun u hu ↦ ?_)) _
-  simp only [Finset.mem_filter, Finset.mem_univ, true_and, Function.comp_apply] at hu ⊢
-  exact fun h ↦ hu (by rw [h]; exact hD)
-
-omit [Fintype X] [Fintype Y] in
-/-- The instability of the labelling `D ↦ decide (π D = i)`, which only records whether the label
-is `i`, is at most that of `π`. -/
-theorem instability_decide_eq_le [Finite X] [Finite Y] (π : Database X Y → ι) (i : ι)
-    (t : ℕ) :
-    instability (fun D ↦ decide (π D = i)) t ≤ instability π t :=
-  instability_comp_le (fun j ↦ decide (j = i)) π t
 
 end uniform
 
