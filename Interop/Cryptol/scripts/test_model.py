@@ -208,6 +208,10 @@ def check_reference_demand(cryptol):
     env = dict(os.environ)
     env["PATH"] = str(Path(executable).parent) + os.pathsep + env.get("PATH", "")
     cases = [
+        ('(((\\x -> error "left-result") + (error "right-function")) '
+         ': Integer -> Integer) 0', "error:left-result", "error:right-function"),
+        ('(((\\x -> error "left-result") ^ (error "right-function")) '
+         ': Integer -> Bit) 0', "error:right-function", "error:right-function"),
         ('([x + y | x <- [0, 1], y <- [x, x + 10]] : [4]Integer) @ 1', "10", "10"),
         ('([x + y | x <- [0, 1], y <- [x, x + 10]] : [4]Integer) @ 2', "2", "2"),
         ('([x + y | x <- [0, 1] | y <- [10, 11, error "tail"]] : [2]Integer) @ 1',

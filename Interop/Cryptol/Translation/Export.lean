@@ -74,6 +74,9 @@ namespace Interop.Cryptol.Export
 
 /-- The concrete spelling of a retained native primitive constant. -/
 @[expose] def primitive : {a : ClosedTy} → Primitive a → String
+  | _, .logic _ op => "(" ++ bitOp op ++ ")"
+  | _, .complement _ => "complement"
+  | _, .ring _ op => "(" ++ intOp op.integer ++ ")"
   | _, .intLe => "(<=)"
   | _, .wordArrayArithmetic _ _ op => "(" ++ intOp op ++ ")"
   | _, .word x => toString x.toNat

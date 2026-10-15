@@ -12,6 +12,11 @@ import Interop.Cryptol.Model.ResolvedSequences
 import Interop.Cryptol.Model.Recurrence
 import Interop.Cryptol.Translation.PolymorphicExamples
 import Interop.Cryptol.Model.PolySubstitutionSemantics
+import Interop.Cryptol.Model.Numeric
+import Interop.Cryptol.Model.Records
+import Interop.Cryptol.Model.Comprehensions
+import Interop.Cryptol.Model.StructuralLogic
+import Interop.Cryptol.Model.StructuralRing
 
 /-!
 # Independent public API consumer
@@ -21,6 +26,26 @@ bodies or importing any cryptographic interpretation.
 -/
 
 open Interop.Cryptol Interop.Cryptol.Finite
+
+example {n m : Nat} (e : NumericExpr n) (σ : Fin n → NumericExpr m)
+    (ρ : Fin m → Option Length) :
+    (e.subst σ).eval ρ = e.eval (fun i => (σ i).eval ρ) :=
+  e.eval_subst σ ρ
+
+example {Γ fields : List ClosedTy} {a : ClosedTy} (index : Var fields a)
+    (old : Expr Γ (Record.type fields)) (value : Expr Γ a) (ρ : Environment Γ) :
+    (Record.select index (Record.update index old value)).denote ρ = value.denote ρ :=
+  Record.denote_select_update index old value ρ
+
+example {Γ : List ClosedTy} {a : ClosedTy} (shape : LogicType a)
+    (op : BitOp) (x y : Expr Γ a) (ρ : Environment Γ) :
+    (shape.binary op x y).denote ρ = shape.binarySem op (x.denote ρ) (y.denote ρ) :=
+  shape.denote_binary op x y ρ
+
+example {Γ : List ClosedTy} {a : ClosedTy} (shape : RingType a)
+    (op : RingOp) (x y : Expr Γ a) (ρ : Environment Γ) :
+    (shape.binary op x y).denote ρ = shape.binarySem op (x.denote ρ) (y.denote ρ) :=
+  shape.denote_binary op x y ρ
 
 example {a b : Finite.Ty} {ha : DataShape a} {hb : DataShape b}
     (f : CertifiedFunction ha hb) (g : a.Native → b.Native)

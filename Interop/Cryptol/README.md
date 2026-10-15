@@ -89,8 +89,17 @@ install these tools.
 The current fragment is intentionally narrower than full resolved Cryptol.
 The [coverage and gap ledger](docs/model.md#coverage-and-gap-ledger) separates
 proved capabilities, semantic spikes, and missing language features. In particular,
-the importer still targets the Foundation SHA-256 subset; no general typed-AST
-exporter, full Cryptol soundness theorem, or CRC certificate is claimed.
+the certified importer still targets the Foundation SHA-256 subset. The
+[pinned typed-AST exporter](exporter/README.md) additionally retains complete
+definitions for 31 SHA2/SHA3/SHAKE, Keccak, AES and CRC entries. Lean checks their
+scope and kinds, and separately checks closed numeric and class constraints.
+This source graph does not yet have checked expression elaboration or a shared
+evaluator. Component theorems cover Keccak coordinate inverses and byte-aligned
+CRC polynomial updates; whole-algorithm differential tests exercise all SHA2,
+SHA3 and SHAKE cores, AES vectors and CRC splits. The tests retain the pinned
+reference evaluator's negative-index failure in Foundation Keccak separately
+from normal-evaluator agreement. No full Cryptol soundness theorem or imported
+CRC implementation certificate is claimed.
 
 The [coverage catalogue](docs/coverage.md) separates planned reference coverage,
 external probes and all-input Lean certificates, and records the next semantic

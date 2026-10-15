@@ -58,6 +58,13 @@ if (( run_test )); then
   model_cmd=(python3 -u Interop/Cryptol/scripts/test_model.py)
   if (( run_external )); then model_cmd+=(--cryptol "$CRYPTOL_BINARY"); fi
   "${model_cmd[@]}"
+  python3 -u Interop/Cryptol/scripts/test_source.py
+  reference_cmd=(python3 -u Interop/Cryptol/scripts/test_references.py
+    --report "$report_dir/references.json")
+  if (( run_external )); then
+    reference_cmd+=(--cryptol "$CRYPTOL_BINARY" --foundation "$FOUNDATION_PATH")
+  fi
+  "${reference_cmd[@]}"
   python3 -u Interop/Cryptol/scripts/check_bridge.py --local-only --report "$report_dir/local.json"
   # Refresh the separate manifest when switching between a local override and the Git pin.
   "${lake_cmd[@]}" -R -d Interop/Cryptol/Consumer update VCVio --keep-toolchain
@@ -65,6 +72,12 @@ if (( run_test )); then
   if (( run_external )); then
     python3 -u Interop/Cryptol/scripts/check_bridge.py --cryptol "$CRYPTOL_BINARY" \
       --foundation "$FOUNDATION_PATH" --report "$report_dir/external.json"
+    if [[ -n "${CRYPTOL_EXPORTER:-}" ]]; then
+      : "${CRYPTOL_SOURCE:?Set CRYPTOL_SOURCE to the pinned Cryptol source checkout}"
+      python3 -u Interop/Cryptol/scripts/export_references.py --check \
+        --exporter "$CRYPTOL_EXPORTER" --foundation "$FOUNDATION_PATH" \
+        --cryptol-source "$CRYPTOL_SOURCE"
+    fi
   fi
 fi
 if (( run_axioms )); then

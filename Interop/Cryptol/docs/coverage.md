@@ -11,7 +11,17 @@ Lean theorem relating the retained source to the named implementation for every
 input in the stated profile. Executable test vectors never promote an entry to
 `certified`. Source provenance and evaluator agreement remain separate from
 kernel checking. Dependency lists marked `partial` are investigation leads;
-only the compression dependency closure is currently extracted and pinned.
+the versioned typed-AST bundle separately retains a complete shared dependency
+graph for 31 entries. `reference_import.stage = scoped` records only successful
+decoding, scope and kind validation. It does not change the certificate status.
+
+The [exporter](../exporter/README.md) retains 280 declarations from 49 loaded
+modules, including the official `Cryptol::Reference` primitive fallbacks. Its
+manifest identifies all 31 roots and hashes every input module. The committed
+numeric and class cases are replayed locally; external regeneration checks them
+against the actual pinned `InfNat` and class solver implementations. These import
+checks do not claim expression typing, constraint entailment for open terms,
+execution of the imported JSON graph, or implementation equivalence.
 
 The bridge validation checks the catalogue schema, source pins, declaration
 references and status invariants. Its external pass loads the listed public
@@ -33,16 +43,17 @@ by the importer to make a particular algorithm compile.
 The [audited milestone plan](model.md#audited-next-milestones) gives the full
 order and acceptance gates. Whole-term parameter/value algebra and general
 semantic preservation are complete for the current syntax. Next come a pinned
-typed-AST exporter with checked decoding and an explicit reference-core
-correspondence, followed by broader semantics and polymorphic operational
+checked elaboration of the typed-AST bundles and an explicit reference-core
+correspondence, followed by a shared evaluator and polymorphic operational
 adequacy. Syntax-producing specialization and certified native compilation
 precede polymorphic export with semantic round trips.
 
 Algorithm work consumes those reusable interfaces: bounded folds, prefix
 recurrences and finite observations; full SHA-256 padding/block processing and
 SHA2 variants; CRC/AES and Keccak/SHA3/SHAKE; compositions and remaining families
-before P-256 arithmetic and termination. The catalogue stays at one certified
-entry, one probe and 55 planned entries until each new entry has its own evidence.
+before P-256 arithmetic and termination. The catalogue has one certified entry,
+30 executable probes and 26 planned entries. The 31 imported roots comprise the
+certificate and the probes; their shared input graph remains at the scoped stage.
 
 ## What a guard establishes
 
@@ -61,8 +72,34 @@ against mismatches at those trusted boundaries. None subsumes the others. A
 Cryptol/SAW solver result is independent evidence unless its certificate is
 checked in Lean.
 
-The next property-transfer cases are Keccak's state-conversion inverses and a
-CRC update/concatenation law with the appropriate alignment and parameter
-hypotheses. Mutation tests should alter constants, byte order, shifts, field
+The `component_equations` axis records the proofs in
+[`KeccakCodec.lean`](../Bridge/KeccakCodec.lean) and
+[`CRCUpdate.lean`](../Bridge/CRCUpdate.lean) separately from source certificates.
+Keccak's two inverse laws hold at every finite lane width, including zero. CRC
+updates compose for every monic binary generator and byte-aligned message, with
+or without input reflection, and under any final state observation. These prove
+transcribed coordinate and polynomial equations; source elaboration and the
+bitvector/polynomial `pmod` connection are still required for source certificates.
+
+[`test_references.py`](../scripts/test_references.py) compares the actual Lean
+SHA2/SHA3/SHAKE cores with Python's `hashlib` (OpenSSL for SHA-512/t when the system
+Python omits it), and, in external mode, with whole Foundation definitions. The
+cases include empty messages, padding and block boundaries, and multiple SHAKE
+squeeze blocks. AES uses the three FIPS 197 Appendix C encryption/decryption
+vectors; CRC uses independent CRC32 values, incremental splits and running CRCs;
+Keccak checks both coordinate properties at six widths. RawSHAKE is checked via
+its domain-bit relation to SHAKE. Both external evaluators are checked,
+with a smaller reference-evaluator matrix. A timeout fails the check; it never
+counts as agreement. These tests execute pinned Cryptol source, not the JSON AST.
+
+Foundation's Keccak theta step uses `C@((x-1) % 5)`. At `x=0`, Cryptol 3.6.0's
+reference integer remainder produces `-1`, so the selected SHA3 and SHAKE
+reference computations fail with an invalid index. The normal evaluator uses
+Euclidean remainder and agrees with the Lean hashes. The driver checks a minimal
+theta example and the actual whole hashes, recording `documented-index-error`
+separately from `agreed`. Preserving the reference semantics therefore cannot
+by itself establish the intended total SHA3 behavior of this unmodified source.
+
+Mutation tests should alter constants, byte order, shifts, field
 selection, constraint evidence and instantiations, and report which gate rejects
 each mutation. Record proof and execution costs alongside semantic coverage.

@@ -4,6 +4,7 @@ public import Interop.Cryptol.Model.Adequacy
 public import Interop.Cryptol.Model.Aggregate
 public import Interop.Cryptol.Model.Binding
 public import Interop.Cryptol.Model.Combinators
+public import Interop.Cryptol.Model.Comprehensions
 public import Interop.Cryptol.Model.Denotation
 public import Interop.Cryptol.Model.Domain
 public import Interop.Cryptol.Model.Examples
@@ -15,6 +16,7 @@ public import Interop.Cryptol.Model.LogicalRelation
 public import Interop.Cryptol.Model.MachineDomain
 public import Interop.Cryptol.Model.NativeLaws
 public import Interop.Cryptol.Model.NativePrimitives
+public import Interop.Cryptol.Model.Numeric
 public import Interop.Cryptol.Model.Observation
 public import Interop.Cryptol.Model.Operational
 public import Interop.Cryptol.Model.ParameterLaws
@@ -40,7 +42,11 @@ public import Interop.Cryptol.Model.PolySubstitutionSemantics
 public import Interop.Cryptol.Model.PolySyntax
 public import Interop.Cryptol.Model.Polymorphic
 public import Interop.Cryptol.Model.Primitives
+public import Interop.Cryptol.Model.Records
 public import Interop.Cryptol.Model.Recurrence
+public import Interop.Cryptol.Model.Reference.Kinds
+public import Interop.Cryptol.Model.Reference.Syntax
+public import Interop.Cryptol.Model.Reference.Types
 public import Interop.Cryptol.Model.Resolved
 public import Interop.Cryptol.Model.ResolvedLaws
 public import Interop.Cryptol.Model.ResolvedSequences
@@ -49,6 +55,8 @@ public import Interop.Cryptol.Model.SequenceAppend
 public import Interop.Cryptol.Model.SequenceLaws
 public import Interop.Cryptol.Model.SequenceOps
 public import Interop.Cryptol.Model.Soundness
+public import Interop.Cryptol.Model.StructuralLogic
+public import Interop.Cryptol.Model.StructuralRing
 public import Interop.Cryptol.Model.Substitution
 public import Interop.Cryptol.Model.Syntax
 public import Interop.Cryptol.Model.Types

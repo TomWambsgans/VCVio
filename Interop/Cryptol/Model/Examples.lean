@@ -7,6 +7,8 @@ Authors: Devon Tuma
 module
 
 public import Interop.Cryptol.Model.ResolvedSequences
+public import Interop.Cryptol.Model.Records
+public import Interop.Cryptol.Model.Comprehensions
 public import Interop.Cryptol.Model.Operational
 
 /-!
@@ -118,6 +120,32 @@ structure Fixture where
 
 /-- The regression corpus shared with the Cryptol executable tests. -/
 @[expose] def fixtures : List Fixture := [
+  ⟨"structural_function_demand_order", .ite (.app
+      (.app (.app (.primitive (.logic (.arrow .integer .bit) .xor))
+        (.lam (.error (.user "left-result")))) (.error (.user "right-function"))) (.integer 0))
+      (.integer 1) (.integer 0),
+      some (.error (.user "right-function")), 200⟩,
+  ⟨"structural_logic_tuple", .ite (.fst
+      (.app (.app (.primitive (.logic (.prod .bit .bit) .xor))
+        (.pair (.bit true) (.error (.user "unused-left"))))
+        (.pair (.bit false) (.error (.user "unused-right")))))
+      (.integer 1) (.integer 0), some (.ok 1), 200⟩,
+  ⟨"structural_ring_function", .app
+      (.app (.app (.primitive (.ring (.arrow .integer .integer) .add))
+        (.lam (.integer 7))) (.lam (.integer 3))) (.error (.user "unused")),
+      some (.ok 10), 200⟩,
+  ⟨"structural_ring_empty_error", .index
+      (.app (.app (.primitive (.ring (.seq (.finite 0) .integer) .add))
+        (.error (.user "outer"))) (.sequence 0 Fin.elim0)) (.integer 0),
+      some (.error (.user "outer")), 200⟩,
+  Fixture.core "record_update_bypasses_error"
+    (.ite (Record.select (.succ .zero) (Record.update (.succ .zero)
+      (.error (.user "original") : ClosedExpr [] (Record.type [.integer, .bit])) (.bit true)))
+      (.integer 1) (.integer 0)) (some (.ok 1)) 100 (by rfl),
+  Fixture.core "sequential_infinite_inner"
+    (.index (Expr.flatMap (a := .integer) (b := .integer) (outer := .infinite) .infinite
+      (.lam (.generate Length.infinite (.var (.succ .zero))))
+      (.generate Length.infinite (.var .zero))) (.integer 1000)) (some (.ok 0)) 100 (by rfl),
   ⟨"sequential_generator_first_row", .index dependentRows (.integer 1), some (.ok 10), 2000⟩,
   ⟨"sequential_generator_second_row", .index dependentRows (.integer 2), some (.ok 2), 2000⟩,
   ⟨"parallel_generator_prefix", .index parallelRows (.integer 1), some (.ok 12), 1000⟩,

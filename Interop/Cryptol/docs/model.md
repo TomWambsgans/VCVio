@@ -20,28 +20,43 @@ Haskell evaluator nor Cryptol's parser/typechecker is verified by this work.
 Resolved source has an independent
 denotation and a proved lowering; the text printer is
 validated with executable comparisons, not a parser/printer correctness proof.
-Inbound clients supply a resolved, well-typed representation. There is no
-parser, name resolver, type inference engine, or constraint solver.
+Certified inbound clients supply a resolved, well-typed representation. The
+versioned typed-AST input path separately checks scopes and kinds and evaluates
+closed numeric and class constraints. It does not yet produce that resolved
+representation or prove expression typing. There is no Cryptol source parser,
+type inference engine, or open-constraint entailment solver in Lean.
 
 | Axis | Checked model |
 |---|---|
 | Types | Bits, integers, unit, binary products, functions, finite and infinite sequences |
 | Polymorphism | Ordered numeric, type, and proof binders; checked instantiation and local polymorphic values; one finite syntax tree before instantiation |
-| Numeric expressions | Finite constants, infinity, variables, addition, multiplication, minimum; finiteness and equality constraints |
+| Numeric expressions | The ordered core retains addition/multiplication/minimum and finiteness/equality constraints. The source layer additionally has partial subtraction/division/remainder/ceil operations, exponentiation, width/logarithm and enumeration lengths, with substitution laws over partial assignments. |
 | Binding | Typed de Bruijn positions and capture-avoiding transformations; semantic parameter/value substitution laws for every current ordered polymorphic constructor, as well as the monomorphic core/native IR |
 | Laziness | Suspended function arguments, let values, product fields, sequence elements; only the selected conditional branch is demanded |
 | Recursion | Least fixed points at every closed type; monomorphic groups use lazy products. Finite polymorphic group syntax takes one fixed point of the whole scheme environment before instantiation. |
 | Failure | Semantic bottom, explicit evaluation error, and returned outer value are distinct |
-| Primitives | Structural zero; lazy finite folds; array arithmetic; Bit/integer operations; partial word logic, lexicographic comparison, modular arithmetic, conversions, dynamic shifts/rotations; structural sequence operations |
-| Derived descriptions | Sequence literals, generators, map, dependent finite sequential generators, parallel zip, finite-prefix append, observation windows; big-endian literals and finite total descriptions |
+| Primitives | Structural zero, logic/complement and ring operations on sequences, product spines and functions, with partial-input preservation; lazy finite folds; Bit/integer and word operations; structural sequence operations |
+| Derived descriptions | Sequence literals, generators, map, sequential generators with finite or infinite rows, independent parallel branches, lazy heterogeneous record selection/update, finite-prefix append and observation windows |
 
-Products represent tuple spines. Named records, nominal types,
-arbitrary Cryptol type-class constraints, and the full numeric
-type language are not included. Rational, modular-integer, float, foreign, and
-cryptographic/security primitives are also outside the fragment. Word lowerings compile to the core, using `Expr.force` to demand an outer
+Products represent tuple and record spines. The input syntax retains named
+records; checked label resolution into those spines remains part of the pending
+elaborator. `Reference.Types` checks the supported closed Zero/Logic/Ring/Integral/
+Eq/Cmp/SignedCmp and literal instances. Arbitrary class entailment, nominal types,
+rational, modular-integer and float values remain outside the fragment. Foreign
+fallback bodies are retained in source bundles but do not yet execute through
+that path. Word lowerings compile to the core, using `Expr.force` to demand an outer
 constructor without demanding its components. `force` is internal: `Resolved.Term`
 retains named source primitives, and `Export.coreExpression?` rejects a bare core
 term containing `force`. Neither `trace` nor `deepseq` is substituted for it.
+
+The source path is documented in [the exporter guide](../exporter/README.md).
+Its current boundary is deliberately visible in the `scoped` inspection result.
+Checked expression elaboration, reference/core correspondence, resumable shared
+evaluation of the imported graph remain required before these bundles can support
+additional semantic certificates. Separate component proofs establish Keccak's
+state-conversion inverses and the byte-aligned CRC update law for their explicit
+transcribed equations. Connecting those equations to checked source elaboration,
+and proving full hash equivalence, remain further obligations.
 
 The reference demand rules are explicit:
 
@@ -58,6 +73,10 @@ The reference demand rules are explicit:
   its function and source; a constant step may ignore both accumulator and element.
   Structural zero constructs aggregates and constant functions. Array arithmetic
   demands both outer arrays even at length zero.
+- Binary logic at function types forces both outer functions on application,
+  before comparing or combining their results. Ring arithmetic and unary
+  complement instead suspend the applications until demanded by the result
+  type. The distinction persists when a result is itself a function.
 - Structural operations generate lazy output constructors. `take front back`
   requires an input of length `front + back`; `drop` has a finite front;
   `join`/`split` have finite row width; transpose accepts infinite dimensions.
@@ -256,8 +275,10 @@ lazy `map`, dependent `flatMap` with finite inner rows, and `zipWith` over
 finite or infinite sources, with partial denotation equations. Sequential
 generators visit each row in source order; parallel generators truncate at the
 shorter length. Both retain suspended arguments. These derived combinators use
-the existing lowering and operational theorems; a general comprehension AST and
-infinite inner sequential generators remain outside this interface.
+the existing lowering and operational theorems. `Comprehensions.lean` also gives
+core lowerings and direct semantic equations for infinite inner rows and
+independent parallel branch environments. The full source comprehension AST is
+retained by the bundle decoder; automatic checked lowering remains pending.
 
 [`SemanticCertificate.lean`](../Translation/SemanticCertificate.lean) factors
 the representation contract over a semantic computation, independent of which
@@ -345,11 +366,11 @@ the existing generic ITree monadic interpreters remain a separate interface.
 
 ## External evidence and evaluator discrepancies
 
-The corpus has 31 fixtures: lazy errors and divergence, productive and mutual
+The corpus has 37 fixtures: lazy errors and divergence, productive and mutual
 recursion, an instantiated polymorphic map, factorial and higher-order calls,
 empty and out-of-bounds sequences, sequential and parallel comprehension
 binding and demand, signed integer arithmetic, and word examples.
-Thirty terminating fixtures are compared against **both** external
+Thirty-six terminating fixtures are compared against **both** external
 evaluators. Kernel-checked regression examples also establish semantic claims
 from concrete machine executions.
 
@@ -381,6 +402,12 @@ The external driver checks the normal evaluator's distinct results explicitly.
 It does not silently count those two comparisons as semantic agreement.
 This is a reason to retain the versioned reference boundary in any broader model.
 
+This discrepancy affects actual Foundation algorithms: Keccak theta indexes
+`C@((x-1) % 5)` at `x=0`. The whole-reference matrix pins the reference's invalid
+index `-1`, while normal evaluation agrees with the Lean SHA3/SHAKE results.
+The [coverage guide](coverage.md) records the separate execution outcomes and
+explains why intended hash equivalence needs more than faithful reference lowering.
+
 The driver also pins demand differences, rather than silently treating normal
 and reference evaluation as equivalent:
 
@@ -391,6 +418,7 @@ and reference evaluation as equivalent:
 | `update ([False, True] : [2]) (-1 : Integer) True` | unchanged input | invalid index |
 | `((error "source" : [4]) << (4 : Integer)) @ 0` | `False` | source error |
 | `(update (error "source" : [2]) (0 : Integer) True) @ 0` | `True` | source error |
+| `((\x -> error "left") + error "right" : Integer -> Integer) 0` | left error | right error |
 
 The reference's empty `foldl` ignores an erroneous function and sequence. A
 constant step can also ignore an erroneous accumulator and nonempty sequence.
@@ -453,9 +481,9 @@ upgrade. Probability and security interpretations belong downstream in VCVio.
 | Recurrence compilation | Prefix uniqueness, least-fixed-point agreement, compact singleton extension and a linear syntax-size theorem | No general termination compiler or evaluation-time certificate |
 | Ordered polymorphism | Finite numeric/type/proof syntax, continuous denotation, beta laws, closed embedding, map at finite/infinite lengths, XOR certificate at every finite width | No polymorphic operational adequacy or full upstream `ETAbs`/`ETApp` frontend correspondence |
 | Polymorphic recursion | Finite recursive-group syntax, one scheme-environment fixed point, changing-instantiation and mutual-recursion proofs | No general compiler from polymorphic recursive groups to finite native implementations |
-| Language semantics | Closed typed core, operational soundness and adequacy, lazy words/sequences, explicit errors | Records, nominal/enumeration types, rational and modular integers, full numeric functions/constraints, full comprehensions, trace/deepseq/random are absent |
+| Language semantics | Closed typed core and adequacy; partial numeric substitution; structural logic/ring preservation; lazy record spines; sequential finite/infinite and independent parallel generator lowerings | General source elaboration, open constraint entailment, nominal/enumeration types, rational/modular integers and trace/deepseq/random remain absent |
 | Opaque operations | Unsupported operations are rejected by the importer | Floating point, arrays and foreign backends need explicit semantic interfaces and conditional correspondence proofs |
-| Inbound transport | Preserved pinned SHA-256 typed dump, scoped structural reifier, rejection tests and generated-artifact checks | `:extract-coq` erases information; a general typed-AST exporter and Lean decoder remain to be built |
+| Inbound transport | SHA256 certificate path plus a versioned typed-AST exporter, Lean decoder, scope/kind gate and 31 full source dependency closures | The broader bundle has no expression-typing certificate, checked elaboration or source/core correspondence; expression locations are erased |
 | Outbound transport | Typed resolved printer and comparisons with both pinned evaluators | No formal parser/printer round trip or Haskell correctness proof |
 | Foundation | SHA-256 compression for all finite state/block values and valid byte windows; adaptive VCVio replacement | CRC, whole-hash padding and cryptographic security claims remain outside the certificate |
 

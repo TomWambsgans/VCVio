@@ -105,7 +105,12 @@
         "Cryptol 3.6.0 frontend, type checking and erased constraints",
         "typed AST exporter and constructor decoder",
         "monomorphic structural reification, comprehension translation and lambda lifting"
-      ]
+      ],
+      "reference_import": {
+        "stage": "scoped",
+        "manifest": "artifacts/references/manifest.json",
+        "root": "result"
+      }
     },
     {
       "id": "sha224",
@@ -132,12 +137,24 @@
           "packaging/Hash.cry"
         ]
       },
-      "status": "planned",
+      "status": "probe",
       "implementation": "VCVio.Algorithms.Sha2.sha224",
       "theorems": [],
-      "evidence": [],
+      "evidence": [
+        "scripts/test_references.py"
+      ],
       "wave": 1,
-      "trusted_steps": []
+      "trusted_steps": [],
+      "reference_import": {
+        "stage": "scoped",
+        "manifest": "artifacts/references/manifest.json",
+        "root": "R0::hash"
+      },
+      "execution_probe": {
+        "target": "pinned-source",
+        "normal": "agreed",
+        "reference": "agreed"
+      }
     },
     {
       "id": "sha256",
@@ -164,12 +181,24 @@
           "packaging/Hash.cry"
         ]
       },
-      "status": "planned",
+      "status": "probe",
       "implementation": "VCVio.Algorithms.Sha2.sha256",
       "theorems": [],
-      "evidence": [],
+      "evidence": [
+        "scripts/test_references.py"
+      ],
       "wave": 1,
-      "trusted_steps": []
+      "trusted_steps": [],
+      "reference_import": {
+        "stage": "scoped",
+        "manifest": "artifacts/references/manifest.json",
+        "root": "R1::hash"
+      },
+      "execution_probe": {
+        "target": "pinned-source",
+        "normal": "agreed",
+        "reference": "agreed"
+      }
     },
     {
       "id": "sha384",
@@ -196,12 +225,24 @@
           "packaging/Hash.cry"
         ]
       },
-      "status": "planned",
+      "status": "probe",
       "implementation": "VCVio.Algorithms.Sha2.sha384",
       "theorems": [],
-      "evidence": [],
+      "evidence": [
+        "scripts/test_references.py"
+      ],
       "wave": 1,
-      "trusted_steps": []
+      "trusted_steps": [],
+      "reference_import": {
+        "stage": "scoped",
+        "manifest": "artifacts/references/manifest.json",
+        "root": "R2::hash"
+      },
+      "execution_probe": {
+        "target": "pinned-source",
+        "normal": "agreed",
+        "reference": "agreed"
+      }
     },
     {
       "id": "sha512",
@@ -228,12 +269,24 @@
           "packaging/Hash.cry"
         ]
       },
-      "status": "planned",
+      "status": "probe",
       "implementation": "VCVio.Algorithms.Sha2.sha512",
       "theorems": [],
-      "evidence": [],
+      "evidence": [
+        "scripts/test_references.py"
+      ],
       "wave": 1,
-      "trusted_steps": []
+      "trusted_steps": [],
+      "reference_import": {
+        "stage": "scoped",
+        "manifest": "artifacts/references/manifest.json",
+        "root": "R3::hash"
+      },
+      "execution_probe": {
+        "target": "pinned-source",
+        "normal": "agreed",
+        "reference": "agreed"
+      }
     },
     {
       "id": "sha512_224",
@@ -260,12 +313,24 @@
           "packaging/Hash.cry"
         ]
       },
-      "status": "planned",
+      "status": "probe",
       "implementation": "VCVio.Algorithms.Sha2.sha512Trunc224",
       "theorems": [],
-      "evidence": [],
+      "evidence": [
+        "scripts/test_references.py"
+      ],
       "wave": 1,
-      "trusted_steps": []
+      "trusted_steps": [],
+      "reference_import": {
+        "stage": "scoped",
+        "manifest": "artifacts/references/manifest.json",
+        "root": "R4::hash"
+      },
+      "execution_probe": {
+        "target": "pinned-source",
+        "normal": "agreed",
+        "reference": "agreed"
+      }
     },
     {
       "id": "sha512_256",
@@ -292,12 +357,24 @@
           "packaging/Hash.cry"
         ]
       },
-      "status": "planned",
+      "status": "probe",
       "implementation": "VCVio.Algorithms.Sha2.sha512Trunc256",
       "theorems": [],
-      "evidence": [],
+      "evidence": [
+        "scripts/test_references.py"
+      ],
       "wave": 1,
-      "trusted_steps": []
+      "trusted_steps": [],
+      "reference_import": {
+        "stage": "scoped",
+        "manifest": "artifacts/references/manifest.json",
+        "root": "R5::hash"
+      },
+      "execution_probe": {
+        "target": "pinned-source",
+        "normal": "agreed",
+        "reference": "agreed"
+      }
     },
     {
       "id": "sha3_224",
@@ -324,12 +401,24 @@
           "packaging/Hash.cry"
         ]
       },
-      "status": "planned",
+      "status": "probe",
       "implementation": "VCVio.Algorithms.Keccak.sha3Digest224",
       "theorems": [],
-      "evidence": [],
+      "evidence": [
+        "scripts/test_references.py"
+      ],
       "wave": 2,
-      "trusted_steps": []
+      "trusted_steps": [],
+      "reference_import": {
+        "stage": "scoped",
+        "manifest": "artifacts/references/manifest.json",
+        "root": "R6::hash"
+      },
+      "execution_probe": {
+        "target": "pinned-source",
+        "normal": "agreed",
+        "reference": "documented-index-error"
+      }
     },
     {
       "id": "sha3_256",
@@ -356,12 +445,24 @@
           "packaging/Hash.cry"
         ]
       },
-      "status": "planned",
+      "status": "probe",
       "implementation": "VCVio.Algorithms.Keccak.sha3Digest256",
       "theorems": [],
-      "evidence": [],
+      "evidence": [
+        "scripts/test_references.py"
+      ],
       "wave": 2,
-      "trusted_steps": []
+      "trusted_steps": [],
+      "reference_import": {
+        "stage": "scoped",
+        "manifest": "artifacts/references/manifest.json",
+        "root": "R7::hash"
+      },
+      "execution_probe": {
+        "target": "pinned-source",
+        "normal": "agreed",
+        "reference": "documented-index-error"
+      }
     },
     {
       "id": "sha3_384",
@@ -388,12 +489,24 @@
           "packaging/Hash.cry"
         ]
       },
-      "status": "planned",
+      "status": "probe",
       "implementation": "VCVio.Algorithms.Keccak.sha3Digest384",
       "theorems": [],
-      "evidence": [],
+      "evidence": [
+        "scripts/test_references.py"
+      ],
       "wave": 2,
-      "trusted_steps": []
+      "trusted_steps": [],
+      "reference_import": {
+        "stage": "scoped",
+        "manifest": "artifacts/references/manifest.json",
+        "root": "R8::hash"
+      },
+      "execution_probe": {
+        "target": "pinned-source",
+        "normal": "agreed",
+        "reference": "documented-index-error"
+      }
     },
     {
       "id": "sha3_512",
@@ -420,12 +533,24 @@
           "packaging/Hash.cry"
         ]
       },
-      "status": "planned",
+      "status": "probe",
       "implementation": "VCVio.Algorithms.Keccak.sha3Digest512",
       "theorems": [],
-      "evidence": [],
+      "evidence": [
+        "scripts/test_references.py"
+      ],
       "wave": 2,
-      "trusted_steps": []
+      "trusted_steps": [],
+      "reference_import": {
+        "stage": "scoped",
+        "manifest": "artifacts/references/manifest.json",
+        "root": "R9::hash"
+      },
+      "execution_probe": {
+        "target": "pinned-source",
+        "normal": "agreed",
+        "reference": "documented-index-error"
+      }
     },
     {
       "id": "shake128",
@@ -451,12 +576,24 @@
           "algorithms/Keccak/Main.cry"
         ]
       },
-      "status": "planned",
+      "status": "probe",
       "implementation": "VCVio.Algorithms.Keccak.shake128",
       "theorems": [],
-      "evidence": [],
+      "evidence": [
+        "scripts/test_references.py"
+      ],
       "wave": 2,
-      "trusted_steps": []
+      "trusted_steps": [],
+      "reference_import": {
+        "stage": "scoped",
+        "manifest": "artifacts/references/manifest.json",
+        "root": "R10::SHAKE128"
+      },
+      "execution_probe": {
+        "target": "pinned-source",
+        "normal": "agreed",
+        "reference": "documented-index-error"
+      }
     },
     {
       "id": "shake256",
@@ -482,12 +619,24 @@
           "algorithms/Keccak/Main.cry"
         ]
       },
-      "status": "planned",
+      "status": "probe",
       "implementation": "VCVio.Algorithms.Keccak.shake256",
       "theorems": [],
-      "evidence": [],
+      "evidence": [
+        "scripts/test_references.py"
+      ],
       "wave": 2,
-      "trusted_steps": []
+      "trusted_steps": [],
+      "reference_import": {
+        "stage": "scoped",
+        "manifest": "artifacts/references/manifest.json",
+        "root": "R10::SHAKE256"
+      },
+      "execution_probe": {
+        "target": "pinned-source",
+        "normal": "agreed",
+        "reference": "documented-index-error"
+      }
     },
     {
       "id": "rawshake128",
@@ -513,12 +662,24 @@
           "algorithms/Keccak/Main.cry"
         ]
       },
-      "status": "planned",
+      "status": "probe",
       "implementation": null,
       "theorems": [],
-      "evidence": [],
+      "evidence": [
+        "scripts/test_references.py"
+      ],
       "wave": 2,
-      "trusted_steps": []
+      "trusted_steps": [],
+      "reference_import": {
+        "stage": "scoped",
+        "manifest": "artifacts/references/manifest.json",
+        "root": "R10::RawSHAKE128"
+      },
+      "execution_probe": {
+        "target": "pinned-source",
+        "normal": "agreed",
+        "reference": "documented-index-error"
+      }
     },
     {
       "id": "rawshake256",
@@ -544,12 +705,24 @@
           "algorithms/Keccak/Main.cry"
         ]
       },
-      "status": "planned",
+      "status": "probe",
       "implementation": null,
       "theorems": [],
-      "evidence": [],
+      "evidence": [
+        "scripts/test_references.py"
+      ],
       "wave": 2,
-      "trusted_steps": []
+      "trusted_steps": [],
+      "reference_import": {
+        "stage": "scoped",
+        "manifest": "artifacts/references/manifest.json",
+        "root": "R10::RawSHAKE256"
+      },
+      "execution_probe": {
+        "target": "pinned-source",
+        "normal": "agreed",
+        "reference": "documented-index-error"
+      }
     },
     {
       "id": "keccak-keccak",
@@ -573,12 +746,24 @@
         "status": "partial",
         "modules": []
       },
-      "status": "planned",
+      "status": "probe",
       "implementation": null,
       "theorems": [],
-      "evidence": [],
+      "evidence": [
+        "scripts/test_references.py"
+      ],
       "wave": 2,
-      "trusted_steps": []
+      "trusted_steps": [],
+      "reference_import": {
+        "stage": "scoped",
+        "manifest": "artifacts/references/manifest.json",
+        "root": "R11::Keccak"
+      },
+      "execution_probe": {
+        "target": "pinned-source",
+        "normal": "agreed",
+        "reference": "documented-index-error"
+      }
     },
     {
       "id": "keccak-bitreordering",
@@ -606,10 +791,21 @@
       "implementation": null,
       "theorems": [],
       "evidence": [
-        "scripts/check_bridge.py"
+        "scripts/check_bridge.py",
+        "scripts/test_references.py"
       ],
       "wave": 2,
-      "trusted_steps": []
+      "trusted_steps": [],
+      "reference_import": {
+        "stage": "scoped",
+        "manifest": "artifacts/references/manifest.json",
+        "root": "R11::bitReordering"
+      },
+      "execution_probe": {
+        "target": "pinned-source",
+        "normal": "agreed",
+        "reference": "agreed"
+      }
     },
     {
       "id": "keccak-tostate",
@@ -631,12 +827,24 @@
         "status": "partial",
         "modules": []
       },
-      "status": "planned",
+      "status": "probe",
       "implementation": null,
       "theorems": [],
-      "evidence": [],
+      "evidence": [
+        "scripts/test_references.py"
+      ],
       "wave": 2,
-      "trusted_steps": []
+      "trusted_steps": [],
+      "reference_import": {
+        "stage": "scoped",
+        "manifest": "artifacts/references/manifest.json",
+        "root": "R12::toState"
+      },
+      "execution_probe": {
+        "target": "pinned-source",
+        "normal": "agreed",
+        "reference": "agreed"
+      }
     },
     {
       "id": "keccak-tostring",
@@ -658,12 +866,24 @@
         "status": "partial",
         "modules": []
       },
-      "status": "planned",
+      "status": "probe",
       "implementation": null,
       "theorems": [],
-      "evidence": [],
+      "evidence": [
+        "scripts/test_references.py"
+      ],
       "wave": 2,
-      "trusted_steps": []
+      "trusted_steps": [],
+      "reference_import": {
+        "stage": "scoped",
+        "manifest": "artifacts/references/manifest.json",
+        "root": "R12::toString"
+      },
+      "execution_probe": {
+        "target": "pinned-source",
+        "normal": "agreed",
+        "reference": "agreed"
+      }
     },
     {
       "id": "keccak-tostatetostringprop",
@@ -685,12 +905,24 @@
         "status": "partial",
         "modules": []
       },
-      "status": "planned",
+      "status": "probe",
       "implementation": null,
       "theorems": [],
-      "evidence": [],
+      "evidence": [
+        "scripts/test_references.py"
+      ],
       "wave": 2,
-      "trusted_steps": []
+      "trusted_steps": [],
+      "reference_import": {
+        "stage": "scoped",
+        "manifest": "artifacts/references/manifest.json",
+        "root": "R12::toStatetoStringProp"
+      },
+      "execution_probe": {
+        "target": "pinned-source",
+        "normal": "agreed",
+        "reference": "agreed"
+      }
     },
     {
       "id": "keccak-tostringtostateprop",
@@ -712,12 +944,24 @@
         "status": "partial",
         "modules": []
       },
-      "status": "planned",
+      "status": "probe",
       "implementation": null,
       "theorems": [],
-      "evidence": [],
+      "evidence": [
+        "scripts/test_references.py"
+      ],
       "wave": 2,
-      "trusted_steps": []
+      "trusted_steps": [],
+      "reference_import": {
+        "stage": "scoped",
+        "manifest": "artifacts/references/manifest.json",
+        "root": "R12::toStringtoStateProp"
+      },
+      "execution_probe": {
+        "target": "pinned-source",
+        "normal": "agreed",
+        "reference": "agreed"
+      }
     },
     {
       "id": "aes128-encrypt",
@@ -745,12 +989,24 @@
           "algorithms/AES/KeyExpansion.cry"
         ]
       },
-      "status": "planned",
+      "status": "probe",
       "implementation": null,
       "theorems": [],
-      "evidence": [],
+      "evidence": [
+        "scripts/test_references.py"
+      ],
       "wave": 2,
-      "trusted_steps": []
+      "trusted_steps": [],
+      "reference_import": {
+        "stage": "scoped",
+        "manifest": "artifacts/references/manifest.json",
+        "root": "R13::AES128.Encrypt"
+      },
+      "execution_probe": {
+        "target": "pinned-source",
+        "normal": "agreed",
+        "reference": "agreed"
+      }
     },
     {
       "id": "aes128-decrypt",
@@ -778,12 +1034,24 @@
           "algorithms/AES/KeyExpansion.cry"
         ]
       },
-      "status": "planned",
+      "status": "probe",
       "implementation": null,
       "theorems": [],
-      "evidence": [],
+      "evidence": [
+        "scripts/test_references.py"
+      ],
       "wave": 2,
-      "trusted_steps": []
+      "trusted_steps": [],
+      "reference_import": {
+        "stage": "scoped",
+        "manifest": "artifacts/references/manifest.json",
+        "root": "R13::AES128.Decrypt"
+      },
+      "execution_probe": {
+        "target": "pinned-source",
+        "normal": "agreed",
+        "reference": "agreed"
+      }
     },
     {
       "id": "aes192-encrypt",
@@ -811,12 +1079,24 @@
           "algorithms/AES/KeyExpansion.cry"
         ]
       },
-      "status": "planned",
+      "status": "probe",
       "implementation": null,
       "theorems": [],
-      "evidence": [],
+      "evidence": [
+        "scripts/test_references.py"
+      ],
       "wave": 2,
-      "trusted_steps": []
+      "trusted_steps": [],
+      "reference_import": {
+        "stage": "scoped",
+        "manifest": "artifacts/references/manifest.json",
+        "root": "R13::AES192.Encrypt"
+      },
+      "execution_probe": {
+        "target": "pinned-source",
+        "normal": "agreed",
+        "reference": "agreed"
+      }
     },
     {
       "id": "aes192-decrypt",
@@ -844,12 +1124,24 @@
           "algorithms/AES/KeyExpansion.cry"
         ]
       },
-      "status": "planned",
+      "status": "probe",
       "implementation": null,
       "theorems": [],
-      "evidence": [],
+      "evidence": [
+        "scripts/test_references.py"
+      ],
       "wave": 2,
-      "trusted_steps": []
+      "trusted_steps": [],
+      "reference_import": {
+        "stage": "scoped",
+        "manifest": "artifacts/references/manifest.json",
+        "root": "R13::AES192.Decrypt"
+      },
+      "execution_probe": {
+        "target": "pinned-source",
+        "normal": "agreed",
+        "reference": "agreed"
+      }
     },
     {
       "id": "aes256-encrypt",
@@ -877,12 +1169,24 @@
           "algorithms/AES/KeyExpansion.cry"
         ]
       },
-      "status": "planned",
+      "status": "probe",
       "implementation": null,
       "theorems": [],
-      "evidence": [],
+      "evidence": [
+        "scripts/test_references.py"
+      ],
       "wave": 2,
-      "trusted_steps": []
+      "trusted_steps": [],
+      "reference_import": {
+        "stage": "scoped",
+        "manifest": "artifacts/references/manifest.json",
+        "root": "R13::AES256.Encrypt"
+      },
+      "execution_probe": {
+        "target": "pinned-source",
+        "normal": "agreed",
+        "reference": "agreed"
+      }
     },
     {
       "id": "aes256-decrypt",
@@ -910,12 +1214,24 @@
           "algorithms/AES/KeyExpansion.cry"
         ]
       },
-      "status": "planned",
+      "status": "probe",
       "implementation": null,
       "theorems": [],
-      "evidence": [],
+      "evidence": [
+        "scripts/test_references.py"
+      ],
       "wave": 2,
-      "trusted_steps": []
+      "trusted_steps": [],
+      "reference_import": {
+        "stage": "scoped",
+        "manifest": "artifacts/references/manifest.json",
+        "root": "R13::AES256.Decrypt"
+      },
+      "execution_probe": {
+        "target": "pinned-source",
+        "normal": "agreed",
+        "reference": "agreed"
+      }
     },
     {
       "id": "crc32-crc",
@@ -941,12 +1257,24 @@
           "shared/CRC/Main.cry"
         ]
       },
-      "status": "planned",
+      "status": "probe",
       "implementation": null,
       "theorems": [],
-      "evidence": [],
+      "evidence": [
+        "scripts/test_references.py"
+      ],
       "wave": 2,
-      "trusted_steps": []
+      "trusted_steps": [],
+      "reference_import": {
+        "stage": "scoped",
+        "manifest": "artifacts/references/manifest.json",
+        "root": "R14::CRC"
+      },
+      "execution_probe": {
+        "target": "pinned-source",
+        "normal": "agreed",
+        "reference": "agreed"
+      }
     },
     {
       "id": "crc32-crcupdate",
@@ -972,12 +1300,24 @@
           "shared/CRC/Main.cry"
         ]
       },
-      "status": "planned",
+      "status": "probe",
       "implementation": null,
       "theorems": [],
-      "evidence": [],
+      "evidence": [
+        "scripts/test_references.py"
+      ],
       "wave": 2,
-      "trusted_steps": []
+      "trusted_steps": [],
+      "reference_import": {
+        "stage": "scoped",
+        "manifest": "artifacts/references/manifest.json",
+        "root": "R14::CRCUpdate"
+      },
+      "execution_probe": {
+        "target": "pinned-source",
+        "normal": "agreed",
+        "reference": "agreed"
+      }
     },
     {
       "id": "crc32-crcupdatecorrect",
@@ -1003,12 +1343,24 @@
           "shared/CRC/Main.cry"
         ]
       },
-      "status": "planned",
+      "status": "probe",
       "implementation": null,
       "theorems": [],
-      "evidence": [],
+      "evidence": [
+        "scripts/test_references.py"
+      ],
       "wave": 2,
-      "trusted_steps": []
+      "trusted_steps": [],
+      "reference_import": {
+        "stage": "scoped",
+        "manifest": "artifacts/references/manifest.json",
+        "root": "R14::CRCUpdateCorrect"
+      },
+      "execution_probe": {
+        "target": "pinned-source",
+        "normal": "agreed",
+        "reference": "agreed"
+      }
     },
     {
       "id": "crc32-crcrunning",
@@ -1034,12 +1386,24 @@
           "shared/CRC/Main.cry"
         ]
       },
-      "status": "planned",
+      "status": "probe",
       "implementation": null,
       "theorems": [],
-      "evidence": [],
+      "evidence": [
+        "scripts/test_references.py"
+      ],
       "wave": 2,
-      "trusted_steps": []
+      "trusted_steps": [],
+      "reference_import": {
+        "stage": "scoped",
+        "manifest": "artifacts/references/manifest.json",
+        "root": "R14::CRCRunning"
+      },
+      "execution_probe": {
+        "target": "pinned-source",
+        "normal": "agreed",
+        "reference": "agreed"
+      }
     },
     {
       "id": "sha1-hash",
@@ -1825,6 +2189,40 @@
       "evidence": [],
       "wave": 4,
       "trusted_steps": []
+    }
+  ],
+  "component_equations": [
+    {
+      "kind": "transcribed-equations",
+      "source": "algorithms/Keccak/StateConversions.cry",
+      "assumptions": [
+        "Arbitrary finite lane width, including zero; total indexed input"
+      ],
+      "trusted_steps": [
+        "Manual transcription of lane order; no imported-AST correspondence"
+      ],
+      "theorems": [
+        "Interop.Cryptol.Bridge.KeccakCodec.offset_val",
+        "Interop.Cryptol.Bridge.KeccakCodec.toString_toState",
+        "Interop.Cryptol.Bridge.KeccakCodec.toState_toString"
+      ]
+    },
+    {
+      "kind": "transcribed-equations",
+      "source": "shared/CRC/Main.cry",
+      "assumptions": [
+        "Monic binary generator polynomial",
+        "Byte-aligned input; optional per-byte reflection"
+      ],
+      "trusted_steps": [
+        "Manual transcription of expandedData and remainder equations; no pmod bitvector correspondence"
+      ],
+      "theorems": [
+        "Interop.Cryptol.Bridge.CRC.encode_append",
+        "Interop.Cryptol.Bridge.CRC.pack_append",
+        "Interop.Cryptol.Bridge.CRC.update_append",
+        "Interop.Cryptol.Bridge.CRC.finalize_update_append"
+      ]
     }
   ]
 }

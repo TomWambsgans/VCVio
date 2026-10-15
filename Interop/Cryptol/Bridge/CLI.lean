@@ -11,6 +11,7 @@ import Interop.Cryptol.Bridge.ByteCompression
 import Interop.Cryptol.Bridge.SourceFoundation
 import Interop.Cryptol.Translation.Export
 import Interop.Cryptol.Model.Inspect
+import Interop.Cryptol.Bridge.HashCLI
 public import Lean.Data.Json
 
 /-!
@@ -43,6 +44,7 @@ public def run (args : List String) : IO UInt32 := do
   let out ← IO.getStdout
   let err ← IO.getStderr
   match args with
+  | ["hash", algorithm, bytes, length] => HashCLI.run algorithm bytes length
   | ["emit-compression-source"] =>
       out.putStr (Export.moduleText Foundation.compressionSource); return 0
   | ["emit-compression"] =>

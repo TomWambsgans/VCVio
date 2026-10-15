@@ -11,6 +11,8 @@ public import Interop.Cryptol.Model.WordCompare
 public import Interop.Cryptol.Model.Fold
 public import Interop.Cryptol.Model.Aggregate
 public import Interop.Cryptol.Model.Zero
+public import Interop.Cryptol.Model.StructuralLogic
+public import Interop.Cryptol.Model.StructuralRing
 
 /-!
 # Instantiated Cryptol primitive heads
@@ -29,6 +31,11 @@ namespace Interop.Cryptol
 /-- Primitive signatures after numeric and type arguments have been instantiated. -/
 inductive Primitive : ClosedTy → Type where
   | zero (a : ClosedTy) : Primitive a
+  | logic {a : ClosedTy} (shape : LogicType a) (op : BitOp) :
+      Primitive (.arrow a (.arrow a a))
+  | complement {a : ClosedTy} (shape : LogicType a) : Primitive (.arrow a a)
+  | ring {a : ClosedTy} (shape : RingType a) (op : RingOp) :
+      Primitive (.arrow a (.arrow a a))
   | intLe : Primitive (.arrow .integer (.arrow .integer .bit))
   | wordArrayArithmetic (count width : Nat) (op : IntOp) :
       Primitive (.arrow (.seq (.finite count) (wordTy width))
@@ -106,6 +113,9 @@ inductive Primitive : ClosedTy → Type where
 /-- Direct reference meanings of the instantiated primitive constants. -/
 @[expose] noncomputable def Primitive.denote : {a : ClosedTy} → Primitive a → Computation a
   | _, .zero a => Semantics.zero a
+  | _, .logic h op => Semantics.function₂ (h.binarySem op)
+  | _, .complement h => .value h.complementSem
+  | _, .ring h op => Semantics.function₂ (h.binarySem op)
   | _, .intLe => Semantics.function₂ Semantics.intLe
   | _, .wordArrayArithmetic n w op => Semantics.function₂ (Semantics.wordArrayArithmetic n w op)
   | _, .word x => .value (wordValue x)
@@ -133,6 +143,9 @@ inductive Primitive : ClosedTy → Type where
 /-- Lower primitive constants to small kernel expressions with explicit demands. -/
 @[expose] def Primitive.lower {Γ : List ClosedTy} : {a : ClosedTy} → Primitive a → Expr Γ a
   | _, .zero a => .zero a
+  | _, .logic h op => .lam (.lam (h.binary op (.var (.succ .zero)) (.var .zero)))
+  | _, .complement h => .lam (h.complement (.var .zero))
+  | _, .ring h op => .lam (.lam (h.binary op (.var (.succ .zero)) (.var .zero)))
   | _, .intLe => .lam (.lam (.intLe (.var (.succ .zero)) (.var .zero)))
   | _, .wordArrayArithmetic _ _ op =>
       .lam (.lam (.wordArrayArithmetic op (.var (.succ .zero)) (.var .zero)))
@@ -166,6 +179,22 @@ theorem Primitive.lower_correct {Γ : List ClosedTy} {a : ClosedTy} (p : Primiti
     (η : Environment Γ) : p.lower.denote η = p.denote := by
   cases p with
   | zero a => exact Expr.denote_zero a η
+  | logic h op =>
+      apply Expr.denote_lam_eq
+      intro x
+      apply Expr.denote_lam_eq
+      intro y
+      exact h.denote_binary op _ _ _
+  | complement h =>
+      apply Expr.denote_lam_eq
+      intro x
+      exact h.denote_complement _ _
+  | ring h op =>
+      apply Expr.denote_lam_eq
+      intro x
+      apply Expr.denote_lam_eq
+      intro y
+      exact h.denote_binary op _ _ _
   | intLe =>
       apply Expr.denote_lam_eq
       intro x

@@ -11,6 +11,7 @@ public import Interop.Cryptol.Translation.Export
 public import Interop.Cryptol.Model.WordOps
 public import Interop.Cryptol.Model.Inspect
 public import Interop.Cryptol.Translation.FiniteSource
+import Interop.Cryptol.Translation.NumericCLI
 import Lean.Data.Json
 
 /-!
@@ -144,6 +145,9 @@ def Interop.Cryptol.CLI.run (args : List String) : IO UInt32 := do
   let out ← IO.getStdout
   let err ← IO.getStderr
   match args with
+  | ["numeric"] =>
+      out.putStrLn CLI.numericReport.compress
+      return 0
   | ["arx-native", width, depth] =>
       match width.toNat?, depth.toNat? with
       | some n, some depth => out.putStrLn (← CLI.nativeArxReport n depth).compress; return 0
