@@ -88,6 +88,8 @@ def splitAt (M T : Type*) (i : ι) : M × (ι → T) ≃ (M × T) × ({j // j �
   (Equiv.prodCongr (Equiv.refl M) (Equiv.piSplitAt i fun _ ↦ T)).trans
     (Equiv.prodAssoc M T _).symm
 
+/-- `splitAt M T i` pairs the message register with the `i`-th table entry and keeps the other
+entries. -/
 @[simp]
 theorem splitAt_apply (i : ι) (m : M) (D : ι → T) :
     splitAt M T i (m, D) = ((m, D i), fun j ↦ D j.1) :=
@@ -362,7 +364,7 @@ variable {k : ℕ} {X Y : Type} [Fintype X] [DecidableEq X] [Fintype Y] [Decidab
 for all `i j : Fin k`, port `i` acting on the second query register and the databases commutes
 with port `j` acting on the first query register and the databases. The case `i = j` is the
 statement for one database queried through two registers. This is the equation of
-`Quantum.VCOracle.OraclesCommute`, stated on the database register `Fin k → Database X Y`. -/
+`Quantum.OraclesCommute`, stated on the database register `Fin k → Database X Y`. -/
 theorem compressedVCOracle_commute (i j : Fin k) :
     onFactor (slotSnd (X × Y) (X × Y) (Fin k → Database X Y)) ((compressedVCOracle k X Y).U i) *
         onFactor (slotFst (X × Y) (X × Y) (Fin k → Database X Y))
@@ -529,6 +531,7 @@ noncomputable def uniformState [Nonempty Ω] : SubState Ω :=
     (SubState.basis ()) ()
 
 omit [DecidableEq Ω] in
+/-- The density matrix of the uniform superposition is `|u⟩⟨u|` for the uniform column `u`. -/
 theorem matrix_uniformState [Nonempty Ω] :
     (uniformState Ω).matrix = MatrixMap.conj (uniformColumnOn Ω) (Matrix.single () () 1) := by
   rw [uniformState, SubInstrument.matrix_post, SubInstrument.branch_ofIsometry_apply,
@@ -558,6 +561,7 @@ def ofFunDatabases (H : Fin k → X → Y) : Fin k → Database X Y :=
 
 variable {k X Y} in
 omit [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y] in
+/-- Distinct families of functions tabulate to distinct tuples of databases. -/
 theorem ofFunDatabases_injective : Function.Injective (ofFunDatabases k X Y) :=
   fun _ _ h ↦ funext fun i ↦ Database.ofFun_injective (congrFun h i)
 
