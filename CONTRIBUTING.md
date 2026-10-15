@@ -159,8 +159,9 @@ The toolchain and Mathlib move together, and the other pins follow them. The ord
 6. Update the version mentions in `AGENTS.md` (*Building*) and `docs/agents/gotchas.md` §26.
 7. Move the optional package in `VCVioComplexity/` to the same pins: its `lean-toolchain`, the
    Mathlib requirement in its `lakefile.lean`, and the toolchain its
-   `scripts/compatibility-preflight.sh` expects. Run `lake update --keep-toolchain` in
-   `VCVioComplexity/`, then its `scripts/test.sh` and `scripts/compatibility-preflight.sh`, and
+   `VCVioComplexity/scripts/compatibility-preflight.sh` expects. Run `lake update --keep-toolchain` in
+   `VCVioComplexity/`, then `VCVioComplexity/scripts/test.sh` and
+   `VCVioComplexity/scripts/compatibility-preflight.sh`, and
    update the versions in its `README.md` and `PROVENANCE.md`.
 
 ## Style Notes

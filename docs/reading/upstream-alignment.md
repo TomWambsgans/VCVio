@@ -1,8 +1,9 @@
 # Upstream alignment survey
 
-> Status: living ledger, re-verified at each pin bump, most recently at Lean and Mathlib
-> `v4.35.0-rc3`. The survey sections keep the snapshot they describe and mark what changed since;
-> the integration status and the dated sections at the end record later work.
+> Status: living ledger with historical snapshot sections. The full citation survey below
+> records the 4.35.0-rc3 pins; the current build uses Lean and Mathlib 4.35.0 and published
+> PolyFun v4.35.0-patch1. Snapshot paths retain their original locations; the integration
+> status and dated sections record later work. Current source citations are checked separately.
 
 A ledger of VCVio's general-purpose machinery and tooling against what Lean core, Std,
 Batteries, Mathlib, cslib, and PolyFun already provide, with a verdict for each entry:
@@ -53,7 +54,7 @@ absent from a release tag must not be assigned to a future release without check
 instance-providing module can be load-bearing with zero textual references, so "unused"
 needs an instance-synthesis check, not a grep.
 
-Re-verified 2026-10-01 at the current pins — Lean `v4.35.0-rc3`, Mathlib `c55e6e78`
+Re-verified 2026-10-01 at the then-current pins — Lean `v4.35.0-rc3`, Mathlib `c55e6e78`
 (`v4.35.0-rc3`), Batteries `3b7c8101`, cslib `a91aaaf9` (`v4.35.0-rc3`), PolyFun `559cd985`, and
 VCVio's `measure-probability` branch (#821): every `K:path:line` citation in this file resolves
 in those trees, which `scripts/check-reading-citations.py` checks in `validate.sh` and in the
@@ -1197,4 +1198,3 @@ Re-verified with the `measure-probability` branch (#821) on Lean `v4.35.0-rc3` a
 - **Tooling.** `scripts/check-reading-citations.py` keeps the citations of this directory
   resolvable at the pins; `scripts/migrate-native-probability.py` converts code written against
   the removed discrete API.
-
