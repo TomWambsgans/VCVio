@@ -6,6 +6,8 @@ Authors: Quang Dao
 
 module
 public import VCVio.Quantum.Oracle.Compressed.Consistency
+public import VCVio.Quantum.VC.Proof.Commutativity
+public import VCVio.Quantum.VC.Proof.Extraction
 
 /-!
 # Tests for the consistency projectors and the proofs of Lemmas 9.2 and 9.3
@@ -16,11 +18,16 @@ notes on ePrint 2025/2166, sharpening Lemma 9.5):
 * the exact discrepancy `‖P̂ - P‖² = 1 - (1 - 1/N)^2` for one prescribed cell, with `N = 3`;
 * an inconsistent prescription has both projectors zero;
 * the empty prescription has `P = P̂ = 1`.
+
+and elaboration of Lemma 9.2 (`Quantum.comBound_compressedVCOracle`, constant `24`, and the
+paper's `80`) and Lemma 9.3 (`Quantum.extractionCorrect_compressedVCOracle`, exact error, and the
+paper's `8 n q2 / N`) for two compressed oracles on databases `Bool → Option (ZMod 3)`.
 -/
 
 public section
 
-open Quantum Matrix
+open Quantum Matrix OracleSpec
+open scoped ENNReal
 open scoped Matrix.Norms.L2Operator
 
 namespace VCVioTest.QuantumVCProof
@@ -56,5 +63,56 @@ example : compressedCheckProjector ioBad = 0 :=
 example : compressedCheckProjector ([] : List (Bool × ZMod 3)) -
     checkProjector (ZMod 3) ([] : List (Bool × ZMod 3)) = 0 := by
   simp
+
+/-! ## Lemmas 9.2 and 9.3 on a small instance -/
+
+noncomputable local instance : UniformAnswerMeasure (Bool →ₒ ZMod 3) :=
+  UniformAnswerMeasure.ofFiniteNonempty _
+
+section lemma92
+
+variable {Dm : Fin 2 → Type} (ME : MultiExtractor 2 Bool Dm (Fin 2 → Database Bool (ZMod 3)))
+  (code : TpDCode 2 Dm (ZMod 2))
+
+/-- Lemma 9.2 with the constant `24` for two compressed oracles. -/
+example : ComBound.{0, 0} (compressedVCOracle 2 Bool (ZMod 3)) ME code (comBoundError ME) :=
+  comBound_compressedVCOracle ME code
+
+/-- Lemma 9.2 with the paper's constant `80`. -/
+example : ComBound.{0, 0} (compressedVCOracle 2 Bool (ZMod 3)) ME code fun t ↦
+    80 * ⨆ (j' : Fin 2) (tic : TpIC 2 Bool) (Dfix : Fin 2 → Database Bool (ZMod 3)),
+      Database.instability (onlineLabel ME ![tic] Dfix j') (t + 1) :=
+  comBound_compressedVCOracle_eighty ME code
+
+end lemma92
+
+section lemma93
+
+variable {Msg : Type} {ℓ : Fin 2 → ℕ} {Td Pf : Fin 2 → Type}
+  {VC : ∀ i, VectorCommitment Bool (ZMod 3) Msg Bool (Td i) (Pf i) (ℓ i)}
+  (io : ∀ i, (VC i).CheckIOForm)
+  (ME : MultiExtractor 2 Bool (DmOf ℓ Msg Td) (compressedVCOracle 2 Bool (ZMod 3)).S)
+  (code : TpDCode 2 (DmOf ℓ Msg Td) (ZMod 2)) {tdBot : ∀ i, Td i}
+  {Pgood : Set (Database Bool (ZMod 3))}
+
+/-- Lemma 9.3 with the exact error `1 - (1 - 1/3)^{2 n q2}` for two compressed oracles. -/
+example (hC : Conditions VC io ME tdBot Pgood) :
+    ExtractionCorrect.{0, 0} VC (compressedVCOracle 2 Bool (ZMod 3)) ME code
+      fun _ _ _ n ↦ ENNReal.ofReal (1 - (1 - (3 : ℝ)⁻¹) ^ (2 * n * q2 io)) :=
+  extractionCorrect_compressedVCOracle io ME code hC
+
+/-- Lemma 9.3 with the leading-order error `2 n q2 / 3`. -/
+example (hC : Conditions VC io ME tdBot Pgood) :
+    ExtractionCorrect.{0, 0} VC (compressedVCOracle 2 Bool (ZMod 3)) ME code
+      fun _ _ _ n ↦ (2 * n * q2 io : ℝ≥0∞) / 3 :=
+  extractionCorrect_compressedVCOracle_two_mul io ME code hC
+
+/-- Lemma 9.3 with the paper's error `8 n q2 / 3`. -/
+example (hC : Conditions VC io ME tdBot Pgood) :
+    ExtractionCorrect.{0, 0} VC (compressedVCOracle 2 Bool (ZMod 3)) ME code
+      fun _ _ _ n ↦ (8 * n * q2 io : ℝ≥0∞) / 3 :=
+  extractionCorrect_compressedVCOracle_eight_mul io ME code hC
+
+end lemma93
 
 end VCVioTest.QuantumVCProof
