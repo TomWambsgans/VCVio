@@ -980,7 +980,6 @@ variable {In : P → QReg} (E : EmulatedOracle P In)
 
 /-- The entries of the coherent unitary on a summand are the entries of the unitary of the
 port. -/
-@[simp]
 theorem coherent_U_apply_self (i : P) (a a' : In i) (d d' : E.S) :
     E.coherent.U () (⟨i, a⟩, d) (⟨i, a'⟩, d') = E.U i (a, d) (a', d') := by
   change Matrix.blockDiagonal' E.U ⟨i, (a, d)⟩ ⟨i, (a', d')⟩ = _
