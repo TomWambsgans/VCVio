@@ -29,11 +29,21 @@ and Zheng, ePrint 2025/2166). This file proves:
   Spooner (TCC 2019, Lemma 5.10), here with a proof that covers databases of size exactly `t`.
   For arbitrary labellings the optimal constant is `8`
   (`Quantum.l2_opNorm_pinch_truncatedOracle_sub_sq_le_eight_mul`).
-* **The commutator for two labels**
-  (`Quantum.l2_opNorm_commutator_truncatedOracle_sq_le_twentyFour_mul`): through Lemma 5.10 of
-  [CDHZ], `‖[V, O^(t) ⊗ 1]‖² ≤ 24 I` when `π` takes at most two values, and its purified and XOR
-  forms (as in Don, Fehr, Majenz and Schaffner, EUROCRYPT 2022, Thm 3.1). The constant `24` is
-  optimal for two labels (proved on paper).
+
+## Comparison with [CDHZ]
+
+[CDHZ, Lemma 5.9] bounds the pinching defect by `20 I` for every labelling. For two labels this
+file proves `6`, and the cross-block and projector-commutator bounds `6 I` for every labelling.
+The constant `6` is optimal for two labels: Lemma 5.10
+(`Quantum.l2_opNorm_commutator_truncatedOracle_le_pinch`) and the lower bound
+`Quantum.le_l2_opNorm_commutator_truncatedOracle_sq` give a two-label pinching defect of squared
+norm at least `6 / N - 9 / N²` at instability at most `1 / N`; this consequence is not stated as
+a separate theorem. For the commutator of [CDHZ, Theorem 5.4], the bound
+`‖[V, O^(t) ⊗ 1]‖² ≤ 24 I` (`Quantum.l2_opNorm_commutator_truncatedOracle_sq_le_twentyFour_mul`
+in `VCVio.Quantum.Oracle.Compressed.CommutatorSharp`) holds for every labelling, so no separate
+two-label statement is given here.
+
+[CDHZ]: A. Chiesa, Z. Di, Z. Hu and Y. Zheng, ePrint 2025/2166.
 
 ## Proof
 
@@ -42,10 +52,10 @@ In the phase basis the cross block `P^(i) O_ph^(t) P^(j)` keeps the blocks of
 label `i` and its columns those of label `j`, and its diagonal vanishes since `i ≠ j`. If
 `π r ≠ i`, every nonzero row is the row of a content `u` with `π r[x ↦ u] ≠ π r`; if `π r = i`,
 the same holds for the columns. Such a row or column carries, off the diagonal, squared entries
-summing to at most `6 / N` (`Quantum.sum_ite_norm_phaseCell_sq_le`), so the Frobenius norm of the
-block is at most `6 I`. For two labels, both `O^(t) - pinch O^(t)` and `[P^(i), O^(t)]` are sums
-of two cross blocks with orthogonal domains and orthogonal ranges, so their norms are at most the
-larger cross block (`Matrix.l2_opNorm_sub_pinch_le_max_bool`,
+summing to at most `6 / N` (`Quantum.sum_ite_norm_phaseCell_sq_le`), so the squared Frobenius
+norm of the block is at most `6 I`. For two labels, both `O^(t) - pinch O^(t)` and
+`[P^(i), O^(t)]` are sums of two cross blocks with orthogonal domains and orthogonal ranges, so
+their norms are at most the larger cross block (`Matrix.l2_opNorm_sub_pinch_le_max_bool`,
 `Matrix.l2_opNorm_labelProjector_commutator_le_max_bool`).
 -/
 
@@ -294,81 +304,5 @@ theorem l2_opNorm_pinch_truncatedPhaseOracle_sub_sq_le_six_mul (π : Database X 
     (l2_opNorm_pinch_truncatedOracle_sub_sq_le_six_mul π t hπ)
 
 end bool
-
-/-! ## The commutator for two labels -/
-
-section commutator
-
-variable {X Y : Type} [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y] [AddCommGroup Y]
-  [UniformAnswerMeasure (X →ₒ Y)] {ι : Type*} {E : Type*} [Fintype E] [DecidableEq E]
-
-/-- **Theorem 5.4 of ePrint 2025/2166 for two labels, with the constant `24`.** If the labelling
-`π` takes at most two values and the unitaries `W i` on the joint register preserve the label and
-commute with `O^(t) ⊗ 1_E`, the label-controlled unitary `V = ∑ i, P^(i) W i` satisfies
-`‖[V, O^(t) ⊗ 1_E]‖² ≤ 24 I(π, t)`. -/
-theorem l2_opNorm_commutator_truncatedOracle_sq_le_twentyFour_mul (π : Database X Y → ι) (t : ℕ)
-    (hπ : ∃ i₀ i₁, ∀ D, π D = i₀ ∨ π D = i₁)
-    {W : ι → Matrix (((X × Y) × Database X Y) × E) (((X × Y) × Database X Y) × E) ℂ}
-    (hW : ∀ k a b, W k a b ≠ 0 → π a.1.2 = π b.1.2) (hU : ∀ k, W k ∈ unitaryGroup _ ℂ)
-    (hA : ∀ k, W k * (truncatedOracle X Y t ⊗ₖ (1 : Matrix E E ℂ)) =
-      (truncatedOracle X Y t ⊗ₖ (1 : Matrix E E ℂ)) * W k) :
-    ‖labelControlled (fun a ↦ π a.1.2) W * (truncatedOracle X Y t ⊗ₖ (1 : Matrix E E ℂ)) -
-        (truncatedOracle X Y t ⊗ₖ (1 : Matrix E E ℂ)) * labelControlled (fun a ↦ π a.1.2) W‖ ^ 2
-      ≤ 24 * (Database.instability π t).toReal := by
-  classical
-  have h₁ := l2_opNorm_commutator_truncatedOracle_le_pinch π t hW hU hA
-  have h₂ := l2_opNorm_pinch_truncatedOracle_sub_sq_le_six_mul π t hπ
-  calc _ ≤ (2 * ‖pinch (fun m : (X × Y) × Database X Y ↦ π m.2) (truncatedOracle X Y t) -
-          truncatedOracle X Y t‖) ^ 2 := pow_le_pow_left₀ (norm_nonneg _) h₁ 2
-    _ = 4 * ‖pinch (fun m : (X × Y) × Database X Y ↦ π m.2) (truncatedOracle X Y t) -
-          truncatedOracle X Y t‖ ^ 2 := by ring
-    _ ≤ 4 * (6 * (Database.instability π t).toReal) := by gcongr
-    _ = 24 * (Database.instability π t).toReal := by ring
-
-/-- **Corollary 5.6 of ePrint 2025/2166 for two labels, with the constant `24`.** If `π` takes at
-most two values, the purified measurement `V = ∑ i, P^(i) ⊗ U i` with any unitaries `U i` on a
-register `B` satisfies `‖[V, O^(t) ⊗ 1_B]‖² ≤ 24 I(π, t)`. -/
-theorem l2_opNorm_commutator_purifiedMeasurement_sq_le_twentyFour_mul (π : Database X Y → ι)
-    (t : ℕ) (hπ : ∃ i₀ i₁, ∀ D, π D = i₀ ∨ π D = i₁) {U : ι → Matrix E E ℂ}
-    (hU : ∀ i, U i ∈ unitaryGroup E ℂ) :
-    ‖labelControlled (fun a ↦ π a.1.2)
-          (fun i ↦ (1 : Matrix ((X × Y) × Database X Y) ((X × Y) × Database X Y) ℂ) ⊗ₖ U i) *
-          (truncatedOracle X Y t ⊗ₖ (1 : Matrix E E ℂ)) -
-        (truncatedOracle X Y t ⊗ₖ (1 : Matrix E E ℂ)) *
-          labelControlled (fun a ↦ π a.1.2)
-            (fun i ↦ (1 : Matrix ((X × Y) × Database X Y) ((X × Y) × Database X Y) ℂ) ⊗ₖ U i)‖ ^ 2
-      ≤ 24 * (Database.instability π t).toReal := by
-  refine l2_opNorm_commutator_truncatedOracle_sq_le_twentyFour_mul π t hπ ?_ ?_ ?_
-  · intro k a b h
-    have hab : a.1 = b.1 := by
-      by_contra hne
-      simp [kroneckerMap_apply, one_apply_ne hne] at h
-    rw [hab]
-  · intro k
-    rw [mem_unitaryGroup_iff, star_eq_conjTranspose, conjTranspose_kronecker, conjTranspose_one,
-      ← mul_kronecker_mul, Matrix.one_mul, ← star_eq_conjTranspose,
-      mem_unitaryGroup_iff.mp (hU k), one_kronecker_one]
-  · intro k
-    rw [← mul_kronecker_mul, ← mul_kronecker_mul, Matrix.one_mul, Matrix.mul_one, Matrix.mul_one,
-      Matrix.one_mul]
-
-omit [Fintype E] [DecidableEq E] in
-/-- **Corollary 5.6 of ePrint 2025/2166 for two labels, XOR form, with the constant `24`.** If
-`π` takes at most two values in the additive group `B`, measuring it by XORing it into a register
-`B` satisfies `‖[V, O^(t) ⊗ 1_B]‖² ≤ 24 I(π, t)`, where `V |q, D, b⟩ = |q, D, b + π D⟩`. -/
-theorem l2_opNorm_commutator_xorMeasurement_sq_le_twentyFour_mul {B : Type*} [Fintype B]
-    [DecidableEq B] [AddGroup B] (π : Database X Y → B) (t : ℕ)
-    (hπ : ∃ i₀ i₁, ∀ D, π D = i₀ ∨ π D = i₁) :
-    ‖labelControlled (fun a ↦ π a.1.2)
-          (fun i ↦ (1 : Matrix ((X × Y) × Database X Y) ((X × Y) × Database X Y) ℂ) ⊗ₖ
-            xorShift B i) * (truncatedOracle X Y t ⊗ₖ (1 : Matrix B B ℂ)) -
-        (truncatedOracle X Y t ⊗ₖ (1 : Matrix B B ℂ)) *
-          labelControlled (fun a ↦ π a.1.2)
-            (fun i ↦ (1 : Matrix ((X × Y) × Database X Y) ((X × Y) × Database X Y) ℂ) ⊗ₖ
-              xorShift B i)‖ ^ 2
-      ≤ 24 * (Database.instability π t).toReal :=
-  l2_opNorm_commutator_purifiedMeasurement_sq_le_twentyFour_mul π t hπ xorShift_mem_unitaryGroup
-
-end commutator
 
 end Quantum

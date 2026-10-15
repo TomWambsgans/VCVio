@@ -11,32 +11,45 @@ public import VCVio.Quantum.MatrixMap.Completion
 public import VCVio.Quantum.Oracle.Compressed.CommutatorBound
 
 /-!
-# The sharp commutator bound for the truncated compressed oracle
+# Theorem 5.4 for the truncated compressed oracle, with the optimal constant `24`
 
 Let `π` label the databases, let `I = I(π, t)` be the instability of `π` with query bound `t`
-(`Quantum.Database.instability`, Definition 5.3 of Chiesa, Di, Hu and Zheng, *How to Prove
-Post-Quantum Security for Succinct Non-Interactive Reductions*, ePrint 2025/2166, cited as [CDHZ]
-below), and let `V = ∑ i, P^(i) W i` be a label-controlled unitary whose `W i` preserve the labels
-and commute with the truncated compressed oracle `O^(t) ⊗ 1_E`. This file proves
+(`Quantum.Database.instability`, Definition 5.3 of [CDHZ]), and let `V = ∑ i, P^(i) W i` be a
+label-controlled unitary whose `W i` preserve the labels and commute with the truncated compressed
+oracle `O^(t) ⊗ 1_E`. This file proves
 
-  `‖[V, O^(t) ⊗ 1_E]‖² ≤ 24 I(π, t)` (`Quantum.l2_opNorm_commutator_truncatedOracle_sq_le_sharp`).
+  `‖[V, O^(t) ⊗ 1_E]‖² ≤ 24 I(π, t)`
+  (`Quantum.l2_opNorm_commutator_truncatedOracle_sq_le_twentyFour_mul`).
 
-**CDHZ Thm 5.4: 80. This file: 24, which is optimal (lower-bound family `24 − 36/N`, already with
-scalar signs; see the paragraph on optimality below).** The hypotheses are exactly those of
-`Quantum.l2_opNorm_commutator_truncatedOracle_sq_le`: the `W i` act on the whole joint register,
-not only on an ancilla. The ancilla case `V = ∑ i, P^(i) ⊗ U i` of Corollary 5.6 and its XOR
-instance follow (`Quantum.l2_opNorm_commutator_purifiedMeasurement_sq_le_sharp`,
-`Quantum.l2_opNorm_commutator_xorMeasurement_sq_le_sharp`).
+The `W i` act on the whole joint register `((X × Y) × Database X Y) × E`, not only on an ancilla,
+and `π` is an arbitrary labelling. The purified measurement `V = ∑ i, P^(i) ⊗ U i` of
+Corollary 5.6 and its XOR instance follow
+(`Quantum.l2_opNorm_commutator_purifiedMeasurement_sq_le_twentyFour_mul`,
+`Quantum.l2_opNorm_commutator_xorMeasurement_sq_le_twentyFour_mul`), and so do the statements with
+the paper's constant `80` (`Quantum.l2_opNorm_commutator_truncatedOracle_sq_le`,
+`Quantum.l2_opNorm_commutator_purifiedMeasurement_sq_le`,
+`Quantum.l2_opNorm_commutator_xorMeasurement_sq_le`).
 
-## Where the loss is
+## Comparison with [CDHZ]
 
-[CDHZ] proves Theorem 5.4 as `4 × 20`: Lemma 5.10 (after Chiesa, Manohar and Spooner, TCC 2019,
-Lemma 5.10) bounds `‖[V, O]‖` by twice the distance from `O` to its pinching, and Lemma 5.9 bounds
-that squared distance by `20 I`. The factor `2` is optimal, and the optimal pinching constant is
-`8`, which gives only `32`. The gain comes from comparing `O` with a better label-preserving
-operator than its pinching: `Matrix.l2_opNorm_commutator_labelControlled_le_of_pinch_eq` accepts
-any label-preserving `S`, and here `S` is built by a matrix completion with `‖O - S‖² ≤ 6 I`
-(`Quantum.exists_pinch_eq_truncatedOracle_sub_sq_le`).
+[CDHZ] prove Theorem 5.4 with the constant `80`, as `4 × 20`: Lemma 5.10 (after [CMS19,
+Lemma 5.10]) bounds `‖[V, O]‖` by twice the distance from `O` to its pinching, and Lemma 5.9 bounds
+that squared distance by `20 I`. The factor `2` cannot be improved, and the optimal pinching
+constant is `8` (`Quantum.l2_opNorm_pinch_truncatedOracle_sub_sq_le_eight_mul`), which gives only
+`32`. This file compares `O` with a closer label-preserving operator than its pinching:
+`Matrix.l2_opNorm_commutator_labelControlled_le_of_pinch_eq` accepts any label-preserving `S`, and
+here `S` comes from a matrix completion with `‖O - S‖² ≤ 6 I`
+(`Quantum.exists_pinch_eq_truncatedOracle_sub_sq_le`). The resulting constant `24` is optimal
+(see *Optimality* below).
+
+| statement | [CDHZ] | here | optimality |
+|---|---|---|---|
+| Lemma 5.9 (pinching) | `20` | `8` | on paper only |
+| pinching, two labels | — | `6` | follows from formalized bounds |
+| Theorem 5.4, Corollary 5.6 | `80` | `24` | formalized |
+
+All three upper bounds are formalized (`8` in `VCVio.Quantum.Oracle.Compressed.CommutatorBound`,
+`6` in `VCVio.Quantum.Oracle.Compressed.BinaryPartition`, `24` here).
 
 ## Proof
 
@@ -49,8 +62,8 @@ the content `a` of the cell `x`. Call a basis state `((x, χ), r[x ↦ some y])`
    phase cell becomes `N^(-1/2) χ y` at `⊥` and `N⁻¹ (1 - χ y - χ w)` at `w`, of squared norm
    `(4 - 2 Re χ y) / N ≤ 6 / N` (`Quantum.sum_norm_phaseCell_sub_sq`). The column is the same,
    since the phase cell is symmetric. With `P` the projector onto the bad states and
-   `M = O_ph^(t) - diag(χ (D x))`, the block Frobenius bound and the count of bad states per
-   block, `|B| / N ≤ I`, give `‖P M‖ ≤ √(6 I)` and `‖M P‖ ≤ √(6 I)`.
+   `M = O_ph^(t) - diag(χ (D x))`, the block bound on squared entries and the count of bad states
+   per block, `|B| / N ≤ I`, give `‖P M‖ ≤ √(6 I)` and `‖M P‖ ≤ √(6 I)`.
 2. **Completion.** Parrott's theorem (`Matrix.exists_completion`) gives `T` with `P T = P M`,
    `T P = M P` and `‖T‖ ≤ √(6 I)`.
 3. **Localization.** Pinch `T` to the blocks with `χ ≠ 0` and `|r| < t`, each block its own label,
@@ -60,8 +73,8 @@ the content `a` of the cell `x`. Call a basis state `((x, χ), r[x ↦ some y])`
    `π r`, and on the other blocks `O_ph^(t)` is diagonal (the trivial character, or a block of
    size at least `t`, of which the truncation keeps only the entry from `r` to `r`).
 4. **Unique minimum.** Conjugate back by `H` and tensor with `1_E`. Among the label-preserving
-   operators at distance at most `‖O - S‖` from `O`, the one of least Frobenius norm is unique, so
-   it is fixed by conjugation by every `W i`, and commutes with `V`
+   operators at distance at most `‖O - S‖` from `O`, the one of least squared Frobenius norm is
+   unique, so it is fixed by conjugation by every `W i`, and commutes with `V`
    (`Matrix.l2_opNorm_commutator_labelControlled_le_of_pinch_eq`). Then
    `‖[V, O]‖ ≤ 2 ‖O - S‖ ≤ 2 √(6 I)`.
 
@@ -70,19 +83,27 @@ the decomposition itself, so filled cells of databases of size exactly `t` are c
 
 ## Optimality
 
-The constant `24` cannot be lowered, already for the scalar control `V = P_A - P_B` of a binary
-labelling. Take a character `χ` and an answer `y₀` with `χ y₀ = -1` (for instance `Y = (ZMod 2)^s`
-and any nontrivial `χ`), a point `x₀`, and `t ≥ 1`, and label a database by whether `D x₀ = y₀`.
-Then `I ≤ 1 / N` and `‖[V, O^(t)]‖² ≥ 24 / N - 36 / N²`, read off the column of the bad state
-`((x₀, χ), ∅[x₀ ↦ y₀])` in the phase basis
+The constant `24` cannot be lowered, already for the scalar control `V = P_A - P_B` of a labelling
+with two values. Take a character `χ` and an answer `y₀` with `χ y₀ = -1`, a point `x₀`, and
+`t ≥ 1`, and label a database by whether `D x₀ = y₀`. Then `I ≤ 1 / N`
+(`Quantum.instability_decide_eq_some_le`), and the column of the bad state
+`((x₀, χ), ∅[x₀ ↦ y₀])` in the phase basis gives `‖[V, O^(t)]‖² ≥ 24 / N - 36 / N²`
 (`Quantum.le_l2_opNorm_commutator_truncatedOracle_sq`). Hence
 `(24 - 36 / N) I ≤ ‖[V, O^(t)]‖²`
-(`Quantum.mul_instability_le_l2_opNorm_commutator_truncatedOracle_sq`), and the constant `20`
-already fails once `N ≥ 10`
-(`Quantum.twenty_mul_instability_lt_l2_opNorm_commutator_truncatedOracle_sq`). These lower bounds
-are formalized. That they are equalities (`I = 1 / N`, and `‖[V, O^(1)]‖² = 4 (6 / N - 9 / N²)` for
-`X` a point), so that the ratio is exactly `24 - 36 / N`, is proved on paper only (the research
-note accompanying this file, §2–3); it is not needed for optimality.
+(`Quantum.mul_instability_le_l2_opNorm_commutator_truncatedOracle_sq`), and every constant
+`c < 24` fails as soon as `(24 - c) N > 36`
+(`Quantum.mul_instability_lt_l2_opNorm_commutator_truncatedOracle_sq`; for `c = 20` this means
+`N ≥ 10`, `Quantum.twenty_mul_instability_lt_l2_opNorm_commutator_truncatedOracle_sq`). The bit
+strings `Y = Fin (s + 1) → ZMod 2` have such a character for every `s`, with `N = 2 ^ (s + 1)`
+(`Quantum.exists_addChar_eq_neg_one_bitString`), so every `c < 24` fails for some `Y`
+(`Quantum.exists_mul_instability_lt_l2_opNorm_commutator_truncatedOracle_sq`). All of this is
+formalized.
+
+Not formalized: that the bounds above are equalities, `I = 1 / N` and, for `X` a point and
+`t = 1`, `‖[V, O^(1)]‖² = 4 (6 / N - 9 / N²)`, so that the ratio is exactly `24 - 36 / N`. The
+lower bound on the norm is the squared norm of one column of the commutator; the matching upper
+bound needs the full spectral computation of the commutator on the block of the empty database.
+Optimality does not depend on these equalities.
 
 ## Main results
 
@@ -90,21 +111,24 @@ note accompanying this file, §2–3); it is not needed for optimality.
 * `Quantum.exists_pinch_eq_truncatedPhaseOracle_sub_sq_le`,
   `Quantum.exists_pinch_eq_truncatedOracle_sub_sq_le`: a label-preserving operator at squared
   distance at most `6 I` from the truncated oracle.
-* `Quantum.l2_opNorm_commutator_truncatedPhaseOracle_sq_le_sharp`,
-  `Quantum.l2_opNorm_commutator_truncatedOracle_sq_le_sharp`: Theorem 5.4 with `24`.
-* `Quantum.l2_opNorm_commutator_purifiedMeasurement_sq_le_sharp`,
-  `Quantum.l2_opNorm_commutator_xorMeasurement_sq_le_sharp`: Corollary 5.6 with `24`.
+* `Quantum.l2_opNorm_commutator_truncatedPhaseOracle_sq_le_twentyFour_mul`,
+  `Quantum.l2_opNorm_commutator_truncatedOracle_sq_le_twentyFour_mul`: Theorem 5.4 with `24`.
+* `Quantum.l2_opNorm_commutator_purifiedMeasurement_sq_le_twentyFour_mul`,
+  `Quantum.l2_opNorm_commutator_xorMeasurement_sq_le_twentyFour_mul`: Corollary 5.6 with `24`.
 * `Quantum.mul_instability_le_l2_opNorm_commutator_truncatedOracle_sq`,
-  `Quantum.twenty_mul_instability_lt_l2_opNorm_commutator_truncatedOracle_sq`: optimality of `24`.
+  `Quantum.exists_mul_instability_lt_l2_opNorm_commutator_truncatedOracle_sq`: optimality of `24`.
+
+The statements involving the instability take `X Y : Type`, as VCVio's query caches do; the other
+statements are universe polymorphic.
 
 ## References
 
-* A. Chiesa, Z. Di, Z. Hu and Z. Zheng, *How to Prove Post-Quantum Security for Succinct
+* [CDHZ] A. Chiesa, Z. Di, Z. Hu and Y. Zheng, *How to Prove Post-Quantum Security for Succinct
   Non-Interactive Reductions*, ePrint 2025/2166, Lemmas 5.9–5.10, Theorem 5.4, Corollary 5.6.
-* A. Chiesa, P. Manohar and N. Spooner, *Succinct Arguments in the Quantum Random Oracle Model*,
-  TCC 2019, Lemma 5.10.
-* J. Don, S. Fehr, C. Majenz and C. Schaffner, *Efficient NIZKs and Signatures from Commit-and-Open
-  Protocols in the QROM*, EUROCRYPT 2022, Theorem 3.1.
+* [CMS19] A. Chiesa, P. Manohar and N. Spooner, *Succinct Arguments in the Quantum Random Oracle
+  Model*, TCC 2019, Lemma 5.10.
+* [DFMS22] J. Don, S. Fehr, C. Majenz and C. Schaffner, *Online-Extractability in the Quantum
+  Random-Oracle Model*, EUROCRYPT 2022, Theorem 3.1.
 * S. Parrott, *On a quotient norm and the Sz.-Nagy–Foiaş lifting theorem*, J. Funct. Anal. 30
   (1978).
 -/
@@ -200,7 +224,7 @@ end cell
 
 section approx
 
-variable {X Y : Type} [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y] [AddCommGroup Y]
+variable {X Y : Type*} [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y] [AddCommGroup Y]
 
 omit [Fintype Y] [DecidableEq Y] [AddCommGroup Y] in
 /-- A database with a filled cell `x` has one more nonempty cell than after emptying `x`. -/
@@ -391,6 +415,13 @@ private theorem mul_badProjector_apply (π : Database X Y → ι) (t : ℕ)
     (A * badProjector π t) i j = if IsBad π t j then A i j else 0 := by
   rw [badProjector, mul_diagonal]
   split_ifs <;> simp
+
+end approx
+
+section approxInstability
+
+variable {X Y : Type} [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y] [AddCommGroup Y]
+  {ι : Type*} [DecidableEq ι]
 
 omit [DecidableEq ι] in
 /-- The bad rows of a block-diagonal matrix whose bad rows have squared norm at most `6 / N`
@@ -584,7 +615,7 @@ theorem exists_pinch_eq_truncatedOracle_sub_sq_le [UniformAnswerMeasure (X →�
   exact (pow_le_pow_left₀ (norm_nonneg _) (l2_opNorm_conjTranspose_mul_mul_le
     (queryFourier_mul_conjTranspose X Y) _) 2).trans hdist
 
-end approx
+end approxInstability
 
 /-! ## Theorem 5.4 and Corollary 5.6 with the constant `24` -/
 
@@ -597,7 +628,8 @@ variable {X Y : Type} [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y] [A
 on the joint register `((X × Ŷ) × Database X Y) × E` that preserve the label `π D` of the database
 and commute with `O_ph^(t) ⊗ 1_E`. Then `V = ∑ i, P^(i) W i` satisfies
 `‖[V, O_ph^(t) ⊗ 1_E]‖² ≤ 24 I(π, t)`. -/
-theorem l2_opNorm_commutator_truncatedPhaseOracle_sq_le_sharp (π : Database X Y → ι) (t : ℕ)
+theorem l2_opNorm_commutator_truncatedPhaseOracle_sq_le_twentyFour_mul (π : Database X Y → ι)
+    (t : ℕ)
     {W : ι → Matrix (((X × AddChar Y ℂ) × Database X Y) × E)
       (((X × AddChar Y ℂ) × Database X Y) × E) ℂ}
     (hW : ∀ k a b, W k a b ≠ 0 → π a.1.2 = π b.1.2) (hU : ∀ k, W k ∈ unitaryGroup _ ℂ)
@@ -618,10 +650,10 @@ theorem l2_opNorm_commutator_truncatedPhaseOracle_sq_le_sharp (π : Database X Y
 /-- **Theorem 5.4 of ePrint 2025/2166 with the constant `24`.** Let `W i` be unitaries on the joint
 register `((X × Y) × Database X Y) × E` that preserve the label `π D` of the database and commute
 with `O^(t) ⊗ 1_E`. The label-controlled unitary `V = ∑ i, P^(i) W i` almost commutes with the
-truncated compressed oracle: `‖[V, O^(t) ⊗ 1_E]‖² ≤ 24 I(π, t)`. The hypotheses are those of
-`Quantum.l2_opNorm_commutator_truncatedOracle_sq_le`, which has `80`. The constant `24` is optimal
-(proved on paper; see the module docstring). -/
-theorem l2_opNorm_commutator_truncatedOracle_sq_le_sharp (π : Database X Y → ι) (t : ℕ)
+truncated compressed oracle: `‖[V, O^(t) ⊗ 1_E]‖² ≤ 24 I(π, t)`. [CDHZ] state the constant `80`
+(`Quantum.l2_opNorm_commutator_truncatedOracle_sq_le`, a corollary). The constant `24` is optimal
+(`Quantum.exists_mul_instability_lt_l2_opNorm_commutator_truncatedOracle_sq`). -/
+theorem l2_opNorm_commutator_truncatedOracle_sq_le_twentyFour_mul (π : Database X Y → ι) (t : ℕ)
     {W : ι → Matrix (((X × Y) × Database X Y) × E) (((X × Y) × Database X Y) × E) ℂ}
     (hW : ∀ k a b, W k a b ≠ 0 → π a.1.2 = π b.1.2) (hU : ∀ k, W k ∈ unitaryGroup _ ℂ)
     (hA : ∀ k, W k * (truncatedOracle X Y t ⊗ₖ (1 : Matrix E E ℂ)) =
@@ -640,7 +672,7 @@ theorem l2_opNorm_commutator_truncatedOracle_sq_le_sharp (π : Database X Y → 
 /-- **Corollary 5.6 of ePrint 2025/2166 with the constant `24`, phase basis.** The purified
 measurement `V = ∑ i, P^(i) ⊗ U i`, with any unitaries `U i` on a register `B`, satisfies
 `‖[V, O_ph^(t) ⊗ 1_B]‖² ≤ 24 I(π, t)`. -/
-theorem l2_opNorm_commutator_truncatedPhaseOracle_purifiedMeasurement_sq_le_sharp
+theorem l2_opNorm_commutator_truncatedPhaseOracle_purifiedMeasurement_sq_le_twentyFour_mul
     (π : Database X Y → ι) (t : ℕ) {U : ι → Matrix E E ℂ} (hU : ∀ i, U i ∈ unitaryGroup E ℂ) :
     ‖labelControlled (fun a ↦ π a.1.2)
           (fun i ↦ (1 : Matrix ((X × AddChar Y ℂ) × Database X Y)
@@ -663,7 +695,7 @@ theorem l2_opNorm_commutator_truncatedPhaseOracle_purifiedMeasurement_sq_le_shar
 /-- **Corollary 5.6 of ePrint 2025/2166 with the constant `24`.** The purified measurement of the
 label of the database into a register `B`, `V = ∑ i, P^(i) ⊗ U i` with any unitaries `U i` on
 `B`, almost commutes with the truncated compressed oracle: `‖[V, O^(t) ⊗ 1_B]‖² ≤ 24 I(π, t)`. -/
-theorem l2_opNorm_commutator_purifiedMeasurement_sq_le_sharp (π : Database X Y → ι) (t : ℕ)
+theorem l2_opNorm_commutator_purifiedMeasurement_sq_le_twentyFour_mul (π : Database X Y → ι) (t : ℕ)
     {U : ι → Matrix E E ℂ} (hU : ∀ i, U i ∈ unitaryGroup E ℂ) :
     ‖labelControlled (fun a ↦ π a.1.2)
           (fun i ↦ (1 : Matrix ((X × Y) × Database X Y) ((X × Y) × Database X Y) ℂ) ⊗ₖ U i) *
@@ -681,19 +713,76 @@ theorem l2_opNorm_commutator_purifiedMeasurement_sq_le_sharp (π : Database X Y 
     _ ≤ 4 * (6 * (Database.instability π t).toReal) := by gcongr
     _ = 24 * (Database.instability π t).toReal := by ring
 
+/-- **Theorem 5.4 of ePrint 2025/2166**, with the paper's constant `80`:
+`‖[V, O^(t) ⊗ 1_E]‖² ≤ 80 I(π, t)`. A corollary of
+`Quantum.l2_opNorm_commutator_truncatedOracle_sq_le_twentyFour_mul`. -/
+theorem l2_opNorm_commutator_truncatedOracle_sq_le (π : Database X Y → ι) (t : ℕ)
+    {W : ι → Matrix (((X × Y) × Database X Y) × E) (((X × Y) × Database X Y) × E) ℂ}
+    (hW : ∀ k a b, W k a b ≠ 0 → π a.1.2 = π b.1.2) (hU : ∀ k, W k ∈ unitaryGroup _ ℂ)
+    (hA : ∀ k, W k * (truncatedOracle X Y t ⊗ₖ (1 : Matrix E E ℂ)) =
+      (truncatedOracle X Y t ⊗ₖ (1 : Matrix E E ℂ)) * W k) :
+    ‖labelControlled (fun a ↦ π a.1.2) W * (truncatedOracle X Y t ⊗ₖ (1 : Matrix E E ℂ)) -
+        (truncatedOracle X Y t ⊗ₖ (1 : Matrix E E ℂ)) * labelControlled (fun a ↦ π a.1.2) W‖ ^ 2
+      ≤ 80 * (Database.instability π t).toReal :=
+  (l2_opNorm_commutator_truncatedOracle_sq_le_twentyFour_mul π t hW hU hA).trans
+    (mul_le_mul_of_nonneg_right (by norm_num) ENNReal.toReal_nonneg)
+
+/-- **Corollary 5.6 of ePrint 2025/2166**, with the paper's constant `80`. A corollary of
+`Quantum.l2_opNorm_commutator_purifiedMeasurement_sq_le_twentyFour_mul`. -/
+theorem l2_opNorm_commutator_purifiedMeasurement_sq_le (π : Database X Y → ι) (t : ℕ)
+    {U : ι → Matrix E E ℂ} (hU : ∀ i, U i ∈ unitaryGroup E ℂ) :
+    ‖labelControlled (fun a ↦ π a.1.2)
+          (fun i ↦ (1 : Matrix ((X × Y) × Database X Y) ((X × Y) × Database X Y) ℂ) ⊗ₖ U i) *
+          (truncatedOracle X Y t ⊗ₖ (1 : Matrix E E ℂ)) -
+        (truncatedOracle X Y t ⊗ₖ (1 : Matrix E E ℂ)) *
+          labelControlled (fun a ↦ π a.1.2)
+            (fun i ↦ (1 : Matrix ((X × Y) × Database X Y) ((X × Y) × Database X Y) ℂ) ⊗ₖ U i)‖ ^ 2
+      ≤ 80 * (Database.instability π t).toReal :=
+  (l2_opNorm_commutator_purifiedMeasurement_sq_le_twentyFour_mul π t hU).trans
+    (mul_le_mul_of_nonneg_right (by norm_num) ENNReal.toReal_nonneg)
+
 end theorem54
+
+/-! ## The XOR measurement -/
 
 section xor
 
-variable {B : Type*} [Fintype B] [DecidableEq B] [AddGroup B]
+variable (B : Type*) [Fintype B] [DecidableEq B] [AddGroup B]
+
+/-- The shift `|b⟩ ↦ |b + i⟩` of a register indexed by an additive group: for `B = (ZMod 2)^n` it
+XORs `i` into the register. -/
+@[expose]
+def xorShift (i : B) : Matrix B B ℂ :=
+  of fun b' b ↦ if b' = b + i then 1 else 0
+
+variable {B}
+
+omit [Fintype B] in
+@[simp]
+theorem xorShift_apply (i b' b : B) : xorShift B i b' b = if b' = b + i then 1 else 0 :=
+  rfl
+
+theorem xorShift_mem_unitaryGroup (i : B) : xorShift B i ∈ unitaryGroup B ℂ := by
+  rw [mem_unitaryGroup_iff]
+  ext b' b''
+  rw [Matrix.mul_apply, Finset.sum_eq_single (b' - i)]
+  · by_cases h : b' = b''
+    · subst h
+      simp [star_apply]
+    · simp [star_apply, one_apply_ne h, Ne.symm h]
+  · intro b _ hb
+    have : b' ≠ b + i := fun h ↦ hb (by rw [h, add_sub_cancel_right])
+    simp [this]
+  · simp
+
 variable {X Y : Type} [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y] [AddCommGroup Y]
   [UniformAnswerMeasure (X →ₒ Y)]
 
 /-- **Corollary 5.6 of ePrint 2025/2166 with the constant `24`, XOR form.** Measuring the label
 `π D ∈ B` of the database by XORing it into a register `B` almost commutes with the truncated
 compressed oracle: `‖[V, O^(t) ⊗ 1_B]‖² ≤ 24 I(π, t)`, where `V |q, D, b⟩ = |q, D, b + π D⟩` (as
-in Don, Fehr, Majenz and Schaffner, EUROCRYPT 2022, Theorem 3.1). -/
-theorem l2_opNorm_commutator_xorMeasurement_sq_le_sharp (π : Database X Y → B) (t : ℕ) :
+in [DFMS22, Theorem 3.1]). -/
+theorem l2_opNorm_commutator_xorMeasurement_sq_le_twentyFour_mul (π : Database X Y → B) (t : ℕ) :
     ‖labelControlled (fun a ↦ π a.1.2)
           (fun i ↦ (1 : Matrix ((X × Y) × Database X Y) ((X × Y) × Database X Y) ℂ) ⊗ₖ
             xorShift B i) * (truncatedOracle X Y t ⊗ₖ (1 : Matrix B B ℂ)) -
@@ -702,7 +791,20 @@ theorem l2_opNorm_commutator_xorMeasurement_sq_le_sharp (π : Database X Y → B
             (fun i ↦ (1 : Matrix ((X × Y) × Database X Y) ((X × Y) × Database X Y) ℂ) ⊗ₖ
               xorShift B i)‖ ^ 2
       ≤ 24 * (Database.instability π t).toReal :=
-  l2_opNorm_commutator_purifiedMeasurement_sq_le_sharp π t xorShift_mem_unitaryGroup
+  l2_opNorm_commutator_purifiedMeasurement_sq_le_twentyFour_mul π t xorShift_mem_unitaryGroup
+
+/-- **Corollary 5.6 of ePrint 2025/2166, XOR form**, with the paper's constant `80`:
+`‖[V, O^(t) ⊗ 1_B]‖² ≤ 80 I(π, t)`, where `V |q, D, b⟩ = |q, D, b + π D⟩`. -/
+theorem l2_opNorm_commutator_xorMeasurement_sq_le (π : Database X Y → B) (t : ℕ) :
+    ‖labelControlled (fun a ↦ π a.1.2)
+          (fun i ↦ (1 : Matrix ((X × Y) × Database X Y) ((X × Y) × Database X Y) ℂ) ⊗ₖ
+            xorShift B i) * (truncatedOracle X Y t ⊗ₖ (1 : Matrix B B ℂ)) -
+        (truncatedOracle X Y t ⊗ₖ (1 : Matrix B B ℂ)) *
+          labelControlled (fun a ↦ π a.1.2)
+            (fun i ↦ (1 : Matrix ((X × Y) × Database X Y) ((X × Y) × Database X Y) ℂ) ⊗ₖ
+              xorShift B i)‖ ^ 2
+      ≤ 80 * (Database.instability π t).toReal :=
+  l2_opNorm_commutator_purifiedMeasurement_sq_le π t xorShift_mem_unitaryGroup
 
 end xor
 
@@ -711,7 +813,7 @@ end xor
 
 section sharpness
 
-variable {X Y : Type} [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y] [AddCommGroup Y]
+variable {X Y : Type*} [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y] [AddCommGroup Y]
 
 /-- Inside an active block, a query `(x, χ)` to a database `r` of size below `t`, the truncated
 phase oracle is the phase cell. -/
@@ -837,6 +939,12 @@ theorem le_l2_opNorm_commutator_truncatedOracle_sq (x₀ : X) {y₀ : Y} {χ : A
   field_simp
   ring
 
+end sharpness
+
+section sharpnessInstability
+
+variable {X Y : Type} [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y] [AddCommGroup Y]
+
 omit [Fintype X] [AddCommGroup Y] in
 /-- **Sharpness of the constant `24`, the instability.** Labelling the databases by whether
 `D x₀ = y₀` has instability at most `1 / N`: only the answer `y₀` at `x₀` changes the label. -/
@@ -899,8 +1007,34 @@ theorem mul_instability_le_l2_opNorm_commutator_truncatedOracle_sq
     _ = 24 / (Fintype.card Y : ℝ) - 36 / (Fintype.card Y : ℝ) ^ 2 := by
         field_simp
 
+/-- **Every constant below `24` fails.** For `χ y₀ = -1`, `t ≥ 1` and `0 ≤ c` with
+`(24 - c) N > 36`, the scalar control of the labelling by whether `D x₀ = y₀` violates
+`‖[V, O^(t)]‖² ≤ c I(π, t)`. -/
+theorem mul_instability_lt_l2_opNorm_commutator_truncatedOracle_sq
+    [UniformAnswerMeasure (X →ₒ Y)] (x₀ : X) {y₀ : Y} {χ : AddChar Y ℂ} (hχ : χ y₀ = -1) {t : ℕ}
+    (ht : 1 ≤ t) {c : ℝ} (hc0 : 0 ≤ c) (hc : 36 < (24 - c) * Fintype.card Y) :
+    c * (Database.instability (fun D : Database X Y ↦ decide (D x₀ = some y₀)) t).toReal <
+      ‖labelControlled (fun m : (X × Y) × Database X Y ↦ decide (m.2 x₀ = some y₀))
+            (fun b ↦ (if b then -1 else 1 : ℂ) • (1 : Matrix _ _ ℂ)) * truncatedOracle X Y t -
+          truncatedOracle X Y t *
+            labelControlled (fun m : (X × Y) × Database X Y ↦ decide (m.2 x₀ = some y₀))
+              (fun b ↦ (if b then -1 else 1 : ℂ) • (1 : Matrix _ _ ℂ))‖ ^ 2 := by
+  have hN : (0 : ℝ) < Fintype.card Y := Nat.cast_pos.mpr Fintype.card_pos
+  refine lt_of_lt_of_le ?_ (le_l2_opNorm_commutator_truncatedOracle_sq x₀ hχ ht)
+  have e : 24 / (Fintype.card Y : ℝ) - 36 / (Fintype.card Y : ℝ) ^ 2 - c * (1 / Fintype.card Y) =
+      ((24 - c) * Fintype.card Y - 36) / (Fintype.card Y : ℝ) ^ 2 := by
+    field_simp
+    ring
+  have hpos : 0 < ((24 - c) * Fintype.card Y - 36) / (Fintype.card Y : ℝ) ^ 2 :=
+    div_pos (by linarith) (by positivity)
+  calc c * (Database.instability (fun D : Database X Y ↦ decide (D x₀ = some y₀)) t).toReal
+      ≤ c * (1 / Fintype.card Y) :=
+        mul_le_mul_of_nonneg_left (instability_decide_eq_some_le x₀ y₀ t) hc0
+    _ < 24 / (Fintype.card Y : ℝ) - 36 / (Fintype.card Y : ℝ) ^ 2 := by linarith
+
 /-- **The constant `20` fails.** For `χ y₀ = -1`, `t ≥ 1` and `|Y| ≥ 10`, the scalar control of
-the labelling by whether `D x₀ = y₀` violates `‖[V, O^(t)]‖² ≤ 20 I(π, t)`. -/
+the labelling by whether `D x₀ = y₀` violates `‖[V, O^(t)]‖² ≤ 20 I(π, t)`, the constant of
+[CDHZ, Lemma 5.9] for the pinching. -/
 theorem twenty_mul_instability_lt_l2_opNorm_commutator_truncatedOracle_sq
     [UniformAnswerMeasure (X →ₒ Y)] (x₀ : X) {y₀ : Y} {χ : AddChar Y ℂ} (hχ : χ y₀ = -1) {t : ℕ}
     (ht : 1 ≤ t) (hY : 10 ≤ Fintype.card Y) :
@@ -911,14 +1045,71 @@ theorem twenty_mul_instability_lt_l2_opNorm_commutator_truncatedOracle_sq
             labelControlled (fun m : (X × Y) × Database X Y ↦ decide (m.2 x₀ = some y₀))
               (fun b ↦ (if b then -1 else 1 : ℂ) • (1 : Matrix _ _ ℂ))‖ ^ 2 := by
   have hN : (10 : ℝ) ≤ Fintype.card Y := by exact_mod_cast hY
-  refine lt_of_lt_of_le ?_ (le_l2_opNorm_commutator_truncatedOracle_sq x₀ hχ ht)
-  calc 20 * (Database.instability (fun D : Database X Y ↦ decide (D x₀ = some y₀)) t).toReal
-      ≤ 20 * (1 / Fintype.card Y) := by gcongr; exact instability_decide_eq_some_le x₀ y₀ t
-    _ < 24 / (Fintype.card Y : ℝ) - 36 / (Fintype.card Y : ℝ) ^ 2 := by
-        rw [div_sub_div _ _ (by positivity) (by positivity), lt_div_iff₀ (by positivity)]
-        field_simp
-        nlinarith
+  exact mul_instability_lt_l2_opNorm_commutator_truncatedOracle_sq x₀ hχ ht (by norm_num)
+    (by linarith)
 
-end sharpness
+end sharpnessInstability
+
+/-! ### Bit strings -/
+
+section bitString
+
+/-- The character `(-1) ^ b` of `ZMod 2`. -/
+noncomputable def signChar : AddChar (ZMod 2) ℂ where
+  toFun b := if b = 0 then 1 else -1
+  map_zero_eq_one' := by simp
+  map_add_eq_mul' a b := by
+    have h : ∀ c : ZMod 2, c = 0 ∨ c = 1 := by decide
+    rcases h a with rfl | rfl <;> rcases h b with rfl | rfl <;>
+      simp [show (1 : ZMod 2) + 1 = 0 from rfl]
+
+/-- The sign character is `1` at `0`. -/
+@[simp]
+theorem signChar_zero : signChar 0 = 1 := by
+  simp [signChar]
+
+/-- The sign character is `-1` at `1`. -/
+@[simp]
+theorem signChar_one : signChar 1 = -1 := by
+  simp [signChar]
+
+/-- **Bit strings have a character with value `-1`.** On `Y = Fin (s + 1) → ZMod 2`, the
+character `χ v = (-1) ^ (v 0)` takes the value `-1` at the indicator of `0`. -/
+theorem exists_addChar_eq_neg_one_bitString (s : ℕ) :
+    ∃ (χ : AddChar (Fin (s + 1) → ZMod 2) ℂ) (y₀ : Fin (s + 1) → ZMod 2), χ y₀ = -1 :=
+  ⟨signChar.compAddMonoidHom (Pi.evalAddMonoidHom (fun _ ↦ ZMod 2) 0), Pi.single 0 1, by
+    simp⟩
+
+/-- **The constant `24` is optimal.** For every `0 ≤ c < 24`, every nonempty `X` and every query
+bound `t ≥ 1`, there are bit strings `Y = Fin (s + 1) → ZMod 2`, a point `x₀` and an answer `y₀`
+such that the scalar control of the labelling by whether `D x₀ = y₀` violates
+`‖[V, O^(t)]‖² ≤ c I(π, t)`, for every uniform answer measure on `Y`. -/
+theorem exists_mul_instability_lt_l2_opNorm_commutator_truncatedOracle_sq (X : Type) [Fintype X]
+    [DecidableEq X] [Nonempty X] {t : ℕ} (ht : 1 ≤ t) {c : ℝ} (hc0 : 0 ≤ c) (hc : c < 24) :
+    ∃ s : ℕ, ∀ [UniformAnswerMeasure (X →ₒ (Fin (s + 1) → ZMod 2))],
+      ∃ (x₀ : X) (y₀ : Fin (s + 1) → ZMod 2),
+        c * (Database.instability (fun D : Database X (Fin (s + 1) → ZMod 2) ↦
+            decide (D x₀ = some y₀)) t).toReal <
+          ‖labelControlled (fun m : (X × (Fin (s + 1) → ZMod 2)) ×
+                Database X (Fin (s + 1) → ZMod 2) ↦ decide (m.2 x₀ = some y₀))
+                (fun b ↦ (if b then -1 else 1 : ℂ) • (1 : Matrix _ _ ℂ)) *
+                truncatedOracle X (Fin (s + 1) → ZMod 2) t -
+              truncatedOracle X (Fin (s + 1) → ZMod 2) t *
+                labelControlled (fun m : (X × (Fin (s + 1) → ZMod 2)) ×
+                  Database X (Fin (s + 1) → ZMod 2) ↦ decide (m.2 x₀ = some y₀))
+                  (fun b ↦ (if b then -1 else 1 : ℂ) • (1 : Matrix _ _ ℂ))‖ ^ 2 := by
+  obtain ⟨s, hs⟩ := pow_unbounded_of_one_lt (36 / (24 - c)) (by norm_num : (1 : ℝ) < 2)
+  refine ⟨s, fun {_} ↦ ?_⟩
+  obtain ⟨χ, y₀, hχ⟩ := exists_addChar_eq_neg_one_bitString s
+  refine ⟨Classical.arbitrary X, y₀, ?_⟩
+  refine mul_instability_lt_l2_opNorm_commutator_truncatedOracle_sq _ hχ ht hc0 ?_
+  have h24 : 0 < 24 - c := by linarith
+  have hcard : (Fintype.card (Fin (s + 1) → ZMod 2) : ℝ) = 2 ^ (s + 1) := by
+    simp [ZMod.card]
+  rw [div_lt_iff₀ h24] at hs
+  rw [hcard]
+  nlinarith [pow_succ (2 : ℝ) s, pow_pos (by norm_num : (0 : ℝ) < 2) s]
+
+end bitString
 
 end Quantum

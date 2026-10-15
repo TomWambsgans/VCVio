@@ -6,19 +6,22 @@ Authors: Quang Dao
 
 module
 
+public import VCVio.Quantum.Oracle.Compressed.CommutatorSharp
 public import VCVio.Quantum.Oracle.Compressed.ProjectorEvent
 
 /-!
 # Instability and commutator-bound regression tests
 
+[CDHZ] is A. Chiesa, Z. Di, Z. Hu and Y. Zheng, ePrint 2025/2166.
+
 * **The two-block partition of Chiesa, Manohar and Spooner** (TCC 2019, Lemma 5.10): the
   databases with `D x₀ = y₀` against the rest. One fresh answer leaves the second class with
   probability at most `1 / |Y|` and never leaves the first, so the instability is at most
   `1 / |Y|`. In squared norm, the commutator of its XOR measurement with the truncated
-  compressed oracle is at most `24 / |Y|` (and `32 / |Y|`, `80 / |Y|` through the bounds for
-  arbitrary labellings), its pinching error and cross blocks are at most `6 / |Y|`, and a
-  computation of total query mass `w` over `q` queries reaches the class `true` from outside it
-  with probability at most `6 q w / |Y|`.
+  compressed oracle is at most `24 / |Y|` (and `80 / |Y|` with the constant of [CDHZ]), its
+  pinching error and cross blocks are at most `6 / |Y|`, and a computation of total query mass
+  `w` over `q` queries, with an inactive selector that applies the identity, reaches the class
+  `true` from outside it with squared mass at most `6 q w / |Y|`.
 * **The trivial partition**: a constant labelling has instability `0`, so the purified
   measurement and the label projector of a constant label commute exactly with the truncated
   compressed oracle, and its pinching is exact.
@@ -26,6 +29,9 @@ public import VCVio.Quantum.Oracle.Compressed.ProjectorEvent
   instability exactly `1 / 2` for every query bound `t ≥ 1`, so its pinching error is at most
   `3` and its XOR commutator at most `12` in squared norm; the finest partition (the database
   itself) has instability exactly `1`, and both have instability `0` at query bound `0`.
+* **Sharpness**: for `X = Unit`, `Y = ZMod 2` and the sign character, the scalar control of the
+  labelling `D () = 1` has `‖[V, O^(t)]‖² ≥ 3`, so `5 I < ‖[V, O^(t)]‖²`; for four-bit answers
+  (`N = 16`) the constant `20` fails.
 * **Universe polymorphism**: the block lemmas and Lemma 5.10 instantiate at `Type 1`.
 -/
 
@@ -73,34 +79,6 @@ theorem instability_answers_le [Finite X] (x₀ : X) (y₀ : Y) (t : ℕ) :
   rw [← one_div]
   exact ENNReal.div_le_div_right (by exact_mod_cast card_filter_answers_le x₀ y₀ hx) _
 
-/-- **The two-block commutator bound.** Recording in a qubit `B = ZMod 2` whether the database
-answers `y₀` at `x₀` almost commutes with the truncated compressed oracle, up to `80 / |Y|`. -/
-example [Fintype X] [AddCommGroup Y] (x₀ : X) (y₀ : Y) (t : ℕ) :
-    ‖labelControlled (fun a ↦ (if answers x₀ y₀ a.1.2 then 1 else 0 : ZMod 2))
-          (fun i ↦ (1 : Matrix ((X × Y) × Database X Y) ((X × Y) × Database X Y) ℂ) ⊗ₖ
-            xorShift (ZMod 2) i) * (truncatedOracle X Y t ⊗ₖ (1 : Matrix (ZMod 2) (ZMod 2) ℂ)) -
-        (truncatedOracle X Y t ⊗ₖ (1 : Matrix (ZMod 2) (ZMod 2) ℂ)) *
-          labelControlled (fun a ↦ (if answers x₀ y₀ a.1.2 then 1 else 0 : ZMod 2))
-            (fun i ↦ (1 : Matrix ((X × Y) × Database X Y) ((X × Y) × Database X Y) ℂ) ⊗ₖ
-              xorShift (ZMod 2) i)‖ ^ 2 ≤ 80 / Fintype.card Y := by
-  refine (l2_opNorm_commutator_xorMeasurement_sq_le
-    (fun D ↦ (if answers x₀ y₀ D then 1 else 0 : ZMod 2)) t).trans ?_
-  have hle : Database.instability (fun D ↦ (if answers x₀ y₀ D then 1 else 0 : ZMod 2)) t ≤
-      Database.instability (answers x₀ y₀) t := by
-    rw [Database.instability_eq_iSup, Database.instability_eq_iSup]
-    refine iSup_le fun i ↦ iSup_le fun D ↦ iSup_le fun hi ↦ iSup_le fun hD ↦ iSup_le fun x ↦
-      iSup_le fun hx ↦ ?_
-    subst hi
-    refine le_iSup_of_le (answers x₀ y₀ D) <| le_iSup_of_le D <| le_iSup_of_le rfl <|
-      le_iSup_of_le hD <| le_iSup_of_le x <| le_iSup_of_le hx ?_
-    refine ENNReal.div_le_div_right (Nat.cast_le.mpr (Finset.card_le_card fun u hu ↦ ?_)) _
-    exact Finset.mem_filter.mpr ⟨Finset.mem_univ _, fun h ↦ (Finset.mem_filter.mp hu).2 (by
-      rw [h])⟩
-  have h := ENNReal.toReal_mono (by simp) (hle.trans (instability_answers_le x₀ y₀ t))
-  rw [ENNReal.toReal_inv, ENNReal.toReal_natCast] at h
-  calc 80 * (Database.instability _ t).toReal ≤ 80 * (Fintype.card Y : ℝ)⁻¹ := by gcongr
-    _ = 80 / Fintype.card Y := by ring
-
 /-- The two-block labelling as a bit. -/
 def answersBit (x₀ : X) (y₀ : Y) (D : Database X Y) : ZMod 2 :=
   if answers x₀ y₀ D then 1 else 0
@@ -124,8 +102,8 @@ section sharp
 
 variable [Fintype X] [AddCommGroup Y]
 
-/-- **The sharp two-block commutator bound.** Recording in a qubit whether the database answers
-`y₀` at `x₀` almost commutes with the truncated compressed oracle, up to `24 / |Y|`. -/
+/-- **The two-block commutator bound.** Recording in a qubit whether the database answers `y₀` at
+`x₀` almost commutes with the truncated compressed oracle, up to `24 / |Y|`. -/
 example (x₀ : X) (y₀ : Y) (t : ℕ) :
     ‖labelControlled (fun a ↦ answersBit x₀ y₀ a.1.2)
           (fun i ↦ (1 : Matrix ((X × Y) × Database X Y) ((X × Y) × Database X Y) ℂ) ⊗ₖ
@@ -134,15 +112,15 @@ example (x₀ : X) (y₀ : Y) (t : ℕ) :
           labelControlled (fun a ↦ answersBit x₀ y₀ a.1.2)
             (fun i ↦ (1 : Matrix ((X × Y) × Database X Y) ((X × Y) × Database X Y) ℂ) ⊗ₖ
               xorShift (ZMod 2) i)‖ ^ 2 ≤ 24 / Fintype.card Y := by
-  refine (l2_opNorm_commutator_xorMeasurement_sq_le_twentyFour_mul (answersBit x₀ y₀) t
-    ⟨1, 0, fun D ↦ by unfold answersBit; split_ifs <;> simp⟩).trans ?_
+  refine (l2_opNorm_commutator_xorMeasurement_sq_le_twentyFour_mul (answersBit x₀ y₀) t).trans ?_
   calc 24 * (Database.instability (answersBit x₀ y₀) t).toReal ≤
         24 * (Fintype.card Y : ℝ)⁻¹ := by
         gcongr
         exact toReal_instability_le_inv_card (instability_answersBit_le x₀ y₀ t)
     _ = 24 / Fintype.card Y := by ring
 
-/-- The bound for arbitrary labellings gives `32 / |Y|` for the two-block XOR measurement. -/
+/-- The constant `80` of [CDHZ, Theorem 5.4] gives `80 / |Y|` for the two-block XOR
+measurement. -/
 example (x₀ : X) (y₀ : Y) (t : ℕ) :
     ‖labelControlled (fun a ↦ answersBit x₀ y₀ a.1.2)
           (fun i ↦ (1 : Matrix ((X × Y) × Database X Y) ((X × Y) × Database X Y) ℂ) ⊗ₖ
@@ -150,13 +128,13 @@ example (x₀ : X) (y₀ : Y) (t : ℕ) :
         (truncatedOracle X Y t ⊗ₖ (1 : Matrix (ZMod 2) (ZMod 2) ℂ)) *
           labelControlled (fun a ↦ answersBit x₀ y₀ a.1.2)
             (fun i ↦ (1 : Matrix ((X × Y) × Database X Y) ((X × Y) × Database X Y) ℂ) ⊗ₖ
-              xorShift (ZMod 2) i)‖ ^ 2 ≤ 32 / Fintype.card Y := by
-  refine (l2_opNorm_commutator_xorMeasurement_sq_le_thirtyTwo_mul (answersBit x₀ y₀) t).trans ?_
-  calc 32 * (Database.instability (answersBit x₀ y₀) t).toReal ≤
-        32 * (Fintype.card Y : ℝ)⁻¹ := by
+              xorShift (ZMod 2) i)‖ ^ 2 ≤ 80 / Fintype.card Y := by
+  refine (l2_opNorm_commutator_xorMeasurement_sq_le (answersBit x₀ y₀) t).trans ?_
+  have h := ENNReal.toReal_mono (by simp) (instability_answersBit_le x₀ y₀ t)
+  rw [ENNReal.toReal_inv, ENNReal.toReal_natCast] at h
+  calc 80 * (Database.instability (answersBit x₀ y₀) t).toReal ≤ 80 * (Fintype.card Y : ℝ)⁻¹ := by
         gcongr
-        exact toReal_instability_le_inv_card (instability_answersBit_le x₀ y₀ t)
-    _ = 32 / Fintype.card Y := by ring
+    _ = 80 / Fintype.card Y := by ring
 
 /-- **The sharp two-block pinching bound** of Chiesa, Manohar and Spooner (Lemma 5.10):
 `‖pinch O^(t) - O^(t)‖² ≤ 6 / |Y|`. -/
@@ -184,13 +162,14 @@ example (x₀ : X) (y₀ : Y) (t : ℕ) :
         exact toReal_instability_le_inv_card (instability_answers_le x₀ y₀ t)
     _ = 6 / Fintype.card Y := by ring
 
-/-- **The two-block event bound.** A computation that queries the truncated oracle `q` times,
-whose other operations commute with the projector onto the class `true`, and that starts outside
-that class, ends in it with probability at most `6 q w / |Y|`, where `w` is its total mass before
-the queries. -/
+/-- **The two-block event bound.** A computation with a selector qubit `κ = Bool` queries the
+truncated oracle on the selector `true` and applies the identity on the inactive selector
+`false`. If its other operations commute with the projector onto the class `true` and it starts
+outside that class, the squared mass of the final state in that class is at most `6 q w / |Y|`,
+where `w` is the total mass on the selector `true` before the queries. -/
 example {E : Type} [Fintype E] [DecidableEq E] (x₀ : X) (y₀ : Y) (t q : ℕ)
-    (ψ : ℕ → (((X × Y) × Database X Y) × E) × Unit → ℂ)
-    (A : ℕ → Matrix ((((X × Y) × Database X Y) × E) × Unit) ((((X × Y) × Database X Y) × E) × Unit)
+    (ψ : ℕ → (((X × Y) × Database X Y) × E) × Bool → ℂ)
+    (A : ℕ → Matrix ((((X × Y) × Database X Y) × E) × Bool) ((((X × Y) × Database X Y) × E) × Bool)
       ℂ)
     (hA : ∀ j < q, ‖A j‖ ≤ 1)
     (hAQ : ∀ j < q, A j * blockDiagonal (fun _ ↦ labelProjector
@@ -198,7 +177,8 @@ example {E : Type} [Fintype E] [DecidableEq E] (x₀ : X) (y₀ : Y) (t q : ℕ)
       blockDiagonal (fun _ ↦ labelProjector
         (fun m : (X × Y) × Database X Y ↦ answers x₀ y₀ m.2) true ⊗ₖ (1 : Matrix E E ℂ)) * A j)
     (hψ : ∀ j < q, ψ (j + 1) =
-      A j *ᵥ (blockDiagonal (fun _ ↦ truncatedOracle X Y t ⊗ₖ (1 : Matrix E E ℂ)) *ᵥ ψ j))
+      A j *ᵥ (blockDiagonal (fun k : Bool ↦
+        if k then truncatedOracle X Y t ⊗ₖ (1 : Matrix E E ℂ) else 1) *ᵥ ψ j))
     (h0 : blockDiagonal (fun _ ↦ labelProjector
         (fun m : (X × Y) × Database X Y ↦ answers x₀ y₀ m.2) true ⊗ₖ (1 : Matrix E E ℂ)) *ᵥ
       ψ 0 = 0) :
@@ -206,12 +186,13 @@ example {E : Type} [Fintype E] [DecidableEq E] (x₀ : X) (y₀ : Y) (t q : ℕ)
         (fun m : (X × Y) × Database X Y ↦ answers x₀ y₀ m.2) true ⊗ₖ (1 : Matrix E E ℂ)) *ᵥ
           ψ q) a‖ ^ 2 ≤
       6 * q * (Fintype.card Y : ℝ)⁻¹ *
-        ∑ j ∈ Finset.range q, ∑ k ∈ Finset.univ, ∑ x, ‖ψ j (x, k)‖ ^ 2 := by
+        ∑ j ∈ Finset.range q, ∑ k ∈ ({true} : Finset Bool), ∑ x, ‖ψ j (x, k)‖ ^ 2 := by
   refine (sum_norm_labelProjector_mulVec_sq_le_six_mul_mul_sum (answers x₀ y₀) t true
-    Finset.univ q ψ A (fun _ _ ↦ truncatedOracle X Y t ⊗ₖ (1 : Matrix E E ℂ)) hA hAQ
-    (fun _ _ _ _ ↦ rfl) (fun _ _ k hk ↦ absurd (Finset.mem_univ k) hk)
-    (fun _ _ k hk ↦ absurd (Finset.mem_univ k) hk) hψ h0).trans ?_
-  have hw : 0 ≤ ∑ j ∈ Finset.range q, ∑ k ∈ Finset.univ, ∑ x, ‖ψ j (x, k)‖ ^ 2 :=
+    {true} q ψ A (fun _ k ↦ if k then truncatedOracle X Y t ⊗ₖ (1 : Matrix E E ℂ) else 1) hA hAQ
+    (fun _ _ k hk ↦ by simp [Finset.mem_singleton.mp hk])
+    (fun _ _ k hk ↦ by simp [Finset.mem_singleton.not.mp hk, l2_opNorm_one_le])
+    (fun _ _ k hk ↦ by simp [Finset.mem_singleton.not.mp hk]) hψ h0).trans ?_
+  have hw : 0 ≤ ∑ j ∈ Finset.range q, ∑ k ∈ ({true} : Finset Bool), ∑ x, ‖ψ j (x, k)‖ ^ 2 :=
     Finset.sum_nonneg fun _ _ ↦ Finset.sum_nonneg fun _ _ ↦
       Finset.sum_nonneg fun _ _ ↦ sq_nonneg _
   have hI := toReal_instability_le_inv_card (instability_answers_le x₀ y₀ t)
@@ -313,8 +294,8 @@ example (t : ℕ) (ht : 1 ≤ t) :
             (fun i ↦ (1 : Matrix ((Unit × ZMod 2) × Database Unit (ZMod 2))
               ((Unit × ZMod 2) × Database Unit (ZMod 2)) ℂ) ⊗ₖ xorShift (ZMod 2) i)‖ ^ 2 ≤
       12 := by
-  refine (l2_opNorm_commutator_xorMeasurement_sq_le_twentyFour_mul (answersBit () (0 : ZMod 2)) t
-    ⟨1, 0, fun D ↦ by unfold answersBit; split_ifs <;> simp⟩).trans ?_
+  refine (l2_opNorm_commutator_xorMeasurement_sq_le_twentyFour_mul (answersBit () (0 : ZMod 2))
+    t).trans ?_
   have h := Database.instability_comp_le (fun b : Bool ↦ (if b then 1 else 0 : ZMod 2))
     (answers () (0 : ZMod 2)) t
   rw [instability_answers_unit_zero t ht] at h
@@ -345,7 +326,64 @@ example (t : ℕ) (ht : 1 ≤ t) :
 example : Database.instability (fun D : Database Unit (ZMod 2) ↦ D) 0 = 0 :=
   Database.instability_zero _
 
+/-- **The sharp lower bound, one cell and one bit.** Labelling by whether the database answers
+`1` and controlling the sign by that label gives `‖[V, O^(t)]‖² ≥ 24 / 2 - 36 / 2² = 3`. -/
+example (t : ℕ) (ht : 1 ≤ t) :
+    3 ≤ ‖labelControlled
+            (fun m : (Unit × ZMod 2) × Database Unit (ZMod 2) ↦ decide (m.2 () = some 1))
+            (fun b ↦ (if b then -1 else 1 : ℂ) • (1 : Matrix _ _ ℂ)) *
+            truncatedOracle Unit (ZMod 2) t -
+          truncatedOracle Unit (ZMod 2) t *
+            labelControlled
+              (fun m : (Unit × ZMod 2) × Database Unit (ZMod 2) ↦ decide (m.2 () = some 1))
+              (fun b ↦ (if b then -1 else 1 : ℂ) • (1 : Matrix _ _ ℂ))‖ ^ 2 := by
+  refine le_trans (le_of_eq ?_) (le_l2_opNorm_commutator_truncatedOracle_sq () signChar_one ht)
+  rw [ZMod.card]
+  norm_num
+
+/-- **The constant `5` fails for one cell and one bit.** The instability of the same labelling is
+at most `1 / 2`, so `5 I < ‖[V, O^(t)]‖²`; with `N = 2` every constant below `6` fails. -/
+example (t : ℕ) (ht : 1 ≤ t) :
+    5 * (Database.instability (fun D : Database Unit (ZMod 2) ↦ decide (D () = some 1)) t).toReal <
+      ‖labelControlled
+            (fun m : (Unit × ZMod 2) × Database Unit (ZMod 2) ↦ decide (m.2 () = some 1))
+            (fun b ↦ (if b then -1 else 1 : ℂ) • (1 : Matrix _ _ ℂ)) *
+            truncatedOracle Unit (ZMod 2) t -
+          truncatedOracle Unit (ZMod 2) t *
+            labelControlled
+              (fun m : (Unit × ZMod 2) × Database Unit (ZMod 2) ↦ decide (m.2 () = some 1))
+              (fun b ↦ (if b then -1 else 1 : ℂ) • (1 : Matrix _ _ ℂ))‖ ^ 2 :=
+  mul_instability_lt_l2_opNorm_commutator_truncatedOracle_sq () signChar_one ht (by norm_num)
+    (by rw [ZMod.card]; norm_num)
+
 end concrete
+
+/-! ## Sixteen answers: the constant `20` fails -/
+
+section sixteen
+
+noncomputable local instance : UniformAnswerMeasure (Unit →ₒ (Fin (3 + 1) → ZMod 2)) :=
+  UniformAnswerMeasure.ofFiniteNonempty _
+
+/-- **The constant `20` of [CDHZ, Lemma 5.9] fails for the commutator** with four-bit answers
+(`N = 16 ≥ 10`): some answer `y₀` makes `20 I < ‖[V, O^(t)]‖²`. -/
+example (t : ℕ) (ht : 1 ≤ t) :
+    ∃ y₀ : Fin (3 + 1) → ZMod 2,
+      20 * (Database.instability
+          (fun D : Database Unit (Fin (3 + 1) → ZMod 2) ↦ decide (D () = some y₀)) t).toReal <
+        ‖labelControlled (fun m : (Unit × (Fin (3 + 1) → ZMod 2)) ×
+              Database Unit (Fin (3 + 1) → ZMod 2) ↦ decide (m.2 () = some y₀))
+              (fun b ↦ (if b then -1 else 1 : ℂ) • (1 : Matrix _ _ ℂ)) *
+              truncatedOracle Unit (Fin (3 + 1) → ZMod 2) t -
+            truncatedOracle Unit (Fin (3 + 1) → ZMod 2) t *
+              labelControlled (fun m : (Unit × (Fin (3 + 1) → ZMod 2)) ×
+                Database Unit (Fin (3 + 1) → ZMod 2) ↦ decide (m.2 () = some y₀))
+                (fun b ↦ (if b then -1 else 1 : ℂ) • (1 : Matrix _ _ ℂ))‖ ^ 2 := by
+  obtain ⟨χ, y₀, hχ⟩ := exists_addChar_eq_neg_one_bitString 3
+  exact ⟨y₀, twenty_mul_instability_lt_l2_opNorm_commutator_truncatedOracle_sq () hχ ht
+    (by simp [ZMod.card])⟩
+
+end sixteen
 
 /-! ## Universe polymorphism
 
