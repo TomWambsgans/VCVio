@@ -401,6 +401,8 @@ public import VCVio.Quantum.Comp.Runtime
 public import VCVio.Quantum.Comp.Simulation
 public import VCVio.Quantum.DSubInstrument
 public import VCVio.Quantum.MatrixMap
+public import VCVio.Quantum.MatrixMap.Commutant
+public import VCVio.Quantum.MatrixMap.Completion
 public import VCVio.Quantum.MatrixMap.Family
 public import VCVio.Quantum.MatrixMap.OpNorm
 public import VCVio.Quantum.MatrixMap.Pinching
@@ -413,6 +415,7 @@ public import VCVio.Quantum.Oracle.Compressed.Action
 public import VCVio.Quantum.Oracle.Compressed.Basic
 public import VCVio.Quantum.Oracle.Compressed.BinaryPartition
 public import VCVio.Quantum.Oracle.Compressed.CommutatorBound
+public import VCVio.Quantum.Oracle.Compressed.CommutatorSharp
 public import VCVio.Quantum.Oracle.Compressed.Equivalence
 public import VCVio.Quantum.Oracle.Compressed.Instability
 public import VCVio.Quantum.Oracle.Compressed.Measurement
