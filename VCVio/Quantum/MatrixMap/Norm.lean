@@ -31,8 +31,10 @@ facts, collected here so that they depend on Mathlib and `Quantum.MatrixMap` onl
   (`Quantum.MatrixMap.l2_opNorm_isometry_mul`, `Quantum.MatrixMap.l2_opNorm_mul_coisometry`),
   orthogonal projections have norm at most one (`Quantum.MatrixMap.l2_opNorm_le_one_of_proj`),
   and the deviation of a conjugate from the original is a commutator
-  (`Quantum.MatrixMap.l2_opNorm_conj_sub_self`). Submultiplicativity is Mathlib's
-  `Matrix.l2_opNorm_mul`.
+  (`Quantum.MatrixMap.l2_opNorm_conj_sub_self`). An operator that sends the blocks of an
+  orthogonal decomposition of its input into mutually orthogonal blocks of its output is
+  controlled block by block (`Quantum.MatrixMap.re_trace_conj_le_sum_of_blocks`).
+  Submultiplicativity is Mathlib's `Matrix.l2_opNorm_mul`.
 * **Square roots of series.** The `ℓ²` Minkowski inequality for series in `ℝ≥0∞`, in the form
   that a recursion on a program tree consumes: if each term is controlled by a sum of square
   roots, so is the series (`Quantum.rpow_inv_two_tsum_le_of_le_add` and
@@ -226,6 +228,60 @@ theorem sum_re_trace_conj_le [DecidableEq n] {ι : Type*} (s : Finset ι) (F : �
     ∑ r ∈ s, (conj (F r) Y).trace.re ≤ (∑ r ∈ s, ‖F r‖ ^ 2) * Y.trace.re := by
   rw [Finset.sum_mul]
   exact Finset.sum_le_sum fun r _ ↦ re_trace_conj_le (F r) hY
+
+/-- **Operator-norm bound block by block** (the blockwise estimate behind the coherent-index
+masses of ePrint 2025/2166, §4.2 and Lemma 5.7). Let `B k` be idempotents on the input of `F`
+that add up to the identity, let `B' k` be operators on its output with `(B' b)ᴴ B' a = 0` for
+`a ≠ b`, and let `F` send the block `B k` into the block `B' k`: `B' k F B k = F B k`. Then on a
+positive semidefinite `Y`, `re tr (F Y Fᴴ) ≤ ∑ₖ ‖F B k‖² re tr (B k Y (B k)ᴴ)`.
+
+Orthogonal projections onto the values of a coherent index register, `|k⟩⟨k| ⊗ 1`, satisfy the
+hypotheses with `B' = B`, and an operator `∑ₖ |k⟩⟨k| ⊗ Fₖ` that is block diagonal in the index
+sends each block into itself. -/
+theorem re_trace_conj_le_sum_of_blocks [DecidableEq n] {κ : Type*} [Fintype κ]
+    (F : Matrix m n ℂ) {B : κ → Matrix n n ℂ} {B' : κ → Matrix m m ℂ} (hB : ∑ k, B k = 1)
+    (hBB : ∀ k, B k * B k = B k) (hB' : ∀ a b, a ≠ b → (B' b)ᴴ * B' a = 0)
+    (hF : ∀ k, B' k * F * B k = F * B k) {Y : Matrix n n ℂ} (hY : Y.PosSemidef) :
+    (conj F Y).trace.re ≤ ∑ k, ‖F * B k‖ ^ 2 * (conj (B k) Y).trace.re := by
+  classical
+  have hG : ∀ k, F * B k = B' k * (F * B k) := fun k ↦ by rw [← Matrix.mul_assoc, hF k]
+  have hsum : F = ∑ k, F * B k := by rw [← Matrix.mul_sum, hB, Matrix.mul_one]
+  have hcross : ∀ a b, a ≠ b → (F * B a * Y * (F * B b)ᴴ).trace = 0 := by
+    intro a b hab
+    have e : (F * B a * Y * (F * B b)ᴴ).trace =
+        (B' a * ((F * B a) * (Y * ((F * B b)ᴴ * (B' b)ᴴ)))).trace := by
+      conv_lhs => rw [hG a, hG b]
+      simp only [Matrix.conjTranspose_mul, Matrix.mul_assoc]
+    rw [e, Matrix.trace_mul_comm]
+    simp only [Matrix.mul_assoc, hB' a b hab, Matrix.mul_zero, Matrix.trace_zero]
+  have hdiag : ∀ a, (conj (F * B a) Y).trace.re ≤ ‖F * B a‖ ^ 2 * (conj (B a) Y).trace.re := by
+    intro a
+    have e : conj (F * B a) (conj (B a) Y) = conj (F * B a) Y := by
+      rw [← LinearMap.comp_apply (conj (F * B a)), ← conj_mul, Matrix.mul_assoc, hBB]
+    rw [← e]
+    exact re_trace_conj_le _ (hY.mul_mul_conjTranspose_same _)
+  have htr : (conj F Y).trace = ∑ a, (conj (F * B a) Y).trace := by
+    conv_lhs => rw [hsum]
+    simp only [conj_apply, Matrix.conjTranspose_sum, Matrix.sum_mul, Matrix.mul_sum,
+      Matrix.trace_sum]
+    refine Finset.sum_congr rfl fun a _ ↦ ?_
+    rw [Finset.sum_eq_single a (fun b _ hba ↦ hcross b a hba) (by simp)]
+  rw [htr, Complex.re_sum]
+  exact Finset.sum_le_sum fun a _ ↦ hdiag a
+
+/-- **Operator-norm bound block by block**, in `ℝ≥0∞`. -/
+theorem ofReal_trace_conj_le_sum_of_blocks [DecidableEq n] {κ : Type*} [Fintype κ]
+    (F : Matrix m n ℂ) {B : κ → Matrix n n ℂ} {B' : κ → Matrix m m ℂ} (hB : ∑ k, B k = 1)
+    (hBB : ∀ k, B k * B k = B k) (hB' : ∀ a b, a ≠ b → (B' b)ᴴ * B' a = 0)
+    (hF : ∀ k, B' k * F * B k = F * B k) {Y : Matrix n n ℂ} (hY : Y.PosSemidef) :
+    ENNReal.ofReal (conj F Y).trace.re ≤
+      ∑ k, ENNReal.ofReal (‖F * B k‖ ^ 2) * ENNReal.ofReal (conj (B k) Y).trace.re := by
+  refine (ENNReal.ofReal_le_ofReal
+    (re_trace_conj_le_sum_of_blocks F hB hBB hB' hF hY)).trans_eq ?_
+  have hnn : ∀ k, 0 ≤ (conj (B k) Y).trace.re := fun k ↦
+    (hY.mul_mul_conjTranspose_same (B k)).trace_re_nonneg
+  rw [ENNReal.ofReal_sum_of_nonneg fun k _ ↦ mul_nonneg (sq_nonneg _) (hnn k)]
+  exact Finset.sum_congr rfl fun k _ ↦ ENNReal.ofReal_mul (sq_nonneg _)
 
 /-- An orthogonal projection has operator norm at most one. -/
 theorem l2_opNorm_le_one_of_proj [DecidableEq n] {P : Matrix n n ℂ} (hP : Pᴴ = P)
