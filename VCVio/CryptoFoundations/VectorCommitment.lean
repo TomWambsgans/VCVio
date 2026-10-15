@@ -129,6 +129,7 @@ def fixedOracleImpl (H : X → Y) : QueryImpl (unifSpec + (X →ₒ Y)) ProbComp
 /-- Perfect completeness (ePrint 2025/2166, Def 3.7, l.1316) against every fixed function `H`:
 for every message `m`, every query set `Q` and every outcome of `Commit^H(m)`, the honest opening
 of `Q` passes `Check^H` on `m[Q]`. Quantifying over all `H` covers every oracle distribution. -/
+@[expose]
 def PerfectlyComplete (vc : VectorCommitment X Y Msg Cm Td Pf ℓ) : Prop :=
   ∀ (H : X → Y) (m : Fin ℓ → Msg) (Q : Finset (Fin ℓ)),
     ∀ z ∈ support (simulateQ (fixedOracleImpl H) (vc.commit m)),
