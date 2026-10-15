@@ -17,8 +17,13 @@ Checks of the public interface of `VCVio.Quantum.VC.Compressed`, `VCVio.Quantum.
 and `VCVio.Quantum.MatrixMap.BlockNorm` (ePrint 2025/2166, Lemma 9.2 and Theorem 8.4):
 
 * unitarity and commutation of the ports of two compressed oracles on `Bool → ZMod 2`;
-* the law of a one-query adversary against the coherent compressed oracles is the average of its
-  laws against the random oracles, and P1 with `κsim = 0` applies to it;
+* smoke tests of the statements of the law equality and of P1 on a one-query adversary against
+  the coherent compressed oracles. Its leaves carry no classical value, so these laws only record
+  the preserved mass; they check that the statements elaborate on a concrete program;
+* a semantic check that observes the answer: a classical call of port `0` on `|false, 0⟩`,
+  followed by a computational-basis measurement of the answer register, returns each answer
+  with probability `1 / 2` against the compressed oracles, while against the oracle answering
+  `0` everywhere, whose ports are the identity, it returns `0` with certainty;
 * the norm of an operator controlled by one classical bit is the larger norm of its two blocks;
 * the salted Merkle scheme of #858 satisfies the conditions of Theorem 8.4 with `P_good` the
   collision-free databases, so `Quantum.Conditions` is not vacuous.
@@ -26,7 +31,7 @@ and `VCVio.Quantum.MatrixMap.BlockNorm` (ePrint 2025/2166, Lemma 9.2 and Theorem
 
 public section
 
-open Quantum Matrix
+open Quantum Matrix MeasureTheory
 open scoped ENNReal Kronecker Matrix.Norms.L2Operator
 
 namespace VCVioTest.QuantumVCCompressed
@@ -62,7 +67,11 @@ example :
 example : OraclesCommute E₂ :=
   oraclesCommute_compressedVCOracle
 
-/-! ## P1 on a one-query adversary -/
+/-! ## Smoke tests: the law equality and P1 on a one-query adversary
+
+The leaves of `oneQuery` carry no classical value, so every observation `f` below is constant
+and the laws only record the preserved mass. These examples check that the general statements
+apply to a concrete program; the answer-sensitive check is in the next section. -/
 
 /-- The register of a one-query adversary: the coherent query register and nothing beside it. -/
 local notation "Reg" => QReg.of (cohIn (oIn 2 Bool (ZMod 2)) × Unit)
@@ -103,6 +112,70 @@ example (ρ : SubState Reg) (f : (Σ u, (fun u ↦ PSigma fun _ : u =
         (fun H ↦ (romVCOracle 2 Bool (ZMod 2) H).coherent.toRuntime) .instruments oneQuery ρ
         (fun _ ↦ f) {true} + 0 :=
   (simulates_compressedVCOracle 1 oneQuery f ρ isQueryBound_oneQuery).1
+
+/-! ## The measured answer of a classical call is uniform -/
+
+/-- A classical call of port `0` on the input `|false, 0⟩`: measure the answer register in the
+computational basis after the call, and return the measured answer. -/
+noncomputable def answerCall :
+    QComp (uSpec (Fin 2) (oIn 2 Bool (ZMod 2))) (QReg.of Unit) (QReg.of Unit) (ZMod 2) :=
+  QComp.callBasis (spec := uSpec (Fin 2) (oIn 2 Bool (ZMod 2))) 0 (QReg.of Unit) (false, 0)
+    fun o _ ↦ o.2
+
+/-- The block `⟨o|U_0|false, 0⟩` of the random oracle `H` is one exactly at the output
+`o = (false, H 0 false)`. -/
+theorem block_romVCOracle (H : Fin 2 → Bool → ZMod 2) (o : Bool × ZMod 2) :
+    (romVCOracle 2 Bool (ZMod 2) H).block 0 o (false, 0) =
+      if o = (false, H 0 false) then 1 else 0 := by
+  ext ⟨⟩ ⟨⟩
+  by_cases h : o = (false, H 0 false) <;>
+    simp [romVCOracle, oracleUnitary_apply, h] <;> rfl
+
+/-- Against the random oracle `H`, the call returns `H 0 false` with certainty. -/
+theorem outcomeLaw₂_romVCOracle_answerCall (H : Fin 2 → Bool → ZMod 2) (y : ZMod 2) :
+    (romVCOracle 2 Bool (ZMod 2) H).toRuntime.outcomeLaw₂ .instruments answerCall
+      (SubState.basis ()) {y} = if H 0 false = y then 1 else 0 := by
+  rw [QuantumRuntime.outcomeLaw₂_apply_singleton, QuantumRuntime.matrix_jointPost₂, answerCall,
+    EmulatedOracle.branch_run₂_callBasis, Finset.sum_eq_single (false, H 0 false)
+      (fun o _ ho ↦ by simp [block_romVCOracle, ho]) (by simp)]
+  by_cases h : H 0 false = y
+  · subst h
+    simp only [block_romVCOracle, ↓reduceIte, one_kronecker_one, MatrixMap.conj_one]
+    rw [LinearMap.id_apply]
+    simp [romVCOracle, Matrix.trace]
+    rfl
+  · simp [h]
+
+/-- **The measured answer is uniform** against the compressed oracles: each `y : ZMod 2` has
+probability `1 / 2`. By `Quantum.outcomeLawWith_compressedVCOracle` the law is the average over
+the `16` random oracles `H`, of which `8` have `H 0 false = y`. -/
+example (y : ZMod 2) :
+    (E₂).toRuntime.outcomeLaw₂ .instruments answerCall (SubState.basis ()) {y} = 2⁻¹ := by
+  have h := outcomeLawWith_compressedVCOracle (k := 2) (X := Bool) (Y := ZMod 2) .instruments
+    answerCall (SubState.basis ()) (QuantumComp₂.leafEquiv (QReg.of Unit) (ZMod 2)).symm
+  rw [QuantumRuntime.outcomeLaw₂_eq_outcomeLawWith, h, Measure.coe_finsetSum, Finset.sum_apply]
+  simp only [Measure.smul_apply, ← QuantumRuntime.outcomeLaw₂_eq_outcomeLawWith, smul_eq_mul]
+  rw [Finset.sum_congr rfl fun H _ ↦ by rw [outcomeLaw₂_romVCOracle_answerCall H y]]
+  have h8 : (Finset.univ.filter fun H : Fin 2 → Bool → ZMod 2 ↦ H 0 false = y).card = 8 := by
+    fin_cases y <;> decide
+  have h16 : Fintype.card (Fin 2 → Bool → ZMod 2) = 8 * 2 := by
+    simp [ZMod.card]
+  simp only [mul_ite, mul_one, mul_zero, Finset.sum_ite, Finset.sum_const_zero, add_zero,
+    Finset.sum_const, nsmul_eq_mul, h8, h16, Nat.cast_mul]
+  rw [ENNReal.mul_inv (Or.inl (by norm_num)) (Or.inl (by norm_num)), ← mul_assoc,
+    ENNReal.mul_inv_cancel (by norm_num) (by norm_num), one_mul, Nat.cast_ofNat]
+
+/-- The oracle answering `0` everywhere has identity ports. -/
+example (i : Fin 2) : (romVCOracle 2 Bool (ZMod 2) 0).U i = 1 := by
+  ext ⟨m, ⟨⟩⟩ ⟨m', ⟨⟩⟩
+  simp [romVCOracle, Matrix.one_apply]
+
+/-- **The identity oracle has a different law**: against it the call never returns `1`, so the
+measured answer tells the compressed oracles apart from the identity. -/
+example :
+    (romVCOracle 2 Bool (ZMod 2) 0).toRuntime.outcomeLaw₂ .instruments answerCall
+      (SubState.basis ()) {1} = 0 :=
+  (outcomeLaw₂_romVCOracle_answerCall 0 1).trans (by simp)
 
 /-! ## The norm of a classically controlled operator with two blocks -/
 
