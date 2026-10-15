@@ -42,12 +42,13 @@ Prove Post-Quantum Security for Succinct Non-Interactive Reductions*, ePrint 202
   optimal. This optimality is not formalized; the argument is as follows. Take `X` a point,
   `t = 1`, `Y = Fin s → ZMod 2` with `N = 2 ^ s`, a nonzero character `χ`, and `m` contents `u`
   with `χ u = -1`, each its own label, every other content (and `⊥`) in the label of `⊥`. Then
-  `I = b = m / N`. In the block of the empty database, the defect `Δ` restricted to the span of
-  the uniform vector on these `m` contents and its normalized image is
-  `[[0, √(6b - 9b²)], [√(6b - 9b²), 3 (m - 1) / N]]` (after a sign change of the empty basis
-  vector), and `Δ` is `-3 / N` or `0` on the complement. With `m` the nearest integer to `2N / 9`
-  and `s → ∞`, `b → 2 / 9` and the largest eigenvalue tends to `4 / 3`, so
-  `‖Δ‖² / I → (4 / 3)² / (2 / 9) = 8`.
+  `I = b = m / N`. Work with `E = O_ph^(t) - pinch O_ph^(t) = -Δ` in the block of the empty
+  database. Let `e₁` be the uniform unit vector on these `m` contents and `e₀` the normalized
+  component of `E e₁` in the label of `⊥`. In the basis `(e₀, e₁)` (up to the sign of `e₀`), `E`
+  restricted to their span is `[[0, √(6b - 9b²)], [√(6b - 9b²), 3 (m - 1) / N]]`, and `E` is
+  `-3 / N` or `0` on the complement. With `m` the nearest integer to `2N / 9` and `s → ∞`,
+  `b → 2 / 9` and the largest eigenvalue of `E` tends to `4 / 3`, so
+  `‖Δ‖² / I = ‖E‖² / I → (4 / 3)² / (2 / 9) = 8`.
 * For labellings with at most two values the pinching constant is `6`, the constant of [CMS19,
   Lemma 5.10], here with a proof that also covers databases of size exactly `t`
   (`VCVio.Quantum.Oracle.Compressed.BinaryPartition`).
