@@ -12,10 +12,14 @@ public import VCVio.Quantum.Comp.QueryBound
 
 The *query mass* of a program on a port is the total weight with which the program calls that
 port: run the program, and at every call of the port add the trace of the state that reaches the
-call. Query mass is the bookkeeping device of the square-root hybrid argument: a change of the
-answers of a port costs at most the operator norm of the change times the square root of the
-query mass of the port (ePrint 2025/2166, §4.2 and Lemma 5.7; Zhandry, *How to record quantum
-queries*, CRYPTO 2019; Hamoudi, 2025).
+call. Query mass is the bookkeeping device of the square-root hybrid argument (ePrint 2025/2166,
+§4.2 and Lemma 5.7; Zhandry, *How to record quantum queries*, CRYPTO 2019; Hamoudi, 2025). A
+change of the answers of the ports costs, for each call `j`, the square root of the masses of
+that call weighted by the squared operator norms `Cᵢ` of the change, and these costs add up over
+the calls: the error is `∑ⱼ √(∑ᵢ Cᵢ · mass(i, j))`. The total mass alone does not bound it,
+since small changes accumulate over many calls. For a program making at most `q` calls,
+Cauchy–Schwarz over the calls gives the consequence `√(q · ∑ᵢ Cᵢ · TotalMass(i))`, which is
+`C · √(q · TotalMass)` for a single port with `C² = Cᵢ`.
 
 ## Classical ports and coherent indices
 
