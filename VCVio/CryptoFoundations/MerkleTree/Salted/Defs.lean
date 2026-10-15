@@ -50,10 +50,10 @@ These counts differ from the `q_s · log ℓ` and `ℓ` stated in ePrint 2025/21
 ## Universes
 
 The tree data, the opening, `OutputIO`, `checkOn` and the consistency lemmas take `X`, `Y`, `Msg`
-and `Salt` in independent universes. `commitTree`, `scheme`, `checkIOForm` and completeness take
-`Y` and `Salt` in `Type`: `Y` is the answer type of the oracle, which is combined with the
-uniform-sampling oracle `unifSpec`, and the salts are sampled uniformly. `X` and `Msg` stay in
-arbitrary universes.
+and `Salt` in independent universes. `commitTree`, which samples no coins, takes `Y` and `Salt` in
+one common universe. `scheme`, `checkIOForm` and completeness take `Y` and `Salt` in `Type`: `Y`
+is the answer type of the oracle, which is combined with the uniform-sampling oracle `unifSpec`,
+and the salts are sampled uniformly. `X` and `Msg` stay in arbitrary universes.
 
 ## Main definitions
 
@@ -777,14 +777,15 @@ end Count
 
 end Generic
 
-/-! ## The scheme
+/-! ## Commitment with fixed salts
 
-`Commit` samples the salts with `unifSpec` and queries `X →ₒ Y`, so this section takes `Y` and
-`Salt` in `Type`. -/
+`commitTree` samples no coins and only queries `X →ₒ Y`, so `Y` and `Salt` may live in any
+universe. They share one: `OracleComp` binds results of a single universe, and the result pairs
+the root in `Y` with a trapdoor holding salts. -/
 
-section Scheme
+section Commit
 
-variable {X : Type uX} {Y Salt : Type} {Msg : Type uM}
+variable {X : Type uX} {Y Salt : Type uY} {Msg : Type uM}
 
 /-- `Commit^f(m)` after the salts are fixed (l.2974–2981): hash the leaves `f(m_ι, γ_ι)` and then
 the tree bottom-up. It returns the root and the trapdoor `(γ, C)`. -/
@@ -797,7 +798,7 @@ def commitTree (enc : Encoding X Y Msg Salt) (d : ℕ) (msg : Fin (2 ^ d) → Ms
   pure (r.1, (fun ι ↦ some (γ ι), fun j q ↦ r.2 j q))
 
 /-- Answering the queries of `commitTree` with `H` gives the honest root and trapdoor. -/
-theorem simulateQ_commitTree {m : Type → Type} [Monad m] [LawfulMonad m]
+theorem simulateQ_commitTree {m : Type uY → Type*} [Monad m] [LawfulMonad m]
     (enc : Encoding X Y Msg Salt) (d : ℕ) (H : X → Y) (msg : Fin (2 ^ d) → Msg)
     (γ : Fin (2 ^ d) → Salt) :
     simulateQ (fun x ↦ (pure (H x) : m Y)) (commitTree enc d msg γ) =
@@ -805,6 +806,17 @@ theorem simulateQ_commitTree {m : Type → Type} [Monad m] [LawfulMonad m]
   simp only [commitTree, simulateQ_bind, simulateQ_hashAll, simulateQ_buildUp,
     simulateQ_spec_query, hashAll_pure, pure_bind, buildUp_pure, simulateQ_pure]
   rfl
+
+end Commit
+
+/-! ## The scheme
+
+`Commit` samples the salts with `unifSpec` and queries `X →ₒ Y`, so this section takes `Y` and
+`Salt` in `Type`. -/
+
+section Scheme
+
+variable {X : Type uX} {Y Salt : Type} {Msg : Type uM}
 
 /-- The salted Merkle commitment `MT[σ, Σ, ℓ = 2 ^ d, ν]` (Def 8.2, l.2971–3000). `Commit` samples
 the salts uniformly with `unifSpec` and hashes bottom-up, `Open` reads the paths from the

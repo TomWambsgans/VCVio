@@ -183,6 +183,26 @@ def encU : Encoding (ULift.{1} X) (ULift.{2} Bool) (ULift.{3} Bool) (ULift.{4} B
 example : (multiExtract encU (k := 2) fun _ ↦ 1).Admissible fun _ ↦ (fun _ ↦ none, tdBot) :=
   multiExtract_admissible encU _
 
+/-- An encoding with labels and salts in `Type 1`, oracle inputs in `Type 2` and messages in
+`Type 3`. -/
+def encY : Encoding (ULift.{2} X) (ULift.{1} Bool) (ULift.{3} Bool) (ULift.{1} Bool) where
+  node c := ⟨enc.node (c.1.down, c.2.down)⟩
+  leaf p := ⟨enc.leaf (p.1.down, p.2.down)⟩
+  node_injective := by
+    rintro ⟨⟨a⟩, ⟨b⟩⟩ ⟨⟨c⟩, ⟨e⟩⟩ h
+    simp_all [enc]
+  leaf_injective := by
+    rintro ⟨⟨a⟩, ⟨b⟩⟩ ⟨⟨c⟩, ⟨e⟩⟩ h
+    simp_all [enc]
+
+/-- `commitTree` with labels and salts in `Type 1`, answered by a fixed function, gives the
+honest root and trapdoor. -/
+example (H : ULift.{2} X → ULift.{1} Bool) (msg : Fin (2 ^ 1) → ULift.{3} Bool)
+    (γ : Fin (2 ^ 1) → ULift.{1} Bool) :
+    simulateQ (fun x ↦ (pure (H x) : Id (ULift.{1} Bool))) (commitTree encY 1 msg γ) =
+      pure (honestTree encY 1 H msg γ) :=
+  simulateQ_commitTree encY 1 H msg γ
+
 /-- An encoding whose oracle input type `X` lives in `Type 1`; the answers and salts are bits. -/
 def encX : Encoding (ULift.{1} X) Bool (ULift.{2} Bool) Bool where
   node c := ⟨enc.node c⟩
