@@ -18,9 +18,9 @@ instability at most `min (1, (2s + 1) / |Y|)`, including databases with collisio
 ## References
 
 Chiesa–Di–Hu–Zheng, ePrint 2025/2166: half-preimages and extraction sensitivity
-(Definition 8.5 and Lemma 8.6, `papers/2166.txt`, lines 3125–3132), and the online
-instability argument (Lemma 8.8, lines 3191–3242). The singleton-tuple bound proved here
-counts one selected root and at most two half-preimages per database cell.
+(Definition 8.5 and Lemma 8.6, p. 55), and the online instability argument
+(Lemma 8.8, p. 56). The singleton-tuple bound proved here counts one selected root
+and at most two half-preimages per database cell.
 -/
 
 public section

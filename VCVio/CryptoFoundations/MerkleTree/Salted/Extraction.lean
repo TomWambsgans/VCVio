@@ -20,12 +20,11 @@ It is independent of the adversary's query and mass budgets. Extractor efficienc
 
 ## References
 
-Chiesa–Di–Hu–Zheng, ePrint 2025/2166: Merkle openings (Definition 8.2,
-`papers/2166.txt`, lines 2971–3000), extraction correctness (Definition 7.3, property 3,
-lines 2860–2881), and its general proof (Lemma 9.3, lines 3352–3503).
-The exact opening-cell P3 error proved here is a strengthened bound using `2L - 1` cells
-from one trapdoor. Its formula is not the estimate stated in the paper's Theorem 8.3
-(lines 3002–3017); the compression step is discussed in lines 3480–3503.
+Chiesa–Di–Hu–Zheng, ePrint 2025/2166: Merkle openings (Definition 8.2, pp. 52–53),
+extraction correctness (Definition 7.3, property 3, p. 51), and its general proof
+(Lemma 9.3, pp. 59–61). The exact opening-cell P3 error proved here is a strengthened bound
+using `2L - 1` cells from one trapdoor. Its formula is not the estimate stated in the paper's
+Theorem 8.3 (p. 53); the compression step appears in the proof of Lemma 9.3 (p. 61).
 -/
 
 public section

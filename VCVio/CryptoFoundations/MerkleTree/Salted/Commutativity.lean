@@ -18,10 +18,9 @@ online instability bound; `4` is the squared norm bound for a difference of two 
 ## References
 
 Chiesa–Di–Hu–Zheng, ePrint 2025/2166: oracle commutativity (Definition 7.3, property 2,
-`papers/2166.txt`, lines 2841–2857) and its instability reduction (Lemma 9.2,
-lines 3262–3288), together with Merkle instability (Lemma 8.8, lines 3191–3242).
-The constant-24/cap-four P2 bound is a strengthened bound proved here; its formula is
-not the estimate stated in the paper's Theorem 8.3 (lines 3002–3017).
+p. 50) and its instability reduction (Lemma 9.2, p. 58), together with Merkle instability
+(Lemma 8.8, p. 56). The constant-24/cap-four P2 bound is a strengthened bound proved here;
+its formula is not the estimate stated in the paper's Theorem 8.3 (p. 53).
 -/
 
 public section
