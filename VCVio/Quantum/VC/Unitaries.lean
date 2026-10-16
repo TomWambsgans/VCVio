@@ -45,7 +45,7 @@ default encoding (`Quantum.TpDCode.ofFintype`) writes into `ZMod (card (TpD k Dm
   `Quantum.recordMEUnitary_mem_unitaryGroup`.
 * `Quantum.extractUnitary_eq_sum_labelControlled`: for a fixed tuple, `U_MultiExtract` is
   label-controlled by `s ↦ MultiExtract(tic, s)` with members `1 ⊗ xorShift z`. This is the form of
-  the purified measurements of Cor 5.6 (p. 36).
+  the purified measurements of Cor 5.6 (p. 31).
 -/
 
 public section
@@ -239,7 +239,7 @@ omit [Fintype S] [Fintype Z] in
 /-- **`U_MultiExtract` is block diagonal in the tuple, with label-controlled blocks**:
 `U_MultiExtract = ∑_tic |tic⟩⟨tic| ⊗ labelControlled (s ↦ enc(ME(tic, s))) (z ↦ 1 ⊗ xorShift z)`.
 Each block has the form of the purified measurements of Cor 5.6 of ePrint 2025/2166
-(p. 36): a labelling of the rest of the register, and an XOR shift on the output. -/
+(p. 31): a labelling of the rest of the register, and an XOR shift on the output. -/
 theorem extractUnitary_eq_sum_labelControlled :
     extractUnitary ME code = ∑ tic, reindex extractRegroup extractRegroup
       (single tic tic (1 : ℂ) ⊗ₖ extractBlock ME code tic) := by
