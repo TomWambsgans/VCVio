@@ -5,7 +5,8 @@ Authors: Quang Dao
 -/
 
 module
-public import VCVio.Quantum.VC.Proof.OfflineOldAssembly
+public import VCVio.Quantum.VC.Proof.OfflineOldPartial
+public import VCVio.Quantum.VC.Proof.OfflineOldLeaves
 
 /-!
 # Outcome-preserving offline assembly regressions
@@ -52,3 +53,20 @@ example : oldOfflineBound 16 1 0 0 0 = 1 / 4 := by
     (ne_top_of_le_ne_top ENNReal.one_ne_top (min_le_left _ _)) (by finiteness)).mp
   rw [ENNReal.toReal_min (by finiteness) (by finiteness)]
   norm_num [ENNReal.toReal_mul, ENNReal.toReal_pow]
+
+/-- The measured-family comparison permits an infinite classical outcome alphabet. -/
+example : MatrixMap.IsCPTNIFamily (fun i : ℕ ↦ MatrixMap.conj
+    (Matrix.diagonal fun _ : Fin 2 ↦ if True ∧ (0 : ℕ) = i then (1 : ℂ) else 0)) :=
+  MatrixMap.accepted_label_isCPTNIFamily (fun _ ↦ True) (fun _ ↦ 0)
+
+/-- The partial mismatch bound and filled comparison are available through public imports. -/
+example := @offlineFinish_partial_le_bad
+
+/-- The filled comparison keeps the actual finishing branch for each measured result. -/
+example := @offlineFinish_filled_le_bad_add_distance
+
+/-- The component increment retains the leaf weight for adaptive aggregation. -/
+example := @extraction_invalid_increment_weighted
+
+/-- Dependent-register leaf aggregation is exported without a finite-leaf assumption. -/
+example := @databaseControl_invalid_leaf_sum_le
