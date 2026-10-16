@@ -14,7 +14,7 @@ public import VCVio.Quantum.Oracle.Compressed.CommutatorBound
 This file proves local positive-operator inequalities for binary events of one compressed
 cell over a finite abelian answer group. The two-coefficient inequality is equation (77) of
 the accompanying bounds note (NOTE), refining ePrint 2025/2166 §9.3's collision-event
-argument (Lemma 9.6, `papers/2166.txt:3507`; event bound, lines 3747–3781).
+argument (Lemma 9.6, p. 61; event bound, pp. 64–65).
 The three-coefficient source estimate retains the phase component as in NOTE (100) and (107).
 The potential-drop identity underlies the population transition inequality (78).
 
@@ -591,7 +591,7 @@ theorem re_star_dotProduct_cellDiag_mulVec (a₀ a₁ : ℝ) (ψ : Option Y → 
 
 /-- The occupancy-sensitive positive-operator bound for a binary cell event, bounds-note (77).
 This supports NOTE's refinement of the paper's §9.3 collision-event argument
-(Lemma 9.6, `papers/2166.txt:3507`; event bound, lines 3747–3781).
+(Lemma 9.6, p. 61; event bound, pp. 64–65).
 The rate satisfies the weighted Cauchy–Schwarz condition and absorbs the reverse cross block. -/
 theorem posSemidef_smul_cellDiag_sub_flip (χ : AddChar Y ℂ) (fl : Finset Y) {lam a₀ a₁ : ℝ}
     (hlam : 0 ≤ lam) (h₀ : 0 ≤ a₀) (h₁ : 0 ≤ a₁)
@@ -696,7 +696,7 @@ theorem sum_norm_flipCommutator_sq_le_drop (χ : AddChar Y ℂ) (fl : Finset Y)
 /-- The three-coefficient leak bound as a positive-operator inequality, with the full
 phase projector and the additive scalar error of bounds-note (107).
 This supports NOTE's refinement of the paper's §9.3 collision-event argument
-(Lemma 9.6, `papers/2166.txt:3507`; event bound, lines 3747–3781). -/
+(Lemma 9.6, p. 61; event bound, pp. 64–65). -/
 theorem posSemidef_cellDrop_sub_flip (χ : AddChar Y ℂ) (fl : Finset Y)
     {lam a₀ a₁ d s : ℝ} (hlam : 0 ≤ lam) (h₀ : 0 ≤ a₀) (h₁ : 0 ≤ a₁) (hd : 0 ≤ d)
     (hs : 0 < s) (hleak : PhaseLeakBound lam a₀ a₁ d (fl.card / Fintype.card Y)) :

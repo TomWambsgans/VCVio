@@ -13,7 +13,7 @@ public import VCVio.Quantum.Oracle.Compressed.Collision
 
 This file assembles the one-cell inequalities of bounds-note (NOTE) equations (77), (78),
 (87)–(89), (91), formalizing NOTE's refinement of ePrint 2025/2166 §9.3's collision-event
-argument (Lemma 9.6, `papers/2166.txt:3507`; event bound, lines 3747–3781).
+argument (Lemma 9.6, p. 61; event bound, pp. 64–65).
 The population counts database entries only.
 -/
 
@@ -370,7 +370,7 @@ theorem posSemidef_compressedPopulationDrop {t n : ℕ} (hn : n < t) (offset : �
 
 /-- The population drop dominates collision leakage for the standard compressed oracle.
 This supports NOTE's refinement of the paper's §9.3 collision-event argument
-(Lemma 9.6, `papers/2166.txt:3507`; event bound, lines 3747–3781). -/
+(Lemma 9.6, p. 61; event bound, pp. 64–65). -/
 theorem posSemidef_compressedPopulationLeak {t n : ℕ} (hn : n < t) (offset : ℕ)
     (q : Database X Y → Bool)
     (hq : ∀ (x : X) (r : Database X Y), r x = none →

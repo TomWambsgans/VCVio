@@ -11,10 +11,10 @@ public import VCVio.Quantum.Comp.HybridProjected
 # Potential certificates for events of a runtime
 
 This file formalizes the bounds note's (NOTE) refinement of the collision-event argument in
-ePrint 2025/2166 §9.3 (Lemma 9.6, `papers/2166.txt:3507`; event bound, lines 3747–3781).
+ePrint 2025/2166 §9.3 (Lemma 9.6, p. 61; event bound, pp. 64–65).
 The paper uses the size projection, Corollaries 5.8/5.6, and a coefficient-80 per-database
 bound.
-Corollaries 5.6 and 5.8 appear at `papers/2166.txt:1523` and `papers/2166.txt:1659`.
+Corollaries 5.6 and 5.8 appear on pp. 31 and 33.
 NOTE introduces the charged potential: an operator on the runtime register whose
 trace can decrease up to a charge per call and dominates leakage from the good subspace.
 Here we prove its general certificate for arbitrary programs against runtimes with Kraus
@@ -602,7 +602,7 @@ theorem krausWeight_sub_pinch (i : spec.Port) (σ : Matrix (spec.In i × D) (spe
 include hU hQ hQQ in
 /-- **The potential certificate** of NOTE (107), with per-port additive terms. This supports
 NOTE's refinement of the paper's §9.3 collision-event argument (Lemma 9.6,
-`papers/2166.txt:3507`; event bound, lines 3747–3781).
+p. 61; event bound, pp. 64–65).
 Let a runtime have Kraus operators `U i r`, let `Q` be a projector on its
 register, and let a program call it at most `N` times. Suppose that for every call `n < N`, on
 every positive semidefinite input `σ` of a call of port `i`,
