@@ -125,7 +125,7 @@ theorem not_prEvent_byte_le_prEvent_typed :
   intro h
   rw [prEvent_eq_one_of_forall_mem_support _ _ compare_byte_true] at h
   obtain ⟨z, hz, hf⟩ := compare_typed_false
-  have h1 := (prEvent_eq_one_iff _ _).1 (le_antisymm (prEvent_le_one _ _) h) z hz
+  have h1 := (prEvent_eq_one_iff _ _).1 (le_antisymm (prEvent_le_one _) h) z hz
   simp [hf] at h1
 
 /-- The bound of the encoded world for `compare`, which the clash makes trivial. -/
