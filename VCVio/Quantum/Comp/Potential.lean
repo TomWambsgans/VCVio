@@ -291,7 +291,7 @@ variable {D Z : Type*} [Fintype D] [Fintype Z]
 potential `Φ = Kᴴ K` on `D`, in `ℝ≥0∞`. Every positive semidefinite `Φ` has this form, with
 `K = Φ^{1/2}`; a diagonal `Φ` has it with the diagonal `K` of the square roots. -/
 @[expose]
-noncomputable def potential (K : Matrix Z D ℂ) {A : Type*} [Fintype A] [DecidableEq A]
+noncomputable def potential (K : Matrix Z D ℂ) {A : Type*} [Fintype A]
     (ρ : Matrix (A × D) (A × D) ℂ) : ℝ≥0∞ :=
   ENNReal.ofReal ((MatrixMap.conj K).amplifyLeft A ρ).trace.re
 
@@ -314,10 +314,11 @@ theorem potential_callInput [DecidableEq D] {A J E : Type*} [Fintype A] [Fintype
 /-- **Local operations do not increase the potential**: the potentials of the branches of a
 dependent subinstrument on the program register, framed by `D`, add up to at most the potential
 of a positive semidefinite state. -/
-theorem tsum_potential_frame_le {A : Type*} [Fintype A] [DecidableEq A] {ι : Type*}
-    {B : ι → Type*} [∀ b, Fintype (B b)] [∀ b, DecidableEq (B b)] (p : DSubInstrument A ι B)
+theorem tsum_potential_frame_le {A : Type*} [Fintype A] {ι : Type*}
+    {B : ι → Type*} [∀ b, Fintype (B b)] (p : DSubInstrument A ι B)
     {ρ : Matrix (A × D) (A × D) ℂ} (hρ : ρ.PosSemidef) :
     ∑' b, potential K ((p.frame D).branch b ρ) ≤ potential K ρ := by
+  classical
   have h : ∀ b, (MatrixMap.conj K).amplifyLeft (B b) ((p.frame D).branch b ρ) =
       (p.frame Z).branch b ((MatrixMap.conj K).amplifyLeft A ρ) := fun b ↦
     (LinearMap.congr_fun (DSubInstrument.Intertwines.frame_amplifyLeft p (MatrixMap.conj K) b)
@@ -327,8 +328,8 @@ theorem tsum_potential_frame_le {A : Type*} [Fintype A] [DecidableEq A] {ι : Ty
   rw [MatrixMap.amplifyLeft_conj]
   exact hρ.mul_mul_conjTranspose_same _
 
-/-- The potential of a positive semidefinite operator is the real trace, as an extended real. -/
-theorem potential_ne_top {A : Type*} [Fintype A] [DecidableEq A]
+/-- A finite-dimensional potential trace is finite. -/
+theorem potential_ne_top {A : Type*} [Fintype A]
     (ρ : Matrix (A × D) (A × D) ℂ) : potential K ρ ≠ ⊤ :=
   ENNReal.ofReal_ne_top
 
