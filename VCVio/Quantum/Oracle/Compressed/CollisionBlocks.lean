@@ -118,6 +118,40 @@ theorem operatorPullback_one [DecidableEq J] [DecidableEq M]
 
 end pullback
 
+section scalarPotential
+
+variable {J : Type*} [Fintype J] [DecidableEq J]
+
+/-- The charged drop of a potential across a unitary call. -/
+@[expose]
+noncomputable def chargedDrop (U A B : Matrix J J ℂ) (θ : ℝ) : Matrix J J ℂ :=
+  A + θ • 1 - Uᴴ * B * U
+
+/-- Adding scalar potentials adds their scalar decrease to the charged drop. -/
+theorem chargedDrop_add_scalar (U A B : Matrix J J ℂ) (hU : Uᴴ * U = 1)
+    (θ a b : ℝ) :
+    chargedDrop U (A + a • 1) (B + b • 1) θ = chargedDrop U A B θ + (a - b) • 1 := by
+  simp only [chargedDrop, Matrix.mul_add, Matrix.add_mul, Matrix.mul_smul,
+    Matrix.smul_mul, Matrix.mul_one, hU, sub_smul]
+  abel
+
+/-- A nonincreasing spectator scalar preserves a charged drop and its leak bound. -/
+theorem posSemidef_chargedDrop_add_scalar {U A B C : Matrix J J ℂ} (hU : Uᴴ * U = 1)
+    {θ a b r : ℝ} (hab : b ≤ a) (hr : 0 ≤ r)
+    (hd : (chargedDrop U A B θ).PosSemidef)
+    (hl : (r • chargedDrop U A B θ - Cᴴ * C).PosSemidef) :
+    (chargedDrop U (A + a • 1) (B + b • 1) θ).PosSemidef ∧
+    (r • chargedDrop U (A + a • 1) (B + b • 1) θ - Cᴴ * C).PosSemidef := by
+  rw [chargedDrop_add_scalar U A B hU]
+  have hs : ((a - b) • (1 : Matrix J J ℂ)).PosSemidef :=
+    PosSemidef.one.smul (sub_nonneg.mpr hab)
+  refine ⟨hd.add hs, ?_⟩
+  convert hl.add (hs.smul hr) using 1
+  rw [smul_add]
+  abel
+
+end scalarPotential
+
 section split
 
 variable {X Q Y : Type*} [DecidableEq X]
@@ -128,7 +162,7 @@ abbrev CellContext (X Q Y : Type*) :=
 
 /-- Separate the queried cell from the query and the remaining database. -/
 @[expose]
-def cellSplit : (X × Q) × Database X Y ≃ Option Y × CellContext X Q Y where
+def phaseCellSplit : (X × Q) × Database X Y ≃ Option Y × CellContext X Q Y where
   toFun m := (m.2 m.1.1, ⟨m.1, fun j ↦ m.2 j.1⟩)
   invFun a := (a.2.1, (Equiv.funSplitAt a.2.1.1 (Option Y)).symm (a.1, a.2.2))
   left_inv m := by
@@ -151,15 +185,15 @@ theorem CellContext.emptyDatabase_apply (c : CellContext X Q Y) :
     c.emptyDatabase c.1.1 = none := by simp [CellContext.emptyDatabase]
 
 /-- Reconstructing a database from its cell and context is a single update. -/
-theorem cellSplit_symm_eq_update (a : Option Y) (c : CellContext X Q Y) :
-    cellSplit.symm (a, c) = (c.1, Function.update c.emptyDatabase c.1.1 a) := by
+theorem phaseCellSplit_symm_eq_update (a : Option Y) (c : CellContext X Q Y) :
+    phaseCellSplit.symm (a, c) = (c.1, Function.update c.emptyDatabase c.1.1 a) := by
   refine Prod.ext ?_ ?_
   · rfl
   ext x
   by_cases hx : x = c.1.1
   · subst x
-    simp [cellSplit]
-  · simp [cellSplit, CellContext.emptyDatabase, Equiv.funSplitAt_symm_apply, hx]
+    simp [phaseCellSplit]
+  · simp [phaseCellSplit, CellContext.emptyDatabase, Equiv.funSplitAt_symm_apply, hx]
 
 end split
 
@@ -172,7 +206,7 @@ variable {X Y : Type*} [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y]
 theorem phaseOracle_eq_cellBlocks :
     phaseOracle X Y = (blockDiagonal
       (fun c : CellContext X (AddChar Y ℂ) Y ↦ phaseCell Y c.1.2)).submatrix
-        cellSplit cellSplit := by
+        phaseCellSplit phaseCellSplit := by
   ext ⟨q', D'⟩ ⟨q, D⟩
   rw [phaseOracle_apply, submatrix_apply, blockDiagonal_apply]
   change (if q' = q ∧ ∀ j ≠ q.1, D' j = D j then _ else 0) =
@@ -195,14 +229,14 @@ theorem one_kronecker_diagonal_eq_cellBlocks (f : Database X Y → ℂ) :
     (1 : Matrix (X × AddChar Y ℂ) (X × AddChar Y ℂ) ℂ) ⊗ₖ diagonal f =
       (blockDiagonal (fun c : CellContext X (AddChar Y ℂ) Y ↦
         diagonal fun a ↦ f (Function.update c.emptyDatabase c.1.1 a))).submatrix
-          cellSplit cellSplit := by
+          phaseCellSplit phaseCellSplit := by
   rw [blockDiagonal_diagonal, submatrix_diagonal_equiv, ← diagonal_one,
     diagonal_kronecker_diagonal]
   apply congrArg diagonal
   funext m
   simp only [Function.comp_apply, one_mul]
-  have h := cellSplit_symm_eq_update (cellSplit m).1 (cellSplit m).2
-  rw [cellSplit.symm_apply_apply] at h
+  have h := phaseCellSplit_symm_eq_update (phaseCellSplit m).1 (phaseCellSplit m).2
+  rw [phaseCellSplit.symm_apply_apply] at h
   exact congrArg (fun z ↦ f z.2) h
 
 /-- The diagonal population potential, with an offset for the other databases. -/
@@ -217,7 +251,7 @@ theorem populationMatrix_eq_cellBlocks (t n offset : ℕ) :
         populationMatrix (X := X) (Y := Y) t n offset =
       (blockDiagonal (fun c : CellContext X (AddChar Y ℂ) Y ↦
         collisionCellPotential Y t n (offset + c.emptyDatabase.size))).submatrix
-          cellSplit cellSplit := by
+          phaseCellSplit phaseCellSplit := by
   rw [populationMatrix, one_kronecker_diagonal_eq_cellBlocks]
   congr 2
   funext c
@@ -244,7 +278,7 @@ theorem posSemidef_phasePopulationDrop {t n : ℕ} (hn : n < t) (offset : ℕ) :
       (show (0 : ℝ) ≤ (t : ℝ) / (n + 1) * (offset + c.emptyDatabase.size + 1) by positivity)
     convert h.add hp using 1
     simp [P, U, C]
-  let e := cellSplit (X := X) (Q := AddChar Y ℂ) (Y := Y)
+  let e := phaseCellSplit (X := X) (Q := AddChar Y ℂ) (Y := Y)
   have hb : (liftBlocks e (P n + ((t : ℝ) / 2) • 1 -
       (fun c ↦ (U c)ᴴ) * P (n + 1) * U)).PosSemidef :=
     posSemidef_liftBlocks e h
@@ -286,7 +320,7 @@ theorem posSemidef_phasePopulationLeak {t n : ℕ} (hn : n < t) (offset : ℕ)
     convert hd.add hl using 1
     simp only [smul_sub, P, U, r]
     abel
-  let e := cellSplit (X := X) (Q := AddChar Y ℂ) (Y := Y)
+  let e := phaseCellSplit (X := X) (Q := AddChar Y ℂ) (Y := Y)
   have hb : (liftBlocks e (r • (P n + ((t : ℝ) / 2) • 1 -
       (fun c ↦ (U c)ᴴ) * P (n + 1) * U) -
       (fun c ↦ ((Q * U - U * Q) c)ᴴ) * (Q * U - U * Q))).PosSemidef :=
@@ -296,7 +330,7 @@ theorem posSemidef_phasePopulationLeak {t n : ℕ} (hn : n < t) (offset : ℕ)
   rw [liftBlocks_adjoint e U, liftBlocks_adjoint e (Q * U - U * Q)] at hb
   simp only [liftBlocks_sub, liftBlocks_mul] at hb
   have hQ : (1 : Matrix (X × AddChar Y ℂ) (X × AddChar Y ℂ) ℂ) ⊗ₖ
-      labelProjector q true = (blockDiagonal Q).submatrix cellSplit cellSplit :=
+      labelProjector q true = (blockDiagonal Q).submatrix phaseCellSplit phaseCellSplit :=
     one_kronecker_diagonal_eq_cellBlocks _
   rw [populationMatrix_eq_cellBlocks, populationMatrix_eq_cellBlocks,
     phaseOracle_eq_cellBlocks, hQ]

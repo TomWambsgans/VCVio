@@ -458,6 +458,7 @@ public import VCVio.Quantum.VC.Emulated
 public import VCVio.Quantum.VC.MultiExtractable
 public import VCVio.Quantum.VC.MultiExtractor
 public import VCVio.Quantum.VC.Proof.Commutativity
+public import VCVio.Quantum.VC.Proof.Offline
 public import VCVio.Quantum.VC.Proof.Extraction
 public import VCVio.Quantum.VC.Tuples
 public import VCVio.Quantum.VC.Unitaries
