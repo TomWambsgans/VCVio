@@ -1,4 +1,4 @@
-module
+module  -- shake: keep-all --deprecated_module: ignore
 
 public import VCVio.CryptoFoundations.AsymmEncAlg.Defs
 public import VCVio.CryptoFoundations.AsymmEncAlg.INDCCA

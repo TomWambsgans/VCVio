@@ -1,4 +1,4 @@
-module
+module  -- shake: keep-all --deprecated_module: ignore
 
 public import VCVioTest.Asymptotics.Negligible
 public import VCVioTest.Computability
