@@ -244,6 +244,160 @@ theorem posSemidef_familyOrdinaryLeak {t n : ℕ} (hn : n < t) (i : Fin k) :
     familyCollisionMatrix_blocks]
   exact hb
 
+omit [AddCommGroup Y] in
+/-- Any interface preserving the databases commutes with database-diagonal operators. -/
+theorem commute_familyDiagonal {A : Type*} [Fintype A] [DecidableEq A]
+    (U : Matrix (A × ((Fin k → Database X Y) × R))
+      (A × ((Fin k → Database X Y) × R)) ℂ)
+    (hU : ∀ a b, U a b ≠ 0 → a.2.1 = b.2.1) (f : (Fin k → Database X Y) → ℂ) :
+    ((1 : Matrix A A ℂ) ⊗ₖ diagonal (fun d ↦ f d.1)) * U =
+      U * ((1 : Matrix A A ℂ) ⊗ₖ diagonal (fun d ↦ f d.1)) := by
+  rw [← diagonal_one, diagonal_kronecker_diagonal]
+  ext a b
+  rw [diagonal_mul, mul_diagonal]
+  by_cases hab : U a b = 0
+  · simp [hab]
+  · rw [hU a b hab]
+    ring
+
+omit [AddCommGroup Y] in
+/-- An interface preserving databases has nonnegative uncharged drop and zero collision leak. -/
+theorem familyIdle_bounds {A : Type*} [Fintype A] [DecidableEq A]
+    (U : Matrix (A × ((Fin k → Database X Y) × R))
+      (A × ((Fin k → Database X Y) × R)) ℂ) (hunit : Uᴴ * U = 1)
+    (hU : ∀ a b, U a b ≠ 0 → a.2.1 = b.2.1) {t n : ℕ} (hn : n < t) :
+    (chargedDrop U (1 ⊗ₖ familyPopulationMatrix t n)
+      (1 ⊗ₖ familyPopulationMatrix t (n + 1)) 0).PosSemidef ∧
+    (1 ⊗ₖ familyCollisionMatrix) * U - U * (1 ⊗ₖ familyCollisionMatrix) = 0 := by
+  have hp := commute_familyDiagonal U hU (fun d ↦ (familyPopulation t (n + 1) d : ℂ))
+  change (1 ⊗ₖ familyPopulationMatrix t (n + 1)) * U =
+    U * (1 ⊗ₖ familyPopulationMatrix t (n + 1)) at hp
+  have hq := commute_familyDiagonal U hU
+    (fun d ↦ if Database.allCollisionLabel d = true then (1 : ℂ) else 0)
+  refine ⟨?_, sub_eq_zero.mpr hq⟩
+  rw [chargedDrop, zero_smul, add_zero,
+    conjTranspose_mul_mul_eq_of_commute hunit hp]
+  rw [familyPopulationMatrix, familyPopulationMatrix, ← diagonal_one,
+    diagonal_kronecker_diagonal, diagonal_kronecker_diagonal, diagonal_sub]
+  apply PosSemidef.diagonal
+  intro a
+  simp only [Pi.zero_apply, one_mul, ← Complex.ofReal_sub, Complex.zero_le_real]
+  exact sub_nonneg.mpr (familyPopulation_idle hn a.2.1)
+
 end family
+
+section interfaces
+
+variable {k : ℕ} {X Y Cm Z Yr Cell : Type} [Fintype X] [DecidableEq X]
+  [Fintype Y] [DecidableEq Y] [AddCommGroup Y] [Fintype Cm] [DecidableEq Cm]
+  [Fintype Z] [DecidableEq Z] [AddGroup Z] [Fintype Yr] [DecidableEq Yr]
+  [Fintype Cell] [DecidableEq Cell] {Dm : Fin k → Type}
+  [∀ i, Fintype (Dm i)] [∀ i, DecidableEq (Dm i)]
+  (ME : MultiExtractor k Cm Dm (Fin k → Database X Y)) (code : TpDCode k Dm Z)
+  (bot : Cell) (V : Matrix (Yr × Cell) (Yr × Cell) ℂ) (hV : V ∈ unitaryGroup _ ℂ)
+
+/-- The extraction port with a recording register leaves every database entry unchanged. -/
+theorem withRecord_extract_preserves_databases
+    (a b : (TpIC k Cm × Z) × ((Fin k → Database X Y) × RecReg k Cm Dm Cell))
+    (h : ((compressedVCOracle k X Y).withRecord ME code bot V hV).U
+      (.inl (.inr ())) a b ≠ 0) : a.2.1 = b.2.1 := by
+  change extractUnitary ME code (a.1, a.2.1) (b.1, b.2.1) *
+    (1 : Matrix (RecReg k Cm Dm Cell) (RecReg k Cm Dm Cell) ℂ) a.2.2 b.2.2 ≠ 0 at h
+  have he := left_ne_zero_of_mul h
+  rw [extractUnitary_apply] at he
+  split_ifs at he with hh
+  · exact hh.2.2
+  · exact False.elim (he rfl)
+
+/-- The recording port leaves every database entry unchanged. -/
+theorem withRecord_record_preserves_databases
+    (a b : (TpIC k Cm × Yr) × ((Fin k → Database X Y) × RecReg k Cm Dm Cell))
+    (h : ((compressedVCOracle k X Y).withRecord ME code bot V hV).U
+      (.inr ()) a b ≠ 0) : a.2.1 = b.2.1 := by
+  classical
+  unfold VCOracle.withRecord EmulatedOracle.extend at h
+  change recordUnitary (S := Fin k → Database X Y) V a b ≠ 0 at h
+  rw [recordUnitary, cellControlled, labelControlled_apply] at h
+  simp only [onFactor, Matrix.reindex_apply, submatrix_apply, Equiv.symm_symm,
+    kroneckerMap_apply, one_apply] at h
+  split_ifs at h with he
+  · exact congrArg (fun z ↦ z.2.1) he
+  · exact False.elim (h (mul_zero _))
+
+/-- Select the ordinary compressed-oracle ports among extraction and recording ports. -/
+@[expose]
+def ordinaryPort : (Fin k ⊕ Unit) ⊕ Unit → Bool
+  | .inl (.inl _) => true
+  | _ => false
+
+/-- All ports satisfy the collision drop and leak inequalities, charging only ordinary ports. -/
+theorem withRecord_port_bounds {t n : ℕ} (hn : n < t) (p : (Fin k ⊕ Unit) ⊕ Unit) :
+    let U : Matrix (recIn k X Y Cm Z Yr p ×
+        ((Fin k → Database X Y) × RecReg k Cm Dm Cell))
+      (recIn k X Y Cm Z Yr p × ((Fin k → Database X Y) × RecReg k Cm Dm Cell)) ℂ :=
+        ((compressedVCOracle k X Y).withRecord ME code bot V hV).U p
+    let P := fun j ↦ (1 : Matrix (recIn k X Y Cm Z Yr p) (recIn k X Y Cm Z Yr p) ℂ) ⊗ₖ
+      familyPopulationMatrix (k := k) (X := X) (Y := Y) (R := RecReg k Cm Dm Cell) t j
+    let Q := (1 : Matrix (recIn k X Y Cm Z Yr p) (recIn k X Y Cm Z Yr p) ℂ) ⊗ₖ
+      familyCollisionMatrix (k := k) (X := X) (Y := Y) (R := RecReg k Cm Dm Cell)
+    let Δ := chargedDrop U (P n) (P (n + 1))
+      (if ordinaryPort p then (t : ℝ) / 2 else 0)
+    Δ.PosSemidef ∧ (collisionRate t n (Fintype.card Y) • Δ -
+      (Q * U - U * Q)ᴴ * (Q * U - U * Q)).PosSemidef := by
+  classical
+  rcases p with (i | u) | u
+  · change
+      let U := Matrix.reindex
+          (Equiv.prodAssoc (X × Y) (Fin k → Database X Y) (RecReg k Cm Dm Cell))
+          (Equiv.prodAssoc (X × Y) (Fin k → Database X Y) (RecReg k Cm Dm Cell))
+          (onFactor (splitAt (X × Y) (Database X Y) i) (compressedOracle X Y) ⊗ₖ
+            (1 : Matrix (RecReg k Cm Dm Cell) (RecReg k Cm Dm Cell) ℂ))
+      let P := fun j ↦ (1 : Matrix (X × Y) (X × Y) ℂ) ⊗ₖ
+        familyPopulationMatrix (k := k) (X := X) (Y := Y) (R := RecReg k Cm Dm Cell) t j
+      let Q := (1 : Matrix (X × Y) (X × Y) ℂ) ⊗ₖ
+        familyCollisionMatrix (k := k) (X := X) (Y := Y) (R := RecReg k Cm Dm Cell)
+      (chargedDrop U (P n) (P (n + 1)) ((t : ℝ) / 2)).PosSemidef ∧
+        (collisionRate t n (Fintype.card Y) • chargedDrop U (P n) (P (n + 1))
+          ((t : ℝ) / 2) - (Q * U - U * Q)ᴴ * (Q * U - U * Q)).PosSemidef
+    dsimp only
+    have hu' : Matrix.reindex
+        (Equiv.prodAssoc (X × Y) (Fin k → Database X Y) (RecReg k Cm Dm Cell))
+        (Equiv.prodAssoc (X × Y) (Fin k → Database X Y) (RecReg k Cm Dm Cell))
+        (onFactor (splitAt (X × Y) (Database X Y) i) (compressedOracle X Y) ⊗ₖ
+          (1 : Matrix (RecReg k Cm Dm Cell) (RecReg k Cm Dm Cell) ℂ)) =
+        liftBlocks (recordSplit i) (fun _ ↦ compressedOracle X Y) := by
+      rw [liftBlocks_const]
+      ext ⟨xy', d', r'⟩ ⟨xy, d, r⟩
+      change onFactor (splitAt (X × Y) (Database X Y) i) (compressedOracle X Y)
+          (xy', d') (xy, d) * (1 : Matrix (RecReg k Cm Dm Cell)
+            (RecReg k Cm Dm Cell) ℂ) r' r =
+        onFactor (recordSplit i) (compressedOracle X Y) (xy', (d', r')) (xy, (d, r))
+      rw [onFactor_apply, onFactor_apply, one_apply]
+      simp only [splitAt_apply, recordSplit_apply, Prod.mk.injEq]
+      split_ifs <;> simp_all
+    rw [hu']
+    exact ⟨posSemidef_familyOrdinaryDrop hn i, posSemidef_familyOrdinaryLeak hn i⟩
+  · cases u
+    have h := familyIdle_bounds (k := k) (X := X) (Y := Y) (R := RecReg k Cm Dm Cell)
+      (((compressedVCOracle k X Y).withRecord ME code bot V hV).U (.inl (.inr ())))
+      (((compressedVCOracle k X Y).withRecord ME code bot V hV).conjTranspose_mul_self _)
+      (withRecord_extract_preserves_databases ME code bot V hV) hn
+    dsimp only [ordinaryPort, Bool.false_eq_true, ite_false]
+    refine ⟨h.1, ?_⟩
+    have hl := h.1.smul (collisionRate_nonneg t n (N := Fintype.card Y) (by positivity))
+    simpa only [h.2, conjTranspose_zero, Matrix.zero_mul, sub_zero,
+      Bool.false_eq_true, ite_false] using hl
+  · cases u
+    have h := familyIdle_bounds (k := k) (X := X) (Y := Y) (R := RecReg k Cm Dm Cell)
+      (((compressedVCOracle k X Y).withRecord ME code bot V hV).U (.inr ()))
+      (((compressedVCOracle k X Y).withRecord ME code bot V hV).conjTranspose_mul_self _)
+      (withRecord_record_preserves_databases ME code bot V hV) hn
+    dsimp only [ordinaryPort, Bool.false_eq_true, ite_false]
+    refine ⟨h.1, ?_⟩
+    have hl := h.1.smul (collisionRate_nonneg t n (N := Fintype.card Y) (by positivity))
+    simpa only [h.2, conjTranspose_zero, Matrix.zero_mul, sub_zero,
+      Bool.false_eq_true, ite_false] using hl
+
+end interfaces
 
 end Quantum
