@@ -7,7 +7,8 @@ Authors: Quang Dao
 module
 public import VCVio.Quantum.VC.Proof.CheckerComparison
 public import VCVio.Quantum.Comp.Potential
-public import VCVio.CryptoFoundations.MerkleTree.Salted.Conditions
+public import VCVio.Quantum.MatrixMap.Commutant
+public import VCVio.CryptoFoundations.MerkleTree.Salted.Instability
 
 /-!
 # Concatenated extraction responses and the old-oracle error
@@ -29,6 +30,11 @@ partition of the response positions. For full Merkle tuples each part depends on
 selected databases; duplicate-index tuples have database-independent parts. The generic
 `checker_batches_factor` records the algebraic rearrangement of FIX (26b).
 
+`filledCell_extraction_commutator_le` proves the local estimate in FIX (27), uniformly over
+ancilla unitaries and every function of an extraction result, including component batches.
+It uses the exact distance from the uniform projector to its normalized restriction to
+unchanged labels. The summed population-restricted estimate remains a separate obligation.
+
 The leakage polynomial is the exact prefix sum in FIX (28). Its Cauchy--Schwarz estimate is
 stated in `ℝ≥0∞`, including infinite masses. This module does not assert `OfflineExtractable`:
 the reachable invalid-norm estimate and its transfer to the actual challenger remain necessary.
@@ -38,13 +44,177 @@ four and eight in FIX (36) belong to the downstream reduction, not to this P4 er
 
 public section
 
-open scoped ENNReal Kronecker
+open scoped ENNReal Kronecker Matrix.Norms.L2Operator
 
 open Matrix
 
 universe u v w
 
 namespace Quantum
+
+/-! ## Local invalid-sector commutators -/
+
+section uniformProjector
+
+variable {Y : Type*} [DecidableEq Y]
+
+private def subsetVector (s : Finset Y) : Y → ℂ := fun y ↦ if y ∈ s then 1 else 0
+
+/-- The orthogonal projector onto the uniform vector on a subset, or zero for the empty subset. -/
+noncomputable def uniformSubsetProjector (s : Finset Y) : Matrix Y Y ℂ :=
+  (s.card : ℂ)⁻¹ • vecMulVec (subsetVector s) (subsetVector s)
+
+private theorem subsetVector_star (s : Finset Y) : star (subsetVector s) = subsetVector s := by
+  ext y
+  simp [subsetVector]
+
+/-- The uniform subset projector is Hermitian. -/
+theorem uniformSubsetProjector_hermitian (s : Finset Y) :
+    (uniformSubsetProjector s)ᴴ = uniformSubsetProjector s := by
+  simp [uniformSubsetProjector, subsetVector_star]
+
+variable [Fintype Y]
+
+private theorem subsetVector_dot (s t : Finset Y) :
+    subsetVector s ⬝ᵥ subsetVector t = ((s ∩ t).card : ℂ) := by
+  classical
+  calc
+    _ = ∑ y : Y, if y ∈ s ∩ t then (1 : ℂ) else 0 := by
+      apply Finset.sum_congr rfl
+      intro y _
+      simp only [subsetVector, Finset.mem_inter]
+      split_ifs <;> simp_all
+    _ = _ := by
+      rw [Finset.sum_boole]
+      congr 2
+      ext y
+      simp
+
+/-- Multiplication of two uniform subset projectors. -/
+private theorem uniformSubsetProjector_mul (s t : Finset Y) :
+    uniformSubsetProjector s * uniformSubsetProjector t =
+      ((s.card : ℂ)⁻¹ * (t.card : ℂ)⁻¹ * (s ∩ t).card) •
+        vecMulVec (subsetVector s) (subsetVector t) := by
+  simp only [uniformSubsetProjector, Matrix.smul_mul, Matrix.mul_smul, vecMulVec_mul_vecMulVec,
+    subsetVector_dot, vecMulVec_smul, smul_smul]
+  congr 1
+  ring
+
+/-- Uniform subset projectors are idempotent, including the empty subset. -/
+theorem uniformSubsetProjector_idempotent (s : Finset Y) :
+    uniformSubsetProjector s * uniformSubsetProjector s = uniformSubsetProjector s := by
+  rw [uniformSubsetProjector_mul, Finset.inter_self, uniformSubsetProjector]
+  congr 1
+  by_cases hs : (s.card : ℂ) = 0
+  · simp [hs]
+  · field_simp
+
+/-- Sandwiching a uniform subset projector by the whole-space uniform projector. -/
+theorem uniformSubsetProjector_sandwich_univ (s : Finset Y) :
+    uniformSubsetProjector Finset.univ * uniformSubsetProjector s *
+        uniformSubsetProjector Finset.univ =
+      ((s.card : ℂ) / Fintype.card Y) • uniformSubsetProjector Finset.univ := by
+  simp only [uniformSubsetProjector, Matrix.smul_mul, Matrix.mul_smul,
+    vecMulVec_mul_vecMulVec, vecMulVec_smul, subsetVector_dot, Finset.univ_inter,
+    Finset.inter_univ, smul_smul, Finset.card_univ]
+  congr 1
+  by_cases hs : (s.card : ℂ) = 0
+  · simp [hs]
+  · field_simp
+
+/-- Sandwiching the whole-space uniform projector by a subset projector. -/
+theorem uniformSubsetProjector_univ_sandwich (s : Finset Y) :
+    uniformSubsetProjector s * uniformSubsetProjector Finset.univ * uniformSubsetProjector s =
+      ((s.card : ℂ) / Fintype.card Y) • uniformSubsetProjector s := by
+  simp only [uniformSubsetProjector, Matrix.smul_mul, Matrix.mul_smul,
+    vecMulVec_mul_vecMulVec, vecMulVec_smul, subsetVector_dot, Finset.univ_inter,
+    Finset.inter_univ, smul_smul, Finset.card_univ]
+  congr 1
+  by_cases hs : (s.card : ℂ) = 0
+  · simp [hs]
+  · field_simp
+
+/-- The distance to a uniform subset projector is the square root of the omitted fraction,
+including the empty subset. -/
+theorem uniformSubsetProjector_distance_sq [Nonempty Y] (s : Finset Y) :
+    ‖uniformSubsetProjector Finset.univ - uniformSubsetProjector s‖ ^ 2 =
+      1 - (s.card : ℝ) / Fintype.card Y := by
+  apply l2_opNorm_sub_sq_eq_one_sub_of_mul_mul_eq
+    (uniformSubsetProjector_hermitian _) (uniformSubsetProjector_idempotent _)
+    (uniformSubsetProjector_hermitian _) (uniformSubsetProjector_idempotent _)
+  · exact (div_le_one (by positivity)).mpr (by exact_mod_cast Finset.card_le_univ s)
+  · simpa using uniformSubsetProjector_sandwich_univ s
+  · simpa using uniformSubsetProjector_univ_sandwich s
+  · intro h
+    obtain ⟨y⟩ := ‹Nonempty Y›
+    have hh := congrArg (fun M : Matrix Y Y ℂ ↦ M y y) h
+    have hN : (Fintype.card Y : ℂ) ≠ 0 := by exact_mod_cast Fintype.card_ne_zero
+    simp [uniformSubsetProjector, vecMulVec_apply, subsetVector, hN] at hh
+
+omit [Fintype Y] in
+/-- A subset of one label class gives a label-preserving uniform projector. -/
+theorem uniformSubsetProjector_pinch {κ : Type*} [DecidableEq κ] (β : Y → κ)
+    (s : Finset Y) (h : ∀ a ∈ s, ∀ b ∈ s, β a = β b) :
+    pinch β (uniformSubsetProjector s) = uniformSubsetProjector s := by
+  apply pinch_eq_self_iff.mpr
+  intro a b hab
+  have ha : a ∈ s := by
+    by_contra ha
+    exact hab (by simp [uniformSubsetProjector, vecMulVec_apply, subsetVector, ha])
+  have hb : b ∈ s := by
+    by_contra hb
+    exact hab (by simp [uniformSubsetProjector, vecMulVec_apply, subsetVector, hb])
+  exact h a ha b hb
+
+/-- A coherent label-controlled operation has uniform-projector commutator at most twice
+the square root of the fraction outside any one label class, with an arbitrary ancilla.
+This is the single filled-cell estimate used in the repair note FIX (27). -/
+theorem uniformSubsetProjector_commutator_le [Nonempty Y]
+    {κ Z : Type*} [Fintype Z] [DecidableEq Z]
+    (β : Y → κ) (s : Finset Y) (hs : ∀ a ∈ s, ∀ b ∈ s, β a = β b)
+    (U : κ → Matrix Z Z ℂ) (hU : ∀ k, U k ∈ unitaryGroup Z ℂ) :
+    ‖labelControlled (fun a : Y × Z ↦ β a.1) (fun k ↦ (1 : Matrix Y Y ℂ) ⊗ₖ U k) *
+        (uniformSubsetProjector Finset.univ ⊗ₖ (1 : Matrix Z Z ℂ)) -
+      (uniformSubsetProjector Finset.univ ⊗ₖ (1 : Matrix Z Z ℂ)) *
+        labelControlled (fun a : Y × Z ↦ β a.1) (fun k ↦ (1 : Matrix Y Y ℂ) ⊗ₖ U k)‖ ≤
+      2 * Real.sqrt (1 - (s.card : ℝ) / Fintype.card Y) := by
+  classical
+  have hh := l2_opNorm_commutator_labelControlled_one_kronecker_le
+    (uniformSubsetProjector_pinch β s hs) hU
+    (A := uniformSubsetProjector Finset.univ)
+  have hd : ‖uniformSubsetProjector Finset.univ - uniformSubsetProjector s‖ =
+      Real.sqrt (1 - (s.card : ℝ) / Fintype.card Y) := by
+    rw [← uniformSubsetProjector_distance_sq s, Real.sqrt_sq (norm_nonneg _)]
+  rwa [hd] at hh
+
+/-- Counting changed labels bounds the coherent uniform-projector commutator. The comparison
+label may be the extraction result on the absent cell. -/
+theorem uniformProjector_commutator_le [Nonempty Y]
+    {κ Z : Type*} [DecidableEq κ] [Fintype Z] [DecidableEq Z]
+    (β : Y → κ) (baseline : κ) (U : κ → Matrix Z Z ℂ)
+    (hU : ∀ k, U k ∈ unitaryGroup Z ℂ) :
+    ‖labelControlled (fun a : Y × Z ↦ β a.1) (fun k ↦ (1 : Matrix Y Y ℂ) ⊗ₖ U k) *
+        (uniformSubsetProjector Finset.univ ⊗ₖ (1 : Matrix Z Z ℂ)) -
+      (uniformSubsetProjector Finset.univ ⊗ₖ (1 : Matrix Z Z ℂ)) *
+        labelControlled (fun a : Y × Z ↦ β a.1) (fun k ↦ (1 : Matrix Y Y ℂ) ⊗ₖ U k)‖ ≤
+      2 * Real.sqrt ((Finset.univ.filter fun y ↦ β y ≠ baseline).card /
+        (Fintype.card Y : ℝ)) := by
+  have hh := uniformSubsetProjector_commutator_le β
+    (Finset.univ.filter fun y ↦ β y = baseline)
+    (fun a ha b hb ↦ (Finset.mem_filter.mp ha).2.trans (Finset.mem_filter.mp hb).2.symm) U hU
+  have hc := Finset.card_filter_add_card_filter_not (s := Finset.univ)
+    (fun y ↦ β y = baseline)
+  have hc' : ((Finset.univ.filter fun y ↦ β y = baseline).card : ℝ) +
+      (Finset.univ.filter fun y ↦ β y ≠ baseline).card = Fintype.card Y := by
+    exact_mod_cast hc
+  have he : 1 - ((Finset.univ.filter fun y ↦ β y = baseline).card : ℝ) / Fintype.card Y =
+      (Finset.univ.filter fun y ↦ β y ≠ baseline).card / (Fintype.card Y : ℝ) := by
+    apply (sub_eq_iff_eq_add).mpr
+    rw [← add_div, add_comm, hc', div_self (by positivity)]
+  rwa [he] at hh
+
+end uniformProjector
+
 namespace EmulatedOracle
 
 variable {P : Type} [Fintype P] [DecidableEq P] {In : P → QReg}
@@ -459,6 +629,56 @@ noncomputable def oldLeakagePolynomial (u : ℕ) : ℝ :=
 @[expose]
 noncomputable def oldChangingFraction (N u : ℕ) : ℝ :=
   min 1 ((2 * u - 1 : ℕ) / (N : ℝ))
+
+section localExtraction
+
+variable {X Y Msg Salt : Type} [Fintype X] [DecidableEq X] [LinearOrder Y] [Fintype Y]
+  [Nonempty Y] [Fintype Msg] [LinearOrder Msg] [Fintype Salt] [LinearOrder Salt]
+
+/-- The filled-cell commutator estimate in FIX (27) for any function of a Merkle extraction
+result, including a selected component batch. The tuple may contain repeated oracle indices.
+The remaining database has fewer than `s` filled cells; all other databases and all ancilla
+unitaries are arbitrary. -/
+theorem filledCell_extraction_commutator_le
+    (enc : _root_.SaltedMerkle.Encoding X Y Msg Salt) {k : ℕ} (d : Fin k → ℕ)
+    (tic : TpIC k Y) (Dfix : Fin k → Database X Y) (j : Fin k)
+    (D : Database X Y) (x : X) (hx : D x = none) (s : ℕ) (hsize : D.size < s)
+    {κ Z : Type*} [Fintype Z] [DecidableEq Z]
+    (f : TpDLen k (DmOf (fun i ↦ 2 ^ d i) Msg
+      (fun i ↦ _root_.SaltedMerkle.Td Y Salt (d i))) tic.1 → κ)
+    (U : κ → Matrix Z Z ℂ) (hU : ∀ a, U a ∈ unitaryGroup Z ℂ) :
+    let β := fun y ↦ f ((_root_.SaltedMerkle.multiExtract enc d).extract tic
+      (Function.update Dfix j (Function.update D x (some y))))
+    let V := labelControlled (fun a : Y × Z ↦ β a.1)
+      (fun a ↦ (1 : Matrix Y Y ℂ) ⊗ₖ U a)
+    ‖V * (uniformSubsetProjector Finset.univ ⊗ₖ (1 : Matrix Z Z ℂ)) -
+      (uniformSubsetProjector Finset.univ ⊗ₖ (1 : Matrix Z Z ℂ)) * V‖ ≤
+      2 * Real.sqrt (oldChangingFraction (Fintype.card Y) s) := by
+  classical
+  dsimp only
+  let π := onlineLabel (_root_.SaltedMerkle.multiExtract enc d) ![tic] Dfix j
+  let β := fun y ↦ f ((_root_.SaltedMerkle.multiExtract enc d).extract tic
+    (Function.update Dfix j (Function.update D x (some y))))
+  let base := f ((_root_.SaltedMerkle.multiExtract enc d).extract tic (Function.update Dfix j D))
+  have hsub : (Finset.univ.filter fun y ↦ β y ≠ base) ⊆
+      (Finset.univ.filter fun y ↦ π (Function.update D x (some y)) ≠ π D) := by
+    intro y hy
+    refine Finset.mem_filter.mpr ⟨Finset.mem_univ _, ?_⟩
+    intro heq
+    exact (Finset.mem_filter.mp hy).2 (congrArg (fun z ↦ f (z 0)) heq)
+  have hc : (Finset.univ.filter fun y ↦ β y ≠ base).card ≤ 2 * D.size + 1 :=
+    (Finset.card_le_card hsub).trans
+      (_root_.SaltedMerkle.card_onlineLabel_changes_le enc d tic Dfix j D x hx)
+  have hfrac : ((Finset.univ.filter fun y ↦ β y ≠ base).card : ℝ) / Fintype.card Y ≤
+      oldChangingFraction (Fintype.card Y) s := by
+    apply le_min
+    · exact (div_le_one (by positivity)).mpr (by exact_mod_cast Finset.card_le_univ _)
+    · apply div_le_div_of_nonneg_right _ (Nat.cast_nonneg _)
+      exact_mod_cast (show (Finset.univ.filter fun y ↦ β y ≠ base).card ≤ 2 * s - 1 by omega)
+  exact (uniformProjector_commutator_le β base U hU).trans
+    (mul_le_mul_of_nonneg_left (Real.sqrt_le_sqrt hfrac) (by norm_num))
+
+end localExtraction
 
 /-- FIX (35): total calls `u`, ordinary mass `w`, extraction mass `e`, and raw checks `q`.
 This is a numerical expression, with no claim about the probability of an experiment. -/

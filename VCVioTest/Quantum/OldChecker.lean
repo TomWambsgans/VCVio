@@ -152,4 +152,30 @@ example {k : ℕ} {X Y Cm Z : Type} [Fintype X] [DecidableEq X]
         I x ρ p).matrix) :=
   databasePopulation_post_old ME code I hx ρ p
 
+/-- A two-element unchanged set among three labels has exact squared distance one third. -/
+example :
+    ‖uniformSubsetProjector (Finset.univ : Finset (Fin 3)) -
+      uniformSubsetProjector {0, 2}‖ ^ 2 = 1 / 3 := by
+  rw [uniformSubsetProjector_distance_sq]
+  norm_num
+
+/-- An empty unchanged set is included in the projector distance formula. -/
+example :
+    ‖uniformSubsetProjector (Finset.univ : Finset Bool) -
+      uniformSubsetProjector ∅‖ ^ 2 = 1 := by
+  rw [uniformSubsetProjector_distance_sq]
+  norm_num
+
+/-- A constant label commutes exactly with the uniform projector for every ancilla unitary. -/
+example {Z : Type} [Fintype Z] [DecidableEq Z]
+    (U : Unit → Matrix Z Z ℂ) (hU : ∀ k, U k ∈ unitaryGroup Z ℂ) :
+    let V := labelControlled (fun _ : Bool × Z ↦ ())
+      (fun k ↦ (1 : Matrix Bool Bool ℂ) ⊗ₖ U k)
+    V * (uniformSubsetProjector Finset.univ ⊗ₖ (1 : Matrix Z Z ℂ)) =
+      (uniformSubsetProjector Finset.univ ⊗ₖ (1 : Matrix Z Z ℂ)) * V := by
+  apply sub_eq_zero.mp
+  apply norm_eq_zero.mp
+  apply le_antisymm _ (norm_nonneg _)
+  simpa using uniformProjector_commutator_le (fun _ : Bool ↦ ()) () U hU
+
 end VCVioTest.OldChecker
