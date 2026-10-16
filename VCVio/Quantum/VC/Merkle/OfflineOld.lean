@@ -32,7 +32,12 @@ selected databases; duplicate-index tuples have database-independent parts. The 
 
 `filledCell_extraction_commutator_le` proves the local estimate in FIX (27), uniformly over
 ancilla unitaries and every function of an extraction result, including component batches.
-It uses the exact distance from the uniform projector to its normalized restriction to
+`invalidStack` represents the sum of invalid weights as a rectangular trace potential,
+and `actual_sub_filled_potential_le` bounds the checker error by that potential on arbitrary
+entangled mixed states. `rpow_inv_two_tsum_conj_unitary_le` supplies the direct-sum
+triangle inequality without requiring the observables to sum to a projector.
+The local commutator estimate uses the exact distance from the uniform projector to its
+normalized restriction to
 unchanged labels. The summed population-restricted estimate remains a separate obligation.
 
 The leakage polynomial is the exact prefix sum in FIX (28). Its Cauchy--Schwarz estimate is
@@ -44,7 +49,7 @@ four and eight in FIX (36) belong to the downstream reduction, not to this P4 er
 
 public section
 
-open scoped ENNReal Kronecker Matrix.Norms.L2Operator
+open scoped ENNReal Kronecker Matrix.Norms.L2Operator ComplexOrder
 
 open Matrix
 
@@ -187,6 +192,16 @@ theorem uniformSubsetProjector_commutator_le [Nonempty Y]
     rw [← uniformSubsetProjector_distance_sq s, Real.sqrt_sq (norm_nonneg _)]
   rwa [hd] at hh
 
+/-- On the filled labels, the compressed empty-sector projector is the uniform projector.
+This identifies the single-cell operator in FIX (27) with the old oracle's invalid sector. -/
+theorem uniformSubsetProjector_univ_eq_cellInvalid :
+    uniformSubsetProjector (Finset.univ : Finset Y) =
+      (cellCompress Y * diagonal (fun a : Option Y ↦ if a = none then 1 else 0) *
+        cellCompress Y).submatrix some some := by
+  ext a b
+  simp [uniformSubsetProjector, subsetVector, vecMulVec_apply, Matrix.mul_apply,
+    submatrix_apply, diagonal_apply, cellAmp_mul_self]
+
 /-- Counting changed labels bounds the coherent uniform-projector commutator. The comparison
 label may be the extraction result on the absent cell. -/
 theorem uniformProjector_commutator_le [Nonempty Y]
@@ -214,6 +229,56 @@ theorem uniformProjector_commutator_le [Nonempty Y]
   rwa [he] at hh
 
 end uniformProjector
+
+namespace MatrixMap
+
+/-- A unitary changes a family of observable seminorms by at most its commutator seminorm.
+The family need not sum to a projector, and the positive input need not have trace one.
+This is the direct-sum triangle step in FIX (27)–(28). -/
+theorem rpow_inv_two_tsum_conj_unitary_le
+    {C S : Type*} [Fintype S] [DecidableEq S] (R : C → Matrix S S ℂ)
+    (U : Matrix S S ℂ) (hU : Uᴴ * U = 1) {ρ : Matrix S S ℂ} (hρ : ρ.PosSemidef) :
+    (∑' c, ENNReal.ofReal (conj (R c) (conj U ρ)).trace.re) ^ (2⁻¹ : ℝ) ≤
+      (∑' c, ENNReal.ofReal (conj (R c) ρ).trace.re) ^ (2⁻¹ : ℝ) +
+      (∑' c, ENNReal.ofReal (conj (R c * U - U * R c) ρ).trace.re) ^ (2⁻¹ : ℝ) := by
+  apply rpow_inv_two_tsum_le_of_le_add
+  intro c
+  have he : U * R c + (R c * U - U * R c) = R c * U := by abel
+  have ht : (conj (U * R c) ρ).trace = (conj (R c) ρ).trace := by
+    rw [trace_conj_apply, trace_conj_apply, conjTranspose_mul]
+    simp only [Matrix.mul_assoc, ← Matrix.mul_assoc Uᴴ U, hU, Matrix.one_mul]
+  have hh := ofReal_trace_conj_add_rpow_le hρ (U * R c) (R c * U - U * R c)
+  rw [he, ht, conj_mul, LinearMap.comp_apply] at hh
+  exact hh
+
+end MatrixMap
+
+namespace CompressedReplay
+
+/-- The actual checker error is bounded by the rectangular invalid-sector potential on every
+positive semidefinite joint input. Workspace entanglement and subnormalization are unrestricted.
+This is the mixed-state, ancilla-preserving form of FIX (29). -/
+theorem actual_sub_filled_potential_le
+    {k : ℕ} {X Y A : Type} [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y]
+    [AddCommGroup Y] [Fintype A]
+    (io : List ((Fin k × X) × Y))
+    {ρ : Matrix (A × (Fin k → Database X Y)) (A × (Fin k → Database X Y)) ℂ}
+    (hρ : ρ.PosSemidef) :
+    QuantumRuntime.potential (actualCheck io - filledCheck io) ρ ≤
+      QuantumRuntime.potential (invalidStack (k := k) (X := X) (Y := Y)) ρ := by
+  classical
+  rw [QuantumRuntime.potential_eq, QuantumRuntime.potential_eq]
+  apply ENNReal.ofReal_le_ofReal
+  have hh := ((PosSemidef.one (n := A)).kronecker
+    (actual_sub_filled_gram_le_invalidStack io)).trace_mul_re_nonneg hρ
+  have he (M N : Matrix (Fin k → Database X Y) (Fin k → Database X Y) ℂ) :
+      (1 : Matrix A A ℂ) ⊗ₖ (M - N) = (1 ⊗ₖ M) - (1 ⊗ₖ N) := by
+    ext a b
+    simp only [kroneckerMap_apply, Matrix.sub_apply, mul_sub]
+  rw [he, Matrix.sub_mul, Matrix.trace_sub, Complex.sub_re] at hh
+  linarith
+
+end CompressedReplay
 
 namespace EmulatedOracle
 

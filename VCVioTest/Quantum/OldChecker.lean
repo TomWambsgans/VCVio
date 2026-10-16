@@ -178,4 +178,29 @@ example {Z : Type} [Fintype Z] [DecidableEq Z]
   apply le_antisymm _ (norm_nonneg _)
   simpa using uniformProjector_commutator_le (fun _ : Bool ↦ ()) () U hU
 
+/-- The checker Gram bound counts invalid cells, including repeated prescriptions. -/
+example :
+    ((invalidStack (k := 2) (X := Bool) (Y := ZMod 3))ᴴ * invalidStack -
+      (actualCheck repeated - filledCheck repeated)ᴴ *
+        (actualCheck repeated - filledCheck repeated)).PosSemidef :=
+  actual_sub_filled_gram_le_invalidStack repeated
+
+/-- The checker-potential comparison keeps an arbitrary entangled positive joint matrix. -/
+example {A : Type} [Fintype A]
+    {ρ : Matrix (A × (Fin 2 → Database Bool (ZMod 3)))
+      (A × (Fin 2 → Database Bool (ZMod 3))) ℂ} (hρ : ρ.PosSemidef) :
+    QuantumRuntime.potential (actualCheck repeated - filledCheck repeated) ρ ≤
+      QuantumRuntime.potential (invalidStack (k := 2) (X := Bool) (Y := ZMod 3)) ρ :=
+  actual_sub_filled_potential_le repeated hρ
+
+/-- Two identity observables already have total weight two; the direct-sum bound still applies. -/
+example (U : Matrix Bool Bool ℂ) (hU : Uᴴ * U = 1)
+    {ρ : Matrix Bool Bool ℂ} (hρ : ρ.PosSemidef) :
+    (∑' _ : Bool, ENNReal.ofReal (MatrixMap.conj (1 : Matrix Bool Bool ℂ)
+      (MatrixMap.conj U ρ)).trace.re) ^ (2⁻¹ : ℝ) ≤
+        (∑' _ : Bool, ENNReal.ofReal (MatrixMap.conj (1 : Matrix Bool Bool ℂ)
+          ρ).trace.re) ^ (2⁻¹ : ℝ) := by
+  simpa using MatrixMap.rpow_inv_two_tsum_conj_unitary_le
+    (fun _ : Bool ↦ (1 : Matrix Bool Bool ℂ)) U hU hρ
+
 end VCVioTest.OldChecker
