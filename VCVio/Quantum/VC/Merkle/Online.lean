@@ -140,7 +140,7 @@ theorem instability_onlineLabel_list_le [Finite X] [UniformAnswerMeasure (X →�
 
 omit [Fintype X] in
 /-- The empty list has zero instability at every population bound. -/
-theorem instability_onlineLabel_empty [Finite X] [AnswerMeasure (X →ₒ Y)]
+theorem instability_onlineLabel_empty [AnswerMeasure (X →ₒ Y)]
     (tics : Fin 0 → TpIC k Y) (Dfix : Fin k → Database X Y) (j : Fin k) (s : ℕ) :
     Database.instability (onlineLabel (multiExtract enc d) tics Dfix j) s = 0 := by
   have he : onlineLabel (multiExtract enc d) tics Dfix j =
