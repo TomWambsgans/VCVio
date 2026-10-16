@@ -12,19 +12,19 @@ public import VCVio.Quantum.Oracle.Unitary
 # Emulated oracles for vector commitments
 
 The oracles of the multi-extractability experiments of Chiesa, Di, Hu and Zheng
-(ePrint 2025/2166, §7, l.2832–2921), as emulated oracles (`Quantum.EmulatedOracle`):
+(ePrint 2025/2166, §7, pp. 50–51), as emulated oracles (`Quantum.EmulatedOracle`):
 
-* `EO = (Init, (O_i)_{i ∈ [k]})` (l.2832–2833): `k` unitary ports on the query register `X × Y`
+* `EO = (Init, (O_i)_{i ∈ [k]})` (p. 50): `k` unitary ports on the query register `X × Y`
   (`Quantum.VCOracle`);
-* `EO^(Ext) = (Init, ((O_i)_i, U_MultiExtract))` (l.2846–2847): one further port on
+* `EO^(Ext) = (Init, ((O_i)_i, U_MultiExtract))` (p. 50): one further port on
   `TpIC × Z`, answered by the purified extractor (`Quantum.VCOracle.withExtract`);
-* `EO^(Record)` (l.2917–2918): `EO^(Ext)` with the recording register `R` adjoined in the state
+* `EO^(Record)` (p. 51): `EO^(Ext)` with the recording register `R` adjoined in the state
   with every cell at `⊥`, and one further port on `TpIC × Yr`, answered by `Record(U)`
   (`Quantum.VCOracle.withRecord`) or `Record(MultiExtract, U)` (`Quantum.VCOracle.withRecordME`);
 * the random-oracle model as an emulated oracle with a trivial private register
-  (`Quantum.romVCOracle`, l.1345–1350).
+  (`Quantum.romVCOracle`, p. 28).
 
-"Polynomial time" of the emulation (l.2833) is not part of the definitions.
+"Polynomial time" of the emulation (p. 50) is not part of the definitions.
 
 ## Main definitions
 
@@ -44,23 +44,23 @@ variable (k : ℕ) (X Y : Type) [Fintype X] [DecidableEq X] [Fintype Y] [Decidab
 
 /-! ## Port registers -/
 
-/-- The register of each oracle port: the query register `X × Y` (ePrint 2025/2166, l.2832). -/
+/-- The register of each oracle port: the query register `X × Y` (ePrint 2025/2166, p. 50). -/
 abbrev oIn : Fin k → QReg :=
   fun _ ↦ QReg.of (X × Y)
 
-/-- `EO = (Init, (O_i)_{i ∈ [k]})` (ePrint 2025/2166, l.2832–2833): an emulated oracle with `k`
+/-- `EO = (Init, (O_i)_{i ∈ [k]})` (ePrint 2025/2166, p. 50): an emulated oracle with `k`
 ports on the query register `X × Y`. -/
 abbrev VCOracle :=
   EmulatedOracle (Fin k) (oIn k X Y)
 
 /-- The port registers of `EO^(Ext)`: the oracle ports, then the extraction port on `TpIC × Z`
-(ePrint 2025/2166, l.2846–2847). -/
+(ePrint 2025/2166, p. 50). -/
 abbrev extIn (Cm Z : Type) [Fintype Cm] [DecidableEq Cm] [Fintype Z] [DecidableEq Z] :
     Fin k ⊕ Unit → QReg :=
   Sum.elim (oIn k X Y) fun _ ↦ QReg.of (TpIC k Cm × Z)
 
 /-- The port registers of `EO^(Record)`: the ports of `EO^(Ext)`, then the record port on
-`TpIC × Yr` (ePrint 2025/2166, l.2917–2918). -/
+`TpIC × Yr` (ePrint 2025/2166, p. 51). -/
 abbrev recIn (Cm Z Yr : Type) [Fintype Cm] [DecidableEq Cm] [Fintype Z] [DecidableEq Z]
     [Fintype Yr] [DecidableEq Yr] : (Fin k ⊕ Unit) ⊕ Unit → QReg :=
   Sum.elim (extIn k X Y Cm Z) fun _ ↦ QReg.of (TpIC k Cm × Yr)
@@ -74,7 +74,7 @@ variable {Cm Z : Type} [Fintype Cm] [DecidableEq Cm] [Fintype Z] [DecidableEq Z]
 
 /-! ## Extraction -/
 
-/-- **`EO^(Ext)`** (ePrint 2025/2166, l.2846–2847): the oracle `E` with one further port on
+/-- **`EO^(Ext)`** (ePrint 2025/2166, p. 50): the oracle `E` with one further port on
 `TpIC × Z`, answered by the purified extractor `U_MultiExtract` on the private register. -/
 @[expose]
 noncomputable def withExtract (ME : MultiExtractor k Cm Dm E.S) (code : TpDCode k Dm Z) :
@@ -110,13 +110,13 @@ variable {Yr Cell : Type} [Fintype Yr] [DecidableEq Yr] [Fintype Cell] [Decidabl
   [∀ i, Fintype (Dm i)] [∀ i, DecidableEq (Dm i)]
 
 /-- `EO^(Ext)` with the recording register `R` adjoined in the state with every cell at `bot`
-(the step from `Init` to `Init′` of ePrint 2025/2166, l.2918). -/
+(the step from `Init` to `Init′` of ePrint 2025/2166, p. 51). -/
 @[expose, reducible]
 noncomputable def withRecReg (bot : Cell) : EmulatedOracle (Fin k ⊕ Unit) (extIn k X Y Cm Z) :=
   (E.withExtract ME code).addRegister (QReg.of (RecReg k Cm Dm Cell))
     (SubState.basis (RecReg.const bot))
 
-/-- **`EO^(Record)` in the world `Record(U)`** (ePrint 2025/2166, l.2917–2918): `EO^(Ext)` with
+/-- **`EO^(Record)` in the world `Record(U)`** (ePrint 2025/2166, p. 51): `EO^(Ext)` with
 the recording register adjoined, every cell at `bot`, and one further port on `TpIC × Yr`
 answered by `Record(U)`. -/
 @[expose]
@@ -126,7 +126,7 @@ noncomputable def withRecord (bot : Cell) (U : Matrix (Yr × Cell) (Yr × Cell) 
   (E.withRecReg ME code bot).extend (fun _ ↦ recordUnitary U)
     fun _ ↦ recordUnitary_mem_unitaryGroup hU
 
-/-- **`EO^(Record)` in the world `Record(MultiExtract, U)`** (ePrint 2025/2166, l.2917–2918): as
+/-- **`EO^(Record)` in the world `Record(MultiExtract, U)`** (ePrint 2025/2166, p. 51): as
 `Quantum.VCOracle.withRecord`, with the record port answered by `Record(MultiExtract, U)`. -/
 @[expose]
 noncomputable def withRecordME (bot : Cell) (U : Matrix (Yr × Cell) (Yr × Cell) ℂ)
@@ -163,7 +163,7 @@ end VCOracle
 
 /-! ## The random-oracle model -/
 
-/-- **The random-oracle model as an emulated oracle** (ePrint 2025/2166, l.1345–1350): a trivial
+/-- **The random-oracle model as an emulated oracle** (ePrint 2025/2166, p. 28): a trivial
 private register, and the port `i` answered by the oracle unitary `|x, y⟩ ↦ |x, y + H i x⟩`. -/
 @[expose]
 noncomputable def romVCOracle (k : ℕ) (X Y : Type) [Fintype X] [DecidableEq X] [Fintype Y]

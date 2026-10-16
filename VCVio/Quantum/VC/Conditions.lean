@@ -13,26 +13,26 @@ public import VCVio.CryptoFoundations.VectorCommitment
 # Sufficient conditions for post-quantum multi-extractability
 
 The algebraic conditions of Theorem 8.4 of Chiesa, Di, Hu and Zheng (ePrint 2025/2166,
-l.3026–3090), which derives the post-quantum multi-extractability of `k` vector commitments
+pp. 53–54), which derives the post-quantum multi-extractability of `k` vector commitments
 `(VC_i)_{i ∈ [k]}` from classical conditions on a multi-extractor and on a binary partition of
 databases. The private register of the emulated oracle of the theorem is the tuple of databases
 `(D_i)_{i ∈ [k]}` (`Quantum.compressedVCOracle`), so the multi-extractor reads a tuple
 `Fin k → Database X Y`.
 
 * `Quantum.Conditions`: the algebraic conditions of Theorem 8.4, admissibility of the
-  multi-extractor (l.3027) and conditions 1–3 (l.3031–3054), stated against the general
+  multi-extractor (p. 53) and conditions 1–3 (pp. 53–54), stated against the general
   vector-commitment interface `VectorCommitment` with a randomized opening. Condition 1 is the
   data of a `VectorCommitment.CheckIOForm` for every scheme. The efficiency of the extractor is
   not among them (see the departures).
-* `Quantum.offlineLabel`: the partition `P_offline = (P_good, P_bad)` (l.3028–3029) as a labelling
+* `Quantum.offlineLabel`: the partition `P_offline = (P_good, P_bad)` (p. 53) as a labelling
   of databases.
 * `Quantum.onlineLabel`: the partition `P_online^{(tic_i)_{i ∈ [j]}, (D_i)_{i ≠ j'}}` of the
-  database `D_{j'}` (l.3078–3088), by the extractions of the tuples `tic_i` with the other
+  database `D_{j'}` (p. 54), by the extractions of the tuples `tic_i` with the other
   databases fixed.
-* `Quantum.q1`, `Quantum.q2`: the query counts `q1` and `q2` of the error bounds (l.3077–3078).
+* `Quantum.q1`, `Quantum.q2`: the query counts `q1` and `q2` of the error bounds (p. 54).
 
 The labels are the arguments of `Quantum.Database.instability` in the error bounds of Theorem 8.4
-(l.3056–3074). This file states no bound.
+(p. 54). This file states no bound.
 
 ## Departures from the paper
 
@@ -41,21 +41,21 @@ The labels are the arguments of `Quantum.Database.instability` in the error boun
   `VCVio.Quantum.VC.MultiExtractor` explains why the literal definition
   (`Quantum.MultiExtractor.AdmissibleLiteral`, which implies the repaired one) is repaired. So
   `Quantum.Conditions` is not the literal hypothesis of Theorem 8.4.
-* The theorem also assumes that the multi-extractor runs in polynomial time (l.3027). That is a
+* The theorem also assumes that the multi-extractor runs in polynomial time (p. 53). That is a
   resource hypothesis, not part of `Quantum.Conditions`; a security statement that uses these
   conditions has to assume it separately.
-* The paper's `Open` is a randomized algorithm (l.3043, l.3051), as in the interface
+* The paper's `Open` is a randomized algorithm (pp. 53–54), as in the interface
   `VectorCommitment`. Condition 2 asks every possible opening `pf'ᵢ ← Open(Qᵢ, tdᵢ)` to equal `pfᵢ`,
   and condition 3 asks every possible opening `pfᵢ ← Open(Dom(mᵢ), tdᵢ)` to pass the check: both
   quantify over the support of the opening. For a deterministic opening
   (`DetVectorCommitment.toVectorCommitment`) the support is a single proof.
-* The paper's `Check^{D}` (l.3043) is `VectorCommitment.CheckIOForm.checkOn`: the check runs
+* The paper's `Check^{D}` (p. 53) is `VectorCommitment.CheckIOForm.checkOn`: the check runs
   `OutputIO` and rejects any listed query outside the domain of the database.
 * The paper's `q_VC(qs, ℓ)` has the length as a second argument; `CheckIOForm.qVC` is the query
   complexity of `VC i` at its own length `ℓ i`, so `q1` and `q2` use `qVC` of the size of the opened
-  set alone. The paper evaluates `q1` at `ℓmax` (l.3078); here each `VC i` is evaluated at `ℓ i`.
+  set alone. The paper evaluates `q1` at `ℓmax` (p. 54); here each `VC i` is evaluated at `ℓ i`.
 * Conditions 2 and 3 are stated for the full tuples `Quantum.TpIC.full` of `k` distinct indices
-  (`hk : 1 ≤ k`), as in the paper (tuples of length `k`, l.3036, l.3049).
+  (`hk : 1 ≤ k`), as in the paper (tuples of length `k`, pp. 53–54).
 -/
 
 public section
@@ -73,8 +73,8 @@ section labels
 variable {X : Type uX} {Y : Type}
 
 /-- **The offline partition** `P_offline = (P_good, P_bad)` of Theorem 8.4 (ePrint 2025/2166,
-l.3028–3029), as the labelling of a database by its membership in `P_good`. Its instability
-`Quantum.Database.instability (offlineLabel Pgood) t` enters the offline error (l.3067). -/
+p. 53), as the labelling of a database by its membership in `P_good`. Its instability
+`Quantum.Database.instability (offlineLabel Pgood) t` enters the offline error (p. 54). -/
 @[expose]
 def offlineLabel (Pgood : Set (Database X Y)) [DecidablePred (· ∈ Pgood)] :
     Database X Y → Bool :=
@@ -89,7 +89,7 @@ theorem offlineLabel_eq_true_iff (Pgood : Set (Database X Y)) [DecidablePred (·
 variable {k : ℕ} {Cm : Type*} {Dm : Fin k → Type*}
 
 /-- **The online partition** `P_online^{(tic_i)_{i ∈ [j]}, (D_i)_{i ≠ j'}}` of Theorem 8.4
-(ePrint 2025/2166, l.3078–3088): with the databases other than `D_{j'}` fixed to those of `Dfix`,
+(ePrint 2025/2166, p. 54): with the databases other than `D_{j'}` fixed to those of `Dfix`,
 a database `D` for `D_{j'}` is labelled by the extractions of the `j` tuples `tics a` from the
 tuple of databases `Dfix` with `D` in place `j'`. The partition element of a tuple
 `(tdm_a)_{a ∈ [j]}` of extractions is the set of databases with that label. -/
@@ -122,34 +122,34 @@ section conditions
 variable {k : ℕ} {X : Type uX} {Y : Type} {Msg : Type uM} {Cm : Type} {ℓ : Fin k → ℕ}
   {Td Pf : Fin k → Type} [DecidableEq Y]
 
-/-- **The algebraic conditions of Theorem 8.4** (ePrint 2025/2166, l.3026–3054) on `k` vector
+/-- **The algebraic conditions of Theorem 8.4** (ePrint 2025/2166, pp. 53–54) on `k` vector
 commitments `VC i`, a multi-extractor `ME` reading the tuple of databases, the trapdoors `tdBot i`
 of its `⊥` and the good databases `Pgood`. Admissibility is the repaired, distinct-index form of
-Def 7.1 (`Quantum.MultiExtractor.Admissible`), and the efficiency of `ME` (l.3027) is not
-included: it is a separate hypothesis. Condition 1 (l.3031–3034), that every check is deterministic
+Def 7.1 (`Quantum.MultiExtractor.Admissible`), and the efficiency of `ME` (p. 53) is not
+included: it is a separate hypothesis. Condition 1 (p. 53), that every check is deterministic
 and classical, of the form `OutputIO` followed by `CheckIO` with query complexity `qVC_i`, is the
 data `io i : (VC i).CheckIOForm`.
 
-* `admissible`: the multi-extractor is admissible (l.3027) in the repaired sense of
+* `admissible`: the multi-extractor is admissible (p. 53) in the repaired sense of
   `Quantum.MultiExtractor.Admissible`, with `⊥ = (⊥^{ℓ_i}, tdBot i)`.
-* `empty_mem`: condition 2, first half, `∅ ∈ P_good` (l.3036).
-* `binding`: condition 2 (l.3036–3043). For distinct indices `idx`, if every database `D_i` is
+* `empty_mem`: condition 2, first half, `∅ ∈ P_good` (p. 53).
+* `binding`: condition 2 (p. 53). For distinct indices `idx`, if every database `D_i` is
   good and every check `VC_i.Check^{D_{idx i}}(cm_i, Q_i, ans_i, pf_i)` passes, then every extracted
   message agrees with `ans_i` and every opening of `Q_i = Dom(ans_i)` with the extracted trapdoor
   is `pf_i`.
-* `valid`: condition 3 (l.3049–3054). For distinct indices and any databases, every opening of
+* `valid`: condition 3 (p. 54). For distinct indices and any databases, every opening of
   `Dom(m_i)` with the extracted trapdoor makes the extracted message `m_i` pass the check
   `VC_i.Check^{D_{idx i}}`. -/
 structure Conditions (VC : ∀ i, VectorCommitment X Y Msg Cm (Td i) (Pf i) (ℓ i))
     (io : ∀ i, (VC i).CheckIOForm)
     (ME : MultiExtractor k Cm (DmOf ℓ Msg Td) (Fin k → Database X Y)) (tdBot : ∀ i, Td i)
     (Pgood : Set (Database X Y)) : Prop where
-  /-- The multi-extractor is admissible (Def 7.1, l.3027), in the repaired form with prefix
+  /-- The multi-extractor is admissible (Def 7.1, p. 53), in the repaired form with prefix
   consistency on distinct-index tuples (`Quantum.MultiExtractor.Admissible`). -/
   admissible : ME.Admissible fun i ↦ ((fun _ ↦ none), tdBot i)
-  /-- Condition 2, first half: the empty database is good (l.3036). -/
+  /-- Condition 2, first half: the empty database is good (p. 53). -/
   empty_mem : Database.empty ∈ Pgood
-  /-- Condition 2: binding on good databases (l.3036–3043). -/
+  /-- Condition 2: binding on good databases (p. 53). -/
   binding : ∀ (hk : 1 ≤ k) (idx : Fin k → Fin k), Function.Injective idx →
     ∀ (cm : Fin k → Cm) (ans : ∀ i, PartialVec (ℓ i) Msg) (pf : ∀ i, Pf i)
       (Ds : Fin k → Database X Y), (∀ i, Ds i ∈ Pgood) →
@@ -157,7 +157,7 @@ structure Conditions (VC : ∀ i, VectorCommitment X Y Msg Cm (Td i) (Pf i) (ℓ
         (ME.extract (TpIC.full hk idx cm) Ds i).1.Agrees (ans i) ∧
           ∀ pf' ∈ support ((VC i).opening (ans i).dom (ME.extract (TpIC.full hk idx cm) Ds i).2),
             pf' = pf i
-  /-- Condition 3: the extracted messages are valid over their domains (l.3049–3054). -/
+  /-- Condition 3: the extracted messages are valid over their domains (p. 54). -/
   valid : ∀ (hk : 1 ≤ k) (idx : Fin k → Fin k), Function.Injective idx →
     ∀ (cm : Fin k → Cm) (Ds : Fin k → Database X Y) (i : Fin k),
       ∀ pf ∈ support ((VC i).opening (ME.extract (TpIC.full hk idx cm) Ds i).1.dom
@@ -173,18 +173,18 @@ section counts
 variable {k : ℕ} {X : Type uX} {Y : Type} {Msg : Type uM} {Cm : Type} {ℓ : Fin k → ℕ}
   {Td Pf : Fin k → Type} [DecidableEq Y] {VC : ∀ i, VectorCommitment X Y Msg Cm (Td i) (Pf i) (ℓ i)}
 
-/-- **The query count `q1`** of Theorem 8.4 (ePrint 2025/2166, l.3077):
+/-- **The query count `q1`** of Theorem 8.4 (ePrint 2025/2166, p. 54):
 `q1 := max_{Σ_i qs_i ≤ qs} Σ_i qVC_i(qs_i)`, the largest total number of queries of the `k`
 checks when the opened sets have sizes summing to at most `qs`. It enters the offline error
-(l.3067). -/
+(p. 54). -/
 @[expose]
 def q1 (io : ∀ i, (VC i).CheckIOForm) (qs : ℕ) : ℕ :=
   ((Finset.univ : Finset (Fin k → Fin (qs + 1))).filter fun v ↦ ∑ i, (v i : ℕ) ≤ qs).sup
     fun v ↦ ∑ i, (io i).qVC (v i)
 
-/-- **The query count `q2`** of Theorem 8.4 (ePrint 2025/2166, l.3078): `q2 := max_i qVC_i(ℓ_i)`,
+/-- **The query count `q2`** of Theorem 8.4 (ePrint 2025/2166, p. 54): `q2 := max_i qVC_i(ℓ_i)`,
 the largest number of queries of a check that opens a whole vector. It enters the extraction
-error (l.3063–3065). -/
+error (p. 54). -/
 @[expose]
 def q2 (io : ∀ i, (VC i).CheckIOForm) : ℕ :=
   Finset.univ.sup fun i ↦ (io i).qVC (ℓ i)
