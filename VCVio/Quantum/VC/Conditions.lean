@@ -144,8 +144,8 @@ structure Conditions (VC : ∀ i, VectorCommitment X Y Msg Cm (Td i) (Pf i) (ℓ
     (io : ∀ i, (VC i).CheckIOForm)
     (ME : MultiExtractor k Cm (DmOf ℓ Msg Td) (Fin k → Database X Y)) (tdBot : ∀ i, Td i)
     (Pgood : Set (Database X Y)) : Prop where
-  /-- The multi-extractor is admissible (Def 7.1, p. 53), in the repaired form with prefix
-  consistency on distinct-index tuples (`Quantum.MultiExtractor.Admissible`). -/
+  /-- The multi-extractor is admissible (Def 7.1, p. 49; Thm 8.4, p. 53), repaired to require
+  prefix consistency only on distinct-index tuples (`Quantum.MultiExtractor.Admissible`). -/
   admissible : ME.Admissible fun i ↦ ((fun _ ↦ none), tdBot i)
   /-- Condition 2, first half: the empty database is good (p. 53). -/
   empty_mem : Database.empty ∈ Pgood
