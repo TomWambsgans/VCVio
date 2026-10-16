@@ -18,7 +18,7 @@ The numerical tests specify an error expression, not an offline security theorem
 public section
 
 open Quantum Quantum.CompressedReplay Matrix
-open scoped Matrix.Norms.L2Operator ComplexOrder
+open scoped Matrix.Norms.L2Operator ComplexOrder ENNReal
 
 namespace VCVioTest.OldChecker
 
@@ -104,5 +104,37 @@ example : oldOfflineError 1000000 25 (1 / 1800) (1 / 9500) 1 = 9 / 1600 := by
     rw [show (49 : ℝ) = 7 ^ 2 by norm_num, Real.sqrt_sq (by norm_num)]
   norm_num [oldOfflineError, oldLeakagePolynomial, oldChangingFraction,
     Real.sqrt_div, h₁, h₂, h₃]
+
+/-- The finite-sum formula includes the zero prefix and agrees with `T(3) = 7`. -/
+example : (∑ j ∈ Finset.range 3, (j : ℝ) * (2 * j - 1)) = 7 := by
+  rw [← oldLeakagePolynomial_eq_sum]
+  norm_num [oldLeakagePolynomial]
+
+/-- A zero leakage coefficient contributes zero even for infinite mass. -/
+example :
+    (∑ j ∈ Finset.range 1,
+      (ENNReal.ofReal ((j : ℝ) * (2 * j - 1)) / 16 * (⊤ : ℝ≥0∞)) ^ (2⁻¹ : ℝ)) = 0 := by
+  simp [ENNReal.zero_rpow_of_pos (by norm_num : (0 : ℝ) < 2⁻¹)]
+
+/-- Concatenation decodes a heterogeneous full tuple through the existing extraction decoder. -/
+example {k : ℕ} {Dm : Fin k → Type} [∀ i, Fintype (Dm i)]
+    (hk : 1 ≤ k) (t : TpDLen k Dm (TupleLen.full hk)) :
+    (TpDCode.concat (Dm := Dm)).decodeAt (TupleLen.full hk)
+      ((k : ZMod (k + 1)), fun i : Fin k ↦ TpDCode.concatCell (Dm := Dm) i (t i)) = some t := by
+  rw [← TpDCode.concat_full hk t, TpDCode.decodeAt_enc]
+
+/-- The factorization is a public matrix identity for general finite extractors. -/
+example {k : ℕ} {Dm : Fin k → Type} [∀ i, Fintype (Dm i)]
+    {Cm S : Type} [Fintype Cm] [DecidableEq Cm] [Fintype S] [DecidableEq S]
+    (ME : MultiExtractor k Cm Dm S) (B A C : Finset (Fin k))
+    (hBA : Disjoint B A) (hBC : Disjoint (B ∪ A) C)
+    (hcover : B ∪ A ∪ C = Finset.univ) :
+    extractUnitary ME TpDCode.concat =
+      basisMatrix (TpDCode.responsePerm
+        (TpDCode.lengthResponse (Dm := Dm) (Cm := Cm) (S := S))) *
+        basisMatrix (TpDCode.responsePerm (TpDCode.partResponse ME B)) *
+        basisMatrix (TpDCode.responsePerm (TpDCode.partResponse ME A)) *
+        basisMatrix (TpDCode.responsePerm (TpDCode.partResponse ME C)) :=
+  TpDCode.extractUnitary_concat_factor ME B A C hBA hBC hcover
 
 end VCVioTest.OldChecker
