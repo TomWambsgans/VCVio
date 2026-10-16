@@ -6,6 +6,7 @@ Authors: Quang Dao
 
 module
 public import VCVio.Quantum.VC.Proof.CheckerComparison
+public import VCVio.Quantum.Comp.Potential
 
 /-!
 # Numerical contract for old-oracle offline extraction
@@ -24,6 +25,8 @@ four and eight in FIX (36) belong to the downstream reduction, not to this P4 er
 -/
 
 public section
+
+open scoped ENNReal
 
 namespace Quantum
 namespace SaltedMerkle
@@ -63,6 +66,50 @@ noncomputable def oldMerkleOfflineError (N d u : ℕ) (w e : ℝ) (qs : ℕ) : �
 theorem oldLeakagePolynomial_nonneg (u : ℕ) : 0 ≤ oldLeakagePolynomial u := by
   unfold oldLeakagePolynomial
   split_ifs <;> positivity
+
+/-- The polynomial in FIX (28) is the exact sum of the prefix leakage coefficients. -/
+theorem oldLeakagePolynomial_eq_sum (u : ℕ) :
+    oldLeakagePolynomial u = ∑ j ∈ Finset.range u, (j : ℝ) * (2 * j - 1) := by
+  have hs (n : ℕ) :
+      (∑ j ∈ Finset.range n, (j : ℝ) * (2 * j - 1)) =
+        (n : ℝ) * (n - 1) * (4 * n - 5) / 6 := by
+    induction n with
+    | zero => norm_num
+    | succ n ih => rw [Finset.sum_range_succ, ih]; push_cast; ring
+  rw [hs]
+  rcases u with _ | _ | u
+  · norm_num [oldLeakagePolynomial]
+  · norm_num [oldLeakagePolynomial]
+  · simp only [oldLeakagePolynomial, show 2 ≤ u + 1 + 1 by omega, ite_true]
+    rw [Nat.cast_sub (by omega : 1 ≤ u + 1 + 1),
+      Nat.cast_sub (by omega : 5 ≤ 4 * (u + 1 + 1))]
+    push_cast
+    ring
+
+/-- FIX (28), as an extended-nonnegative-real Cauchy--Schwarz estimate. The masses may be
+infinite; no conversion of a mass to a real number is used. This lemma only aggregates given
+prefix masses and does not identify them with the extraction masses of a runtime. -/
+theorem oldLeakage_sum_sqrt_le (u : ℕ) (N : ℝ≥0∞) (mass : ℕ → ℝ≥0∞) :
+    ∑ j ∈ Finset.range u,
+        (ENNReal.ofReal ((j : ℝ) * (2 * j - 1)) / N * mass j) ^ (2⁻¹ : ℝ) ≤
+      (ENNReal.ofReal (oldLeakagePolynomial u) / N *
+        ∑ j ∈ Finset.range u, mass j) ^ (2⁻¹ : ℝ) := by
+  have hn (j : ℕ) : 0 ≤ (j : ℝ) * (2 * j - 1) := by
+    rcases j with _ | j
+    · norm_num
+    · push_cast
+      exact mul_nonneg (by positivity) (by linarith [(Nat.cast_nonneg j : (0 : ℝ) ≤ j)])
+  have hs : (∑ j ∈ Finset.range u, ENNReal.ofReal ((j : ℝ) * (2 * j - 1)) / N) =
+      ENNReal.ofReal (oldLeakagePolynomial u) / N := by
+    simp only [div_eq_mul_inv]
+    rw [← Finset.sum_mul, ← ENNReal.ofReal_sum_of_nonneg (fun j _ ↦ hn j),
+      ← oldLeakagePolynomial_eq_sum]
+  rw [← hs]
+  simp only [ENNReal.mul_rpow_of_nonneg _ _ (by norm_num : (0 : ℝ) ≤ 2⁻¹)]
+  simpa only [rpow_inv_two_rpow_two, one_div] using
+    ENNReal.inner_le_Lp_mul_Lq (Finset.range u)
+      (fun j ↦ (ENNReal.ofReal ((j : ℝ) * (2 * j - 1)) / N) ^ (2⁻¹ : ℝ))
+      (fun j ↦ mass j ^ (2⁻¹ : ℝ)) Real.HolderConjugate.two_two
 
 /-- The finite error is a number in `[0, 1]`. -/
 theorem oldOfflineError_mem_Icc (N u : ℕ) (w e : ℝ) (q : ℕ) :
