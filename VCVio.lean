@@ -431,6 +431,7 @@ public import VCVio.Quantum.Oracle.Compressed.Action
 public import VCVio.Quantum.Oracle.Compressed.Basic
 public import VCVio.Quantum.Oracle.Compressed.BinaryPartition
 public import VCVio.Quantum.Oracle.Compressed.Collision
+public import VCVio.Quantum.Oracle.Compressed.CollisionBlocks
 public import VCVio.Quantum.Oracle.Compressed.CollisionPotential
 public import VCVio.Quantum.Oracle.Compressed.CommutatorBound
 public import VCVio.Quantum.Oracle.Compressed.CommutatorSharp
