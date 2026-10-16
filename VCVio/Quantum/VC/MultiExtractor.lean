@@ -11,13 +11,13 @@ public import VCVio.Quantum.VC.Tuples
 # Multi-extractors and admissibility
 
 A multi-extractor for a family of `k` vector commitments (Chiesa, Di, Hu and Zheng,
-ePrint 2025/2166, §7, l.2773–2776) is a deterministic classical map that takes a commitment tuple
+ePrint 2025/2166, §7, p. 49) is a deterministic classical map that takes a commitment tuple
 `((idx_i, cm_i))_{i ∈ [j]}` and a classical state `S` of an emulated oracle's private register, and
 returns a decommitment tuple of the same length.
 
 ## Admissibility, and why Def 7.1 is repaired
 
-Def 7.1 (l.2777–2784) calls a multi-extractor admissible when
+Def 7.1 (p. 49) calls a multi-extractor admissible when
 
 1. a tuple with a repeated index extracts to all `⊥`, and
 2. extraction is prefix consistent: the extraction of a prefix is the prefix of the extraction.
@@ -37,7 +37,7 @@ shorter tuple, does not satisfy it.
 indices. The literal definition is kept as `Quantum.MultiExtractor.AdmissibleLiteral` so that its
 degeneracy is stated and checked.
 
-The definitions are classical; the purified extractor `U_MultiExtract` (l.2786–2793) is built on
+The definitions are classical; the purified extractor `U_MultiExtract` (p. 49) is built on
 top of them.
 
 ## Main definitions
@@ -58,9 +58,9 @@ universe u v w
 
 namespace Quantum
 
-/-- A multi-extractor (ePrint 2025/2166, §7, l.2773–2776): a deterministic classical map from a
+/-- A multi-extractor (ePrint 2025/2166, §7, p. 49): a deterministic classical map from a
 commitment tuple and a basis state `s : S` of the oracle's private register to a decommitment tuple
-of the same length. The length is preserved by the type. "Polynomial time" (l.2784) is not part
+of the same length. The length is preserved by the type. "Polynomial time" (p. 49) is not part
 of the definition; `extract` is any function. -/
 structure MultiExtractor (k : ℕ) (Cm : Type u) (Dm : Fin k → Type v) (S : Type w) where
   /-- `MultiExtract(tic, S)`. -/
@@ -70,26 +70,26 @@ namespace MultiExtractor
 
 variable {k : ℕ} {Cm : Type u} {Dm : Fin k → Type v} {S : Type w}
 
-/-- Admissibility (ePrint 2025/2166, Def 7.1, l.2777–2783), with prefix consistency required only
+/-- Admissibility (ePrint 2025/2166, Def 7.1, p. 49), with prefix consistency required only
 for tuples with distinct indices; see the module docstring for why the literal definition is
 repaired. `bot i` is the all-`⊥` decommitment of the scheme `VC_i`. -/
 structure Admissible (ME : MultiExtractor k Cm Dm S) (bot : ∀ i, Dm i) : Prop where
-  /-- Property 1 (l.2779–2780): a tuple with a repeated index extracts to all `⊥`. -/
+  /-- Property 1 (p. 49): a tuple with a repeated index extracts to all `⊥`. -/
   eq_bot_of_not_injective : ∀ (tic : TpIC k Cm) (s : S), ¬ Function.Injective tic.idx →
     ∀ i, ME.extract tic s i = bot _
-  /-- Property 2 (l.2781–2783), for tuples with distinct indices: the extraction of a prefix is
+  /-- Property 2 (p. 49), for tuples with distinct indices: the extraction of a prefix is
   the prefix of the extraction. -/
   prefix_eq : ∀ (tic : TpIC k Cm) (s : S), Function.Injective tic.idx →
     ∀ (j' : TupleLen k) (h : j'.len ≤ tic.1.len) (i : Fin j'.len),
       ME.extract (tic.prefix j' h) s i = ME.extract tic s (Fin.castLE h i)
 
-/-- Def 7.1 (l.2777–2783) as written, with prefix consistency for every tuple. It is degenerate
+/-- Def 7.1 (p. 49) as written, with prefix consistency for every tuple. It is degenerate
 (`Quantum.MultiExtractor.AdmissibleLiteral.extract_eq_bot`). -/
 structure AdmissibleLiteral (ME : MultiExtractor k Cm Dm S) (bot : ∀ i, Dm i) : Prop where
-  /-- Property 1 (l.2779–2780): a tuple with a repeated index extracts to all `⊥`. -/
+  /-- Property 1 (p. 49): a tuple with a repeated index extracts to all `⊥`. -/
   eq_bot_of_not_injective : ∀ (tic : TpIC k Cm) (s : S), ¬ Function.Injective tic.idx →
     ∀ i, ME.extract tic s i = bot _
-  /-- Property 2 (l.2781–2783), for every tuple. -/
+  /-- Property 2 (p. 49), for every tuple. -/
   prefix_eq : ∀ (tic : TpIC k Cm) (s : S) (j' : TupleLen k) (h : j'.len ≤ tic.1.len)
     (i : Fin j'.len), ME.extract (tic.prefix j' h) s i = ME.extract tic s (Fin.castLE h i)
 

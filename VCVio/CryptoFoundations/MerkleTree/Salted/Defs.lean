@@ -12,7 +12,7 @@ public import VCVio.OracleComp.Constructions.SampleableType.Basic
 # Salted Merkle trees as vector commitments
 
 The salted Merkle commitment `MT[σ, Σ, ℓ = 2^d, ν]` of Chiesa, Di, Hu and Zheng
-(ePrint 2025/2166, Def 8.2, l.2971–3000) over one oracle `f : X → Y`:
+(ePrint 2025/2166, Def 8.2, pp. 52–53) over one oracle `f : X → Y`:
 
 * `Commit^f(m)` samples salts `γ_ι` and hashes bottom-up: the leaf labels are
   `z_{d,ι} = f(m_ι, γ_ι)` and the internal labels are `z_{j,ι} = f(z_{j+1,2ι}, z_{j+1,2ι+1})`
@@ -25,7 +25,7 @@ The salted Merkle commitment `MT[σ, Σ, ℓ = 2^d, ν]` of Chiesa, Di, Hu and Z
   then `CheckIO`.
 
 Tree inputs sit in the single oracle domain `X` through an `SaltedMerkle.Encoding`: the paper uses
-one function `f` with no domain separation (l.2977–2978), and tagged domains are the special case
+one function `f` with no domain separation (p. 52), and tagged domains are the special case
 `X = (Y × Y) ⊕ (Msg × Salt)`.
 
 The trapdoor stores the label table with the paper's level indexing, as level arrays
@@ -45,7 +45,7 @@ opened position (fewer when pairs repeat), and `checkIOForm` has `qVC q = q * (d
 openings of all positions read from one trapdoor contain at most
 `2 ^ d + (2 ^ d - 1) = 2ℓ - 1` distinct pairs, with `ℓ = 2 ^ d` (`length_outputIO_opening_le`).
 These counts differ from the `q_s · log ℓ` and `ℓ` stated in ePrint 2025/2166, §8.3
-(l.3140–3142), which do not count the leaf hash; for `ℓ = 1` the verifier still makes one query.
+(p. 55), which do not count the leaf hash; for `ℓ = 1` the verifier still makes one query.
 
 ## Universes
 
@@ -92,8 +92,8 @@ namespace SaltedMerkle
 
 /-- How the inputs of a salted Merkle tree sit in the single oracle domain `X`: an internal node
 hashes a pair of labels and a leaf hashes a message with its salt. The paper uses one function `f`
-with no domain separation, distinguishing node and leaf inputs only by their length (l.2977–2978,
-l.3104, l.3112); tagged domains are the special case `X = (Y × Y) ⊕ (Msg × Salt)`. -/
+with no domain separation, distinguishing node and leaf inputs only by their length (p. 52,
+pp. 54–55); tagged domains are the special case `X = (Y × Y) ⊕ (Msg × Salt)`. -/
 structure Encoding (X : Type uX) (Y : Type uY) (Msg : Type uM) (Salt : Type uS) where
   /-- The input of an internal node with children labels `(L, R)`. -/
   node : Y × Y → X
@@ -104,11 +104,11 @@ structure Encoding (X : Type uX) (Y : Type uY) (Msg : Type uM) (Salt : Type uS) 
   /-- Distinct messages or salts give distinct leaf inputs. -/
   leaf_injective : Function.Injective leaf
 
-/-- A table of node labels: level `j ∈ {0, …, d}`, position `ι < 2 ^ j` (the list `C`, l.2975).
-`none` is `⊥` (l.3114). -/
+/-- A table of node labels: level `j ∈ {0, …, d}`, position `ι < 2 ^ j` (the list `C`, p. 52).
+`none` is `⊥` (p. 55). -/
 abbrev Labels (Y : Type uY) (d : ℕ) := (j : Fin (d + 1)) → Fin (2 ^ (j : ℕ)) → Option Y
 
-/-- A trapdoor `td = (γ, C)` (l.2981): the salts and the label table. Both are `Option`-valued, so
+/-- A trapdoor `td = (γ, C)` (p. 52): the salts and the label table. Both are `Option`-valued, so
 an extracted trapdoor with `⊥` entries has the same type. -/
 abbrev Td (Y : Type uY) (Salt : Type uS) (d : ℕ) := (Fin (2 ^ d) → Option Salt) × Labels Y d
 
@@ -116,7 +116,7 @@ abbrev Td (Y : Type uY) (Salt : Type uS) (d : ℕ) := (Fin (2 ^ d) → Option Sa
 @[expose]
 def tdBot {Y : Type uY} {Salt : Type uS} {d : ℕ} : Td Y Salt d := (fun _ ↦ none, fun _ _ ↦ none)
 
-/-- The opening `ST_ι` of one leaf (l.2983): its salt and, for `j ∈ [1, d]` (stored at `j - 1`),
+/-- The opening `ST_ι` of one leaf (p. 52): its salt and, for `j ∈ [1, d]` (stored at `j - 1`),
 the node `a_{ι,j}` on the path from the root to the leaf and its sibling `b_{ι,j}`. The leaf label
 is `a_{ι,d}`. The root in `ST_ι` is the commitment and is not repeated. -/
 structure PathProof (Y : Type uY) (Salt : Type uS) (d : ℕ) where
@@ -372,7 +372,7 @@ def pathPair (C : Labels Y d) (ι : Fin (2 ^ d)) (j : Fin d) : Option (Y × Y) :
   let b ← labelAt C (j + 1) (sib (anc d ι (j + 1)))
   pure (a, b)
 
-/-- `Open(Q, td)` (l.2982–2984): for `ι ∈ Q`, the salt and the path pairs read from the trapdoor;
+/-- `Open(Q, td)` (p. 52): for `ι ∈ Q`, the salt and the path pairs read from the trapdoor;
 `none` off `Q`, and also where the trapdoor has a `⊥` on the path. -/
 @[expose]
 def opening (d : ℕ) (Q : Finset (Fin (2 ^ d))) (td : Td Y Salt d) : Pf Y Salt d :=
@@ -380,7 +380,7 @@ def opening (d : ℕ) (Q : Finset (Fin (2 ^ d))) (td : Td Y Salt d) : Pf Y Salt 
     (td.1 ι).bind fun s ↦ (optionPi (pathPair td.2 ι)).map fun path ↦ ⟨s, path⟩
   else none
 
-/-- The pairs `OutputIO` lists for one opened leaf `ι` with answer `a` (l.2992–2999): the leaf
+/-- The pairs `OutputIO` lists for one opened leaf `ι` with answer `a` (p. 53): the leaf
 pair `(f(a, γ_ι) ↦ a_{ι,d})`, then for `j ∈ [1, d]` the node pair
 `(f(L_{ι,j}, R_{ι,j}) ↦ a_{ι,j-1})`. -/
 @[expose]
@@ -396,7 +396,7 @@ def entryIO (enc : Encoding X Y Msg Salt) (rt : Y) (ι : Fin (2 ^ d)) :
   | some a, some pp => leafIO enc rt ι a pp
   | _, _ => []
 
-/-- `OutputIO(rt, Q, ans, pf)` (l.2992–2999). It returns `none` unless `pf` has an entry exactly
+/-- `OutputIO(rt, Q, ans, pf)` (p. 53). It returns `none` unless `pf` has an entry exactly
 at the positions of `Q = dom ans`; otherwise it lists the pairs of every opened leaf, each
 distinct pair once. -/
 @[expose]
@@ -787,7 +787,7 @@ section Commit
 
 variable {X : Type uX} {Y Salt : Type uY} {Msg : Type uM}
 
-/-- `Commit^f(m)` after the salts are fixed (l.2974–2981): hash the leaves `f(m_ι, γ_ι)` and then
+/-- `Commit^f(m)` after the salts are fixed (p. 52): hash the leaves `f(m_ι, γ_ι)` and then
 the tree bottom-up. It returns the root and the trapdoor `(γ, C)`. -/
 @[expose]
 def commitTree (enc : Encoding X Y Msg Salt) (d : ℕ) (msg : Fin (2 ^ d) → Msg)
@@ -818,7 +818,7 @@ section Scheme
 
 variable {X : Type uX} {Y Salt : Type} {Msg : Type uM}
 
-/-- The salted Merkle commitment `MT[σ, Σ, ℓ = 2 ^ d, ν]` (Def 8.2, l.2971–3000). `Commit` samples
+/-- The salted Merkle commitment `MT[σ, Σ, ℓ = 2 ^ d, ν]` (Def 8.2, pp. 52–53). `Commit` samples
 the salts uniformly with `unifSpec` and hashes bottom-up, `Open` reads the paths from the
 trapdoor, and `Check` is `OutputIO` then `CheckIO`. `Open` is deterministic and `Check` is
 coin-free, so the scheme is a `DetVectorCommitment`. -/
@@ -850,7 +850,7 @@ theorem checkIOForm_checkOn [DecidableEq X] [DecidableEq Y] [SampleableType Salt
   rfl
 
 /-- **Perfect completeness** of the salted Merkle commitment against every fixed oracle function
-(Def 3.7, l.1316; §8.3, l.3138). -/
+(Def 3.7, p. 27; §8.3, p. 55). -/
 theorem perfectlyComplete [DecidableEq X] [DecidableEq Y] [SampleableType Salt]
     (enc : Encoding X Y Msg Salt) (d : ℕ) : (scheme (Msg := Msg) enc d).PerfectlyComplete := by
   unfold DetVectorCommitment.PerfectlyComplete
@@ -870,7 +870,7 @@ theorem perfectlyComplete [DecidableEq X] [DecidableEq Y] [SampleableType Salt]
   intro p hp
   simp [hG p hp]
 
-/-- **Perfect completeness relative to every oracle distribution** (Def 3.7, l.1316): the salted
+/-- **Perfect completeness relative to every oracle distribution** (Def 3.7, p. 27): the salted
 Merkle commitment, as a general vector commitment, is perfectly complete for every distribution `D`
 on oracle functions. -/
 theorem perfectlyComplete_toVectorCommitment [DecidableEq X] [DecidableEq Y] [SampleableType Salt]

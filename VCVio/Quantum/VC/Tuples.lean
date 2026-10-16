@@ -13,7 +13,7 @@ public import Mathlib.Data.Fintype.Pi
 # Tuples of commitments and decommitments
 
 Multi-extraction for a family of `k` vector commitments works on tuples
-(Chiesa, Di, Hu and Zheng, ePrint 2025/2166, §7, l.2762–2771):
+(Chiesa, Di, Hu and Zheng, ePrint 2025/2166, §7, p. 49):
 
 * `TpIC k Cm`: tuples `((idx_i, cm_i))_{i ∈ [j]}` of length `j ∈ [k]`, where `idx_i ∈ [k]` names
   an oracle and position `i` belongs to the scheme `VC_i`;
@@ -40,7 +40,7 @@ namespace Quantum
 
 /-! ## Lengths -/
 
-/-- Tuple lengths `j ∈ [k]` (l.2766), as the nonzero elements of `Fin (k + 1)`. -/
+/-- Tuple lengths `j ∈ [k]` (p. 49), as the nonzero elements of `Fin (k + 1)`. -/
 abbrev TupleLen (k : ℕ) := {j : Fin (k + 1) // j ≠ 0}
 
 namespace TupleLen
@@ -88,30 +88,30 @@ end TupleLen
 
 /-! ## Tuples -/
 
-/-- `TpIC` (l.2766): tuples `((idx_i, cm_i))_{i ∈ [j]}`. Position `i` belongs to the scheme
+/-- `TpIC` (p. 49): tuples `((idx_i, cm_i))_{i ∈ [j]}`. Position `i` belongs to the scheme
 `VC_i`, and `idx_i` names its oracle. -/
 @[expose]
 def TpIC (k : ℕ) (Cm : Type u) : Type u :=
   Σ j : TupleLen k, Fin j.len → Fin k × Cm
 
-/-- Decommitment tuples of length `j` (l.2769): position `i` holds `dm_i : Dm i` of the scheme
+/-- Decommitment tuples of length `j` (p. 49): position `i` holds `dm_i : Dm i` of the scheme
 `VC_i`. -/
 abbrev TpDLen (k : ℕ) (Dm : Fin k → Type v) (j : TupleLen k) : Type v :=
   ∀ i : Fin j.len, Dm (Fin.castLE j.len_le i)
 
-/-- `TpD` (l.2769): decommitment tuples of every length. -/
+/-- `TpD` (p. 49): decommitment tuples of every length. -/
 @[expose]
 def TpD (k : ℕ) (Dm : Fin k → Type v) : Type v :=
   Σ j : TupleLen k, TpDLen k Dm j
 
-/-- `TpICD` (l.2771): a commitment tuple with a decommitment tuple of the same length. Equal
+/-- `TpICD` (p. 49): a commitment tuple with a decommitment tuple of the same length. Equal
 lengths are enforced by the type. -/
 @[expose]
 def TpICD (k : ℕ) (Cm : Type u) (Dm : Fin k → Type v) : Type (max u v) :=
   Σ tic : TpIC k Cm, TpDLen k Dm tic.1
 
 /-- The decommitment type of the scheme `VC_i` in a family of vector commitments:
-`dm_i = (m_i, td_i)` with `m_i ∈ (Σ ∪ {⊥})^{ℓ_i}` (l.2769). -/
+`dm_i = (m_i, td_i)` with `m_i ∈ (Σ ∪ {⊥})^{ℓ_i}` (p. 49). -/
 abbrev DmOf {k : ℕ} (ℓ : Fin k → ℕ) (Msg : Type u) (Td : Fin k → Type v) (i : Fin k) :
     Type (max u v) :=
   PartialVec (ℓ i) Msg × Td i
@@ -161,7 +161,7 @@ def cm (tic : TpIC k Cm) : Fin tic.1.len → Cm :=
   fun i ↦ (tic.2 i).2
 
 /-- The prefix `((idx_i, cm_i))_{i ∈ [j']}` of a tuple, for `j' ≤ j` (Def 7.1 property 2,
-l.2781–2783). -/
+p. 49). -/
 @[expose]
 def «prefix» (tic : TpIC k Cm) (j' : TupleLen k) (h : j'.len ≤ tic.1.len) : TpIC k Cm :=
   ⟨j', fun i ↦ tic.2 (Fin.castLE h i)⟩
@@ -184,7 +184,7 @@ theorem idx_prefix_injective {tic : TpIC k Cm} (hinj : Function.Injective tic.id
   fun _ _ hab ↦ Fin.castLE_injective h (hinj hab)
 
 /-- The full-length tuple `((idx_i, cm_i))_{i ∈ [k]}` that an adversary outputs in the
-extraction games of Def 7.3 (l.2869, l.2889). -/
+extraction games of Def 7.3 (p. 51). -/
 @[expose]
 def full (hk : 1 ≤ k) (idx : Fin k → Fin k) (cm : Fin k → Cm) : TpIC k Cm :=
   ⟨TupleLen.full hk, fun i ↦ (idx i, cm i)⟩
