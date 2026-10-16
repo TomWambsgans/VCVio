@@ -28,6 +28,8 @@ public section
 open Matrix
 open scoped Kronecker
 
+universe uL vL w
+
 namespace Quantum
 
 /-- A projective classical interface of an emulated oracle. The branch equation is for
@@ -131,6 +133,7 @@ theorem projector_hermitian (tr : List (X × Y)) : (H.projector tr)ᴴ = H.proje
     rw [projector_cons, conjTranspose_mul, ih, H.hermitian, ← H.answer_commute_projector]
 
 /-- Joint-state branch for a recorded transcript; no renormalization is performed. -/
+@[expose]
 noncomputable def transcriptBranch (B : QReg) (tr : List (X × Y)) :
     MatrixMap (B × E.S) (B × E.S) :=
   MatrixMap.conj ((1 : Matrix B B ℂ) ⊗ₖ H.projector tr)
@@ -168,6 +171,15 @@ theorem replay_fixedCoins_transcript {Coins : Type*} (B : QReg)
       H.transcriptBranch B (adaptiveTranscript (next coins) answers) :=
   H.replay_transcript B _
 
+/-- Factoring the first answers of two transcript products uses cross-cell commutation. -/
+theorem projector_cons_mul_cons (q r : X × Y) (ts us : List (X × Y)) :
+    H.projector (q :: ts) * H.projector (r :: us) =
+      (H.A q.1 q.2 * H.A r.1 r.2) * (H.projector ts * H.projector us) := by
+  simp only [projector_cons]
+  rw [Matrix.mul_assoc, ← Matrix.mul_assoc (H.projector ts),
+    ← H.answer_commute_projector]
+  simp only [Matrix.mul_assoc]
+
 /-- Two adaptive transcripts of the same length are orthogonal unless every answer agrees.
 The query policy is recomputed from the same fixed inputs and coins in both executions. -/
 theorem adaptive_projector_mul (next : List Y → X) (ys zs : List Y)
@@ -184,18 +196,8 @@ theorem adaptive_projector_mul (next : List Y → X) (ys zs : List Y)
     | nil => simp at hlen
     | cons z zs =>
       have hl : zs.length = ys.length := Nat.succ.inj hlen
-      simp only [adaptiveTranscript, projector_cons]
-      rw [show (H.A (next []) z *
-          H.projector (adaptiveTranscript (fun pre ↦ next (z :: pre)) zs)) *
-            (H.A (next []) y *
-              H.projector (adaptiveTranscript (fun pre ↦ next (y :: pre)) ys)) =
-          (H.A (next []) z * H.A (next []) y) *
-            (H.projector (adaptiveTranscript (fun pre ↦ next (z :: pre)) zs) *
-              H.projector (adaptiveTranscript (fun pre ↦ next (y :: pre)) ys)) by
-        rw [Matrix.mul_assoc, ← Matrix.mul_assoc
-          (H.projector (adaptiveTranscript (fun pre ↦ next (z :: pre)) zs)),
-          ← H.answer_commute_projector]
-        simp only [Matrix.mul_assoc]]
+      simp only [adaptiveTranscript]
+      rw [H.projector_cons_mul_cons, H.projector_cons]
       rw [H.orthogonal]
       by_cases hzy : z = y
       · subst z
@@ -214,6 +216,90 @@ theorem replay_fixedCoins_answers {Coins : Type*} (B : QReg)
   rw [transcriptBranch, transcriptBranch, ← MatrixMap.conj_mul, ← mul_kronecker_mul,
     Matrix.one_mul, H.adaptive_projector_mul _ _ _ hlen]
   split_ifs <;> simp
+
+/-- A finite answer sequence at which a deterministic stopping policy first stops.
+This permits answer-dependent stopping times without a uniform query bound. -/
+def TerminalTranscript (stop : List Y → Bool) : List Y → Prop
+  | [] => stop [] = true
+  | y :: ys => stop [] = false ∧ TerminalTranscript (fun pre ↦ stop (y :: pre)) ys
+
+/-- Complete stopped adaptive transcripts are orthogonal unless identical, even when their
+lengths differ. Both runs use the same fixed coins, query policy and stopping policy. -/
+theorem terminal_adaptive_projector_mul (next : List Y → X) (stop : List Y → Bool)
+    (ys zs : List Y) (hy : TerminalTranscript stop ys) (hz : TerminalTranscript stop zs) :
+    H.projector (adaptiveTranscript next zs) * H.projector (adaptiveTranscript next ys) =
+      if zs = ys then H.projector (adaptiveTranscript next ys) else 0 := by
+  induction ys generalizing next stop zs with
+  | nil =>
+    cases zs with
+    | nil => simp [adaptiveTranscript]
+    | cons z zs => simp_all [TerminalTranscript]
+  | cons y ys ih =>
+    cases zs with
+    | nil => simp_all [TerminalTranscript]
+    | cons z zs =>
+      simp only [TerminalTranscript] at hy hz
+      simp only [adaptiveTranscript]
+      rw [H.projector_cons_mul_cons, H.projector_cons, H.orthogonal]
+      by_cases he : z = y
+      · subst z
+        rw [ite_eq_left rfl, ih _ _ _ hy.2 hz.2]
+        by_cases hs : zs = ys <;> simp [hs]
+      · simp [he]
+
+/-- Fixed-coin replay of a terminating adaptive classical algorithm has exactly its original
+terminal transcript and residual joint branch. No equality of transcript lengths is assumed. -/
+theorem replay_fixedCoins_terminal {Coins : Type*} (B : QReg)
+    (next : Coins → List Y → X) (stop : Coins → List Y → Bool) (coins : Coins)
+    (ys zs : List Y) (hy : TerminalTranscript (stop coins) ys)
+    (hz : TerminalTranscript (stop coins) zs) :
+    H.transcriptBranch B (adaptiveTranscript (next coins) zs) ∘ₗ
+        H.transcriptBranch B (adaptiveTranscript (next coins) ys) =
+      if zs = ys then H.transcriptBranch B (adaptiveTranscript (next coins) ys) else 0 := by
+  rw [transcriptBranch, transcriptBranch, ← MatrixMap.conj_mul, ← mul_kronecker_mul,
+    Matrix.one_mul, H.terminal_adaptive_projector_mul _ _ _ _ hy hz]
+  split_ifs <;> simp
+
+/-- Execute an adaptive query prefix and retain precisely the prescribed answer transcript.
+Every call uses the actual emulated-oracle runtime; a mismatched answer returns `false`.
+The program is the postselection of a deterministic classical algorithm with fixed coins. -/
+noncomputable def checkAdaptiveTranscript (B : QReg) (next : List Y → X) :
+    List Y → QComp (uSpec P In) B B Bool
+  | [] => QuantumComp₂.pure true
+  | y :: ys =>
+    (QComp.callBasis (H.query (next [])).1 B (H.query (next [])).2
+      (fun o _ ↦ H.read (next []) o)).bind fun z ↦
+        if z = y then checkAdaptiveTranscript B (fun pre ↦ next (z :: pre)) ys
+        else QuantumComp₂.pure false
+
+/-- The actual accepting branch of adaptive transcript postselection is its projector product.
+Rejected outcomes are retained as separate branches of the program, never renormalized away. -/
+theorem branch_checkAdaptiveTranscript (B : QReg) (next : List Y → X) (ys : List Y) :
+    (E.toRuntime.run₂ .instruments (H.checkAdaptiveTranscript B next ys)).branch true =
+      H.transcriptBranch B (adaptiveTranscript next ys) := by
+  induction ys generalizing next with
+  | nil =>
+    rw [checkAdaptiveTranscript, QuantumRuntime.run₂_pure, SubInstrument.branch_pure_self]
+    simp [adaptiveTranscript]
+  | cons y ys ih =>
+    rw [checkAdaptiveTranscript, QuantumRuntime.run₂_bind,
+      SubInstrument.branch_bind_apply_univ, Finset.sum_eq_single y]
+    · rw [ite_eq_left rfl, ih, H.branch_eq]
+      exact (H.transcriptBranch_cons B (next [], y)
+        (adaptiveTranscript (fun pre ↦ next (y :: pre)) ys)).symm
+    · intro z _ hz
+      rw [ite_eq_right hz, QuantumRuntime.run₂_pure,
+        SubInstrument.branch_pure_of_ne (by decide), LinearMap.zero_comp]
+    · simp
+
+/-- Operational fixed-coin replay of any adaptive classical query prefix leaves its accepting
+joint branch unchanged. The initial state can be the output of any preceding quantum program. -/
+theorem replay_checkAdaptiveTranscript (B : QReg) (next : List Y → X) (ys : List Y) :
+    (E.toRuntime.run₂ .instruments (H.checkAdaptiveTranscript B next ys)).branch true ∘ₗ
+        (E.toRuntime.run₂ .instruments (H.checkAdaptiveTranscript B next ys)).branch true =
+      (E.toRuntime.run₂ .instruments (H.checkAdaptiveTranscript B next ys)).branch true := by
+  rw [H.branch_checkAdaptiveTranscript]
+  exact H.replay_transcript B _
 
 /-- An answer already present in a transcript is absorbed by its projector. -/
 theorem answer_mul_projector_of_mem (q : X × Y) (tr : List (X × Y)) (hq : q ∈ tr) :
@@ -258,6 +344,44 @@ theorem sum_unused_check_projector (x : X) (tr : List (X × Y)) :
     ∑ y, H.A x y * H.projector tr * H.A x y = H.projector tr :=
   H.sum_unused_check x _ fun y ↦ H.answer_commute_projector x y tr
 
+/-- Removing unused check outcomes preserves every commuting joint effect, even one
+involving the external reference register. -/
+theorem sum_unused_check_framed (B : QReg) (x : X) (F : Matrix (B × E.S) (B × E.S) ℂ)
+    (hF : ∀ y, ((1 : Matrix B B ℂ) ⊗ₖ H.A x y) * F =
+      F * ((1 : Matrix B B ℂ) ⊗ₖ H.A x y)) :
+    ∑ y, ((1 : Matrix B B ℂ) ⊗ₖ H.A x y) * F *
+      ((1 : Matrix B B ℂ) ⊗ₖ H.A x y) = F := by
+  have hsum : (∑ y, (1 : Matrix B B ℂ) ⊗ₖ H.A x y) = 1 := by
+    ext ⟨b, d⟩ ⟨b', d'⟩
+    have h := congrFun (congrFun (H.complete x) d) d'
+    simpa only [Matrix.sum_apply, kroneckerMap_apply, ← Finset.mul_sum,
+      ← one_kronecker_one (α := ℂ), kroneckerMap_apply] using
+      congrArg ((1 : Matrix B B ℂ) b b' * ·) h
+  calc
+    _ = ∑ y, F * ((1 : Matrix B B ℂ) ⊗ₖ H.A x y) := by
+      apply Finset.sum_congr rfl
+      intro y _
+      rw [hF, Matrix.mul_assoc, ← mul_kronecker_mul, Matrix.one_mul,
+        H.orthogonal, ite_eq_left rfl]
+    _ = F := by rw [← Finset.mul_sum, hsum, Matrix.mul_one]
+
+/-- Summing unused check outcomes preserves the unnormalized retained event probability.
+The input can be any matrix; in particular it can be an entangled substate. -/
+theorem trace_sum_unused_check (B : QReg) (x : X)
+    (F ρ : Matrix (B × E.S) (B × E.S) ℂ)
+    (hF : ∀ y, ((1 : Matrix B B ℂ) ⊗ₖ H.A x y) * F =
+      F * ((1 : Matrix B B ℂ) ⊗ₖ H.A x y)) :
+    ∑ y, trace (F * H.branch B x y ρ) = trace (F * ρ) := by
+  have he (y : Y) : trace (F * H.branch B x y ρ) =
+      trace ((((1 : Matrix B B ℂ) ⊗ₖ H.A x y) * F *
+        ((1 : Matrix B B ℂ) ⊗ₖ H.A x y)) * ρ) := by
+    simp only [branch, MatrixMap.conj_apply, conjTranspose_kronecker,
+      conjTranspose_one, H.hermitian]
+    rw [← Matrix.mul_assoc F, trace_mul_cycle]
+    simp only [Matrix.mul_assoc]
+  simp_rw [he]
+  rw [← trace_sum, ← Finset.sum_mul, H.sum_unused_check_framed B x F hF]
+
 /-- Ordinary queries may be interposed between a transcript and its replay, on a separate
 call register, without changing the retained transcript projector. -/
 theorem ordinary_commute_projector (p : P) (tr : List (X × Y)) :
@@ -268,6 +392,43 @@ theorem ordinary_commute_projector (p : P) (tr : List (X × Y)) :
   | cons q tr ih =>
     rw [projector_cons, ← Matrix.one_mul (1 : Matrix (In p) (In p) ℂ), mul_kronecker_mul]
     rw [← Matrix.mul_assoc, H.commute_ordinary, Matrix.mul_assoc, ih, ← Matrix.mul_assoc]
+
+/-- An ordinary query on a separate register can intervene before replay without changing
+the retained branch. The claim is an identity of joint-state maps, not only of probabilities. -/
+theorem replay_after_ordinary (p : P) (tr : List (X × Y)) :
+    H.transcriptBranch (In p) tr ∘ₗ MatrixMap.conj (E.U p) ∘ₗ
+        H.transcriptBranch (In p) tr =
+      MatrixMap.conj (E.U p) ∘ₗ H.transcriptBranch (In p) tr := by
+  simp only [transcriptBranch, ← MatrixMap.conj_mul]
+  congr 1
+  rw [← Matrix.mul_assoc, ← H.ordinary_commute_projector, Matrix.mul_assoc,
+    ← mul_kronecker_mul,
+    Matrix.one_mul, H.projector_mul_self]
+
+/-- A retained transcript commutes through every ordinary quantum program, including
+adaptive local instruments, aborts and register changes, separately on every final leaf. -/
+theorem commute_run {L : LocalSig.{uL, vL}} (I : L.Interp) {W : QReg → Type w}
+    {B : QReg} (prog : QuantumComp L (uSpec P In) W B) (leaf : Σ u, W u)
+    (tr : List (X × Y)) :
+    (E.toRuntime.run I prog).branch leaf ∘ₗ H.transcriptBranch B tr =
+      H.transcriptBranch leaf.1 tr ∘ₗ (E.toRuntime.run I prog).branch leaf := by
+  have hs := QuantumRuntime.simulation (R₁ := E.toRuntime) (R₂ := E.toRuntime)
+    (V := MatrixMap.conj (H.projector tr)) I (fun p r ↦ ?_) prog leaf
+  · simpa only [MatrixMap.amplifyLeft_conj, transcriptBranch] using hs
+  · rw [E.toRuntime_step_branch, MatrixMap.amplifyLeft_conj]
+    simp only [← MatrixMap.conj_mul]
+    rw [H.ordinary_commute_projector]
+
+/-- Exact replay after a general ordinary quantum program. Local operations can change or
+measure the external registers; the private transcript remains fixed on each subnormalized leaf. -/
+theorem replay_after_run {L : LocalSig.{uL, vL}} (I : L.Interp) {W : QReg → Type w}
+    {B : QReg} (prog : QuantumComp L (uSpec P In) W B) (leaf : Σ u, W u)
+    (tr : List (X × Y)) :
+    H.transcriptBranch leaf.1 tr ∘ₗ (E.toRuntime.run I prog).branch leaf ∘ₗ
+        H.transcriptBranch B tr =
+      (E.toRuntime.run I prog).branch leaf ∘ₗ H.transcriptBranch B tr := by
+  rw [← LinearMap.comp_assoc, ← H.commute_run I prog leaf tr,
+    LinearMap.comp_assoc, H.replay_transcript]
 
 end ProjectiveClassicalAnswers
 end Quantum
