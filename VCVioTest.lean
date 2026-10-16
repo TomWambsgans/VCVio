@@ -90,6 +90,7 @@ public import VCVioTest.Quantum.Hybrid
 public import VCVioTest.Quantum.InstabilityBound
 public import VCVioTest.Quantum.Kraus
 public import VCVioTest.Quantum.MultiExtractableModule
+public import VCVioTest.Quantum.OfflineOldAssembly
 public import VCVioTest.Quantum.OldChecker
 public import VCVioTest.Quantum.Oracle
 public import VCVioTest.Quantum.VCCompressed

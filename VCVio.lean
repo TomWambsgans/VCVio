@@ -468,6 +468,7 @@ public import VCVio.Quantum.VC.Proof.CheckerComparison
 public import VCVio.Quantum.VC.Proof.Commutativity
 public import VCVio.Quantum.VC.Proof.Extraction
 public import VCVio.Quantum.VC.Proof.Offline
+public import VCVio.Quantum.VC.Proof.OfflineOldAssembly
 public import VCVio.Quantum.VC.Proof.Repeatability
 public import VCVio.Quantum.VC.Tuples
 public import VCVio.Quantum.VC.Unitaries
