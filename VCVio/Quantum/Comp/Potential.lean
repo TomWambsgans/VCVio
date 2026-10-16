@@ -31,8 +31,9 @@ Then a run from a state with no weight on `Q` ends with weight at most
 `(√(∑ₙ λₙ) · √(tr ((1 ⊗ Φ₀) ρ) + ∑ₙ Θₙ) + ∑ₙ √Eₙ)²` on `Q`, where `Θₙ` and `Eₙ` are the charge and
 the additive term summed over the inputs of the `n`-th calls
 (`Quantum.QuantumRuntime.rpow_inv_two_eventWeight_le_of_potential`). The additive terms `eₙ`
-account for ports that do not preserve the event; they vanish for ports that do, and the bound
-is then `(∑ₙ λₙ) · (tr ((1 ⊗ Φ₀) ρ) + ∑ₙ Θₙ)`.
+account both for ports that change the event and for local approximation errors, such as the
+phase-projection replacement in bounds-note (107). They can be zero when the local leak
+estimate is exact; in that case the bound is `(∑ₙ λₙ) · (tr ((1 ⊗ Φ₀) ρ) + ∑ₙ Θₙ)`.
 
 Both conditions are stated on traces, so that runtimes with countably many outcomes and drops
 that are not given by operators are covered. Loewner inequalities between operators give them
@@ -69,7 +70,7 @@ leak condition, optimized over `s`, bounds by `√(λₙ mₙ) + √Eₙ`, with 
   Kraus weights of the commutators.
 * `Quantum.QuantumRuntime.rpow_inv_two_eventWeight_le_of_potential`: the potential certificate,
   with per-port additive terms; `Quantum.QuantumRuntime.eventWeight_le_of_potential`: the case
-  of ports that preserve the event; `Quantum.QuantumRuntime.eventWeight_le_trace`: the trivial
+  without additive leak costs; `Quantum.QuantumRuntime.eventWeight_le_trace`: the trivial
   bound, for the minimum with one.
 -/
 
@@ -607,8 +608,9 @@ Then, from an operator `ρ` with no weight on `1 ⊗ Q`, the square root of the 
 `1 ⊗ Q` is at most `√(∑ₙ λₙ) · √(tr ((1 ⊗ Φ₀) ρ) + ∑ₙ Θₙ) + ∑ₙ √Eₙ`, where `Θₙ` and `Eₙ` are
 `θₙ` and `eₙ` summed over the inputs of the `n`-th calls (as query weights).
 
-The terms `eₙ` are the additive costs of ports that do not preserve the event; with `e = 0` the
-bound is `√(∑ₙ λₙ (tr ((1 ⊗ Φ₀) ρ) + ∑ₙ Θₙ))`. -/
+The terms `eₙ` are additive leak costs. They can account for event-changing ports or for
+approximation errors in the local operator bound. With `e = 0` the bound is
+`√(∑ₙ λₙ (tr ((1 ⊗ Φ₀) ρ) + ∑ₙ Θₙ))`. -/
 theorem rpow_inv_two_eventWeight_le_of_potential (x : QuantumComp L spec X A)
     {b : spec.Port → ℕ} (hx : x.IsQueryBound b) (t : Finset spec.Port) (ht : ∀ i ∉ t, b i = 0)
     {N : ℕ} (hN : ∑ i ∈ t, b i ≤ N) (K : ℕ → Matrix Z D ℂ)
@@ -681,7 +683,7 @@ theorem rpow_inv_two_eventWeight_le_of_potential (x : QuantumComp L spec X A)
   exact R.sum_range_queryWeight_le_potential I x N K δ θ hdrop hρ
 
 include hU hQ hQQ in
-/-- **The potential certificate for ports that preserve the event**: with leaks bounded by
+/-- **The potential certificate without additive leak costs**: with leaks bounded by
 `λₙ δₙ` (the case `eₙ = 0` of `rpow_inv_two_eventWeight_le_of_potential`), the weight on `1 ⊗ Q`
 is at most `(∑ₙ λₙ) · (tr ((1 ⊗ Φ₀) ρ) + ∑ₙ Θₙ)`. -/
 theorem eventWeight_le_of_potential (x : QuantumComp L spec X A)
