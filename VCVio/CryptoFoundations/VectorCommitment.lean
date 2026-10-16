@@ -28,7 +28,7 @@ Reductions*, ePrint 2025/2166, §3.5, Def 3.5 and Def 3.7) consists of three alg
 
 The pair `(Q, ans)` with `ans ∈ Σ^Q` is one partial vector `ans : Fin ℓ → Option Msg` with
 `Q = dom ans`; the same type holds the extracted messages `m ∈ (Σ ∪ {⊥})^ℓ` of §7
-(ePrint 2025/2166, l.2769).
+(ePrint 2025/2166, p. 49).
 
 Perfect completeness (Def 3.7) is relative to a distribution `D` on oracle functions, a
 probability measure on `X → Y` (`VectorCommitment.PerfectlyComplete`): the honest experiment
@@ -38,11 +38,11 @@ fixed function (`VectorCommitment.PerfectlyCompleteForAll`, and
 every `D`.
 
 The check of every vector commitment in §8 of ePrint 2025/2166 has a special form
-(Def 8.1 and Thm 8.4 condition 1, l.2960–2969 and l.3031–3034): an oracle-free, non-adaptive
+(Def 8.1 and Thm 8.4 condition 1, pp. 52–53): an oracle-free, non-adaptive
 `OutputIO` step lists input-output pairs, and `CheckIO^f` queries every input and compares the
 answer with the listed output. `VectorCommitment.CheckIOForm` records this form, which makes
 `Check` deterministic and coin-free while leaving `Open` general, together with a non-decreasing
-bound `qVC` on the number of pairs (§3.5, l.1311–1314).
+bound `qVC` on the number of pairs (§3.5, p. 27).
 
 ## Universes
 
@@ -90,15 +90,15 @@ universe u v uX uM
 /-! ## Partial vectors -/
 
 /-- A partial vector of length `ℓ`. It encodes the pair `(Q, ans)` of ePrint 2025/2166,
-Def 3.5 (l.1299), as one function with `Q = dom ans`, and an extracted message
-`m ∈ (Σ ∪ {⊥})^ℓ` (l.2769), where `none` is `⊥`. -/
+Def 3.5 (p. 26), as one function with `Q = dom ans`, and an extracted message
+`m ∈ (Σ ∪ {⊥})^ℓ` (p. 49), where `none` is `⊥`. -/
 abbrev PartialVec (ℓ : ℕ) (Msg : Type u) := Fin ℓ → Option Msg
 
 namespace PartialVec
 
 variable {ℓ : ℕ} {Msg : Type u}
 
-/-- The positions at which a partial vector is defined (`Dom(m)`, l.2876). -/
+/-- The positions at which a partial vector is defined (`Dom(m)`, p. 51). -/
 @[expose]
 def dom (v : PartialVec ℓ Msg) : Finset (Fin ℓ) :=
   Finset.univ.filter fun q ↦ (v q).isSome
@@ -108,7 +108,7 @@ def dom (v : PartialVec ℓ Msg) : Finset (Fin ℓ) :=
 theorem mem_dom {v : PartialVec ℓ Msg} {q : Fin ℓ} : q ∈ v.dom ↔ (v q).isSome := by
   simp [dom]
 
-/-- `m[Q] = ans` with `Q = dom ans` (l.2893): `m` agrees with `ans` wherever `ans` is defined. -/
+/-- `m[Q] = ans` with `Q = dom ans` (p. 51): `m` agrees with `ans` wherever `ans` is defined. -/
 @[expose]
 def Agrees (m ans : PartialVec ℓ Msg) : Prop :=
   ∀ q a, ans q = some a → m q = some a
@@ -143,7 +143,7 @@ end PartialVec
 /-! ## Vector commitments -/
 
 /-- A vector commitment to messages `Fin ℓ → Msg` in the model of one oracle `X →ₒ Y`
-(ePrint 2025/2166, Def 3.5, l.1291–1310), in its general form.
+(ePrint 2025/2166, Def 3.5, pp. 26–27), in its general form.
 
 `commit` and `check` sample coins with `unifSpec` and query the oracle; `opening` is oracle-free
 and samples coins. A scheme with a deterministic `Open` and a coin-free `Check` is a
@@ -194,7 +194,7 @@ end FixedOracle
 
 variable {X : Type uX} {Y : Type} {Msg : Type uM} {Cm Td Pf : Type} {ℓ : ℕ}
 
-/-- The experiment of Def 3.7 (l.1316–1320) for a message `m` and a query set `Q`, with the oracle
+/-- The experiment of Def 3.7 (p. 27) for a message `m` and a query set `Q`, with the oracle
 left abstract: `(cm, td) ← Commit^f(m)`, `pf ← Open(Q, td)`, and return
 `Check^f(cm, Q, m[Q], pf)`. -/
 @[expose]
@@ -204,7 +204,7 @@ def completenessExp (vc : VectorCommitment X Y Msg Cm Td Pf ℓ) (m : Fin ℓ �
   let pf ← liftComp (vc.opening Q z.2) (unifSpec + (X →ₒ Y))
   vc.check z.1 (PartialVec.restrict m Q) pf
 
-/-- The acceptance probability of the experiment of Def 3.7 (l.1316–1320) when the oracle is
+/-- The acceptance probability of the experiment of Def 3.7 (p. 27) when the oracle is
 sampled from the measure `D` on functions,
 `Pr[Check^f(cm, Q, m[Q], pf) = 1 : f ← D, (cm, td) ← Commit^f(m), pf ← Open(Q, td)]`, extended to
 an arbitrary measurable space on `X → Y` as the lower integral over `D` of the acceptance
@@ -220,7 +220,7 @@ noncomputable def completenessProb [MeasurableSpace (X → Y)]
     (Q : Finset (Fin ℓ)) : ENNReal :=
   ∫⁻ H, Pr{let b ← simulateQ (fixedOracleImpl H) (vc.completenessExp m Q)}[b = true] ∂D
 
-/-- **Perfect completeness** in the `D`-oracle model (ePrint 2025/2166, Def 3.7, l.1316–1320):
+/-- **Perfect completeness** in the `D`-oracle model (ePrint 2025/2166, Def 3.7, p. 27):
 for every message `m` and every query set `Q`, the experiment accepts with probability `1` when
 the oracle is sampled from `D`. `D` is meant to be a probability measure. -/
 @[expose]
@@ -275,8 +275,8 @@ end VectorCommitment
 /-! ## Deterministic vector commitments -/
 
 /-- A vector commitment with a deterministic `Open` and a coin-free `Check`
-(ePrint 2025/2166, Def 3.5, l.1291–1310, specialized). `Commit` still samples coins. Every scheme of
-§8 has this form, and Thm 8.4 condition 1 (l.3031–3034) asks for a deterministic `Check`.
+(ePrint 2025/2166, Def 3.5, pp. 26–27, specialized). `Commit` still samples coins. Every scheme of
+§8 has this form, and Thm 8.4 condition 1 (p. 53) asks for a deterministic `Check`.
 `toVectorCommitment` embeds it into the general form. -/
 structure DetVectorCommitment (X : Type uX) (Y : Type) (Msg : Type uM) (Cm Td Pf : Type)
     (ℓ : ℕ) where
@@ -301,7 +301,7 @@ def toVectorCommitment (vc : DetVectorCommitment X Y Msg Cm Td Pf ℓ) :
   check cm ans pf := liftComp (vc.check cm ans pf) (unifSpec + (X →ₒ Y))
 
 /-- Perfect completeness of a deterministic scheme against every fixed function `H`
-(ePrint 2025/2166, Def 3.7, l.1316): for every message `m`, every query set `Q` and every outcome
+(ePrint 2025/2166, Def 3.7, p. 27): for every message `m`, every query set `Q` and every outcome
 of `Commit^H(m)`, the honest opening of `Q` passes `Check^H` on `m[Q]`. It implies Def 3.7 for
 every oracle distribution (`PerfectlyComplete.toVectorCommitment`). -/
 @[expose]
@@ -324,7 +324,7 @@ theorem PerfectlyComplete.perfectlyCompleteForAll {vc : DetVectorCommitment X Y 
     Set.mem_singleton_iff] at hb
   exact hb ▸ h H m Q z hz
 
-/-- **Perfect completeness relative to every oracle distribution** (Def 3.7, l.1316–1320) of a
+/-- **Perfect completeness relative to every oracle distribution** (Def 3.7, p. 27) of a
 deterministic scheme that is complete against every fixed function. -/
 theorem PerfectlyComplete.toVectorCommitment [MeasurableSpace (X → Y)]
     {vc : DetVectorCommitment X Y Msg Cm Td Pf ℓ} (h : vc.PerfectlyComplete)
@@ -339,7 +339,7 @@ section CheckIOOn
 
 variable {X : Type u} {Y : Type v} [DecidableEq Y]
 
-/-- `CheckIO` against a partial table `D` (l.3043): accept when every listed input has the listed
+/-- `CheckIO` against a partial table `D` (p. 53): accept when every listed input has the listed
 output in `D`; an empty cell rejects. Stated on `X → Option Y`, the type of
 `Quantum.Database X Y`. -/
 @[expose]
@@ -370,7 +370,7 @@ def checkIOStep (acc : Bool) (p : X × Y) : OracleComp (X →ₒ Y) Bool := do
   let y : Y ← (X →ₒ Y).query p.1
   pure (acc && decide (y = p.2))
 
-/-- `CheckIO^f(x, y)` (ePrint 2025/2166, Def 8.1, l.2963): query every listed input `x` and
+/-- `CheckIO^f(x, y)` (ePrint 2025/2166, Def 8.1, p. 52): query every listed input `x` and
 compare the answer with the listed output `y`. Every query is made, with no short-circuit. -/
 @[expose]
 def checkIO (io : List (X × Y)) : OracleComp (X →ₒ Y) Bool :=
@@ -417,14 +417,14 @@ namespace VectorCommitment
 
 variable {X : Type uX} {Y : Type} {Msg : Type uM} {Cm Td Pf : Type} {ℓ : ℕ} [DecidableEq Y]
 
-/-- The `CheckIO` form of a check (ePrint 2025/2166, Thm 8.4 condition 1, l.3031–3034): `Check`
+/-- The `CheckIO` form of a check (ePrint 2025/2166, Thm 8.4 condition 1, p. 53): `Check`
 uses no coins and runs an oracle-free, non-adaptive `OutputIO` followed by `CheckIO`; `Open` is
 unconstrained. `OutputIO` returns `none` when the proof does not parse; the check then rejects
-without a query, the projector `P̂ = 0` of l.2966.
+without a query, the projector `P̂ = 0` of p. 52.
 
 `qVC` bounds the number of listed pairs by the size of the opened set and is non-decreasing, as
-§3.5 assumes (l.1311–1314), so `qVC qs` bounds the check of every opened set of size at most `qs`
-(`length_le_of_card_le`). The paper's second argument `ℓ` of `q_VC(qs, ℓ)` (l.3077) is fixed by
+§3.5 assumes (p. 27), so `qVC qs` bounds the check of every opened set of size at most `qs`
+(`length_le_of_card_le`). The paper's second argument `ℓ` of `q_VC(qs, ℓ)` (p. 54) is fixed by
 the scheme and absorbed into `qVC`. -/
 structure CheckIOForm (vc : VectorCommitment X Y Msg Cm Td Pf ℓ) where
   /-- `OutputIO(cm, Q, ans, pf) → (x, y)`, or `none` when `pf` does not parse. -/
@@ -434,7 +434,7 @@ structure CheckIOForm (vc : VectorCommitment X Y Msg Cm Td Pf ℓ) where
     liftComp ((outputIO cm ans pf).elim (pure false) checkIO) (unifSpec + (X →ₒ Y))
   /-- The query complexity, as a function of the size of the opened set. -/
   qVC : ℕ → ℕ
-  /-- The query complexity is non-decreasing (l.1313–1314). -/
+  /-- The query complexity is non-decreasing (p. 27). -/
   qVC_mono : Monotone qVC
   /-- `OutputIO` lists at most `qVC |Q|` pairs. -/
   length_le : ∀ cm ans pf io, outputIO cm ans pf = some io → io.length ≤ qVC ans.dom.card
@@ -443,13 +443,13 @@ namespace CheckIOForm
 
 variable {vc : VectorCommitment X Y Msg Cm Td Pf ℓ}
 
-/-- `qVC qs` bounds the number of listed pairs for every budget `qs ≥ |Q|` (l.1311–1314). -/
+/-- `qVC qs` bounds the number of listed pairs for every budget `qs ≥ |Q|` (p. 27). -/
 theorem length_le_of_card_le (h : CheckIOForm vc) {cm : Cm} {ans : PartialVec ℓ Msg} {pf : Pf}
     {io : List (X × Y)} (hio : h.outputIO cm ans pf = some io) {qs : ℕ}
     (hqs : ans.dom.card ≤ qs) : io.length ≤ h.qVC qs :=
   (h.length_le cm ans pf io hio).trans (h.qVC_mono hqs)
 
-/-- `Check^D` against a partial table `D` (l.3043): reject when the proof does not parse, and
+/-- `Check^D` against a partial table `D` (p. 53): reject when the proof does not parse, and
 otherwise run `checkIOOn D` on the listed pairs. -/
 @[expose]
 def checkOn (h : CheckIOForm vc) (D : X → Option Y) (cm : Cm) (ans : PartialVec ℓ Msg)

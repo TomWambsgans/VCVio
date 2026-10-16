@@ -14,7 +14,7 @@ public import VCVio.Quantum.MatrixMap.OpNorm
 An operator controlled by a classical register `C`, `∑ c, |c⟩⟨c| ⊗ A c`, acts on the block of each
 basis state `|c⟩` as `A c` and does not mix blocks. Its `L²` operator norm is the largest norm of a
 block (`Matrix.l2_opNorm_sum_single_kronecker`). This is the step of the proof of Lemma 9.2 of
-Chiesa, Di, Hu and Zheng (ePrint 2025/2166, l.3264–3330) that turns a bound for every fixed value of
+Chiesa, Di, Hu and Zheng (ePrint 2025/2166, pp. 58–59) that turns a bound for every fixed value of
 a classical control register, the commitment tuple and the other databases, into a bound for the
 operator controlled by it; the index `C` is any finite type and the blocks are rectangular.
 
