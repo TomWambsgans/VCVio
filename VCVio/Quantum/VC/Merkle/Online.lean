@@ -87,12 +87,10 @@ theorem onlineLabel_list_update_eq {n : ℕ} (tics : Fin n → TpIC k Y)
     simpa [onlineLabel, Function.update_idem] using h
   · simp [onlineLabel, multiExtract, hinj]
 
-variable [Fintype X]
-
 open scoped Classical in
 /-- A list of `n` keys shares its half-preimage contribution: its changing answers number at
 most `n + 2 * D.size`, rather than `n * (1 + 2 * D.size)`. -/
-theorem card_onlineLabel_list_changes_le {n : ℕ} (tics : Fin n → TpIC k Y)
+theorem card_onlineLabel_list_changes_le [Fintype X] {n : ℕ} (tics : Fin n → TpIC k Y)
     (Dfix : Fin k → Database X Y) (j : Fin k) (D : Database X Y) (x : X)
     (hx : D x = none) :
     (Finset.univ.filter fun y : Y ↦
@@ -116,7 +114,6 @@ theorem card_onlineLabel_list_changes_le {n : ℕ} (tics : Fin n → TpIC k Y)
   exact (Finset.card_le_card hsub).trans ((Finset.card_union_le _ _).trans
     (Nat.add_le_add (card_biUnion_onlineRoots_le tics j) hh))
 
-omit [Fintype X] in
 /-- The joint-label instability for `n` extraction keys at databases of size at most `s`. -/
 theorem instability_onlineLabel_list_le [Finite X] [UniformAnswerMeasure (X →ₒ Y)]
     {n : ℕ} (tics : Fin n → TpIC k Y) (Dfix : Fin k → Database X Y)
@@ -138,7 +135,6 @@ theorem instability_onlineLabel_list_le [Finite X] [UniformAnswerMeasure (X →�
   gcongr
   exact_mod_cast hc'
 
-omit [Fintype X] in
 /-- The empty list has zero instability at every population bound. -/
 theorem instability_onlineLabel_empty [AnswerMeasure (X →ₒ Y)]
     (tics : Fin 0 → TpIC k Y) (Dfix : Fin k → Database X Y) (j : Fin k) (s : ℕ) :
