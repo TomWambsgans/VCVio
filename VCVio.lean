@@ -467,6 +467,7 @@ public import VCVio.Quantum.VC.Proof.Commutativity
 public import VCVio.Quantum.VC.Proof.Extraction
 public import VCVio.Quantum.VC.Proof.Offline
 public import VCVio.Quantum.VC.Proof.Online
+public import VCVio.Quantum.VC.Proof.OnlineSecurity
 public import VCVio.Quantum.VC.Tuples
 public import VCVio.Quantum.VC.Unitaries
 public import VCVio.StateSeparating.Advantage.Measure

@@ -6,7 +6,7 @@ Authors: Quang Dao
 
 module
 public import VCVio.CryptoFoundations.MerkleTree.Salted.Instability
-public import VCVio.Quantum.VC.Proof.Online
+public import VCVio.Quantum.VC.Proof.OnlineSecurity
 
 /-!
 # Joint-label instability for salted Merkle recording
@@ -15,9 +15,10 @@ A list of `n` recorded extraction keys contributes at most `n` roots at an affec
 All keys share the same half-preimage set, giving the bound `(n + 2 * D.size) / |Y|`.
 The empty list has zero instability. No collision-freeness hypothesis is needed.
 
-These are local ingredients for ePrint 2025/2166, Lemma 9.7, pp. 65–69. The sharper
+These bounds prove online indistinguishability as in ePrint 2025/2166, Lemma 9.7, pp. 65–70.
+The sharper
 joint-budget count and the time-dependent sum are from the bounds note, equations (24)–(25)
-and (30), and the repair note, equation (2). This module does not assert the P5 game bound.
+and (30), and the repair note, equation (2). The final theorem includes the probability cap.
 -/
 
 public section
@@ -323,7 +324,7 @@ theorem EmulatedOracle.tsum_rpow_queryWeight_conj_le_online
   ac_rfl
 
 /-- The capped numerical online error from the bounds note, equation (30), and the repair
-note, equation (2). This defines the target scalar without asserting a security theorem. -/
+note, equation (2). The final `SaltedMerkle.merkle_online` theorem attains this error. -/
 @[expose]
 noncomputable def merkleOnlineError (N t : ℕ) (w : ℝ≥0∞) : ℝ≥0∞ :=
   min 1 (24 * w * (t - 1 : ℕ) ^ 2 / N)
@@ -371,4 +372,36 @@ theorem instability_online_keys_le (enc : Encoding X Y Msg Salt) (d : Fin k → 
   · funext q
     obtain ⟨a, rfl⟩ := keys.equivFin.symm.surjective q
     exact congrFun h a
+end SaltedMerkle
+
+namespace SaltedMerkle
+universe v w
+variable {X Y Msg Salt Z : Type} {k : ℕ} [Fintype X] [DecidableEq X]
+  [Fintype Y] [LinearOrder Y] [AddCommGroup Y]
+  [Fintype Msg] [LinearOrder Msg] [Fintype Salt] [LinearOrder Salt]
+  [Fintype Z] [DecidableEq Z] [AddGroup Z]
+  [UniformAnswerMeasure (X →ₒ Y)]
+open scoped Classical in
+/-- Salted Merkle recording satisfies P5 with error
+`min 1 (24 * wVC * (t - 1)^2 / |Y|)` in its two-sided square-root form.
+The coefficient 24 and joint-budget schedule are the bounds note, equation (30), and the
+repair note, equation (2). This instantiates ePrint 2025/2166, Definition 7.3, P5, pp. 50–51,
+and Lemma 9.7, pp. 65–70, for arbitrary coherent adaptive programs, local instruments and
+subnormalized workspace states. No collision-freeness assumption is required. -/
+theorem merkle_online (enc : Encoding X Y Msg Salt) (d : Fin k → ℕ)
+    (code : TpDCode k (DmOf (fun i ↦ 2 ^ d i) Msg fun i ↦ Td Y Salt (d i)) Z) :
+    OnlineIndistinguishable.{v, w} (compressedVCOracle k X Y) (multiExtract enc d) code
+      (fun t wVC _ _ ↦ merkleOnlineError (Fintype.card Y) t wVC) := by
+  have h := compressed_online_of_instability.{v, w} (multiExtract enc d) code
+    (fun j ↦ 24 * (onlineStepWeight j : ℝ) / Fintype.card Y) (fun _ ↦ by positivity)
+    (fun t i keys hn ht Dfix ↦ instability_online_keys_le enc d keys Dfix i t hn ht)
+  apply h.mono
+  intro t wVC wME wRec
+  dsimp only
+  rw [sum_onlineRate (Fintype.card_pos (α := Y))]
+  unfold merkleOnlineError
+  apply le_of_eq
+  congr 1
+  simp only [div_eq_mul_inv]
+  ac_rfl
 end SaltedMerkle

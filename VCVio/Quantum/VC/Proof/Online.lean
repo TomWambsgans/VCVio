@@ -6,6 +6,7 @@ Authors: Quang Dao
 
 module
 public import VCVio.Quantum.VC.Proof.Commutativity
+public import VCVio.Quantum.VC.Proof.Offline
 public import VCVio.Quantum.Oracle.Compressed.CollisionRuntime
 
 /-!
@@ -14,7 +15,7 @@ public import VCVio.Quantum.Oracle.Compressed.CollisionRuntime
 The recording population counts occupied commitment keys, counting all split cells at a key
 only once. The extraction-controlled swap preserves this population and fixes the empty record.
 These are the recording-register ingredients of ePrint 2025/2166, Definition 9.8 and
-Lemmas 9.10–9.12, pp. 66–67, used in the online comparison of Lemma 9.7, pp. 65–69.
+Lemmas 9.10–9.12, pp. 66–67, used in the online comparison of Lemma 9.7, pp. 65–70.
 
 The population is a basis-support grade, so its use does not measure a coherent record key.
 The joint database/record cost in the bounds note, equation (30), requires charging ordinary
@@ -22,8 +23,8 @@ calls and recording calls to the same budget.
 
 Grade-restricted squared port bounds lift to coherent input mass and to the actual query
 prefixes. Their time-dependent sum gives both square-root event comparisons, with the first
-execution's selected mass in both directions. Identifying those ports with the
-extraction-controlled recording swap is a separate operator obligation.
+execution's selected mass in both directions. `Proof.OnlineSecurity` identifies the ports
+with the extraction-controlled recording swap and assembles P5.
 -/
 
 public section
@@ -385,7 +386,7 @@ theorem one_kronecker_swapUnitary (ME : MultiExtractor k Cm Dm S) :
 
 variable [DecidableEq Cm] [Fintype Yr] [Fintype S] [Fintype Cell]
 
-/-- Exact recording-port conjugacy, ePrint 2025/2166, Lemma 9.10, p. 66. -/
+/-- Exact recording-port conjugacy, ePrint 2025/2166, Lemma 9.13, p. 67. -/
 theorem recordUnitary_swap_conjugacy (ME : MultiExtractor k Cm Dm S)
     (U : Matrix (Yr × Cell) (Yr × Cell) ℂ) :
     ((1 : Matrix (TpIC k Cm × Yr) (TpIC k Cm × Yr) ℂ) ⊗ₖ RecReg.swapUnitary ME)ᴴ *
@@ -395,7 +396,7 @@ theorem recordUnitary_swap_conjugacy (ME : MultiExtractor k Cm Dm S)
   exact recordUnitary_swap_apply ME U q p y z s r R R'
 variable {Z : Type*} [Fintype Z] [DecidableEq Z] [AddGroup Z]
 /-- The private recording swap commutes with purified extraction, ePrint 2025/2166,
-Lemma 9.11, p. 67. -/
+Lemma 9.7, p. 69. -/
 theorem extractUnitary_swap_conjugacy (ME : MultiExtractor k Cm Dm S)
     (code : TpDCode k Dm Z) :
     ((1 : Matrix (TpIC k Cm × Z) (TpIC k Cm × Z) ℂ) ⊗ₖ RecReg.swapUnitary ME)ᴴ *

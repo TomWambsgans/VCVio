@@ -12,7 +12,7 @@ import VCVio.Quantum.VC.Merkle.Online
 
 The declarations are consumed through an ordinary import. The numerical examples check the
 zero errors at budgets zero and one, the odd-weight sum, the coefficient 24, and the cap.
-They do not assert an online indistinguishability theorem.
+The main P5 theorems are checked through the same public import.
 -/
 
 public section
@@ -98,3 +98,9 @@ end
 #check Quantum.l2_opNorm_compressed_recordingDefect_source_sq_le
 #check Quantum.posSemidef_rotated_port_difference_of_source_bound
 #check SaltedMerkle.instability_online_keys_le
+
+#check Quantum.VCOracle.outcomeLawWith_recording_rpow_bounds
+#check Quantum.VCOracle.onlineIndistinguishable_of_recording_source_bounds
+#check Quantum.compressed_online_of_instability
+#check SaltedMerkle.merkle_online
+#print axioms SaltedMerkle.merkle_online
