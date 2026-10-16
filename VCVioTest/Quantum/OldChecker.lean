@@ -203,4 +203,21 @@ example (U : Matrix Bool Bool ℂ) (hU : Uᴴ * U = 1)
   simpa using MatrixMap.rpow_inv_two_tsum_conj_unitary_le
     (fun _ : Bool ↦ (1 : Matrix Bool Bool ℂ)) U hU hρ
 
+/-- A single exceptional filled label among sixteen gives a quarter of the occupancy
+projector as a uniform Gram bound, for any two response unitaries. -/
+example {Z : Type} [Fintype Z] [DecidableEq Z] (U : Bool → Matrix Z Z ℂ)
+    (hU : ∀ b, U b ∈ unitaryGroup Z ℂ) :
+    let β := fun y : Option (Fin 16) ↦ decide (y = some 0)
+    let V := filledCellControl β U
+    let P := oldInvalidCell (Y := Fin 16) ⊗ₖ (1 : Matrix Z Z ℂ)
+    ((1 / 4 : ℝ) • ((1 - cellEmpty (Y := Fin 16)) ⊗ₖ (1 : Matrix Z Z ℂ)) -
+      (V * P - P * V)ᴴ * (V * P - P * V)).PosSemidef := by
+  have h := oldInvalidCell_commutator_gram_le
+    (fun y : Option (Fin 16) ↦ decide (y = some 0)) U hU
+  have hc : (Finset.univ.filter fun x : Fin 16 ↦ x = 0) = {0} := by
+    ext x
+    simp
+  norm_num [hc] at h
+  simpa only [conjTranspose_sub, conjTranspose_mul] using h
+
 end VCVioTest.OldChecker
