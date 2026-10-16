@@ -1051,7 +1051,6 @@ theorem invalid_commute_ordinary (p : Fin k) (x : Fin k × X) :
   change (C * _ * C) * (C * _ * C) = (C * _ * C) * (C * _ * C)
   rw [conjugate_mul C hCC, conjugate_mul C hCC, hT]
 
-
 /-- The rectangular invalid potential equals the sum of all cell-invalid weights. -/
 theorem invalidStack_potential_eq {A : Type*} [Fintype A] [DecidableEq A]
     {ρ : Matrix (A × (Fin k → Database X Y)) (A × (Fin k → Database X Y)) ℂ}
@@ -1203,3 +1202,208 @@ theorem coherent_sum_commutator_gram_le (E : EmulatedOracle P In)
 
 end coherentGram
 end Quantum.EmulatedOracle
+
+namespace Quantum
+universe u₁ v₁
+namespace QuantumRuntime
+variable {L : LocalSig.{u₁, v₁}} {spec : QuantumOracleSpec} (R : QuantumRuntime spec)
+  (I : L.Interp) {A B C : QReg} {α β : Type*}
+
+/-- Recording both outcomes identifies a composite instrument branch with the composition
+of its two branches. The input, intermediate, and output registers may differ. -/
+theorem run₂_bind_record (f : QuantumComp₂ L spec A B α)
+    (g : α → QuantumComp₂ L spec B C β) (a : α) (b : β) :
+    (R.run₂ I (f.bind fun a ↦ (g a).map (fun b ↦ (a, b)))).branch (a, b) =
+      (R.run₂ I (g a)).branch b ∘ₗ (R.run₂ I f).branch a := by
+  classical
+  ext ρ : 1
+  rw [run₂_bind, SubInstrument.branch_bind_apply]
+  simp only [run₂_map, SubInstrument.map_eq_bind_pure, SubInstrument.branch_bind_apply]
+  rw [tsum_eq_single a]
+  · rw [tsum_eq_single b]
+    · simp
+    · intro b' hb
+      rw [SubInstrument.branch_pure_of_ne (by simp [Ne.symm hb]), LinearMap.zero_apply]
+  · intro a' ha
+    have hz : ∀ b' : β,
+        (SubInstrument.pure (a', b') :
+          SubInstrument (C × R.D) (C × R.D) (α × β)).branch (a, b) = 0 :=
+      fun _ ↦ SubInstrument.branch_pure_of_ne (by simp [Ne.symm ha])
+    simp only [hz, LinearMap.zero_apply, tsum_zero]
+
+/-- Forgetting the first recorded outcome recovers ordinary sequencing. -/
+theorem bind_record_map_snd (f : QuantumComp₂ L spec A B α)
+    (g : α → QuantumComp₂ L spec B C β) :
+    (f.bind fun a ↦ (g a).map (fun b ↦ (a, b))).map Prod.snd = f.bind g := by
+  simp only [QuantumComp₂.map, QuantumComp₂.bind_assoc, QuantumComp₂.pure_bind,
+    QuantumComp₂.bind_pure]
+
+end QuantumRuntime
+
+/-- Three private Kraus operators compose in execution order while preserving a reference. -/
+theorem conj_kronecker_three {A S : Type*} [Fintype A] [DecidableEq A]
+    [Fintype S] (a p b : Matrix S S ℂ) :
+    (MatrixMap.conj ((1 : Matrix A A ℂ) ⊗ₖ b) ∘ₗ
+      MatrixMap.conj ((1 : Matrix A A ℂ) ⊗ₖ p)) ∘ₗ
+        MatrixMap.conj ((1 : Matrix A A ℂ) ⊗ₖ a) =
+      MatrixMap.conj ((1 : Matrix A A ℂ) ⊗ₖ (b * p * a)) := by
+  rw [← MatrixMap.conj_mul, ← MatrixMap.conj_mul, ← mul_kronecker_mul,
+    ← mul_kronecker_mul, Matrix.one_mul, Matrix.one_mul]
+
+section identification
+variable {k : ℕ} {X Y Msg Cm Z : Type} [Fintype X] [DecidableEq X] [Fintype Y]
+  [DecidableEq Y] [AddCommGroup Y] [Fintype Cm] [DecidableEq Cm] [Fintype Z]
+  [DecidableEq Z] [AddGroup Z] {ℓ : Fin k → ℕ} {Td Pf : Fin k → Type}
+  {VC : ∀ i, VectorCommitment X Y Msg Cm (Td i) (Pf i) (ℓ i)}
+  (io : ∀ i, (VC i).CheckIOForm)
+
+/-- The accepting projector for a batch of old-oracle checks on a classical opening claim.
+Empty cells are read as zero; malformed check transcripts are rejected. -/
+noncomputable def actualBatch (W : Finset (Fin k)) (c : OpeningClaim k Cm Msg ℓ Pf) :
+    Matrix (Fin k → Database X Y) (Fin k → Database X Y) ℂ :=
+  compressDatabases k X Y * diagonal (fun D : Fin k → Database X Y ↦
+    if ∀ i ∈ W, (io i).checkOn (fun x ↦ some ((D (c.idx i)).lookup x))
+      (c.cm i) (c.ans i) (c.pf i) = true then 1 else 0) * compressDatabases k X Y
+
+variable {Dm : Fin k → Type} (ME : MultiExtractor k Cm Dm (compressedVCOracle k X Y).S)
+  (code : TpDCode k Dm Z)
+
+/-- The actual batch-check accepting branch is conjugation by its accepting projector,
+on every reference/private input matrix. -/
+theorem run₂_actualBatch (W : Finset (Fin k)) (c : OpeningClaim k Cm Msg ℓ Pf) (B : QReg) :
+    (((compressedVCOracle k X Y).withExtract ME code).coherent.toRuntime.run₂ .instruments
+      (QComp.allIn W fun i ↦ checkAt VC B i (c.idx i) (c.cm i) (c.ans i) (c.pf i))).branch
+        true = MatrixMap.conj ((1 : Matrix B B ℂ) ⊗ₖ actualBatch io W c) := by
+  exact branch_run₂_allIn _ W _ (compressDatabases_mul_self ..) _
+    (fun i _ ↦ branch_run₂_checkAt_compressedVCOracle io ME code B i (c.idx i)
+      (c.cm i) (c.ans i) (c.pf i))
+
+end identification
+
+section retained
+variable {k : ℕ} {X Y Msg Cm Z : Type} [Fintype X] [DecidableEq X] [Fintype Y]
+  [DecidableEq Y] [AddCommGroup Y] [Fintype Cm] [DecidableEq Cm] [Fintype Z]
+  [DecidableEq Z] [AddGroup Z] {ℓ : Fin k → ℕ} {Td Pf : Fin k → Type}
+  {VC : ∀ i, VectorCommitment X Y Msg Cm (Td i) (Pf i) (ℓ i)}
+  (io : ∀ i, (VC i).CheckIOForm)
+  (code : TpDCode k (DmOf ℓ Msg Td) Z)
+
+/-- The check/extract/check prefix of the P4 challenger with all three classical results
+retained, including the decoded extraction tuple and both acceptance bits. -/
+noncomputable def offlineChecks (hk : 1 ≤ k) (c : OpeningClaim k Cm Msg ℓ Pf) (B : QReg) :
+    QComp (EmulatedOracle.cohSpec (extIn k X Y Cm Z)) B B
+      (Bool × Option (TpDLen k (DmOf ℓ Msg Td) (TupleLen.full hk)) × Bool) :=
+  (QComp.allIn c.W fun i ↦ checkAt VC B i (c.idx i) (c.cm i) (c.ans i) (c.pf i)).bind fun b₁ ↦
+    ((extractQuery code B (TpIC.full hk c.idx c.cm)).bind fun tdm ↦
+      (QComp.allIn c.Wᶜ fun i ↦
+        checkAt VC B i (c.idx i) (c.cm i) (c.ans i) (c.pf i)).map
+          (fun b₂ ↦ (tdm, b₂))).map (fun r ↦ (b₁, r))
+
+/-- The accepted prefix branch with extraction outcome `tdm` is exactly
+`conj(1 ⊗ A_b Π_tdm A_a)`. Here `Π_tdm` is the measured response block of the coherent
+extraction unitary. No extraction outcome is summed out in this identity. -/
+theorem run₂_offlineChecks_accept [∀ i, DecidableEq (DmOf ℓ Msg Td i)]
+    (ME : MultiExtractor k Cm (DmOf ℓ Msg Td) (compressedVCOracle k X Y).S)
+    (hk : 1 ≤ k) (c : OpeningClaim k Cm Msg ℓ Pf) (B : QReg)
+    (tdm : TpDLen k (DmOf ℓ Msg Td) (TupleLen.full hk)) :
+    (((compressedVCOracle k X Y).withExtract ME code).coherent.toRuntime.run₂ .instruments
+      (offlineChecks (VC := VC) code hk c B)).branch (true, some tdm, true) =
+        MatrixMap.conj ((1 : Matrix B B ℂ) ⊗ₖ
+          (actualBatch io c.Wᶜ c * (show Matrix (Fin k → Database X Y) (Fin k → Database X Y) ℂ from
+            extractProj ME (TpIC.full hk c.idx c.cm) tdm) *
+            actualBatch io c.W c)) := by
+  let R := ((compressedVCOracle k X Y).withExtract ME code).coherent.toRuntime
+  let checks := fun W ↦ QComp.allIn W fun i ↦
+    checkAt (Z := Z) VC B i (c.idx i) (c.cm i) (c.ans i) (c.pf i)
+  have h₁ := R.run₂_bind_record .instruments (checks c.W)
+    (fun _ ↦ (extractQuery code B (TpIC.full hk c.idx c.cm)).bind fun tdm ↦
+      (checks c.Wᶜ).map (fun b₂ ↦ (tdm, b₂))) true (some tdm, true)
+  have h₂ := R.run₂_bind_record .instruments
+    (extractQuery code B (TpIC.full hk c.idx c.cm)) (fun _ ↦ checks c.Wᶜ) (some tdm) true
+  refine h₁.trans ?_
+  rw [h₂]
+  rw [run₂_actualBatch io ME code, run₂_actualBatch io ME code]
+  erw [run₂_extractQuery_branch (compressedVCOracle k X Y) ME code B]
+  exact conj_kronecker_three (actualBatch io c.W c)
+    (show Matrix (Fin k → Database X Y) (Fin k → Database X Y) ℂ from
+      extractProj ME (TpIC.full hk c.idx c.cm) tdm) (actualBatch io c.Wᶜ c)
+
+/-- The opening and mismatch decision of the P4 challenger, conditional on the retained
+check/extract/check transcript. Randomized openings and both budget checks are preserved. -/
+noncomputable def offlineFinish [DecidableEq Msg] [∀ i, DecidableEq (Pf i)]
+    (hk : 1 ≤ k) (qs : ℕ) (c : OpeningClaim k Cm Msg ℓ Pf) (B : QReg)
+    (r : Bool × Option (TpDLen k (DmOf ℓ Msg Td) (TupleLen.full hk)) × Bool) :
+    QComp (EmulatedOracle.cohSpec (extIn k X Y Cm Z)) B B Bool :=
+  match r.2.1 with
+  | none => QuantumComp₂.pure false
+  | some tdm => (QComp.pi fun i : Fin k ↦
+      openAt VC B i (c.ans i).dom (tdm i).2).bind fun pf' ↦
+        QuantumComp₂.pure (r.1 && r.2.2 &&
+          decide (∃ i : Fin k, ¬ PartialVec.Agrees (tdm i).1 (c.ans i) ∨ pf' i ≠ c.pf i) &&
+          decide (∑ i, (c.ans i).dom.card ≤ qs) && decide (Function.Injective c.idx))
+
+/-- The actual P4 challenger is the retained prefix followed by its opening/mismatch decision.
+This is an equality of programs, including rejected checks and decoding failure. -/
+theorem offlineChallenger_eq_bind_offlineChecks [DecidableEq Msg] [∀ i, DecidableEq (Pf i)]
+    (hk : 1 ≤ k) (qs : ℕ) (c : OpeningClaim k Cm Msg ℓ Pf) (B : QReg) :
+    offlineChallenger VC code hk qs c B =
+      QuantumComp₂.bind (offlineChecks (VC := VC) code hk c B)
+        (offlineFinish (VC := VC) (Z := Z) hk qs c B) := by
+  simp only [offlineChallenger, offlineChecks, QuantumComp₂.map,
+    QuantumComp₂.bind_assoc]
+  congr 1
+  funext b₁
+  erw [QuantumComp₂.bind_assoc, QuantumComp₂.bind_assoc]
+  simp only [QuantumComp₂.pure_bind]
+  congr 1
+  funext tdm
+  erw [QuantumComp₂.bind_assoc]
+  congr 1
+  funext b₂
+  erw [QuantumComp₂.pure_bind]
+  cases tdm <;> rfl
+
+/-- The actual P4 challenger instrument retaining its check/extraction transcript alongside
+the final mismatch-event bit. Forgetting the transcript recovers `offlineChallenger`. -/
+noncomputable def offlineInstrument [DecidableEq Msg] [∀ i, DecidableEq (Pf i)]
+    (hk : 1 ≤ k) (qs : ℕ) (c : OpeningClaim k Cm Msg ℓ Pf) (B : QReg) :
+    QComp (EmulatedOracle.cohSpec (extIn k X Y Cm Z)) B B
+      ((Bool × Option (TpDLen k (DmOf ℓ Msg Td) (TupleLen.full hk)) × Bool) × Bool) :=
+  (offlineChecks (VC := VC) code hk c B).bind fun r ↦
+    (offlineFinish (VC := VC) (Z := Z) hk qs c B r).map fun b ↦ (r, b)
+
+/-- Forgetting the retained transcript gives exactly the original P4 challenger. -/
+theorem offlineInstrument_map_snd [DecidableEq Msg] [∀ i, DecidableEq (Pf i)]
+    (hk : 1 ≤ k) (qs : ℕ) (c : OpeningClaim k Cm Msg ℓ Pf) (B : QReg) :
+    (offlineInstrument (VC := VC) code hk qs c B).map Prod.snd =
+      offlineChallenger VC code hk qs c B := by
+  rw [offlineInstrument, QuantumRuntime.bind_record_map_snd,
+    offlineChallenger_eq_bind_offlineChecks code]
+
+/-- The retained P4 branch equals its opening/mismatch decision after
+`conj(1 ⊗ A_b Π_tdm A_a)`. This instrument equality keeps the extraction outcome and final
+event bit, allows randomized openings, and holds on arbitrary entangled input matrices. -/
+theorem run₂_offlineInstrument_accept [DecidableEq Msg] [∀ i, DecidableEq (Pf i)]
+    [∀ i, DecidableEq (DmOf ℓ Msg Td i)]
+    (ME : MultiExtractor k Cm (DmOf ℓ Msg Td) (compressedVCOracle k X Y).S)
+    (hk : 1 ≤ k) (qs : ℕ) (c : OpeningClaim k Cm Msg ℓ Pf) (B : QReg)
+    (tdm : TpDLen k (DmOf ℓ Msg Td) (TupleLen.full hk)) (b : Bool) :
+    let R := ((compressedVCOracle k X Y).withExtract ME code).coherent.toRuntime
+    (R.run₂ .instruments (offlineInstrument (VC := VC) code hk qs c B)).branch
+      ((true, some tdm, true), b) =
+      (R.run₂ .instruments (offlineFinish (VC := VC) (Z := Z) hk qs c B
+        (true, some tdm, true))).branch b ∘ₗ
+          MatrixMap.conj ((1 : Matrix B B ℂ) ⊗ₖ
+            (actualBatch io c.Wᶜ c *
+              (show Matrix (Fin k → Database X Y) (Fin k → Database X Y) ℂ from
+                extractProj ME (TpIC.full hk c.idx c.cm) tdm) * actualBatch io c.W c)) := by
+  let R := ((compressedVCOracle k X Y).withExtract ME code).coherent.toRuntime
+  have hh := R.run₂_bind_record .instruments (offlineChecks (VC := VC) code hk c B)
+    (offlineFinish (VC := VC) (Z := Z) hk qs c B) (true, some tdm, true) b
+  exact hh.trans (congrArg (fun F ↦
+    (R.run₂ .instruments (offlineFinish (VC := VC) (Z := Z) hk qs c B
+      (true, some tdm, true))).branch b ∘ₗ F)
+        (run₂_offlineChecks_accept io code ME hk c B tdm))
+
+end retained
+end Quantum

@@ -249,4 +249,19 @@ example {X Y Msg Salt Z : Type} [Fintype X] [DecidableEq X] [LinearOrder Y] [Fin
   have h := old_run_invalid_le enc d code I x ρ 1 hx
   simpa [oldLeakagePolynomial] using h
 
+/-- Recording an infinite classical outcome type still isolates exactly one composite branch,
+including when all three workspace registers differ. -/
+example {L : LocalSig} {spec : QuantumOracleSpec} (R : QuantumRuntime spec) (I : L.Interp)
+    {A B C : QReg} (f : QuantumComp₂ L spec A B ℕ)
+    (g : ℕ → QuantumComp₂ L spec B C ℕ) (a b : ℕ) :
+    (R.run₂ I (f.bind fun a ↦ (g a).map fun b ↦ (a, b))).branch (a, b) =
+      (R.run₂ I (g a)).branch b ∘ₗ (R.run₂ I f).branch a :=
+  R.run₂_bind_record I f g a b
+
+/-- Discarding the first retained outcome recovers sequencing for infinite outcome types. -/
+example {L : LocalSig} {spec : QuantumOracleSpec} {A B C : QReg}
+    (f : QuantumComp₂ L spec A B ℕ) (g : ℕ → QuantumComp₂ L spec B C ℕ) :
+    (f.bind fun a ↦ (g a).map fun b ↦ (a, b)).map Prod.snd = f.bind g :=
+  QuantumRuntime.bind_record_map_snd f g
+
 end VCVioTest.OldChecker
