@@ -158,6 +158,27 @@ theorem swap_eq_self_of_population_eq_zero (s : S) (bot : Cell)
     exact Prod.ext (funext fun q ↦ (hz q).1) (funext fun qt ↦ (hz qt.1).2 qt.2)
   simp [hR]
 
+/-- On a given recording basis state, the swap depends only on extractor outputs at occupied
+keys. Thus an empty list of relevant outputs also gives an exact, constant action. -/
+theorem swap_eq_of_extract_eq_on_occupied (s s' : S) (bot : Cell)
+    (R : RecReg k Cm Dm Cell)
+    (h : ∀ q ∈ occupied bot R, ME.extract q s = ME.extract q s') :
+    swap ME s R = swap ME s' R := by
+  classical
+  have hz (q : TpIC k Cm) (hq : q ∉ occupied bot R) :
+      R.1 q = bot ∧ ∀ t, R.2 ⟨q, t⟩ = bot := by
+    simpa only [mem_occupied, not_or, not_not, not_exists] using hq
+  apply Prod.ext
+  · funext q
+    by_cases hq : q ∈ occupied bot R
+    · simp only [swap, h q hq]
+    · exact ((hz q hq).2 _).trans ((hz q hq).2 _).symm
+  · funext qt
+    obtain ⟨q, t⟩ := qt
+    by_cases hq : q ∈ occupied bot R
+    · simp only [swap, h q hq]
+    · simp [swap, (hz q hq).1, (hz q hq).2]
+
 end RecReg
 
 section locality
@@ -339,5 +360,85 @@ theorem compressedVCOracle_U_totalSize_le (i : Fin k) (a b : X × Y)
   · exact (h rfl).elim
 
 end compressedGrade
+
+namespace VCOracle
+
+universe uL vL w
+
+variable {k : ℕ} {X Y Cm Z Yr Cell : Type}
+  [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y]
+  [Fintype Cm] [DecidableEq Cm] [Fintype Z] [DecidableEq Z] [AddGroup Z]
+  [Fintype Yr] [DecidableEq Yr] [Fintype Cell] [DecidableEq Cell]
+  {Dm : Fin k → Type} [∀ i, Fintype (Dm i)] [∀ i, DecidableEq (Dm i)]
+  (E : VCOracle k X Y) (ME : MultiExtractor k Cm Dm E.S) (code : TpDCode k Dm Z)
+  (bot : Cell) (g : E.S → ℕ)
+
+private theorem recording_initial_grade
+    (hinit : QuerySupportedOn g (Set.Iic 0) E.init.matrix)
+    {A : QReg} (ρ : SubState A) :
+    QuerySupportedOn (fun m : A × (E.S × RecReg k Cm Dm Cell) ↦
+      g m.2.1 + RecReg.population bot m.2.2) (Set.Iic 0)
+      (ρ.matrix ⊗ₖ (E.init.matrix ⊗ₖ
+        (SubState.basis (RecReg.const bot : RecReg k Cm Dm Cell)).matrix)) := by
+  intro a b hab
+  simp only [kroneckerMap_apply] at hab
+  have hd := left_ne_zero_of_mul (right_ne_zero_of_mul hab)
+  have hr := right_ne_zero_of_mul (right_ne_zero_of_mul hab)
+  rw [SubState.matrix_basis, Matrix.single_apply] at hr
+  split_ifs at hr with he
+  · obtain ⟨ha, hb⟩ := hinit _ _ hd
+    change g a.2.1 + RecReg.population bot a.2.2 ≤ 0 ∧
+      g b.2.1 + RecReg.population bot b.2.2 ≤ 0
+    rw [← he.1, ← he.2, RecReg.population_const]
+    exact ⟨by simpa using ha, by simpa using hb⟩
+  · exact (hr rfl).elim
+
+/-- The initialized unsplit recording experiment has joint grade at most its total query
+budget on every output branch, for arbitrary local operations and subnormalized inputs. -/
+theorem withRecord_jointPost_grade
+    (hE : ∀ i a b s r, E.U i (a, s) (b, r) ≠ 0 → g s ≤ g r + 1)
+    (hinit : QuerySupportedOn g (Set.Iic 0) E.init.matrix)
+    (U : Matrix (Yr × Cell) (Yr × Cell) ℂ) (hU : U ∈ unitaryGroup (Yr × Cell) ℂ)
+    {L : LocalSig.{uL, vL}} (I : L.Interp) {W : QReg → Type w} {A : QReg}
+    (x : QuantumComp L (EmulatedOracle.cohSpec (recIn k X Y Cm Z Yr)) W A)
+    {t : ℕ} (hx : x.IsQueryBound fun _ ↦ t) (ρ : SubState A) (p : Σ B, W B) :
+    QuerySupportedOn (fun m : p.1 × (E.S × RecReg k Cm Dm Cell) ↦
+      g m.2.1 + RecReg.population bot m.2.2) (Set.Iic t)
+      (((E.withRecord ME code bot U hU).coherent.toRuntime.jointPost I x ρ p).matrix) := by
+  have h := (E.withRecord ME code bot U hU).querySupportedOn_run_of_grade
+    (fun s ↦ g s.1 + RecReg.population bot s.2)
+    (withRecord_U_grade E ME code bot g hE U hU) I x hx _
+    (recording_initial_grade E bot g hinit ρ (Dm := Dm)) p
+  have hi : (E.withRecord ME code bot U hU).coherent.toRuntime.init.matrix =
+      E.init.matrix ⊗ₖ (SubState.basis (RecReg.const bot)).matrix :=
+    SubState.matrix_prod _ _
+  rw [QuantumRuntime.matrix_jointPost, hi]
+  simpa only [Nat.zero_add, withRecord, withRecordME, withRecReg, withExtract,
+    EmulatedOracle.extend, EmulatedOracle.addRegister] using h
+
+/-- The extraction-indexed recording experiment obeys the same joint grade, with the same
+query budget and no restriction on adaptive stopping or coherent port selection. -/
+theorem withRecordME_jointPost_grade
+    (hE : ∀ i a b s r, E.U i (a, s) (b, r) ≠ 0 → g s ≤ g r + 1)
+    (hinit : QuerySupportedOn g (Set.Iic 0) E.init.matrix)
+    (U : Matrix (Yr × Cell) (Yr × Cell) ℂ) (hU : U ∈ unitaryGroup (Yr × Cell) ℂ)
+    {L : LocalSig.{uL, vL}} (I : L.Interp) {W : QReg → Type w} {A : QReg}
+    (x : QuantumComp L (EmulatedOracle.cohSpec (recIn k X Y Cm Z Yr)) W A)
+    {t : ℕ} (hx : x.IsQueryBound fun _ ↦ t) (ρ : SubState A) (p : Σ B, W B) :
+    QuerySupportedOn (fun m : p.1 × (E.S × RecReg k Cm Dm Cell) ↦
+      g m.2.1 + RecReg.population bot m.2.2) (Set.Iic t)
+      (((E.withRecordME ME code bot U hU).coherent.toRuntime.jointPost I x ρ p).matrix) := by
+  have h := (E.withRecordME ME code bot U hU).querySupportedOn_run_of_grade
+    (fun s ↦ g s.1 + RecReg.population bot s.2)
+    (withRecordME_U_grade E ME code bot g hE U hU) I x hx _
+    (recording_initial_grade E bot g hinit ρ (Dm := Dm)) p
+  have hi : (E.withRecordME ME code bot U hU).coherent.toRuntime.init.matrix =
+      E.init.matrix ⊗ₖ (SubState.basis (RecReg.const bot)).matrix :=
+    SubState.matrix_prod _ _
+  rw [QuantumRuntime.matrix_jointPost, hi]
+  simpa only [Nat.zero_add, withRecord, withRecordME, withRecReg, withExtract,
+    EmulatedOracle.extend, EmulatedOracle.addRegister] using h
+
+end VCOracle
 
 end Quantum
