@@ -220,4 +220,33 @@ example {Z : Type} [Fintype Z] [DecidableEq Z] (U : Bool → Matrix Z Z ℂ)
   norm_num [hc] at h
   simpa only [conjTranspose_sub, conjTranspose_mul] using h
 
+/-- Zero-prefix coefficients annihilate infinite mass; the ENNReal bound needs no `toReal`. -/
+example (mass : ℕ → ℝ≥0∞) :
+    (∑ j ∈ Finset.range 1,
+      (ENNReal.ofReal (4 * j * oldChangingFraction 16 j) * mass j) ^ (2⁻¹ : ℝ)) = 0 := by
+  simp [oldChangingFraction]
+
+/-- The actual invalid potential vanishes initially for any, possibly entangled, workspace. -/
+example {A : Type} [Fintype A] (ρ : Matrix A A ℂ) :
+    QuantumRuntime.potential (invalidStack (k := 2) (X := Bool) (Y := ZMod 3))
+      (ρ ⊗ₖ (compressedVCOracle 2 Bool (ZMod 3)).init.matrix) = 0 :=
+  invalidStack_initial_potential_zero ρ
+
+/-- One total coherent call cannot create invalid weight, even with adaptive instruments
+and a dependent result-register family. This exercises the actual runtime theorem. -/
+example {X Y Msg Salt Z : Type} [Fintype X] [DecidableEq X] [LinearOrder Y] [Fintype Y]
+    [AddCommGroup Y] [Fintype Msg] [LinearOrder Msg] [Fintype Salt] [LinearOrder Salt]
+    [Fintype Z] [DecidableEq Z] [AddCommGroup Z]
+    (enc : _root_.SaltedMerkle.Encoding X Y Msg Salt) {k : ℕ} (d : Fin k → ℕ)
+    (code : TpDCode k (DmOf (fun i ↦ 2 ^ d i) Msg
+      (fun i ↦ _root_.SaltedMerkle.Td Y Salt (d i))) Z)
+    {L : LocalSig} (I : L.Interp) {W : QReg → Type*} {A : QReg}
+    (x : QuantumComp L (EmulatedOracle.cohSpec (extIn k X Y Y Z)) W A)
+    (ρ : SubState A) (hx : x.IsQueryBound fun _ ↦ 1) :
+    let E := (compressedVCOracle k X Y).withExtract (_root_.SaltedMerkle.multiExtract enc d) code
+    (∑' p, QuantumRuntime.potential invalidStack
+      (E.coherent.toRuntime.jointPost I x ρ p).matrix) ^ (2⁻¹ : ℝ) = 0 := by
+  have h := old_run_invalid_le enc d code I x ρ 1 hx
+  simpa [oldLeakagePolynomial] using h
+
 end VCVioTest.OldChecker
