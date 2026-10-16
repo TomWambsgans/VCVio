@@ -343,3 +343,32 @@ theorem merkleOnlineError_one (N : ℕ) (w : ℝ≥0∞) : merkleOnlineError N 1
   simp [merkleOnlineError]
 
 end Quantum
+
+namespace SaltedMerkle
+variable {X Y Msg Salt : Type} {k : ℕ} [DecidableEq X] [Finite X] [LinearOrder Y]
+  [Fintype Y] [Nonempty Y] [Fintype Msg] [LinearOrder Msg] [Fintype Salt] [LinearOrder Salt]
+  [UniformAnswerMeasure (X →ₒ Y)]
+/-- Finite occupied-key sets satisfy the joint-budget instability bound. The coefficient
+24 and odd schedule are the bounds note, equation (30), and the repair note, equation (2). -/
+theorem instability_online_keys_le (enc : Encoding X Y Msg Salt) (d : Fin k → ℕ)
+    (keys : Finset (TpIC k Y)) (Dfix : Fin k → Database X Y) (i : Fin k)
+    (t : ℕ) (hn : 1 ≤ keys.card) (ht : keys.card ≤ t) :
+    24 * (Database.instability
+      (fun D ↦ fun q : keys ↦ (multiExtract enc d).extract q.1 (Function.update Dfix i D))
+      (t - keys.card + 1)).toReal ≤ 24 * (onlineStepWeight t : ℝ) / Fintype.card Y := by
+  classical
+  let tics : Fin keys.card → TpIC k Y := fun a ↦ (keys.equivFin.symm a).1
+  have hc := Database.instability_le_of_eq_imp
+    (fun D ↦ fun q : keys ↦ (multiExtract enc d).extract q.1 (Function.update Dfix i D))
+    (onlineLabel (multiExtract enc d) tics Dfix i) (fun D D' h ↦ ?_) (t - keys.card + 1)
+  · have hb := (instability_onlineLabel_list_le_jointBudget enc d tics Dfix i hn
+        (h := t + 1) (s := t - keys.card + 1) (by omega)).trans (min_le_right _ _)
+    have hr := ENNReal.toReal_mono (by finiteness) (hc.trans hb)
+    simp only [ENNReal.toReal_div, ENNReal.toReal_natCast] at hr
+    have he : 2 * (t + 1) - 3 = onlineStepWeight t := by unfold onlineStepWeight; omega
+    rw [he] at hr
+    simpa only [mul_div_assoc] using mul_le_mul_of_nonneg_left hr (by norm_num : (0 : ℝ) ≤ 24)
+  · funext q
+    obtain ⟨a, rfl⟩ := keys.equivFin.symm.surjective q
+    exact congrFun h a
+end SaltedMerkle

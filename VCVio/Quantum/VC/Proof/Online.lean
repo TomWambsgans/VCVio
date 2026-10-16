@@ -419,6 +419,497 @@ theorem extractUnitary_swap_conjugacy (ME : MultiExtractor k Cm Dm S)
   · simp only [hs, and_false, ite_false, zero_mul]
 end
 
+section
+variable {A B : Type*}
+/-- Left multiplication by a permutation matrix relabels rows. -/
+theorem basisMatrix_perm_mul_apply [Fintype A] [DecidableEq A] (e : Equiv.Perm A) (M : Matrix A B ℂ)
+    (a : A) (b : B) :
+    (basisMatrix e * M) a b = M (e.symm a) b := by
+  simp only [mul_apply, basisMatrix_apply, ite_mul, zero_mul]
+  rw [Finset.sum_eq_single (e.symm a)]
+  · simp
+  · intro x _ hx
+    have h : a ≠ e x := fun he ↦ hx (by rw [he]; simp)
+    simp [h]
+  · simp
+/-- Right multiplication by a permutation matrix relabels columns. -/
+theorem mul_basisMatrix_perm_apply [Fintype B] [DecidableEq B] (M : Matrix A B ℂ) (e : Equiv.Perm B)
+    (a : A) (b : B) :
+    (M * basisMatrix e) a b = M a (e b) := by
+  simp [mul_apply, basisMatrix_apply, mul_ite]
+end
+section
+variable {Q S R : Type*} [Fintype Q] [DecidableEq Q] [Fintype S] [DecidableEq S]
+  [Fintype R] [DecidableEq R]
+/-- The commutator with a private controlled permutation, entrywise. -/
+theorem controlledPermutation_commutator_apply
+    (e : S → Equiv.Perm R) (M : Matrix (Q × S) (Q × S) ℂ)
+    (q p : Q) (s r : S) (v w : R) :
+    let V := basisMatrix (Equiv.prodCongr (Equiv.refl Q) (Equiv.prodCongrRight e))
+    let O := reindex (Equiv.prodAssoc Q S R) (Equiv.prodAssoc Q S R)
+      (M ⊗ₖ (1 : Matrix R R ℂ))
+    (V * O - O * V) (q, s, v) (p, r, w) =
+      M (q, s) (p, r) * ((if v = e s w then 1 else 0) - if v = e r w then 1 else 0) := by
+  dsimp only
+  rw [Matrix.sub_apply, basisMatrix_perm_mul_apply, mul_basisMatrix_perm_apply]
+  simp only [reindex_apply, submatrix_apply, Equiv.prodCongr_symm, Equiv.refl_symm,
+    Equiv.prodCongr_apply, Prod.map_apply, Equiv.refl_apply, Equiv.prodCongrRight_symm,
+    Equiv.prodCongrRight_apply, Function.comp_apply, Equiv.prodAssoc_symm_apply,
+    kroneckerMap_apply, one_apply, Equiv.symm_apply_eq, mul_sub]
+end
+
+namespace RecReg
+variable {k : ℕ} {Cm Cell S T : Type*} {Dm : Fin k → Type*}
+  [Fintype Cm] [∀ i, Fintype (Dm i)] [∀ i, DecidableEq (Dm i)]
+/-- Extractors agreeing on occupied keys induce the same swap on that basis state. -/
+theorem swap_eq_of_extract_eq (ME : MultiExtractor k Cm Dm S)
+    (ME' : MultiExtractor k Cm Dm T) (s : S) (t : T) (bot : Cell)
+    (R : RecReg k Cm Dm Cell)
+    (h : ∀ q ∈ occupied bot R, ME.extract q s = ME'.extract q t) :
+    swap ME s R = swap ME' t R := by
+  exact swap_eq_of_extract_eq_on_occupied
+    (⟨fun q ↦ Sum.elim (ME.extract q) (ME'.extract q)⟩ :
+      MultiExtractor k Cm Dm (S ⊕ T)) (.inl s) (.inr t) bot R h
+/-- Extend labels on a finite key set using fixed fallback values on other keys. -/
+@[expose]
+noncomputable def restrictedExtractor (ME : MultiExtractor k Cm Dm S)
+    (keys : Finset (TpIC k Cm)) (s₀ : S) :
+    MultiExtractor k Cm Dm (∀ q : keys, TpDLen k Dm q.1.1) :=
+  open Classical in
+  ⟨fun q l ↦ if h : q ∈ keys then l ⟨q, h⟩ else ME.extract q s₀⟩
+/-- On an occupied-key sector, the swap is controlled only by that sector's labels. -/
+theorem swap_restrictedExtractor (ME : MultiExtractor k Cm Dm S)
+    (keys : Finset (TpIC k Cm)) (s₀ s : S) (bot : Cell) (R : RecReg k Cm Dm Cell)
+    (hR : occupied bot R ⊆ keys) :
+    swap (restrictedExtractor ME keys s₀) (fun q ↦ ME.extract q.1 s) R = swap ME s R := by
+  apply swap_eq_of_extract_eq _ _ _ _ bot
+  intro q hq
+  simp [restrictedExtractor, hR hq]
+end RecReg
+
+open OracleSpec
+open scoped Matrix.Norms.L2Operator
+
+section
+variable {X Y B : Type} {ι : Type*} [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y]
+  [AddCommGroup Y] [UniformAnswerMeasure (X →ₒ Y)] [Fintype B] [DecidableEq B]
+/-- Transfer the generalized commutator bound to a database source cutoff. The output
+cutoff is one larger, as the ordinary port can create one database entry. The coefficient
+24 is the bounds note, equation (30), and the repair note, equation (2). -/
+theorem l2_opNorm_source_commutator_sq_le (π : Database X Y → ι) (t : ℕ)
+    (U : ι → Matrix B B ℂ) (hU : ∀ l, U l ∈ unitaryGroup _ ℂ) :
+    let L := labelControlled (fun a : ((X × Y) × Database X Y) × B ↦ π a.1.2)
+      (fun l ↦ (1 : Matrix ((X × Y) × Database X Y) ((X × Y) × Database X Y) ℂ) ⊗ₖ U l)
+    ‖(L * (compressedOracle X Y ⊗ₖ (1 : Matrix B B ℂ)) -
+      (compressedOracle X Y ⊗ₖ (1 : Matrix B B ℂ)) * L) *
+      (sizeProjector X Y t ⊗ₖ (1 : Matrix B B ℂ))‖ ^ 2 ≤
+      24 * (Database.instability π (t + 1)).toReal := by
+  dsimp only
+  rw [commutator_mul_sizeProjector_kronecker_eq t _
+    (labelControlled_mul_sizeProjector_kronecker π U t)]
+  have hp : ‖sizeProjector X Y t ⊗ₖ (1 : Matrix B B ℂ)‖ ≤ 1 := by
+    apply (l2_opNorm_kronecker_one_le _).trans
+    rw [sizeProjector, l2_opNorm_diagonal]
+    apply (pi_norm_le_iff_of_nonneg zero_le_one).mpr
+    intro a
+    split_ifs <;> norm_num
+  have hm := l2_opNorm_mul
+    (labelControlled (fun a : ((X × Y) × Database X Y) × B ↦ π a.1.2)
+      (fun l ↦ (1 : Matrix ((X × Y) × Database X Y) ((X × Y) × Database X Y) ℂ) ⊗ₖ U l) *
+      (truncatedOracle X Y (t + 1) ⊗ₖ (1 : Matrix B B ℂ)) -
+      (truncatedOracle X Y (t + 1) ⊗ₖ (1 : Matrix B B ℂ)) *
+      labelControlled (fun a ↦ π a.1.2) (fun l ↦ 1 ⊗ₖ U l))
+    (sizeProjector X Y t ⊗ₖ (1 : Matrix B B ℂ))
+  have hn := hm.trans (mul_le_of_le_one_right (norm_nonneg _) hp)
+  exact (pow_le_pow_left₀ (norm_nonneg _) hn 2).trans
+    (l2_opNorm_commutator_purifiedMeasurement_sq_le_twentyFour_mul π (t + 1) hU)
+end
+
+section
+variable {Q S R ι : Type*} [Fintype Q] [DecidableEq Q] [Fintype S] [DecidableEq S]
+  [Fintype R] [DecidableEq R]
+/-- A label-controlled permutation has an entrywise commutator formula without matrix sums. -/
+theorem labelControlled_permutation_commutator_apply (π : S → ι)
+    (e : ι → Equiv.Perm R) (M : Matrix (Q × S) (Q × S) ℂ)
+    (a b : Q × S) (v w : R) :
+    let L := labelControlled (fun a : (Q × S) × R ↦ π a.1.2)
+      (fun l ↦ (1 : Matrix (Q × S) (Q × S) ℂ) ⊗ₖ basisMatrix (e l))
+    (L * (M ⊗ₖ (1 : Matrix R R ℂ)) - (M ⊗ₖ (1 : Matrix R R ℂ)) * L)
+        (a, v) (b, w) =
+      M a b * ((if v = e (π a.2) w then 1 else 0) - if v = e (π b.2) w then 1 else 0) := by
+  have hl : labelControlled (fun a : (Q × S) × R ↦ π a.1.2)
+      (fun l ↦ (1 : Matrix (Q × S) (Q × S) ℂ) ⊗ₖ basisMatrix (e l)) =
+      basisMatrix (Equiv.prodCongrRight fun a : Q × S ↦ e (π a.2)) := by
+    ext ⟨a, r⟩ ⟨b, s⟩
+    simp only [labelControlled_apply, kroneckerMap_apply, one_apply, basisMatrix_apply,
+      Equiv.prodCongrRight_apply, Prod.mk.injEq]
+    by_cases h : a = b
+    · subst b
+      simp
+    · simp [h]
+  dsimp only
+  rw [hl, Matrix.sub_apply, basisMatrix_perm_mul_apply, mul_basisMatrix_perm_apply]
+  simp only [Equiv.prodCongrRight_symm, Equiv.prodCongrRight_apply, Function.comp_apply,
+    kroneckerMap_apply, one_apply, Equiv.symm_apply_eq, mul_sub]
+end
+
+section
+variable {Q S R : Type*} [DecidableEq R]
+/-- The entrywise commutator of a controlled private permutation with an ordinary port. -/
+@[expose]
+noncomputable def permutationDefect (e : S → Equiv.Perm R)
+    (M : Matrix (Q × S) (Q × S) ℂ) : Matrix (Q × S × R) (Q × S × R) ℂ :=
+  fun a b ↦ M (a.1, a.2.1) (b.1, b.2.1) *
+    ((if a.2.2 = e a.2.1 b.2.2 then 1 else 0) -
+      if a.2.2 = e b.2.1 b.2.2 then 1 else 0)
+end
+section
+variable {k : ℕ} {Cm Cell S Q : Type*} {Dm : Fin k → Type*}
+  [Fintype Cm] [DecidableEq Cm] [∀ i, Fintype (Dm i)] [∀ i, DecidableEq (Dm i)]
+  [Fintype Cell] [DecidableEq Cell] [Fintype S] [DecidableEq S]
+  [Fintype Q] [DecidableEq Q]
+/-- Occupied-key sectors lift uniform sector bounds to the coherent recording register. -/
+theorem l2_opNorm_recordingDefect_le
+    (ME : MultiExtractor k Cm Dm S) (M : Matrix (Q × S) (Q × S) ℂ)
+    (g : S → ℕ) (bot : Cell) (t : ℕ) (c : ℝ) (hc : 0 ≤ c)
+    (s₀ : S)
+    (hlocal : ∀ keys : Finset (TpIC k Cm),
+      ‖permutationDefect
+          (fun s ↦ RecReg.swapEquiv (RecReg.restrictedExtractor ME keys s₀)
+            (fun q ↦ ME.extract q.1 s)) M *
+        diagonal (fun a : Q × S × RecReg k Cm Dm Cell ↦
+          if g a.2.1 + keys.card ≤ t then (1 : ℂ) else 0)‖ ≤ c) :
+    ‖permutationDefect (RecReg.swapEquiv ME) M *
+      diagonal (fun a : Q × S × RecReg k Cm Dm Cell ↦
+        if g a.2.1 + RecReg.population bot a.2.2 ≤ t then (1 : ℂ) else 0)‖ ≤ c := by
+  classical
+  let β : Q × S × RecReg k Cm Dm Cell → Finset (TpIC k Cm) :=
+    fun a ↦ RecReg.occupied bot a.2.2
+  refine l2_opNorm_le_of_submatrix_le β β ?_ hc ?_
+  · intro a b hab
+    rw [mul_diagonal] at hab
+    have hd := left_ne_zero_of_mul hab
+    unfold permutationDefect at hd
+    have hn := right_ne_zero_of_mul hd
+    split_ifs at hn with h₁ h₂ h₂
+    · simp at hn
+    · change RecReg.occupied bot a.2.2 = RecReg.occupied bot b.2.2
+      rw [h₁]
+      exact RecReg.occupied_swap ME a.2.1 bot b.2.2
+    · change RecReg.occupied bot a.2.2 = RecReg.occupied bot b.2.2
+      rw [h₂]
+      exact RecReg.occupied_swap ME b.2.1 bot b.2.2
+    · simp at hn
+  · intro keys
+    let K := permutationDefect
+      (fun s ↦ RecReg.swapEquiv (RecReg.restrictedExtractor ME keys s₀)
+        (fun q ↦ ME.extract q.1 s)) M *
+      diagonal (fun a : Q × S × RecReg k Cm Dm Cell ↦
+        if g a.2.1 + keys.card ≤ t then (1 : ℂ) else 0)
+    have he : (permutationDefect (RecReg.swapEquiv ME) M *
+        diagonal (fun a : Q × S × RecReg k Cm Dm Cell ↦
+          if g a.2.1 + RecReg.population bot a.2.2 ≤ t then (1 : ℂ) else 0)).submatrix
+          (Subtype.val : {a // β a = keys} → _) (Subtype.val : {a // β a = keys} → _) =
+        K.submatrix (Subtype.val : {a // β a = keys} → _)
+          (Subtype.val : {a // β a = keys} → _) := by
+      ext a b
+      have hb : RecReg.occupied bot b.1.2.2 = keys := b.2
+      have hs (s : S) := RecReg.swap_restrictedExtractor ME keys s₀ s bot b.1.2.2
+        (Finset.Subset.trans (Finset.Subset.refl _) (by rw [hb]))
+      simp only [submatrix_apply, mul_diagonal, permutationDefect, RecReg.swapEquiv,
+        Equiv.coe_fn_mk, hs, RecReg.population, hb, K]
+      rfl
+    rw [he]
+    exact (l2_opNorm_submatrix_le_of_injective K Subtype.val_injective
+      Subtype.val_injective).trans (hlocal keys)
+end
+section
+variable {m n m' n' : Type*} [Fintype m] [Fintype n] [Fintype m'] [Fintype n']
+  [DecidableEq n] [DecidableEq n']
+/-- Restricting rows and columns and applying a contractive source mask preserves a norm bound. -/
+theorem l2_opNorm_submatrix_mul_mask_le (M : Matrix m n ℂ) (f : m' → m) (g : n' → n)
+    (hf : Function.Injective f) (hg : Function.Injective g) (p : n' → ℂ)
+    (hp : ∀ a, ‖p a‖ ≤ 1) : ‖M.submatrix f g * diagonal p‖ ≤ ‖M‖ := by
+  have hd : ‖diagonal p‖ ≤ 1 := by
+    rw [l2_opNorm_diagonal]
+    exact (pi_norm_le_iff_of_nonneg zero_le_one).mpr hp
+  exact ((l2_opNorm_mul _ _).trans (mul_le_of_le_one_right (norm_nonneg _) hd)).trans
+    (l2_opNorm_submatrix_le_of_injective M hf hg)
+end
+section
+variable {X Y R : Type} {k : ℕ} [Fintype X] [DecidableEq X]
+  [Fintype Y] [DecidableEq Y] [AddCommGroup Y] [Fintype R] [DecidableEq R]
+/-- An ordinary port splits into sectors of the unchanged databases,
+with a source population mask. -/
+theorem l2_opNorm_familyDefect_source_le (i : Fin k)
+    (e : (Fin k → Database X Y) → Equiv.Perm R) (n t : ℕ) (c : ℝ) (hc : 0 ≤ c)
+    (hlocal : ∀ Dfix : Fin k → Database X Y,
+      ‖permutationDefect (fun d ↦ e (Function.update Dfix i d)) (compressedOracle X Y) *
+        diagonal (fun a : (X × Y) × Database X Y × R ↦
+          if a.2.1.size + n ≤ t then (1 : ℂ) else 0)‖ ≤ c) :
+    ‖permutationDefect e (onFactor (splitAt (X × Y) (Database X Y) i) (compressedOracle X Y)) *
+      diagonal (fun a : (X × Y) × (Fin k → Database X Y) × R ↦
+        if (∑ j, (a.2.1 j).size) + n ≤ t then (1 : ℂ) else 0)‖ ≤ c := by
+  classical
+  let β : (X × Y) × (Fin k → Database X Y) × R → ({j // j ≠ i} → Database X Y) :=
+    fun a j ↦ a.2.1 j.1
+  have hM (a b : (X × Y) × (Fin k → Database X Y) × R) :
+      onFactor (splitAt (X × Y) (Database X Y) i) (compressedOracle X Y) (a.1, a.2.1) (b.1, b.2.1) =
+        if β a = β b then compressedOracle X Y (a.1, a.2.1 i) (b.1, b.2.1 i) else 0 := by
+    rw [onFactor_apply]
+    rfl
+  refine l2_opNorm_le_of_submatrix_le β β ?_ hc ?_
+  · intro a b hab
+    rw [mul_diagonal] at hab
+    have hm := left_ne_zero_of_mul (left_ne_zero_of_mul hab)
+    rw [hM] at hm
+    split_ifs at hm with h
+    · exact h
+    · exact (hm rfl).elim
+  · intro rest
+    let Fiber := {a : (X × Y) × (Fin k → Database X Y) × R // β a = rest}
+    let fix : Fin k → Database X Y := (Equiv.funSplitAt i (Database X Y)).symm
+      (Database.empty, rest)
+    let f : Fiber → (X × Y) × Database X Y × R :=
+      fun a ↦ (a.1.1, a.1.2.1 i, a.1.2.2)
+    have hd (a : Fiber) : Function.update fix i (a.1.2.1 i) = a.1.2.1 := by
+      funext j
+      by_cases hj : j = i
+      · subst j
+        simp
+      · rw [Function.update_of_ne hj]
+        have ha := congrFun a.2 ⟨j, hj⟩
+        simpa only [fix, Equiv.funSplitAt_symm_apply, dite_eq_right hj] using ha.symm
+    have hf : Function.Injective f := by
+      intro a b hab
+      apply Subtype.ext
+      have h₁ := congrArg Prod.fst hab
+      have h₂ := congrArg (fun z ↦ z.2.1) hab
+      have h₃ := congrArg (fun z ↦ z.2.2) hab
+      dsimp only [f] at h₁ h₂ h₃
+      have hD : a.1.2.1 = b.1.2.1 := by rw [← hd a, ← hd b, h₂]
+      exact Prod.ext h₁ (Prod.ext hD h₃)
+    let K := permutationDefect (fun d ↦ e (Function.update fix i d)) (compressedOracle X Y) *
+      diagonal (fun a : (X × Y) × Database X Y × R ↦
+        if a.2.1.size + n ≤ t then (1 : ℂ) else 0)
+    let P0 : Matrix Fiber Fiber ℂ :=
+      diagonal (fun a ↦ if (∑ j, (a.1.2.1 j).size) + n ≤ t then 1 else 0)
+    have he : (permutationDefect e
+        (onFactor (splitAt (X × Y) (Database X Y) i) (compressedOracle X Y)) *
+        diagonal (fun a : (X × Y) × (Fin k → Database X Y) × R ↦
+          if (∑ j, (a.2.1 j).size) + n ≤ t then (1 : ℂ) else 0)).submatrix
+          (Subtype.val : Fiber → _) (Subtype.val : Fiber → _) =
+        K.submatrix f f * P0 := by
+      ext a b
+      have hr : β a.1 = β b.1 := a.2.trans b.2.symm
+      have hs : (b.1.2.1 i).size ≤ ∑ j, (b.1.2.1 j).size :=
+        Finset.single_le_sum (f := fun j ↦ (b.1.2.1 j).size)
+          (fun j _ ↦ Nat.zero_le _) (Finset.mem_univ i)
+      simp only [submatrix_apply, mul_diagonal, permutationDefect, hM, hr, ite_true,
+        K, P0, f, hd]
+      by_cases hg : (∑ j, (b.1.2.1 j).size) + n ≤ t
+      · have hi : (b.1.2.1 i).size + n ≤ t := by omega
+        simp [hg, hi]
+      · simp [hg]
+    rw [he]
+    apply le_trans ?_ (hlocal fix)
+    apply l2_opNorm_submatrix_mul_mask_le K f f hf hf
+    intro a
+    split_ifs <;> norm_num
+end
+
+section
+variable {X Y B : Type} {ι : Type*} [Fintype X] [DecidableEq X]
+  [Fintype Y] [DecidableEq Y] [AddCommGroup Y] [OracleSpec.UniformAnswerMeasure (X →ₒ Y)]
+  [Fintype B] [DecidableEq B]
+/-- The source-restricted permutation commutator satisfies the generalized coefficient-24 bound. -/
+theorem l2_opNorm_permutationDefect_source_sq_le (π : Database X Y → ι) (t : ℕ)
+    (e : ι → Equiv.Perm B) :
+    ‖permutationDefect (fun d ↦ e (π d)) (compressedOracle X Y) *
+        diagonal (fun a : (X × Y) × Database X Y × B ↦
+          if a.2.1.size ≤ t then (1 : ℂ) else 0)‖ ^ 2 ≤
+      24 * (Database.instability π (t + 1)).toReal := by
+  have h := l2_opNorm_source_commutator_sq_le π t (fun l ↦ basisMatrix (e l))
+    (fun l ↦ basisMatrix_perm_mem_unitaryGroup (e l))
+  dsimp only at h
+  let L := labelControlled (fun a : ((X × Y) × Database X Y) × B ↦ π a.1.2)
+    (fun l ↦ (1 : Matrix ((X × Y) × Database X Y) ((X × Y) × Database X Y) ℂ) ⊗ₖ
+      basisMatrix (e l))
+  let C := L * (compressedOracle X Y ⊗ₖ (1 : Matrix B B ℂ)) -
+    (compressedOracle X Y ⊗ₖ (1 : Matrix B B ℂ)) * L
+  have hp : sizeProjector X Y t ⊗ₖ (1 : Matrix B B ℂ) =
+      diagonal (fun a : ((X × Y) × Database X Y) × B ↦
+        if a.1.2.size ≤ t then (1 : ℂ) else 0) := by
+    rw [sizeProjector, ← diagonal_one, diagonal_kronecker_diagonal]
+    simp only [mul_one]
+  have he : permutationDefect (fun d ↦ e (π d)) (compressedOracle X Y) *
+        diagonal (fun a : (X × Y) × Database X Y × B ↦
+          if a.2.1.size ≤ t then (1 : ℂ) else 0) =
+      (C * (sizeProjector X Y t ⊗ₖ (1 : Matrix B B ℂ))).submatrix
+        (Equiv.prodAssoc (X × Y) (Database X Y) B).symm
+        (Equiv.prodAssoc (X × Y) (Database X Y) B).symm := by
+    rw [hp]
+    ext ⟨xy, d, v⟩ ⟨xy', d', w⟩
+    simp only [submatrix_apply, Equiv.prodAssoc_symm_apply, mul_diagonal,
+      permutationDefect]
+    rw [show C ((xy, d), v) ((xy', d'), w) = _ from
+      labelControlled_permutation_commutator_apply π e (compressedOracle X Y)
+        (xy, d) (xy', d') v w]
+  rw [he, l2_opNorm_submatrix_equiv]
+  exact h
+end
+
+section
+variable {X Y Cm Cell : Type} {k : ℕ} {Dm : Fin k → Type}
+  [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y] [AddCommGroup Y]
+  [UniformAnswerMeasure (X →ₒ Y)] [Fintype Cm] [DecidableEq Cm]
+  [∀ i, Fintype (Dm i)] [∀ i, DecidableEq (Dm i)] [Fintype Cell] [DecidableEq Cell]
+/-- The occupied-key and unchanged-database sector decompositions give the ordinary-port
+source bound from joint-label instabilities. Empty occupied sets give zero commutator. -/
+theorem l2_opNorm_compressed_recordingDefect_source_sq_le
+    (ME : MultiExtractor k Cm Dm (Fin k → Database X Y)) (bot : Cell)
+    (i : Fin k) (t : ℕ) (r : ℝ) (hr : 0 ≤ r)
+    (hi : ∀ (keys : Finset (TpIC k Cm)), 1 ≤ keys.card → keys.card ≤ t →
+      ∀ Dfix : Fin k → Database X Y,
+        24 * (Database.instability
+          (fun D ↦ fun q : keys ↦ ME.extract q.1 (Function.update Dfix i D))
+          (t - keys.card + 1)).toReal ≤ r) :
+    ‖permutationDefect (RecReg.swapEquiv ME)
+        (onFactor (splitAt (X × Y) (Database X Y) i) (compressedOracle X Y)) *
+      diagonal (fun a : (X × Y) × (Fin k → Database X Y) × RecReg k Cm Dm Cell ↦
+        if (∑ j, (a.2.1 j).size) + RecReg.population bot a.2.2 ≤ t
+        then (1 : ℂ) else 0)‖ ^ 2 ≤ r := by
+  refine le_trans ?_ (le_of_eq (Real.sq_sqrt hr))
+  apply (sq_le_sq₀ (norm_nonneg _) (Real.sqrt_nonneg r)).mpr
+  apply l2_opNorm_recordingDefect_le ME _ (fun d ↦ ∑ j, (d j).size) bot t
+    (Real.sqrt r) (Real.sqrt_nonneg r) (fun _ ↦ Database.empty)
+  intro keys
+  by_cases hz : keys = ∅
+  · subst keys
+    have he : ∀ s r : Fin k → Database X Y,
+        (fun q : (∅ : Finset (TpIC k Cm)) ↦ ME.extract q.1 s) =
+          (fun q : (∅ : Finset (TpIC k Cm)) ↦ ME.extract q.1 r) := by
+      intro s r
+      exact Subsingleton.elim _ _
+    have hzero : permutationDefect
+        (fun s ↦ RecReg.swapEquiv (Cell := Cell)
+          (RecReg.restrictedExtractor ME ∅ (fun _ ↦ Database.empty))
+          (fun q ↦ ME.extract q.1 s))
+        (onFactor (splitAt (X × Y) (Database X Y) i) (compressedOracle X Y)) = 0 := by
+      ext a b
+      simp only [permutationDefect, he a.2.1 b.2.1, sub_self, mul_zero, Matrix.zero_apply]
+    rw [hzero, Matrix.zero_mul, norm_zero]
+    exact Real.sqrt_nonneg r
+  · by_cases ht : keys.card ≤ t
+    · apply l2_opNorm_familyDefect_source_le i _ keys.card t (Real.sqrt r) (Real.sqrt_nonneg r)
+      intro Dfix
+      have h := l2_opNorm_permutationDefect_source_sq_le
+        (fun D ↦ fun q : keys ↦ ME.extract q.1 (Function.update Dfix i D)) (t - keys.card)
+        (RecReg.swapEquiv (Cell := Cell)
+          (RecReg.restrictedExtractor ME keys (fun _ ↦ Database.empty)))
+      have hn : 1 ≤ keys.card := Finset.card_pos.mpr (Finset.nonempty_iff_ne_empty.mpr hz)
+      have hb := h.trans (hi keys hn ht Dfix)
+      have hcut (D : Database X Y) : D.size + keys.card ≤ t ↔ D.size ≤ t - keys.card := by omega
+      simpa only [hcut] using (Real.le_sqrt (norm_nonneg _) hr).mpr hb
+    · have hcut (a : (X × Y) × (Fin k → Database X Y) × RecReg k Cm Dm Cell) :
+          ¬ (∑ j, (a.2.1 j).size) + keys.card ≤ t := by omega
+      simp only [hcut, ite_false, diagonal_zero, Matrix.mul_zero, norm_zero]
+      exact Real.sqrt_nonneg r
+end
+
+section
+variable {A : Type*} [Fintype A] [DecidableEq A]
+/-- A squared operator-norm bound gives the corresponding positive Gram slack. -/
+theorem posSemidef_scalar_sub_gram_of_norm_sq_le (K : Matrix A A ℂ) {r : ℝ}
+    (h : ‖K‖ ^ 2 ≤ r) : (r • (1 : Matrix A A ℂ) - Kᴴ * K).PosSemidef := by
+  have h₁ := MatrixMap.posSemidef_l2_opNorm_sq_smul_one_sub K
+  have h₂ := (PosSemidef.one (n := A) (R := ℂ)).smul (sub_nonneg.mpr h)
+  convert h₁.add h₂ using 1
+  module
+
+/-- A unitary change of frame identifies the source Gram matrices of a difference and commutator. -/
+theorem source_rotated_difference_gram (U V P : Matrix A A ℂ)
+    (hV : Vᴴ * V = 1) (hV' : V * Vᴴ = 1) :
+    ((U - Vᴴ * U * V) * P)ᴴ * ((U - Vᴴ * U * V) * P) =
+      ((V * U - U * V) * P)ᴴ * ((V * U - U * V) * P) := by
+  have he : (U - Vᴴ * U * V) * P = Vᴴ * ((V * U - U * V) * P) := by
+    rw [← Matrix.mul_assoc Vᴴ, Matrix.mul_sub, ← Matrix.mul_assoc Vᴴ V, hV,
+      Matrix.one_mul]
+    simp only [Matrix.sub_mul, Matrix.mul_assoc]
+  rw [he, conjTranspose_mul, conjTranspose_conjTranspose]
+  simp only [Matrix.mul_assoc]
+  rw [← Matrix.mul_assoc V Vᴴ, hV', Matrix.one_mul]
+end
+section
+variable {k : ℕ} {Cm Cell S Q : Type*} {Dm : Fin k → Type*}
+  [Fintype Cm] [DecidableEq Cm] [∀ i, Fintype (Dm i)] [∀ i, DecidableEq (Dm i)]
+  [Fintype Cell] [DecidableEq Cell] [Fintype S] [DecidableEq S]
+  [Fintype Q] [DecidableEq Q]
+/-- The entrywise recording defect is the ordinary-port commutator with the private swap. -/
+theorem permutationDefect_eq_swap_commutator (ME : MultiExtractor k Cm Dm S)
+    (M : Matrix (Q × S) (Q × S) ℂ) :
+    permutationDefect (RecReg.swapEquiv (Cell := Cell) ME) M =
+      (1 ⊗ₖ RecReg.swapUnitary ME) *
+        reindex (Equiv.prodAssoc Q S _) (Equiv.prodAssoc Q S _) (M ⊗ₖ 1) -
+      reindex (Equiv.prodAssoc Q S _) (Equiv.prodAssoc Q S _) (M ⊗ₖ 1) *
+        (1 ⊗ₖ RecReg.swapUnitary ME) := by
+  rw [one_kronecker_swapUnitary]
+  ext ⟨q, s, v⟩ ⟨p, r, w⟩
+  exact (controlledPermutation_commutator_apply (RecReg.swapEquiv ME) M q p s r v w).symm
+end
+section
+variable {k : ℕ} {Cm Cell S Q : Type} {Dm : Fin k → Type}
+  [Fintype Cm] [DecidableEq Cm] [∀ i, Fintype (Dm i)] [∀ i, DecidableEq (Dm i)]
+  [Fintype Cell] [DecidableEq Cell] [Fintype S] [DecidableEq S]
+  [Fintype Q] [DecidableEq Q]
+/-- The recording commutator source bound gives the Gram inequality
+for the rotated ordinary port. -/
+theorem posSemidef_rotated_port_difference_of_source_bound
+    (ME : MultiExtractor k Cm Dm S) (M : Matrix (Q × S) (Q × S) ℂ)
+    (g : S → ℕ) (bot : Cell) (t : ℕ) (r : ℝ)
+    (h : ‖permutationDefect (RecReg.swapEquiv ME) M *
+      diagonal (fun a : Q × S × RecReg k Cm Dm Cell ↦
+        if g a.2.1 + RecReg.population bot a.2.2 ≤ t then (1 : ℂ) else 0)‖ ^ 2 ≤ r) :
+    let V := (1 : Matrix Q Q ℂ) ⊗ₖ RecReg.swapUnitary (Cell := Cell) ME
+    let O := reindex (Equiv.prodAssoc Q S _) (Equiv.prodAssoc Q S _) (M ⊗ₖ 1)
+    let P := (1 : Matrix Q Q ℂ) ⊗ₖ diagonal
+      (fun a : S × RecReg k Cm Dm Cell ↦
+        if g a.1 + RecReg.population bot a.2 ≤ t then (1 : ℂ) else 0)
+    (r • (1 : Matrix (Q × S × RecReg k Cm Dm Cell) _ ℂ) -
+      ((O - Vᴴ * O * V) * P)ᴴ * ((O - Vᴴ * O * V) * P)).PosSemidef := by
+  dsimp only
+  have hv := kronecker_mem_unitary (one_mem (unitaryGroup Q ℂ))
+    (RecReg.swapUnitary_mem_unitaryGroup (Cell := Cell) ME)
+  rw [source_rotated_difference_gram _ _ _
+    (mem_unitaryGroup_iff'.mp hv) (mem_unitaryGroup_iff.mp hv),
+    ← permutationDefect_eq_swap_commutator]
+  have hp : (1 : Matrix Q Q ℂ) ⊗ₖ diagonal
+      (fun a : S × RecReg k Cm Dm Cell ↦
+        if g a.1 + RecReg.population bot a.2 ≤ t then (1 : ℂ) else 0) =
+      diagonal (fun a : Q × S × RecReg k Cm Dm Cell ↦
+        if g a.2.1 + RecReg.population bot a.2.2 ≤ t then (1 : ℂ) else 0) := by
+    rw [← diagonal_one, diagonal_kronecker_diagonal]
+    simp only [one_mul]
+  rw [hp]
+  exact posSemidef_scalar_sub_gram_of_norm_sq_le _ h
+end
+
+
+namespace Database
+variable {X Y : Type} {ι κ : Type*} [DecidableEq X] [AnswerMeasure (X →ₒ Y)]
+/-- Coarsening labels cannot increase instability, stated through equality preservation. -/
+theorem instability_le_of_eq_imp (π₁ : Database X Y → ι) (π₂ : Database X Y → κ)
+    (h : ∀ D D', π₂ D = π₂ D' → π₁ D = π₁ D') (t : ℕ) :
+    instability π₁ t ≤ instability π₂ t := by
+  rw [instability_eq_iSup_flip_compl, instability_eq_iSup_flip_compl]
+  refine iSup_le fun k ↦ QueryCache.flip_le_iff.mpr fun D hD hlt x hx ↦ ?_
+  refine le_iSup_of_le (π₂ (equivQueryCache.symm D)) <|
+    (QueryCache.extendProb_mono D x fun c hc ↦ ?_).trans
+      (QueryCache.extendProb_le_flip rfl hlt hx)
+  simp only [Set.mem_compl_iff, mem_labelPartition] at hD hc ⊢
+  exact fun he ↦ hc ((h _ _ he).trans hD)
+end Database
+
 section recordGrade
 
 variable {k : ℕ} {Cm Yr S Cell : Type*} {Dm : Fin k → Type*}

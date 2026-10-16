@@ -92,3 +92,9 @@ end
 #check Quantum.RecReg.swapUnitary_initial
 #check Quantum.recordUnitary_swap_conjugacy
 #check Quantum.extractUnitary_swap_conjugacy
+
+#check Quantum.l2_opNorm_recordingDefect_le
+#check Quantum.l2_opNorm_familyDefect_source_le
+#check Quantum.l2_opNorm_compressed_recordingDefect_source_sq_le
+#check Quantum.posSemidef_rotated_port_difference_of_source_bound
+#check SaltedMerkle.instability_online_keys_le
