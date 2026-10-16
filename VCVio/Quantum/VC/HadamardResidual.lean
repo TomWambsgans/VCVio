@@ -66,16 +66,18 @@ theorem submatrix_compressedCell_filled (W : Matrix Y Y ℂ) (y : Y) :
     Matrix.sub_apply, Matrix.smul_apply, smul_eq_mul, uniformResponseProjector]
   ring
 
+omit [Fintype Y] in
 /-- The translation at a filled cell is Hermitian for exponent-two answers. -/
 theorem conjTranspose_xorShift_of_add_self (hY : ∀ y : Y, y + y = 0) (y : Y) :
     (xorShift Y y)ᴴ = xorShift Y y := by
-  have hu := mem_unitaryGroup_iff'.mp (xorShift_mem_unitaryGroup y)
-  rw [star_eq_conjTranspose] at hu
-  calc
-    _ = (xorShift Y y)ᴴ * (xorShift Y y * xorShift Y y) := by
-      rw [xorShift_mul_self_of_add_self hY, Matrix.mul_one]
-    _ = xorShift Y y := by rw [← Matrix.mul_assoc, hu, Matrix.one_mul]
+  ext r s
+  have he : s = r + y ↔ r = s + y := by
+    constructor
+    · intro h; rw [h, add_assoc, hY, add_zero]
+    · intro h; rw [h, add_assoc, hY, add_zero]
+  simp [conjTranspose_apply, xorShift_apply, he]
 
+omit [Fintype Y] in
 /-- The decompressed cell is Hermitian when each response block is an involution. -/
 theorem conjTranspose_decompressedCell (hY : ∀ y : Y, y + y = 0)
     {W : Matrix Y Y ℂ} (hW : Wᴴ = W) : (decompressedCell W)ᴴ = decompressedCell W := by

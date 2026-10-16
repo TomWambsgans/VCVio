@@ -11,6 +11,8 @@ public import VCVio.Quantum.VC.HadamardSimulation
 public import VCVio.Quantum.VC.HadamardCommutation
 public import VCVio.Quantum.VC.HadamardResidual
 public import VCVio.Quantum.VC.HadamardExtraction
+public import VCVio.Quantum.VC.HadamardComBound
+public import VCVio.Quantum.VC.HadamardBinary
 
 /-!
 # Small-instance tests for the Hadamard extension
@@ -21,7 +23,7 @@ accepting-map identities. Repeated and conflicting prescriptions retain their mu
 
 public section
 
-open Quantum Matrix Convexity
+open Quantum Matrix Convexity OracleSpec
 open scoped Matrix.Norms.L2Operator
 
 namespace VCVioTest.QuantumHadamard
@@ -71,5 +73,31 @@ example (y : Fin 1 → ZMod 2) :
 
 -- P3's exact error theorem is available to consumers of the new witness.
 #check extractionCorrect_extendedVCOracle
+
+/-- Cardinality four alone does not imply the exponent-two translation hypothesis. -/
+example : ¬ ∀ y : ZMod 4, y + y = 0 := by
+  intro h
+  have he := h 1
+  norm_num at he
+  exact (by decide : (2 : ZMod 4) ≠ 0) he
+
+-- P2 uses the existing error and security predicate.
+#check comBound_extendedVCOracle
+
+/-- Uniform answer semantics for the concrete bitstring oracle. -/
+noncomputable local instance : UniformAnswerMeasure (Unit →ₒ (Fin 1 → ZMod 2)) :=
+  UniformAnswerMeasure.ofFiniteNonempty _
+
+/-- The binary event estimate elaborates for a small concrete Hadamard database. -/
+example (π : Database Unit (Fin 1 → ZMod 2) → Bool) (t : ℕ) :
+    ‖labelProjector (fun p : (Unit × (Fin 1 → ZMod 2)) ×
+          Database Unit (Fin 1 → ZMod 2) ↦ π p.2) true *
+          truncatedExtendedOracle (bitstringHadamard 1) t -
+        truncatedExtendedOracle (bitstringHadamard 1) t *
+          labelProjector (fun p : (Unit × (Fin 1 → ZMod 2)) ×
+            Database Unit (Fin 1 → ZMod 2) ↦ π p.2) true‖ ^ 2 ≤
+      6 * (Database.instability π t).toReal := by
+  exact norm_binary_commutator_truncatedExtendedOracle_sq_le (bitstring_add_self 1)
+    (bitstringHadamard_mem_unitaryGroup 1) (bitstringHadamard_mul_self 1) π t true
 
 end VCVioTest.QuantumHadamard

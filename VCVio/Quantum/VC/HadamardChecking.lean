@@ -246,6 +246,18 @@ noncomputable def acceptingList (C : Matrix S S ℂ) (g : Y → ℂ) (io : List 
     (read : S → X → Option Y) : Matrix S S ℂ :=
   C * diagonal (fun d ↦ acceptWeight g io (read d)) * C
 
+/-- The accepting operator is the product of the single-query Kraus operators, retaining
+all list occurrences. No consistency or distinctness hypothesis is imposed. -/
+theorem acceptingList_eq_prod {C : Matrix S S ℂ} (hCC : C * C = 1)
+    (g : Y → ℂ) (io : List (X × Y)) (read : S → X → Option Y) :
+    acceptingList C g io read =
+      (io.map fun p ↦ C * diagonal (fun d ↦ acceptValue g p.2 (read d p.1)) * C).prod := by
+  induction io with
+  | nil => simp [acceptingList, acceptWeight, hCC]
+  | cons p io ih =>
+    rw [List.map_cons, List.prod_cons, ← ih]
+    simp only [acceptingList, conj_diagonal_mul_conj_diagonal hCC, acceptWeight_cons]
+
 /-- The partial-database consistency projector for a prescribed list. -/
 @[expose]
 noncomputable def filledListProjector (io : List (X × Y)) (read : S → X → Option Y) :
