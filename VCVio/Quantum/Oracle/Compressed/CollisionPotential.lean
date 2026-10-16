@@ -22,8 +22,9 @@ The population counts database entries only; recording registers are excluded.
 `posSemidef_collisionCellDrop` and `posSemidef_collisionCellLeak` verify the local hypotheses.
 `QuantumRuntime.eventWeight_le_of_collisionCertificate` specializes the general runtime
 certificate to the finite coefficient `(7t+5)t/(4N)`, retaining the original mass through
-`min w t`. Its trace hypotheses remain explicit: this file does not prove their assembly for
-`compressedVCOracle.withRecord`, nor identify the event with a concrete collision predicate.
+`min w t`. The concrete collision predicate and the operator assembly for the old oracle
+with extraction and recording are in `VCVio.Quantum.VC.Proof.Offline`; its theorem
+`Quantum.collisionEvent_compressedVCOracle_le` supplies these trace hypotheses.
 -/
 
 public section

@@ -14,8 +14,19 @@ public import VCVio.Quantum.VC.Proof.Commutativity
 
 The collision part of ePrint 2025/2166 §9.3 uses the charged population schedule of
 bounds-note equations (87)–(89), (91). We sum its per-database potentials. Extraction
-and recording preserve the databases, so their charge is zero. This file concerns the
-old compressed oracle; P4 and the full-response Hadamard extension are separate results.
+and recording preserve the databases, so their charge is zero.
+
+`collisionEvent_compressedVCOracle_le` bounds the final event that at least one database
+contains two distinct keys with the same answer by `(7t+5)t min(w,t)/(4|Y|)`. Its original
+mass `w` is the sum of `EmulatedOracle.totalMass` over the ordinary ports. Programs may use
+arbitrary local instruments and coherent port superpositions. The query bound includes
+all ports, and the theorem includes zero queries and subnormalized initial states.
+
+`familyPopulation` sums the per-database potentials, excluding records. The query block
+isolates the selected database; all other potentials are nonincreasing spectator scalars.
+`withRecord_port_bounds` proves the local operator conditions, and the square-root factor
+and empty-database lemmas supply the runtime certificate without additional trace premises.
+P4 and the full-response Hadamard extension are separate results.
 -/
 
 public section
@@ -284,7 +295,6 @@ theorem familyIdle_bounds {A : Type*} [Fintype A] [DecidableEq A]
   simp only [Pi.zero_apply, one_mul, ← Complex.ofReal_sub, Complex.zero_le_real]
   exact sub_nonneg.mpr (familyPopulation_idle hn a.2.1)
 
-
 /-- The diagonal square root factors the family population operator. -/
 @[expose]
 noncomputable def familyPotentialFactor (t n : ℕ) :
@@ -432,7 +442,6 @@ theorem withRecord_port_bounds {t n : ℕ} (hn : n < t) (p : (Fin k ⊕ Unit) �
     have hl := h.1.smul (collisionRate_nonneg t n (N := Fintype.card Y) (by positivity))
     simpa only [h.2, conjTranspose_zero, Matrix.zero_mul, sub_zero,
       Bool.false_eq_true, ite_false] using hl
-
 
 /-- The record-world initial state has empty databases and constant recording cells. -/
 theorem compressedWithRecord_init :

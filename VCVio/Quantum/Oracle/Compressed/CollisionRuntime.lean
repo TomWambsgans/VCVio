@@ -196,7 +196,6 @@ theorem ofReal_trace_selectedCharge (E : EmulatedOracle P In) (selected : P → 
     · exact (hσ.mul_mul_conjTranspose_same _).trace_re_nonneg
     · simp
 
-
 /-- The actual total query mass on the selected ordinary interfaces. -/
 @[expose]
 noncomputable def selectedTotalMass (E : EmulatedOracle P In) {L : LocalSig}
@@ -254,7 +253,6 @@ theorem sum_queryWeight_selectedMass_le (E : EmulatedOracle P In) {L : LocalSig}
     rw [← E.tsum_queryWeight_selectedMass I selected x ρ]
     exact ENNReal.sum_le_tsum _
   exact le_min hs (hs.trans hm)
-
 
 /-- A positive operator leak inequality bounds its weight on every positive input. -/
 theorem ofReal_trace_conj_le {J : Type*} [Fintype J]

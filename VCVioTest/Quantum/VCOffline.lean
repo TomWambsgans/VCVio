@@ -6,7 +6,7 @@ Authors: Quang Dao
 
 module
 
-public import VCVio.Quantum.Oracle.Compressed.CollisionPotential
+public import VCVio.Quantum.VC.Proof.Offline
 
 /-!
 # Local potential and charged-certificate tests
@@ -14,9 +14,9 @@ public import VCVio.Quantum.Oracle.Compressed.CollisionPotential
 Numerical calibrations of bounds-note equations (77), (89), and (107) for ePrint 2025/2166:
 a singleton flip in an answer space of size 64, a three-coefficient instance with nonzero
 restriction error, and a two-call certificate with original mass one and bound `19/128`.
-The runtime test checks the public certificate's elaboration for arbitrary programs and
-local instruments. Its local trace hypotheses are explicit; it is not a concrete collision
-experiment for the compressed VC runtime.
+The tests cover the abstract certificate and the concrete old-oracle collision theorem,
+with no local trace hypotheses in the concrete applications. They include the zero-query
+case and unrestricted programs using ordinary, extraction, and recording ports.
 -/
 
 public section
@@ -99,5 +99,46 @@ example (hU : ∀ i r, (s i).branch r = MatrixMap.conj (U i r))
   exact h
 
 end Runtime
+
+
+section Concrete
+
+open Quantum.EmulatedOracle
+
+variable (ME : MultiExtractor 1 Unit (fun _ ↦ Unit) (Fin 1 → Database Bool (ZMod 64)))
+  (code : TpDCode 1 (fun _ ↦ Unit) (ZMod 2))
+  (V : Matrix (Bool × Bool) (Bool × Bool) ℂ) (hV : V ∈ unitaryGroup _ ℂ)
+  {L : LocalSig} (I : L.Interp) {W : QReg → Type*} {A : QReg}
+
+/-- The unconditional theorem gives `19/128` for a two-call, mass-one program on 64 answers. -/
+example (x : QuantumComp L (cohSpec (recIn 1 Bool (ZMod 64) Unit (ZMod 2) Bool)) W A)
+    (hx : x.IsQueryBound (fun _ ↦ 2)) (ρ : SubState A)
+    (hmass : ∑ i : Fin 1,
+      ((compressedVCOracle 1 Bool (ZMod 64)).withRecord ME code false V hV).totalMass I x
+        (ρ.matrix ⊗ₖ
+          ((compressedVCOracle 1 Bool (ZMod 64)).withRecord ME code false V hV).init.matrix)
+        (.inl (.inl i)) = 1) :
+    let E := (compressedVCOracle 1 Bool (ZMod 64)).withRecord ME code false V hV
+    E.coherent.toRuntime.eventWeight I
+      (familyCollisionMatrix (k := 1) (X := Bool) (Y := ZMod 64)
+        (R := RecReg 1 Unit (fun _ ↦ Unit) Bool)) x (ρ.matrix ⊗ₖ E.init.matrix) ≤ 19 / 128 := by
+  have h := collisionEvent_compressedVCOracle_le ME code false V hV I x hx ρ
+  dsimp only at h
+  rw [hmass] at h
+  norm_num [ZMod.card, ENNReal.ofReal_div_of_pos] at h
+  exact h
+
+/-- No oracle queries gives exactly zero collision weight, without a positivity premise on t. -/
+example (x : QuantumComp L (cohSpec (recIn 1 Bool (ZMod 64) Unit (ZMod 2) Bool)) W A)
+    (hx : x.IsQueryBound (fun _ ↦ 0)) (ρ : SubState A) :
+    let E := (compressedVCOracle 1 Bool (ZMod 64)).withRecord ME code false V hV
+    E.coherent.toRuntime.eventWeight I
+      (familyCollisionMatrix (k := 1) (X := Bool) (Y := ZMod 64)
+        (R := RecReg 1 Unit (fun _ ↦ Unit) Bool)) x (ρ.matrix ⊗ₖ E.init.matrix) = 0 := by
+  apply le_antisymm ?_ zero_le
+  have h := collisionEvent_compressedVCOracle_le ME code false V hV I x hx ρ
+  simpa only [Nat.cast_zero, mul_zero, zero_div, ENNReal.ofReal_zero, zero_mul] using h
+
+end Concrete
 
 end VCVioTest.QuantumVCOffline
