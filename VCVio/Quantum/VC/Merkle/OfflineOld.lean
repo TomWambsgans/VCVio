@@ -7,6 +7,7 @@ Authors: Quang Dao
 module
 public import VCVio.Quantum.VC.Proof.CheckerComparison
 public import VCVio.Quantum.Comp.Potential
+public import VCVio.Quantum.VC.Proof.Offline
 public import VCVio.CryptoFoundations.MerkleTree.Salted.Instability
 
 /-!
@@ -43,8 +44,10 @@ occupied-cell contexts; its invalid operators are identified with compressed emp
 projectors by `databaseInvalidCell_eq_compress`.
 
 The leakage polynomial is the exact prefix sum in FIX (28). Its Cauchy--Schwarz estimate is
-stated in `ℝ≥0∞`, including infinite masses. This module does not assert `OfflineExtractable`:
-the reachable invalid-norm estimate and its transfer to the actual challenger remain necessary.
+stated in `ℝ≥0∞`, including infinite masses. `old_run_invalid_le` bounds the original
+post-adversary invalid norm by `2 √(e T(t) / N)`, where `e` is actual extraction mass.
+This module does not assert `OfflineExtractable`: transfer to the actual challenger remains
+necessary.
 No assertion that arbitrary classical checks preserve population is used. The coefficients
 four and eight in FIX (36) belong to the downstream reduction, not to this P4 error function.
 -/
@@ -271,6 +274,35 @@ theorem actual_sub_filled_potential_le
 
 end CompressedReplay
 
+namespace QuantumRuntime
+
+/-- The potential of a summable family of positive operators is the sum of its potentials. -/
+theorem potential_tsum {A D Z ι : Type*} [Fintype A] [Fintype D] [Fintype Z]
+    (K : Matrix Z D ℂ) {f : ι → Matrix (A × D) (A × D) ℂ}
+    (hf : Summable f) (hpos : ∀ b, (f b).PosSemidef) :
+    potential K (∑' b, f b) = ∑' b, potential K (f b) := by
+  classical
+  simp only [potential, MatrixMap.map_tsum _ hf]
+  apply ofReal_trace_re_tsum (MatrixMap.summable_comp _ hf)
+  intro b
+  rw [MatrixMap.amplifyLeft_conj]
+  exact (hpos b).mul_mul_conjTranspose_same _
+
+/-- Taking the input of a call preserves support of the private register. -/
+theorem supported_callInput {A J E D : Type*} [Fintype A] [Fintype J] [Fintype E]
+    [Fintype D] [DecidableEq A] [DecidableEq J] [DecidableEq E] [DecidableEq D]
+    {C : Type*} (population : D → C) (S : Set C) (ℓ : A ≃ J × E)
+    {ρ : Matrix (A × D) (A × D) ℂ}
+    (hρ : QuerySupportedOn (fun a : A × D ↦ population a.2) S ρ) :
+    QuerySupportedOn (fun a : J × D ↦ population a.2) S (callInput ℓ D ρ) := by
+  intro a b hab
+  simp only [callInput, LinearMap.comp_apply, MatrixMap.traceRight_apply,
+    SubInstrument.relabel_branch_apply, submatrix_apply] at hab
+  obtain ⟨e, _, he⟩ := Finset.exists_ne_zero_of_sum_ne_zero hab
+  exact hρ _ _ he
+
+end QuantumRuntime
+
 namespace EmulatedOracle
 
 variable {P : Type} [Fintype P] [DecidableEq P] {In : P → QReg}
@@ -349,6 +381,79 @@ theorem population_run (h : ∀ i a b, E.U i a b ≠ 0 → population a.2 ≤ po
     cases i
     have hh := ih r (hk r) (E.population_queryStep population h F ℓ r hρ)
     rwa [Nat.add_assoc, Nat.add_sub_cancel' hq] at hh
+
+section potentialAccumulation
+variable {L : LocalSig.{u, v}} (I : L.Interp) {W : QReg → Type w}
+  {A : QReg} {Z : Type*} [Fintype Z]
+open QuantumRuntime
+
+/-- Square-root potential increments telescope along actual coherent-runtime prefixes.
+The local hypothesis is required only at the current population cutoff. Arbitrary local
+instruments, entangled substates, and register-changing leaves are covered. Costs and their
+sums are extended nonnegative reals, so no finiteness or normalization of masses is needed. -/
+theorem run_potential_rpow_le (K : Matrix Z E.S ℂ)
+    (hg : ∀ i a b, E.U i a b ≠ 0 → population a.2 ≤ population b.2 + 1)
+    (cost : ℕ → Matrix ((Σ i, In i) × E.S) ((Σ i, In i) × E.S) ℂ → ℝ≥0∞)
+    (hstep : ∀ n σ, σ.PosSemidef →
+      QuerySupportedOn (fun a : (Σ i, In i) × E.S ↦ population a.2) (Set.Iic n) σ →
+      potential K (MatrixMap.conj (E.coherent.U ()) σ) ^ (2⁻¹ : ℝ) ≤
+        potential K σ ^ (2⁻¹ : ℝ) + cost n σ ^ (2⁻¹ : ℝ))
+    (x : QuantumComp L (cohSpec In) W A) (n : ℕ)
+    {ρ : Matrix (A × E.S) (A × E.S) ℂ} (hρ : ρ.PosSemidef)
+    (hpop : QuerySupportedOn (fun a : A × E.S ↦ population a.2) (Set.Iic n) ρ) :
+    (∑' p, potential K ((E.coherent.toRuntime.run I x).branch p ρ)) ^ (2⁻¹ : ℝ) ≤
+      potential K ρ ^ (2⁻¹ : ℝ) +
+        ∑' j, E.coherent.toRuntime.queryWeight I (fun _ ↦ cost (n + j)) x ρ j ^ (2⁻¹ : ℝ) := by
+  induction x using QuantumComp.inductionOn generalizing n with
+  | pure B y =>
+    rw [run_pure, tsum_eq_single (⟨_, y⟩ : Σ B, W B) fun p hp ↦ by
+      simp [DSubInstrument.branch_ret_of_ne _ hp, potential]]
+    simp only [DSubInstrument.branch_ret_self, LinearMap.id_apply]
+    exact le_self_add
+  | primBind B o k ih =>
+    have hb := fun b ↦ ((I o).frame E.S).posSemidef_branch_apply b hρ
+    have he : ∀ p, potential K ((E.coherent.toRuntime.run I
+        (QuantumComp.primBind o k)).branch p ρ) =
+        ∑' b, potential K ((E.coherent.toRuntime.run I (k b)).branch p
+          (((I o).frame E.S).branch b ρ)) := fun p ↦ by
+      rw [run_primBind, DSubInstrument.branch_bind_apply]
+      exact potential_tsum K ((((I o).frame _).isCPTNIFamily.comp_eval
+        (fun b ↦ (E.coherent.toRuntime.run I (k b)).isCPTNIFamily) p).summable_apply ρ)
+        fun b ↦ (E.coherent.toRuntime.run I (k b)).posSemidef_branch_apply p (hb b)
+    simp only [he, queryWeight_primBind]
+    rw [ENNReal.tsum_comm]
+    refine (rpow_inv_two_tsum_le_of_le_add_tsum fun b ↦
+      ih b n (hb b) (QuerySupportedOn.amplify_snd hpop _)).trans ?_
+    exact add_le_add (ENNReal.rpow_le_rpow (tsum_potential_frame_le K (I o) hρ)
+      (by norm_num)) le_rfl
+  | queryBind B i F ℓ k ih =>
+    have hr := fun r ↦ (E.coherent.toRuntime.queryStep i F ℓ).posSemidef_branch_apply r hρ
+    have he : ∀ p, potential K ((E.coherent.toRuntime.run I
+        (QuantumComp.queryBind i F ℓ k)).branch p ρ) =
+        ∑' r, potential K ((E.coherent.toRuntime.run I (k r)).branch p
+          ((E.coherent.toRuntime.queryStep i F ℓ).branch r ρ)) := fun p ↦ by
+      rw [run_queryBind, DSubInstrument.branch_bind_apply]
+      exact potential_tsum K
+        (((SubInstrument.toD (E.coherent.toRuntime.queryStep i F ℓ)).isCPTNIFamily.comp_eval
+          (fun r ↦ (E.coherent.toRuntime.run I (k r)).isCPTNIFamily) p).summable_apply ρ)
+        fun r ↦ (E.coherent.toRuntime.run I (k r)).posSemidef_branch_apply p (hr r)
+    simp only [he]
+    rw [ENNReal.tsum_comm]
+    refine (rpow_inv_two_tsum_le_of_le_add_tsum fun r ↦
+      ih r (n + 1) (hr r) (E.population_queryStep population hg F ℓ r hpop)).trans ?_
+    conv_rhs => rw [tsum_eq_zero_add' ENNReal.summable, queryWeight_queryBind_zero, ← add_assoc]
+    simp only [queryWeight_queryBind_succ, Nat.add_zero, Nat.add_assoc, Nat.add_comm 1]
+    apply add_le_add _ le_rfl
+    simp only [tsum_fintype, Finset.univ_unique, Finset.sum_singleton]
+    rw [potential_queryStep E.coherent.toRuntime K i F ℓ default ρ,
+      E.coherent.toRuntime_step_branch]
+    have hh := hstep n _ (posSemidef_callInput ℓ hρ)
+      (supported_callInput population _ ℓ hpop)
+    rw [potential_callInput] at hh
+    exact hh
+
+
+end potentialAccumulation
 
 end EmulatedOracle
 
@@ -601,6 +706,85 @@ theorem extractUnitary_concat_factor [Fintype Cm] [DecidableEq Cm]
 
 end TpDCode
 
+section extraction
+variable {k : ℕ} {X Y Cm : Type} [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y]
+  [Fintype Cm] [DecidableEq Cm] {Z : Type} [Fintype Z] [DecidableEq Z] [AddCommGroup Z]
+  {Dm : Fin k → Type}
+
+/-- Separate the extraction tuple from the flattened database and response register. -/
+@[expose]
+noncomputable def flatExtractSplit :
+    ((TpIC k Cm × Z) × (Fin k → Database X Y)) ≃
+      (Database (Fin k × X) Y × Z) × TpIC k Cm where
+  toFun a := ((Function.uncurry a.2, a.1.2), a.1.1)
+  invFun a := ((a.2, a.1.2), Function.curry a.1.1)
+  left_inv _ := rfl
+  right_inv _ := rfl
+
+omit [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y] [Fintype Cm]
+  [DecidableEq Cm] [Fintype Z] [DecidableEq Z] [AddCommGroup Z] in
+/-- The extraction splitting keeps its tuple as the block index. -/
+theorem flatExtractSplit_apply (a : (TpIC k Cm × Z) × (Fin k → Database X Y)) :
+    flatExtractSplit a = ((Function.uncurry a.2, a.1.2), a.1.1) := rfl
+
+omit [DecidableEq X] [Fintype Y] [Fintype Cm] [Fintype Z] in
+/-- The actual coherent extraction unitary is block diagonal in its input tuple. -/
+theorem extractUnitary_flat_blocks
+    (ME : MultiExtractor k Cm Dm (Fin k → Database X Y)) (code : TpDCode k Dm Z) :
+    extractUnitary ME code = liftBlocks flatExtractSplit
+      (fun tic ↦ databaseControl
+        (fun D ↦ code.enc ⟨tic.1, ME.extract tic (Function.curry D)⟩) (xorShift Z)) := by
+  ext ⟨⟨t,z⟩,D⟩ ⟨⟨t',z'⟩,D'⟩
+  simp only [extractUnitary_apply, liftBlocks, submatrix_apply, blockDiagonal_apply,
+    flatExtractSplit_apply, databaseControl, labelControlled_apply,
+    kroneckerMap_apply, one_apply, xorShift_apply]
+  have he : Function.uncurry D = Function.uncurry D' ↔ D = D' :=
+    (Equiv.curry (Fin k) X (Option Y)).symm.injective.eq_iff
+  change (if t = t' ∧ z = z' + code.enc ⟨t'.1, ME.extract t' D'⟩ ∧ D = D'
+    then 1 else 0) = _
+  simp only [he]
+  by_cases ht : t = t'
+  · subst t'
+    by_cases hD : D = D'
+    · subst D'
+      simp only [ite_true, one_mul, true_and, and_true]
+      rfl
+    · simp [hD]
+  · simp [ht]
+
+omit [Fintype Cm] [Fintype Z] [AddCommGroup Z] in
+/-- Every invalid projector has the same flattened cell operator in each extraction-tuple block. -/
+theorem invalid_flat_blocks [Nonempty Y] (c : Fin k × X) :
+    (1 : Matrix (TpIC k Cm × Z) (TpIC k Cm × Z) ℂ) ⊗ₖ CompressedReplay.invalid c =
+      liftBlocks (flatExtractSplit (Cm := Cm) (Z := Z))
+        (fun _ ↦ databaseInvalidCell (Y := Y) (Z := Z) c) := by
+  ext ⟨⟨t,z⟩,D⟩ ⟨⟨t',z'⟩,D'⟩
+  have h := congrArg (fun A : Matrix ((Fin k → Database X Y) × Z) _ ℂ ↦ A (D,z) (D',z'))
+    (CompressedReplay.databaseInvalidCell_flat (Z := Z) c)
+  simp only [submatrix_apply, Equiv.prodCongr_apply, Equiv.curry_symm_apply, Equiv.refl_apply,
+    kroneckerMap_apply, Prod.map_apply] at h
+  simp only [liftBlocks, submatrix_apply, blockDiagonal_apply, flatExtractSplit_apply,
+    h, kroneckerMap_apply, one_apply, Prod.mk.injEq]
+  split_ifs <;> simp_all
+
+omit [DecidableEq X] [Fintype Y] [Fintype Cm] [Fintype Z] [AddCommGroup Z] in
+/-- The original population cutoff has the same flattened cutoff in every tuple block. -/
+theorem population_flat_blocks (s : ℕ) :
+    diagonal (fun a : (TpIC k Cm × Z) × (Fin k → Database X Y) ↦
+      if databasePopulation a.2 ≤ s then (1 : ℂ) else 0) =
+      liftBlocks (flatExtractSplit (Cm := Cm) (Z := Z))
+        (fun _ ↦ populationCut (C := Fin k × X) (Y := Y) (Z := Z) s) := by
+  rw [← liftBlocks_diagonal (flatExtractSplit (Cm := Cm) (Z := Z))]
+  congr 1
+  funext tic
+  congr 1
+  funext a
+  change (if databasePopulation (Function.curry a.1) ≤ s then (1 : ℂ) else 0) =
+    if a.1.size ≤ s then 1 else 0
+  rw [database_size_curry]
+  rfl
+
+end extraction
 namespace SaltedMerkle
 
 section factorization
@@ -815,6 +999,56 @@ theorem extraction_invalid_increment
 
 end globalExtraction
 
+section coherentExtraction
+variable {X Y Msg Salt : Type} [Fintype X] [DecidableEq X] [LinearOrder Y] [Fintype Y]
+  [Nonempty Y] [Fintype Msg] [LinearOrder Msg] [Fintype Salt] [LinearOrder Salt]
+  {Z : Type} [Fintype Z] [DecidableEq Z] [AddCommGroup Z]
+
+/-- The actual coherent Merkle extraction port satisfies the summed invalid commutator
+Gram bound of FIX (27). Each tuple is bounded separately before the orthogonal blocks
+are assembled, including rejected duplicate-index tuples. Any injective response code is allowed. -/
+theorem extractUnitary_invalid_gram_le
+    (enc : _root_.SaltedMerkle.Encoding X Y Msg Salt) {k : ℕ} (d : Fin k → ℕ)
+    (code : TpDCode k (DmOf (fun i ↦ 2 ^ d i) Msg
+      (fun i ↦ _root_.SaltedMerkle.Td Y Salt (d i))) Z) (s : ℕ) :
+    let V := extractUnitary (_root_.SaltedMerkle.multiExtract enc d) code
+    let K := diagonal (fun a : (TpIC k Y × Z) × (Fin k → Database X Y) ↦
+      if databasePopulation a.2 ≤ s then (1 : ℂ) else 0)
+    let R := fun c : Fin k × X ↦
+      (1 : Matrix (TpIC k Y × Z) (TpIC k Y × Z) ℂ) ⊗ₖ CompressedReplay.invalid c
+    ((4 * s * oldChangingFraction (Fintype.card Y) s) • K -
+      K * (∑ c, (V * R c - R c * V)ᴴ * (V * R c - R c * V)) * K).PosSemidef := by
+  classical
+  let ME := _root_.SaltedMerkle.multiExtract enc d
+  let e := flatExtractSplit (k := k) (X := X) (Y := Y) (Cm := Y) (Z := Z)
+  let V := fun tic : TpIC k Y ↦ databaseControl
+    (fun D ↦ code.enc ⟨tic.1, ME.extract tic (Function.curry D)⟩) (xorShift Z)
+  let K := fun _ : TpIC k Y ↦ populationCut (C := Fin k × X) (Y := Y) (Z := Z) s
+  let R := fun c : Fin k × X ↦ fun _ : TpIC k Y ↦
+    databaseInvalidCell (Y := Y) (Z := Z) c
+  let F := fun c ↦ V * R c - R c * V
+  let a := 4 * s * oldChangingFraction (Fintype.card Y) s
+  have hblocks : ∀ tic, (a • K tic - K tic *
+      (∑ c, (F c tic)ᴴ * F c tic) * K tic).PosSemidef := by
+    intro tic
+    exact databaseControl_sum_commutator_gram_le _ (xorShift Z) xorShift_mem_unitaryGroup s
+      (le_min (by norm_num) (by positivity))
+      (fun D hD c hc ↦ extraction_changingFraction_le enc d tic
+        (fun dm ↦ code.enc ⟨tic.1, dm⟩) D s hD c hc)
+  have h := liftBlocks_sum_gram_le e V K R a hblocks
+  have hV : liftBlocks e V = extractUnitary ME code := (extractUnitary_flat_blocks ME code).symm
+  have hR (c : Fin k × X) : liftBlocks e (R c) =
+      (1 : Matrix (TpIC k Y × Z) (TpIC k Y × Z) ℂ) ⊗ₖ CompressedReplay.invalid c :=
+    (invalid_flat_blocks c).symm
+  have hK : liftBlocks e K = diagonal (fun a : (TpIC k Y × Z) × (Fin k → Database X Y) ↦
+      if databasePopulation a.2 ≤ s then (1 : ℂ) else 0) := (population_flat_blocks s).symm
+  dsimp only at h
+  rw [hV, hK] at h
+  simp only [hR] at h
+  exact h
+
+end coherentExtraction
+
 /-- FIX (35): total calls `u`, ordinary mass `w`, extraction mass `e`, and raw checks `q`.
 This is a numerical expression, with no claim about the probability of an experiment. -/
 @[expose]
@@ -918,3 +1152,300 @@ theorem oldMerkleOfflineError_mem_Icc (N d u : ℕ) (w e : ℝ) (qs : ℕ) :
 
 end SaltedMerkle
 end Quantum
+
+namespace Quantum.SaltedMerkle
+section oldCoherent
+variable {X Y Msg Salt : Type} [Fintype X] [DecidableEq X] [LinearOrder Y] [Fintype Y]
+  [AddCommGroup Y] [Fintype Msg] [LinearOrder Msg] [Fintype Salt] [LinearOrder Salt]
+  {Z : Type} [Fintype Z] [DecidableEq Z] [AddCommGroup Z]
+open EmulatedOracle
+
+/-- The old coherent ordinary/extraction oracle satisfies the invalid commutator Gram bound
+of FIX (27), charging only extraction mass. Ordinary ports contribute zero. -/
+theorem old_coherent_invalid_gram_le
+    (enc : _root_.SaltedMerkle.Encoding X Y Msg Salt) {k : ℕ} (d : Fin k → ℕ)
+    (code : TpDCode k (DmOf (fun i ↦ 2 ^ d i) Msg
+      (fun i ↦ _root_.SaltedMerkle.Td Y Salt (d i))) Z) (s : ℕ) :
+    let E := (compressedVCOracle k X Y).withExtract (_root_.SaltedMerkle.multiExtract enc d) code
+    let U : Matrix (cohIn (extIn k X Y Y Z) × (Fin k → Database X Y))
+        (cohIn (extIn k X Y Y Z) × (Fin k → Database X Y)) ℂ := E.coherent.U ()
+    let K := (1 : Matrix (cohIn (extIn k X Y Y Z)) (cohIn (extIn k X Y Y Z)) ℂ) ⊗ₖ
+      diagonal (fun D : Fin k → Database X Y ↦ if databasePopulation D ≤ s then (1 : ℂ) else 0)
+    let R := fun c : Fin k × X ↦
+      (1 : Matrix (cohIn (extIn k X Y Y Z)) (cohIn (extIn k X Y Y Z)) ℂ) ⊗ₖ
+        CompressedReplay.invalid (Y := Y) c
+    (selectedCharge (In := extIn k X Y Y Z) (D := QReg.of (Fin k → Database X Y))
+      (fun p : Fin k ⊕ Unit ↦ p.isRight) (4 * s * oldChangingFraction (Fintype.card Y) s) * K -
+      K * (∑ c, (U * R c - R c * U)ᴴ *
+        (U * R c - R c * U)) * K).PosSemidef := by
+  refine coherent_sum_commutator_gram_le
+    ((compressedVCOracle k X Y).withExtract (_root_.SaltedMerkle.multiExtract enc d) code)
+    (fun c : Fin k × X ↦ CompressedReplay.invalid (Y := Y) c)
+    (diagonal fun D : Fin k → Database X Y ↦ if databasePopulation D ≤ s then 1 else 0)
+    (fun p : Fin k ⊕ Unit ↦ p.isRight) _ ?_
+  intro p
+  cases p with
+  | inl i =>
+    have hc (c : Fin k × X) := CompressedReplay.invalid_commute_ordinary (Y := Y) i c
+    let O : Matrix ((X × Y) × (Fin k → Database X Y))
+        ((X × Y) × (Fin k → Database X Y)) ℂ := (compressedVCOracle k X Y).U i
+    let Kp : Matrix ((X × Y) × (Fin k → Database X Y))
+        ((X × Y) × (Fin k → Database X Y)) ℂ :=
+      (1 : Matrix (X × Y) (X × Y) ℂ) ⊗ₖ
+        diagonal fun D : Fin k → Database X Y ↦ if databasePopulation D ≤ s then 1 else 0
+    change ((0 : ℝ) • Kp - Kp * (∑ c : Fin k × X,
+      (O * (1 ⊗ₖ CompressedReplay.invalid (Y := Y) c) -
+        (1 ⊗ₖ CompressedReplay.invalid (Y := Y) c) * O)ᴴ *
+      (O * (1 ⊗ₖ CompressedReplay.invalid (Y := Y) c) -
+        (1 ⊗ₖ CompressedReplay.invalid (Y := Y) c) * O)) * Kp).PosSemidef
+    simp only [O, hc, sub_self, conjTranspose_zero, Matrix.zero_mul, Finset.sum_const_zero,
+      zero_smul, Matrix.mul_zero, sub_self]
+    exact (PosSemidef.zero : (0 : Matrix ((X × Y) × (Fin k → Database X Y))
+      ((X × Y) × (Fin k → Database X Y)) ℂ).PosSemidef)
+  | inr u =>
+    have hh := extractUnitary_invalid_gram_le enc d code s
+    have he : (1 : Matrix (TpIC k Y × Z) (TpIC k Y × Z) ℂ) ⊗ₖ
+        diagonal (fun D : Fin k → Database X Y ↦
+          if databasePopulation D ≤ s then (1 : ℂ) else 0) =
+        diagonal (fun a : (TpIC k Y × Z) × (Fin k → Database X Y) ↦
+          if databasePopulation a.2 ≤ s then (1 : ℂ) else 0) := by
+      rw [← diagonal_one, diagonal_kronecker_diagonal]
+      simp only [one_mul]
+    let V := extractUnitary (_root_.SaltedMerkle.multiExtract enc d) code
+    let R := fun c : Fin k × X ↦
+      (1 : Matrix (TpIC k Y × Z) (TpIC k Y × Z) ℂ) ⊗ₖ CompressedReplay.invalid (Y := Y) c
+    let Kp := (1 : Matrix (TpIC k Y × Z) (TpIC k Y × Z) ℂ) ⊗ₖ
+      diagonal fun D : Fin k → Database X Y ↦ if databasePopulation D ≤ s then (1 : ℂ) else 0
+    change ((4 * s * oldChangingFraction (Fintype.card Y) s) • Kp -
+      Kp * (∑ c, (V * R c - R c * V)ᴴ * (V * R c - R c * V)) * Kp).PosSemidef
+    dsimp only [Kp]
+    rw [he]
+    exact hh
+
+/-- One actual coherent call increases the square root of invalid potential by at most
+`√(4 s a_N(s) · extraction mass)`, on positive inputs supported at population at most `s`.
+The input need not be normalized; workspace entanglement is retained by the runtime lift. -/
+theorem old_coherent_invalid_potential_step
+    (enc : _root_.SaltedMerkle.Encoding X Y Msg Salt) {k : ℕ} (d : Fin k → ℕ)
+    (code : TpDCode k (DmOf (fun i ↦ 2 ^ d i) Msg
+      (fun i ↦ _root_.SaltedMerkle.Td Y Salt (d i))) Z) (s : ℕ)
+    {σ : Matrix (cohIn (extIn k X Y Y Z) × (Fin k → Database X Y))
+      (cohIn (extIn k X Y Y Z) × (Fin k → Database X Y)) ℂ} (hσ : σ.PosSemidef)
+    (hs : QuerySupportedOn (fun a : cohIn (extIn k X Y Y Z) × (Fin k → Database X Y) ↦
+      databasePopulation a.2) (Set.Iic s) σ) :
+    let E := (compressedVCOracle k X Y).withExtract (_root_.SaltedMerkle.multiExtract enc d) code
+    let U : Matrix (cohIn (extIn k X Y Y Z) × (Fin k → Database X Y))
+        (cohIn (extIn k X Y Y Z) × (Fin k → Database X Y)) ℂ := E.coherent.U ()
+    QuantumRuntime.potential CompressedReplay.invalidStack (MatrixMap.conj U σ) ^ (2⁻¹ : ℝ) ≤
+      QuantumRuntime.potential CompressedReplay.invalidStack σ ^ (2⁻¹ : ℝ) +
+        (ENNReal.ofReal (4 * s * oldChangingFraction (Fintype.card Y) s) *
+          E.selectedMass (fun p : Fin k ⊕ Unit ↦ p.isRight) σ) ^ (2⁻¹ : ℝ) := by
+  classical
+  let E := (compressedVCOracle k X Y).withExtract (_root_.SaltedMerkle.multiExtract enc d) code
+  let U : Matrix (cohIn (extIn k X Y Y Z) × (Fin k → Database X Y))
+      (cohIn (extIn k X Y Y Z) × (Fin k → Database X Y)) ℂ := E.coherent.U ()
+  let K := diagonal (fun a : cohIn (extIn k X Y Y Z) × (Fin k → Database X Y) ↦
+    if databasePopulation a.2 ≤ s then (1 : ℂ) else 0)
+  let R := fun c : Fin k × X ↦
+    (1 : Matrix (cohIn (extIn k X Y Y Z)) (cohIn (extIn k X Y Y Z)) ℂ) ⊗ₖ
+      CompressedReplay.invalid (Y := Y) c
+  let θ := 4 * s * oldChangingFraction (Fintype.card Y) s
+  have hK : Kᴴ = K := by simp [K, diagonal_conjTranspose]
+  have hcut : K * σ = σ := by
+    ext a b
+    simp only [K, diagonal_mul]
+    by_cases ha : databasePopulation a.2 ≤ s
+    · simp [ha]
+    · have hz : σ a b = 0 := by
+        by_contra hz
+        exact ha (hs a b hz).1
+      simp [hz]
+  have he : (1 : Matrix (cohIn (extIn k X Y Y Z)) (cohIn (extIn k X Y Y Z)) ℂ) ⊗ₖ
+      diagonal (fun D : Fin k → Database X Y ↦
+        if databasePopulation D ≤ s then (1 : ℂ) else 0) = K := by
+    rw [← diagonal_one, diagonal_kronecker_diagonal]
+    simp only [one_mul]
+    rfl
+  have hg := old_coherent_invalid_gram_le enc d code s
+  dsimp only at hg
+  rw [he] at hg
+  have hleak := sum_conj_trace_le_of_gram (fun c ↦ U * R c - R c * U) K
+    (selectedCharge (In := extIn k X Y Y Z) (D := QReg.of (Fin k → Database X Y))
+      (fun p : Fin k ⊕ Unit ↦ p.isRight) θ * K) hK hg hσ hcut
+  rw [Matrix.mul_assoc, hcut] at hleak
+  have hleak' := hleak.trans_eq (E.ofReal_trace_selectedCharge
+    (fun p : Fin k ⊕ Unit ↦ p.isRight)
+    (show 0 ≤ θ from mul_nonneg (by positivity) (le_min (by norm_num) (by positivity))) hσ)
+  have hU : Uᴴ * U = 1 := mem_unitaryGroup_iff'.mp (E.coherent.unitary ())
+  have htri := MatrixMap.rpow_inv_two_tsum_conj_unitary_le R U hU hσ
+  have hneg (c : Fin k × X) : MatrixMap.conj (R c * U - U * R c) σ =
+      MatrixMap.conj (U * R c - R c * U) σ := by
+    have hh : R c * U - U * R c = -(U * R c - R c * U) := by abel
+    rw [hh]
+    simp only [MatrixMap.conj_apply, conjTranspose_neg, Matrix.neg_mul, Matrix.mul_neg, neg_neg]
+  simp only [hneg] at htri
+  have hl := CompressedReplay.invalidStack_potential_eq
+    (hσ.mul_mul_conjTranspose_same U)
+  have hr := CompressedReplay.invalidStack_potential_eq hσ
+  exact (congrArg (fun z : ℝ≥0∞ ↦ z ^ (2⁻¹ : ℝ)) hl).trans_le
+    ((htri.trans (add_le_add le_rfl (ENNReal.rpow_le_rpow hleak' (by norm_num)))).trans_eq
+      (congrArg (fun z : ℝ≥0∞ ↦ z ^ (2⁻¹ : ℝ) +
+        (ENNReal.ofReal θ * E.selectedMass (fun p : Fin k ⊕ Unit ↦ p.isRight) σ) ^
+          (2⁻¹ : ℝ)) hr.symm))
+
+end oldCoherent
+end Quantum.SaltedMerkle
+
+namespace Quantum.SaltedMerkle
+open EmulatedOracle QuantumRuntime
+variable {X Y Msg Salt : Type} [Fintype X] [DecidableEq X] [LinearOrder Y] [Fintype Y]
+  [AddCommGroup Y] [Fintype Msg] [LinearOrder Msg] [Fintype Salt] [LinearOrder Salt]
+  {Z : Type} [Fintype Z] [DecidableEq Z] [AddCommGroup Z]
+
+/-- The invalid norm after any old-oracle program is bounded by the sum of extraction
+increments on its actual prefixes. This is FIX (28) before Cauchy–Schwarz; adaptive local
+instruments, register-changing leaves, and subnormalized inputs are allowed. -/
+theorem old_run_invalid_prefix_le
+    (enc : _root_.SaltedMerkle.Encoding X Y Msg Salt) {k : ℕ} (d : Fin k → ℕ)
+    (code : TpDCode k (DmOf (fun i ↦ 2 ^ d i) Msg
+      (fun i ↦ _root_.SaltedMerkle.Td Y Salt (d i))) Z)
+    {L : LocalSig.{u, v}} (I : L.Interp) {W : QReg → Type w} {A : QReg}
+    (x : QuantumComp L (cohSpec (extIn k X Y Y Z)) W A) (ρ : SubState A) :
+    let E := (compressedVCOracle k X Y).withExtract (_root_.SaltedMerkle.multiExtract enc d) code
+    (∑' p, potential CompressedReplay.invalidStack
+      (E.coherent.toRuntime.jointPost I x ρ p).matrix) ^
+      (2⁻¹ : ℝ) ≤
+        ∑' j, (ENNReal.ofReal (4 * j * oldChangingFraction (Fintype.card Y) j) *
+          E.coherent.toRuntime.queryWeight I
+            (fun _ σ ↦ E.selectedMass (fun p : Fin k ⊕ Unit ↦ p.isRight) σ)
+            x (ρ.matrix ⊗ₖ E.init.matrix) j) ^ (2⁻¹ : ℝ) := by
+  let E := (compressedVCOracle k X Y).withExtract (_root_.SaltedMerkle.multiExtract enc d) code
+  have hρ : (ρ.matrix ⊗ₖ E.init.matrix).PosSemidef := ρ.posSemidef.kronecker E.init.posSemidef
+  have hpop : QuerySupportedOn
+      (fun a : A × (Fin k → Database X Y) ↦ databasePopulation a.2) (Set.Iic 0)
+      (ρ.matrix ⊗ₖ E.init.matrix) := by
+    change QuerySupportedOn _ _
+      (ρ.matrix ⊗ₖ (SubState.basis (fun _ : Fin k ↦ (Database.empty : Database X Y))).matrix)
+    rw [SubState.matrix_basis]
+    intro a b hab
+    rw [kroneckerMap_apply] at hab
+    have hs := right_ne_zero_of_mul hab
+    rw [Matrix.single_apply] at hs
+    split_ifs at hs with he
+    · simp [← he.1, ← he.2, databasePopulation, Database.size_empty]
+    · exact (hs rfl).elim
+  have hh := E.run_potential_rpow_le databasePopulation I CompressedReplay.invalidStack
+    (databasePopulation_withExtract_le (_root_.SaltedMerkle.multiExtract enc d) code)
+    (fun n σ ↦ ENNReal.ofReal (4 * n * oldChangingFraction (Fintype.card Y) n) *
+      E.selectedMass (fun p : Fin k ⊕ Unit ↦ p.isRight) σ)
+    (fun n σ hσ hs ↦ old_coherent_invalid_potential_step enc d code n hσ hs) x 0 hρ hpop
+  have hi : potential (D := E.S) CompressedReplay.invalidStack
+      (ρ.matrix ⊗ₖ E.init.matrix) = 0 :=
+    CompressedReplay.invalidStack_initial_potential_zero ρ.matrix
+  simp only [hi, ENNReal.zero_rpow_of_pos (by norm_num : (0 : ℝ) < 2⁻¹), zero_add,
+    E.coherent.toRuntime.queryWeight_const_mul] at hh
+  simp only [QuantumRuntime.matrix_jointPost]
+  convert hh using 1
+  rfl
+
+end Quantum.SaltedMerkle
+
+namespace Quantum.SaltedMerkle
+
+/-- The capped local coefficient is bounded by the uncapped FIX (28) coefficient.
+The inequality also covers zero label cardinality, using extended-real division. -/
+theorem oldChangingFraction_weight_le (N j : ℕ) :
+    ENNReal.ofReal (4 * j * oldChangingFraction N j) ≤
+      4 * (ENNReal.ofReal ((j : ℝ) * (2 * j - 1)) / N) := by
+  have h : 4 * j * oldChangingFraction N j ≤
+      4 * ((j : ℝ) * (2 * j - 1) / N) := by
+    rcases j with _ | j
+    · simp
+    · have hh := mul_le_mul_of_nonneg_left
+        (min_le_right (1 : ℝ) ((2 * (j + 1) - 1 : ℕ) / (N : ℝ)))
+        (by positivity : 0 ≤ 4 * ((j + 1 : ℕ) : ℝ))
+      unfold oldChangingFraction
+      rw [Nat.cast_sub (by omega : 1 ≤ 2 * (j + 1))] at hh ⊢
+      push_cast at hh ⊢
+      convert hh using 1
+      ring
+  refine (ENNReal.ofReal_le_ofReal h).trans ?_
+  rw [ENNReal.ofReal_mul (by norm_num), ENNReal.ofReal_ofNat]
+  simpa using mul_le_mul_right (ENNReal.ofReal_div_le (Nat.cast_nonneg N)
+    (x := (j : ℝ) * (2 * j - 1))) 4
+
+/-- The sum of actual local leakage amplitudes satisfies FIX (28). All masses are
+extended nonnegative reals, including infinite values. -/
+theorem oldLeakage_coefficient_sum_le (N u : ℕ) (mass : ℕ → ℝ≥0∞) :
+    ∑ j ∈ Finset.range u,
+        (ENNReal.ofReal (4 * j * oldChangingFraction N j) * mass j) ^ (2⁻¹ : ℝ) ≤
+      2 * (ENNReal.ofReal (oldLeakagePolynomial u) / N *
+        ∑ j ∈ Finset.range u, mass j) ^ (2⁻¹ : ℝ) := by
+  have hfour : (4 : ℝ≥0∞) ^ (2⁻¹ : ℝ) = 2 := by
+    have h := ENNReal.rpow_mul (2 : ℝ≥0∞) (2 : ℝ) (2⁻¹ : ℝ)
+    norm_num [ENNReal.rpow_two] at h
+    simpa only [one_div] using h.symm
+  calc
+    _ ≤ ∑ j ∈ Finset.range u,
+        (4 * (ENNReal.ofReal ((j : ℝ) * (2 * j - 1)) / N * mass j)) ^ (2⁻¹ : ℝ) := by
+      apply Finset.sum_le_sum
+      intro j _
+      rw [← mul_assoc]
+      exact ENNReal.rpow_le_rpow
+        (mul_le_mul_left (oldChangingFraction_weight_le N j) (mass j)) (by norm_num)
+    _ = 2 * ∑ j ∈ Finset.range u,
+        (ENNReal.ofReal ((j : ℝ) * (2 * j - 1)) / N * mass j) ^ (2⁻¹ : ℝ) := by
+      simp only [ENNReal.mul_rpow_of_nonneg _ _ (by norm_num : (0 : ℝ) ≤ 2⁻¹),
+        hfour, Finset.mul_sum]
+    _ ≤ _ := mul_le_mul_right (oldLeakage_sum_sqrt_le u N mass) 2
+end Quantum.SaltedMerkle
+
+namespace Quantum.SaltedMerkle
+open EmulatedOracle QuantumRuntime
+variable {X Y Msg Salt : Type} [Fintype X] [DecidableEq X] [LinearOrder Y] [Fintype Y]
+  [AddCommGroup Y] [Fintype Msg] [LinearOrder Msg] [Fintype Salt] [LinearOrder Salt]
+  {Z : Type} [Fintype Z] [DecidableEq Z] [AddCommGroup Z]
+
+/-- The original post-adversary invalid norm satisfies FIX (28):
+`2 √(e T(t) / N)`, with `e` the actual extraction query mass. The bound applies to every
+coherent program within the total query budget, with adaptive local instruments and
+register-changing leaves. Masses remain in `ℝ≥0∞` throughout. -/
+theorem old_run_invalid_le
+    (enc : _root_.SaltedMerkle.Encoding X Y Msg Salt) {k : ℕ} (d : Fin k → ℕ)
+    (code : TpDCode k (DmOf (fun i ↦ 2 ^ d i) Msg
+      (fun i ↦ _root_.SaltedMerkle.Td Y Salt (d i))) Z)
+    {L : LocalSig.{u, v}} (I : L.Interp) {W : QReg → Type w} {A : QReg}
+    (x : QuantumComp L (cohSpec (extIn k X Y Y Z)) W A) (ρ : SubState A)
+    (t : ℕ) (hx : x.IsQueryBound fun _ ↦ t) :
+    let E := (compressedVCOracle k X Y).withExtract (_root_.SaltedMerkle.multiExtract enc d) code
+    (∑' p, potential CompressedReplay.invalidStack
+      (E.coherent.toRuntime.jointPost I x ρ p).matrix) ^ (2⁻¹ : ℝ) ≤
+        2 * (ENNReal.ofReal (oldLeakagePolynomial t) / Fintype.card Y *
+          E.totalMass I x (ρ.matrix ⊗ₖ E.init.matrix) (.inr ())) ^ (2⁻¹ : ℝ) := by
+  classical
+  let E := (compressedVCOracle k X Y).withExtract (_root_.SaltedMerkle.multiExtract enc d) code
+  let mass := fun j ↦ E.coherent.toRuntime.queryWeight I
+    (fun _ σ ↦ E.selectedMass (fun p : Fin k ⊕ Unit ↦ p.isRight) σ)
+    x (ρ.matrix ⊗ₖ E.init.matrix) j
+  have hz : ∀ j ∉ Finset.range t, mass j = 0 := by
+    intro j hj
+    exact E.coherent.toRuntime.queryWeight_eq_zero_of_isQueryBound I hx Finset.univ
+      (by simp) (by simpa using hj) _
+  have hm : ∑ j ∈ Finset.range t, mass j ≤ E.totalMass I x
+      (ρ.matrix ⊗ₖ E.init.matrix) (.inr ()) := by
+    have hh := E.tsum_queryWeight_selectedMass I (fun p : Fin k ⊕ Unit ↦ p.isRight)
+      x (ρ.matrix ⊗ₖ E.init.matrix)
+    rw [tsum_eq_sum hz] at hh
+    simpa [selectedTotalMass, Fintype.sum_sum_type] using hh.le
+  have hh := old_run_invalid_prefix_le enc d code I x ρ
+  have htail : ∀ j ∉ Finset.range t,
+      (ENNReal.ofReal (4 * j * oldChangingFraction (Fintype.card Y) j) * mass j) ^
+        (2⁻¹ : ℝ) = 0 := fun j hj ↦ by
+    rw [hz j hj, mul_zero, ENNReal.zero_rpow_of_pos (by norm_num)]
+  change _ ≤ ∑' j, (ENNReal.ofReal (4 * j * oldChangingFraction (Fintype.card Y) j) *
+    mass j) ^ (2⁻¹ : ℝ) at hh
+  rw [tsum_eq_sum htail] at hh
+  exact hh.trans ((oldLeakage_coefficient_sum_le (Fintype.card Y) t mass).trans
+    (mul_le_mul_right (ENNReal.rpow_le_rpow (mul_le_mul_right hm _)
+      (by norm_num)) 2))
+end Quantum.SaltedMerkle

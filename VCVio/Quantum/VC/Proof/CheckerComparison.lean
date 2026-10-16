@@ -6,7 +6,7 @@ Authors: Quang Dao
 
 module
 public import VCVio.Quantum.VC.Proof.Repeatability
-public import VCVio.Quantum.Oracle.Compressed.CollisionBlocks
+public import VCVio.Quantum.Oracle.Compressed.CollisionRuntime
 public import VCVio.Quantum.MatrixMap.Commutant
 import all VCVio.Quantum.VC.Proof.Repeatability
 import all VCVio.Quantum.VC.Compressed
@@ -950,4 +950,256 @@ end databaseControl
 
 end cellOccupancy
 
+section blocks
+variable {J M B ι : Type*} [DecidableEq B]
+
+/-- Lifting context-dependent blocks commutes with finite sums. -/
+theorem liftBlocks_sum (e : J ≃ M × B) (s : Finset ι) (A : ι → B → Matrix M M ℂ) :
+    liftBlocks e (∑ i ∈ s, A i) = ∑ i ∈ s, liftBlocks e (A i) := by
+  ext j j'
+  simp only [liftBlocks, submatrix_apply, blockDiagonal_apply, Matrix.sum_apply,
+    Finset.sum_apply]
+  split_ifs <;> simp
+
+/-- A common summed Gram bound lifts over orthogonal context blocks. -/
+theorem liftBlocks_sum_gram_le [Fintype J] [Fintype M] [Finite B] [Fintype ι]
+    (e : J ≃ M × B) (V K : B → Matrix M M ℂ) (R : ι → B → Matrix M M ℂ) (a : ℝ)
+    (h : ∀ b, (a • K b - K b * (∑ c,
+      (V b * R c b - R c b * V b)ᴴ * (V b * R c b - R c b * V b)) * K b).PosSemidef) :
+    let V' := liftBlocks e V
+    let K' := liftBlocks e K
+    let R' := fun c ↦ liftBlocks e (R c)
+    (a • K' - K' * (∑ c, (V' * R' c - R' c * V')ᴴ *
+      (V' * R' c - R' c * V')) * K').PosSemidef := by
+  let F := fun c ↦ V * R c - R c * V
+  have hh : (liftBlocks e (a • K - K *
+      (∑ c : ι, (fun b ↦ (F c b)ᴴ) * F c) * K)).PosSemidef :=
+    posSemidef_liftBlocks e fun b ↦ by
+      simpa only [Pi.sub_apply, Pi.mul_apply, Pi.smul_apply, Finset.sum_apply, F] using h b
+  rw [liftBlocks_sub, liftBlocks_smul, liftBlocks_mul, liftBlocks_mul, liftBlocks_sum] at hh
+  simp only [liftBlocks_mul, liftBlocks_adjoint, F, liftBlocks_sub] at hh
+  exact hh
+
+end blocks
+
+namespace CompressedReplay
+variable {k : ℕ} {X Y : Type} [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y]
+
+/-- Flattening indexed databases preserves the compressed empty-cell projector. -/
+theorem invalid_eq_flat (c : Fin k × X) :
+    invalid (Y := Y) c =
+      (compressAll (Fin k × X) Y *
+        diagonal (fun D : Database (Fin k × X) Y ↦ if D c = none then 1 else 0) *
+        compressAll (Fin k × X) Y).submatrix
+          (Equiv.curry (Fin k) X (Option Y)).symm
+          (Equiv.curry (Fin k) X (Option Y)).symm := by
+  have hd : (diagonal fun D : Fin k → Database X Y ↦
+      if D c.1 c.2 = none then (1 : ℂ) else 0) =
+      (diagonal fun D : Database (Fin k × X) Y ↦ if D c = none then (1 : ℂ) else 0).submatrix
+        (Equiv.curry (Fin k) X (Option Y)).symm
+        (Equiv.curry (Fin k) X (Option Y)).symm := by
+    rw [submatrix_diagonal_equiv]
+    rfl
+  rw [invalid, compressDatabases_eq_flat, hd, submatrix_mul_equiv, submatrix_mul_equiv]
+
+/-- The cellwise invalid operator agrees with the indexed-database projector under flattening. -/
+theorem databaseInvalidCell_flat [Nonempty Y] {Z : Type*} [DecidableEq Z] (c : Fin k × X) :
+    (databaseInvalidCell (Y := Y) (Z := Z) c).submatrix
+      (Equiv.prodCongr (Equiv.curry (Fin k) X (Option Y)).symm (Equiv.refl Z))
+      (Equiv.prodCongr (Equiv.curry (Fin k) X (Option Y)).symm (Equiv.refl Z)) =
+        invalid (Y := Y) c ⊗ₖ (1 : Matrix Z Z ℂ) := by
+  rw [databaseInvalidCell_eq_compress, invalid_eq_flat]
+  ext ⟨D, z⟩ ⟨D', z'⟩
+  rfl
+
+end CompressedReplay
+
 end Quantum
+
+namespace Quantum
+namespace CompressedReplay
+variable {k : ℕ} {X Y : Type} [Fintype X] [DecidableEq X]
+  [Fintype Y] [DecidableEq Y] [AddCommGroup Y]
+
+/-- Every invalid-cell projector commutes with every ordinary port of the old oracle. -/
+theorem invalid_commute_ordinary (p : Fin k) (x : Fin k × X) :
+    (show Matrix ((X × Y) × (Fin k → Database X Y))
+      ((X × Y) × (Fin k → Database X Y)) ℂ from (compressedVCOracle k X Y).U p) *
+        ((1 : Matrix (X × Y) (X × Y) ℂ) ⊗ₖ invalid x) =
+      ((1 : Matrix (X × Y) (X × Y) ℂ) ⊗ₖ invalid x) *
+        (show Matrix ((X × Y) × (Fin k → Database X Y))
+          ((X × Y) × (Fin k → Database X Y)) ℂ from (compressedVCOracle k X Y).U p) := by
+  let C := (1 : Matrix (X × Y) (X × Y) ℂ) ⊗ₖ compressDatabases k X Y
+  let D : Matrix (Fin k → Database X Y) (Fin k → Database X Y) ℂ :=
+    diagonal fun d ↦ if d x.1 x.2 = none then 1 else 0
+  have hCC : C * C = 1 := by
+    simp [C, ← mul_kronecker_mul, compressDatabases_mul_self]
+  have hT : tableOracle (fun d : Fin k → Database X Y ↦ (d p).lookup) *
+      ((1 : Matrix (X × Y) (X × Y) ℂ) ⊗ₖ D) =
+        ((1 : Matrix (X × Y) (X × Y) ℂ) ⊗ₖ D) *
+          tableOracle (fun d : Fin k → Database X Y ↦ (d p).lookup) := by
+    apply tableOracle_mul_one_kronecker_comm
+    intro d d' h
+    have he : d = d' := by
+      by_contra hn
+      exact h (by simp [D, diagonal_apply_ne _ hn])
+    rw [he]
+  have hA : (1 : Matrix (X × Y) (X × Y) ℂ) ⊗ₖ invalid x =
+      C * ((1 : Matrix (X × Y) (X × Y) ℂ) ⊗ₖ D) * C := by
+    simp [C, D, invalid, ← mul_kronecker_mul]
+  rw [compressedVCOracle_U_eq_conj, hA]
+  change (C * _ * C) * (C * _ * C) = (C * _ * C) * (C * _ * C)
+  rw [conjugate_mul C hCC, conjugate_mul C hCC, hT]
+
+
+/-- The rectangular invalid potential equals the sum of all cell-invalid weights. -/
+theorem invalidStack_potential_eq {A : Type*} [Fintype A] [DecidableEq A]
+    {ρ : Matrix (A × (Fin k → Database X Y)) (A × (Fin k → Database X Y)) ℂ}
+    (hρ : ρ.PosSemidef) :
+    QuantumRuntime.potential (invalidStack (k := k) (X := X) (Y := Y)) ρ =
+      ∑' c : Fin k × X, ENNReal.ofReal
+        (MatrixMap.conj ((1 : Matrix A A ℂ) ⊗ₖ invalid c) ρ).trace.re := by
+  have hn (c : Fin k × X) :
+      0 ≤ (MatrixMap.conj ((1 : Matrix A A ℂ) ⊗ₖ invalid c) ρ).trace.re :=
+    (hρ.mul_mul_conjTranspose_same _).trace_re_nonneg
+  rw [QuantumRuntime.potential_eq, invalidStack_gram, tsum_fintype,
+    ← ENNReal.ofReal_sum_of_nonneg (fun c _ ↦ hn c)]
+  congr 1
+  simp only [MatrixMap.trace_conj_apply, conjTranspose_kronecker, conjTranspose_one,
+    invalid_hermitian, ← mul_kronecker_mul, Matrix.one_mul, invalid_idempotent]
+  have hs : (1 : Matrix A A ℂ) ⊗ₖ (∑ c : Fin k × X, invalid (Y := Y) c) =
+      ∑ c : Fin k × X, (1 : Matrix A A ℂ) ⊗ₖ invalid (Y := Y) c := by
+    ext a b
+    simp only [kroneckerMap_apply, Matrix.sum_apply, Finset.mul_sum]
+  rw [hs, Finset.sum_mul, Matrix.trace_sum, Complex.re_sum]
+
+/-- The compressed invalid-cell projector annihilates the empty database basis vector. -/
+theorem invalid_empty_column (c : Fin k × X) (D : Fin k → Database X Y) :
+    invalid (Y := Y) c D (fun _ ↦ Database.empty) = 0 := by
+  have h := congrArg (fun M : Matrix ((Fin k → Database X Y) × Unit)
+      ((Fin k → Database X Y) × Unit) ℂ ↦ M (D, ()) ((fun _ ↦ Database.empty), ()))
+    (databaseInvalidCell_flat (Y := Y) (Z := Unit) c)
+  rw [databaseInvalidCell_eq_piKron] at h
+  simp only [submatrix_apply, kroneckerMap_apply, Equiv.prodCongr_apply,
+    Equiv.curry_symm_apply, Prod.map_apply, Equiv.refl_apply, one_apply_eq, mul_one,
+    piKron_apply] at h
+  rw [Fintype.prod_eq_mul_prod_subtype_ne _ c, Pi.mulSingle_eq_same] at h
+  simpa only [oldInvalidCell_apply, Function.uncurry, Database.empty_apply,
+    cellUniform_none, mul_zero, zero_mul] using h.symm
+
+/-- The old oracle starts with zero invalid potential, for any workspace matrix. -/
+theorem invalidStack_initial_potential_zero {A : Type*} [Fintype A]
+    (ρ : Matrix A A ℂ) :
+    QuantumRuntime.potential (invalidStack (k := k) (X := X) (Y := Y))
+      (ρ ⊗ₖ (compressedVCOracle k X Y).init.matrix) = 0 := by
+  classical
+  have hzero : MatrixMap.conj (invalidStack (k := k) (X := X) (Y := Y))
+      (compressedVCOracle k X Y).init.matrix = 0 := by
+    change MatrixMap.conj (invalidStack (k := k) (X := X) (Y := Y))
+      (single (fun _ : Fin k ↦ (Database.empty : Database X Y))
+        (fun _ : Fin k ↦ (Database.empty : Database X Y)) (1 : ℂ)) = 0
+    rw [MatrixMap.conj_apply]
+    have hh : invalidStack (k := k) (X := X) (Y := Y) *
+        single (fun _ : Fin k ↦ (Database.empty : Database X Y))
+        (fun _ : Fin k ↦ (Database.empty : Database X Y)) (1 : ℂ) = 0 := by
+      ext a b
+      rw [Matrix.mul_apply]
+      apply Finset.sum_eq_zero
+      intro j _
+      by_cases hj : j = (fun _ : Fin k ↦ (Database.empty : Database X Y))
+      · subst j
+        simp only [invalidStack, Matrix.of_apply, invalid_empty_column, zero_mul]
+      · simp [Ne.symm hj]
+    rw [hh, Matrix.zero_mul]
+  have hh := MatrixMap.amplifyLeft_kronecker
+    (MatrixMap.conj (invalidStack (k := k) (X := X) (Y := Y))) ρ
+    (compressedVCOracle k X Y).init.matrix
+  rw [hzero, kronecker_zero] at hh
+  simpa only [QuantumRuntime.potential, Matrix.trace_zero, Complex.zero_re,
+    ENNReal.ofReal_zero] using
+    congrArg (fun M ↦ ENNReal.ofReal (Matrix.trace M).re) hh
+
+end CompressedReplay
+
+section gramTrace
+variable {C S : Type*} [Fintype C] [Fintype S] [DecidableEq S]
+
+omit [DecidableEq S] in
+/-- A population-restricted Gram inequality bounds the total observable weight on a positive
+input supported by that population cutoff. No trace normalization is required. -/
+theorem sum_conj_trace_le_of_gram (F : C → Matrix S S ℂ) (K Θ : Matrix S S ℂ)
+    (hK : Kᴴ = K) (h : (Θ - K * (∑ c, (F c)ᴴ * F c) * K).PosSemidef)
+    {ρ : Matrix S S ℂ} (hρ : ρ.PosSemidef) (hpop : K * ρ = ρ) :
+    (∑' c, ENNReal.ofReal (MatrixMap.conj (F c) ρ).trace.re) ≤
+      ENNReal.ofReal (Θ * ρ).trace.re := by
+  let B := ∑ c, (F c)ᴴ * F c
+  have hright : ρ * K = ρ := by
+    have hh := congrArg conjTranspose hpop
+    simpa only [conjTranspose_mul, hρ.isHermitian.eq, hK] using hh
+  have htrace : ((K * B * K) * ρ).trace = (B * ρ).trace := by
+    rw [Matrix.mul_assoc, hpop, Matrix.mul_assoc, Matrix.trace_mul_comm K,
+      Matrix.mul_assoc, hright]
+  have hh := h.trace_mul_re_nonneg hρ
+  change 0 ≤ ((Θ - K * B * K) * ρ).trace.re at hh
+  rw [Matrix.sub_mul, Matrix.trace_sub, Complex.sub_re, htrace] at hh
+  have hn (c : C) : 0 ≤ (MatrixMap.conj (F c) ρ).trace.re :=
+    (hρ.mul_mul_conjTranspose_same _).trace_re_nonneg
+  rw [tsum_fintype, ← ENNReal.ofReal_sum_of_nonneg (fun c _ ↦ hn c)]
+  apply ENNReal.ofReal_le_ofReal
+  have he : (∑ c, (MatrixMap.conj (F c) ρ).trace.re) = (B * ρ).trace.re := by
+    simp only [B, Finset.sum_mul, Matrix.trace_sum, Complex.re_sum, MatrixMap.trace_conj_apply]
+  rw [he]
+  linarith
+
+end gramTrace
+end Quantum
+
+namespace Quantum.EmulatedOracle
+section coherentGram
+variable {P : Type} [Fintype P] [DecidableEq P] {In : P → QReg} {D : QReg}
+  {C : Type*} [Fintype C]
+
+omit [Fintype C] in
+/-- A finite sum of portwise operators lifts to the sum of their coherent block operators. -/
+theorem coherentBlocks_sum (s : Finset C)
+    (A : C → ∀ p, Matrix (In p × D) (In p × D) ℂ) :
+    coherentBlocks (∑ c ∈ s, A c) = ∑ c ∈ s, coherentBlocks (A c) := by
+  classical
+  induction s using Finset.induction_on with
+  | empty => simp [coherentBlocks]
+  | @insert c s hc ih => rw [Finset.sum_insert hc, Finset.sum_insert hc, coherentBlocks_add, ih]
+
+/-- Portwise commutator Gram bounds combine coherently, charged only to selected ports.
+The population cutoff acts on the private register and the observables may form a family. -/
+theorem coherent_sum_commutator_gram_le (E : EmulatedOracle P In)
+    (R : C → Matrix E.S E.S ℂ) (K : Matrix E.S E.S ℂ) (selected : P → Bool) (θ : ℝ)
+    (h : ∀ p, let Kp := (1 : Matrix (In p) (In p) ℂ) ⊗ₖ K
+      let Rp := fun c ↦ (1 : Matrix (In p) (In p) ℂ) ⊗ₖ R c
+      ((if selected p then θ else 0) • Kp - Kp *
+        (∑ c, (E.U p * Rp c - Rp c * E.U p)ᴴ * (E.U p * Rp c - Rp c * E.U p)) * Kp).PosSemidef) :
+    let U := E.coherent.U ()
+    let K' := (1 : Matrix (cohIn In) (cohIn In) ℂ) ⊗ₖ K
+    let R' := fun c ↦ (1 : Matrix (cohIn In) (cohIn In) ℂ) ⊗ₖ R c
+    (selectedCharge selected θ * K' - K' *
+      (∑ c, (U * R' c - R' c * U)ᴴ * (U * R' c - R' c * U)) * K').PosSemidef := by
+  let Kp := fun p ↦ (1 : Matrix (In p) (In p) ℂ) ⊗ₖ K
+  let Rp := fun c : C ↦ fun p ↦ (1 : Matrix (In p) (In p) ℂ) ⊗ₖ R c
+  let B := fun p ↦ (if selected p then θ else 0) • (1 : Matrix (In p × E.S) (In p × E.S) ℂ)
+  let F := fun c ↦ E.U * Rp c - Rp c * E.U
+  have hh : (coherentBlocks (B * Kp - Kp *
+      (∑ c : C, (fun p ↦ (F c p)ᴴ) * F c) * Kp)).PosSemidef :=
+    posSemidef_coherentBlocks fun p ↦ by
+      simpa only [B, Pi.mul_apply, Pi.sub_apply, Finset.sum_apply, F,
+        Matrix.smul_mul, Matrix.one_mul] using h p
+  rw [coherentBlocks_sub, coherentBlocks_mul, coherentBlocks_mul, coherentBlocks_mul,
+    coherentBlocks_sum] at hh
+  simp only [coherentBlocks_mul, coherentBlocks_adjoint, F, coherentBlocks_sub] at hh
+  have hK : coherentBlocks Kp = (1 : Matrix (cohIn In) (cohIn In) ℂ) ⊗ₖ K :=
+    coherentBlocks_database K
+  have hR (c : C) : coherentBlocks (Rp c) =
+      (1 : Matrix (cohIn In) (cohIn In) ℂ) ⊗ₖ R c := coherentBlocks_database (R c)
+  simp only [hK, hR, coherentBlocks_unitary] at hh
+  exact hh
+
+end coherentGram
+end Quantum.EmulatedOracle
