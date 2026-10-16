@@ -12,7 +12,7 @@ public import VCVio.Quantum.Oracle.Emulated
 # Coins, sequencing and basis calls for experiments
 
 Helpers for running randomized classical algorithms from inside a quantum experiment, as the
-challengers of the security experiments of ePrint 2025/2166 (§7, l.2866–2905) do.
+challengers of the security experiments of ePrint 2025/2166 (§7, p. 51) do.
 
 * **Coins.** `Quantum.SubInstrument.uniform Ω A` draws a uniform outcome in `Ω` and leaves the
   register `A` untouched; its branch at every outcome is the map `ρ ↦ ρ / |Ω|`. It is the

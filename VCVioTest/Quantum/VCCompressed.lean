@@ -208,7 +208,7 @@ variable {X Y Msg Salt : Type} [DecidableEq X] [LinearOrder Y] [Fintype Y]
   [Fintype Msg] [LinearOrder Msg] [Fintype Salt] [LinearOrder Salt] [SampleableType Salt]
 
 /-- **The salted Merkle scheme satisfies the conditions of Theorem 8.4** (ePrint 2025/2166, §8.3,
-l.3135–3151): `MTMultiExtract` with the collision-free databases as `P_good` and the trees of
+p. 55): `MTMultiExtract` with the collision-free databases as `P_good` and the trees of
 depths `d i`. Condition 1 is `SaltedMerkle.checkIOForm`; the opening is deterministic, so the
 support conditions reduce to the deterministic binding and validity of `MTMultiExtract`. -/
 theorem merkle_conditions (enc : Encoding X Y Msg Salt) {k : ℕ} (d : Fin k → ℕ) :
