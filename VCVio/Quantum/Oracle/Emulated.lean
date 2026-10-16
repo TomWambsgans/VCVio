@@ -13,10 +13,10 @@ public import VCVio.Quantum.Oracle.Basis
 /-!
 # Emulated oracles
 
-An *emulated oracle* (ePrint 2025/2166, §4.1, l.1328–1343) is a pair `EO = (Init, (U_i)_i)`: a
+An *emulated oracle* (ePrint 2025/2166, §4.1, p. 28) is a pair `EO = (Init, (U_i)_i)`: a
 private register `S` prepared by `Init`, and for each port `i` a unitary `U_i` on the port's
 register `X_i` and `S`. The adversary queries it with a coherent index: a query on the registers
-`(I, X)` applies `U = ∑ᵢ |i⟩⟨i|_I ⊗ (U_i)_{X_i S}` (l.1339–1342).
+`(I, X)` applies `U = ∑ᵢ |i⟩⟨i|_I ⊗ (U_i)_{X_i S}` (p. 28).
 
 `Quantum.EmulatedOracle P In` records the unitaries. Everything else is derived from them:
 
@@ -32,9 +32,9 @@ register `X_i` and `S`. The adversary queries it with a coherent index: a query 
 
 ## Masses
 
-The query mass `mass(A, i, j)` of Definition 4.1 (l.1359–1365) is `‖P_mass^(i) |ψ_j⟩‖²`, with
+The query mass `mass(A, i, j)` of Definition 4.1 (p. 28) is `‖P_mass^(i) |ψ_j⟩‖²`, with
 `P_mass^(i)` the projector of the index register onto `i` and `|ψ_j⟩` the joint state before the
-`j`-th query; the total mass `TotalMass(A, i)` of Definition 4.3 (l.1382–1386) sums it over the
+`j`-th query; the total mass `TotalMass(A, i)` of Definition 4.3 (p. 29) sums it over the
 queries. `Quantum.EmulatedOracle.totalMass` is the case of a general program and a general
 (mixed, subnormalised) state: the summed trace of the index-`i` component of the input of each
 call to the coherent port, a query weight in the sense of `VCVio.Quantum.Comp.QueryMass`.
@@ -52,7 +52,7 @@ respects (`Quantum.EmulatedOracle.respectsIndex_coherent_U`), so the square-root
 * `Quantum.EmulatedOracle.toRuntime_step_branch`: each step is the Kraus map of its unitary, the
   form used by the square-root hybrid (`VCVio.Quantum.Comp.Hybrid`).
 * `Quantum.EmulatedOracle.toRuntime_addRegister`: the two ways of adjoining a register agree.
-* `Quantum.EmulatedOracle.sum_totalMass` (Remark 4.2, l.1370–1373): the masses on the indices
+* `Quantum.EmulatedOracle.sum_totalMass` (Remark 4.2, p. 28): the masses on the indices
   add up to the query mass of the coherent port, which a `t`-query program bounds by `t` times
   the trace of the initial state (`Quantum.EmulatedOracle.sum_totalMass_le`).
 * `Quantum.EmulatedOracle.totalMass_bind`: masses add under sequencing, from the general
@@ -246,7 +246,7 @@ end QuantumRuntime
 
 /-! ## Emulated oracles -/
 
-/-- **Emulated oracle** (ePrint 2025/2166, §4.1, l.1328–1343): a private register `S` with an
+/-- **Emulated oracle** (ePrint 2025/2166, §4.1, p. 28): a private register `S` with an
 initial substate `init`, and for each port `i` a unitary `U i` on the port's register `In i` and
 `S`. -/
 structure EmulatedOracle (P : Type u) (In : P → QReg) where
@@ -312,7 +312,7 @@ variable {J K : Type*} [DecidableEq J] [DecidableEq K]
 /-- The orthogonal projector onto the basis vectors of `J` labelled `k` by `f : J → K`: the
 diagonal matrix with entry `1` at `a` when `f a = k`, and `0` otherwise. When `f` reads the index
 carried by a query register, it is the paper's `P_mass^(k) = |k⟩⟨k|_I` (ePrint 2025/2166,
-l.1364). -/
+p. 28). -/
 @[expose]
 noncomputable def fiberProj (f : J → K) (k : K) : Matrix J J ℂ :=
   Matrix.diagonal fun a ↦ if f a = k then 1 else 0
@@ -423,7 +423,7 @@ theorem lossless_toRuntime_step (i : P) : (E.toRuntime.step i).Lossless :=
 /-! ### Extension by further ports -/
 
 /-- Add unitary ports `U' j` on the same private register (the step from `EO` to `EO^(Ext)` of
-ePrint 2025/2166, l.2846–2847). -/
+ePrint 2025/2166, p. 50). -/
 @[expose]
 def extend {P' : Type u'} {In' : P' → QReg} (U' : ∀ j, Matrix (In' j × E.S) (In' j × E.S) ℂ)
     (hU' : ∀ j, U' j ∈ Matrix.unitaryGroup (In' j × E.S) ℂ) :
@@ -461,7 +461,7 @@ end extend
 /-! ### An untouched register -/
 
 /-- Adjoin a register `G` in the substate `σ` beside the private register; the ports act as
-`U i ⊗ 1_G` (the step from `Init` to `Init′` of ePrint 2025/2166, l.2918). -/
+`U i ⊗ 1_G` (the step from `Init` to `Init′` of ePrint 2025/2166, p. 51). -/
 @[expose]
 noncomputable def addRegister (G : QReg) (σ : SubState G) : EmulatedOracle P In where
   S := QReg.of (E.S × G)
@@ -497,7 +497,7 @@ def cohIn (In : P → QReg) : QReg :=
 def cohSpec (In : P → QReg) : QuantumOracleSpec.{0, 0} :=
   uSpec Unit fun _ ↦ cohIn In
 
-/-- **The coherent oracle** (ePrint 2025/2166, l.1339–1342): one port on the coherent register,
+/-- **The coherent oracle** (ePrint 2025/2166, p. 28): one port on the coherent register,
 answered by `U = ∑ᵢ |i⟩⟨i| ⊗ U_i`, the block-diagonal matrix of the unitaries. -/
 @[expose, reducible]
 noncomputable def coherent : EmulatedOracle Unit fun _ ↦ cohIn In where
@@ -509,13 +509,13 @@ noncomputable def coherent : EmulatedOracle Unit fun _ ↦ cohIn In where
     (blockDiagonal'_mem_unitaryGroup E.unitary)
 
 /-- The projector of the coherent register onto the index `i`, tensored with the identity on the
-private register (the paper's `P_mass^(i) = |i⟩⟨i|_I`, l.1364). -/
+private register (the paper's `P_mass^(i) = |i⟩⟨i|_I`, p. 28). -/
 @[expose]
 noncomputable def indexProj (i : P) : Matrix (cohIn In × E.S) (cohIn In × E.S) ℂ :=
   Matrix.diagonal fun a ↦ if a.1.1 = i then 1 else 0
 
 /-- The projector of the coherent register onto the index `i`, on the input register of the
-coherent port alone (the paper's `|i⟩⟨i|_I`, l.1364): the projector onto the fibre of `i` under
+coherent port alone (the paper's `|i⟩⟨i|_I`, p. 28): the projector onto the fibre of `i` under
 `Sigma.fst`. These are the blocks of the coherent index of `Quantum.EmulatedOracle.cohSpec`
 (`Quantum.EmulatedOracle.isCoherentIndex_cohIndexProj`). -/
 @[expose, reducible]
@@ -554,7 +554,7 @@ theorem sum_trace_conj_indexProj (σ : Matrix (cohIn In × E.S) (cohIn In × E.S
     _ = ∑ a, ∑ i, if a.1.1 = i then σ a a else 0 := Finset.sum_comm
     _ = σ.trace := Finset.sum_congr rfl fun a _ ↦ by simp
 
-/-- **Total query mass** (ePrint 2025/2166, Definitions 4.1 and 4.3, l.1359–1386): the weight of
+/-- **Total query mass** (ePrint 2025/2166, Definitions 4.1 and 4.3, pp. 28–29): the weight of
 the index-`i` component of the input of every call of `x` to the coherent oracle, summed over
 the calls, for `x` run from the joint operator `ρ` on `A × S`. -/
 @[expose]
@@ -578,7 +578,7 @@ theorem totalMass_eq_indexMass (x : QuantumComp L (cohSpec In) W A)
     (funext fun _ ↦ funext fun σ ↦ ?_)
   rw [tsum_eq_single i fun k hk ↦ by simp [hk], ite_eq_left rfl, indexProj_eq_kronecker]
 
-/-- **Remark 4.2** (l.1370–1373): on a positive semidefinite input, the masses on the indices add
+/-- **Remark 4.2** (p. 28): on a positive semidefinite input, the masses on the indices add
 up to the query mass of the coherent port. It is the completeness of the index projectors in
 `Quantum.QuantumRuntime.tsum_indexMass_eq_queryMass`. -/
 theorem sum_totalMass (x : QuantumComp L (cohSpec In) W A) {ρ : Matrix (A × E.S) (A × E.S) ℂ}

@@ -44,7 +44,7 @@ law of its value (`Quantum.qromLaw₂`), which is the general law of the quantum
 
 ## Classical calls from inside an experiment
 
-The challengers of ePrint 2025/2166, §7 (l.2866–2876) make classical calls while holding the
+The challengers of ePrint 2025/2166, §7 (p. 51) make classical calls while holding the
 adversary's register. Over any signature and any held register `B`:
 
 * `Quantum.QComp.callBasis p B a read`: prepare the basis input `a` of port `p` beside `B`, call
@@ -294,7 +294,7 @@ end Quantum
 
 /-! ## Classical calls from inside an experiment
 
-The challengers of the security experiments of ePrint 2025/2166 (§7, l.2866–2876) make classical
+The challengers of the security experiments of ePrint 2025/2166 (§7, p. 51) make classical
 calls on a chosen port while the adversary's final register `B` is held, and run classical
 verifiers whose oracle queries are such calls. The constructions below work over any signature
 and any register `B`; `Quantum.classicalQuery` and `OracleComp.toQuantum` are the case of the
@@ -386,7 +386,7 @@ theorem run₂_callBasis (R : QuantumRuntime spec) (p : spec.Port) (B : QReg) (a
 
 /-- **Conjunction of classical checks.** Run `f i` for every `i ∈ W` in increasing order of `i`,
 without short-circuit, so that the calls of every check happen, and return the conjunction of
-their results. This is `⋀_{i ∈ W}` of the experiments of ePrint 2025/2166 (§7, l.2876). -/
+their results. This is `⋀_{i ∈ W}` of the experiments of ePrint 2025/2166 (§7, p. 51). -/
 @[expose]
 noncomputable def allIn {k : ℕ} {B : QReg} (W : Finset (Fin k))
     (f : Fin k → QComp spec B B Bool) : QComp spec B B Bool :=
