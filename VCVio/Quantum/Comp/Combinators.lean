@@ -14,15 +14,15 @@ Small constructions on oracle signatures and runtimes, used to build the emulate
 ePrint 2025/2166, §4.1–4.2 (`VCVio.Quantum.Oracle.Emulated`) and their extensions.
 
 * `Quantum.uSpec P In`: the signature of unitary ports. Port `i` acts on `In i`, returns it, and
-  has no classical result. The emulated oracles of §4.1 (paper l.1328–1343) answer this
+  has no classical result. The emulated oracles of §4.1 (paper p. 28) answer this
   signature.
 * `Quantum.QuantumOracleSpec.sum s t`: the disjoint union of two signatures.
 * `Quantum.SubInstrument.reindex eA eB p`: transport a subinstrument along bijections of its
   input and output bases.
 * `Quantum.QuantumRuntime.extend R step'`: add ports that act on the runtime's private register.
-  This is the step from `EO` to `EO^(Ext)` (paper l.2846).
+  This is the step from `EO` to `EO^(Ext)` (paper p. 50).
 * `Quantum.QuantumRuntime.addRegister R G σ`: adjoin a register `G`, prepared in `σ`, that the
-  existing ports leave alone (the step from `Init` to `Init′`, paper l.2918).
+  existing ports leave alone (the step from `Init` to `Init′`, paper p. 51).
 
 ## Main statements
 
@@ -44,7 +44,7 @@ namespace Quantum
 /-! ## Signatures -/
 
 /-- The signature of unitary ports: port `i` acts on the register `In i`, returns it, and has no
-classical result. Emulated oracles (ePrint 2025/2166, §4.1, l.1328–1343) answer this
+classical result. Emulated oracles (ePrint 2025/2166, §4.1, p. 28) answer this
 signature. -/
 @[expose, reducible]
 def uSpec (P : Type u) (In : P → QReg) : QuantumOracleSpec.{u, 0} where
@@ -103,7 +103,7 @@ variable {s : QuantumOracleSpec.{u₁, v₁}} {t : QuantumOracleSpec.{u₂, v₁
 
 /-- Add ports `t` that act on the private register of `R`. The ports of `s` are answered by `R`
 and the ports of `t` by `step'`. This is the step from `EO` to `EO^(Ext)` of ePrint 2025/2166
-(l.2846), for general runtimes. -/
+(p. 50), for general runtimes. -/
 @[expose]
 def extend (R : QuantumRuntime s)
     (step' : ∀ j : t.Port, SubInstrument (t.In j × R.D) (t.Out j × R.D) (t.Result j)) :
@@ -139,7 +139,7 @@ theorem extend_step_inr (j : t.Port) : (R.extend step').step (.inr j) = step' j 
 
 /-- Adjoin a register `G` prepared in `σ` beside the private register of `R`; every port acts as
 before and leaves `G` alone. This is the step from `Init` to `Init′` of ePrint 2025/2166
-(l.2918), for general runtimes. -/
+(p. 51), for general runtimes. -/
 @[expose]
 noncomputable def addRegister (G : QReg) (σ : SubState G) : QuantumRuntime s where
   D := QReg.of (R.D × G)
