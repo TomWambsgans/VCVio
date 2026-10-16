@@ -6,9 +6,10 @@ Authors: Quang Dao
 
 module
 public import VCVio.Quantum.VC.Proof.Commutativity
+public import VCVio.Quantum.Oracle.Compressed.CollisionRuntime
 
 /-!
-# Recording population and the extraction-controlled swap
+# Recording grades and time-dependent coherent comparisons
 
 The recording population counts occupied commitment keys, counting all split cells at a key
 only once. The extraction-controlled swap preserves this population and fixes the empty record.
@@ -18,12 +19,17 @@ Lemmas 9.10–9.12, pp. 66–67, used in the online comparison of Lemma 9.7, pp.
 The population is a basis-support grade, so its use does not measure a coherent record key.
 The joint database/record cost in the bounds note, equation (30), requires charging ordinary
 calls and recording calls to the same budget.
+
+Grade-restricted squared port bounds lift to coherent input mass and to the actual query
+prefixes. Their time-dependent sum gives both square-root event comparisons, with the first
+execution's selected mass in both directions. Identifying those ports with the
+extraction-controlled recording swap is a separate operator obligation.
 -/
 
 public section
 
 open Matrix
-open scoped Kronecker
+open scoped Kronecker ENNReal ComplexOrder
 
 namespace Quantum
 
@@ -122,6 +128,36 @@ theorem swap_const (s : S) (bot : Cell) :
   · funext qt
     simp [swap, const]
 
+/-- Equality off the unsplit queried cell after swapping is equality off the selected split
+cell before swapping. This identifies the spectator registers in recording conjugacy. -/
+theorem swap_rest_eq_iff (s : S) (q : TpIC k Cm) (R R' : RecReg k Cm Dm Cell) :
+    ((∀ p, p ≠ q → (swap ME s R).1 p = (swap ME s R').1 p) ∧
+      (swap ME s R).2 = (swap ME s R').2) ↔
+    (R.1 = R'.1 ∧ ∀ qt : TpICD k Cm Dm,
+      qt ≠ ⟨q, ME.extract q s⟩ → R.2 qt = R'.2 qt) := by
+  constructor
+  · rintro ⟨h₁, h₂⟩
+    refine ⟨funext fun p ↦ ?_, fun qt hqt ↦ ?_⟩
+    · simpa [swap] using congrFun h₂ ⟨p, ME.extract p s⟩
+    · obtain ⟨p, t⟩ := qt
+      by_cases ht : t = ME.extract p s
+      · subst ht
+        exact h₁ p (fun hp ↦ hqt (by subst hp; rfl))
+      · simpa [swap, ht] using congrFun h₂ ⟨p, t⟩
+  · rintro ⟨h₁, h₂⟩
+    refine ⟨fun p hp ↦ ?_, funext fun qt ↦ ?_⟩
+    · exact h₂ ⟨p, ME.extract p s⟩ fun he ↦ hp (congrArg Sigma.fst he)
+    · obtain ⟨p, t⟩ := qt
+      by_cases ht : t = ME.extract p s
+      · simp [swap, ht, h₁]
+      · have hn : (⟨p, t⟩ : TpICD k Cm Dm) ≠ ⟨q, ME.extract q s⟩ := by
+          intro he
+          have hp := congrArg Sigma.fst he
+          subst hp
+          exact ht (eq_of_heq (Sigma.mk.inj he).2)
+        simpa [swap, ht] using h₂ ⟨p, t⟩ hn
+
+
 variable [Fintype Cm] [∀ i, Fintype (Dm i)]
 
 /-- The swap preserves the occupied keys exactly. -/
@@ -179,12 +215,26 @@ theorem swap_eq_of_extract_eq_on_occupied (s s' : S) (bot : Cell)
     · simp only [swap, h q hq]
     · simp [swap, (hz q hq).1, (hz q hq).2]
 
+
 end RecReg
 
 section locality
 
 variable {Q Yr S Rg K Cell G : Type*} [DecidableEq Q] [DecidableEq S]
   [Fintype K] [DecidableEq K] [DecidableEq Cell] [DecidableEq G]
+
+/-- A cell-controlled matrix entry changes only the selected cell and the response. -/
+theorem cellControlled_apply (eR : Rg ≃ (K → Cell) × G) (β : Q × S → K)
+    (U : Matrix (Yr × Cell) (Yr × Cell) ℂ) (a b : (Q × Yr) × (S × Rg)) :
+    cellControlled eR β U a b =
+      if a.1.1 = b.1.1 ∧ a.2.1 = b.2.1 ∧
+        (fun j : {j // j ≠ β (a.1.1, a.2.1)} ↦ (eR a.2.2).1 j) =
+          (fun j : {j // j ≠ β (a.1.1, a.2.1)} ↦ (eR b.2.2).1 j) ∧
+        (eR a.2.2).2 = (eR b.2.2).2 then
+          U (a.1.2, (eR a.2.2).1 (β (a.1.1, a.2.1)))
+            (b.1.2, (eR b.2.2).1 (β (a.1.1, a.2.1))) else 0 := by
+  rw [cellControlled, labelControlled_apply, onFactor_apply]
+  simp only [cellSplit, Equiv.coe_fn_mk, Prod.mk.injEq]
 
 /-- A nonzero cell-controlled matrix entry preserves the control, private state, and all
 recording cells other than the selected key. No unitarity assumption is needed. -/
@@ -440,5 +490,233 @@ theorem withRecordME_jointPost_grade
     EmulatedOracle.extend, EmulatedOracle.addRegister] using h
 
 end VCOracle
+
+/-! ## Grade-sensitive weights on actual prefixes -/
+
+namespace QuerySupportedOn
+
+/-- Tracing out the unused workspace preserves a grade read from the private register. -/
+theorem callInput {A J E D Z : Type*} [Fintype A] [Fintype J] [Fintype E] [Fintype D]
+    [DecidableEq A] [DecidableEq J] [DecidableEq E] [DecidableEq D]
+    {g : D → Z} {T : Set Z} {ρ : Matrix (A × D) (A × D) ℂ}
+    (hρ : QuerySupportedOn (fun m : A × D ↦ g m.2) T ρ) (ℓ : A ≃ J × E) :
+    QuerySupportedOn (fun m : J × D ↦ g m.2) T (QuantumRuntime.callInput ℓ D ρ) := by
+  intro a b hab
+  simp only [QuantumRuntime.callInput, LinearMap.comp_apply, MatrixMap.traceRight_apply,
+    SubInstrument.relabel_branch_apply, submatrix_apply] at hab
+  obtain ⟨e, -, he⟩ := Finset.exists_ne_zero_of_sum_ne_zero hab
+  exact hρ _ _ he
+
+end QuerySupportedOn
+
+namespace QuantumRuntime
+
+universe uL vL uP vP w
+
+variable {spec : QuantumOracleSpec.{uP, vP}} {L : LocalSig.{uL, vL}}
+  (R : QuantumRuntime spec) (I : L.Interp) (g : R.D → ℕ)
+
+/-- A local comparison needed only on grade `t+j` bounds the weight of the actual `j`-th
+query from an input of grade `t`. All intervening local instruments and query outcomes are
+included. The hypothesis is on one-step operators, not on complete executions. -/
+theorem queryWeight_mono_of_grade
+    (hR : ∀ i r t (σ : Matrix (spec.In i × R.D) (spec.In i × R.D) ℂ),
+      QuerySupportedOn (fun m : spec.In i × R.D ↦ g m.2) (Set.Iic t) σ →
+        QuerySupportedOn (fun m : spec.Out i × R.D ↦ g m.2) (Set.Iic (t + 1))
+          ((R.step i).branch r σ))
+    {w w' : ∀ i, Matrix (spec.In i × R.D) (spec.In i × R.D) ℂ → ℝ≥0∞}
+    {W : QReg → Type w} {A : QReg} (x : QuantumComp L spec W A)
+    {ρ : Matrix (A × R.D) (A × R.D) ℂ} (hρ : ρ.PosSemidef) (t j : ℕ)
+    (hgrade : QuerySupportedOn (fun m : A × R.D ↦ g m.2) (Set.Iic t) ρ)
+    (hw : ∀ i σ, σ.PosSemidef →
+      QuerySupportedOn (fun m : spec.In i × R.D ↦ g m.2) (Set.Iic (t + j)) σ →
+        w i σ ≤ w' i σ) :
+    R.queryWeight I w x ρ j ≤ R.queryWeight I w' x ρ j := by
+  induction x using QuantumComp.inductionOn generalizing t j with
+  | pure _ _ => simp
+  | primBind _ o k ih =>
+    simp only [queryWeight_primBind]
+    exact ENNReal.tsum_le_tsum fun b ↦
+      ih b (((I o).frame R.D).posSemidef_branch_apply b hρ) t j
+        (hgrade.amplify_snd _) hw
+  | queryBind _ i E ℓ k ih =>
+    cases j with
+    | zero =>
+      exact hw i _ (posSemidef_callInput ℓ hρ) (by simpa using hgrade.callInput ℓ)
+    | succ j =>
+      simp only [queryWeight_queryBind_succ]
+      refine ENNReal.tsum_le_tsum fun r ↦
+        ih r ((R.queryStep i E ℓ).posSemidef_branch_apply r hρ) (t + 1) j
+          (QuerySupportedOn.queryStep_of_step R g hR i E ℓ r hgrade) ?_
+      simpa only [Nat.add_assoc, Nat.add_comm 1] using hw
+
+end QuantumRuntime
+
+namespace EmulatedOracle
+
+section chargedComparison
+
+variable {P : Type} [Fintype P] [DecidableEq P] {In : P → QReg}
+  (E : EmulatedOracle P In)
+
+/-- Portwise squared operator bounds lift to coherent selected mass on a supported input.
+The private projector may depend on the query position; no measurement of its grade or of
+its coherent port index is performed. -/
+theorem ofReal_trace_coherentBlocks_conj_le_selectedMass
+    (C : ∀ p, Matrix (In p × E.S) (In p × E.S) ℂ)
+    (P₀ : Matrix E.S E.S ℂ) (selected : P → Bool) {r : ℝ} (hr : 0 ≤ r)
+    (hC : ∀ p,
+      ((if selected p then r else 0) • (1 : Matrix (In p × E.S) (In p × E.S) ℂ) -
+        (C p * (1 ⊗ₖ P₀))ᴴ * (C p * (1 ⊗ₖ P₀))).PosSemidef)
+    {σ : Matrix (cohIn In × E.S) (cohIn In × E.S) ℂ} (hσ : σ.PosSemidef)
+    (hsupp : MatrixMap.conj ((1 : Matrix (cohIn In) (cohIn In) ℂ) ⊗ₖ P₀) σ = σ) :
+    ENNReal.ofReal (MatrixMap.conj (coherentBlocks C) σ).trace.re ≤
+      ENNReal.ofReal r * E.selectedMass selected σ := by
+  let B := fun p ↦ C p * ((1 : Matrix (In p) (In p) ℂ) ⊗ₖ P₀)
+  have hb := posSemidef_coherentBlocks hC
+  change (coherentBlocks ((fun p ↦ (if selected p then r else 0) • 1) -
+    (fun p ↦ (B p)ᴴ) * B)).PosSemidef at hb
+  rw [coherentBlocks_sub, coherentBlocks_mul, coherentBlocks_adjoint] at hb
+  have he : coherentBlocks B = coherentBlocks C *
+      ((1 : Matrix (cohIn In) (cohIn In) ℂ) ⊗ₖ P₀) := by
+    change coherentBlocks (C * (fun p ↦ (1 : Matrix (In p) (In p) ℂ) ⊗ₖ P₀)) = _
+    rw [coherentBlocks_mul, coherentBlocks_database]
+  rw [he] at hb
+  have ht := ofReal_trace_conj_le
+    (coherentBlocks C * ((1 : Matrix (cohIn In) (cohIn In) ℂ) ⊗ₖ P₀))
+    (selectedCharge selected r) (r := 1) (by norm_num)
+    (by simpa only [one_smul, selectedCharge] using hb) hσ
+  rw [MatrixMap.conj_mul, LinearMap.comp_apply, hsupp] at ht
+  simpa only [ENNReal.ofReal_one, one_mul, E.ofReal_trace_selectedCharge selected hr hσ]
+    using ht
+
+/-- A grade-restricted squared port bound controls the discrepancy weight at an actual query
+prefix by its selected coherent input mass. The bound is tested at grade `t+j`, so it can
+vary with time without changing the execution or measuring the recording register. -/
+theorem queryWeight_conj_le_selectedMass_of_grade
+    (g : E.S → ℕ)
+    (hE : ∀ p a a' d d', E.U p (a', d') (a, d) ≠ 0 → g d' ≤ g d + 1)
+    {L : LocalSig} (I : L.Interp) {W : QReg → Type*} {A : QReg}
+    (x : QuantumComp L (cohSpec In) W A) {ρ : Matrix (A × E.S) (A × E.S) ℂ}
+    (hρ : ρ.PosSemidef) (t j : ℕ)
+    (hgrade : QuerySupportedOn (fun m : A × E.S ↦ g m.2) (Set.Iic t) ρ)
+    (C : ∀ p, Matrix (In p × E.S) (In p × E.S) ℂ)
+    (selected : P → Bool) {r : ℝ} (hr : 0 ≤ r)
+    (hC : ∀ p,
+      ((if selected p then r else 0) • (1 : Matrix (In p × E.S) (In p × E.S) ℂ) -
+        (C p * (1 ⊗ₖ diagonal fun d ↦ if g d ≤ t + j then (1 : ℂ) else 0))ᴴ *
+          (C p * (1 ⊗ₖ diagonal fun d ↦
+          if g d ≤ t + j then (1 : ℂ) else 0))).PosSemidef) :
+    E.coherent.toRuntime.queryWeight I
+        (fun _ σ ↦ ENNReal.ofReal (MatrixMap.conj (coherentBlocks C) σ).trace.re) x ρ j ≤
+      ENNReal.ofReal r * E.coherent.toRuntime.queryWeight I
+        (fun _ σ ↦ E.selectedMass selected σ) x ρ j := by
+  rw [← QuantumRuntime.queryWeight_const_mul]
+  refine E.coherent.toRuntime.queryWeight_mono_of_grade I g
+    (E.coherent.querySupportedOn_toRuntime_step g (E.coherent_U_grade g hE))
+    x hρ t j hgrade fun _ σ hσ hsupp ↦ ?_
+  refine E.ofReal_trace_coherentBlocks_conj_le_selectedMass C _ selected hr hC hσ ?_
+  rw [← diagonal_one, diagonal_kronecker_diagonal]
+  exact hsupp.conj_diagonal_eq_self fun m hm ↦ by simp [Set.mem_Iic.mp hm]
+
+/-- A time-dependent family of grade-restricted port bounds accumulates against the actual
+selected query mass. This is the Cauchy–Schwarz step of the online hybrid, before identifying
+the discrepancy operators with a recording-swap comparison. -/
+theorem tsum_rpow_queryWeight_conj_le_of_grade
+    (g : E.S → ℕ)
+    (hE : ∀ p a a' d d', E.U p (a', d') (a, d) ≠ 0 → g d' ≤ g d + 1)
+    {L : LocalSig} (I : L.Interp) {W : QReg → Type*} {A : QReg}
+    {x : QuantumComp L (cohSpec In) W A} {t : ℕ} (hx : x.IsQueryBound fun _ ↦ t)
+    {ρ : Matrix (A × E.S) (A × E.S) ℂ} (hρ : ρ.PosSemidef)
+    (hgrade : QuerySupportedOn (fun m : A × E.S ↦ g m.2) (Set.Iic 0) ρ)
+    (C : ∀ p, Matrix (In p × E.S) (In p × E.S) ℂ)
+    (selected : P → Bool) (r : ℕ → ℝ) (hr : ∀ j < t, 0 ≤ r j)
+    (hC : ∀ j < t, ∀ p,
+      ((if selected p then r j else 0) • (1 : Matrix (In p × E.S) (In p × E.S) ℂ) -
+        (C p * (1 ⊗ₖ diagonal fun d ↦ if g d ≤ j then (1 : ℂ) else 0))ᴴ *
+          (C p * (1 ⊗ₖ diagonal fun d ↦ if g d ≤ j then (1 : ℂ) else 0))).PosSemidef) :
+    ∑' j, E.coherent.toRuntime.queryWeight I
+        (fun _ σ ↦ ENNReal.ofReal (MatrixMap.conj (coherentBlocks C) σ).trace.re) x ρ j ^
+          (2⁻¹ : ℝ) ≤
+      ((∑ j ∈ Finset.range t, ENNReal.ofReal (r j)) *
+        E.selectedTotalMass I selected x ρ) ^ (2⁻¹ : ℝ) := by
+  let m := fun j ↦ E.coherent.toRuntime.queryWeight I
+    (fun _ σ ↦ E.selectedMass selected σ) x ρ j
+  have hz : ∀ j ∉ Finset.range t,
+      E.coherent.toRuntime.queryWeight I
+        (fun _ σ ↦ ENNReal.ofReal (MatrixMap.conj (coherentBlocks C) σ).trace.re) x ρ j ^
+          (2⁻¹ : ℝ) = 0 := by
+    intro j hj
+    rw [E.coherent.toRuntime.queryWeight_eq_zero_of_isQueryBound I hx Finset.univ
+      (by simp) (by simpa using hj) ρ, ENNReal.zero_rpow_of_pos (by norm_num)]
+  rw [tsum_eq_sum hz]
+  calc
+    _ ≤ ∑ j ∈ Finset.range t, ENNReal.ofReal (r j) ^ (2⁻¹ : ℝ) * m j ^ (2⁻¹ : ℝ) := by
+      apply Finset.sum_le_sum
+      intro j hj
+      rw [← ENNReal.mul_rpow_of_nonneg _ _ (by norm_num : (0 : ℝ) ≤ 2⁻¹)]
+      apply ENNReal.rpow_le_rpow _ (by norm_num)
+      exact E.queryWeight_conj_le_selectedMass_of_grade g hE I x hρ 0 j hgrade C selected
+        (hr j (Finset.mem_range.mp hj)) (by simpa using hC j (Finset.mem_range.mp hj))
+    _ ≤ _ := by
+      refine (ENNReal.inner_le_Lp_mul_Lq _ _ _ Real.HolderConjugate.two_two).trans ?_
+      simp only [rpow_inv_two_rpow_two, one_div]
+      rw [← ENNReal.mul_rpow_of_nonneg _ _ (by norm_num : (0 : ℝ) ≤ 2⁻¹)]
+      apply ENNReal.rpow_le_rpow _ (by norm_num)
+      gcongr
+      rw [← E.tsum_queryWeight_selectedMass I selected x ρ]
+      exact ENNReal.sum_le_tsum _
+
+/-- Both square-root event comparisons follow from graded portwise squared difference
+bounds. The two directions use the selected mass of the first, actual execution. The second
+runtime has the same initialization and coherent block steps given by `V`; arbitrary local
+instruments, observations, and subnormalized workspace inputs are allowed. -/
+theorem outcomeLawWith_rpow_bounds_of_graded_ports
+    (g : E.S → ℕ)
+    (hE : ∀ p a a' d d', E.U p (a', d') (a, d) ≠ 0 → g d' ≤ g d + 1)
+    (V : ∀ p, Matrix (In p × E.S) (In p × E.S) ℂ)
+    (s₁ : Unit → SubInstrument (cohIn In × E.S) (cohIn In × E.S) Unit)
+    (hV : ∀ i a, (s₁ i).branch a = MatrixMap.conj (coherentBlocks V))
+    {L : LocalSig} (I : L.Interp) {W : QReg → Type*} {A : QReg}
+    {x : QuantumComp L (cohSpec In) W A} {t : ℕ} (hx : x.IsQueryBound fun _ ↦ t)
+    (ρ : SubState A)
+    (hgrade : QuerySupportedOn (fun m : A × E.S ↦ g m.2) (Set.Iic 0)
+      (ρ.matrix ⊗ₖ E.init.matrix))
+    (selected : P → Bool) (r : ℕ → ℝ) (hr : ∀ j < t, 0 ≤ r j)
+    (hC : ∀ j < t, ∀ p,
+      ((if selected p then r j else 0) • (1 : Matrix (In p × E.S) (In p × E.S) ℂ) -
+        ((E.U p - V p) * (1 ⊗ₖ diagonal fun d ↦ if g d ≤ j then (1 : ℂ) else 0))ᴴ *
+          ((E.U p - V p) *
+            (1 ⊗ₖ diagonal fun d ↦ if g d ≤ j then (1 : ℂ) else 0))).PosSemidef)
+    {γ : Type*} [MeasurableSpace γ] (f : (Σ B, W B) → γ) {s : Set γ}
+    (hs : MeasurableSet s) :
+    let p₀ := E.coherent.toRuntime.outcomeLawWith I x ρ f s
+    let p₁ := (QuantumRuntime.mk E.S E.init s₁).outcomeLawWith I x ρ f s
+    let err := ((∑ j ∈ Finset.range t, ENNReal.ofReal (r j)) *
+      E.selectedTotalMass I selected x (ρ.matrix ⊗ₖ E.init.matrix)) ^ (2⁻¹ : ℝ)
+    p₀ ^ (2⁻¹ : ℝ) ≤ p₁ ^ (2⁻¹ : ℝ) + err ∧
+      p₁ ^ (2⁻¹ : ℝ) ≤ p₀ ^ (2⁻¹ : ℝ) + err := by
+  have hb := E.tsum_rpow_queryWeight_conj_le_of_grade g hE I hx
+    (ρ.prod E.init).posSemidef hgrade (E.U - V) selected r hr hC
+  rw [SubState.matrix_prod] at hb
+  have hw : (QuantumRuntime.krausWeight (spec := cohSpec In) (D := E.S)
+      (fun (i a : Unit) ↦ E.coherent.U i - coherentBlocks V)) =
+      (fun (_ : Unit) σ ↦
+        ENNReal.ofReal (MatrixMap.conj (coherentBlocks (E.U - V)) σ).trace.re) := by
+    funext i σ
+    cases i
+    simp only [QuantumRuntime.krausWeight, tsum_fintype, Fintype.sum_unique,
+      coherentBlocks_sub]
+    rfl
+  have h₀ := QuantumRuntime.rpow_inv_two_outcomeLawWith_le I E.init
+    E.coherent.toRuntime_step_branch hV x ρ f hs
+  have h₁ := QuantumRuntime.rpow_inv_two_outcomeLawWith_le' I E.init
+    E.coherent.toRuntime_step_branch hV x ρ f hs
+  rw [hw] at h₀ h₁
+  exact ⟨h₀.trans (add_le_add le_rfl hb), h₁.trans (add_le_add le_rfl hb)⟩
+
+end chargedComparison
+
+end EmulatedOracle
 
 end Quantum

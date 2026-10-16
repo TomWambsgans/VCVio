@@ -151,6 +151,63 @@ theorem online_joint_count_le {n r h : ℕ} (hn : 1 ≤ n) (hcost : r + n ≤ h 
     n + 2 * r ≤ 2 * h - 3 := by
   omega
 
+/-- The list instability at a joint database/record budget. The zero database cutoff is
+included, and a nonempty list uses the odd coefficient from the bounds note, equation (30). -/
+theorem instability_onlineLabel_list_le_jointBudget [Finite X]
+    [UniformAnswerMeasure (X →ₒ Y)] {n s h : ℕ} (tics : Fin n → TpIC k Y)
+    (Dfix : Fin k → Database X Y) (j : Fin k) (hn : 1 ≤ n) (hcost : s + n ≤ h) :
+    Database.instability (onlineLabel (multiExtract enc d) tics Dfix j) s ≤
+      min 1 ((2 * h - 3 : ℕ) / (Fintype.card Y : ℝ≥0∞)) := by
+  cases s with
+  | zero => simp only [Database.instability_zero]; exact zero_le
+  | succ s =>
+    refine (instability_onlineLabel_list_le enc d tics Dfix j s).trans ?_
+    apply min_le_min le_rfl
+    have hc := online_joint_count_le hn (show s + n ≤ h - 1 by omega)
+    gcongr
+    exact_mod_cast hc
+
+section operatorBound
+
+open Matrix
+open scoped Kronecker Matrix.Norms.L2Operator
+
+variable [Fintype X] [AddCommGroup Y] [UniformAnswerMeasure (X →ₒ Y)]
+  {Aux : Type*} [Fintype Aux] [DecidableEq Aux]
+
+/-- The generalized commutator on a joint-budget block has squared norm at most
+`24*(2*h-3)/|Y|`. The controls may act on the entire block: their label preservation,
+unitarity, and commutation with the truncated oracle are explicit hypotheses.
+The coefficient 24 is from the bounds note, equation (30), and the repair note, equation (2),
+using ePrint 2025/2166, Theorem 5.4, p. 31, in its generalized form. -/
+theorem l2_opNorm_online_commutator_sq_le {n s h : ℕ} (tics : Fin n → TpIC k Y)
+    (Dfix : Fin k → Database X Y) (j : Fin k) (hn : 1 ≤ n) (hcost : s + n ≤ h)
+    (W : (∀ a : Fin n,
+      TpDLen k (DmOf (fun i ↦ 2 ^ d i) Msg fun i ↦ Td Y Salt (d i)) (tics a).1) →
+        Matrix (((X × Y) × Database X Y) × Aux) (((X × Y) × Database X Y) × Aux) ℂ)
+    (hW : ∀ l a b, W l a b ≠ 0 →
+      onlineLabel (multiExtract enc d) tics Dfix j a.1.2 =
+        onlineLabel (multiExtract enc d) tics Dfix j b.1.2)
+    (hU : ∀ l, W l ∈ unitaryGroup _ ℂ)
+    (hA : ∀ l, W l * (truncatedOracle X Y s ⊗ₖ (1 : Matrix Aux Aux ℂ)) =
+      (truncatedOracle X Y s ⊗ₖ (1 : Matrix Aux Aux ℂ)) * W l) :
+    ‖labelControlled (fun a ↦ onlineLabel (multiExtract enc d) tics Dfix j a.1.2) W *
+          (truncatedOracle X Y s ⊗ₖ (1 : Matrix Aux Aux ℂ)) -
+        (truncatedOracle X Y s ⊗ₖ (1 : Matrix Aux Aux ℂ)) *
+          labelControlled (fun a ↦ onlineLabel (multiExtract enc d) tics Dfix j a.1.2) W‖ ^ 2 ≤
+      24 * (2 * h - 3 : ℕ) / (Fintype.card Y : ℝ) := by
+  have hi := (instability_onlineLabel_list_le_jointBudget enc d tics Dfix j hn hcost).trans
+    (min_le_right _ _)
+  have hr := ENNReal.toReal_mono (by finiteness) hi
+  simp only [ENNReal.toReal_div, ENNReal.toReal_natCast] at hr
+  have hc := l2_opNorm_commutator_truncatedOracle_sq_le_twentyFour_mul
+    (onlineLabel (multiExtract enc d) tics Dfix j) s hW hU hA
+  apply hc.trans
+  simpa only [mul_div_assoc] using
+    mul_le_mul_of_nonneg_left hr (by norm_num : (0 : ℝ) ≤ 24)
+
+end operatorBound
+
 end SaltedMerkle
 
 namespace Quantum
@@ -196,6 +253,74 @@ theorem online_weighted_sum_sq_le (t : ℕ) (mass : ℕ → ℝ) (hmass : ∀ j,
       gcongr
       exact hc.trans (mul_le_mul_of_nonneg_left hw (by positivity))
     _ = _ := by ring
+
+/-- The square-root accumulation in extended nonnegative reals, including infinite mass
+bounds. Its coefficient and odd-weight schedule are the bounds note, equation (30). -/
+theorem online_weighted_rpow_sum_le (t N : ℕ) (mass : ℕ → ℝ≥0∞) (w : ℝ≥0∞)
+    (hw : ∑ j ∈ Finset.range t, mass j ≤ w) :
+    ∑ j ∈ Finset.range t, ((24 / N : ℝ≥0∞) * onlineStepWeight j * mass j) ^ (2⁻¹ : ℝ) ≤
+      (24 * w * (t - 1 : ℕ) ^ 2 / N) ^ (2⁻¹ : ℝ) := by
+  have hc := ENNReal.inner_le_Lp_mul_Lq (Finset.range t)
+    (fun j ↦ ((24 / N : ℝ≥0∞) * onlineStepWeight j) ^ (2⁻¹ : ℝ))
+    (fun j ↦ mass j ^ (2⁻¹ : ℝ)) Real.HolderConjugate.two_two
+  simp only [rpow_inv_two_rpow_two, one_div] at hc
+  simp_rw [← ENNReal.mul_rpow_of_nonneg _ _ (by norm_num : (0 : ℝ) ≤ 2⁻¹)] at hc
+  have he : ∑ j ∈ Finset.range t, (onlineStepWeight j : ℝ≥0∞) = (t - 1 : ℕ) ^ 2 := by
+    exact_mod_cast sum_onlineStepWeight t
+  rw [← Finset.mul_sum, he] at hc
+  refine hc.trans ?_
+  apply ENNReal.rpow_le_rpow _ (by norm_num)
+  calc
+    _ ≤ (24 / N : ℝ≥0∞) * (t - 1 : ℕ) ^ 2 * w := by gcongr
+    _ = _ := by simp only [div_eq_mul_inv]; ac_rfl
+
+/-- The exact sum of real local rates, converted to the extended nonnegative reals used
+by runtime query weights. The hash range has positive cardinality. -/
+theorem sum_onlineRate {N : ℕ} (hN : 0 < N) (t : ℕ) :
+    ∑ j ∈ Finset.range t, ENNReal.ofReal (24 * (onlineStepWeight j : ℝ) / N) =
+      (24 * (t - 1 : ℕ) ^ 2 / N : ℝ≥0∞) := by
+  have hr (j : ℕ) : ENNReal.ofReal (24 * (onlineStepWeight j : ℝ) / N) =
+      (24 * onlineStepWeight j / N : ℝ≥0∞) := by
+    rw [ENNReal.ofReal_div_of_pos (by exact_mod_cast hN), ENNReal.ofReal_mul (by norm_num)]
+    simp
+  simp_rw [hr, div_eq_mul_inv]
+  rw [← Finset.sum_mul, ← Finset.mul_sum]
+  congr 2
+  exact_mod_cast sum_onlineStepWeight t
+
+open Matrix
+open scoped Kronecker ComplexOrder
+
+/-- Time-dependent discrepancy weights along an actual coherent execution have the exact
+online square-root bound of the bounds note, equation (30). The port hypothesis is a local
+squared operator bound on inputs of grade `j`; it does not assume an execution comparison.
+Applying it to the recording swap requires discharging this operator hypothesis. -/
+theorem EmulatedOracle.tsum_rpow_queryWeight_conj_le_online
+    {P : Type} [Fintype P] [DecidableEq P] {In : P → QReg} (E : EmulatedOracle P In)
+    (g : E.S → ℕ)
+    (hE : ∀ p a a' d d', E.U p (a', d') (a, d) ≠ 0 → g d' ≤ g d + 1)
+    {L : LocalSig} (I : L.Interp) {W : QReg → Type*} {A : QReg}
+    {x : QuantumComp L (EmulatedOracle.cohSpec In) W A} {t N : ℕ} (hN : 0 < N)
+    (hx : x.IsQueryBound fun _ ↦ t) {ρ : Matrix (A × E.S) (A × E.S) ℂ}
+    (hρ : ρ.PosSemidef)
+    (hgrade : QuerySupportedOn (fun m : A × E.S ↦ g m.2) (Set.Iic 0) ρ)
+    (C : ∀ p, Matrix (In p × E.S) (In p × E.S) ℂ) (selected : P → Bool)
+    (hC : ∀ j < t, ∀ p,
+      ((if selected p then 24 * (onlineStepWeight j : ℝ) / N else 0) •
+          (1 : Matrix (In p × E.S) (In p × E.S) ℂ) -
+        (C p * (1 ⊗ₖ diagonal fun d ↦ if g d ≤ j then (1 : ℂ) else 0))ᴴ *
+          (C p * (1 ⊗ₖ diagonal fun d ↦ if g d ≤ j then (1 : ℂ) else 0))).PosSemidef) :
+    ∑' j, E.coherent.toRuntime.queryWeight I
+        (fun _ σ ↦ ENNReal.ofReal (MatrixMap.conj (EmulatedOracle.coherentBlocks C) σ).trace.re)
+        x ρ j ^ (2⁻¹ : ℝ) ≤
+      (24 * E.selectedTotalMass I selected x ρ * (t - 1 : ℕ) ^ 2 / N) ^ (2⁻¹ : ℝ) := by
+  have h := E.tsum_rpow_queryWeight_conj_le_of_grade g hE I hx hρ hgrade C selected
+    (fun j ↦ 24 * (onlineStepWeight j : ℝ) / N) (fun j _ ↦ by positivity) hC
+  rw [sum_onlineRate hN] at h
+  refine h.trans_eq ?_
+  congr 1
+  simp only [div_eq_mul_inv]
+  ac_rfl
 
 /-- The capped numerical online error from the bounds note, equation (30), and the repair
 note, equation (2). This defines the target scalar without asserting a security theorem. -/
