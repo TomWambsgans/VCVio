@@ -433,6 +433,7 @@ public import VCVio.Quantum.Oracle.Compressed.BinaryPartition
 public import VCVio.Quantum.Oracle.Compressed.Collision
 public import VCVio.Quantum.Oracle.Compressed.CollisionBlocks
 public import VCVio.Quantum.Oracle.Compressed.CollisionPotential
+public import VCVio.Quantum.Oracle.Compressed.CollisionRuntime
 public import VCVio.Quantum.Oracle.Compressed.CommutatorBound
 public import VCVio.Quantum.Oracle.Compressed.CommutatorSharp
 public import VCVio.Quantum.Oracle.Compressed.Consistency
@@ -458,8 +459,8 @@ public import VCVio.Quantum.VC.Emulated
 public import VCVio.Quantum.VC.MultiExtractable
 public import VCVio.Quantum.VC.MultiExtractor
 public import VCVio.Quantum.VC.Proof.Commutativity
-public import VCVio.Quantum.VC.Proof.Offline
 public import VCVio.Quantum.VC.Proof.Extraction
+public import VCVio.Quantum.VC.Proof.Offline
 public import VCVio.Quantum.VC.Tuples
 public import VCVio.Quantum.VC.Unitaries
 public import VCVio.StateSeparating.Advantage.Measure

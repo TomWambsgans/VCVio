@@ -6,7 +6,7 @@ Authors: Quang Dao
 
 module
 
-public import VCVio.Quantum.Oracle.Compressed.CollisionBlocks
+public import VCVio.Quantum.Oracle.Compressed.CollisionRuntime
 public import VCVio.Quantum.VC.Proof.Commutativity
 
 /-!
@@ -20,7 +20,7 @@ old compressed oracle; P4 and the full-response Hadamard extension are separate 
 
 public section
 
-open Matrix
+open Matrix Quantum.EmulatedOracle
 open scoped Kronecker ComplexOrder ENNReal
 
 namespace Quantum
@@ -284,6 +284,33 @@ theorem familyIdle_bounds {A : Type*} [Fintype A] [DecidableEq A]
   simp only [Pi.zero_apply, one_mul, ← Complex.ofReal_sub, Complex.zero_le_real]
   exact sub_nonneg.mpr (familyPopulation_idle hn a.2.1)
 
+
+/-- The diagonal square root factors the family population operator. -/
+@[expose]
+noncomputable def familyPotentialFactor (t n : ℕ) :
+    Matrix ((Fin k → Database X Y) × R) ((Fin k → Database X Y) × R) ℂ :=
+  diagonal (fun s ↦ (Real.sqrt (familyPopulation t n s.1) : ℂ))
+
+omit [AddCommGroup Y] in
+/-- The Gram matrix of the population factor is the population operator. -/
+theorem familyPotentialFactor_gram (t n : ℕ) :
+    (familyPotentialFactor (k := k) (X := X) (Y := Y) (R := R) t n)ᴴ *
+      familyPotentialFactor t n = familyPopulationMatrix t n := by
+  rw [familyPotentialFactor, diagonal_conjTranspose, diagonal_mul_diagonal]
+  change diagonal _ = diagonal _
+  congr 1
+  funext s
+  change star (Real.sqrt (familyPopulation t n s.1) : ℂ) *
+    (Real.sqrt (familyPopulation t n s.1) : ℂ) = (familyPopulation t n s.1 : ℂ)
+  rw [Complex.star_def, Complex.conj_ofReal, ← Complex.ofReal_mul,
+    Real.mul_self_sqrt (familyPopulation_nonneg t n s.1)]
+
+omit [DecidableEq X] [DecidableEq Y] [Fintype Y] [AddCommGroup Y] in
+/-- The empty family has zero initial potential. -/
+theorem familyPopulation_empty (t : ℕ) :
+    familyPopulation (k := k) (X := X) (Y := Y) t 0 (fun _ ↦ Database.empty) = 0 := by
+  simp [familyPopulation, collisionPotential]
+
 end family
 
 section interfaces
@@ -329,6 +356,14 @@ theorem withRecord_record_preserves_databases
 def ordinaryPort : (Fin k ⊕ Unit) ⊕ Unit → Bool
   | .inl (.inl _) => true
   | _ => false
+
+/-- Selecting the ordinary ports gives exactly the sum of their actual total query masses. -/
+theorem selectedTotalMass_ordinaryPort {In : ((Fin k ⊕ Unit) ⊕ Unit) → QReg}
+    (E : EmulatedOracle ((Fin k ⊕ Unit) ⊕ Unit) In) {L : LocalSig} (I : L.Interp)
+    {W : QReg → Type*} {A : QReg} (x : QuantumComp L (cohSpec In) W A)
+    (ρ : Matrix (A × E.S) (A × E.S) ℂ) :
+    E.selectedTotalMass I ordinaryPort x ρ = ∑ i, E.totalMass I x ρ (.inl (.inl i)) := by
+  simp [selectedTotalMass, Fintype.sum_sum_type, ordinaryPort]
 
 /-- All ports satisfy the collision drop and leak inequalities, charging only ordinary ports. -/
 theorem withRecord_port_bounds {t n : ℕ} (hn : n < t) (p : (Fin k ⊕ Unit) ⊕ Unit) :
@@ -397,6 +432,92 @@ theorem withRecord_port_bounds {t n : ℕ} (hn : n < t) (p : (Fin k ⊕ Unit) �
     have hl := h.1.smul (collisionRate_nonneg t n (N := Fintype.card Y) (by positivity))
     simpa only [h.2, conjTranspose_zero, Matrix.zero_mul, sub_zero,
       Bool.false_eq_true, ite_false] using hl
+
+
+/-- The record-world initial state has empty databases and constant recording cells. -/
+theorem compressedWithRecord_init :
+    ((compressedVCOracle k X Y).withRecord ME code bot V hV).init =
+      SubState.basis ((fun _ : Fin k ↦ (Database.empty : Database X Y)), RecReg.const bot) := by
+  change (SubState.basis (fun _ : Fin k ↦ (Database.empty : Database X Y))).prod
+    (SubState.basis (RecReg.const bot)) = _
+  exact SubState.basis_prod_basis _ _
+
+/-- The collision event and the initial population potential both vanish initially. -/
+theorem compressedWithRecord_initial_zero (t : ℕ) {A : QReg} (ρ : SubState A) :
+    let E := (compressedVCOracle k X Y).withRecord ME code bot V hV
+    let Q := familyCollisionMatrix (k := k) (X := X) (Y := Y) (R := RecReg k Cm Dm Cell)
+    let K := familyPotentialFactor (k := k) (X := X) (Y := Y) (R := RecReg k Cm Dm Cell)
+    MatrixMap.conj ((1 : Matrix A A ℂ) ⊗ₖ Q) (ρ.matrix ⊗ₖ E.init.matrix) = 0 ∧
+      QuantumRuntime.potential (K t 0) (ρ.matrix ⊗ₖ E.init.matrix) = 0 := by
+  classical
+  let d : (Fin k → Database X Y) × RecReg k Cm Dm Cell :=
+    ((fun _ ↦ Database.empty), RecReg.const bot)
+  have hz (f : ((Fin k → Database X Y) × RecReg k Cm Dm Cell) → ℂ) (hf : f d = 0) :
+      diagonal f * (SubState.basis d).matrix = 0 := by
+    rw [SubState.matrix_basis]
+    ext a b
+    rw [diagonal_mul, Matrix.single_apply]
+    split_ifs with h
+    · rw [← h.1, hf, zero_mul]
+      rfl
+    · simp
+  have hq := hz (fun s ↦ if Database.allCollisionLabel s.1 = true then 1 else 0) (by
+    simp [d, Database.allCollisionLabel, Database.allCollisionFree_empty])
+  have hp := hz (fun s ↦ (familyPopulation t 0 s.1 : ℂ)) (by
+    rw [familyPopulation_empty]; rfl)
+  have he := compressedWithRecord_init ME code bot V hV
+  dsimp only
+  rw [he]
+  constructor
+  · change MatrixMap.conj ((1 : Matrix A A ℂ) ⊗ₖ
+      diagonal (fun s : (Fin k → Database X Y) × RecReg k Cm Dm Cell ↦
+        if Database.allCollisionLabel s.1 = true then (1 : ℂ) else 0))
+        (ρ.matrix ⊗ₖ (SubState.basis d).matrix) = 0
+    rw [MatrixMap.conj_apply, ← mul_kronecker_mul, hq, kronecker_zero, Matrix.zero_mul]
+  · change QuantumRuntime.potential
+      (familyPotentialFactor (k := k) (X := X) (Y := Y) (R := RecReg k Cm Dm Cell) t 0)
+      (ρ.matrix ⊗ₖ (SubState.basis d).matrix) = 0
+    rw [QuantumRuntime.potential_eq, familyPotentialFactor_gram, ← mul_kronecker_mul]
+    change ENNReal.ofReal ((((1 : Matrix A A ℂ) * ρ.matrix) ⊗ₖ
+      (diagonal (fun s : (Fin k → Database X Y) × RecReg k Cm Dm Cell ↦
+        (familyPopulation t 0 s.1 : ℂ)) *
+        (SubState.basis d).matrix)).trace.re) = 0
+    rw [hp, kronecker_zero, Matrix.trace_zero, Complex.zero_re, ENNReal.ofReal_zero]
+
+/-- **The concrete `7/4` collision event bound**, bounds-note equations (87)–(89), (91).
+For arbitrary programs against the old k compressed oracles, extraction, and recording,
+the event that at least one database has a collision has weight at most
+`(7t+5)t min(w,t)/(4|Y|)`. Here `w` is the actual total ordinary query mass.
+The statement includes `t = 0` and subnormalized initial program states. -/
+theorem collisionEvent_compressedVCOracle_le {L : LocalSig} (I : L.Interp)
+    {W : QReg → Type*} {A : QReg}
+    (x : QuantumComp L (cohSpec (recIn k X Y Cm Z Yr)) W A)
+    {t : ℕ} (hx : x.IsQueryBound (fun _ ↦ t)) (ρ : SubState A) :
+    let E := (compressedVCOracle k X Y).withRecord ME code bot V hV
+    let σ := ρ.matrix ⊗ₖ E.init.matrix
+    let w := ∑ i : Fin k, E.totalMass I x σ (.inl (.inl i))
+    E.coherent.toRuntime.eventWeight I
+        (familyCollisionMatrix (k := k) (X := X) (Y := Y) (R := RecReg k Cm Dm Cell)) x σ ≤
+      ENNReal.ofReal ((7 * t + 5) * t / (4 * (Fintype.card Y : ℝ))) * min w t := by
+  classical
+  let E := (compressedVCOracle k X Y).withRecord ME code bot V hV
+  let Q := familyCollisionMatrix (k := k) (X := X) (Y := Y) (R := RecReg k Cm Dm Cell)
+  let K := familyPotentialFactor (k := k) (X := X) (Y := Y) (R := RecReg k Cm Dm Cell) t
+  have hQ := isStarProjection_labelProjector (α := ℂ)
+    (fun s : (Fin k → Database X Y) × RecReg k Cm Dm Cell ↦
+      Database.allCollisionLabel s.1) true
+  have hi := compressedWithRecord_initial_zero ME code bot V hV t ρ
+  refine (E.eventWeight_le_collision_of_port_bounds I ordinaryPort Q hQ.isSelfAdjoint
+    hQ.isIdempotentElem K (Fintype.card Y) (by positivity) ?_ x hx
+    (ρ.prod E.init).posSemidef (ρ.prod E.init).trace_re_le_one hi.1 hi.2).trans_eq ?_
+  · intro n hn p
+    have h := withRecord_port_bounds ME code bot V hV hn p
+    dsimp only at h
+    rw [← familyPotentialFactor_gram, ← familyPotentialFactor_gram] at h
+    exact h
+  · exact congrArg (fun w : ℝ≥0∞ ↦ ENNReal.ofReal
+      ((7 * t + 5) * t / (4 * (Fintype.card Y : ℝ))) * min w t)
+      (selectedTotalMass_ordinaryPort E I x (ρ.matrix ⊗ₖ E.init.matrix))
 
 end interfaces
 
