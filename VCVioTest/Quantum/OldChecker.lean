@@ -18,7 +18,7 @@ The numerical tests specify an error expression, not an offline security theorem
 public section
 
 open Quantum Quantum.CompressedReplay Matrix
-open scoped Matrix.Norms.L2Operator ComplexOrder ENNReal
+open scoped Matrix.Norms.L2Operator ComplexOrder ENNReal Kronecker
 
 namespace VCVioTest.OldChecker
 
@@ -136,5 +136,20 @@ example {k : ℕ} {Dm : Fin k → Type} [∀ i, Fintype (Dm i)]
         basisMatrix (TpDCode.responsePerm (TpDCode.partResponse ME A)) *
         basisMatrix (TpDCode.responsePerm (TpDCode.partResponse ME C)) :=
   TpDCode.extractUnitary_concat_factor ME B A C hBA hBC hcover
+
+/-- Original post-adversary population support is available for arbitrary local signatures
+and dependent final registers through an ordinary public import. -/
+example {k : ℕ} {X Y Cm Z : Type} [Fintype X] [DecidableEq X]
+    [Fintype Y] [DecidableEq Y] [AddCommGroup Y] [Fintype Cm] [DecidableEq Cm]
+    [Fintype Z] [DecidableEq Z] [AddGroup Z] {Dm : Fin k → Type}
+    (ME : MultiExtractor k Cm Dm (Fin k → Database X Y)) (code : TpDCode k Dm Z)
+    {L : LocalSig} (I : L.Interp) {W : QReg → Type*} {A : QReg}
+    {x : QuantumComp L (EmulatedOracle.cohSpec (extIn k X Y Cm Z)) W A}
+    {q : ℕ} (hx : x.IsQueryBound fun _ ↦ q) (ρ : SubState A) (p : Σ B, W B) :
+    QuerySupportedOn
+      (fun a : p.1 × (Fin k → Database X Y) ↦ databasePopulation a.2) (Set.Iic q)
+      ((((compressedVCOracle k X Y).withExtract ME code).coherent.toRuntime.jointPost
+        I x ρ p).matrix) :=
+  databasePopulation_post_old ME code I hx ρ p
 
 end VCVioTest.OldChecker

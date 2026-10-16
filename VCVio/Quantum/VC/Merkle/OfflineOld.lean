@@ -18,6 +18,11 @@ The leakage polynomial and invalid-sector term are those of FIX (26b).
 Natural subtractions are truncated before casting, and division by six is real division.
 Physical parameters have `N > 0` and nonnegative ordinary and extraction masses.
 
+`databasePopulation_post_old` bounds total populated cells in every original post-adversary
+branch of the old coherent ordinary/extraction runtime. It applies to any extractor and code,
+and general local operations with register-changing leaves. Its proof lifts the one-cell growth
+property structurally through the program; it does not require positivity of intermediate matrices.
+
 `TpDCode.concat` encodes each decommitment in a separate additive coordinate, with a separate
 length coordinate. Its coherent extraction matrix factors into commuting translations for any
 partition of the response positions. For full Merkle tuples each part depends only on its
@@ -33,9 +38,178 @@ four and eight in FIX (36) belong to the downstream reduction, not to this P4 er
 
 public section
 
-open scoped ENNReal
+open scoped ENNReal Kronecker
+
+open Matrix
+
+universe u v w
 
 namespace Quantum
+namespace EmulatedOracle
+
+variable {P : Type} [Fintype P] [DecidableEq P] {In : P → QReg}
+  (E : EmulatedOracle P In) (population : E.S → ℕ)
+
+/-- Coherent control preserves a portwise one-step population-growth bound. -/
+theorem population_coherent_le
+    (h : ∀ i a b, E.U i a b ≠ 0 → population a.2 ≤ population b.2 + 1)
+    (a b : (Σ i, In i) × E.S) (hab : E.coherent.U () a b ≠ 0) :
+    population a.2 ≤ population b.2 + 1 := by
+  rcases a with ⟨⟨i, a⟩, d⟩
+  rcases b with ⟨⟨j, b⟩, d'⟩
+  by_cases hij : i = j
+  · subst j
+    rw [E.coherent_U_apply_self] at hab
+    exact h i _ _ hab
+  · exact (hab (E.coherent_U_apply_of_ne hij a b d d')).elim
+
+/-- One coherent call increases the support population by at most one, with an arbitrary
+entangled remainder register. This is an operator-support statement, with no normalization. -/
+theorem population_queryStep
+    (h : ∀ i a b, E.U i a b ≠ 0 → population a.2 ≤ population b.2 + 1)
+    {A : QReg} {t : ℕ} (F : QReg) (ℓ : A ≃ (Σ i, In i) × F) (r : Unit)
+    {ρ : Matrix (A × E.S) (A × E.S) ℂ}
+    (hρ : QuerySupportedOn (fun a : A × E.S ↦ population a.2) (Set.Iic t) ρ) :
+    QuerySupportedOn (fun a : ((Σ i, In i) × F) × E.S ↦ population a.2)
+      (Set.Iic (t + 1)) ((E.coherent.toRuntime.queryStep () F ℓ).branch r ρ) := by
+  rw [QuantumRuntime.queryStep_branch_apply, SubInstrument.branch_frame_apply,
+    E.coherent.toRuntime_step_branch]
+  have h₁ := (hρ.branch_relabel (QuantumRuntime.queryEquivIn ℓ E.S)).imp
+    (q' := fun a : (((Σ i, In i) × E.S) × F) ↦ population a.1.2)
+    (S' := Set.Iic t) fun a ha ↦ by
+      obtain ⟨b, rfl⟩ := (QuantumRuntime.queryEquivIn ℓ E.S).surjective a
+      rwa [Function.comp_apply, Equiv.symm_apply_apply] at ha
+  have h₂ := QuerySupportedOn.amplify_fst
+    (q := fun a : (Σ i, In i) × E.S ↦ population a.2)
+    (q' := fun a : (Σ i, In i) × E.S ↦ population a.2)
+    (S := Set.Iic t) (S' := Set.Iic (t + 1))
+    (fun σ hσ ↦ QuerySupportedOn.conj hσ fun a b hab hb ↦
+      (E.population_coherent_le population h a b hab).trans (Nat.add_le_add_right hb 1)) h₁
+  refine (h₂.branch_relabel (QuantumRuntime.queryEquivOut _ E.S F)).imp fun a ha ↦ ?_
+  obtain ⟨b, rfl⟩ := (QuantumRuntime.queryEquivOut _ E.S F).surjective a
+  rwa [Function.comp_apply, Equiv.symm_apply_apply] at ha
+
+/-- A portwise one-step population bound lifts through arbitrary local instruments and
+register-changing leaves of a coherently controlled program. The input may be any joint matrix. -/
+theorem population_run (h : ∀ i a b, E.U i a b ≠ 0 → population a.2 ≤ population b.2 + 1)
+    {L : LocalSig.{u, v}} (I : L.Interp) {W : QReg → Type w} {A : QReg}
+    {x : QuantumComp L (cohSpec In) W A} {q : ℕ} (hx : x.IsQueryBound fun _ ↦ q) {t : ℕ}
+    {ρ : Matrix (A × E.S) (A × E.S) ℂ}
+    (hρ : QuerySupportedOn (fun a : A × E.S ↦ population a.2) (Set.Iic t) ρ)
+    (p : Σ B, W B) :
+    QuerySupportedOn (fun a : p.1 × E.S ↦ population a.2) (Set.Iic (t + q))
+      ((E.coherent.toRuntime.run I x).branch p ρ) := by
+  induction x using QuantumComp.inductionOn generalizing q t with
+  | pure _ y =>
+    rw [QuantumRuntime.run_pure]
+    by_cases hp : p = ⟨_, y⟩
+    · subst hp
+      rw [DSubInstrument.branch_ret_self]
+      exact QuerySupportedOn.mono hρ (Set.Iic_subset_Iic.mpr (Nat.le_add_right t q))
+    · rw [DSubInstrument.branch_ret_of_ne _ hp]
+      exact querySupportedOn_zero _ _
+  | primBind _ o k ih =>
+    rw [QuantumRuntime.run_primBind, DSubInstrument.branch_bind_apply]
+    exact QuerySupportedOn.tsum fun b ↦
+      ih b (fun i ↦ hx i b) (QuerySupportedOn.amplify_snd hρ _)
+  | queryBind _ i F ℓ k ih =>
+    obtain ⟨hq, hk⟩ := (QuantumComp.isQueryBound_queryBind_iff i F ℓ k _).mp hx
+    have hb : Function.update (fun _ : Unit ↦ q) i (q - 1) = fun _ ↦ q - 1 :=
+      funext fun j ↦ by cases i; cases j; exact Function.update_self ..
+    rw [hb] at hk
+    rw [QuantumRuntime.run_queryBind, DSubInstrument.branch_bind_apply]
+    refine QuerySupportedOn.tsum fun r ↦ ?_
+    rw [SubInstrument.branch_toD_apply]
+    cases i
+    have hh := ih r (hk r) (E.population_queryStep population h F ℓ r hρ)
+    rwa [Nat.add_assoc, Nat.add_sub_cancel' hq] at hh
+
+end EmulatedOracle
+
+/-- Total populated cells across all compressed databases; response registers are excluded. -/
+@[expose]
+noncomputable def databasePopulation {k : ℕ} {X Y : Type} [Fintype X]
+    (D : Fin k → Database X Y) : ℕ := ∑ i, (D i).size
+
+section population
+
+variable {k : ℕ} {X Y : Type} [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y]
+  [AddCommGroup Y]
+
+/-- An ordinary port of the old oracle adds at most one populated cell across the whole family. -/
+theorem databasePopulation_ordinary_le (i : Fin k)
+    (a b : (X × Y) × (Fin k → Database X Y))
+    (hab : (compressedVCOracle k X Y).U i a b ≠ 0) :
+    databasePopulation a.2 ≤ databasePopulation b.2 + 1 := by
+  rcases a with ⟨a, D⟩
+  rcases b with ⟨b, D'⟩
+  rw [compressedVCOracle_U, onFactor_apply, splitAt_apply, splitAt_apply] at hab
+  split_ifs at hab with hs
+  · have hsize := size_le_of_compressedOracle_apply_ne_zero hab
+    change (D i).size ≤ (D' i).size + 1 at hsize
+    have hother : ∀ j : {j // j ≠ i}, (D j).size = (D' j).size :=
+      fun j ↦ congrArg Database.size (congrFun hs j)
+    simp only [databasePopulation]
+    rw [Fintype.sum_eq_add_sum_subtype_ne _ i, Fintype.sum_eq_add_sum_subtype_ne _ i]
+    simp only [hother]
+    omega
+  · exact (hab rfl).elim
+
+variable {Cm Z : Type} [Fintype Cm] [DecidableEq Cm] [Fintype Z] [DecidableEq Z]
+  [AddGroup Z] {Dm : Fin k → Type}
+  (ME : MultiExtractor k Cm Dm (Fin k → Database X Y)) (code : TpDCode k Dm Z)
+
+/-- Extraction leaves every database entry unchanged, so the old extraction-extended oracle
+still adds at most one populated cell in a call. This holds for any extractor and encoding. -/
+theorem databasePopulation_withExtract_le (i : Fin k ⊕ Unit)
+    (a b : extIn k X Y Cm Z i × (Fin k → Database X Y))
+    (hab : ((compressedVCOracle k X Y).withExtract ME code).U i a b ≠ 0) :
+    databasePopulation a.2 ≤ databasePopulation b.2 + 1 := by
+  cases i with
+  | inl i => exact databasePopulation_ordinary_le i a b hab
+  | inr i =>
+    rcases a with ⟨⟨t, z⟩, D⟩
+    rcases b with ⟨⟨t', z'⟩, D'⟩
+    change extractUnitary ME code ((t, z), D) ((t', z'), D') ≠ 0 at hab
+    rw [extractUnitary_apply] at hab
+    split_ifs at hab with hs
+    · rw [hs.2.2]
+      exact Nat.le_succ _
+    · exact (hab rfl).elim
+
+/-- The original post-adversary state of the old coherent ordinary/extraction runtime is
+supported on databases with at most the total query budget of populated cells. Local instruments,
+adaptivity, entangled workspace, register-changing leaves and subnormalized inputs are allowed.
+This theorem concerns the adversary's output before any challenger check. -/
+theorem databasePopulation_post_old {L : LocalSig.{u, v}} (I : L.Interp)
+    {W : QReg → Type w} {A : QReg}
+    {x : QuantumComp L (EmulatedOracle.cohSpec (extIn k X Y Cm Z)) W A}
+    {q : ℕ} (hx : x.IsQueryBound fun _ ↦ q) (ρ : SubState A) (p : Σ B, W B) :
+    QuerySupportedOn
+      (fun a : p.1 × (Fin k → Database X Y) ↦ databasePopulation a.2) (Set.Iic q)
+      ((((compressedVCOracle k X Y).withExtract ME code).coherent.toRuntime.jointPost
+        I x ρ p).matrix) := by
+  rw [QuantumRuntime.matrix_jointPost]
+  have hρ : QuerySupportedOn
+      (fun a : A × (Fin k → Database X Y) ↦ databasePopulation a.2) (Set.Iic 0)
+      (ρ.matrix ⊗ₖ ((compressedVCOracle k X Y).withExtract ME code).init.matrix) := by
+    change QuerySupportedOn _ _
+      (ρ.matrix ⊗ₖ (SubState.basis (fun _ : Fin k ↦ (Database.empty : Database X Y))).matrix)
+    rw [SubState.matrix_basis]
+    intro a b hab
+    rw [kroneckerMap_apply] at hab
+    have hs := right_ne_zero_of_mul hab
+    rw [Matrix.single_apply] at hs
+    split_ifs at hs with he
+    · simp [← he.1, ← he.2, databasePopulation, Database.size_empty]
+    · exact (hs rfl).elim
+  have hh := ((compressedVCOracle k X Y).withExtract ME code).population_run databasePopulation
+    (databasePopulation_withExtract_le ME code) I hx hρ p
+  rw [Nat.zero_add] at hh
+  exact hh
+
+end population
+
 namespace TpDCode
 
 variable {k : ℕ} {Dm : Fin k → Type} [∀ i, Fintype (Dm i)]
