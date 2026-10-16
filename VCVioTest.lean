@@ -144,5 +144,6 @@ public import VCVioTest.Tactic.Positivity
 public import VCVioTest.ToFinalValidity
 public import VCVioTest.ToMathlib.AbsDiff
 public import VCVioTest.UniformOn
+public import VCVioTest.UniformThreshold
 public import VCVioTest.UniversePolymorphism
 public import VCVioTest.Unpredictability
