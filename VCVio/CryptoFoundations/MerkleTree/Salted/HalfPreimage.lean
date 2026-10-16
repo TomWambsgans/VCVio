@@ -11,10 +11,10 @@ public import VCVio.CryptoFoundations.MerkleTree.Salted.Extract
 # Half-preimages and the stability of Merkle extraction
 
 The half-preimages of a database `D` (Chiesa, Di, Hu and Zheng, ePrint 2025/2166, Def 8.5,
-l.3126–3129; Chiesa, Manohar and Spooner, TCC 2019, Def 6.3) are the values `u` that occur as one
+p. 55; Chiesa, Manohar and Spooner, TCC 2019, Def 6.3) are the values `u` that occur as one
 half of a node input `(u, u')` or `(u', u)` in the domain of `D`.
 
-Lemma 8.6 (l.3130–3132; CMS19 Lemma 6.5) says that adding a new entry `x ↦ y` to `D` can change
+Lemma 8.6 (p. 55; CMS19 Lemma 6.5) says that adding a new entry `x ↦ y` to `D` can change
 `MTExtract(rt, D)` only when `y ∈ {rt} ∪ HP(D)`. It holds for **every** database, with or without
 collisions:
 
@@ -23,7 +23,7 @@ collisions:
 * the new entry changes no preimage set of a value `u ≠ y` (`nodePre_update`, `leafPre_update`), so
   the extraction, which only asks for preimages of reached labels, is unchanged.
 
-Lemma 8.8 (§8.3, l.3191–3236) uses this with `|HP(D)| ≤ 2 |D|` (`ncard_halfPreimages_le`) to bound
+Lemma 8.8 (§8.3, p. 56) uses this with `|HP(D)| ≤ 2 |D|` (`ncard_halfPreimages_le`) to bound
 the instability of the online label of `MTMultiExtract`; `multiExtract_update_eq` is the form of
 Lemma 8.6 for one database of a tuple.
 
@@ -50,7 +50,7 @@ namespace SaltedMerkle
 
 variable {X : Type uX} {Y : Type uY} {Msg : Type uM} {Salt : Type uS}
 
-/-- The half-preimages `HP(D)` of a database (Def 8.5, l.3126–3129): the values `u` with a node
+/-- The half-preimages `HP(D)` of a database (Def 8.5, p. 55): the values `u` with a node
 input `(u, u')` or `(u', u)` in the domain of `D`. -/
 @[expose]
 def halfPreimages (enc : Encoding X Y Msg Salt) (D : Database X Y) : Set Y :=
@@ -140,7 +140,7 @@ theorem extLabel_update {rt : Y} (hx : D x = none) (hy : y ∉ insert rt (halfPr
 
 variable [Fintype Msg] [LinearOrder Msg] [Fintype Salt] [LinearOrder Salt]
 
-/-- **Lemma 8.6** (l.3130–3132; CMS19 Lemma 6.5), for every database, collisions included: adding
+/-- **Lemma 8.6** (p. 55; CMS19 Lemma 6.5), for every database, collisions included: adding
 an entry `x ↦ y` at an empty position, with `y ∉ {rt} ∪ HP(D)`, does not change
 `MTExtract(rt, D)`. -/
 theorem extract_eq_of_not_mem {d : ℕ} {rt : Y} (hx : D x = none)

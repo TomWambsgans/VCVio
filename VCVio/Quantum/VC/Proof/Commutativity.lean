@@ -15,9 +15,9 @@ public import VCVio.Quantum.VC.Conditions
 /-!
 # Lemma 9.2: the k compressed oracles commute with the purified extractor
 
-This file proves the commutation half of property P2 (ePrint 2025/2166, Def 7.3, l.2844–2857) for
+This file proves the commutation half of property P2 (ePrint 2025/2166, Def 7.3, p. 50) for
 the k compressed oracles `Quantum.compressedVCOracle`, following the proof of Lemma 9.2
-(l.3261–3350). Let `C = U_ME O_i − O_i U_ME` be the commutation defect on the output of a P2
+(pp. 58–59). Let `C = U_ME O_i − O_i U_ME` be the commutation defect on the output of a P2
 adversary and the k databases (`Quantum.comDefect`).
 
 1. **Size invariant.** Every port of `EO^(Ext)` changes `D_i` in at most one cell, so after `t`
@@ -44,7 +44,7 @@ adversary and the k databases (`Quantum.comDefect`).
 
 ## Constants
 
-The paper's commutation error is `80 · sup I(P_online, t + 1)` (l.3261–3350), from the constant
+The paper's commutation error is `80 · sup I(P_online, t + 1)` (pp. 58–59), from the constant
 `80` of its Theorem 5.4. This file proves it with `24`, the constant of the sharpened
 Corollary 5.6 (`Quantum.l2_opNorm_commutator_purifiedMeasurement_sq_le_twentyFour_mul`). The
 paper's statement is the corollary `Quantum.comBound_compressedVCOracle_eighty`.
@@ -569,7 +569,7 @@ variable {k : ℕ} {X Y Cm Z : Type} [DecidableEq X] {Dm : Fin k → Type}
   (ME : MultiExtractor k Cm Dm (Fin k → Database X Y)) (code : TpDCode k Dm Z)
   [AnswerMeasure (X →ₒ Y)]
 
-/-- **The error of Lemma 9.2 with the constant `24`** (ePrint 2025/2166, l.3261–3350): `24` times
+/-- **The error of Lemma 9.2 with the constant `24`** (ePrint 2025/2166, pp. 58–59): `24` times
 the largest instability, at query bound `t + 1`, of the online partition of one extraction with
 all databases but one fixed. -/
 @[expose]
@@ -578,7 +578,7 @@ noncomputable def comBoundError (t : ℕ) : ℝ≥0∞ :=
     Database.instability (onlineLabel ME ![tic] Dfix j') (t + 1)
 
 /-- The label of the extraction on the block of `comSplit i` at `(tic, (D_j)_{j ≠ i})`, as a
-function of `D_i`, coarsens an online partition of Theorem 8.4 (ePrint 2025/2166, l.3078–3088), so
+function of `D_i`, coarsens an online partition of Theorem 8.4 (ePrint 2025/2166, p. 54), so
 its instability is at most the largest instability of those. -/
 theorem instability_extractLabel_le (i : Fin k) (c : TpIC k Cm × ({j // j ≠ i} → Database X Y))
     (s : ℕ) :
@@ -623,7 +623,7 @@ variable {k : ℕ} {X Y Cm Z : Type} [Fintype X] [DecidableEq X] [Fintype Y] [De
   {Dm : Fin k → Type} (ME : MultiExtractor k Cm Dm (Fin k → Database X Y))
   (code : TpDCode k Dm Z)
 
-/-- **Lemma 9.2 of ePrint 2025/2166 with the constant `24`** (l.3261–3350): the k compressed
+/-- **Lemma 9.2 of ePrint 2025/2166 with the constant `24`** (pp. 58–59): the k compressed
 oracles satisfy the commutation half of P2 with
 `κcom t = 24 · sup_{j', tic, (D_j)_j} I(P_online^{tic, (D_j)_{j ≠ j'}}, t + 1)`.
 
@@ -698,7 +698,7 @@ theorem comBound_compressedVCOracle [UniformAnswerMeasure (X →ₒ Y)] :
         ← hSdef]
       norm_num
 
-/-- **Lemma 9.2 of ePrint 2025/2166 with the paper's constant `80`** (l.3261–3350): a corollary of
+/-- **Lemma 9.2 of ePrint 2025/2166 with the paper's constant `80`** (pp. 58–59): a corollary of
 `Quantum.comBound_compressedVCOracle`. -/
 theorem comBound_compressedVCOracle_eighty [UniformAnswerMeasure (X →ₒ Y)] :
     ComBound.{v, w} (compressedVCOracle k X Y) ME code fun t ↦

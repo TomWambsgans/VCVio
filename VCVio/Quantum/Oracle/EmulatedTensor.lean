@@ -10,7 +10,7 @@ public import VCVio.Quantum.Oracle.Emulated
 /-!
 # The tensor-product interface of emulated oracles
 
-In ePrint 2025/2166, §4.1 (l.1339–1342), an adversary queries an emulated oracle
+In ePrint 2025/2166, §4.1 (p. 28), an adversary queries an emulated oracle
 `EO = (Init, (U_i)_i)` on the registers `I ⊗ X_1 ⊗ ⋯ ⊗ X_k`: an index register and one register
 per port, all present at every query. A query applies `U = ∑ᵢ |i⟩⟨i|_I ⊗ (U_i)_{X_i S}`, which
 acts on `X_i` and the private register `S` when the index is `i`, and as the identity on the
@@ -32,7 +32,7 @@ states the query masses.
   (`Quantum.EmulatedOracle.tensor_U_eq`). Its entries are those of the paper's
   `∑ᵢ |i⟩⟨i| ⊗ U_i ⊗ 1` (`Quantum.EmulatedOracle.tensor_U_apply`).
 * `Quantum.EmulatedOracle.tensorMass`: the total mass `TotalMass(A, i)` of Definitions 4.1 and 4.3
-  (l.1359–1386) for programs against the tensor-product interface. Its masses add up to the query
+  (pp. 28–29) for programs against the tensor-product interface. Its masses add up to the query
   mass of the port (`Quantum.EmulatedOracle.sum_tensorMass`, Remark 4.2). They are the index
   masses of the projectors `Quantum.EmulatedOracle.tensIndexProj` onto the values of the index
   register (`Quantum.EmulatedOracle.tensorMass_eq_indexMass`), a coherent index that the
@@ -91,7 +91,7 @@ def otherIn (In : P → QReg) (i : P) : QReg :=
   QReg.of (∀ j : {j // j ≠ i}, In j)
 
 /-- The tensor-product query register `P × ∀ j, In j`: the index together with the registers of
-all the ports (the paper's `I ⊗ X_1 ⊗ ⋯ ⊗ X_k`, l.1339). -/
+all the ports (the paper's `I ⊗ X_1 ⊗ ⋯ ⊗ X_k`, p. 28). -/
 @[expose, reducible]
 def tensIn (In : P → QReg) : QReg :=
   QReg.of (P × ∀ j, In j)
@@ -125,7 +125,7 @@ noncomputable def widen (E : EmulatedOracle P In) :
   unitary i := reindex_mem_unitaryGroup _
     (Matrix.kronecker_mem_unitary (E.unitary i) (one_mem _))
 
-/-- **The tensor-product interface** (ePrint 2025/2166, l.1339–1342): one port on `tensIn In`,
+/-- **The tensor-product interface** (ePrint 2025/2166, p. 28): one port on `tensIn In`,
 answered by `∑ᵢ |i⟩⟨i| ⊗ U_i ⊗ 1` (`Quantum.EmulatedOracle.tensor_U_apply`). It is the coherent
 oracle of `E.widen`, with its port register moved along `Quantum.EmulatedOracle.tensEquiv`. -/
 @[expose, reducible]
@@ -179,13 +179,13 @@ theorem tensor_U_apply (i i' : P) (x x' : ∀ j, In j) (d d' : E.S) :
 /-! ## Masses on the tensor-product interface -/
 
 /-- The projector of the tensor-product register onto the index `i`, tensored with the identity
-on the private register (the paper's `P_mass^(i) = |i⟩⟨i|_I`, l.1364). -/
+on the private register (the paper's `P_mass^(i) = |i⟩⟨i|_I`, p. 28). -/
 @[expose]
 noncomputable def tensorProj (i : P) : Matrix (tensIn In × E.S) (tensIn In × E.S) ℂ :=
   Matrix.diagonal fun a ↦ if a.1.1 = i then 1 else 0
 
 /-- The projector of the tensor-product register onto the index `i`, on the input register of
-the port alone (the paper's `|i⟩⟨i|_I`, l.1364): the projector onto the fibre of `i` under
+the port alone (the paper's `|i⟩⟨i|_I`, p. 28): the projector onto the fibre of `i` under
 `Prod.fst`. These are the blocks of the coherent index of `Quantum.EmulatedOracle.tensSpec`
 (`Quantum.EmulatedOracle.isCoherentIndex_tensIndexProj`). -/
 @[expose, reducible]
@@ -241,7 +241,7 @@ theorem sum_trace_conj_tensorProj (σ : Matrix (tensIn In × E.S) (tensIn In × 
     _ = σ.trace := Finset.sum_congr rfl fun a _ ↦ by simp
 
 /-- **Total query mass on the tensor-product interface** (ePrint 2025/2166, Definitions 4.1 and
-4.3, l.1359–1386): the weight of the index-`i` component of the input of every call of `x` to the
+4.3, pp. 28–29): the weight of the index-`i` component of the input of every call of `x` to the
 tensor-product oracle, summed over the calls, for `x` run from the joint operator `ρ` on
 `A × S`. -/
 @[expose]
@@ -267,7 +267,7 @@ theorem tensorMass_eq_indexMass (x : QuantumComp L (tensSpec In) W A)
     (funext fun _ ↦ funext fun σ ↦ ?_)
   rw [tsum_eq_single i fun k hk ↦ by simp [hk], ite_eq_left rfl, tensorProj_eq_kronecker]
 
-/-- **Remark 4.2** (l.1370–1373) on the tensor-product interface: on a positive semidefinite
+/-- **Remark 4.2** (p. 28) on the tensor-product interface: on a positive semidefinite
 input, the masses on the indices add up to the query mass of the port. It is the completeness of
 the index projectors in `Quantum.QuantumRuntime.tsum_indexMass_eq_queryMass`. -/
 theorem sum_tensorMass (x : QuantumComp L (tensSpec In) W A)
