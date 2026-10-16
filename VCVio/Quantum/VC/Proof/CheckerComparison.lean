@@ -262,14 +262,14 @@ theorem invalid_idempotent [AddCommGroup Y] (c : Fin k × X) :
   simp only [and_self]
 
 /-- The cellwise invalid-sector projectors are Hermitian. -/
-theorem invalid_hermitian [AddCommGroup Y] (c : Fin k × X) :
+theorem invalid_hermitian (c : Fin k × X) :
     (invalid (Y := Y) c)ᴴ = invalid c := by
   simp only [invalid, conjTranspose_mul, conjTranspose_compressDatabases,
     conjTranspose_diagonal_ite, Matrix.mul_assoc]
 
 /-- Stack all invalid projectors into a rectangular operator. Its squared norm on a state
 is the sum of the cellwise invalid weights, not a union-event probability. -/
-noncomputable def invalidStack [AddCommGroup Y] :
+noncomputable def invalidStack :
     Matrix ((Fin k × X) × (Fin k → Database X Y)) (Fin k → Database X Y) ℂ :=
   Matrix.of fun a b ↦ invalid a.1 a.2 b
 
