@@ -202,7 +202,7 @@ theorem outcomeLawWith_le_one (R : QuantumRuntime spec) (I : L.Interp)
     _ ≤ 1 := MeasureTheory.measure_le_one _ _
 end QuantumRuntime
 
-/-- Square-root comparisons of subprobabilities admit an error cap of one. -/
+/-- Square-root comparisons of subprobabilities allow an error cap of one. -/
 theorem rpow_bounds_cap {p q ε : ℝ≥0∞} (hp : p ≤ 1) (hq : q ≤ 1)
     (h : p ^ (2⁻¹ : ℝ) ≤ q ^ (2⁻¹ : ℝ) + ε ^ (2⁻¹ : ℝ) ∧
       q ^ (2⁻¹ : ℝ) ≤ p ^ (2⁻¹ : ℝ) + ε ^ (2⁻¹ : ℝ)) :
