@@ -452,10 +452,13 @@ public import VCVio.Quantum.VC.Conditions
 public import VCVio.Quantum.VC.Emulated
 public import VCVio.Quantum.VC.Hadamard
 public import VCVio.Quantum.VC.HadamardCellBounds
+public import VCVio.Quantum.VC.HadamardCellPartition
 public import VCVio.Quantum.VC.HadamardChecking
 public import VCVio.Quantum.VC.HadamardCommutation
 public import VCVio.Quantum.VC.HadamardExecution
 public import VCVio.Quantum.VC.HadamardExtraction
+public import VCVio.Quantum.VC.HadamardLocality
+public import VCVio.Quantum.VC.HadamardPopulation
 public import VCVio.Quantum.VC.HadamardResidual
 public import VCVio.Quantum.VC.HadamardSimulation
 public import VCVio.Quantum.VC.HadamardWitness
