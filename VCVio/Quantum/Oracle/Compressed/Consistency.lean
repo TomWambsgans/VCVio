@@ -30,7 +30,7 @@ zero.
 
 This is eq. (26) of the notes on Chiesa, Di, Hu and Zheng, *How to Prove Post-Quantum Security
 for Succinct Non-Interactive Reductions* (ePrint 2025/2166), and sharpens their Lemma 9.5
-(l.3440–3460), which states `‖P̂ - P‖ ≤ 2√(d/N)`; that bound is the corollary
+(pp. 60–61), which states `‖P̂ - P‖ ≤ 2√(d/N)`; that bound is the corollary
 `Quantum.l2_opNorm_compressedCheckProjector_sub_le_two_mul_sqrt`.
 
 ## Main definitions
@@ -346,7 +346,7 @@ theorem one_sub_inv_card_pow_mem_Icc (d : ℕ) :
 
 /-- **The exact discrepancy of a consistency projector (eq. (26)).** For a consistent prescription
 on `d` distinct inputs, `‖P̂ - P‖² = 1 - (1 - 1/N)^(2d)`, where `P̂ = F P F`. This is exact; the
-paper bounds the norm by `2√(d/N)` (ePrint 2025/2166, Lemma 9.5, l.3452). -/
+paper bounds the norm by `2√(d/N)` (ePrint 2025/2166, Lemma 9.5, p. 61). -/
 theorem l2_opNorm_compressedCheckProjector_sub_sq {io : List (ι × Y)} (h : ConsistentIO io) :
     ‖compressedCheckProjector io - checkProjector Y io‖ ^ 2 =
       1 - (1 - (Fintype.card Y : ℝ)⁻¹) ^ (2 * (ioCells io).card) := by
@@ -392,7 +392,7 @@ theorem l2_opNorm_compressedCheckProjector_sub_sq_le (io : List (ι × Y)) :
     norm_num
     positivity
 
-/-- **Lemma 9.5 of the paper** (ePrint 2025/2166, l.3452): `‖P̂ - P‖ ≤ 2√(d/N)`. It follows from
+/-- **Lemma 9.5 of the paper** (ePrint 2025/2166, p. 61): `‖P̂ - P‖ ≤ 2√(d/N)`. It follows from
 the sharper `‖P̂ - P‖² ≤ 2d/N`. -/
 theorem l2_opNorm_compressedCheckProjector_sub_le_two_mul_sqrt (io : List (ι × Y)) :
     ‖compressedCheckProjector io - checkProjector Y io‖ ≤

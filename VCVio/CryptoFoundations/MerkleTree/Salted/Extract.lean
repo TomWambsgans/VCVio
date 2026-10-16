@@ -14,10 +14,10 @@ public import VCVio.OracleComp.QueryTracking.Collision
 # Extraction from a database for salted Merkle trees
 
 The extractor `MTExtract(rt, D)` of Chiesa, Di, Hu and Zheng (ePrint 2025/2166, §8.3,
-l.3101–3117) reads a salted Merkle tree out of a database `D : Database X Y`, the classical state
+pp. 54–55) reads a salted Merkle tree out of a database `D : Database X Y`, the classical state
 of a compressed oracle. Starting from the root `rt`, it expands a vertex with label `u` into the
 lexicographically first node preimage `(y₀, y₁)` of `u`, and at the leaves it reads the
-lexicographically first leaf preimage `(m_ι, γ_ι)`. `MTMultiExtract` (l.3119–3124) runs `MTExtract`
+lexicographically first leaf preimage `(m_ι, γ_ι)`. `MTMultiExtract` (p. 55) runs `MTExtract`
 on every commitment of a tuple, against the database of its oracle.
 
 ## Design
@@ -26,7 +26,7 @@ on every commitment of a tuple, against the database of its oracle.
   level `j + 1` and position `p` is the left or right half of the node preimage of the label at
   level `j` and position `p / 2`.
 * A vertex is expanded only on a *node-shaped* preimage `D (enc.node (y₀, y₁)) = some u`. The paper
-  tests `u ∈ im(D)` (l.3104) and then takes the first preimage of node length (l.3106). When `u` has
+  tests `u ∈ im(D)` (p. 54) and then takes the first preimage of node length (p. 54). When `u` has
   a preimage but none of node length, which can happen under domain separation (for example a leaf
   input mapped to `u`), the paper's step is undefined; expanding only on a node-shaped preimage
   repairs that case by leaving the children `⊥`.
@@ -38,13 +38,13 @@ on every commitment of a tuple, against the database of its oracle.
 
 ## Conditions 2 and 3 of Thm 8.4
 
-The classical conditions of Thm 8.4 (l.3036–3054) that §8.3 verifies for salted Merkle trees
-(l.3138–3177), with `P_good` the collision-free databases (`collisionFree`):
+The classical conditions of Thm 8.4 (pp. 53–54) that §8.3 verifies for salted Merkle trees
+(pp. 55–56), with `P_good` the collision-free databases (`collisionFree`):
 
-* `extract_binding`, `multiExtract_binding` (condition 2, l.3036–3043): if a collision-free
+* `extract_binding`, `multiExtract_binding` (condition 2, p. 53): if a collision-free
   database accepts `(rt, ans, pf)`, the extracted message agrees with `ans` and the extracted
   trapdoor opens `dom ans` to `pf`;
-* `extract_valid`, `multiExtract_valid` (condition 3, l.3049–3054): every database accepts the
+* `extract_valid`, `multiExtract_valid` (condition 3, p. 54): every database accepts the
   extracted message on its domain with the opening of the extracted trapdoor;
 * `empty_mem_collisionFree` (condition 2, first half): `∅ ∈ P_good`.
 
@@ -136,14 +136,14 @@ end leastPre
 
 /-! ## The collision-free databases -/
 
-/-- `P_good` of §8.3 (l.3140): the databases without a collision, that is, in which an output
+/-- `P_good` of §8.3 (p. 55): the databases without a collision, that is, in which an output
 determines its input. For `X Y : Type` this is the absence of #851's
 `OracleComp.CacheHasCollision` on `Quantum.Database.equivQueryCache` (`mem_collisionFree_iff`). -/
 @[expose]
 def collisionFree : Set (Database X Y) :=
   {D | ∀ ⦃x₀ x₁ : X⦄ ⦃y : Y⦄, D x₀ = some y → D x₁ = some y → x₀ = x₁}
 
-/-- `∅ ∈ P_good` (Thm 8.4 condition 2, l.3036). -/
+/-- `∅ ∈ P_good` (Thm 8.4 condition 2, p. 53). -/
 theorem empty_mem_collisionFree : (Database.empty : Database X Y) ∈ collisionFree := by
   intro x₀ x₁ y h₀
   simp [Database.empty] at h₀
@@ -176,13 +176,13 @@ section Node
 
 variable [Fintype Y]
 
-/-- The lexicographically first node preimage `(y₀, y₁)` of `u` (l.3106). -/
+/-- The lexicographically first node preimage `(y₀, y₁)` of `u` (p. 54). -/
 @[expose]
 def nodePre (enc : Encoding X Y Msg Salt) (D : Database X Y) (u : Y) : Option (Y × Y) :=
   (leastPre (fun p : Lex (Y × Y) ↦ enc.node (ofLex p)) D u).map ofLex
 
 /-- The label at level `j` and position `p` of the tree that `MTExtract(rt, D)` builds
-(l.3101–3110): the root is `rt`, and the label at level `j + 1` and position `p` is the left half
+(p. 54): the root is `rt`, and the label at level `j + 1` and position `p` is the left half
 (`p` even) or the right half (`p` odd) of the node preimage of its parent label. -/
 @[expose]
 def extLabel (enc : Encoding X Y Msg Salt) (D : Database X Y) (rt : Y) : ℕ → ℕ → Option Y
@@ -222,7 +222,7 @@ section Leaf
 
 variable [Fintype Msg] [LinearOrder Msg] [Fintype Salt] [LinearOrder Salt]
 
-/-- The lexicographically first leaf preimage `(m, γ)` of `u` (l.3112). -/
+/-- The lexicographically first leaf preimage `(m, γ)` of `u` (p. 55). -/
 @[expose]
 def leafPre (enc : Encoding X Y Msg Salt) (D : Database X Y) (u : Y) : Option (Msg × Salt) :=
   (leastPre (fun p : Lex (Msg × Salt) ↦ enc.leaf (ofLex p)) D u).map ofLex
@@ -270,13 +270,13 @@ end Parse
 
 variable [Fintype Y] [Fintype Msg] [LinearOrder Msg] [Fintype Salt] [LinearOrder Salt]
 
-/-- The leaf preimage `(m_ι, γ_ι)` of the extracted leaf label (l.3111–3113). -/
+/-- The leaf preimage `(m_ι, γ_ι)` of the extracted leaf label (pp. 54–55). -/
 @[expose]
 def extLeaf (enc : Encoding X Y Msg Salt) (d : ℕ) (rt : Y) (D : Database X Y) (ι : ℕ) :
     Option (Msg × Salt) :=
   (extLabel enc D rt d ι).bind (leafPre enc D)
 
-/-- `MTExtract(rt, D)` (l.3101–3117): the extracted message and the trapdoor `(γ, C)`, with `⊥` for
+/-- `MTExtract(rt, D)` (pp. 54–55): the extracted message and the trapdoor `(γ, C)`, with `⊥` for
 every value that the extraction does not reach. -/
 @[expose]
 def extract (enc : Encoding X Y Msg Salt) (d : ℕ) (rt : Y) (D : Database X Y) :
@@ -284,7 +284,7 @@ def extract (enc : Encoding X Y Msg Salt) (d : ℕ) (rt : Y) (D : Database X Y) 
   (fun ι ↦ (extLeaf enc d rt D ι).map Prod.fst,
     (fun ι ↦ (extLeaf enc d rt D ι).map Prod.snd, fun j q ↦ extLabel enc D rt j q))
 
-/-- `MTMultiExtract` (l.3119–3124) with a distinctness guard: position `i` of a tuple with distinct
+/-- `MTMultiExtract` (p. 55) with a distinctness guard: position `i` of a tuple with distinct
 indices is `MTExtract(rt_i, D_{idx_i})` for the tree of depth `d i`; a tuple with a repeated index
 extracts to all `⊥`. -/
 @[expose]
@@ -348,7 +348,7 @@ section Valid
 
 variable [DecidableEq X]
 
-/-- **Validity** (Thm 8.4 condition 3, l.3049–3054; §8.3, l.3170–3177): every database accepts the
+/-- **Validity** (Thm 8.4 condition 3, p. 54; §8.3, p. 56): every database accepts the
 extracted message on its domain, with the opening of the extracted trapdoor. -/
 theorem extract_valid (d : ℕ) (rt : Y) (D : Database X Y) :
     checkOn enc d D rt (extract enc d rt D).1
@@ -413,7 +413,7 @@ theorem extract_path_of_checkOn {d : ℕ} {rt : Y} {D : Database X Y} (hD : D �
 
 variable [DecidableEq X]
 
-/-- **Binding** (Thm 8.4 condition 2, l.3036–3043; §8.3, l.3144–3168): if a collision-free
+/-- **Binding** (Thm 8.4 condition 2, p. 53; §8.3, pp. 55–56): if a collision-free
 database accepts `(rt, ans, pf)`, then the extracted message agrees with `ans` on `dom ans`, and the
 extracted trapdoor opens `dom ans` to exactly `pf`. -/
 theorem extract_binding {d : ℕ} {rt : Y} {ans : PartialVec (2 ^ d) Msg} {pf : Pf Y Salt d}
@@ -457,7 +457,7 @@ theorem extract_binding {d : ℕ} {rt : Y} {ans : PartialVec (2 ^ d) Msg} {pf : 
 
 variable {k : ℕ} (d : Fin k → ℕ)
 
-/-- **Binding for `MTMultiExtract`** (Thm 8.4 condition 2, l.3036–3043): for distinct indices and
+/-- **Binding for `MTMultiExtract`** (Thm 8.4 condition 2, p. 53): for distinct indices and
 collision-free databases, if every check passes, every extracted message agrees with its answers
 and every extracted trapdoor opens to its proof. -/
 theorem multiExtract_binding (hk : 1 ≤ k) (idx : Fin k → Fin k) (hidx : Function.Injective idx)
@@ -472,7 +472,7 @@ theorem multiExtract_binding (hk : 1 ≤ k) (idx : Fin k → Fin k) (hidx : Func
   simp only [multiExtract, ite_eq_left hinj]
   exact extract_binding enc (hD (idx i)) (h i)
 
-/-- **Validity for `MTMultiExtract`** (Thm 8.4 condition 3, l.3049–3054): for distinct indices and
+/-- **Validity for `MTMultiExtract`** (Thm 8.4 condition 3, p. 54): for distinct indices and
 any databases, every extracted message passes the check on its domain with the opening of its
 extracted trapdoor. -/
 theorem multiExtract_valid (hk : 1 ≤ k) (idx : Fin k → Fin k) (hidx : Function.Injective idx)
