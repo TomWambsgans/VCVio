@@ -86,3 +86,9 @@ example : ∑ j ∈ Finset.range 3, ENNReal.ofReal (24 * (onlineStepWeight j : �
   norm_num
 
 end
+
+#check Quantum.recordUnitary_swap_apply
+#check Quantum.RecReg.swapUnitary_mem_unitaryGroup
+#check Quantum.RecReg.swapUnitary_initial
+#check Quantum.recordUnitary_swap_conjugacy
+#check Quantum.extractUnitary_swap_conjugacy

@@ -33,6 +33,45 @@ open scoped Kronecker ENNReal ComplexOrder
 
 namespace Quantum
 
+section
+variable {Q Yr S Cell : Type*} {T : Q → Type*}
+  [∀ q, DecidableEq (T q)]
+
+/-- Swap each unsplit cell with the split cell selected by its dependent label. -/
+@[expose]
+def cellSwap (f : ∀ q, T q) (R : (Q → Cell) × ((Σ q, T q) → Cell)) :=
+  (fun q ↦ R.2 ⟨q, f q⟩, fun qt : Σ q, T q ↦ if qt.2 = f qt.1 then R.1 qt.1 else R.2 qt)
+
+/-- Equality of spectator cells is transported from unsplit to split recording. -/
+theorem cellSwap_rest (f : ∀ q, T q) (q : Q)
+    (R R' : (Q → Cell) × ((Σ q, T q) → Cell)) :
+    ((∀ p, p ≠ q → (cellSwap f R).1 p = (cellSwap f R').1 p) ∧
+      (cellSwap f R).2 = (cellSwap f R').2) ↔
+    (R.1 = R'.1 ∧ ∀ qt : Σ q, T q, qt ≠ ⟨q, f q⟩ → R.2 qt = R'.2 qt) := by
+  constructor
+  · rintro ⟨h₁, h₂⟩
+    refine ⟨funext fun p ↦ ?_, fun qt hqt ↦ ?_⟩
+    · simpa [cellSwap] using congrFun h₂ ⟨p, f p⟩
+    · obtain ⟨p, t⟩ := qt
+      by_cases ht : t = f p
+      · subst ht
+        exact h₁ p (fun hp ↦ hqt (by subst hp; rfl))
+      · simpa [cellSwap, ht] using congrFun h₂ ⟨p, t⟩
+  · rintro ⟨h₁, h₂⟩
+    refine ⟨fun p hp ↦ ?_, funext fun qt ↦ ?_⟩
+    · exact h₂ ⟨p, f p⟩ fun he ↦ hp (congrArg Sigma.fst he)
+    · obtain ⟨p, t⟩ := qt
+      by_cases ht : t = f p
+      · simp [cellSwap, ht, h₁]
+      · have hn : (⟨p, t⟩ : Σ q, T q) ≠ ⟨q, f q⟩ := by
+          intro he
+          have hp := congrArg Sigma.fst he
+          subst hp
+          exact ht (eq_of_heq (Sigma.mk.inj he).2)
+        simpa [cellSwap, ht] using h₂ ⟨p, t⟩ hn
+
+end
+
 namespace RecReg
 
 variable {k : ℕ} {Cm Cell : Type*} {Dm : Fin k → Type*}
@@ -135,27 +174,8 @@ theorem swap_rest_eq_iff (s : S) (q : TpIC k Cm) (R R' : RecReg k Cm Dm Cell) :
       (swap ME s R).2 = (swap ME s R').2) ↔
     (R.1 = R'.1 ∧ ∀ qt : TpICD k Cm Dm,
       qt ≠ ⟨q, ME.extract q s⟩ → R.2 qt = R'.2 qt) := by
-  constructor
-  · rintro ⟨h₁, h₂⟩
-    refine ⟨funext fun p ↦ ?_, fun qt hqt ↦ ?_⟩
-    · simpa [swap] using congrFun h₂ ⟨p, ME.extract p s⟩
-    · obtain ⟨p, t⟩ := qt
-      by_cases ht : t = ME.extract p s
-      · subst ht
-        exact h₁ p (fun hp ↦ hqt (by subst hp; rfl))
-      · simpa [swap, ht] using congrFun h₂ ⟨p, t⟩
-  · rintro ⟨h₁, h₂⟩
-    refine ⟨fun p hp ↦ ?_, funext fun qt ↦ ?_⟩
-    · exact h₂ ⟨p, ME.extract p s⟩ fun he ↦ hp (congrArg Sigma.fst he)
-    · obtain ⟨p, t⟩ := qt
-      by_cases ht : t = ME.extract p s
-      · simp [swap, ht, h₁]
-      · have hn : (⟨p, t⟩ : TpICD k Cm Dm) ≠ ⟨q, ME.extract q s⟩ := by
-          intro he
-          have hp := congrArg Sigma.fst he
-          subst hp
-          exact ht (eq_of_heq (Sigma.mk.inj he).2)
-        simpa [swap, ht] using h₂ ⟨p, t⟩ hn
+  exact cellSwap_rest (fun q ↦ ME.extract q s) q R R'
+
 
 
 variable [Fintype Cm] [∀ i, Fintype (Dm i)]
@@ -254,6 +274,150 @@ theorem cellControlled_locality (eR : Rg ≃ (K → Cell) × G) (β : Q × S →
   exact ⟨he.1, he.2.1, fun j hj ↦ congrFun he.2.2.1 ⟨j, hj⟩, he.2.2.2⟩
 
 end locality
+
+section cellConjugacy
+
+variable {Q Yr S Cell : Type*} {T : Q → Type*}
+  [Fintype Q] [DecidableEq Q] [∀ q, Fintype (T q)] [∀ q, DecidableEq (T q)]
+  [DecidableEq S] [DecidableEq Cell]
+
+/-- Conjugating unsplit cell control by the dependent cell swap gives split cell control.
+The concrete key and cell types keep dependent reindexing explicit. -/
+theorem cellControlled_swap (f : S → ∀ q, T q)
+    (U : Matrix (Yr × Cell) (Yr × Cell) ℂ)
+    (q p : Q) (y z : Yr) (s r : S)
+    (R R' : (Q → Cell) × ((Σ q, T q) → Cell)) :
+    cellControlled (Equiv.refl _) Prod.fst U ((q, y), (s, cellSwap (f s) R))
+      ((p, z), (r, cellSwap (f r) R')) =
+    cellControlled (Equiv.prodComm _ _) (fun a : Q × S ↦ ⟨a.1, f a.2 a.1⟩)
+      U ((q, y), (s, R)) ((p, z), (r, R')) := by
+  classical
+  rw [cellControlled_apply, cellControlled_apply]
+  dsimp only [Equiv.refl_apply, Equiv.prodComm_apply]
+  by_cases hq : q = p
+  · subst p
+    by_cases hs : s = r
+    · subst r
+      simp only [eq_self, true_and, funext_iff, Subtype.forall]
+      apply if_congr
+      · simpa only [funext_iff, Prod.swap, Subtype.forall] using
+          (cellSwap_rest (f s) q R R').trans and_comm
+      · rfl
+      · rfl
+    · simp only [hs, and_false, false_and, ite_false]
+  · simp only [hq, false_and, ite_false]
+
+end cellConjugacy
+
+section
+variable {k : ℕ} {Cm Yr S Cell : Type*} {Dm : Fin k → Type*}
+  [Fintype Cm] [DecidableEq Cm] [∀ i, Fintype (Dm i)] [∀ i, DecidableEq (Dm i)]
+  [DecidableEq S] [DecidableEq Cell]
+/-- The recording swap conjugates the two recording ports entrywise. -/
+theorem recordUnitary_swap_apply (ME : MultiExtractor k Cm Dm S)
+    (U : Matrix (Yr × Cell) (Yr × Cell) ℂ)
+    (q p : TpIC k Cm) (y z : Yr) (s r : S) (R R' : RecReg k Cm Dm Cell) :
+    recordUnitary U ((q, y), (s, RecReg.swap ME s R))
+      ((p, z), (r, RecReg.swap ME r R')) =
+    recordMEUnitary ME U ((q, y), (s, R)) ((p, z), (r, R')) := by
+  exact cellControlled_swap (fun s q ↦ ME.extract q s) U q p y z s r R R'
+end
+
+namespace RecReg
+variable {k : ℕ} {Cm Cell S : Type*} {Dm : Fin k → Type*}
+  [∀ i, DecidableEq (Dm i)] (ME : MultiExtractor k Cm Dm S)
+/-- The extraction-controlled swap on the entire private register. -/
+@[expose]
+def privateSwapEquiv : Equiv.Perm (S × RecReg k Cm Dm Cell) :=
+  Equiv.prodCongrRight (swapEquiv ME)
+/-- The private swap keeps the oracle basis state and swaps its recording cells. -/
+@[simp]
+theorem privateSwapEquiv_apply (s : S) (R : RecReg k Cm Dm Cell) :
+    privateSwapEquiv ME (s, R) = (s, swap ME s R) := rfl
+/-- The private swap is its own inverse. -/
+@[simp]
+theorem privateSwapEquiv_symm : (privateSwapEquiv (Cell := Cell) ME).symm =
+    privateSwapEquiv ME := rfl
+variable [Fintype Cm] [∀ i, Fintype (Dm i)] [DecidableEq S] [DecidableEq Cell]
+/-- The unitary basis matrix of the private recording swap (ePrint 2025/2166,
+Definition 9.8, p. 66). -/
+@[expose]
+noncomputable def swapUnitary : Matrix (S × RecReg k Cm Dm Cell)
+    (S × RecReg k Cm Dm Cell) ℂ := basisMatrix (privateSwapEquiv ME)
+/-- The recording swap is unitary, with no hypothesis on the extractor. -/
+theorem swapUnitary_mem_unitaryGroup [DecidableEq Cm] [Fintype S] [Fintype Cell] :
+    swapUnitary (Cell := Cell) ME ∈ unitaryGroup _ ℂ :=
+  basisMatrix_perm_mem_unitaryGroup _
+/-- The recording swap is Hermitian. -/
+@[simp]
+theorem swapUnitary_conjTranspose : (swapUnitary (Cell := Cell) ME)ᴴ = swapUnitary ME := by
+  rw [swapUnitary, conjTranspose_basisMatrix_equiv, privateSwapEquiv_symm]
+/-- The swap fixes arbitrary oracle states tensored with the empty recording register. -/
+theorem swapUnitary_initial [DecidableEq Cm] [Fintype S] [Fintype Cell]
+    (σ : Matrix S S ℂ) (bot : Cell) :
+    MatrixMap.conj (swapUnitary ME) (σ ⊗ₖ (SubState.basis (const bot)).matrix) =
+      σ ⊗ₖ (SubState.basis (const bot)).matrix := by
+  rw [swapUnitary, conj_basisMatrix_equiv, privateSwapEquiv_symm]
+  ext ⟨s, R⟩ ⟨r, R'⟩
+  have hs (s : S) (R : RecReg k Cm Dm Cell) :
+      const bot = swap ME s R ↔ const bot = R := by
+    constructor
+    · intro h
+      have hh := congrArg (swap ME s) h
+      simpa only [swap_swap, swap_const] using hh
+    · rintro rfl
+      exact (swap_const ME s bot).symm
+  simp only [submatrix_apply, privateSwapEquiv_apply, kroneckerMap_apply,
+    SubState.matrix_basis, single_apply, hs]
+end RecReg
+section
+variable {k : ℕ} {Cm Yr S Cell : Type*} {Dm : Fin k → Type*}
+  [Fintype Cm] [∀ i, Fintype (Dm i)] [∀ i, DecidableEq (Dm i)]
+  [DecidableEq Yr] [DecidableEq S] [DecidableEq Cell]
+/-- Framing the private swap by an identity is the corresponding basis permutation. -/
+theorem one_kronecker_swapUnitary (ME : MultiExtractor k Cm Dm S) :
+    (1 : Matrix Yr Yr ℂ) ⊗ₖ RecReg.swapUnitary (Cell := Cell) ME =
+      basisMatrix (Equiv.prodCongr (Equiv.refl Yr) (RecReg.privateSwapEquiv ME)) := by
+  ext ⟨y, s, R⟩ ⟨z, r, R'⟩
+  simp only [RecReg.swapUnitary, kroneckerMap_apply, one_apply, basisMatrix_apply,
+    Equiv.prodCongr_apply]
+  split_ifs <;> simp_all
+
+variable [DecidableEq Cm] [Fintype Yr] [Fintype S] [Fintype Cell]
+
+/-- Exact recording-port conjugacy, ePrint 2025/2166, Lemma 9.10, p. 66. -/
+theorem recordUnitary_swap_conjugacy (ME : MultiExtractor k Cm Dm S)
+    (U : Matrix (Yr × Cell) (Yr × Cell) ℂ) :
+    ((1 : Matrix (TpIC k Cm × Yr) (TpIC k Cm × Yr) ℂ) ⊗ₖ RecReg.swapUnitary ME)ᴴ *
+      recordUnitary U * (1 ⊗ₖ RecReg.swapUnitary ME) = recordMEUnitary ME U := by
+  rw [one_kronecker_swapUnitary, conjTranspose_basisMatrix_mul_mul_basisMatrix]
+  ext ⟨⟨q, y⟩, s, R⟩ ⟨⟨p, z⟩, r, R'⟩
+  exact recordUnitary_swap_apply ME U q p y z s r R R'
+variable {Z : Type*} [Fintype Z] [DecidableEq Z] [AddGroup Z]
+/-- The private recording swap commutes with purified extraction, ePrint 2025/2166,
+Lemma 9.11, p. 67. -/
+theorem extractUnitary_swap_conjugacy (ME : MultiExtractor k Cm Dm S)
+    (code : TpDCode k Dm Z) :
+    ((1 : Matrix (TpIC k Cm × Z) (TpIC k Cm × Z) ℂ) ⊗ₖ RecReg.swapUnitary ME)ᴴ *
+      reindex (Equiv.prodAssoc _ _ _) (Equiv.prodAssoc _ _ _)
+        (extractUnitary ME code ⊗ₖ
+          (1 : Matrix (RecReg k Cm Dm Cell) (RecReg k Cm Dm Cell) ℂ)) *
+      (1 ⊗ₖ RecReg.swapUnitary ME) =
+      reindex (Equiv.prodAssoc _ _ _) (Equiv.prodAssoc _ _ _)
+        (extractUnitary ME code ⊗ₖ (1 : Matrix (RecReg k Cm Dm Cell)
+          (RecReg k Cm Dm Cell) ℂ)) := by
+  rw [one_kronecker_swapUnitary, conjTranspose_basisMatrix_mul_mul_basisMatrix]
+  ext ⟨⟨q, y⟩, s, R⟩ ⟨⟨p, z⟩, r, R'⟩
+  simp only [submatrix_apply, Equiv.prodCongr_apply, Prod.map_apply, Equiv.refl_apply,
+    RecReg.privateSwapEquiv_apply, reindex_apply, Equiv.prodAssoc_symm_apply,
+    kroneckerMap_apply, extractUnitary_apply, one_apply]
+  by_cases hs : s = r
+  · subst r
+    have hr : RecReg.swap ME s R = RecReg.swap ME s R' ↔ R = R' :=
+      (RecReg.swapEquiv ME s).injective.eq_iff
+    simp only [hr]
+  · simp only [hs, and_false, ite_false, zero_mul]
+end
 
 section recordGrade
 
