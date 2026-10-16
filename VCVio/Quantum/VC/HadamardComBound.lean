@@ -166,7 +166,7 @@ variable {k : ℕ} {X Y Cm Z : Type} [Fintype X] [DecidableEq X] [Fintype Y] [De
   {Dm : Fin k → Type} (ME : MultiExtractor k Cm Dm (Fin k → Database X Y))
   (code : TpDCode k Dm Z)
 
-/-- **Lemma 9.2 of ePrint 2025/2166 with the constant `24`** (l.3261–3350): the k compressed
+/-- **Lemma 9.2 of ePrint 2025/2166 with the constant `24`** (pp. 58–59): the k compressed
 oracles satisfy the commutation half of P2 with
 `κcom t = 24 · sup_{j', tic, (D_j)_j} I(P_online^{tic, (D_j)_{j ≠ j'}}, t + 1)`.
 
