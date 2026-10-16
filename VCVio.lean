@@ -450,6 +450,7 @@ public import VCVio.Quantum.SubInstrument
 public import VCVio.Quantum.VC.Compressed
 public import VCVio.Quantum.VC.Conditions
 public import VCVio.Quantum.VC.Emulated
+public import VCVio.Quantum.VC.Hadamard
 public import VCVio.Quantum.VC.MultiExtractable
 public import VCVio.Quantum.VC.MultiExtractor
 public import VCVio.Quantum.VC.Proof.Commutativity
