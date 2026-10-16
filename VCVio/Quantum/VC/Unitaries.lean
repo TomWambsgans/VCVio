@@ -12,20 +12,20 @@ public import VCVio.Quantum.Oracle.Emulated
 /-!
 # The purified extractor and the record unitaries
 
-The unitaries of Def 7.2 of Chiesa, Di, Hu and Zheng (ePrint 2025/2166, §7, l.2786–2821):
+The unitaries of Def 7.2 of Chiesa, Di, Hu and Zheng (ePrint 2025/2166, §7, pp. 49–50):
 
-* `U_MultiExtract` (l.2786–2793) on `(TpIC × Z) × S`: controlled on a commitment tuple `tic` and a
+* `U_MultiExtract` (p. 49) on `(TpIC × Z) × S`: controlled on a commitment tuple `tic` and a
   basis state `s` of the oracle's private register, it adds an encoding of `MultiExtract(tic, s)`
   to the output register `Z` (`Quantum.extractUnitary`);
-* `Record(U)` (l.2802–2811) on `(TpIC × Yr) × (S × R)`: controlled on `tic`, it applies `U` to the
+* `Record(U)` (pp. 49–50) on `(TpIC × Yr) × (S × R)`: controlled on `tic`, it applies `U` to the
   register `Yr` and the cell `R_tic` of the recording register (`Quantum.recordUnitary`);
-* `Record(MultiExtract, U)` (l.2812–2821): controlled on `tic` and `s`, it applies `U` to `Yr` and
+* `Record(MultiExtract, U)` (p. 50): controlled on `tic` and `s`, it applies `U` to `Yr` and
   the cell `R_(tic, MultiExtract(tic, s))` (`Quantum.recordMEUnitary`).
 
 ## Encodings
 
 The paper writes the extracted tuple into its output register by XOR with a bit string
-(l.2788–2790). Here the output register is any type `Z` with an additive group structure, and a
+(p. 49). Here the output register is any type `Z` with an additive group structure, and a
 `Quantum.TpDCode` is an injective encoding `TpD k Dm → Z`; the paper's case is
 `Z = Fin N → ZMod 2`. The encoding has no decoder field: a total decoder `Z → TpD k Dm` would not
 exist when `TpD k Dm` is empty. Decoding is the partial inverse `Quantum.TpDCode.decodeAt`. The
@@ -45,7 +45,7 @@ default encoding (`Quantum.TpDCode.ofFintype`) writes into `ZMod (card (TpD k Dm
   `Quantum.recordMEUnitary_mem_unitaryGroup`.
 * `Quantum.extractUnitary_eq_sum_labelControlled`: for a fixed tuple, `U_MultiExtract` is
   label-controlled by `s ↦ MultiExtract(tic, s)` with members `1 ⊗ xorShift z`. This is the form of
-  the purified measurements of Cor 5.6 (l.1880–1894).
+  the purified measurements of Cor 5.6 (p. 36).
 -/
 
 public section
@@ -112,7 +112,7 @@ end onFactor
 /-! ## Encodings of decommitment tuples -/
 
 /-- An injective encoding of decommitment tuples into the output register `Z` of
-`U_MultiExtract`. The paper XORs a bit encoding (ePrint 2025/2166, l.2788–2790); any injective
+`U_MultiExtract`. The paper XORs a bit encoding (ePrint 2025/2166, p. 49); any injective
 map into an additive group serves the same purpose. There is no decoder field, since a total
 decoder would not exist for an empty `TpD k Dm`; see `Quantum.TpDCode.decodeAt`. -/
 structure TpDCode (k : ℕ) (Dm : Fin k → Type v) (Z : Type w) where
@@ -183,7 +183,7 @@ section extract
 variable {k : ℕ} {Cm : Type u} {Dm : Fin k → Type v} {S : Type*} {Z : Type w}
   [AddGroup Z] (ME : MultiExtractor k Cm Dm S) (code : TpDCode k Dm Z)
 
-/-- The basis permutation of `U_MultiExtract` (ePrint 2025/2166, l.2788–2793):
+/-- The basis permutation of `U_MultiExtract` (ePrint 2025/2166, p. 49):
 `|tic, z⟩|s⟩ ↦ |tic, z + enc(MultiExtract(tic, s))⟩|s⟩`. -/
 @[expose]
 def extractPerm : Equiv.Perm ((TpIC k Cm × Z) × S) where
@@ -200,7 +200,7 @@ theorem extractPerm_apply (tic : TpIC k Cm) (z : Z) (s : S) :
 
 variable [Fintype Cm] [DecidableEq Cm] [Fintype S] [DecidableEq S] [Fintype Z] [DecidableEq Z]
 
-/-- **`U_MultiExtract`** (ePrint 2025/2166, Def 7.2, l.2786–2793), the basis matrix of
+/-- **`U_MultiExtract`** (ePrint 2025/2166, Def 7.2, p. 49), the basis matrix of
 `Quantum.extractPerm`. -/
 @[expose]
 noncomputable def extractUnitary : Matrix ((TpIC k Cm × Z) × S) ((TpIC k Cm × Z) × S) ℂ :=
@@ -239,7 +239,7 @@ omit [Fintype S] [Fintype Z] in
 /-- **`U_MultiExtract` is block diagonal in the tuple, with label-controlled blocks**:
 `U_MultiExtract = ∑_tic |tic⟩⟨tic| ⊗ labelControlled (s ↦ enc(ME(tic, s))) (z ↦ 1 ⊗ xorShift z)`.
 Each block has the form of the purified measurements of Cor 5.6 of ePrint 2025/2166
-(l.1880–1894): a labelling of the rest of the register, and an XOR shift on the output. -/
+(p. 36): a labelling of the rest of the register, and an XOR shift on the output. -/
 theorem extractUnitary_eq_sum_labelControlled :
     extractUnitary ME code = ∑ tic, reindex extractRegroup extractRegroup
       (single tic tic (1 : ℂ) ⊗ₖ extractBlock ME code tic) := by
@@ -312,7 +312,7 @@ theorem cellControlled_mem_unitaryGroup [Finite G] (eR : Rg ≃ (K → Cell) × 
   simp only [cellSplit, Equiv.coe_fn_mk, Prod.mk.injEq] at e
   simp only [e.1, e.2.1]
 
-/-- The recording register `R` (ePrint 2025/2166, l.2797–2800): one cell per commitment tuple
+/-- The recording register `R` (ePrint 2025/2166, p. 49): one cell per commitment tuple
 and one per pair of a commitment tuple and a decommitment tuple. -/
 @[expose]
 def RecReg (k : ℕ) (Cm : Type u) (Dm : Fin k → Type v) (Cell : Type w) : Type (max u v w) :=
@@ -339,7 +339,7 @@ def RecReg.equiv : RecReg k Cm Dm Cell ≃ (TpIC k Cm → Cell) × (TpICD k Cm D
 def RecReg.const (c : Cell) : RecReg k Cm Dm Cell :=
   (fun _ ↦ c, fun _ ↦ c)
 
-/-- **`Record(U)`** (ePrint 2025/2166, Def 7.2, l.2802–2811) on `(TpIC × Yr) × (S × R)`:
+/-- **`Record(U)`** (ePrint 2025/2166, Def 7.2, pp. 49–50) on `(TpIC × Yr) × (S × R)`:
 controlled on `tic`, it applies `U` to `Yr` and the cell `R_tic`. -/
 @[expose]
 noncomputable def recordUnitary (U : Matrix (Yr × Cell) (Yr × Cell) ℂ) :
@@ -353,7 +353,7 @@ theorem recordUnitary_mem_unitaryGroup {U : Matrix (Yr × Cell) (Yr × Cell) ℂ
     recordUnitary (S := S) (k := k) (Cm := Cm) (Dm := Dm) U ∈ unitaryGroup _ ℂ :=
   cellControlled_mem_unitaryGroup _ _ hU
 
-/-- **`Record(MultiExtract, U)`** (ePrint 2025/2166, Def 7.2, l.2812–2821) on
+/-- **`Record(MultiExtract, U)`** (ePrint 2025/2166, Def 7.2, p. 50) on
 `(TpIC × Yr) × (S × R)`: controlled on `tic` and the private register `s`, it applies `U` to `Yr`
 and the cell `R_(tic, MultiExtract(tic, s))`. -/
 @[expose]
