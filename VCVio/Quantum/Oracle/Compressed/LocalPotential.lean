@@ -21,7 +21,9 @@ underlies the population transition inequality (78).
 `posSemidef_smul_cellDiag_sub_flip` proves the occupancy-sensitive bound, and
 `sum_norm_flipCommutator_sq_le` gives its three-coefficient source form. The latter retains
 the phase component after restricting to the unflipped source; this restriction matters when
-using the estimate in a potential certificate.
+using the estimate in a potential certificate. `posSemidef_cellDrop_sub_flip` removes that
+restriction with the additive coefficient `lam * d * |fl| / N` from equation (107).
+`posSemidef_smul_cellDiag_sub_binary` also covers binary events true on the empty cell.
 
 The phase-cell results are stated for the scalar character blocks of the standard compressed
 oracle. They do not identify a response-mixing empty-sector extension with those blocks.
