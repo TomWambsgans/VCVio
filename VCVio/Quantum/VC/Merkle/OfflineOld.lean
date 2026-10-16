@@ -7,6 +7,7 @@ Authors: Quang Dao
 module
 public import VCVio.Quantum.VC.Proof.CheckerComparison
 public import VCVio.Quantum.Comp.Potential
+public import VCVio.Quantum.Oracle.Compressed.CollisionBlocks
 public import VCVio.Quantum.MatrixMap.Commutant
 public import VCVio.CryptoFoundations.MerkleTree.Salted.Instability
 
@@ -37,8 +38,11 @@ and `actual_sub_filled_potential_le` bounds the checker error by that potential 
 entangled mixed states. `rpow_inv_two_tsum_conj_unitary_le` supplies the direct-sum
 triangle inequality without requiring the observables to sum to a projector.
 The local commutator estimate uses the exact distance from the uniform projector to its
-normalized restriction to
-unchanged labels. The summed population-restricted estimate remains a separate obligation.
+normalized restriction to unchanged labels. `databaseControl_sum_commutator_gram_le` lifts
+the estimate over all cell contexts and sums occupancy to bound the squared commutator
+by `4 * s * a` on the population-`s` subspace. Its hypothesis counts changing labels in
+occupied-cell contexts; its invalid operators are identified with compressed empty-cell
+projectors by `databaseInvalidCell_eq_compress`.
 
 The leakage polynomial is the exact prefix sum in FIX (28). Its Cauchy--Schwarz estimate is
 stated in `ℝ≥0∞`, including infinite masses. This module does not assert `OfflineExtractable`:
@@ -229,6 +233,418 @@ theorem uniformProjector_commutator_le [Nonempty Y]
   rwa [he] at hh
 
 end uniformProjector
+
+section cellOccupancy
+
+variable {Y Z κ : Type*} [Fintype Y] [DecidableEq Y] [Fintype Z] [DecidableEq Z]
+
+/-- The isometric inclusion of filled cell labels, with an arbitrary ancilla. -/
+@[expose]
+noncomputable def filledCellInclusion : Matrix (Option Y × Z) (Y × Z) ℂ :=
+  basisMatrix fun a : Y × Z ↦ (some a.1, a.2)
+
+/-- The inclusion of filled labels preserves inner products. -/
+theorem filledCellInclusion_isometry :
+    (filledCellInclusion (Y := Y) (Z := Z))ᴴ * (filledCellInclusion (Y := Y) (Z := Z)) = 1 := by
+  change (basisMatrix (fun a : Y × Z ↦ (some a.1, a.2)))ᴴ *
+    basisMatrix (fun a : Y × Z ↦ (some a.1, a.2)) = 1
+  apply conjTranspose_basisMatrix_mul_self
+  intro a b h
+  simpa only [Prod.mk.injEq, Option.some.injEq, ← Prod.ext_iff] using h
+
+/-- The old oracle’s one-cell invalid projector in compressed coordinates. -/
+@[expose]
+noncomputable def oldInvalidCell : Matrix (Option Y) (Option Y) ℂ :=
+  cellCompress Y * cellEmpty * cellCompress Y
+
+/-- The invalid projector is the outer product of the filled uniform vector. -/
+theorem oldInvalidCell_apply (a b : Option Y) :
+    oldInvalidCell a b = cellUniform Y a * cellUniform Y b := by
+  cases a <;> cases b <;>
+    simp [oldInvalidCell, cellEmpty, Matrix.mul_apply, diagonal_apply, cellAmp_mul_self]
+
+/-- A response unitary controlled by the label of a possibly empty cell. -/
+@[expose]
+noncomputable def filledCellControl (β : Option Y → κ) (U : κ → Matrix Z Z ℂ) :
+    Matrix (Option Y × Z) (Option Y × Z) ℂ :=
+  labelControlled (fun a ↦ β a.1) fun k ↦ (1 : Matrix (Option Y) (Option Y) ℂ) ⊗ₖ U k
+
+omit [Fintype Y] [Fintype Z] [DecidableEq Z] in
+/-- The cell label is unchanged by its controlled response operation. -/
+theorem filledCellControl_apply (β : Option Y → κ) (U : κ → Matrix Z Z ℂ)
+    (a b : Option Y × Z) :
+    filledCellControl β U a b = if a.1 = b.1 then U (β a.1) a.2 b.2 else 0 := by
+  simp [filledCellControl, labelControlled_apply, kroneckerMap_apply, one_apply]
+
+/-- Embedding a filled-label operator extends it by zero on the empty cell. -/
+theorem filledCellInclusion_conj (M : Matrix (Y × Z) (Y × Z) ℂ)
+    (a b : Option Y × Z) :
+    ((filledCellInclusion (Y := Y) (Z := Z)) * M * (filledCellInclusion (Y := Y) (Z := Z))ᴴ) a b =
+      match a.1, b.1 with
+      | some y, some y' => M (y, a.2) (y', b.2)
+      | _, _ => 0 := by
+  rcases a with ⟨a, z⟩
+  rcases b with ⟨b, z'⟩
+  cases a <;> cases b <;>
+    simp [filledCellInclusion, Matrix.mul_apply, Matrix.conjTranspose_apply,
+      basisMatrix_apply, Fintype.sum_prod_type, ite_and, apply_ite]
+
+/-- The old invalid projector is the embedded filled uniform projector. -/
+theorem oldInvalidCell_kronecker_eq :
+    oldInvalidCell (Y := Y) ⊗ₖ (1 : Matrix Z Z ℂ) =
+      (filledCellInclusion (Y := Y) (Z := Z)) *
+        (uniformSubsetProjector Finset.univ ⊗ₖ (1 : Matrix Z Z ℂ)) *
+        (filledCellInclusion (Y := Y) (Z := Z))ᴴ := by
+  ext ⟨a, z⟩ ⟨b, z'⟩
+  rw [filledCellInclusion_conj]
+  cases a <;> cases b <;>
+    simp [kroneckerMap_apply, oldInvalidCell_apply,
+      uniformSubsetProjector_univ_eq_cellInvalid, submatrix_apply, Matrix.mul_apply,
+      diagonal_apply, cellAmp_mul_self]
+
+/-- A cell-controlled unitary restricts to the corresponding filled-label control. -/
+theorem filledCellControl_mul_inclusion (β : Option Y → κ) (U : κ → Matrix Z Z ℂ) :
+    filledCellControl β U * filledCellInclusion (Y := Y) (Z := Z) =
+      filledCellInclusion (Y := Y) (Z := Z) *
+        labelControlled (fun a : Y × Z ↦ β (some a.1))
+          (fun k ↦ (1 : Matrix Y Y ℂ) ⊗ₖ U k) := by
+  ext ⟨a, z⟩ ⟨b, z'⟩
+  cases a <;>
+    simp [filledCellControl, filledCellInclusion, Matrix.mul_apply,
+      labelControlled_apply, kroneckerMap_apply, one_apply, Fintype.sum_prod_type,
+      basisMatrix_apply, ite_and, eq_comm]
+  split_ifs with h <;> simp_all
+
+/-- Restricting a cell-controlled unitary to filled labels commutes with inclusion. -/
+theorem inclusion_adjoint_mul_filledCellControl (β : Option Y → κ)
+    (U : κ → Matrix Z Z ℂ) :
+    (filledCellInclusion (Y := Y) (Z := Z))ᴴ * filledCellControl β U =
+      labelControlled (fun a : Y × Z ↦ β (some a.1))
+        (fun k ↦ (1 : Matrix Y Y ℂ) ⊗ₖ U k) *
+          (filledCellInclusion (Y := Y) (Z := Z))ᴴ := by
+  ext ⟨a, z⟩ ⟨b, z'⟩
+  cases b <;>
+    simp [filledCellControl, filledCellInclusion, Matrix.mul_apply,
+      labelControlled_apply, kroneckerMap_apply, one_apply, Fintype.sum_prod_type,
+      basisMatrix_apply, Matrix.conjTranspose_apply, ite_and, eq_comm, apply_ite]
+  split_ifs with h <;> simp_all
+
+/-- The full-cell invalid commutator is supported entirely on filled labels. -/
+theorem oldInvalidCell_commutator_eq (β : Option Y → κ) (U : κ → Matrix Z Z ℂ) :
+    let V := filledCellControl β U
+    let P := oldInvalidCell (Y := Y) ⊗ₖ (1 : Matrix Z Z ℂ)
+    let V' := labelControlled (fun a : Y × Z ↦ β (some a.1))
+      (fun k ↦ (1 : Matrix Y Y ℂ) ⊗ₖ U k)
+    let P' := uniformSubsetProjector Finset.univ ⊗ₖ (1 : Matrix Z Z ℂ)
+    V * P - P * V = filledCellInclusion (Y := Y) (Z := Z) * (V' * P' - P' * V') *
+      (filledCellInclusion (Y := Y) (Z := Z))ᴴ := by
+  dsimp only
+  rw [oldInvalidCell_kronecker_eq]
+  let J := filledCellInclusion (Y := Y) (Z := Z)
+  let V := filledCellControl β U
+  let P := uniformSubsetProjector (Y := Y) Finset.univ ⊗ₖ (1 : Matrix Z Z ℂ)
+  let V' := labelControlled (fun a : Y × Z ↦ β (some a.1))
+    (fun k ↦ (1 : Matrix Y Y ℂ) ⊗ₖ U k)
+  change V * (J * P * Jᴴ) - (J * P * Jᴴ) * V = J * (V' * P - P * V') * Jᴴ
+  calc
+    _ = (V * J) * P * Jᴴ - J * P * (Jᴴ * V) := by simp only [Matrix.mul_assoc]
+    _ = (J * V') * P * Jᴴ - J * P * (V' * Jᴴ) := by
+      rw [filledCellControl_mul_inclusion, inclusion_adjoint_mul_filledCellControl]
+    _ = _ := by simp only [Matrix.mul_sub, Matrix.sub_mul, Matrix.mul_assoc]
+
+/-- The range projection of the filled inclusion is the occupancy projector. -/
+theorem filledCellInclusion_range :
+    filledCellInclusion (Y := Y) (Z := Z) *
+      (filledCellInclusion (Y := Y) (Z := Z))ᴴ =
+        (1 - cellEmpty (Y := Y)) ⊗ₖ (1 : Matrix Z Z ℂ) := by
+  have h := filledCellInclusion_conj (1 : Matrix (Y × Z) (Y × Z) ℂ)
+  ext ⟨a, z⟩ ⟨b, z'⟩
+  specialize h (a, z) (b, z')
+  rw [Matrix.mul_one] at h
+  rw [h]
+  cases a <;> cases b <;>
+    simp [cellEmpty, kroneckerMap_apply, diagonal_apply, one_apply, ite_and]
+  split_ifs <;> rfl
+
+/-- The invalid commutator Gram matrix is bounded by the changing-label fraction times
+four times the occupancy projector. This is the occupancy-sensitive form of FIX (27). -/
+theorem oldInvalidCell_commutator_gram_le [Nonempty Y] [DecidableEq κ]
+    (β : Option Y → κ) (U : κ → Matrix Z Z ℂ)
+    (hU : ∀ a, U a ∈ unitaryGroup Z ℂ) :
+    let V := filledCellControl β U
+    let P := oldInvalidCell (Y := Y) ⊗ₖ (1 : Matrix Z Z ℂ)
+    let a := ((Finset.univ.filter fun y : Y ↦ β (some y) ≠ β none).card : ℝ) /
+      Fintype.card Y
+    ((4 * a) • ((1 - cellEmpty (Y := Y)) ⊗ₖ (1 : Matrix Z Z ℂ)) -
+      (V * P - P * V)ᴴ * (V * P - P * V)).PosSemidef := by
+  dsimp only
+  let J := filledCellInclusion (Y := Y) (Z := Z)
+  let V := labelControlled (fun a : Y × Z ↦ β (some a.1))
+    (fun k ↦ (1 : Matrix Y Y ℂ) ⊗ₖ U k)
+  let P := uniformSubsetProjector (Y := Y) Finset.univ ⊗ₖ (1 : Matrix Z Z ℂ)
+  let E := V * P - P * V
+  let a := ((Finset.univ.filter fun y : Y ↦ β (some y) ≠ β none).card : ℝ) /
+    Fintype.card Y
+  have ha : 0 ≤ a := by positivity
+  have hn : ‖E‖ ≤ 2 * Real.sqrt a :=
+    uniformProjector_commutator_le (fun y ↦ β (some y)) (β none) U hU
+  have hn' : ‖E‖ ^ 2 ≤ 4 * a := by
+    have hh := pow_le_pow_left₀ (norm_nonneg _) hn 2
+    simpa only [mul_pow, Real.sq_sqrt ha, show (2 : ℝ) ^ 2 = 4 by norm_num] using hh
+  have hE : ((4 * a) • (1 : Matrix (Y × Z) (Y × Z) ℂ) - Eᴴ * E).PosSemidef := by
+    have hI : (1 : Matrix (Y × Z) (Y × Z) ℂ).PosSemidef := PosSemidef.one
+    have hh := hI.smul (sub_nonneg.mpr hn')
+    have hh' := hh.add (MatrixMap.posSemidef_l2_opNorm_sq_smul_one_sub E)
+    convert hh' using 1
+    module
+  have hJ : Jᴴ * J = 1 := filledCellInclusion_isometry
+  have hp := hE.mul_mul_conjTranspose_same J
+  rw [oldInvalidCell_commutator_eq, ← filledCellInclusion_range]
+  change ((4 * a) • (J * Jᴴ) - (J * E * Jᴴ)ᴴ * (J * E * Jᴴ)).PosSemidef
+  convert hp using 1
+  simp only [conjTranspose_mul, conjTranspose_conjTranspose, Matrix.mul_sub,
+    Matrix.sub_mul, Matrix.mul_smul, Matrix.smul_mul, Matrix.mul_one,
+    Matrix.mul_assoc, ← Matrix.mul_assoc Jᴴ J, hJ, Matrix.one_mul]
+
+section databaseControl
+variable {C : Type*} [Fintype C] [DecidableEq C]
+
+/-- An ancilla unitary controlled by a function of the compressed database. -/
+@[expose]
+noncomputable def databaseControl (β : Database C Y → κ) (U : κ → Matrix Z Z ℂ) :
+    Matrix (Database C Y × Z) (Database C Y × Z) ℂ :=
+  labelControlled (fun a ↦ β a.1) fun k ↦
+    (1 : Matrix (Database C Y) (Database C Y) ℂ) ⊗ₖ U k
+
+/-- Separate one database cell and the response register from the remaining cells. -/
+@[expose]
+def extractionCellSplit (c : C) :
+    (Database C Y × Z) ≃ (Option Y × Z) × ({i // i ≠ c} → Option Y) :=
+  (Equiv.prodCongr (Equiv.funSplitAt c (Option Y)) (Equiv.refl Z)).trans
+    ((Equiv.prodAssoc _ _ _).trans
+      ((Equiv.prodCongr (Equiv.refl _) (Equiv.prodComm _ _)).trans
+        (Equiv.prodAssoc _ _ _).symm))
+
+omit [Fintype Y] [DecidableEq Y] [Fintype Z] [DecidableEq Z] [Fintype C] in
+/-- The cell splitting reads the selected cell and leaves the remaining database as context. -/
+theorem extractionCellSplit_apply (c : C) (a : Database C Y × Z) :
+    extractionCellSplit c a = ((a.1 c, a.2), fun i ↦ a.1 i.1) := rfl
+
+omit [Fintype Y] [Fintype Z] [DecidableEq Z] in
+/-- A database-controlled operation decomposes into one-cell operations in each context. -/
+theorem databaseControl_blocks (c : C) (β : Database C Y → κ)
+    (U : κ → Matrix Z Z ℂ) :
+    databaseControl β U = liftBlocks (extractionCellSplit c)
+      (fun r ↦ filledCellControl
+        (fun a ↦ β ((Equiv.funSplitAt c (Option Y)).symm (a, r))) U) := by
+  ext ⟨D, z⟩ ⟨D', z'⟩
+  simp only [databaseControl, labelControlled_apply, kroneckerMap_apply, one_apply,
+    liftBlocks, submatrix_apply, blockDiagonal_apply, extractionCellSplit_apply,
+    filledCellControl_apply]
+  by_cases h : D = D'
+  · subst D'
+    simp only [ite_true, one_mul]
+    change U (β D) z z' = U (β ((Equiv.funSplitAt c (Option Y)).symm
+      ((Equiv.funSplitAt c (Option Y)) D))) z z'
+    rw [Equiv.symm_apply_apply]
+  · have hn : ¬ (D c = D' c ∧ (fun i : {i // i ≠ c} ↦ D i.1) = fun i ↦ D' i.1) := by
+      intro hh
+      apply h
+      apply (Equiv.funSplitAt c (Option Y)).injective
+      exact Prod.ext hh.1 hh.2
+    split_ifs <;> simp_all
+
+/-- The invalid projector of one database cell, tensored with an ancilla identity. -/
+@[expose]
+noncomputable def databaseInvalidCell (c : C) :
+    Matrix (Database C Y × Z) (Database C Y × Z) ℂ :=
+  liftBlocks (extractionCellSplit c) fun _ ↦
+    oldInvalidCell (Y := Y) ⊗ₖ (1 : Matrix Z Z ℂ)
+
+/-- The fraction of filled labels changing the control value relative to the empty cell. -/
+@[expose]
+noncomputable def changingFraction [DecidableEq κ] (β : Database C Y → κ)
+    (c : C) (r : {i // i ≠ c} → Option Y) : ℝ :=
+  ((Finset.univ.filter fun y : Y ↦
+    β ((Equiv.funSplitAt c (Option Y)).symm (some y, r)) ≠
+      β ((Equiv.funSplitAt c (Option Y)).symm (none, r))).card : ℝ) / Fintype.card Y
+
+/-- The changing-label fraction weighted by occupancy of the selected cell. -/
+@[expose]
+noncomputable def changingWeight [DecidableEq κ] (β : Database C Y → κ)
+    (c : C) (D : Database C Y) : ℝ :=
+  if (D c).isSome then changingFraction β c (fun i ↦ D i.1) else 0
+
+omit [Fintype Z] in
+/-- Lifting the local occupancy bound gives a diagonal context-dependent weight. -/
+theorem changingWeight_block [DecidableEq κ] (β : Database C Y → κ) (c : C) :
+    liftBlocks (extractionCellSplit (Z := Z) c)
+      (fun r ↦ (4 * changingFraction β c r) •
+        ((1 - cellEmpty (Y := Y)) ⊗ₖ (1 : Matrix Z Z ℂ))) =
+      diagonal (fun a : Database C Y × Z ↦ ((4 * changingWeight β c a.1 : ℝ) : ℂ)) := by
+  ext ⟨D, z⟩ ⟨D', z'⟩
+  simp only [liftBlocks, submatrix_apply, blockDiagonal_apply, extractionCellSplit_apply,
+    Matrix.smul_apply, kroneckerMap_apply, Matrix.sub_apply, one_apply, cellEmpty, diagonal_apply,
+    changingWeight]
+  by_cases hD : D = D'
+  · subst D'
+    cases h : D c <;> simp [Complex.real_smul, mul_ite]
+  · have hn : ¬ (D c = D' c ∧ (fun i : {i // i ≠ c} ↦ D i.1) = fun i ↦ D' i.1) := by
+      intro hh
+      apply hD
+      apply (Equiv.funSplitAt c (Option Y)).injective
+      exact Prod.ext hh.1 hh.2
+    split_ifs <;> simp_all
+
+/-- The one-cell invalid commutator obeys the context-dependent occupancy bound. -/
+theorem databaseControl_commutator_gram_le [Nonempty Y] [DecidableEq κ]
+    (β : Database C Y → κ) (U : κ → Matrix Z Z ℂ)
+    (hU : ∀ a, U a ∈ unitaryGroup Z ℂ) (c : C) :
+    let V := databaseControl β U
+    let P := databaseInvalidCell (Y := Y) (Z := Z) c
+    (diagonal (fun a : Database C Y × Z ↦ ((4 * changingWeight β c a.1 : ℝ) : ℂ)) -
+      (V * P - P * V)ᴴ * (V * P - P * V)).PosSemidef := by
+  dsimp only
+  let V := fun r : {i // i ≠ c} → Option Y ↦ filledCellControl
+    (fun a ↦ β ((Equiv.funSplitAt c (Option Y)).symm (a, r))) U
+  let P := fun _ : {i // i ≠ c} → Option Y ↦
+    oldInvalidCell (Y := Y) ⊗ₖ (1 : Matrix Z Z ℂ)
+  let B := fun r : {i // i ≠ c} → Option Y ↦ (4 * changingFraction β c r) •
+    ((1 - cellEmpty (Y := Y)) ⊗ₖ (1 : Matrix Z Z ℂ))
+  have hlocal : ∀ r, (B r - ((V * P - P * V) r)ᴴ * ((V * P - P * V) r)).PosSemidef :=
+    fun r ↦ oldInvalidCell_commutator_gram_le
+      (fun a ↦ β ((Equiv.funSplitAt c (Option Y)).symm (a, r))) U hU
+  have h := posSemidef_liftBlocks (extractionCellSplit (Z := Z) c) hlocal
+  change (liftBlocks (extractionCellSplit c)
+    (B - (fun r ↦ ((V * P - P * V) r)ᴴ) * (V * P - P * V))).PosSemidef at h
+  rw [liftBlocks_sub, liftBlocks_mul, liftBlocks_adjoint] at h
+  simp only [liftBlocks_sub, liftBlocks_mul] at h
+  have hv : liftBlocks (extractionCellSplit c) V = databaseControl β U :=
+    (databaseControl_blocks c β U).symm
+  have hb : liftBlocks (extractionCellSplit c) B =
+      diagonal (fun a : Database C Y × Z ↦ ((4 * changingWeight β c a.1 : ℝ) : ℂ)) :=
+    changingWeight_block β c
+  rw [hv, hb] at h
+  exact h
+
+omit [DecidableEq Y] in
+/-- A uniform bound on occupied-cell fractions sums to that bound times population. -/
+theorem sum_changingWeight_le [DecidableEq κ] (β : Database C Y → κ)
+    (D : Database C Y) {a : ℝ}
+    (h : ∀ c, (D c).isSome → changingFraction β c (fun i ↦ D i.1) ≤ a) :
+    ∑ c, changingWeight β c D ≤ a * D.size := by
+  calc
+    _ ≤ ∑ c : C, if (D c).isSome then a else 0 := by
+      apply Finset.sum_le_sum
+      intro c _
+      dsimp only [changingWeight]
+      split_ifs with hc
+      · exact h c hc
+      · rfl
+    _ = _ := by simp [Database.size, mul_comm]
+
+/-- The projector onto databases with at most the specified number of populated cells. -/
+@[expose]
+noncomputable def populationCut (s : ℕ) :
+    Matrix (Database C Y × Z) (Database C Y × Z) ℂ :=
+  diagonal fun a ↦ if a.1.size ≤ s then 1 else 0
+
+/-- On the original population-restricted subspace, the summed invalid commutator Gram
+matrix is bounded by four times population times the changing fraction, as in FIX (27).
+The hypothesis is a combinatorial bound on changing labels; no checker preservation is assumed. -/
+theorem databaseControl_sum_commutator_gram_le [Nonempty Y] [DecidableEq κ]
+    (β : Database C Y → κ) (U : κ → Matrix Z Z ℂ)
+    (hU : ∀ a, U a ∈ unitaryGroup Z ℂ) (s : ℕ) {a : ℝ} (ha : 0 ≤ a)
+    (hβ : ∀ D : Database C Y, D.size ≤ s → ∀ c, (D c).isSome →
+      changingFraction β c (fun i ↦ D i.1) ≤ a) :
+    let V := databaseControl β U
+    let K := populationCut (C := C) (Y := Y) (Z := Z) s
+    let E := fun c ↦ V * databaseInvalidCell c - databaseInvalidCell c * V
+    ((4 * s * a) • K - K * (∑ c, (E c)ᴴ * E c) * K).PosSemidef := by
+  dsimp only
+  let K := populationCut (C := C) (Y := Y) (Z := Z) s
+  let V := databaseControl β U
+  let E := fun c ↦ V * databaseInvalidCell c - databaseInvalidCell c * V
+  let B := diagonal (fun d : Database C Y × Z ↦ ((4 * ∑ c, changingWeight β c d.1 : ℝ) : ℂ))
+  have hsum : (B - ∑ c, (E c)ᴴ * E c).PosSemidef := by
+    have h := posSemidef_sum Finset.univ fun c _ ↦ databaseControl_commutator_gram_le β U hU c
+    convert h using 1
+    rw [Finset.sum_sub_distrib]
+    congr 1
+    ext d d'
+    by_cases hd : d = d' <;> simp [B, hd, Finset.mul_sum, Matrix.sum_apply]
+  have hK : Kᴴ = K := by simp [K, populationCut, diagonal_conjTranspose]
+  have hrestrict := hsum.mul_mul_conjTranspose_same K
+  rw [hK, Matrix.mul_sub, Matrix.sub_mul] at hrestrict
+  have hbound : ((4 * s * a) • K - K * B * K).PosSemidef := by
+    simp only [K, populationCut, B, ← diagonal_smul, diagonal_mul_diagonal]
+    rw [diagonal_sub]
+    apply posSemidef_diagonal_iff.mpr
+    intro d
+    dsimp only [Pi.sub_apply, Pi.smul_apply, Pi.mul_apply]
+    split_ifs with hd
+    · have hh := (sum_changingWeight_le β d.1 (hβ d.1 hd)).trans
+        (mul_le_mul_of_nonneg_left (show (d.1.size : ℝ) ≤ s by exact_mod_cast hd) ha)
+      simp only [one_mul, mul_one, Complex.real_smul, mul_one]
+      exact_mod_cast (show 0 ≤ 4 * (s : ℝ) * a - 4 * ∑ c, changingWeight β c d.1 by nlinarith)
+    · simp
+  convert hbound.add hrestrict using 1
+  abel
+
+omit [Fintype Z] in
+/-- The block-defined invalid operator is the tensor product with a single invalid cell. -/
+theorem databaseInvalidCell_eq_piKron (c : C) :
+    databaseInvalidCell (Y := Y) (Z := Z) c =
+      piKron (Pi.mulSingle c (oldInvalidCell (Y := Y))) ⊗ₖ (1 : Matrix Z Z ℂ) := by
+  ext ⟨D, z⟩ ⟨D', z'⟩
+  simp only [databaseInvalidCell, liftBlocks, submatrix_apply, blockDiagonal_apply,
+    extractionCellSplit_apply, kroneckerMap_apply, piKron_apply]
+  rw [Fintype.prod_eq_mul_prod_subtype_ne _ c, Pi.mulSingle_eq_same]
+  have hr : (∏ j : {j // j ≠ c},
+      (Pi.mulSingle c (oldInvalidCell (Y := Y)) : C → Matrix (Option Y) (Option Y) ℂ)
+        j.1 (D j) (D' j)) =
+        if (fun i : {i // i ≠ c} ↦ D i.1) = (fun i ↦ D' i.1) then 1 else 0 := by
+    have h1 (j : {j // j ≠ c}) :
+        (Pi.mulSingle c (oldInvalidCell (Y := Y)) : C → Matrix (Option Y) (Option Y) ℂ) j.1 = 1 :=
+      Pi.mulSingle_eq_of_ne j.2 _
+    simp only [h1, one_apply, funext_iff]
+    exact Fintype.prod_boole
+  rw [hr]
+  split_ifs <;> simp
+
+omit [Fintype Z] in
+/-- The block-defined invalid operator is the compressed empty-cell projector. -/
+theorem databaseInvalidCell_eq_compress [Nonempty Y] (c : C) :
+    databaseInvalidCell (Y := Y) (Z := Z) c =
+      (compressAll C Y * diagonal (fun D ↦ if D c = none then 1 else 0) *
+        compressAll C Y) ⊗ₖ (1 : Matrix Z Z ℂ) := by
+  rw [databaseInvalidCell_eq_piKron]
+  congr 1
+  ext D D'
+  rw [Matrix.mul_apply]
+  simp only [mul_diagonal, compressAll]
+  have he : (∑ D₁ : Database C Y, (piKron (fun _ : C ↦ cellCompress Y) D D₁ *
+      (if D₁ c = none then 1 else 0)) * piKron (fun _ : C ↦ cellCompress Y) D₁ D') =
+      ∑ D₁ : Database C Y, (if D₁ c = none then 1 else 0) *
+        (piKron (fun _ : C ↦ cellCompress Y) D D₁ *
+          piKron (fun _ : C ↦ cellCompress Y) D₁ D') := by
+    apply Finset.sum_congr rfl
+    intro D₁ _
+    ring
+  rw [he, sum_mul_piKron_mul_piKron (fun _ : C ↦ cellCompress Y)
+    (fun _ : C ↦ cellCompress Y) c (fun u ↦ if u = none then 1 else 0), piKron_apply]
+  apply Finset.prod_congr rfl
+  intro j _
+  by_cases hj : j = c
+  · subst j
+    simp [oldInvalidCell, Matrix.mul_apply, cellEmpty, diagonal_apply]
+  · simp only [hj, Pi.mulSingle_eq_of_ne hj, ite_false, one_mul]
+    exact (congrArg (fun A : Matrix (Option Y) (Option Y) ℂ ↦ A (D j) (D' j))
+      (cellCompress_mul_self Y)).symm
+
+end databaseControl
+
+end cellOccupancy
 
 namespace MatrixMap
 
