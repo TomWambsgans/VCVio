@@ -742,7 +742,7 @@ theorem exists_le_checkPassProjector_conj_of_length_le (n : ℕ) (W : Finset (Fi
     exact ⟨_, le_rfl, by simp [hP0]⟩
 
 /-- **The pass projector against its compressed conjugate** (eq. (27), item 2, of the notes on
-ePrint 2025/2166; the paper's l.3480–3500). For `|W| ≤ n`, `P (C P C) P = a P` with
+ePrint 2025/2166; the paper's p. 61). For `|W| ≤ n`, `P (C P C) P = a P` with
 `a ≥ (1 - 1/N)^{2 n q2}`, where `C` compresses every database. When every check on `W` parses,
 `P` is the product of the consistency projectors of the prescriptions on each database, and `a`
 is `(1 - 1/N)^{2d}` for the number `d ≤ n q2` of prescribed cells (eq. (26)); otherwise `P = 0`. -/
@@ -974,7 +974,7 @@ theorem outcomeMeasure_run₂_checks_le_of_openingQueryBound [∀ i, DecidableEq
       LinearMap.zero_apply, Matrix.trace_zero, Complex.zero_re, ENNReal.ofReal_zero]
     exact zero_le
 
-/-- **The checks after extraction** (ePrint 2025/2166, l.3480–3505; eqs. (38)–(39) of the
+/-- **The checks after extraction** (ePrint 2025/2166, p. 61; eqs. (38)–(39) of the
 notes). On a substate supported on the extraction outcome `tdm`, and for openings `pf` in the
 support of `VC_i.Open(Dom(m_i), td_i)`, the checks on `W` fail with the event's other conditions
 holding with weight at most `1 - (1 - 1/N)^{2 n q2}` times the trace. By condition 3 the substate
@@ -1107,7 +1107,7 @@ theorem extractionCorrect_compressedVCOracle_of_openingQueryBound
     outcomeMeasure_run₂_extractChallenger_le_of_openingQueryBound
       io ME code q hq hC hk n (claim u y) σ
 
-/-- **Lemma 9.3 of ePrint 2025/2166, exact form** (l.3351–3505): `EO^(Ext)` for the `k`
+/-- **Lemma 9.3 of ePrint 2025/2166, exact form** (pp. 59–61): `EO^(Ext)` for the `k`
 compressed oracles is multi-extraction correct (P3, `Quantum.ExtractionCorrect`) under the
 algebraic conditions of Theorem 8.4 (`Quantum.Conditions`), with error
 `1 - (1 - 1/N)^{2 n q2}`, independent of the query bound and of the oracle and extraction masses.
