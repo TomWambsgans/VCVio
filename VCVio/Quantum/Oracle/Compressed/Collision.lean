@@ -11,10 +11,11 @@ public import VCVio.Quantum.Oracle.Compressed.CollisionPotential
 /-!
 # Collision events of compressed databases
 
-The collision event in ePrint 2025/2166 §9.3 and bounds-note equations (87)–(89), (91)
-changes at a cell only for answers already stored elsewhere. Thus its changing-answer
-count is at most the number of occupied entries outside that cell. Recording registers
-are not part of this population.
+The collision event in ePrint 2025/2166 §9.3 (Lemma 9.6, `papers/2166.txt:3507`;
+event bound, lines 3747–3781) changes at a cell only for answers already stored elsewhere.
+Thus the changing-answer count is at most the number of occupied entries outside that cell.
+This supports the bounds note's (NOTE) refinement in equations (87)–(89), (91).
+Recording registers are not part of this population.
 -/
 
 public section

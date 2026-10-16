@@ -11,7 +11,9 @@ public import VCVio.Quantum.VC.Proof.Offline
 /-!
 # Local potential and charged-certificate tests
 
-Numerical calibrations of bounds-note equations (77), (89), and (107) for ePrint 2025/2166:
+Numerical calibrations of bounds-note (NOTE) equations (77), (89), and (107) in NOTE's
+refinement of ePrint 2025/2166 §9.3's collision-event argument (Lemma 9.6,
+`papers/2166.txt:3507`; event bound, lines 3747–3781):
 a singleton flip in an answer space of size 64, a three-coefficient instance with nonzero
 restriction error, and a two-call certificate with original mass one and bound `19/128`.
 The tests cover the abstract certificate and the concrete old-oracle collision theorem,

@@ -12,8 +12,12 @@ public import VCVio.Quantum.Comp.Potential
 /-!
 # A charged population potential for collision detection
 
-The calibration `a_h = 1`, `b_h = t/h` of bounds-note equations (87)–(89), (91), for
-ePrint 2025/2166 §9.3, admits an explicit quadratic upper bound on its charged recursion.
+The calibration `a_h = 1`, `b_h = t/h` of bounds-note (NOTE) equations (87)–(89), (91)
+admits an explicit quadratic upper bound on its charged recursion. This schedule and its
+7/4 coefficient formalize NOTE's refinement of ePrint 2025/2166 §9.3's collision-event
+argument (Lemma 9.6, `papers/2166.txt:3507`; event bound, lines 3747–3781). The paper uses
+the size projection, Corollaries 5.8/5.6, and a coefficient-80 per-database bound.
+Corollaries 5.6 and 5.8 appear at `papers/2166.txt:1523` and `papers/2166.txt:1659`.
 At call index `n > 0`, use `(t-n)c(c-1)/(2n)`; at index zero use `tc(c+1)/2`.
 These functions are nonnegative and nondecreasing on integer populations, vanish at the
 terminal index, and start at zero on the empty database. The per-call charge is `t/2`.
@@ -289,7 +293,9 @@ variable {spec : QuantumOracleSpec} {L : LocalSig} (I : L.Interp)
   {U : ∀ i, spec.Result i → Matrix (spec.Out i × D) (spec.In i × D) ℂ}
   {Q : Matrix D D ℂ}
 
-/-- The `7/4` numerical specialization of the runtime certificate. The hypotheses are local
+/-- The `7/4` numerical specialization of the runtime certificate, NOTE (87)–(89), (91).
+This supports NOTE's refinement of the paper's §9.3 collision-event argument
+(Lemma 9.6, `papers/2166.txt:3507`; event bound, lines 3747–3781). The hypotheses are local
 trace inequalities, an initially zero potential and event, and a bound on the original mass.
 Concrete compressed-oracle applications must establish these hypotheses for their database
 population; this statement does not identify an arbitrary runtime with a compressed oracle. -/

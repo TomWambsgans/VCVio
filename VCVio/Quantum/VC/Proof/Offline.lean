@@ -12,9 +12,13 @@ public import VCVio.Quantum.VC.Proof.Commutativity
 /-!
 # Collision potentials for the k compressed oracles
 
-The collision part of ePrint 2025/2166 §9.3 uses the charged population schedule of
-bounds-note equations (87)–(89), (91). We sum its per-database potentials. Extraction
-and recording preserve the databases, so their charge is zero.
+This file formalizes NOTE's refinement of the collision-event argument in ePrint 2025/2166
+§9.3 (Lemma 9.6, `papers/2166.txt:3507`; event bound, lines 3747–3781). The paper uses
+the size projection, Corollaries 5.8/5.6, and a coefficient-80 per-database bound.
+Corollaries 5.6 and 5.8 appear at `papers/2166.txt:1523` and `papers/2166.txt:1659`.
+The charged quadratic schedule and 7/4 coefficient come from the bounds note (NOTE
+(77)–(78), (87)–(91), (107)). We sum its per-database potentials. Extraction and recording
+preserve the databases, so their charge is zero.
 
 `collisionEvent_compressedVCOracle_le` bounds the final event that at least one database
 contains two distinct keys with the same answer by `(7t+5)t min(w,t)/(4|Y|)`. Its original
@@ -494,6 +498,8 @@ theorem compressedWithRecord_initial_zero (t : ℕ) {A : QReg} (ρ : SubState A)
     rw [hp, kronecker_zero, Matrix.trace_zero, Complex.zero_re, ENNReal.ofReal_zero]
 
 /-- **The concrete `7/4` collision event bound**, bounds-note equations (87)–(89), (91).
+This supports NOTE's refinement of the paper's §9.3 collision-event argument
+(Lemma 9.6, `papers/2166.txt:3507`; event bound, lines 3747–3781).
 For arbitrary programs against the old k compressed oracles, extraction, and recording,
 the event that at least one database has a collision has weight at most
 `(7t+5)t min(w,t)/(4|Y|)`. Here `w` is the actual total ordinary query mass.

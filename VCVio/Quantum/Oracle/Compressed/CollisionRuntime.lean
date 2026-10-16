@@ -12,10 +12,11 @@ public import VCVio.Quantum.Oracle.Emulated
 /-!
 # Charged collision bounds for coherent oracle interfaces
 
-The operator certificate of bounds-note equations (87)–(89), (91), for ePrint 2025/2166
-§9.3, lifts through a coherent port index. Its charge is the actual input mass on the
-selected ordinary interfaces, including programs with entangled workspaces and adaptive
-local instruments.
+The operator certificate of bounds-note (NOTE) equations (87)–(89), (91) lifts through a
+coherent port index. It formalizes NOTE's refinement of ePrint 2025/2166 §9.3's
+collision-event argument (Lemma 9.6, `papers/2166.txt:3507`; event bound, lines 3747–3781).
+Its charge is the actual input mass on the selected ordinary interfaces, including programs
+with entangled workspaces and adaptive local instruments.
 -/
 
 public section
@@ -266,7 +267,10 @@ theorem ofReal_trace_conj_le {J : Type*} [Fintype J]
   rw [← ENNReal.ofReal_mul hr, MatrixMap.trace_conj_apply]
   exact ENNReal.ofReal_le_ofReal (sub_nonneg.mp ht)
 
-/-- The round-6 collision bound from per-port operator inequalities and zero initial potential.
+/-- The collision bound of NOTE (87)–(89), (91) from per-port operator inequalities
+and zero initial potential.
+This supports NOTE's refinement of the paper's §9.3 collision-event argument
+(Lemma 9.6, `papers/2166.txt:3507`; event bound, lines 3747–3781).
 The mass on the right is the actual mass of the selected interfaces of the program. -/
 theorem eventWeight_le_collision_of_port_bounds (E : EmulatedOracle P In) {L : LocalSig}
     (I : L.Interp) {W : QReg → Type*} {A : QReg} (selected : P → Bool)
