@@ -14,6 +14,13 @@ public import VCVio.Quantum.Oracle.Compressed.Instability
 For one extraction tuple, a fresh answer can change the online label only at its unique root
 for the selected oracle or at a half-preimage. Thus databases with at most `s` entries have
 instability at most `min (1, (2s + 1) / |Y|)`, including databases with collisions.
+
+## References
+
+Chiesa–Di–Hu–Zheng, ePrint 2025/2166: half-preimages and extraction sensitivity
+(Definition 8.5 and Lemma 8.6, `papers/2166.txt`, lines 3125–3132), and the online
+instability argument (Lemma 8.8, lines 3191–3242). The singleton-tuple bound proved here
+counts one selected root and at most two half-preimages per database cell.
 -/
 
 public section

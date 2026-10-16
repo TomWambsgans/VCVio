@@ -14,6 +14,14 @@ public import VCVio.Quantum.VC.Proof.Commutativity
 The compressed oracle commutation error is bounded by
 `min (4, 24 * min (1, (2s + 1) / |Y|))`. The constant `24` comes from the concrete
 online instability bound; `4` is the squared norm bound for a difference of two unitaries.
+
+## References
+
+Chiesa–Di–Hu–Zheng, ePrint 2025/2166: oracle commutativity (Definition 7.3, property 2,
+`papers/2166.txt`, lines 2841–2857) and its instability reduction (Lemma 9.2,
+lines 3262–3288), together with Merkle instability (Lemma 8.8, lines 3191–3242).
+The constant-24/cap-four P2 bound is a strengthened bound proved here; its formula is
+not the estimate stated in the paper's Theorem 8.3 (lines 3002–3017).
 -/
 
 public section
@@ -29,8 +37,12 @@ variable {k : ℕ} {X Y Cm Z : Type} [Fintype X] [DecidableEq X] [Fintype Y] [De
   [Fintype Cm] [DecidableEq Cm] [Fintype Z] [DecidableEq Z] [AddGroup Z] {Dm : Fin k → Type}
   (E : VCOracle k X Y) (ME : MultiExtractor k Cm Dm E.S) (code : TpDCode k Dm Z)
 
--- The product register requires instance terms larger than the default limit of 128.
-set_option synthInstance.maxSize 256 in
+/-- The operator norm structure on the joint P2 register with an explicit finite basis. -/
+noncomputable local instance comRegisterNormedAddCommGroup (Env : QReg) :
+    NormedAddCommGroup (Matrix (ComOut k X Y Cm Z Env × E.S) (ComOut k X Y Cm Z Env × E.S) ℂ) := by
+  letI : Fintype (ComOut k X Y Cm Z Env × E.S) := inferInstance
+  exact Matrix.instL2OpNormedAddCommGroup
+
 /-- The commutation defect of any two unitary ports has squared operator norm at most four. -/
 theorem norm_comDefect_sq_le_four (Env : QReg) (i : Fin k) :
     ‖comDefect E ME code Env i‖ ^ 2 ≤ 4 := by
@@ -45,11 +57,10 @@ theorem norm_comDefect_sq_le_four (Env : QReg) (i : Fin k) :
     l2_opNorm_le_one_of_conjTranspose_mul_self (mem_unitaryGroup_iff'.mp (mul_mem hU hV))
   have hVU : ‖V * U‖ ≤ 1 :=
     l2_opNorm_le_one_of_conjTranspose_mul_self (mem_unitaryGroup_iff'.mp (mul_mem hV hU))
-  have h : ‖U * V - V * U‖ ≤ 2 := (norm_sub_le _ _).trans (by linarith)
+  have h : ‖U * V - V * U‖ ≤ 2 := (norm_sub_le (U * V) (V * U)).trans (by linarith)
   change ‖U * V - V * U‖ ^ 2 ≤ 4
   nlinarith [norm_nonneg (U * V - V * U)]
 
-set_option synthInstance.maxSize 256 in
 /-- The universal P2 cap, valid for mixed states and arbitrary adversarial query bounds. -/
 theorem comBound_four : ComBound.{v, w} E ME code (fun _ ↦ 4) := by
   classical

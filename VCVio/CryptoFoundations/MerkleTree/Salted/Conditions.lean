@@ -14,6 +14,13 @@ public import VCVio.Quantum.VC.Conditions
 The salted Merkle multi-extractor satisfies the algebraic `Quantum.Conditions` with the empty
 trapdoor and collision-free good databases. Admissibility uses the distinct-index convention of
 `Quantum.MultiExtractor.Admissible`; extractor efficiency remains a separate obligation.
+
+## References
+
+Chiesa–Di–Hu–Zheng, ePrint 2025/2166: admissibility (Definition 7.1,
+`papers/2166.txt`, lines 2777–2785), the Merkle scheme (Definition 8.2, lines 2971–3000),
+and the sufficient conditions (Theorem 8.4, lines 3026–3054). The Merkle instantiation uses
+`MTMultiExtract` (lines 3118–3124) and the collision-free conditions (lines 3151–3178).
 -/
 
 public section
