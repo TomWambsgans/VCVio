@@ -455,8 +455,10 @@ public import VCVio.Quantum.SubInstrument
 public import VCVio.Quantum.VC.Compressed
 public import VCVio.Quantum.VC.Conditions
 public import VCVio.Quantum.VC.Emulated
+public import VCVio.Quantum.VC.Merkle.OfflineOld
 public import VCVio.Quantum.VC.MultiExtractable
 public import VCVio.Quantum.VC.MultiExtractor
+public import VCVio.Quantum.VC.Proof.CheckerComparison
 public import VCVio.Quantum.VC.Proof.Commutativity
 public import VCVio.Quantum.VC.Proof.Extraction
 public import VCVio.Quantum.VC.Proof.Repeatability
