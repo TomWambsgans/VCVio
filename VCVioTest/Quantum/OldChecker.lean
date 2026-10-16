@@ -264,4 +264,17 @@ example {L : LocalSig} {spec : QuantumOracleSpec} {A B C : QReg}
     (f.bind fun a ↦ (g a).map fun b ↦ (a, b)).map Prod.snd = f.bind g :=
   QuantumRuntime.bind_record_map_snd f g
 
+/-- A checker on the first component preserves the second component exactly, even when
+its local conjugating operator mixes the first component's basis states. -/
+example (p : Bool → Prop) [DecidablePred p] (C : Matrix Bool Bool ℂ) (hC : C * C = 1)
+    (D D' : Fin 2 → Bool)
+    (h : (piKron (fun _ : Fin 2 ↦ C) * diagonal
+      (fun D : Fin 2 → Bool ↦ if ∀ i ∈ ({0} : Finset (Fin 2)), p (D i) then (1 : ℂ) else 0) *
+        piKron (fun _ : Fin 2 ↦ C)) D D' ≠ 0) : D 1 = D' 1 := by
+  have hs := conjugated_batch_support (fun _ : Fin 2 ↦ p) id {0} C hC D D'
+  refine hs ?_ 1 (by simp)
+  convert h using 1
+  simp only [id_eq, Matrix.mul_apply, diagonal_apply]
+  congr! 6
+
 end VCVioTest.OldChecker

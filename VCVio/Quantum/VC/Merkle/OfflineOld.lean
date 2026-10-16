@@ -1449,3 +1449,39 @@ theorem old_run_invalid_le
     (mul_le_mul_right (ENNReal.rpow_le_rpow (mul_le_mul_right hm _)
       (by norm_num)) 2))
 end Quantum.SaltedMerkle
+
+namespace Quantum.SaltedMerkle
+open _root_.SaltedMerkle
+variable {X Y Msg Salt : Type} [Fintype X] [DecidableEq X] [LinearOrder Y] [Fintype Y]
+  [Nonempty Y] [Fintype Msg] [LinearOrder Msg] [Fintype Salt] [LinearOrder Salt]
+  (enc : Encoding X Y Msg Salt) {k : ℕ} (d : Fin k → ℕ)
+/-- Extraction on one position batch commutes with either conjugated checker on a disjoint
+batch. Duplicate-index tuples are included because their extraction response is constant. -/
+theorem batchResponse_commute (hk : 1 ≤ k) (idx : Fin k → Fin k) (cm : Fin k → Y)
+    (W B : Finset (Fin k)) (hWB : Disjoint W B)
+    (p : Fin k → Database X Y → Prop) [∀ i D, Decidable (p i D)] :
+    let Z := TpDCode.ConcatReg k (DmOf (fun i ↦ 2 ^ d i) Msg (fun i ↦ Td Y Salt (d i)))
+    let β := TpDCode.partResponse (multiExtract enc d) B (TpIC.full hk idx cm)
+    let K := compressDatabases k X Y * diagonal
+      (fun D : Fin k → Database X Y ↦ if ∀ i ∈ W, p i (D (idx i)) then (1 : ℂ) else 0) *
+        compressDatabases k X Y
+    Commute (labelControlled (fun a : (Fin k → Database X Y) × Z ↦ β a.1)
+      (fun r ↦ (1 : Matrix (Fin k → Database X Y) _ ℂ) ⊗ₖ xorShift Z r)) (K ⊗ₖ 1) := by
+  classical
+  dsimp only
+  apply response_commute_of_support
+  intro D D' hK
+  by_cases hi : Function.Injective idx
+  · apply partResponse_full_eq enc d
+    intro i hiB
+    have hs := conjugated_batch_support p idx W (compressAll X Y)
+      (compressAll_mul_self X Y) D D'
+    refine hs ?_ (idx i) ?_
+    · convert hK using 1
+      simp only [compressDatabases, Matrix.mul_apply, diagonal_apply]
+      congr! 6
+    · intro hj
+      obtain ⟨j, hj, he⟩ := Finset.mem_image.mp hj
+      exact Finset.disjoint_left.mp hWB ((hi he) ▸ hj) hiB
+  · exact partResponse_full_eq_of_not_injective enc d hk idx cm B D D' hi
+end Quantum.SaltedMerkle

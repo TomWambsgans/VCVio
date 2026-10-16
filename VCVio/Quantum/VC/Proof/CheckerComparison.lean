@@ -1407,3 +1407,67 @@ theorem run₂_offlineInstrument_accept [DecidableEq Msg] [∀ i, DecidableEq (P
 
 end retained
 end Quantum
+
+namespace Quantum
+variable {ι S : Type*} [Fintype ι] [DecidableEq ι] [Fintype S] [DecidableEq S]
+
+omit [Fintype S] in
+/-- Conjunctions of coordinate predicates factor into diagonal coordinate operators. -/
+theorem diagonal_batch_piKron (p : ι → S → Prop) [∀ i s, Decidable (p i s)]
+    (idx : ι → ι) (W : Finset ι) :
+    diagonal (fun D : ι → S ↦ if ∀ i ∈ W, p i (D (idx i)) then (1 : ℂ) else 0) =
+      piKron (fun j ↦ diagonal fun s ↦ if ∀ i ∈ W, idx i = j → p i s then 1 else 0) := by
+  classical
+  ext D D'
+  by_cases h : D = D'
+  · subst D'
+    simp only [diagonal_apply_eq, piKron_apply, Finset.prod_boole,
+      Finset.mem_univ, forall_const]
+    congr 1
+    exact propext ⟨fun h j i hi he ↦ he ▸ h i hi, fun h i hi ↦ h (idx i) i hi rfl⟩
+  · rw [diagonal_apply_ne _ h, piKron_apply]
+    obtain ⟨j, hj⟩ := Function.ne_iff.mp h
+    exact (Finset.prod_eq_zero (Finset.mem_univ j) (by simp [diagonal_apply_ne _ hj])).symm
+
+/-- A conjugated batch has zero entries between tables differing outside its indices. -/
+theorem conjugated_batch_support (p : ι → S → Prop) [∀ i s, Decidable (p i s)]
+    (idx : ι → ι) (W : Finset ι) (C : Matrix S S ℂ) (hC : C * C = 1)
+    (D D' : ι → S)
+    (h : (piKron (fun _ : ι ↦ C) * diagonal
+      (fun D : ι → S ↦ if ∀ i ∈ W, p i (D (idx i)) then (1 : ℂ) else 0) *
+        piKron (fun _ : ι ↦ C)) D D' ≠ 0) (j : ι) (hj : j ∉ W.image idx) :
+    D j = D' j := by
+  classical
+  rw [diagonal_batch_piKron, piKron_mul, piKron_mul, piKron_apply] at h
+  have hp : (diagonal (fun s : S ↦ if ∀ i ∈ W, idx i = j → p i s then (1 : ℂ) else 0)) = 1 := by
+    have he : ∀ i ∈ W, idx i ≠ j := by simpa using hj
+    have hx : ∀ s, ∀ i ∈ W, idx i = j → p i s :=
+      fun _ i hi hh ↦ (he i hi hh).elim
+    ext a b
+    simp only [diagonal_apply, one_apply, ite_eq_left (hx a)]
+  have hh := (Finset.prod_ne_zero_iff.mp h) j (Finset.mem_univ j)
+  rw [hp, Matrix.mul_one, hC, one_apply] at hh
+  split_ifs at hh with he
+  · exact he
+  · exact (hh rfl).elim
+
+/-- A label-controlled response commutes with a matrix preserving its database label. -/
+theorem response_commute_of_support {Z κ : Type*} [Fintype Z] [DecidableEq Z]
+    (β : S → κ) (U : κ → Matrix Z Z ℂ) (K : Matrix S S ℂ)
+    (hK : ∀ a b, K a b ≠ 0 → β a = β b) :
+    Commute (labelControlled (fun a : S × Z ↦ β a.1)
+      (fun r ↦ (1 : Matrix S S ℂ) ⊗ₖ U r)) (K ⊗ₖ (1 : Matrix Z Z ℂ)) := by
+  classical
+  have hp : pinch (fun a : S × Z ↦ β a.1) (K ⊗ₖ (1 : Matrix Z Z ℂ)) = K ⊗ₖ 1 := by
+    rw [pinch_kronecker_one, pinch_eq_self_iff.mpr hK]
+  change _ * _ = _ * _
+  rw [← hp]
+  apply labelControlled_mul_pinch
+  · intro r a b hab
+    have h : a.1 = b.1 := by
+      by_contra hh
+      exact hab (by simp [kroneckerMap_apply, one_apply_ne hh])
+    exact congrArg β h
+  · intro r
+    simp only [← mul_kronecker_mul, Matrix.one_mul, Matrix.mul_one]
+end Quantum
