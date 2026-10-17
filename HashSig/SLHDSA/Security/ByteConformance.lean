@@ -159,6 +159,10 @@ theorem n_le_m (set : FipsParameterSet) :
     set.validatedParams.params.n ≤ set.validatedParams.params.m := by
   cases set <;> decide
 
+/-- Every FIPS 205 parameter set has a node width of at least `16` bytes. -/
+theorem sixteen_le_n (set : FipsParameterSet) : 16 ≤ set.validatedParams.params.n := by
+  cases set <;> decide
+
 /-- Every FIPS 205 parameter set has its node width at most `32` bytes. -/
 theorem n_le_32 (set : FipsParameterSet) : set.validatedParams.params.n ≤ 32 := by
   cases set <;> decide
