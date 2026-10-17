@@ -22,7 +22,9 @@ reading survives cache extension (`QueryCache.simulateQ_toPartialImpl_mono`), an
 value of every total answer function agreeing with the cache
 (`QueryCache.evalWithAnswerFn_eq_of_agreesWithFn`).  The cache of a run that also answers
 uniform queries through `unifFwdImpl` only grows
-(`OracleComp.le_snd_of_mem_support_run_unifFwdImpl_add_withCaching`).
+(`OracleComp.le_snd_of_mem_support_run_unifFwdImpl_add_withCaching`). A program over one summand
+of a sum signature, run in the random oracle model over the sum, leaves unset every entry of that
+summand it never queries (`OracleComp.snd_apply_inl_eq_none_of_mem_support_run_romImpl`).
 
 The same replay holds for a run of any stateful handler, read on any cache from a family of
 caches admissible at each state, when admissibility is closed backwards along each step and
@@ -183,6 +185,36 @@ theorem simulateQ_toPartialImpl_snd_fst_of_mem_support_run_romImpl (oa : OracleC
     rw [simulateQ_bind, simulateQ_spec_query, QueryCache.toPartialImpl_apply,
       QueryCache.fst_apply, hle hc₁]
     exact ih u h₂
+
+/-- A `spec₁`-only program that makes no query satisfying `K`, issued through its query capability
+and run in the random oracle model over `spec₁ + spec₂` from a cache with no `spec₁` entry at a
+query satisfying `K`, ends with a cache that has no such entry either. -/
+theorem snd_apply_inl_eq_none_of_mem_support_run_romImpl {K : ι₁ → Prop}
+    (oa : OracleComp spec₁ α) (hoa : oa.AllQueriesSatisfy fun t => ¬K t)
+    {cache : (spec₁ + spec₂).QueryCache} (hc : ∀ t, K t → cache (.inl t) = none)
+    {z : α × (spec₁ + spec₂).QueryCache}
+    (hz : z ∈ support ((simulateQ (spec₁ + spec₂).romImpl (simulateQ (HasQuery.toQueryImpl
+      (spec := spec₁) (m := OracleComp (unifSpec + (spec₁ + spec₂)))) oa)).run cache)) :
+    ∀ t, K t → z.2 (.inl t) = none := by
+  induction oa using OracleComp.inductionOn generalizing cache with
+  | pure x =>
+    rw [simulateQ_pure, simulateQ_pure, StateT.run_pure, support_pure, Set.mem_singleton_iff] at hz
+    exact hz ▸ hc
+  | query_bind t k ih =>
+    rw [allQueriesSatisfy_query_bind_iff] at hoa
+    rw [simulateQ_bind, simulateQ_spec_query, simulateQ_bind, StateT.run_bind,
+      mem_support_bind_iff] at hz
+    obtain ⟨⟨u, c₁⟩, h₁, h₂⟩ := hz
+    rw [show (HasQuery.toQueryImpl (spec := spec₁)
+        (m := OracleComp (unifSpec + (spec₁ + spec₂))) t) =
+        liftM ((unifSpec + (spec₁ + spec₂)).query (.inr (.inl t))) from rfl,
+      simulateQ_spec_query] at h₁
+    have hc₁ := QueryImpl.withCaching_run_eq_cacheQuery
+      (uniformSampleImpl (spec := spec₁ + spec₂)) h₁
+    refine ih u (hoa.2 u) (fun t' ht' => ?_) h₂
+    simp only at hc₁
+    have hne : (.inl t' : ι₁ ⊕ ι₂) ≠ .inl t := fun h => hoa.1 (Sum.inl.inj h ▸ ht')
+    rw [hc₁, QueryCache.cacheQuery_of_ne _ _ hne, hc t' ht']
 
 end Sum
 
