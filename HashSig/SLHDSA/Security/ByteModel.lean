@@ -21,11 +21,13 @@ a query of it at the role's byte layout.
 
 `shakeSpec vp` is a random oracle `List Byte →ₒ Bytes m`, `m` the `H_msg` digest length. A role
 whose output is `n` bytes reads the first `n` bytes of the answer (`prefixBytes`). This is
-SHAKE256 as an extendable-output random oracle restricted to outputs of at most `m` bytes: every
-output the scheme itself reads, `n` or `m` bytes, is a prefix of the `m`-byte answer, and a
-forger's outputs are capped at `m` bytes. The cap is a modelling restriction: a forger against
-the unrestricted extendable-output oracle can read longer outputs, and that the cap loses nothing
-against such a forger is not proved here. The runtime `shakeRuntime vp` is VCVio's lazy random
+SHAKE256 as an extendable-output random oracle with `m`-byte outputs, `m` being the longest
+SHAKE256 output FIPS 205 reads (`H_msg`; every other call reads the first `n ≤ m` bytes), so every
+output the scheme itself reads is a prefix of the `m`-byte answer. The output length is a
+modelling choice: a forger against a variable-length extendable-output oracle that reads more than
+`m` bytes at a string sees only bytes no SLH-DSA evaluation reads, and is simulated against this
+oracle, query for query, by sampling those bytes itself; that simulation is not formalised. The
+runtime `shakeRuntime vp` is VCVio's lazy random
 oracle `ProbCompRuntime.rom (shakeSpec vp)` from the empty cache, the advantage is
 `shakeAdvantage vp`, and an adversary's budget is the generic
 `UnforgeableAdversary.RomQueryBound`, one count per query of the single oracle.

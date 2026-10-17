@@ -66,9 +66,8 @@ it over any distribution of the public seed, the uniform one of FIPS 205 include
   `SecurityTarget` binds. The answer tapes of the proof draw from the global sampler; the tape
   identification `AnswerTape.evalDist_run_dupRandomOracleFwd_eq_tapeFamily` relates the two,
   since only the uniform law of either enters.
-* The faithfulness step relating the three-oracle model to the byte-level scheme over a single
-  SHAKE256 is not included: neither its losses nor, for deterministic signing, its term
-  `qs / 2 ^ (8 n)`.
+* The byte-level scheme over a single SHAKE256 is bounded from these statements in
+  `HashSig.SLHDSA.Security.ByteBound`, with the further terms of that step.
 -/
 
 public section

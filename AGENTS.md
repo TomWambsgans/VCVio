@@ -75,8 +75,10 @@ The repo also includes a first-class lattice cryptography library under `Lattice
   single SHAKE256 random oracle on byte strings is stated (`shakeRomScheme`); answering its oracle
   with SHAKE256 gives the library's FIPS 205 SHAKE internal algorithms
   (`shakeRomScheme_map_shakeAnswer`), which are checked against pinned NIST ACVP vectors at
-  SLH-DSA-SHAKE-128f. There is no forgery bound in that single-oracle model yet (the faithfulness
-  step), no SUF-CMA bound and no complete FIPS conformance result.
+  SLH-DSA-SHAKE-128f; the EUF-CMA bound in that model, the three-oracle bound plus
+  `(q_s + 1) / 2^{8n}` and a weak-key term, is `shakeAdvantage_le_securityBound` (per public seed:
+  `shakeAdvantage_pure_le_securityBound`). There is no SUF-CMA bound and no complete FIPS
+  conformance result.
   Peer of `LatticeCrypto/`; depends on `VCVio`/`ToMathlib` but nothing in those imports it back.
 - `LatticeCryptoTest/`: ACVP vectors, executable regression tests, and cross-checks against native backends.
 - `VCVioTest/`: framework smoke tests and test support modules.

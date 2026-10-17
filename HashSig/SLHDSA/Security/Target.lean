@@ -61,10 +61,15 @@ fresh randomizers equals the answer's randomizer. It is at least the unweighted
 The constants `c` and `r` are fixed numerals at the security theorem; `r` bounds the honest entries
 that share one oracle key, and `GeneralScheme.verifyInternalQueryBound` bounds the verifier's own
 queries, which a forger can make fire without making any query itself. Signing queries enter only
-through the coverage term, in both signing modes. The byte-level statement over a single SHAKE256,
-to be related to this model by a faithfulness theorem, adds the losses of that step and, for
-deterministic signing, one term `2^{-8n}` per signing query, for the event that a signing query's
-randomizer equals `SK.prf`, so that the signer's `H_msg` string begins with `SK.prf`.
+through the coverage term, in both signing modes. The byte-level bound over a single SHAKE256
+(`HashSig.SLHDSA.Security.ByteBound`) adds three kinds of term, in both signing modes:
+
+* `2^{-8n}` per signing query, for the event that a signing query's randomizer equals `SK.prf`,
+  so that the signer's `H_msg` string begins with `SK.prf`;
+* `2^{-8n}` for `SK.prf = PK.seed`;
+* a weak-key term, for a public key whose bytes `PK.seed ‖ PK.root` begin with an honest address
+  key.
+
 `SecurityTarget` is a statement about a given core: it is a security result only at a shipped
 bundle with the constants fixed, since at a degenerate core — one whose node type has a single
 element, say — the right-hand side reaches one and the target holds trivially.
@@ -80,8 +85,8 @@ forger-chosen string can also be read as a query of another oracle depends on th
 This module states the target; it proves no bound on the advantage. The target at `c = 2` and
 `r = 1` is proved in `HashSig.SLHDSA.Security.CoverageBound` (`securityTarget_two_one`). The
 three-oracle model is the model the proof works in. The single-SHAKE256 instantiation, in which the
-tweakable hash, `H_msg` and `PRF_msg` are one function, is to be related to it by a separate
-faithfulness theorem, which is not part of this development.
+tweakable hash, `H_msg` and `PRF_msg` are one function, is related to it and bounded in
+`HashSig.SLHDSA.Security.ByteBound`.
 
 ## References
 

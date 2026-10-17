@@ -66,11 +66,15 @@ infrastructure and some tooling and automation remain under active development.
   bound in the classical random-oracle model with three oracles (the tweakable hash, `Hmsg` and
   `PRFmsg`), per public seed and averaged over seed distributions (`securityTarget_two_one`). A
   model of the SHAKE parameter sets over a single SHAKE256 random oracle on byte strings is stated
-  (`shakeRomScheme`); answering its oracle with SHAKE256 gives the library's FIPS 205 SHAKE internal
-  algorithms (`shakeRomScheme_map_shakeAnswer`), which are checked against pinned NIST ACVP vectors
-  at SLH-DSA-SHAKE-128f. A forgery bound in that single-oracle model (the faithfulness step), an
-  SUF-CMA bound and a complete FIPS conformance result are not proved; see
-  `docs/design/slh-dsa-status-and-roadmap.md`.
+  (`shakeRomScheme`); answering its oracle with SHAKE256 gives the library's FIPS 205 SHAKE
+  internal algorithms (`shakeRomScheme_map_shakeAnswer`), which are checked against pinned NIST
+  ACVP vectors at SLH-DSA-SHAKE-128f. In that model the EUF-CMA bound is proved at the six SHAKE
+  parameter sets: the three-oracle bound plus `(q_s + 1) / 2^{8n}` and a weak-key term, which over
+  the uniform public seed is at most `|A_hon| / 2^256`, about `2^{−172}` or less
+  (`shakeAdvantage_le_securityBound_validatedParams`). The SHA-2 parameter sets have no
+  single-oracle model. An SUF-CMA bound and a complete FIPS conformance result are not proved; see
+  `docs/design/slh-dsa-status-and-roadmap.md` and, for the accounting and levels,
+  `docs/design/slh-dsa-classical-rom-bound.md`.
 - `LatticeCryptoTest/` contains ACVP vectors, regression tests, and differential checks against native backends.
 - `HashSigTest/` contains hash-signature test and validation modules.
 - `Examples/` contains compact framework proofs including OneTimePad, ElGamal, and Schnorr.

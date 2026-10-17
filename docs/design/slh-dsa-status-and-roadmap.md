@@ -33,7 +33,7 @@ open pull request #766 proves an unconditional EUF-CMA bound in the classical ra
 | Security lane, slices 1–5 (on `main`) | `Security/TargetCounts.lean`, `Security/ReachableTargets.lean` (#630); `Security/EncodedTargets.lean` (#631); `WotsInjectivity.lean` (#665); `Security/TraceTargets.lean` (#666); the consolidated second-round review fixes for those four, including `VCVio/OracleComp/QueryTracking/{QueryBound,LoggingOracle}.lean`'s `AllQueriesSatisfy` (#680, `0a1ff722`); `Security/ComponentTraces.lean` (#682, `630301f3`) | `slhdsa_target_ledger_tests`, `slhdsa_encoded_ledger_tests`, `slhdsa_trace_target_tests`, `slhdsa_component_trace_tests` |
 | Security lane, slice 6 (on `main`) | `Security/CanonicalGames.lean` (#683) | `slhdsa_canonical_game_tests` |
 | Security lane, slices 7–8 | `Security/{WotsWitnesses,ForsWitnesses,XmssWitnesses,HypertreeWitnesses,SchemeWitnesses,HmsgWitnesses,SufResidual,SchemeGames,Composition,SufBound}.lean` (#685–#718, on `main`); `Security/LimitedProfile.lean` (#723) | Owning witness, residual, scheme-game, composition, SUF-bound and profile executables in `lake test` |
-| Byte-level SHAKE model (#766) | `Security/RomConformance.lean`, `Security/ByteModel.lean`, `Security/ByteConformance.lean` | `slhdsa_byte_model_tests` (+ `ByteModelVectors/`) |
+| Byte-level SHAKE model and bound (#766) | `Security/RomConformance.lean`, `Security/ByteModel.lean`, `Security/ByteConformance.lean`, `Security/ByteRouter.lean`, `Security/RunProvenance.lean`, `Security/ByteClash.lean`, `Security/PrfKeyBound.lean`, `Security/WeakKeyBound.lean`, `Security/ByteBound.lean` | `slhdsa_byte_model_tests` (+ `ByteModelVectors/`), `HashSigTest/SLHDSA/{ByteRouter,ByteClash,PrfKeyBound,WeakKeyBound,ByteBound}.lean` |
 | Generic hash games consumed | `VCVio/CryptoFoundations/HardnessAssumptions/TweakableHash/*.lean`, `KeyedHash/ITSR.lean`, `VCVio/CryptoFoundations/SignatureAlg.lean` | `VCVioTest/SMDT*.lean` |
 
 Every SLH-DSA test executable is registered in the `@[test_driver] script test` of `lakefile.lean`
@@ -124,7 +124,8 @@ pushed, so a quoted one goes stale without notice.
   coefficients; it does not discharge these obligations or enforce the signing limit.
 - **General-`d` security gate: not started**, and correctly claimed nowhere.
 - **Classical random-oracle EUF-CMA bound: proved on the open pull request #766**, at general
-  `d`, in the three-oracle model; not on `main`. See the next section.
+  `d`, in the three-oracle model, and for the SHAKE parameter sets over a single SHAKE256 random
+  oracle on byte strings; not on `main`. See the next section.
 
 ## Classical random-oracle bound (open, #766)
 
@@ -147,22 +148,37 @@ The hypotheses are the byte laws, the key discipline (`CorePrimitives.KeyDiscipl
 its own hash queries `q_h` and signing queries `q_s`; key generation, signing and verification are
 not charged.
 
-#766 also states the byte-level model of the SHAKE parameter sets and identifies it with FIPS 205:
+#766 also states the byte-level model of the SHAKE parameter sets, identifies it with FIPS 205,
+and bounds the forging advantage in it:
 
 | Result | Theorem | Module |
 |---|---|---|
 | SLH-DSA over one SHAKE256 random oracle on byte strings with `m`-byte answers, every hash a query at its FIPS 205 §11.1 layout; the advantage, and its averaging over the public seed | `shakeRomScheme`, `shakeAdvantage`, `shakeAdvantage_le_lintegral` | `Security/ByteModel.lean` |
 | Answering that oracle with SHAKE256 gives the library's FIPS 205 SHAKE internal algorithms, in both signing modes and for every public-seed distribution | `shakeRomScheme_map_shakeAnswer`, `shakeRomScheme_map_shakeAnswer_validatedParams` | `Security/ByteConformance.lean` |
 | Those internal algorithms reproduce NIST ACVP-Server vectors (commit `975de31e`) at SLH-DSA-SHAKE-128f: keyGen test case 31, internal-interface sigGen test cases 137 (deterministic) and 448 (hedged), sigVer test cases 223 and 219 | `slhdsa_byte_model_tests` | `HashSigTest/SLHDSA/ByteModel.lean`, `ByteModelVectors/vectors.json` |
+| The forging advantage over one SHAKE256 oracle, per public seed, for `16 ≤ n ≤ 32`, `n ≤ m` and address fields within their FIPS 205 widths (`CanonicalAddressBounds`): at most `securityBound p 2^{8n} 2 1 q_h q_s + (q_s + 1) / 2^{8n} + weakKeyMass vp PK.seed`, in both signing modes | `shakeAdvantage_pure_le_securityBound` | `Security/ByteBound.lean` |
+| The same over the uniform public seed, with the weak-key term at most `\|A_hon\| / 2^256` | `shakeAdvantage_le_securityBound` | `Security/ByteBound.lean` |
+| Per public seed of weak-key mass zero, and at `n = 32` per public seed outside the weak set, without the weak-key term | `shakeAdvantage_pure_le_securityBound_of_weakKeyMass_eq_zero`, `shakeAdvantage_pure_le_securityBound_of_n_eq_32` | `Security/ByteBound.lean` |
+| Both bounds at the six SHAKE parameter sets, the adversary's budget the only hypothesis; the theorems are stated over all twelve `FipsParameterSet` values, a SHA-2 value contributing only its parameters, which equal its SHAKE twin's | `shakeAdvantage_pure_le_securityBound_validatedParams`, `shakeAdvantage_le_securityBound_validatedParams` | `Security/ByteBound.lean`, `HashSigTest/SLHDSA/ByteBound.lean` |
 
-The single oracle caps a forger's outputs at `m` bytes, a modelling restriction whose losslessness
-is not proved. Not proved: a forgery bound in the single-oracle model, that is, the faithfulness
-step relating the three-oracle bound to `shakeAdvantage`, with its losses, among them
-`q_s / 2^{8n}` in both signing modes and, at `n = 32`, a weak-key term of about `2^{−172}` that
-holds the averaged byte-level level of the 256-bit sets near 236 bits at `q_h = q_s = 2^64`; any
-byte-level model of the SHA-2 sets; a strong-unforgeability bound; and the external interfaces
-(Algorithms 21–25), which the theorem does not reach. There is no complete FIPS conformance
-result.
+The faithfulness step routes a forger's byte strings to typed queries of the three oracles
+(`Security/ByteRouter.lean`), classifies every clash of two byte strings in the routed run as a hit
+of the message-`PRF` key or a weak public key (`Security/ByteClash.lean`), charges the first
+jointly with the three-oracle events (`Security/PrfKeyBound.lean`) and bounds the second by the
+uniformity of the public root (`Security/WeakKeyBound.lean`). The accounting and the levels are in
+[`slh-dsa-classical-rom-bound.md`](slh-dsa-classical-rom-bound.md).
+
+The single oracle answers every string with `m` bytes, the longest SHAKE256 output FIPS 205 reads.
+This is a modelling choice: a forger against a variable-length extendable-output oracle that reads
+more than `m` bytes sees only bytes no SLH-DSA evaluation reads, and is simulated against this
+oracle, query for query, by sampling those bytes itself; that simulation is not formalised. Not
+proved: the removal of the weak-key term from the averaged bound at `n = 32`,
+where it is about `2^{−172}` and holds the averaged byte-level level of the 256-bit sets near 236
+bits at `q_h = q_s = 2^64` (254.00 and 253.89 per seed outside the weak set); the hedged
+refinement that would bound the signer's faithfulness term `q_s / 2^{8n}` jointly with
+`opt_rand = PK.seed`; any byte-level model of the SHA-2 sets; a strong-unforgeability bound; and
+the external interfaces (Algorithms 21–25), which the theorem does not reach. There is no complete
+FIPS conformance result.
 
 ## Security lane: slices, status, and source correspondence
 

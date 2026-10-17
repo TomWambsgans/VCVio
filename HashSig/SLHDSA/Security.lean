@@ -30,7 +30,8 @@ SM-DT-OpenPRE/UD variants, an `H_msg` interleaved-target-subset-resilience game,
 reductions from the forger, and checked query bounds. Primitive packaging alone does not supply
 those ingredients. In the classical random-oracle model, with the tweakable hash, `H_msg` and
 `PRF_msg` as three oracles, the EUF-CMA bound is `HashSig.SLHDSA.Security.CoverageBound`
-(`securityTarget_two_one`).
+(`securityTarget_two_one`); over a single SHAKE256 random oracle on byte strings it is
+`HashSig.SLHDSA.Security.ByteBound` (`shakeAdvantage_le_securityBound`).
 
 ## References
 

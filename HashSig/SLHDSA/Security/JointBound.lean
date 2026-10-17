@@ -87,7 +87,8 @@ by such an ideal-game bound plus the coverage term.
   `unforgeableAdvantage_romScheme_pure_le_add`. `HashSig.SLHDSA.Security.CoverageBound` bounds
   the ideal-game term (`prEvent_idealDraw_runItsrCovered_le`).
 * The losses of the faithfulness step relating the three-oracle model to the byte-level scheme
-  over a single SHAKE256 are not included.
+  over a single SHAKE256 are not included; that scheme is bounded in
+  `HashSig.SLHDSA.Security.ByteBound`.
 * Nothing here is quantum.
 -/
 
@@ -277,7 +278,7 @@ discipline and `|Y| ≤ |SK.prf|`, for a forger with hash budget `qh`, the run o
 random-oracle model at public seed `pkSeed` fires a same-key target collision or a hidden-value hit
 with probability at most `2 (qh + V) / |Y|`, with `V` the verifier's query bound. The forger
 guessing a secret seed is charged inside this bound. Interleaved-target coverage and the
-faithfulness step are not included. -/
+faithfulness step (bounded in `HashSig.SLHDSA.Security.ByteBound`) are not included. -/
 theorem prEvent_romSchemeRun_runTargetCollision_or_runHiddenHit_le (hd : core.KeyDiscipline vp)
     (hcard : Nat.card core.Y ≤ Nat.card core.SkPrf) (e : core.SkSeed ≃ core.Y)
     (optRand : PublicKeyCore core → ProbComp core.Y) (pkSeed : core.PkSeed)
@@ -332,7 +333,7 @@ most `2 (qh + V) / |Y|`, with `V` the verifier's query bound, plus the probabili
 The forger guessing a secret seed is charged once, inside the first term. The statement is per
 public seed; the coverage term remains a probability in the ideal hidden-seed game and is not
 bounded here; the faithfulness step relating the three-oracle model to the byte-level scheme is not
-included. -/
+included (it is bounded in `HashSig.SLHDSA.Security.ByteBound`). -/
 theorem unforgeableAdvantage_romScheme_pure_le_add_idealDraw (laws : core.ByteLaws)
     (hd : core.KeyDiscipline vp) (hcard : Nat.card core.Y ≤ Nat.card core.SkPrf)
     (e : core.SkSeed ≃ core.Y) (optRand : PublicKeyCore core → ProbComp core.Y)
@@ -403,7 +404,8 @@ model at public seed `pkSeed`, of a forger with hash budget `qh`, is at most `2 
 with `V` the verifier's query bound, plus the probability that the run fires interleaved-target
 coverage with a fresh forged message (`RunItsrCovered`). The statement is per public seed; the
 coverage term remains a probability of the run and is not bounded here; the faithfulness step
-relating the three-oracle model to the byte-level scheme is not included. For deterministic
+relating the three-oracle model to the byte-level scheme is not included (it is bounded in
+`HashSig.SLHDSA.Security.ByteBound`). For deterministic
 signing at the FIPS 205 parameter sets, this run-level coverage term cannot be bounded at the size
 of the coverage term of `securityBound`: a forger that guesses `SK.prf` through its `PRF_msg`
 queries predicts every randomizer and grinds `H_msg` until the digests it gets signed cover its
