@@ -20,30 +20,32 @@ typed queries. Both live on the common interface `unifSpec + (hs + ext)`: the sc
 A router `R : QueryImpl ext (StateT σ (OracleComp (unifSpec + hs)))` answers a raw query from a
 private state `σ` and queries of `unifSpec + hs`. It can be held in two places.
 
-* By the handler: `OracleComp.routedImpl ro R` answers the common interface on the pair of the
-  state of a handler `ro` of `unifSpec + hs` and the router's state, running `R` at raw queries.
-* By the adversary: `SignatureAlg.UnforgeableAdversary.route R s₀ adv` runs `adv` with its raw
-  queries answered by `R pk` from the router state `s₀`, kept in the adversary's own state, so
-  it is an adversary against the scheme over `unifSpec + hs`. The router may read the public key.
+* By the handler: `OracleComp.handlerRouterImpl ro R` answers the common interface on the pair of
+  the state of a handler `ro` of `unifSpec + hs` and the router's state, running `R` at raw
+  queries.
+* By the program: `OracleComp.programRouterImpl R` answers raw queries by `R` on a state the
+  program itself holds. `SignatureAlg.UnforgeableAdversary.route R s₀ adv` runs `adv` so, with
+  `R pk` at its public key `pk` from the router state `s₀`; it is an adversary against the scheme
+  over `unifSpec + hs`.
 
 The two agree on the unforgeability experiment
-(`SignatureAlg.map_run_simulateQ_routedImpl_unforgeableTranscriptExperiment`): the transcript
-and the state of `ro` of the experiment on the common interface under the routed handler are those
-of the experiment of the scheme against the routed adversary under `ro`. The proof runs the router
-through the logging layer of the signing oracle
-(`OracleComp.simulateQ_routedImpl_run_simulateQ_passthrough_add_withLogging`). A router reading
-the public key agrees with a fixed router at every key the key generation can output
-(`SignatureAlg.map_run_simulateQ_routedImpl_unforgeableTranscriptExperiment_evalDistEq`). A router
-making at most one hash query per raw query keeps the adversary's budget
+(`SignatureAlg.map_run_simulateQ_handlerRouterImpl_unforgeableTranscriptExperiment`): the
+transcript and the state of `ro` of the experiment on the common interface under the
+handler-held router are those of the experiment of the scheme against the routed adversary under
+`ro`. The proof runs the router through the logging layer of the signing oracle
+(`OracleComp.simulateQ_handlerRouterImpl_run_simulateQ_passthrough_add_withLogging`). A router
+reading the public key agrees with a fixed router at every key the key generation can output
+(`SignatureAlg.map_run_simulateQ_handlerRouterImpl_unforgeableTranscriptExperiment_evalDistEq`).
+A router making at most one hash query per raw query keeps the adversary's budget
 (`SignatureAlg.UnforgeableAdversary.RomQueryBound.route`).
 
 For an encoding of typed random oracles into one random oracle
-(`OracleComp.RandomOracleEncoding`), the typed world is the routed handler of the random oracle
-model of `hs` and the router `RandomOracleEncoding.tableRouter`, which keeps the table of private
-values in its state (`RandomOracleEncoding.typedImpl_eq_routedImpl`). The experiment against an
-adversary over the single oracle is then bounded by the experiment against the routed adversary
-in the random oracle model of the typed oracles, or a clash
-(`RandomOracleEncoding.prEvent_simulateQ_romImpl_unforgeableTranscriptExperiment_le`).
+(`OracleComp.RandomOracleEncoding`), the typed world is the handler-held router of the random
+oracle model of `hs` and the router `RandomOracleEncoding.tableRouter`, which keeps the table of
+private values in its state (`RandomOracleEncoding.typedImpl_eq_handlerRouterImpl`). The
+experiment against an adversary over the single oracle is then bounded by the experiment against
+the routed adversary in the random oracle model of the typed oracles, or a clash
+(`RandomOracleEncoding.prEvent_simulateQ_romImpl_run_unforgeableTranscriptExperiment_le`).
 -/
 
 public section
@@ -68,10 +70,44 @@ variable {ι ιe ιs : Type} {hs : OracleSpec ι} {ext : OracleSpec ιe} {sig : 
   | .inr x =>
       (query (spec := unifSpec + (hs + ext)) (.inr (.inr x)) : OracleComp _ (ext.Range x))
 
+/-- The queries of a program over `unifSpec + hs` as queries of `(unifSpec + hs) + sig`, along the
+left summand. -/
+@[expose] def liftAmbientImpl :
+    QueryImpl (unifSpec + hs) (OracleComp ((unifSpec + hs) + sig)) := fun t =>
+  (query (spec := (unifSpec + hs) + sig) (.inl t) :
+    OracleComp ((unifSpec + hs) + sig) ((unifSpec + hs).Range t))
+
+/-- Lifting the queries of a program over `unifSpec + hs` to the common interface is its lift
+along the inclusion of `unifSpec + hs` in `unifSpec + (hs + ext)`. -/
+theorem simulateQ_liftTypedImpl {α : Type} (oa : OracleComp (unifSpec + hs) α) :
+    simulateQ (liftTypedImpl (ext := ext)) oa = liftComp oa (unifSpec + (hs + ext)) := by
+  induction oa using OracleComp.inductionOn with
+  | pure a => simp
+  | query_bind t k ih =>
+    rcases t with n | t <;> simp [liftTypedImpl, ih] <;> rfl
+
+/-- Lifting the queries of a program over `unifSpec + ext` to the common interface is its lift
+along the inclusion of `unifSpec + ext` in `unifSpec + (hs + ext)`. -/
+theorem simulateQ_liftRawImpl {α : Type} (oa : OracleComp (unifSpec + ext) α) :
+    simulateQ (liftRawImpl (hs := hs)) oa = liftComp oa (unifSpec + (hs + ext)) := by
+  induction oa using OracleComp.inductionOn with
+  | pure a => simp
+  | query_bind t k ih =>
+    rcases t with n | t <;> simp [liftRawImpl, ih] <;> rfl
+
+/-- Lifting the queries of a program over `unifSpec + hs` along the left summand is its lift along
+the inclusion of `unifSpec + hs` in `(unifSpec + hs) + sig`. -/
+theorem simulateQ_liftAmbientImpl {α : Type} (oa : OracleComp (unifSpec + hs) α) :
+    simulateQ (liftAmbientImpl (sig := sig)) oa = liftComp oa ((unifSpec + hs) + sig) := by
+  rw [liftComp_def]
+  congr 1
+  funext t
+  rcases t with n | t <;> rfl
+
 /-- The router held by the program: a raw query `x` is answered by `R x` on the router's state,
 and every other query is passed on. The router's queries are lifted to `(unifSpec + hs) + sig`
 along the left summand. -/
-@[expose] def routeImpl (R : QueryImpl ext (StateT σ (OracleComp (unifSpec + hs)))) :
+@[expose] def programRouterImpl (R : QueryImpl ext (StateT σ (OracleComp (unifSpec + hs)))) :
     QueryImpl ((unifSpec + (hs + ext)) + sig) (StateT σ (OracleComp ((unifSpec + hs) + sig)))
   | .inl (.inl n) =>
       (liftM (query (spec := (unifSpec + hs) + sig) (.inl (.inl n)) :
@@ -81,9 +117,7 @@ along the left summand. -/
       (liftM (query (spec := (unifSpec + hs) + sig) (.inl (.inr t)) :
         OracleComp ((unifSpec + hs) + sig) (hs.Range t)) :
         StateT σ (OracleComp ((unifSpec + hs) + sig)) _)
-  | .inl (.inr (.inr x)) => StateT.mk fun s => liftComp ((R x).run s) ((unifSpec + hs) + sig)
-      (h := @instMonadLiftTOfMonadLift _ _ _ OracleQuery.subSpec_add_left.toMonadLift
-        (instMonadLiftT _))
+  | .inl (.inr (.inr x)) => StateT.mk fun s => simulateQ liftAmbientImpl ((R x).run s)
   | .inr m =>
       (liftM (query (spec := (unifSpec + hs) + sig) (.inr m) :
         OracleComp ((unifSpec + hs) + sig) (sig.Range m)) :
@@ -92,7 +126,7 @@ along the left summand. -/
 /-- The router held by the handler: a query of `unifSpec + hs` is answered by `ro` on the first
 component of the state, and a raw query `x` runs `R x` on the second component, its own queries
 answered by `ro` on the first. -/
-@[expose] def routedImpl (ro : QueryImpl (unifSpec + hs) (StateT τ ProbComp))
+@[expose] def handlerRouterImpl (ro : QueryImpl (unifSpec + hs) (StateT τ ProbComp))
     (R : QueryImpl ext (StateT σ (OracleComp (unifSpec + hs)))) :
     QueryImpl (unifSpec + (hs + ext)) (StateT (τ × σ) ProbComp)
   | .inl n => StateT.mk fun p => (fun z => (z.1, (z.2, p.2))) <$> (ro (.inl n)).run p.1
@@ -113,12 +147,12 @@ theorem isQueryBoundP_liftM_isRight {α : Type} (oa : ProbComp α) :
 
 /-- At a raw query, the router held by the program makes, on `(unifSpec + hs) + sig`, the queries
 of the router lifted along the left summand. -/
-theorem isQueryBoundP_run_routeImpl_inr_inr
+theorem isQueryBoundP_run_programRouterImpl_inr_inr
     {R : QueryImpl ext (StateT σ (OracleComp (unifSpec + hs)))}
     {q : ((unifSpec + hs) + sig).Domain → Prop} [DecidablePred q] {n : ℕ} (x : ιe) (s : σ)
     (h : IsQueryBoundP ((R x).run s) (fun t => q (.inl t)) n) :
-    IsQueryBoundP ((routeImpl (sig := sig) R (.inl (.inr (.inr x)))).run s) q n := by
-  simp only [routeImpl, StateT.run_mk, liftComp_def]
+    IsQueryBoundP ((programRouterImpl (sig := sig) R (.inl (.inr (.inr x)))).run s) q n := by
+  simp only [programRouterImpl, StateT.run_mk]
   refine h.simulateQ_of_step (fun t _ => ?_) fun t ht => ?_
   · exact (isQueryBoundP_query_iff (spec := (unifSpec + hs) + sig) q (.inl t) 1).2
       fun _ => Nat.one_pos
@@ -130,91 +164,74 @@ theorem isQueryBoundP_run_routeImpl_inr_inr
 variable (ro : QueryImpl (unifSpec + hs) (StateT τ ProbComp))
   (R : QueryImpl ext (StateT σ (OracleComp (unifSpec + hs))))
 
-/-- A program over `unifSpec + hs`, lifted to the common interface, runs under the routed handler
-as under `ro`, with the router's state untouched. -/
-theorem simulateQ_routedImpl_simulateQ_liftTypedImpl_run {α : Type}
+/-- A program over `unifSpec + hs`, lifted to the common interface, runs under the handler-held
+router as under `ro`, with the router's state untouched. -/
+theorem simulateQ_handlerRouterImpl_simulateQ_liftTypedImpl_run {α : Type}
     (oa : OracleComp (unifSpec + hs) α) (c : τ) (s : σ) :
-    (simulateQ (routedImpl ro R) (simulateQ (liftTypedImpl (ext := ext)) oa)).run (c, s) =
+    (simulateQ (handlerRouterImpl ro R) (simulateQ (liftTypedImpl (ext := ext)) oa)).run (c, s) =
       (fun z => (z.1, (z.2, s))) <$> (simulateQ ro oa).run c := by
   induction oa using OracleComp.inductionOn generalizing c with
   | pure a => simp
   | query_bind t k ih =>
-    rcases t with n | t <;> simp [liftTypedImpl, routedImpl, ih]
+    rcases t with n | t <;> simp [liftTypedImpl, handlerRouterImpl, ih]
 
 /-- A logged handler of `sig`, with the queries of `unifSpec + hs` passed on, runs a program over
 `unifSpec + hs` lifted along the left summand as the program itself, with an empty log. -/
-theorem run_simulateQ_passthrough_add_withLogging_liftComp
+theorem run_simulateQ_passthrough_add_withLogging_simulateQ_liftAmbientImpl
     (f : QueryImpl sig (OracleComp (unifSpec + hs))) {α : Type}
     (oa : OracleComp (unifSpec + hs) α) :
     (simulateQ ((unifSpec + hs).passthrough + f.withLogging)
-      (liftComp oa ((unifSpec + hs) + sig)
-        (h := @instMonadLiftTOfMonadLift _ _ _ OracleQuery.subSpec_add_left.toMonadLift
-          (instMonadLiftT _)))).run =
-      (fun a => (a, [])) <$> oa := by
-  rw [OracleSpec.passthrough, QueryImpl.passthrough_add, QueryImpl.simulateQ_add_liftComp_left]
+      (simulateQ liftAmbientImpl oa)).run = (fun a => (a, [])) <$> oa := by
   induction oa using OracleComp.inductionOn with
   | pure a => simp
-  | query_bind q k ih => simp [ih]
+  | query_bind q k ih =>
+    simp only [OracleSpec.passthrough, QueryImpl.passthrough_add] at ih ⊢
+    simp [liftAmbientImpl, ih]
 
 /-- **Internalising a router through a logged signing layer.** Let `oa` be a program on the
 common interface with a signing oracle `sig`, answered by the logged handler `f` of the scheme
-over `unifSpec + hs`. Run under the routed handler, with the signing handler lifted to the common
-interface, `oa` has the output, log and state of `ro` of the program that holds the router in its
-own state, answered by `f` and run under `ro`; the router's final state is the routed handler's
-second component. -/
-theorem simulateQ_routedImpl_run_simulateQ_passthrough_add_withLogging
+over `unifSpec + hs`. Run under the handler-held router, with the signing handler lifted to the
+common interface, `oa` has the output, log and state of `ro` of the program that holds the router
+in its own state, answered by `f` and run under `ro`; the router's final state is the second
+component of the handler's state. -/
+theorem simulateQ_handlerRouterImpl_run_simulateQ_passthrough_add_withLogging
     (f : QueryImpl sig (OracleComp (unifSpec + hs))) {α : Type}
     (oa : OracleComp ((unifSpec + (hs + ext)) + sig) α) (c : τ) (s : σ) :
-    (simulateQ (routedImpl ro R)
+    (simulateQ (handlerRouterImpl ro R)
         (simulateQ ((unifSpec + (hs + ext)).passthrough +
             QueryImpl.withLogging (fun m => simulateQ (liftTypedImpl (ext := ext)) (f m) :
               QueryImpl sig (OracleComp (unifSpec + (hs + ext))))) oa).run).run (c, s) =
       (fun z => ((z.1.1.1, z.1.2), (z.2, z.1.1.2))) <$>
         (simulateQ ro (simulateQ ((unifSpec + hs).passthrough + f.withLogging)
-          ((simulateQ (routeImpl R) oa).run s)).run).run c := by
+          ((simulateQ (programRouterImpl R) oa).run s)).run).run c := by
   induction oa using OracleComp.inductionOn generalizing c s with
   | pure a => simp
   | query_bind t k ih =>
-    simp only [OracleSpec.passthrough, QueryImpl.passthrough_add] at ih
+    have hC := @run_simulateQ_passthrough_add_withLogging_simulateQ_liftAmbientImpl _ _ _ _ f
+    simp only [OracleSpec.passthrough, QueryImpl.passthrough_add] at ih hC
     rcases t with (n | t | x) | m
-    · simp only [QueryImpl.passthrough_add, add_apply_inl, simulateQ_bind,
-        simulateQ_query, OracleQuery.input_query, OracleQuery.cont_query, QueryImpl.add_apply_inl,
-        PFunctor.Handler.liftTarget_apply, ofPFunctor_toPFunctor, QueryImpl.id'_apply, id_map,
-        WriterT.run_bind, WriterT.run_liftM, List.empty_eq, bind_map_left, List.nil_append,
-        Prod.mk.eta, id_map', routedImpl, StateT.run_bind, StateT.run_mk, routeImpl,
-        HasQuery.instOfMonadLift_query, StateT.run_monadLift, monadLift_self, bind_pure_comp,
-        map_bind]
-      refine bind_congr fun a => ?_
-      rw [ih a.1 a.2 s]
-    · simp only [QueryImpl.passthrough_add, add_apply_inl, add_apply_inr, simulateQ_bind,
-        simulateQ_query, OracleQuery.input_query, OracleQuery.cont_query, QueryImpl.add_apply_inl,
-        PFunctor.Handler.liftTarget_apply, ofPFunctor_toPFunctor, QueryImpl.id'_apply, id_map,
-        WriterT.run_bind, WriterT.run_liftM, List.empty_eq, bind_map_left, List.nil_append,
-        Prod.mk.eta, id_map', routedImpl, StateT.run_bind, StateT.run_mk, routeImpl,
-        HasQuery.instOfMonadLift_query, StateT.run_monadLift, monadLift_self, bind_pure_comp,
-        map_bind]
-      refine bind_congr fun a => ?_
-      rw [ih a.1 a.2 s]
-    · have hC := run_simulateQ_passthrough_add_withLogging_liftComp f ((R x).run s)
-      simp only [OracleComp.liftComp_eq_liftM, OracleSpec.passthrough,
-        QueryImpl.passthrough_add] at hC
-      simp only [QueryImpl.passthrough_add, add_apply_inl, add_apply_inr, simulateQ_bind,
-        simulateQ_query, OracleQuery.input_query, OracleQuery.cont_query, QueryImpl.add_apply_inl,
-        PFunctor.Handler.liftTarget_apply, ofPFunctor_toPFunctor, QueryImpl.id'_apply, id_map,
-        WriterT.run_bind, WriterT.run_liftM, List.empty_eq, bind_map_left, List.nil_append,
-        Prod.mk.eta, id_map', routedImpl, StateT.run_bind, StateT.run_mk, routeImpl,
-        liftComp_eq_liftM, hC, map_bind]
-      exact bind_congr fun a => ih a.1.1 a.2 a.1.2
+    pick_goal 4
     · simp only [QueryImpl.passthrough_add, add_apply_inr, simulateQ_bind, simulateQ_query,
         OracleQuery.input_query, OracleQuery.cont_query, QueryImpl.add_apply_inr,
         QueryImpl.withLogging_apply, bind_pure_comp, map_bind, Functor.map_map, id_eq, bind_assoc,
         bind_map_left, WriterT.run_bind, WriterT.run_liftM, List.empty_eq, WriterT.run_tell,
         pure_bind, List.cons_append, List.nil_append, simulateQ_map, StateT.run_bind,
-        simulateQ_routedImpl_simulateQ_liftTypedImpl_run, StateT.run_map, routeImpl,
+        simulateQ_handlerRouterImpl_simulateQ_liftTypedImpl_run, StateT.run_map, programRouterImpl,
         HasQuery.instOfMonadLift_query, id_map, StateT.run_monadLift, monadLift_self]
       refine bind_congr fun a => ?_
       rw [ih a.1 a.2 s]
       simp
+    all_goals
+      simp only [QueryImpl.passthrough_add, add_apply_inl, add_apply_inr, simulateQ_bind,
+        simulateQ_query, OracleQuery.input_query, OracleQuery.cont_query, QueryImpl.add_apply_inl,
+        PFunctor.Handler.liftTarget_apply, ofPFunctor_toPFunctor, QueryImpl.id'_apply, id_map,
+        WriterT.run_bind, WriterT.run_liftM, List.empty_eq, bind_map_left, List.nil_append,
+        Prod.mk.eta, id_map', handlerRouterImpl, StateT.run_bind, StateT.run_mk, programRouterImpl,
+        HasQuery.instOfMonadLift_query, StateT.run_monadLift, monadLift_self, bind_pure_comp,
+        hC, map_bind]
+      first
+      | exact bind_congr fun a => ih a.1 a.2 s
+      | exact bind_congr fun a => ih a.1.1 a.2 a.1.2
 
 end OracleComp
 
@@ -233,34 +250,34 @@ same messages, public keys and signatures. -/
     {sigAlg : SignatureAlg (OracleComp (unifSpec + hs)) M PK SK S}
     (R : PK → QueryImpl ext (StateT σ (OracleComp (unifSpec + hs)))) (s₀ : σ)
     (adv : UnforgeableAdversary sigAlg') : UnforgeableAdversary sigAlg where
-  main pk := (simulateQ (routeImpl (R pk)) (adv.main pk)).run' s₀
+  main pk := (simulateQ (programRouterImpl (R pk)) (adv.main pk)).run' s₀
 
 /-- **Internalising a router in the unforgeability experiment.** The experiment of a scheme over
 `unifSpec + hs`, lifted to the common interface, against an adversary on the common interface,
-run under the routed handler of `ro` and `R` from `(c, s)`, has as transcript and state of `ro`
-the run under `ro` from `c` of the experiment of the scheme against the adversary that holds `R`
-from `s`. -/
-theorem map_run_simulateQ_routedImpl_unforgeableTranscriptExperiment
+run under the handler-held router of `ro` and `R` from `(c, s)`, has as transcript and state of
+`ro` the run under `ro` from `c` of the experiment of the scheme against the adversary that holds
+`R` from `s`. -/
+theorem map_run_simulateQ_handlerRouterImpl_unforgeableTranscriptExperiment
     (ro : QueryImpl (unifSpec + hs) (StateT τ ProbComp))
     (R : QueryImpl ext (StateT σ (OracleComp (unifSpec + hs))))
     {sigAlg : SignatureAlg (OracleComp (unifSpec + hs)) M PK SK S}
     (adv : UnforgeableAdversary (sigAlg.map (simulateQ' (liftTypedImpl (ext := ext)))))
     (c : τ) (s : σ) :
     Prod.map id Prod.fst <$>
-        (simulateQ (routedImpl ro R) (unforgeableTranscriptExperiment adv)).run (c, s) =
+        (simulateQ (handlerRouterImpl ro R) (unforgeableTranscriptExperiment adv)).run (c, s) =
       (simulateQ ro (unforgeableTranscriptExperiment (sigAlg := sigAlg)
         (adv.route (fun _ => R) s))).run c := by
   simp only [unforgeableTranscriptExperiment_def, runWithSigningOracle, simulateQ_bind,
-    StateT.run_bind, map_keygen, map_verify, simulateQ_routedImpl_simulateQ_liftTypedImpl_run,
-    map_bind, bind_map_left]
+    StateT.run_bind, map_keygen, map_verify,
+    simulateQ_handlerRouterImpl_simulateQ_liftTypedImpl_run, map_bind, bind_map_left]
   refine bind_congr fun a => ?_
   have hsign : (sigAlg.map (simulateQ' (liftTypedImpl (ext := ext)))).signingOracle a.1.1 a.1.2 =
       QueryImpl.withLogging (fun m => simulateQ (liftTypedImpl (ext := ext))
         (sigAlg.sign a.1.1 a.1.2 m) : QueryImpl (M →ₒ S) (OracleComp (unifSpec + (hs + ext)))) :=
     rfl
-  rw [hsign, simulateQ_routedImpl_run_simulateQ_passthrough_add_withLogging]
+  rw [hsign, simulateQ_handlerRouterImpl_run_simulateQ_passthrough_add_withLogging]
   simp [UnforgeableAdversary.route, signingOracle, StateT.run'_eq,
-    simulateQ_routedImpl_simulateQ_liftTypedImpl_run]
+    simulateQ_handlerRouterImpl_simulateQ_liftTypedImpl_run]
 
 /-- Routers that agree at every public key the key generation can output give routed adversaries
 whose experiments have equal measures under any handler `ro`. -/
@@ -286,7 +303,7 @@ theorem run_simulateQ_unforgeableTranscriptExperiment_route_congr
 public key the key generation can output, the experiment on the common interface under the routed
 handler of `ro` and `R₀` has, as transcript and state of `ro`, the measure of the experiment
 against the adversary that holds `R`. -/
-theorem map_run_simulateQ_routedImpl_unforgeableTranscriptExperiment_evalDistEq
+theorem map_run_simulateQ_handlerRouterImpl_unforgeableTranscriptExperiment_evalDistEq
     (ro : QueryImpl (unifSpec + hs) (StateT τ ProbComp))
     {R : PK → QueryImpl ext (StateT σ (OracleComp (unifSpec + hs)))}
     {R₀ : QueryImpl ext (StateT σ (OracleComp (unifSpec + hs)))}
@@ -295,10 +312,10 @@ theorem map_run_simulateQ_routedImpl_unforgeableTranscriptExperiment_evalDistEq
     (adv : UnforgeableAdversary (sigAlg.map (simulateQ' (liftTypedImpl (ext := ext)))))
     (c : τ) (s : σ) :
     Prod.map id Prod.fst <$>
-        (simulateQ (routedImpl ro R₀) (unforgeableTranscriptExperiment adv)).run (c, s) =ᵈ
+        (simulateQ (handlerRouterImpl ro R₀) (unforgeableTranscriptExperiment adv)).run (c, s) =ᵈ
       (simulateQ ro
         (unforgeableTranscriptExperiment (sigAlg := sigAlg) (adv.route R s))).run c := by
-  rw [map_run_simulateQ_routedImpl_unforgeableTranscriptExperiment]
+  rw [map_run_simulateQ_handlerRouterImpl_unforgeableTranscriptExperiment]
   exact run_simulateQ_unforgeableTranscriptExperiment_route_congr ro adv
     (fun z hz => (hR z hz).symm) s c
 
@@ -343,20 +360,20 @@ theorem UnforgeableAdversary.RomQueryBound.route
   refine ⟨(isQueryBoundP_map_iff _ _ _).2 (hh.simulateQ_run_of_step ?_ ?_ s₀),
     (isQueryBoundP_map_iff _ _ _).2 (hsq.simulateQ_run_of_step ?_ ?_ s₀)⟩
   · rintro ((n | t | x) | m) ht s <;> simp only [IsHashQuery] at ht
-    · simp [routeImpl, IsHashQuery]
-    · refine isQueryBoundP_run_routeImpl_inr_inr x s ((hR pk x s).of_imp ?_)
+    · simp [programRouterImpl, IsHashQuery]
+    · refine isQueryBoundP_run_programRouterImpl_inr_inr x s ((hR pk x s).of_imp ?_)
       rintro (n | t) h <;> simp_all [IsHashQuery]
   · rintro ((n | t | x) | m) ht s
-    · simp [routeImpl, IsHashQuery]
+    · simp [programRouterImpl, IsHashQuery]
     · exact (ht trivial).elim
     · exact (ht trivial).elim
-    · simp [routeImpl, IsHashQuery]
+    · simp [programRouterImpl, IsHashQuery]
   · rintro ((n | t | x) | m) ht s <;> simp only [IsSignQuery] at ht
-    simp [routeImpl, IsSignQuery]
+    simp [programRouterImpl, IsSignQuery]
   · rintro ((n | t | x) | m) ht s
-    · simp [routeImpl, IsSignQuery]
-    · simp [routeImpl, IsSignQuery]
-    · refine isQueryBoundP_run_routeImpl_inr_inr x s ?_
+    · simp [programRouterImpl, IsSignQuery]
+    · simp [programRouterImpl, IsSignQuery]
+    · refine isQueryBoundP_run_programRouterImpl_inr_inr x s ?_
       exact (isQueryBoundP_false _ 0).of_imp fun t h => by simp [IsSignQuery] at h
     · exact (ht trivial).elim
 
@@ -414,9 +431,10 @@ theorem isQueryBoundP_run_tableRouter_of_route_eq_none {x : D} (hx : E.route x =
 
 variable [DecidableEq ι]
 
-/-- The typed world is the routed handler of the random oracle model of `spec` and the router
+/-- The typed world is the handler-held router of the random oracle model of `spec` and the router
 holding its table. -/
-theorem typedImpl_eq_routedImpl : E.typedImpl = routedImpl spec.romImpl E.tableRouter := by
+theorem typedImpl_eq_handlerRouterImpl :
+    E.typedImpl = handlerRouterImpl spec.romImpl E.tableRouter := by
   funext u
   refine StateT.ext fun ⟨c, pv⟩ => ?_
   rcases u with n | t | x
@@ -424,7 +442,7 @@ theorem typedImpl_eq_routedImpl : E.typedImpl = routedImpl spec.romImpl E.tableR
   · exact typedImpl_inr_inl_run t c pv
   · change (E.typedHashImpl (.inr x)).run (c, pv) = _
     rw [typedHashImpl_inr_run]
-    simp only [routedImpl, tableRouter, StateT.run_mk, simulateQ_bind, StateT.run_bind,
+    simp only [handlerRouterImpl, tableRouter, StateT.run_mk, simulateQ_bind, StateT.run_bind,
       OracleSpec.simulateQ_romImpl_liftM_run, bind_map_left, map_bind]
     refine bind_congr fun z => ?_
     cases E.route x with
@@ -467,7 +485,8 @@ theorem map_run_simulateQ_typedImpl_unforgeableTranscriptExperiment
         (simulateQ E.typedImpl (unforgeableTranscriptExperiment adv)).run (c, pv) =
       (simulateQ spec.romImpl (unforgeableTranscriptExperiment (sigAlg := sigAlg)
         (adv.route (fun _ => E.tableRouter) pv))).run c := by
-  rw [typedImpl_eq_routedImpl, map_run_simulateQ_routedImpl_unforgeableTranscriptExperiment]
+  rw [typedImpl_eq_handlerRouterImpl,
+    map_run_simulateQ_handlerRouterImpl_unforgeableTranscriptExperiment]
 
 /-- **The single-oracle world until a clash, against a routed adversary.** Let `Ek pk` be an
 encoding read off the public key `pk`, equal to `E` at every public key the key generation can
@@ -486,8 +505,8 @@ theorem prEvent_simulateQ_singleImpl_run_unforgeableTranscriptExperiment_le
       Pr{let z ← (simulateQ spec.romImpl (unforgeableTranscriptExperiment (sigAlg := sigAlg)
         (adv.route (fun pk => (Ek pk).tableRouter) ∅))).run ∅}[P z.1 ∨ E.Clash z.2] := by
   refine (E.prEvent_simulateQ_singleImpl_run_le _ P).trans_eq ?_
-  rw [typedImpl_eq_routedImpl]
-  have h := map_run_simulateQ_routedImpl_unforgeableTranscriptExperiment_evalDistEq
+  rw [typedImpl_eq_handlerRouterImpl]
+  have h := map_run_simulateQ_handlerRouterImpl_unforgeableTranscriptExperiment_evalDistEq
     spec.romImpl (R := fun pk => (Ek pk).tableRouter) (R₀ := E.tableRouter)
     (fun z hz => by rw [hE z hz]) adv ∅ ∅
   rw [← h.prEvent_eq, prEvent_map]
@@ -501,7 +520,7 @@ oracle from the empty cache, has probability at most that of the same event or a
 final cache in the experiment of the scheme against the adversary that holds the router of
 `Ek pk` and its table from the empty table, in the random oracle model of `spec` from the empty
 cache. -/
-theorem prEvent_simulateQ_romImpl_unforgeableTranscriptExperiment_le
+theorem prEvent_simulateQ_romImpl_run_unforgeableTranscriptExperiment_le
     {sigAlg : SignatureAlg (OracleComp (unifSpec + spec)) Msg PK SK S}
     (adv : UnforgeableAdversary (sigAlg.map (simulateQ' (E.encodeImpl ∘ₛ liftTypedImpl))))
     {Ek : PK → RandomOracleEncoding spec D M} (hE : ∀ z ∈ support sigAlg.keygen, Ek z.1 = E)
