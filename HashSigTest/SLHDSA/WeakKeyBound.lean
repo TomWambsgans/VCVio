@@ -108,7 +108,7 @@ example (set : FipsParameterSet)
         (pure pkSeed) adv}[P z.1.pk] ≤
       Pr{let r ← $ᵗ (shakeCore set.validatedParams).Y}[P ⟨pkSeed, r⟩] :=
   prEvent_romSchemeRun_pk_le
-    (adrsToKey_shakeCore_ne_top (fipsApprovedAddressBounds set).toCanonicalAddressBounds) _ _ _
+    (rootKeySeparated_shakeCore (fipsApprovedAddressBounds set).toCanonicalAddressBounds) _ _ _
     adv P
 
 /-- The weak-key event per public seed. -/

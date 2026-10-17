@@ -41,7 +41,8 @@ the top height (`PerfectMerkleTree.merkleRootM_pred_of_subtree`), so where the o
 (`prEvent_run_keygenInternalWithSecretM_le`). The adversary runs after key generation and leaves
 the public key unchanged, so the public key of the run is `(PK.seed, r)` with `r` uniform, against
 every adversary (`prEvent_romSchemeRun_pk_le`). For the SHAKE key, the 32-byte serialization of the
-address, the key condition holds under the FIPS 205 address widths (`adrsToKey_shakeCore_ne_top`).
+address, this key condition, `CorePrimitives.RootKeySeparated`, holds under the FIPS 205 address
+widths (`rootKeySeparated_shakeCore`).
 
 ## The bound
 
@@ -186,8 +187,9 @@ private theorem allQueriesSatisfy_thash {k : core.AdrsKey} (pkSeed : core.PkSeed
   injection hq with _ hk
   exact h hk
 
-/-- The subtrees below the top-layer root query no key of the root's address: every address they
-query has type `WOTS_HASH`, `WOTS_PK` or `WOTS_PRF`, or is an XMSS node below height `h'`. -/
+/-- An XMSS subtree of height `z < h'` at the oracle-backed provider makes no tweakable-hash query
+at the key `k` when `k` is the key of no address of type `WOTS_HASH`, `WOTS_PK` or `WOTS_PRF` and
+of no XMSS node below height `h'`: those are the addresses the subtree queries. -/
 private theorem allQueriesSatisfy_xmssNodeWithSecret_not_thash (e : core.SkSeed ≃ core.Y)
     (pkSeed : core.PkSeed) (skSeed : core.SkSeed) {k : core.AdrsKey}
     (hkey : ∀ a : Adrs, (a.type = 0 ∨ a.type = 1 ∨ a.type = 5 ∨
@@ -221,19 +223,23 @@ private theorem allQueriesSatisfy_xmssNodeWithSecret_not_thash (e : core.SkSeed 
       oa.AllQueriesSatisfy (fun t => ¬∃ s ys, t = .thash s k ys)) hp hb x 0 _ fun jj _ y =>
     allQueriesSatisfy_thash pkSeed [y] (hkey _ (Or.inl (by rw [wotsChainAdrs_setHashAddress_eq])))
 
+variable (vp core) in
+/-- The oracle key of the top-layer root's address, `xmssNodeAdrs (layerAdrs (d - 1) 0) h' 0`, is
+not the key of any address of type `WOTS_HASH`, `WOTS_PK` or `WOTS_PRF`, nor of any XMSS node below
+height `h'`. -/
+@[expose] def _root_.SLHDSA.CorePrimitives.RootKeySeparated : Prop :=
+  ∀ a : Adrs, (a.type = 0 ∨ a.type = 1 ∨ a.type = 5 ∨ a.type = 2 ∧ a.word2 < vp.params.hp) →
+    core.adrsToKey a ≠
+      core.adrsToKey (xmssNodeAdrs (GeneralHypertree.layerAdrs (vp.params.d - 1) 0) vp.params.hp 0)
+
 variable [SampleableType core.Y] [SampleableType (Bytes vp.params.m)] [DecidableEq core.PkSeed]
   [DecidableEq core.AdrsKey] [DecidableEq core.SkPrf] [DecidableEq core.Y]
 
-/-- **The root of key generation is uniform.** Key generation at the oracle-backed provider, run in
-the random oracle model from the empty cache, returns a uniform root, provided the oracle key of
-the top-layer root's address differs from the key of every address of type `WOTS_HASH`, `WOTS_PK`
-or `WOTS_PRF` and of every XMSS node below height `h'`: the root is then the answer of a query at
-a key no earlier query of key generation has. -/
+/-- **The root of key generation is uniform.** Under `RootKeySeparated`, key generation at the
+oracle-backed provider, run in the random oracle model from the empty cache, returns a uniform
+root: the root is the answer of a query at a key no earlier query of key generation has. -/
 theorem prEvent_run_keygenInternalWithSecretM_le
-    (hkey : ∀ a : Adrs, (a.type = 0 ∨ a.type = 1 ∨ a.type = 5 ∨
-      a.type = 2 ∧ a.word2 < vp.params.hp) → core.adrsToKey a ≠
-        core.adrsToKey (xmssNodeAdrs (GeneralHypertree.layerAdrs (vp.params.d - 1) 0)
-          vp.params.hp 0))
+    (hkey : core.RootKeySeparated vp)
     (e : core.SkSeed ≃ core.Y) (pkSeed : core.PkSeed) (skSeed : core.SkSeed)
     (Q : core.Y → Prop) :
     Pr{let z ← (simulateQ (hashSpec core).romImpl (simulateQ (HasQuery.toQueryImpl
@@ -241,6 +247,7 @@ theorem prEvent_run_keygenInternalWithSecretM_le
         (GeneralScheme.keygenInternalWithSecretM core (oracleSecret core e pkSeed skSeed)
           pkSeed))).run ∅}[Q z.1] ≤
       Pr{let y ← $ᵗ core.Y}[Q y] := by
+  unfold CorePrimitives.RootKeySeparated at hkey
   obtain ⟨hp', hhp⟩ : ∃ hp', vp.params.hp = hp' + 1 :=
     ⟨_, (Nat.succ_pred_eq_of_pos vp.valid.hp_pos).symm⟩
   generalize hbase : GeneralHypertree.layerAdrs (vp.params.d - 1) 0 = base at hkey
@@ -282,13 +289,9 @@ variable [SampleableType core.SkSeed] [SampleableType core.SkPrf]
 
 /-- **The public key of the run is `(PK.seed, uniform root)`.** In the run of `romScheme` at the
 public seed `pkSeed`, against any adversary, an event of the public key is at most as likely as the
-same event of `(pkSeed, r)` for a uniform node `r`, under the key condition of
-`prEvent_run_keygenInternalWithSecretM_le`. -/
+same event of `(pkSeed, r)` for a uniform node `r`, under `RootKeySeparated`. -/
 theorem prEvent_romSchemeRun_pk_le
-    (hkey : ∀ a : Adrs, (a.type = 0 ∨ a.type = 1 ∨ a.type = 5 ∨
-      a.type = 2 ∧ a.word2 < vp.params.hp) → core.adrsToKey a ≠
-        core.adrsToKey (xmssNodeAdrs (GeneralHypertree.layerAdrs (vp.params.d - 1) 0)
-          vp.params.hp 0))
+    (hkey : core.RootKeySeparated vp)
     (e : core.SkSeed ≃ core.Y) (optRand : PublicKeyCore core → ProbComp core.Y)
     (pkSeed : core.PkSeed) (adv : UnforgeableAdversary (romScheme core e optRand (pure pkSeed)))
     (P : PublicKeyCore core → Prop) :
@@ -323,15 +326,13 @@ end Root
 
 /-! ## The SHAKE key of the top-layer root -/
 
-/-- Under the FIPS 205 address widths, the SHAKE key of the top-layer root's address, the full
-32-byte serialization, differs from the key of every address of type `WOTS_HASH`, `WOTS_PK` or
-`WOTS_PRF` (the type word differs) and of every XMSS node below height `h'` (the tree-height word
-differs). -/
-theorem adrsToKey_shakeCore_ne_top {vp : ValidatedParams} (hb : CanonicalAddressBounds vp.params)
-    (a : Adrs) (ha : a.type = 0 ∨ a.type = 1 ∨ a.type = 5 ∨ a.type = 2 ∧ a.word2 < vp.params.hp) :
-    (shakeCore vp).adrsToKey a ≠ (shakeCore vp).adrsToKey
-      (xmssNodeAdrs (GeneralHypertree.layerAdrs (vp.params.d - 1) 0) vp.params.hp 0) := by
-  intro h
+/-- **The SHAKE key separates the top-layer root.** Under the FIPS 205 address widths the SHAKE
+key, the full 32-byte serialization, of the top-layer root's address differs from that of every
+address of type `WOTS_HASH`, `WOTS_PK` or `WOTS_PRF` (the type words differ) and of every XMSS
+node below height `h'` (the tree-height words differ). -/
+theorem rootKeySeparated_shakeCore {vp : ValidatedParams} (hb : CanonicalAddressBounds vp.params) :
+    (shakeCore vp).RootKeySeparated vp := by
+  intro a ha h
   have hbytes : a.toBytes = (xmssNodeAdrs (GeneralHypertree.layerAdrs (vp.params.d - 1) 0)
       vp.params.hp 0).toBytes := by
     have h' : Adrs.toVector a = Adrs.toVector (xmssNodeAdrs (GeneralHypertree.layerAdrs
@@ -369,7 +370,7 @@ theorem prEvent_romSchemeRun_isWeakKey_le (hb : CanonicalAddressBounds vp.params
     (adv : UnforgeableAdversary (romScheme (shakeCore vp) e optRand (pure pkSeed))) :
     Pr{let z ← romSchemeRun (shakeCore vp) e optRand (pure pkSeed) adv}[IsWeakKey vp z.1.pk] ≤
       weakKeyMass vp pkSeed :=
-  prEvent_romSchemeRun_pk_le (adrsToKey_shakeCore_ne_top hb) e optRand pkSeed adv _
+  prEvent_romSchemeRun_pk_le (rootKeySeparated_shakeCore hb) e optRand pkSeed adv _
 
 /-- `Bytes 32` has `2 ^ 256` elements. -/
 private theorem natCard_bytes_32 : Nat.card (Bytes 32) = 2 ^ 256 := by
