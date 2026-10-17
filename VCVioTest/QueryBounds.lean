@@ -40,6 +40,20 @@ example : IsQueryBoundP (liftM (flagSpec.query true) : OracleComp flagSpec Bool)
   rw [isQueryBoundP_zero_iff]
   simp
 
+/-- Each index is queried at most once, on every response path. -/
+theorem adaptive_isQueryBoundP_eq (b : Bool) : IsQueryBoundP adaptive (· = b) 1 := by
+  cases b <;> simp [adaptive]
+
+/-- Budgets on the two indices add up to a budget on their disjunction: every query of
+`adaptive`, and there are two on the path through a true answer. -/
+example : IsQueryBoundP adaptive (fun t => t = true ∨ t = false) 2 :=
+  (adaptive_isQueryBoundP_eq true).or (adaptive_isQueryBoundP_eq false)
+
+/-- The sum is not sharp when the predicates overlap: a single query, counted under both. -/
+example : IsQueryBoundP (liftM (flagSpec.query true) : OracleComp flagSpec Bool)
+    (fun t => t = true ∨ t = true) 2 :=
+  IsQueryBoundP.or (p := (· = true)) (q := (· = true)) (n := 1) (m := 1) (by simp) (by simp)
+
 /-- This deterministic run avoids the forbidden branch and records the answer it received. -/
 example :
     (simulateQ (QueryImpl.withLogging (m := Id)
