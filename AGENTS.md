@@ -71,8 +71,12 @@ The repo also includes a first-class lattice cryptography library under `Lattice
 - `HashSig/`: hash-based signatures — SLH-DSA (SPHINCS+, FIPS 205) proof-level specs,
   component-level FIPS conformance results, and an EUF-CMA bound in the classical random-oracle
   model with three oracles (the tweakable hash, `Hmsg`, `PRFmsg`): `securityTarget_two_one`,
-  per public seed and averaged over seed distributions. There is no faithfulness theorem relating
-  that model to the byte-level scheme, no SUF-CMA bound and no complete FIPS conformance result.
+  per public seed and averaged over seed distributions. A model of the SHAKE parameter sets over a
+  single SHAKE256 random oracle on byte strings is stated (`shakeRomScheme`); answering its oracle
+  with SHAKE256 gives the library's FIPS 205 SHAKE internal algorithms
+  (`shakeRomScheme_map_shakeAnswer`), which are checked against pinned NIST ACVP vectors at
+  SLH-DSA-SHAKE-128f. There is no forgery bound in that single-oracle model yet (the faithfulness
+  step), no SUF-CMA bound and no complete FIPS conformance result.
   Peer of `LatticeCrypto/`; depends on `VCVio`/`ToMathlib` but nothing in those imports it back.
 - `LatticeCryptoTest/`: ACVP vectors, executable regression tests, and cross-checks against native backends.
 - `VCVioTest/`: framework smoke tests and test support modules.

@@ -65,8 +65,12 @@ infrastructure and some tooling and automation remain under active development.
   conformance results, and security results for SLH-DSA. SLH-DSA has a proved quantitative EUF-CMA
   bound in the classical random-oracle model with three oracles (the tweakable hash, `Hmsg` and
   `PRFmsg`), per public seed and averaged over seed distributions (`securityTarget_two_one`). A
-  faithfulness theorem relating that model to the byte-level scheme, an SUF-CMA bound and a complete
-  FIPS conformance result are not proved; see `docs/design/slh-dsa-status-and-roadmap.md`.
+  model of the SHAKE parameter sets over a single SHAKE256 random oracle on byte strings is stated
+  (`shakeRomScheme`); answering its oracle with SHAKE256 gives the library's FIPS 205 SHAKE internal
+  algorithms (`shakeRomScheme_map_shakeAnswer`), which are checked against pinned NIST ACVP vectors
+  at SLH-DSA-SHAKE-128f. A forgery bound in that single-oracle model (the faithfulness step), an
+  SUF-CMA bound and a complete FIPS conformance result are not proved; see
+  `docs/design/slh-dsa-status-and-roadmap.md`.
 - `LatticeCryptoTest/` contains ACVP vectors, regression tests, and differential checks against native backends.
 - `HashSigTest/` contains hash-signature test and validation modules.
 - `Examples/` contains compact framework proofs including OneTimePad, ElGamal, and Schnorr.

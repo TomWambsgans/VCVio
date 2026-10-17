@@ -33,6 +33,7 @@ open pull request #766 proves an unconditional EUF-CMA bound in the classical ra
 | Security lane, slices 1–5 (on `main`) | `Security/TargetCounts.lean`, `Security/ReachableTargets.lean` (#630); `Security/EncodedTargets.lean` (#631); `WotsInjectivity.lean` (#665); `Security/TraceTargets.lean` (#666); the consolidated second-round review fixes for those four, including `VCVio/OracleComp/QueryTracking/{QueryBound,LoggingOracle}.lean`'s `AllQueriesSatisfy` (#680, `0a1ff722`); `Security/ComponentTraces.lean` (#682, `630301f3`) | `slhdsa_target_ledger_tests`, `slhdsa_encoded_ledger_tests`, `slhdsa_trace_target_tests`, `slhdsa_component_trace_tests` |
 | Security lane, slice 6 (on `main`) | `Security/CanonicalGames.lean` (#683) | `slhdsa_canonical_game_tests` |
 | Security lane, slices 7–8 | `Security/{WotsWitnesses,ForsWitnesses,XmssWitnesses,HypertreeWitnesses,SchemeWitnesses,HmsgWitnesses,SufResidual,SchemeGames,Composition,SufBound}.lean` (#685–#718, on `main`); `Security/LimitedProfile.lean` (#723) | Owning witness, residual, scheme-game, composition, SUF-bound and profile executables in `lake test` |
+| Byte-level SHAKE model (#766) | `Security/RomConformance.lean`, `Security/ByteModel.lean`, `Security/ByteConformance.lean` | `slhdsa_byte_model_tests` (+ `ByteModelVectors/`) |
 | Generic hash games consumed | `VCVio/CryptoFoundations/HardnessAssumptions/TweakableHash/*.lean`, `KeyedHash/ITSR.lean`, `VCVio/CryptoFoundations/SignatureAlg.lean` | `VCVioTest/SMDT*.lean` |
 
 Every SLH-DSA test executable is registered in the `@[test_driver] script test` of `lakefile.lean`
@@ -144,11 +145,24 @@ validated parameter set and both signing modes. The accounting and the levels it
 The hypotheses are the byte laws, the key discipline (`CorePrimitives.KeyDiscipline`) and
 `|Y| ≤ |SK.prf|`; all three are discharged at every FIPS 205 bundle. The adversary's budget counts
 its own hash queries `q_h` and signing queries `q_s`; key generation, signing and verification are
-not charged. Not proved: the faithfulness theorem relating the three-oracle model to the
-byte-level scheme over a single SHAKE256 (or SHA-2), with its losses, among them `q_s / 2^{8n}` in
-both signing modes and, at `n = 32`, a weak-key term of about `2^{−172}` that holds the averaged
-byte-level level of the 256-bit sets near 236 bits at `q_h = q_s = 2^64`; a strong-unforgeability
-bound; and the external interfaces (Algorithms 21–25), which the theorem does not reach.
+not charged.
+
+#766 also states the byte-level model of the SHAKE parameter sets and identifies it with FIPS 205:
+
+| Result | Theorem | Module |
+|---|---|---|
+| SLH-DSA over one SHAKE256 random oracle on byte strings with `m`-byte answers, every hash a query at its FIPS 205 §11.1 layout; the advantage, and its averaging over the public seed | `shakeRomScheme`, `shakeAdvantage`, `shakeAdvantage_le_lintegral` | `Security/ByteModel.lean` |
+| Answering that oracle with SHAKE256 gives the library's FIPS 205 SHAKE internal algorithms, in both signing modes and for every public-seed distribution | `shakeRomScheme_map_shakeAnswer`, `shakeRomScheme_map_shakeAnswer_validatedParams` | `Security/ByteConformance.lean` |
+| Those internal algorithms reproduce NIST ACVP-Server vectors (commit `975de31e`) at SLH-DSA-SHAKE-128f: keyGen test case 31, internal-interface sigGen test cases 137 (deterministic) and 448 (hedged), sigVer test cases 223 and 219 | `slhdsa_byte_model_tests` | `HashSigTest/SLHDSA/ByteModel.lean`, `ByteModelVectors/vectors.json` |
+
+The single oracle caps a forger's outputs at `m` bytes, a modelling restriction whose losslessness
+is not proved. Not proved: a forgery bound in the single-oracle model, that is, the faithfulness
+step relating the three-oracle bound to `shakeAdvantage`, with its losses, among them
+`q_s / 2^{8n}` in both signing modes and, at `n = 32`, a weak-key term of about `2^{−172}` that
+holds the averaged byte-level level of the 256-bit sets near 236 bits at `q_h = q_s = 2^64`; any
+byte-level model of the SHA-2 sets; a strong-unforgeability bound; and the external interfaces
+(Algorithms 21–25), which the theorem does not reach. There is no complete FIPS conformance
+result.
 
 ## Security lane: slices, status, and source correspondence
 
