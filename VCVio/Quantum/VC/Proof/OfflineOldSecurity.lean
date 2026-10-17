@@ -66,8 +66,8 @@ variable {X Y Msg Salt : Type} [Fintype X] [DecidableEq X] [LinearOrder Y] [Fint
   [SampleableType Salt] (enc : Encoding X Y Msg Salt) {k : ℕ} (d : ℕ)
   {Z : Type} [Fintype Z] [DecidableEq Z] [AddCommGroup Z]
 
-/-- Offline extractability for the old checker, with the proved collision coefficient for
-all query budgets. Each opened leaf contributes at most `d + 1` raw checks. -/
+/-- Offline extractability for the old checker, for `k` trees of a common depth `d`, with the
+proved collision coefficient for all budgets; each opened leaf makes at most `d + 1` checks. -/
 theorem merkle_offline_old
     (code : TpDCode k (DmOf (fun _ ↦ 2 ^ d) Msg (fun _ ↦ Td Y Salt d)) Z) :
     OfflineExtractable.{v, w} (fun _ : Fin k ↦ (scheme enc d).toVectorCommitment)
