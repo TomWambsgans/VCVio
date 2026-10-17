@@ -59,6 +59,10 @@ programs, proved separately. The keys of the nodes of the SLH-DSA graph are hone
 (`isHonestKey_of_inl_mem_childAdrs`). The predicate is decided classically, by a pinned instance,
 and never enumerated.
 
+An `H_msg` string `R ‖ PK.seed ‖ PK.root ‖ M` is read by rule 1 only if its address key, the first
+`32` bytes of `PK.seed ‖ PK.root` for `16 ≤ n`, is honest: the public key is then weak
+(`IsWeakKey`, `isWeakKey_of_isThashString_encode_hmsg`), a predicate of the public key alone.
+
 ## The encoding and the routed adversary
 
 `shakeEncoding vp hn hnm pkSeed` is the `RandomOracleEncoding` of the three oracles into the
@@ -84,6 +88,7 @@ keeps the budget of `adv` (`romQueryBound_routeAdv`).
   `shakeRoute_encode_prfMsg`) and for the encoding at the honest keys
   (`shakeEncoding_route_encode_thash`, `shakeEncoding_route_encode_hmsg`,
   `shakeEncoding_route_encode_prfMsg`).
+* `isWeakKey_of_isThashString_encode_hmsg`: rule 1 on an `H_msg` encoding needs a weak public key.
 
 ## References
 
@@ -363,6 +368,45 @@ theorem isHonestKey_of_inl_mem_childAdrs {a b : Adrs} (ha : a ∈ constructionAd
   ⟨b, .inr ⟨a, ha, hb⟩, rfl⟩
 
 end Honest
+
+/-! ## Weak public keys -/
+
+section Weak
+
+variable (vp)
+
+/-- **The weak-key event.** A public key `(PK.seed, PK.root)` is weak when the first `32` bytes of
+`PK.seed ‖ PK.root` are an honest address key (`IsHonestKey`). For `16 ≤ n` these are the bytes
+the router reads as the address key of every `H_msg` string `R ‖ PK.seed ‖ PK.root ‖ M`, so rule 1
+of the router fires on the encoding of an honest `H_msg` query only at a weak public key
+(`isWeakKey_of_isThashString_encode_hmsg`). -/
+@[expose] def IsWeakKey (pk : PublicKeyCore (shakeCore vp)) : Prop :=
+  IsHonestKey vp (shakeCore vp) (adrsKeyOfList vp
+    (Vector.toList (pk.pkSeed : Bytes vp.params.n) ++
+      Vector.toList (pk.pkRoot : Bytes vp.params.n)))
+
+variable {vp}
+
+/-- **Rule 1 on an `H_msg` string needs a weak public key.** For `16 ≤ n`, if the encoding of the
+`H_msg` query `H_msg(R, PK.seed, PK.root, M)` is a tweakable-hash string with an honest address key,
+then `(PK.seed, PK.root)` is weak, whatever `R` and `M`. -/
+theorem isWeakKey_of_isThashString_encode_hmsg (hn : 16 ≤ vp.params.n)
+    {pkSeed s : (shakeCore vp).PkSeed} {r pkRoot : (shakeCore vp).Y} {msg : List Byte}
+    (h : IsThashString vp (IsHonestKey vp (shakeCore vp)) pkSeed
+      (encode vp (.inl (.hmsg r s pkRoot msg)))) :
+    IsWeakKey vp ⟨s, pkRoot⟩ := by
+  have hk := h.2.2.2
+  rw [adrsKeyOfList_drop_encode_hmsg] at hk
+  have hlen : 32 ≤ (Vector.toList (s : Bytes vp.params.n) ++
+      Vector.toList (pkRoot : Bytes vp.params.n)).length := by
+    rw [List.length_append, Vector.length_toList (xs := (s : Bytes vp.params.n)),
+      Vector.length_toList (xs := (pkRoot : Bytes vp.params.n))]
+    omega
+  unfold IsWeakKey
+  rwa [adrsKeyOfList, ← bytesOfList_take, List.take_append_of_le_length hlen, bytesOfList_take]
+    at hk
+
+end Weak
 
 /-! ## The encoding -/
 

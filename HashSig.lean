@@ -94,6 +94,7 @@ public import HashSig.SLHDSA.Security.Target
 public import HashSig.SLHDSA.Security.TargetCounts
 public import HashSig.SLHDSA.Security.TraceTargets
 public import HashSig.SLHDSA.Security.Transport
+public import HashSig.SLHDSA.Security.WeakKeyBound
 public import HashSig.SLHDSA.Security.WotsWitnesses
 public import HashSig.SLHDSA.Security.XmssWitnesses
 public import HashSig.SLHDSA.Wots
