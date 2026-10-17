@@ -6,7 +6,7 @@ Authors: Devon Tuma
 
 module
 
-public import VCVio.EvalDist.MachinePath
+public import VCVio.EvalDist.MachinePath.Constructions
 public import VCVio.OracleComp.Coinductive.UniformThreshold
 
 /-!
@@ -105,5 +105,19 @@ example (input : ℝ) (event : Set ℝ) (hevent : MeasurableSet event) :
     Resumption.returnedMeasure (returnReal.denote input) event =
       returnReal_measurable.pathLaw input {path | ∃ n, (path n).result ∈ some '' event} :=
   returnReal_measurable.returnedMeasure_eq_path_event Chunk.measurable_result input event hevent
+
+/-- An input adapter reuses the certificate without a new proof about residual states. -/
+example (input : ℝ × ℝ) :
+    (returnReal_measurable.contramapInput Prod.fst measurable_fst).pathLaw input =
+      returnReal_measurable.pathLaw input.1 :=
+  returnReal_measurable.pathLaw_contramapInput Prod.fst measurable_fst input
+
+/-- A noninjective Borel observation transports the joint law of all returned values. -/
+example (input : ℝ) :
+    (returnReal_measurable.mapResult (fun value => value * value)
+      (measurable_id.mul measurable_id)).pathLaw input =
+      (returnReal_measurable.pathLaw input).map
+        (fun path n => (path n).map id (fun value => value * value)) :=
+  returnReal_measurable.pathLaw_mapResult _ (measurable_id.mul measurable_id) input
 
 end MachinePathTest

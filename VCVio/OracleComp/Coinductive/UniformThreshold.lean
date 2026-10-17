@@ -110,6 +110,13 @@ theorem machine_view (q : ℚ) (p : Prefix) :
       | none => .inr ⟨(), p.push⟩ :=
   DynSystem.DynComputation.view_ofStep _ _ _
 
+/-- Thresholds are rational queries with Boolean answers. -/
+@[expose, reducible] def spec : OracleSpec ℚ := fun _ => Bool
+
+/-- Executable rational-arithmetic machines, independent of the measure-valued service bundle. -/
+@[expose] def machineHandler :
+    MachineHandler spec.toPFunctor coinSpec.toPFunctor Prefix := machine
+
 /-- Execute a query with an injected bit source, retaining the prefix across invocations. -/
 def runIO (drawBit : IO Bool) (q : ℚ) (p : Prefix) : IO (Bool × Prefix) :=
   (machine q).runIO (fun _ => drawBit) p

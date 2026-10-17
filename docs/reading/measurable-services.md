@@ -186,6 +186,15 @@ A cutoff is missing successful mass, not renormalized success and not an automat
 The [capped service](../../VCVio/OracleComp/Coinductive/UniformThreshold/Approximation.lean)
 instantiates approximate reconstruction with a query- and prefix-dependent cap. The ternary
 example proves event-TV error at most `2 · 2⁻ᵏ` when each query is capped at `k` bits.
+The [executable admission budget](../../VCVio/OracleComp/Coinductive/UniformThreshold/Budget.lean)
+reserves the exact nonnegative rational charge `2⁻ᵏ` before starting a call. Caps
+may depend on the query and the current prefix and allowance. Insufficient budget
+returns `budgetExhausted` without sampling; a timeout retains the refined prefix
+and debit and permanently aborts the client. PolyFun's `MachineHandler.admitted`
+provides the shared adapter, using `ExceptT` over `StateT` with separate admission
+data. `cutoff_le_charge` connects the executable reserve to the measure bound.
+This local bound and the executable policy do not yet constitute a whole-session
+comparison with an ideal service following the same admission policy.
 
 [`UniformTernary`](../../Examples/MeasurableServices/UniformTernary.lean) uses thresholds `1/3`
 and `2/3` on the same persistent real to obtain an exact uniform `Fin 3` output. This ties the
@@ -240,6 +249,12 @@ These histories uniquely determine the infinite path law (`pathLaw_eq_of_histori
 Every time marginal is the exact executable chunk law, and projecting to optional
 results recovers resumption truncation. Expected queries equal the integrated
 waiting-prefix cost of this actual path, including unfinished executions.
+[`MachinePath.Constructions`](../../VCVio/EvalDist/MachinePath/Constructions.lean)
+transports these certificates through measurable input adapters and result maps.
+Input adapters substitute the initial input; result maps push forward the full
+path coordinatewise, retaining residual states and the execution clock. The result
+map need not be injective. The underlying syntax laws also support independent
+input and result universes.
 
 The [stopped-observation bridge](../../VCVio/EvalDist/StoppedObservation.lean) proves that
 measurable path observations with the supplied finite truncation laws and almost surely

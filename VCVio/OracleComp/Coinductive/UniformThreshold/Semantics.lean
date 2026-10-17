@@ -154,9 +154,6 @@ theorem bind_answerKernel_eq_idealLaw (q : ℚ) (p : Prefix) :
     rw [add_comm]
     exact add_le_add (bind_outputLaw_le_idealLaw q p fuel event) (cutoff_le q p fuel))
 
-/-- Thresholds are rational queries with Boolean answers. -/
-@[expose, reducible] def spec : OracleSpec ℚ := fun _ => Bool
-
 /-- Threshold answers carry the usual Boolean measurable space. -/
 local instance answerMeasurableSpace :
     (q : spec.toPFunctor.A) → MeasurableSpace (spec.toPFunctor.B q) :=
@@ -203,10 +200,6 @@ theorem adaptive_output_law {α : Type} [MeasurableSpace α]
   have h := reconstructionContract.output_law (Measure.dirac p) program
   simpa only [Measure.dirac_bind reconstruct.measurable, reconstruct_apply,
     Measure.dirac_bind (FreeM.runKernel answerKernel program).measurable] using h
-
-/-- Executable rational-arithmetic machines, independent of the measure-valued service bundle. -/
-@[expose] def machineHandler :
-    MachineHandler spec.toPFunctor coinSpec.toPFunctor Prefix := machine
 
 /-- Each executable machine has its advertised joint answer-and-prefix law. -/
 theorem machineHandler_realizes :
