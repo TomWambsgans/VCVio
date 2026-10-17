@@ -620,8 +620,8 @@ theorem signWithSecretM_eq_signM {m : Type → Type*} [Monad m] [LawfulMonad m]
     (msg : core.Y) (parts : DigestParts vp.params) :
     signWithSecretM core (fun a => pure (core.PRF pkSeed skSeed a)) msg pkSeed parts =
       (signM vp core msg skSeed pkSeed parts : m (Signature vp core)) := by
-  rw [signWithSecretM, signWithSecret, signM, signFromPositionM,
-    signFromPositionWithSecret_eq_signFromPositionWith]
+  rw [signWithSecretM, signWithSecret_eq_signWith]
+  rfl
 
 /-- At the honest provider the provider-parametric hypertree root is `rootM`. -/
 theorem rootWithSecretM_eq_rootM {m : Type → Type*} [Monad m] [LawfulMonad m]

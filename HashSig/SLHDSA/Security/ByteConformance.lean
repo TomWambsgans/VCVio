@@ -8,6 +8,7 @@ module
 
 public import HashSig.SLHDSA.Security.ByteModel
 public import HashSig.SLHDSA.Security.RomConformance
+public import ToMathlib.Data.ByteArray
 
 /-!
 # The single-oracle scheme at SHAKE256 is FIPS 205
@@ -16,14 +17,27 @@ public import HashSig.SLHDSA.Security.RomConformance
 strings with `m`-byte answers. Answering that oracle by SHAKE256 itself, `shakeAnswer vp x`, the
 `m`-byte output of `shake256` on `x`, gives FIPS 205's SHAKE internal algorithms: key generation,
 signing and verification are `GeneralScheme.keygenInternal`, `signInternal` and `verifyInternal`
-at the SHAKE bundle `shakePrimitives` of `HashSig.SLHDSA.Concrete.FIPS`. The identification needs
-`n ≤ m < 136`: every role reads a prefix of one `m`-byte answer, and SHAKE256's outputs of length
-below its `136`-byte rate are prefixes of one another. Every FIPS 205 parameter set satisfies it.
+at the SHAKE bundle `shakePrimitives` of `HashSig.SLHDSA.Concrete.FIPS`. Every role reads a
+prefix of one `m`-byte answer, which is sound because SHAKE256's outputs are prefixes of one
+another at every length. The proof here establishes that prefix property within one squeeze block
+only, for outputs shorter than the `136`-byte rate, so the identification is stated under
+`n ≤ m < 136`. Every FIPS 205 parameter set satisfies it.
+
+## The right-hand side against NIST vectors
+
+The right-hand side `internalAlg vp (shakePrimitives vp.params)` runs the deterministic
+`GeneralScheme.keygenInternal`, `signInternal` and `verifyInternal` after its draws. The
+executable `slhdsa_byte_model_tests` (`HashSigTest.SLHDSA.ByteModel`) checks these three at
+SLH-DSA-SHAKE-128f against NIST ACVP-Server SLH-DSA sample vectors (commit `975de31e`, stored in
+`HashSigTest/SLHDSA/ByteModelVectors/vectors.json`): keyGen test case 31, internal-interface
+sigGen test cases 137 (deterministic, `opt_rand = PK.seed`) and 448 (hedged), and
+internal-interface sigVer test cases 223 (accepted) and 219 (rejected). The other SHAKE
+parameter sets are not checked against scheme-level vectors there.
 
 ## Main statements
 
-* `Keccak.shake256_data_toList_take`: below the rate, the `n`-byte SHAKE256 output is the first
-  `n` bytes of the `m`-byte one.
+* `Keccak.take_toList_data_shake256`: for `n ≤ m < 136`, the `n`-byte SHAKE256 output is the
+  first `n` bytes of the `m`-byte one.
 * `prefixBytes_shakeAnswer_encode_thash`, `shakeAnswer_encode_hmsg`,
   `prefixBytes_shakeAnswer_encode_prfMsg`: the oracle at each FIPS 205 §11.1 layout is the landed
   SHAKE function of that role, `shakeThash`, `shakeHmsg` and `shakePRFmsg`.
@@ -37,8 +51,8 @@ below its `136`-byte rate are prefixes of one another. Every FIPS 205 parameter 
   its oracle answered by `shakeAnswer vp` is `internalAlg vp (shakePrimitives vp.params) optRand
   pkSeedDist`, for every `opt_rand` source, deterministic and hedged signing included, and every
   public-seed distribution.
-* `shakeRomScheme_map_shakeAnswer_validatedParams`: the same at every FIPS 205 parameter set,
-  without side conditions.
+* `shakeRomScheme_map_shakeAnswer_validatedParams`: the same at the parameters of every FIPS 205
+  parameter set, without side conditions.
 
 ## References
 
@@ -54,37 +68,18 @@ namespace SLHDSA.Concrete
 
 /-! ## Byte-array bridges -/
 
-private theorem byteArray_toList_loop (bs : ByteArray) (i : ℕ) (r : List UInt8) :
-    ByteArray.toList.loop bs i r = r.reverse ++ bs.data.toList.drop i := by
-  fun_induction ByteArray.toList.loop bs i r with
-  | case1 i r h ih =>
-      rw [ih]
-      have hi : i < bs.data.size := by rwa [ByteArray.size_data]
-      have hi' : i < bs.data.toList.length := by simpa using hi
-      simp [ByteArray.get!, List.drop_eq_getElem_cons hi', getElem!_pos bs.data i hi]
-  | case2 i r h =>
-      have hi : bs.data.toList.length ≤ i := by
-        simp only [Array.length_toList]
-        rw [ByteArray.size_data]
-        omega
-      simp [List.drop_eq_nil_of_le hi]
-
-/-- `ByteArray.toList` lists the bytes of the underlying array. -/
-theorem byteArray_toList_eq_data_toList (bs : ByteArray) : bs.toList = bs.data.toList := by
-  simp [ByteArray.toList, byteArray_toList_loop]
-
 /-- A byte array is the packing of its byte list. -/
-theorem toByteArray_eq_of_data_toList_eq {l : List Byte} {bs : ByteArray}
+theorem toByteArray_eq_of_toList_data_eq {l : List Byte} {bs : ByteArray}
     (h : bs.data.toList = l) : l.toByteArray = bs := by
   apply ByteArray.ext
   apply Array.toList_inj.mp
   rw [List.toList_data_toByteArray, h]
 
 /-- A fixed-width vector packed as a byte array keeps its bytes. -/
-@[simp] theorem data_toList_bytesToByteArray {n : ℕ} (v : Bytes n) :
+@[simp] theorem toList_data_bytesToByteArray {n : ℕ} (v : Bytes n) :
     (bytesToByteArray v).data.toList = v.toList := rfl
 
-private theorem data_toList_foldl_bytesToByteArray {n : ℕ} (xs : List (Bytes n))
+private theorem toList_data_foldl_bytesToByteArray {n : ℕ} (xs : List (Bytes n))
     (acc : ByteArray) :
     (xs.foldl (fun out value => out ++ bytesToByteArray value) acc).data.toList =
       acc.data.toList ++ (xs.map Vector.toList).flatten := by
@@ -93,16 +88,16 @@ private theorem data_toList_foldl_bytesToByteArray {n : ℕ} (xs : List (Bytes n
   | cons x xs ih => simp [ih, ByteArray.data_append]
 
 /-- `concatBytes` concatenates the bytes of its nodes in order. -/
-@[simp] theorem data_toList_concatBytes {n : ℕ} (xs : List (Bytes n)) :
+@[simp] theorem toList_data_concatBytes {n : ℕ} (xs : List (Bytes n)) :
     (concatBytes xs).data.toList = (xs.map Vector.toList).flatten := by
-  rw [concatBytes, data_toList_foldl_bytesToByteArray]
+  rw [concatBytes, toList_data_foldl_bytesToByteArray]
   rfl
 
 /-- Reading the first `k` bytes of a byte array of at least `k` bytes. -/
 theorem toList_byteArrayPrefixOrZero_of_le {bs : ByteArray} {k : ℕ} (h : k ≤ bs.size) :
     (byteArrayPrefixOrZero bs k).toList = bs.data.toList.take k := by
   have hraw : (bs.extract 0 k).toList = bs.data.toList.take k := by
-    rw [byteArray_toList_eq_data_toList, ByteArray.data_extract, Array.toList_extract]
+    rw [ByteArray.toList_eq_toList_data, ByteArray.data_extract, Array.toList_extract]
     simp
   have hlen : (bs.extract 0 k).toList.length = k := by
     rw [hraw, List.length_take, Array.length_toList, ByteArray.size_data]
@@ -114,23 +109,23 @@ theorem toList_byteArrayPrefixOrZero_of_le {bs : ByteArray} {k : ℕ} (h : k ≤
 namespace Keccak
 
 /-- One squeezed block, as a byte list. -/
-theorem squeeze_data_toList (s : Array UInt64) (k : ℕ) :
+theorem toList_data_squeeze (s : Array UInt64) (k : ℕ) :
     (squeeze s k).data.toList = List.ofFn fun i : Fin k =>
       ((s[i.val / 8]! >>> ((i.val % 8) * 8).toUInt64) &&& 0xFF).toUInt8 := by
   simp [squeeze]
 
 /-- Below the rate the XOF squeeze is a single block squeeze. -/
-theorem squeezeXof_data_toList_of_lt (s : Array UInt64) {k : ℕ} (hk : k < 136) :
+theorem toList_data_squeezeXof_of_lt (s : Array UInt64) {k : ℕ} (hk : k < 136) :
     (squeezeXof s 136 k).data.toList = (squeeze s k).data.toList := by
   simp [squeezeXof, Nat.div_eq_of_lt hk, Nat.mod_eq_of_lt hk, squeezeFullBlocks]
 
 /-- **Prefix consistency of SHAKE256 below the rate**: for `n ≤ m < 136`, the `n`-byte output is
 the first `n` bytes of the `m`-byte output. -/
-theorem shake256_data_toList_take {x : ByteArray} {n m : ℕ} (hnm : n ≤ m) (hm : m < 136) :
+theorem take_toList_data_shake256 {x : ByteArray} {n m : ℕ} (hnm : n ≤ m) (hm : m < 136) :
     (shake256 x m).data.toList.take n = (shake256 x n).data.toList := by
   simp only [shake256]
-  rw [squeezeXof_data_toList_of_lt _ hm, squeezeXof_data_toList_of_lt _ (lt_of_le_of_lt hnm hm),
-    squeeze_data_toList, squeeze_data_toList]
+  rw [toList_data_squeezeXof_of_lt _ hm, toList_data_squeezeXof_of_lt _ (lt_of_le_of_lt hnm hm),
+    toList_data_squeeze, toList_data_squeeze]
   apply List.ext_getElem
   · simp [hnm]
   · intro i h₁ h₂
@@ -164,6 +159,10 @@ theorem n_le_m (set : FipsParameterSet) :
     set.validatedParams.params.n ≤ set.validatedParams.params.m := by
   cases set <;> decide
 
+/-- Every FIPS 205 parameter set has its node width at most `32` bytes. -/
+theorem n_le_32 (set : FipsParameterSet) : set.validatedParams.params.n ≤ 32 := by
+  cases set <;> decide
+
 /-- Every FIPS 205 parameter set has its digest width below the SHAKE256 rate of `136` bytes. -/
 theorem m_lt_136 (set : FipsParameterSet) :
     set.validatedParams.params.m < 136 := by
@@ -194,43 +193,59 @@ theorem toList_prefixBytes_shakeAnswer (hnm : vp.params.n ≤ vp.params.m)
     (hm : vp.params.m < 136) (x : List Byte) :
     (prefixBytes vp.params.n (shakeAnswer vp x)).toList =
       (Keccak.shake256 x.toByteArray vp.params.n).data.toList := by
-  rw [toList_prefixBytes_of_le hnm, toList_shakeAnswer, Keccak.shake256_data_toList_take hnm hm]
+  rw [toList_prefixBytes_of_le hnm, toList_shakeAnswer, Keccak.take_toList_data_shake256 hnm hm]
 
 /-! ## The oracle at each layout -/
 
-/-- The oracle at the tweakable-hash layout, read at `n` bytes, is FIPS 205's SHAKE `T_ℓ`. -/
-theorem prefixBytes_shakeAnswer_encode_thash (hnm : vp.params.n ≤ vp.params.m)
+private theorem prefixBytes_shakeAnswer_thash (hnm : vp.params.n ≤ vp.params.m)
     (hm : vp.params.m < 136) (pkSeed : Bytes vp.params.n) (adrsKey : Bytes 32)
     (xs : List (Bytes vp.params.n)) :
-    prefixBytes vp.params.n (shakeAnswer vp (encode vp (.inl (.thash pkSeed adrsKey xs)))) =
+    prefixBytes vp.params.n
+        (shakeAnswer vp (pkSeed.toList ++ adrsKey.toList ++ (xs.map Vector.toList).flatten)) =
       shakeThash vp.params pkSeed adrsKey xs := by
   apply Vector.toList_inj.mp
   rw [toList_prefixBytes_shakeAnswer hnm hm, shakeThash, toList_byteArrayPrefixOrZero_shake256,
-    toByteArray_eq_of_data_toList_eq (l := encode vp _)]
+    toByteArray_eq_of_toList_data_eq
+      (l := pkSeed.toList ++ adrsKey.toList ++ (xs.map Vector.toList).flatten)]
   simp [ByteArray.data_append, shakeAddressKey]
 
-/-- The oracle at the `H_msg` layout is FIPS 205's SHAKE `H_msg`. -/
-theorem shakeAnswer_encode_hmsg (r pkSeed pkRoot : Bytes vp.params.n) (msg : List Byte) :
-    shakeAnswer vp (encode vp (.inl (.hmsg r pkSeed pkRoot msg))) =
+private theorem shakeAnswer_hmsg (r pkSeed pkRoot : Bytes vp.params.n) (msg : List Byte) :
+    shakeAnswer vp (r.toList ++ pkSeed.toList ++ pkRoot.toList ++ msg) =
       shakeHmsg vp.params r pkSeed pkRoot msg := by
-  rw [shakeAnswer, shakeHmsg, toByteArray_eq_of_data_toList_eq (l := encode vp _)]
+  rw [shakeAnswer, shakeHmsg,
+    toByteArray_eq_of_toList_data_eq (l := r.toList ++ pkSeed.toList ++ pkRoot.toList ++ msg)]
   simp [ByteArray.data_append]
 
-private theorem prefixBytes_shakeAnswer_append (hnm : vp.params.n ≤ vp.params.m)
+private theorem prefixBytes_shakeAnswer_prfMsg (hnm : vp.params.n ≤ vp.params.m)
     (hm : vp.params.m < 136) (skPrf optRand : Bytes vp.params.n) (msg : List Byte) :
     prefixBytes vp.params.n (shakeAnswer vp (skPrf.toList ++ optRand.toList ++ msg)) =
       shakePRFmsg skPrf optRand msg := by
   apply Vector.toList_inj.mp
   rw [toList_prefixBytes_shakeAnswer hnm hm, shakePRFmsg, toList_byteArrayPrefixOrZero_shake256,
-    toByteArray_eq_of_data_toList_eq (l := skPrf.toList ++ optRand.toList ++ msg)]
+    toByteArray_eq_of_toList_data_eq (l := skPrf.toList ++ optRand.toList ++ msg)]
   simp [ByteArray.data_append]
+
+/-- The oracle at the tweakable-hash layout, read at `n` bytes, is FIPS 205's SHAKE `T_ℓ`. -/
+theorem prefixBytes_shakeAnswer_encode_thash (hnm : vp.params.n ≤ vp.params.m)
+    (hm : vp.params.m < 136) (pkSeed : (shakeCore vp).PkSeed) (adrsKey : (shakeCore vp).AdrsKey)
+    (xs : List (shakeCore vp).Y) :
+    prefixBytes vp.params.n (shakeAnswer vp (encode vp (.inl (.thash pkSeed adrsKey xs)))) =
+      shakeThash vp.params pkSeed adrsKey xs :=
+  prefixBytes_shakeAnswer_thash hnm hm pkSeed adrsKey xs
+
+/-- The oracle at the `H_msg` layout is FIPS 205's SHAKE `H_msg`. -/
+theorem shakeAnswer_encode_hmsg (r : (shakeCore vp).Y) (pkSeed : (shakeCore vp).PkSeed)
+    (pkRoot : (shakeCore vp).Y) (msg : List Byte) :
+    shakeAnswer vp (encode vp (.inl (.hmsg r pkSeed pkRoot msg))) =
+      shakeHmsg vp.params r pkSeed pkRoot msg :=
+  shakeAnswer_hmsg r pkSeed pkRoot msg
 
 /-- The oracle at the `PRF_msg` layout, read at `n` bytes, is FIPS 205's SHAKE `PRF_msg`. -/
 theorem prefixBytes_shakeAnswer_encode_prfMsg (hnm : vp.params.n ≤ vp.params.m)
     (hm : vp.params.m < 136) (q : PrfMsgQuery (shakeCore vp).SkPrf (shakeCore vp).Y) :
     prefixBytes vp.params.n (shakeAnswer vp (encode vp (.inr q))) =
       shakePRFmsg (n := vp.params.n) q.skPrf q.optRand q.msg :=
-  prefixBytes_shakeAnswer_append hnm hm q.skPrf q.optRand q.msg
+  prefixBytes_shakeAnswer_prfMsg hnm hm q.skPrf q.optRand q.msg
 
 /-! ## Scheme conformance -/
 
@@ -294,9 +309,12 @@ theorem shakeRomScheme_map_shakeAnswer (hnm : vp.params.n ≤ vp.params.m)
   · funext pk msg sig
     simp [shakeRomScheme]
 
-/-- **Conformance at the FIPS 205 parameter sets.** At every approved parameter set, SLH-DSA over
-one random oracle on byte strings, with that oracle answered by SHAKE256, is FIPS 205's SHAKE
-internal key generation, signing and verification. -/
+/-- **Conformance at the FIPS 205 parameter sets.** At the parameters of every approved parameter
+set, SLH-DSA over one random oracle on byte strings, with that oracle answered by SHAKE256, is
+FIPS 205's SHAKE internal key generation, signing and verification. The statement depends on
+`set` only through `set.validatedParams`, and each SHA-2 set has the same parameters as its SHAKE
+twin, so at a SHA-2 set it is the statement at that twin: the SHAKE parameter sets are what it
+covers. -/
 theorem shakeRomScheme_map_shakeAnswer_validatedParams (set : FipsParameterSet)
     (optRand : PublicKeyCore (shakeCore set.validatedParams) →
       ProbComp (shakeCore set.validatedParams).Y)

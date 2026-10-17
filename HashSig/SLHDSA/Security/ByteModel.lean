@@ -21,9 +21,11 @@ a query of it at the role's byte layout.
 
 `shakeSpec vp` is a random oracle `List Byte →ₒ Bytes m`, `m` the `H_msg` digest length. A role
 whose output is `n` bytes reads the first `n` bytes of the answer (`prefixBytes`). This is
-SHAKE256 as an extendable-output random oracle restricted to outputs of at most `m` bytes: a
-forger's outputs are capped at `m` bytes, and every output the scheme itself reads, `n` or `m`
-bytes, is a prefix of the `m`-byte answer. The runtime `shakeRuntime vp` is VCVio's lazy random
+SHAKE256 as an extendable-output random oracle restricted to outputs of at most `m` bytes: every
+output the scheme itself reads, `n` or `m` bytes, is a prefix of the `m`-byte answer, and a
+forger's outputs are capped at `m` bytes. The cap is a modelling restriction: a forger against
+the unrestricted extendable-output oracle can read longer outputs, and that the cap loses nothing
+against such a forger is not proved here. The runtime `shakeRuntime vp` is VCVio's lazy random
 oracle `ProbCompRuntime.rom (shakeSpec vp)` from the empty cache, the advantage is
 `shakeAdvantage vp`, and an adversary's budget is the generic
 `UnforgeableAdversary.RomQueryBound`, one count per query of the single oracle.
@@ -49,18 +51,20 @@ seed read as a node by the identity.
 * `unforgeableExperiment_shakeRomScheme`, `shakeAdvantage_le_lintegral`: the experiment draws the
   public seed first, so a bound at each public seed averages to a bound at every seed
   distribution.
-* `length_encode_thash`, `length_encode_hmsg`, `length_encode_prfMsg`; the `take_*` and `drop_*`
-  equations reading each field of a layout at its offset; and `encode_thash_inj`,
-  `encode_hmsg_inj`, `encode_prfMsg_inj`: the shape of each layout and the injectivity of each
-  role.
+* `length_encode_thash`, `length_encode_hmsg`, `length_encode_prfMsg`,
+  `two_mul_le_length_encode`; the `take_*` and `drop_*` equations reading each field of a layout
+  at its offset; and `encode_thash_inj`, `encode_hmsg_inj`, `encode_prfMsg_inj`: the shape of each
+  layout and the injectivity of each role.
 
 ## Implementation notes
 
-The carriers of `shakeCore vp` are `Bytes n` and `Bytes 32` only after `shakePrimitives` is
-unfolded, which `simp` and `rw` do not do. The tweakable-hash and `H_msg` layout equations take
-fields typed as byte vectors and the `PRF_msg` ones a query typed at the carriers; at a term whose
-fields have the other typing, instantiate the equation explicitly (`(encode_thash vp _ _ _).trans`)
-rather than rewriting with it.
+The layout equations take their fields at the carriers of `shakeCore vp` (`PkSeed`, `AdrsKey`,
+`Y`, `SkPrf`), the types the fields of a query of `hashSpec (shakeCore vp)` have, for instance
+after `rcases`; `rw` and `simp` then apply them to such terms directly. The carriers are `Bytes n`
+and `Bytes 32` only after `shakePrimitives` is unfolded, which `rw` and `simp` do not do: at a
+term whose fields are typed as byte vectors, instantiate the equation explicitly
+(`(encode_thash vp _ _ _).trans`) rather than rewriting with it, and read the length of a field's
+bytes with `Vector.length_toList (xs := (x : Bytes n))`.
 
 `HashSig.SLHDSA.Security.ByteConformance` instantiates the oracle by SHAKE256 and identifies the
 result with FIPS 205's SHAKE internal algorithms.
@@ -139,7 +143,7 @@ tweakable hash, `R ‖ PK.seed ‖ PK.root ‖ M` for `H_msg`, `SK.prf ‖ opt_r
 @[expose] def encode : (hashSpec (shakeCore vp)).Domain → List Byte
   | .inl (.thash pkSeed adrsKey xs) =>
       Vector.toList (pkSeed : Bytes vp.params.n) ++ Vector.toList (adrsKey : Bytes 32) ++
-        (xs.map fun x => Vector.toList (x : Bytes vp.params.n)).flatten
+        (xs.map fun x : (shakeCore vp).Y => Vector.toList (x : Bytes vp.params.n)).flatten
   | .inl (.hmsg r pkSeed pkRoot msg) =>
       Vector.toList (r : Bytes vp.params.n) ++ Vector.toList (pkSeed : Bytes vp.params.n) ++
         Vector.toList (pkRoot : Bytes vp.params.n) ++ msg
@@ -200,18 +204,20 @@ noncomputable def shakeAdvantage
 
 section Layout
 
-variable (pkSeed r pkRoot : Bytes vp.params.n) (adrsKey : Bytes 32)
-  (xs : List (Bytes vp.params.n)) (msg : List Byte)
+variable (r : (shakeCore vp).Y) (pkSeed : (shakeCore vp).PkSeed) (pkRoot : (shakeCore vp).Y)
+  (adrsKey : (shakeCore vp).AdrsKey) (xs : List (shakeCore vp).Y) (msg : List Byte)
 
 /-- The tweakable-hash layout `PK.seed ‖ ADRS ‖ M_1 ‖ … ‖ M_ℓ`. -/
 @[simp] theorem encode_thash :
     encode vp (.inl (.thash pkSeed adrsKey xs)) =
-      pkSeed.toList ++ adrsKey.toList ++ (xs.map Vector.toList).flatten := rfl
+      Vector.toList (pkSeed : Bytes vp.params.n) ++ Vector.toList (adrsKey : Bytes 32) ++
+        (xs.map fun x : (shakeCore vp).Y => Vector.toList (x : Bytes vp.params.n)).flatten := rfl
 
 /-- The `H_msg` layout `R ‖ PK.seed ‖ PK.root ‖ M`. -/
 @[simp] theorem encode_hmsg :
     encode vp (.inl (.hmsg r pkSeed pkRoot msg)) =
-      r.toList ++ pkSeed.toList ++ pkRoot.toList ++ msg := rfl
+      Vector.toList (r : Bytes vp.params.n) ++ Vector.toList (pkSeed : Bytes vp.params.n) ++
+        Vector.toList (pkRoot : Bytes vp.params.n) ++ msg := rfl
 
 /-- The `PRF_msg` layout `SK.prf ‖ opt_rand ‖ M`. -/
 @[simp] theorem encode_prfMsg (q : PrfMsgQuery (shakeCore vp).SkPrf (shakeCore vp).Y) :
@@ -221,23 +227,39 @@ variable (pkSeed r pkRoot : Bytes vp.params.n) (adrsKey : Bytes 32)
 
 /-- The secret value at a WOTS+ or FORS secret-key address `a` is the oracle's answer at
 `PK.seed ‖ ADRS ‖ SK.seed`, FIPS 205's `PRF` layout. -/
-theorem encode_oracleSecret (skSeed : Bytes vp.params.n) (a : Adrs) :
+theorem encode_oracleSecret (skSeed : (shakeCore vp).SkSeed) (a : Adrs) :
     encode vp (.inl (.thash pkSeed ((shakeCore vp).adrsToKey a) [skSeed])) =
-      pkSeed.toList ++ a.toBytes ++ skSeed.toList := by
+      Vector.toList (pkSeed : Bytes vp.params.n) ++ a.toBytes ++
+        Vector.toList (skSeed : Bytes vp.params.n) := by
   refine (encode_thash vp pkSeed (Adrs.toVector a) [skSeed]).trans ?_
-  simp [Adrs.toVector]
+  rw [show Vector.toList (Adrs.toVector a) = a.toBytes by simp [Adrs.toVector]]
+  exact congrArg _ (List.append_nil _)
 
 /-- A tweakable-hash string has `n + 32 + n ℓ` bytes. -/
 theorem length_encode_thash :
     (encode vp (.inl (.thash pkSeed adrsKey xs))).length =
       vp.params.n + 32 + vp.params.n * xs.length := by
-  simp [List.length_flatten, Function.comp_def, List.sum_replicate, Nat.mul_comm]
-  omega
+  have hxs : ∀ ys : List (shakeCore vp).Y,
+      (ys.map fun y : (shakeCore vp).Y => Vector.toList (y : Bytes vp.params.n)).flatten.length =
+        vp.params.n * ys.length := by
+    intro ys
+    induction ys with
+    | nil => simp
+    | cons y ys ih =>
+        rw [List.map_cons, List.flatten_cons, List.length_append, ih,
+          Vector.length_toList (xs := (y : Bytes vp.params.n)), List.length_cons]
+        ring
+  rw [encode_thash, List.length_append, List.length_append,
+    Vector.length_toList (xs := (pkSeed : Bytes vp.params.n)),
+    Vector.length_toList (xs := (adrsKey : Bytes 32)), hxs]
 
 /-- An `H_msg` string has `3n + |M|` bytes. -/
 theorem length_encode_hmsg :
     (encode vp (.inl (.hmsg r pkSeed pkRoot msg))).length = 3 * vp.params.n + msg.length := by
-  simp only [encode_hmsg, List.length_append, Vector.length_toList]
+  rw [encode_hmsg, List.length_append, List.length_append, List.length_append,
+    Vector.length_toList (xs := (r : Bytes vp.params.n)),
+    Vector.length_toList (xs := (pkSeed : Bytes vp.params.n)),
+    Vector.length_toList (xs := (pkRoot : Bytes vp.params.n))]
   omega
 
 /-- A `PRF_msg` string has `2n + |M|` bytes. -/
@@ -248,61 +270,83 @@ theorem length_encode_prfMsg (q : PrfMsgQuery (shakeCore vp).SkPrf (shakeCore vp
     Vector.length_toList (xs := (q.optRand : Bytes vp.params.n))]
   omega
 
+/-- For `n ≤ 32`, every encoded query has at least `2n` bytes. -/
+theorem two_mul_le_length_encode (h : vp.params.n ≤ 32) (t : (hashSpec (shakeCore vp)).Domain) :
+    2 * vp.params.n ≤ (encode vp t).length := by
+  rcases t with (⟨pkSeed, adrsKey, xs⟩ | ⟨r, pkSeed, pkRoot, msg⟩) | q
+  · rw [length_encode_thash]
+    omega
+  · rw [length_encode_hmsg]
+    omega
+  · rw [length_encode_prfMsg]
+    omega
+
 /-- A tweakable-hash string begins with `PK.seed`. -/
 theorem take_encode_thash :
-    (encode vp (.inl (.thash pkSeed adrsKey xs))).take vp.params.n = pkSeed.toList := by
-  simp
+    (encode vp (.inl (.thash pkSeed adrsKey xs))).take vp.params.n =
+      Vector.toList (pkSeed : Bytes vp.params.n) := by
+  rw [encode_thash, List.append_assoc]
+  exact List.take_left' (Vector.length_toList (xs := (pkSeed : Bytes vp.params.n)))
 
 /-- After `PK.seed`, a tweakable-hash string is the address followed by the input blocks. -/
 theorem drop_encode_thash :
     (encode vp (.inl (.thash pkSeed adrsKey xs))).drop vp.params.n =
-      adrsKey.toList ++ (xs.map Vector.toList).flatten := by
-  simp
+      Vector.toList (adrsKey : Bytes 32) ++
+        (xs.map fun x : (shakeCore vp).Y => Vector.toList (x : Bytes vp.params.n)).flatten := by
+  rw [encode_thash, List.append_assoc]
+  exact List.drop_left' (Vector.length_toList (xs := (pkSeed : Bytes vp.params.n)))
 
 /-- The address field of a tweakable-hash string, bytes `n` to `n + 32`. -/
 theorem take_drop_encode_thash :
-    ((encode vp (.inl (.thash pkSeed adrsKey xs))).drop vp.params.n).take 32 = adrsKey.toList := by
+    ((encode vp (.inl (.thash pkSeed adrsKey xs))).drop vp.params.n).take 32 =
+      Vector.toList (adrsKey : Bytes 32) := by
   rw [drop_encode_thash]
-  simp
+  exact List.take_left' (Vector.length_toList (xs := (adrsKey : Bytes 32)))
 
 /-- After `PK.seed ‖ ADRS`, a tweakable-hash string is the concatenation of its input blocks. -/
 theorem drop_add_encode_thash :
     (encode vp (.inl (.thash pkSeed adrsKey xs))).drop (vp.params.n + 32) =
-      (xs.map Vector.toList).flatten := by
+      (xs.map fun x : (shakeCore vp).Y => Vector.toList (x : Bytes vp.params.n)).flatten := by
   rw [← List.drop_drop, drop_encode_thash]
-  simp
+  exact List.drop_left' (Vector.length_toList (xs := (adrsKey : Bytes 32)))
 
 /-- An `H_msg` string begins with `R`. -/
 theorem take_encode_hmsg :
-    (encode vp (.inl (.hmsg r pkSeed pkRoot msg))).take vp.params.n = r.toList := by
-  simp
+    (encode vp (.inl (.hmsg r pkSeed pkRoot msg))).take vp.params.n =
+      Vector.toList (r : Bytes vp.params.n) := by
+  rw [encode_hmsg, List.append_assoc, List.append_assoc]
+  exact List.take_left' (Vector.length_toList (xs := (r : Bytes vp.params.n)))
 
 /-- After `R`, an `H_msg` string is `PK.seed ‖ PK.root ‖ M`. -/
 theorem drop_encode_hmsg :
     (encode vp (.inl (.hmsg r pkSeed pkRoot msg))).drop vp.params.n =
-      pkSeed.toList ++ pkRoot.toList ++ msg := by
-  simp
+      Vector.toList (pkSeed : Bytes vp.params.n) ++ Vector.toList (pkRoot : Bytes vp.params.n) ++
+        msg := by
+  rw [encode_hmsg, List.append_assoc, List.append_assoc,
+    List.drop_left' (Vector.length_toList (xs := (r : Bytes vp.params.n))), List.append_assoc]
 
 /-- The second `n`-byte block of an `H_msg` string is `PK.seed`. -/
 theorem take_drop_encode_hmsg :
     ((encode vp (.inl (.hmsg r pkSeed pkRoot msg))).drop vp.params.n).take vp.params.n =
-      pkSeed.toList := by
-  rw [drop_encode_hmsg]
-  simp
+      Vector.toList (pkSeed : Bytes vp.params.n) := by
+  rw [drop_encode_hmsg, List.append_assoc]
+  exact List.take_left' (Vector.length_toList (xs := (pkSeed : Bytes vp.params.n)))
 
 /-- The third `n`-byte block of an `H_msg` string is `PK.root`. -/
 theorem take_drop_two_mul_encode_hmsg :
     ((encode vp (.inl (.hmsg r pkSeed pkRoot msg))).drop (2 * vp.params.n)).take vp.params.n =
-      pkRoot.toList := by
-  rw [Nat.two_mul, ← List.drop_drop, drop_encode_hmsg]
-  simp
+      Vector.toList (pkRoot : Bytes vp.params.n) := by
+  rw [Nat.two_mul, ← List.drop_drop, drop_encode_hmsg, List.append_assoc,
+    List.drop_left' (Vector.length_toList (xs := (pkSeed : Bytes vp.params.n)))]
+  exact List.take_left' (Vector.length_toList (xs := (pkRoot : Bytes vp.params.n)))
 
 /-- After `R ‖ PK.seed ‖ PK.root`, an `H_msg` string is the message. -/
 theorem drop_three_mul_encode_hmsg :
     (encode vp (.inl (.hmsg r pkSeed pkRoot msg))).drop (3 * vp.params.n) = msg := by
   rw [show 3 * vp.params.n = vp.params.n + vp.params.n + vp.params.n by omega, ← List.drop_drop,
-    ← List.drop_drop, drop_encode_hmsg]
-  simp
+    ← List.drop_drop, drop_encode_hmsg, List.append_assoc,
+    List.drop_left' (Vector.length_toList (xs := (pkSeed : Bytes vp.params.n)))]
+  exact List.drop_left' (Vector.length_toList (xs := (pkRoot : Bytes vp.params.n)))
 
 /-- A `PRF_msg` string begins with `SK.prf`. -/
 theorem take_encode_prfMsg (q : PrfMsgQuery (shakeCore vp).SkPrf (shakeCore vp).Y) :
@@ -353,28 +397,39 @@ theorem flatten_map_toList_injective {n : ℕ} (hn : 0 < n) :
         rw [Vector.toList_inj.mp hxy, ih hrest]
 
 /-- The tweakable-hash layout is injective. -/
-theorem encode_thash_inj {pkSeed pkSeed' : Bytes vp.params.n} {adrsKey adrsKey' : Bytes 32}
-    {xs xs' : List (Bytes vp.params.n)} :
+theorem encode_thash_inj {pkSeed pkSeed' : (shakeCore vp).PkSeed}
+    {adrsKey adrsKey' : (shakeCore vp).AdrsKey} {xs xs' : List (shakeCore vp).Y} :
     encode vp (.inl (.thash pkSeed adrsKey xs)) = encode vp (.inl (.thash pkSeed' adrsKey' xs')) ↔
       pkSeed = pkSeed' ∧ adrsKey = adrsKey' ∧ xs = xs' := by
   refine ⟨fun h => ?_, by rintro ⟨rfl, rfl, rfl⟩; rfl⟩
-  simp only [encode_thash, List.append_assoc] at h
-  obtain ⟨h₁, h₂⟩ := List.append_inj h (by simp)
-  obtain ⟨h₃, h₄⟩ := List.append_inj h₂ (by simp)
+  rw [encode_thash, encode_thash, List.append_assoc, List.append_assoc] at h
+  obtain ⟨h₁, h₂⟩ := List.append_inj h
+    ((Vector.length_toList (xs := (pkSeed : Bytes vp.params.n))).trans
+      (Vector.length_toList (xs := (pkSeed' : Bytes vp.params.n))).symm)
+  obtain ⟨h₃, h₄⟩ := List.append_inj h₂
+    ((Vector.length_toList (xs := (adrsKey : Bytes 32))).trans
+      (Vector.length_toList (xs := (adrsKey' : Bytes 32))).symm)
   exact ⟨Vector.toList_inj.mp h₁, Vector.toList_inj.mp h₃,
     flatten_map_toList_injective vp.valid.n_pos h₄⟩
 
 /-- The `H_msg` layout is injective. -/
-theorem encode_hmsg_inj {r r' pkSeed pkSeed' pkRoot pkRoot' : Bytes vp.params.n}
-    {msg msg' : List Byte} :
+theorem encode_hmsg_inj {r r' : (shakeCore vp).Y} {pkSeed pkSeed' : (shakeCore vp).PkSeed}
+    {pkRoot pkRoot' : (shakeCore vp).Y} {msg msg' : List Byte} :
     encode vp (.inl (.hmsg r pkSeed pkRoot msg)) =
         encode vp (.inl (.hmsg r' pkSeed' pkRoot' msg')) ↔
       r = r' ∧ pkSeed = pkSeed' ∧ pkRoot = pkRoot' ∧ msg = msg' := by
   refine ⟨fun h => ?_, by rintro ⟨rfl, rfl, rfl, rfl⟩; rfl⟩
-  simp only [encode_hmsg, List.append_assoc] at h
-  obtain ⟨h₁, h₂⟩ := List.append_inj h (by simp)
-  obtain ⟨h₃, h₄⟩ := List.append_inj h₂ (by simp)
-  obtain ⟨h₅, h₆⟩ := List.append_inj h₄ (by simp)
+  rw [encode_hmsg, encode_hmsg] at h
+  simp only [List.append_assoc] at h
+  obtain ⟨h₁, h₂⟩ := List.append_inj h
+    ((Vector.length_toList (xs := (r : Bytes vp.params.n))).trans
+      (Vector.length_toList (xs := (r' : Bytes vp.params.n))).symm)
+  obtain ⟨h₃, h₄⟩ := List.append_inj h₂
+    ((Vector.length_toList (xs := (pkSeed : Bytes vp.params.n))).trans
+      (Vector.length_toList (xs := (pkSeed' : Bytes vp.params.n))).symm)
+  obtain ⟨h₅, h₆⟩ := List.append_inj h₄
+    ((Vector.length_toList (xs := (pkRoot : Bytes vp.params.n))).trans
+      (Vector.length_toList (xs := (pkRoot' : Bytes vp.params.n))).symm)
   exact ⟨Vector.toList_inj.mp h₁, Vector.toList_inj.mp h₃, Vector.toList_inj.mp h₅, h₆⟩
 
 /-- The `PRF_msg` layout is injective. -/

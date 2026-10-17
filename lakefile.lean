@@ -468,7 +468,8 @@ lean_exe slhdsa_external_tests where
 
 /-- SLH-DSA over a single SHAKE256 oracle: SHAKE256 at the FIPS 205 §11.1 layouts of `F`,
 `H_msg` and `PRF_msg` against the landed SHAKE functions, `PRF` as the tweakable hash at a `PRF`
-address, a layout-order negative control, and SHAKE256 prefix consistency. -/
+address, layout-order negative controls, SHAKE256 prefix consistency, and the FIPS 205 SHAKE
+internal algorithms against pinned NIST ACVP vectors at SLH-DSA-SHAKE-128f. -/
 lean_exe slhdsa_byte_model_tests where
   root := `HashSigTest.SLHDSA.ByteModel
 

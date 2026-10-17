@@ -26,6 +26,7 @@ public import ToMathlib.Control.OptionT
 public import ToMathlib.Control.StateT
 public import ToMathlib.Control.WriterT
 public import ToMathlib.Data.BitVec
+public import ToMathlib.Data.ByteArray
 public import ToMathlib.Data.ENNReal.AbsDiff
 public import ToMathlib.Data.ENNReal.Finiteness
 public import ToMathlib.Data.ENNReal.Gauss
