@@ -208,6 +208,26 @@ lemma withCaching_run_caches [LawfulMonad m] [MonadAttach m] [ExactMonadAttach m
     obtain ⟨v, _, rfl⟩ := hz
     exact QueryCache.cacheQuery_self cache₀ t v
 
+/-- Every possible outcome of a `withCaching` step on `t` records its answer at `t` and leaves
+every other entry of the cache unchanged. -/
+lemma withCaching_run_eq_cacheQuery [LawfulMonad m] [MonadAttach m] [ExactMonadAttach m]
+    (so : QueryImpl spec m) {t : spec.Domain} {cache₀ : QueryCache spec}
+    {z : spec.Range t × QueryCache spec} (hz : z ∈ support ((so.withCaching t).run cache₀)) :
+    z.2 = cache₀.cacheQuery t z.1 := by
+  cases ht : cache₀ t with
+  | some u =>
+    rw [withCaching_run_some so ht, support_pure, Set.mem_singleton_iff] at hz
+    subst hz
+    refine QueryCache.ext fun t' ↦ ?_
+    by_cases h : t' = t
+    · subst h
+      simp [ht]
+    · simp [QueryCache.cacheQuery_of_ne _ _ h]
+  | none =>
+    rw [withCaching_run_none so ht, support_map] at hz
+    obtain ⟨v, -, rfl⟩ := hz
+    rfl
+
 /-- After a `withCaching` step on `t`, a point is cached exactly when it was cached before the
 step or is `t`. -/
 lemma withCaching_run_isSome_apply_iff [LawfulMonad m] [MonadAttach m] [ExactMonadAttach m]
@@ -267,6 +287,17 @@ lemma withCaching_queryAll_le_and_isSome_iff {ts : List ι₀} {cache₀ : Query
     refine ⟨(withCaching_cache_le so _ _ _ hy).trans hle, fun t' ↦ ?_⟩
     rw [hiff, withCaching_run_isSome_apply_iff so hy, List.mem_cons]
     tauto
+
+/-- Querying `so.withCaching` at each index of `ts` leaves the entry of every other index
+unchanged. -/
+lemma withCaching_queryAll_apply_of_not_mem {ts : List ι₀} {cache₀ : QueryCache spec₀}
+    {w : Unit × QueryCache spec₀}
+    (hw : w ∈ support ((simulateQ so.withCaching (spec₀.queryAll ts)).run cache₀)) {t : ι₀}
+    (ht : t ∉ ts) : w.2 t = cache₀ t := by
+  obtain ⟨hle, hiff⟩ := withCaching_queryAll_le_and_isSome_iff so hw
+  cases hc : cache₀ t with
+  | some v => exact hle hc
+  | none => simpa using (hiff t).not.2 (by simp [hc, ht])
 
 /-- After querying `so.withCaching` at each index of `ts`, the indices of `ts ++ [t]` uncached
 before are those of `ts`, together with `t` when it is still uncached. -/

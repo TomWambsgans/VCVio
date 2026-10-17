@@ -144,6 +144,13 @@ theorem flattenStateT_liftTarget_base {ι : Type _} {spec : OracleSpec ι}
   obtain ⟨s, q⟩ := p
   simp [flattenStateT, StateT.run_monadLift, Functor.map_map]
 
+/-- A stateless handler lifted into `StateT` runs the handler and keeps the state. -/
+theorem liftTarget_apply_run {ι : Type _} {spec : OracleSpec ι}
+    {m : Type u → Type v} [Monad m] [LawfulMonad m] {σ : Type u}
+    (impl : QueryImpl spec m) (t : spec.Domain) (s : σ) :
+    ((impl.liftTarget (StateT σ m)) t).run s = (fun u ↦ (u, s)) <$> impl t := by
+  simp
+
 /-- A stateless forwarding handler commutes with any change of the state it carries. -/
 theorem run_liftTarget_map_eq {ι : Type _} {spec : OracleSpec ι}
     {m : Type u → Type v} [Monad m] [LawfulMonad m] {σ₁ σ₂ : Type u}

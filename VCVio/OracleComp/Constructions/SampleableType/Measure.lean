@@ -382,6 +382,30 @@ theorem prEvent_uniformSample_finSnoc_le_add {n : ℕ}
       (fun y => do let x ← $ᵗ α; return Fin.snoc y x) bad event
       (fun y hy => by simpa only [prEvent_norm] using h y hy)
 
+/-- If every value of `α` splits by `e` into a component in `β` and a tail in `γ`, a uniform
+draw of `β` joined by `e.symm` to the tail of an independent uniform draw of `α` is a uniform
+draw of `α` whose `β` component is the first draw. -/
+theorem evalDist_uniformSample_bind_equiv_symm [SampleableType γ] {δ : Type} [MeasurableSpace δ]
+    (e : α ≃ β × γ) (f : β → α → ProbComp δ) :
+    𝒟[do let r ← $ᵗ β; let p ← $ᵗ α; f r (e.symm (r, (e p).2))] =
+      𝒟[do let w ← $ᵗ α; f (e w).1 w] := by
+  let _ : MeasurableSpace α := ⊤
+  let _ : MeasurableSpace (β × γ) := ⊤
+  have he : ∀ g : β × γ → ProbComp δ, 𝒟[$ᵗ α >>= fun w ↦ g (e w)] = 𝒟[$ᵗ (β × γ) >>= g] :=
+    fun g ↦ evalDist_bind_bijective_uniform_cross _ _ evalDist_uniformSample
+      evalDist_uniformSample e e.bijective g
+  calc _ = 𝒟[$ᵗ β >>= fun r ↦ $ᵗ (β × γ) >>= fun v ↦ f r (e.symm (r, v.2))] :=
+        evalDist_bind_congr _ _ _ fun r ↦ he fun v ↦ f r (e.symm (r, v.2))
+    _ = 𝒟[$ᵗ β >>= fun r ↦ $ᵗ γ >>= fun τ ↦ f r (e.symm (r, τ))] :=
+        evalDist_bind_congr _ _ _ fun r ↦ by
+          simp only [uniformSample_prod_eq_bind, bind_assoc, pure_bind]
+          exact OracleComp.evalDist_bind_const _ _
+    _ = 𝒟[$ᵗ (β × γ) >>= fun v ↦ f v.1 (e.symm v)] := by
+        simp [uniformSample_prod_eq_bind]
+    _ = _ := by
+        rw [← he]
+        simp
+
 end transport
 
 /-! ## Independence of the chosen sampler -/
