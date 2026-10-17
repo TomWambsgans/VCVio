@@ -180,9 +180,18 @@ theorem prEvent_romSchemeRun_le_prEvent_deferredFillDraw (hd : core.KeyDisciplin
         ∃ x, (z.2.1 ((secretEncoding core e pkSeed).enc s x)).isSome).trans
       (prEvent_mono_of_support _ _ _ hH))
 
+omit [DecidableEq core.Y] [SampleableType core.SkSeed] [SampleableType core.SkPrf]
+  [SampleableType (Bytes vp.params.m)] [DecidableEq core.PkSeed] [DecidableEq core.AdrsKey]
+  [DecidableEq core.SkPrf] in
+/-- A finite quantity over `|Y|` is finite: the node type is finite and nonempty. -/
+theorem div_natCard_ne_top {x : ℝ≥0∞} (hx : x ≠ ⊤) : x / Nat.card core.Y ≠ ⊤ :=
+  ENNReal.div_ne_top hx (Nat.cast_ne_zero.2 Nat.card_pos.ne')
+
 /-- **The joint bound in the ideal hidden-seed game, with a further hazard.** Under the key
-discipline and `|Y| ≤ |SK.prf|`, let an event `F` of the seeds and the outcome of `idealDraw`
-transport to a hazard `H` of the drawn seeds and the public cache of the lab state, let `H` fire
+discipline and `|Y| ≤ |SK.prf|`, let an event `F` of the seeds and the outcome of `idealDraw`, read
+at each point of the deferred lab run with its end fill and drawn seeds, imply there a conflict, a
+target collision at a node key, or a hazard `H` of the drawn seeds and the final public cache, let
+`H` fire
 under uniform seeds with probability at most `c C` at each public cache `C`, and let twice the
 public entries at node keys over `|Y|`, plus the seed charge and `c`, be at most `B` on every
 deferred run of the lab experiment. Then `idealDraw` at public seed `pkSeed` fires, on the
@@ -198,7 +207,11 @@ theorem prEvent_idealDraw_runTargetCollision_or_runHiddenHit_or_le_of_budget
         Prop)
     (H : core.SkSeed × core.SkPrf → (hashSpec core).QueryCache → Prop)
     (c : (hashSpec core).QueryCache → ℝ≥0∞)
-    (hF : ∀ s o (st : LabState core), F s (o, (slhGraph core pkSeed).toSplitCache st) → H s st.1)
+    (hF : ∀ w ∈ support ((slhGraph core pkSeed).deferredFillDraw ($ᵗ (core.SkSeed × core.SkPrf))
+        (labExperiment core adv pkSeed)),
+      F w.2.2 (w.1.1, (slhGraph core pkSeed).toSplitCache w.2.1) →
+        (slhGraph core pkSeed).Conflict w.2.1 ∨ (slhNodeKeys core pkSeed).TCHazard w.2.1 ∨
+          H w.2.2 w.2.1.1)
     (hH : ∀ C, Pr{let s ← $ᵗ (core.SkSeed × core.SkPrf)}[H s C] ≤ c C) (B : ℝ≥0∞) (hB : B ≠ ⊤)
     (hbud : ∀ z ∈ support ((simulateQ (slhGraph core pkSeed).deferredImpl
         (labExperiment core adv pkSeed)).run ((∅, ∅), [])),
@@ -227,7 +240,7 @@ theorem prEvent_idealDraw_runTargetCollision_or_runHiddenHit_or_le_of_budget
   · rcases conflict_or_tcHazard_or_exists_isSome_of_mem_support_deferredFillDraw hd hw
       (Or.inl (Or.inl htchh)) with h | h | h
     exacts [Or.inl h, Or.inr (Or.inl h), Or.inr (Or.inr (Or.inl h))]
-  · exact Or.inr (Or.inr (Or.inr (hF _ _ _ hF')))
+  · exact (hF w hw hF').imp_right (Or.imp_right Or.inr)
   · rcases conflict_or_tcHazard_or_exists_isSome_of_mem_support_deferredFillDraw hd hw
       (Or.inl (Or.inr hseed)) with h | h | h
     exacts [Or.inl h, Or.inr (Or.inl h), Or.inr (Or.inr (Or.inl h))]
@@ -253,10 +266,8 @@ theorem prEvent_idealDraw_runTargetCollision_or_runHiddenHit_or_exists_isSome_le
     2 * ((qh : ℝ≥0∞) + GeneralScheme.verifyInternalQueryBound vp.params) / Nat.card core.Y :=
   le_trans (prEvent_mono _ _ _ fun _ h ↦ h.imp_left Or.inl) <|
     prEvent_idealDraw_runTargetCollision_or_runHiddenHit_or_le_of_budget hd hcard e optRand pkSeed
-      adv (fun _ _ ↦ False) (fun _ _ ↦ False) 0 (fun _ _ _ ↦ id) (fun _ ↦ by simp) _
-      (ENNReal.div_ne_top (ENNReal.mul_ne_top (by simp) (by simp)) (by
-        simp only [ne_eq, Nat.cast_eq_zero, Nat.card_ne_zero]
-        exact ⟨inferInstance, inferInstance⟩))
+      adv (fun _ _ ↦ False) (fun _ _ ↦ False) 0 (fun _ _ ↦ False.elim) (fun _ ↦ by simp) _
+      (div_natCard_ne_top (ENNReal.mul_ne_top (by simp) (by simp)))
       fun _ hz ↦ by
         simpa only [Pi.zero_apply, add_zero] using
           two_mul_encard_keyEntries_div_add_seedCharge_le_of_mem_support hd.keySeparated hadv hz
@@ -301,7 +312,6 @@ theorem prEvent_romSchemeRun_wins_or_le_add_idealDraw (laws : core.ByteLaws)
       B + Pr{let w ← idealDraw e optRand pkSeed adv}[
         RunItsrCovered core (DeriveOutcome.fill core w.1 w.2.1,
           (secretEncoding core e pkSeed).merge w.1 w.2.2)] := by
-  set E := secretEncoding core e pkSeed
   refine (prEvent_mono_of_support _ _
     (fun z ↦ ((RunTargetCollision core e z ∨ RunHiddenHit core e z) ∨ P z) ∨ RunItsrCovered core z)
     fun z hz h ↦ ?_).trans
@@ -310,18 +320,8 @@ theorem prEvent_romSchemeRun_wins_or_le_add_idealDraw (laws : core.ByteLaws)
     · rcases bad_event_of_wins_romSchemeRun laws e optRand _ adv hz hw with h | h | h
       exacts [Or.inl (Or.inl (Or.inl h)), Or.inl (Or.inl (Or.inr h)), Or.inr h]
     · exact Or.inl (Or.inr h)
-  refine (prEvent_mono _ _ (fun w ↦ ((((RunTargetCollision core e
-      (DeriveOutcome.fill core w.1 w.2.1, E.merge w.1 w.2.2) ∨
-      RunHiddenHit core e (DeriveOutcome.fill core w.1 w.2.1, E.merge w.1 w.2.2)) ∨
-      P (DeriveOutcome.fill core w.1 w.2.1, E.merge w.1 w.2.2)) ∨
-      ∃ x, (w.2.2.1 (E.enc w.1 x)).isSome) ∨
-      RunItsrCovered core (DeriveOutcome.fill core w.1 w.2.1, E.merge w.1 w.2.2)))
-    fun _ h ↦ by
-      rcases h with (h | h) | h
-      · exact Or.inl (Or.inl h)
-      · exact Or.inr h
-      · exact Or.inl (Or.inr h)).trans ((prEvent_or_le _ _ _).trans ?_)
-  gcongr
+  exact (prEvent_mono _ _ _ fun _ h ↦ or_right_comm.1 h).trans
+    ((prEvent_or_le _ _ _).trans (add_le_add hB le_rfl))
 
 /-- **The forging advantage per public seed, up to coverage in the ideal hidden-seed game.**
 Under the byte laws, the key discipline and `|Y| ≤ |SK.prf|`, the forging advantage against

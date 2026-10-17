@@ -158,8 +158,7 @@ theorem isQueryBoundP_labScheme_sign (pk sk : PublicKeyCore core) (msg : List By
     IsQueryBoundP ((labScheme core optRand pkSeed).sign pk sk msg)
       (IsChargedLabQuery core pkSeed) 0 :=
   isQueryBoundP_labScheme_sign_of_hmsg pkSeed optRand
-    (fun | .inl (.inl (.inr _)), _ => trivial | .inl (.inl (.inl _)), h => h.elim
-         | .inl (.inr _), h => h.elim | .inr _, h => h.elim) pk sk msg fun R =>
+    (by rintro (((_ | _) | _) | _) h <;> trivial) pk sk msg fun R =>
     (isQueryBoundP_query_iff _ _ _).2 fun h => by
       change IsChargedPoint core pkSeed (.inl (.hmsg R pkSeed sk.pkRoot msg)) at h
       rcases h with h | h
@@ -231,7 +230,7 @@ theorem isQueryBoundP_labExperiment_public {e : core.SkSeed ≃ core.Y}
   rw [labExperiment, labAdversary, deriveAdversary, UnforgeableAdversary.mapOracles_mapOracles]
   refine isQueryBoundP_unforgeableTranscriptExperiment_mapOracles_add _
     (p := fun t => IsHashQuery t ∨ IsSignQuery t)
-    (fun pk => isQueryBoundP_or_add (hadv pk).1 (hadv pk).2)
+    (fun pk => (hadv pk).1.or (hadv pk).2)
     (fun t _ => hG t ▸ (isQueryBoundP_query_iff _ _ _).2 fun _ => Nat.one_pos)
     (fun | .inl _, _ => hG _ ▸ (isQueryBoundP_query_iff _ _ _).2 False.elim
          | .inr _, ht => (ht (Or.inl trivial)).elim)
