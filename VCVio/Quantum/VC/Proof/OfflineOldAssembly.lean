@@ -14,8 +14,8 @@ import all VCVio.Quantum.VC.Proof.CheckerComparison
 The ideal partial-database mismatch branch vanishes on good databases, including the
 randomized opening/decision instrument. The leaf aggregation retains all four amplitudes
 in extended nonnegative reals before squaring. The error comparison with FIX (35) holds
-only for total budgets at least four. These results do not establish P4: the quantitative
-comparison with the actual retained instrument remains to be assembled.
+only for total budgets at least four. The concrete checker and runtime estimates assemble
+these amplitudes in `Quantum.SaltedMerkle.merkle_offline_old`.
 -/
 
 public section
