@@ -30,6 +30,10 @@ The same replay holds for a run of any stateful handler, read on any cache from 
 caches admissible at each state, when admissibility is closed backwards along each step and
 every cache admissible after a step answers that step's query with its output
 (`OracleComp.simulateQ_toPartialImpl_of_mem_support_run_simulateQ`).
+
+The lazy random oracle `OracleSpec.romImpl` caches exactly the points it is queried at, so a
+predicate that every query of a program satisfies holds of every point a run of the program adds
+to the cache (`OracleComp.forall_isSome_of_mem_support_run_simulateQ_romImpl`).
 -/
 
 public section
@@ -153,6 +157,34 @@ theorem le_snd_of_mem_support_run_unifFwdImpl_add_withCaching (so : QueryImpl sp
       (fun t s hs _ hz => unifFwdImpl.snd_eq_of_mem_support_run t s hz ▸ hs)
       (QueryImpl.PreservesInv.withCaching_le so cache))
     oa cache le_rfl z hz
+
+section Provenance
+
+variable [∀ t, SampleableType (spec.Range t)]
+
+/-- A step of the lazy random oracle at a query satisfying `P` keeps every cached point
+satisfying `P`. -/
+theorem forall_isSome_of_mem_support_run_romImpl {P : ι → Prop}
+    {t : (unifSpec + spec).Domain} (ht : Sum.elim (fun _ => True) P t) {c : spec.QueryCache}
+    (hc : ∀ q, (c q).isSome → P q) {z : (unifSpec + spec).Range t × spec.QueryCache}
+    (hz : z ∈ support ((spec.romImpl t).run c)) : ∀ q, (z.2 q).isSome → P q := by
+  rcases t with n | t
+  · rw [unifFwdImpl.snd_eq_of_mem_support_run n c hz]
+    exact hc
+  · intro q hq
+    rcases (QueryImpl.withCaching_run_isSome_apply_iff _ hz q).1 hq with h | rfl
+    exacts [hc q h, ht]
+
+/-- **A run of the lazy random oracle caches only what the program queries.** If every query of
+`oa` satisfies `P`, a run of `oa` from a cache whose points satisfy `P` ends in such a cache. -/
+theorem forall_isSome_of_mem_support_run_simulateQ_romImpl {P : ι → Prop}
+    {oa : OracleComp (unifSpec + spec) α} (h : AllQueriesSatisfy oa (Sum.elim (fun _ => True) P))
+    {c : spec.QueryCache} (hc : ∀ q, (c q).isSome → P q) {z : α × spec.QueryCache}
+    (hz : z ∈ support ((simulateQ spec.romImpl oa).run c)) : ∀ q, (z.2 q).isSome → P q :=
+  h.holds_of_mem_support_run_simulateQ (fun c => ∀ q, (c q).isSome → P q)
+    (fun _ ht _ hc _ hz => forall_isSome_of_mem_support_run_romImpl ht hc hz) hc hz
+
+end Provenance
 
 section Sum
 
