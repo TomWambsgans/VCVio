@@ -479,6 +479,7 @@ public import VCVio.Quantum.VC.Proof.OfflineOldLeaf
 public import VCVio.Quantum.VC.Proof.OfflineOldLeaves
 public import VCVio.Quantum.VC.Proof.OfflineOldPartial
 public import VCVio.Quantum.VC.Proof.OfflineOldResponse
+public import VCVio.Quantum.VC.Proof.OfflineOldSecurity
 public import VCVio.Quantum.VC.Proof.OfflineOldTransport
 public import VCVio.Quantum.VC.Proof.Repeatability
 public import VCVio.Quantum.VC.Tuples
