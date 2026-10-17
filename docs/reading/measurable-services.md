@@ -125,14 +125,13 @@ completed-call chain. It does not identify equal micro-fuel cutoffs, or construc
 concurrent scheduler. The continuing client's empty return type separately gives
 zero returned-output mass, illustrating why a returned law cannot replace a path law.
 
-The stateful machine layer is stacked on PolyFun #290 and integrates #297
-(silent-step machines), #298 (continuous-domain interpretations), #299 (indexed
-traversal), #301 (execution runners), #302 (transformer bounds), and #307 (dependent
-answer elaboration fixes), together with the then-current main branch. The scoped
-consumers use the canonical indexed `FoldAlgebra`; the execution runner uses the
-canonical silent-step adapter. This avoids maintaining competing abstractions
-from the overlapping PRs. The stack remains exploratory and should be split/rebased
-as its dependencies land.
+The stateful machine layer uses PolyFun's shared resumable runner and silent-step
+adapter. Indexed consumers use `FoldAlgebra`, and their resource bounds reuse the
+unindexed theory through sigma erasure. Continuous interpretation of interaction
+trees factors through the exact `Resumption (P + y)` representation; executable
+machines retain their own states and explicit administrative steps. Dependency
+consolidation and remaining exploration are tracked in
+[PolyFun #309](https://github.com/Verified-zkEVM/PolyFun/issues/309).
 
 ### Infinite random functions with finite lazy state
 
@@ -226,14 +225,30 @@ useful infinite-horizon estimate.
 
 This layer requires an explicitly measurable transition kernel. It does not assign a new
 measurable-space instance to arbitrary resumptions or arbitrary higher-order continuations.
-Returned-output measures are already available for resumptions; the new
+Returned-output measures are already available for resumptions. The
 [machine bridge](../../VCVio/EvalDist/MachineMeasure.lean) identifies finite operational unrolling
-and chunk/resume laws with those measures. The
-[stopped-observation bridge](../../VCVio/EvalDist/StoppedObservation.lean) proves that any
-measurable path model with the supplied finite truncation laws and almost surely persistent returned values
-has the corresponding eventual-return events. Its waiting-prefix count integrates to the
-resumption tail-sum cost. The premises remain explicit: this does not construct a path model
-for arbitrary syntax.
+and chunk/resume laws with those measures.
+[`MachinePath`](../../VCVio/EvalDist/MachinePath.lean) constructs an absorbing infinite
+path law from measurable initialized zero-fuel observations and interpreted one-step
+transitions. These obligations concern the selected answer measures and the chosen residual
+observations. `MeasurableExecution.of_countable` discharges them for countable inputs and
+residuals with measurable singletons. Chunks carry the coproduct measurable structure of
+returned values and retained states; no measurable structure on arbitrary syntax is needed.
+`pathLaw_map_history` identifies every finite joint history with the law of
+PolyFun's executable `unrollHistory`, which resumes saved chunks without replay.
+These histories uniquely determine the infinite path law (`pathLaw_eq_of_histories`).
+Every time marginal is the exact executable chunk law, and projecting to optional
+results recovers resumption truncation. Expected queries equal the integrated
+waiting-prefix cost of this actual path, including unfinished executions.
+
+The [stopped-observation bridge](../../VCVio/EvalDist/StoppedObservation.lean) proves that
+measurable path observations with the supplied finite truncation laws and almost surely
+persistent returned values have the corresponding eventual-return events. For actual
+machine paths, `MeasurableExecution.pathLaw_ae_persistent` derives persistence from
+the absorbing returned chunks when optional-result equality is measurable.
+`returnedMeasure_eq_path_event` then identifies the returned measure with eventual
+return on that path. Ordinary-import consumers cover both a countable fair-bit
+threshold machine and Borel real-valued state.
 
 ### Two further constructions suggested by the survey
 
@@ -346,11 +361,12 @@ library decision, not a proof that PMFs are inadequate for finite cryptographic 
 
 ## Follow-through and limits of the prototype
 
-The present contracts concern arbitrary terminating free clients and measurable service
-transitions. Infinite path results concern finite-prefix marginals of explicitly supplied
-kernels. Connecting an arbitrary coinductive client, its first-return path event, the resumption
-returned measure, and a public scheduler is a further theorem, not implicit in having all four
-objects. Full concurrent/UC scheduler composition is likewise outside this prototype.
+Finite service-refinement contracts concern arbitrary terminating free clients. Measurable
+machines also have infinite path laws agreeing with all executable finite histories, and their
+eventual-return events agree with resumption returned measures. Comparing coinductive clients
+across a handler still requires a completed-call projection: two implementations need not use
+the same number of internal steps per call. Full concurrent/UC scheduler composition is outside
+this prototype.
 
 The approximate rule exposes a potential condition; consumers still have to prove their
 particular potential pays for all reachable adaptive steps. The countable timeout union theorem

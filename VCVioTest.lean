@@ -28,6 +28,7 @@ public import VCVioTest.EvalDist.Failure
 public import VCVioTest.EvalDist.FinRatPMF
 public import VCVioTest.EvalDist.IndepProductMeasure
 public import VCVioTest.EvalDist.IndependentDraws
+public import VCVioTest.EvalDist.MachinePath
 public import VCVioTest.EvalDist.MeasureGate
 public import VCVioTest.EvalDist.MeasureIntegration
 public import VCVioTest.EvalDist.NotationDifferential.Cases1

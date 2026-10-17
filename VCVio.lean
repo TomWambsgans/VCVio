@@ -186,6 +186,7 @@ public import VCVio.EvalDist.KernelHandler.Realizes
 public import VCVio.EvalDist.List
 public import VCVio.EvalDist.Lossless
 public import VCVio.EvalDist.MachineMeasure
+public import VCVio.EvalDist.MachinePath
 public import VCVio.EvalDist.MeasureSemantics
 public import VCVio.EvalDist.MeasureTVDist.Basic
 public import VCVio.EvalDist.MeasureTVDist.Bind

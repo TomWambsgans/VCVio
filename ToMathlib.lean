@@ -56,7 +56,9 @@ public import ToMathlib.MeasureTheory.Integral.Bounds
 public import ToMathlib.MeasureTheory.Integral.Countable
 public import ToMathlib.MeasureTheory.Integral.Quadratic
 public import ToMathlib.MeasureTheory.MeasurableSpace.Except
+public import ToMathlib.MeasureTheory.MeasurableSpace.Fin
 public import ToMathlib.MeasureTheory.MeasurableSpace.Option
+public import ToMathlib.MeasureTheory.MeasurableSpace.Sum
 public import ToMathlib.MeasureTheory.MeasurableSpace.TypeTags
 public import ToMathlib.MeasureTheory.Measure.Bool
 public import ToMathlib.MeasureTheory.Measure.Bounds
@@ -88,6 +90,7 @@ public import ToMathlib.Probability.FairBit
 public import ToMathlib.Probability.InfiniteTable
 public import ToMathlib.Probability.InfiniteTable.Resampling
 public import ToMathlib.Probability.Kernel.Bounds
+public import ToMathlib.Probability.Kernel.MapWithInput
 public import ToMathlib.Probability.Kernel.OmegaCompletePartialOrder
 public import ToMathlib.Probability.Kernel.Quadratic
 public import ToMathlib.Probability.Kernel.RetainLeft

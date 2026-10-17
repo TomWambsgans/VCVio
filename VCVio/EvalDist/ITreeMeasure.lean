@@ -55,6 +55,7 @@ theorem returnedMeasure_query (a : P.A) (next : P.B a → ITree P α) :
 /-- The coinductive interpretation has at most unit total returned mass. -/
 theorem returnedMeasure_apply_univ_le_one (tree : ITree P α) :
     returnedMeasure tree Set.univ ≤ 1 := by
+  rw [returnedMeasure, denote_eq_fix]
   apply (domainStep Measure.dirac (AnswerMeasure.continuousAlgebra P α)).fix_induction
     (fun meaning => ∀ t, meaning t Set.univ ≤ 1) ?_ ?_ ?_ tree
   · intro t
