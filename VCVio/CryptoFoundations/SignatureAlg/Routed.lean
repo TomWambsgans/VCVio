@@ -145,6 +145,15 @@ theorem isQueryBoundP_liftM_isRight {α : Type} (oa : ProbComp α) :
       ((isQueryBoundP_query_iff (spec := unifSpec + hs) _ (.inl n) 0).2 fun h => by
         simp at h) ih
 
+/-- A probabilistic computation lifted to `unifSpec + hs` makes sampling queries only. -/
+theorem allQueriesSatisfy_liftM_sum_elim {α : Type} (oa : ProbComp α) (P : ι → Prop) :
+    AllQueriesSatisfy (liftM oa : OracleComp (unifSpec + hs) α) (Sum.elim (fun _ => True) P) := by
+  induction oa using OracleComp.inductionOn with
+  | pure a => exact allQueriesSatisfy_pure _ _
+  | query_bind n k ih =>
+    rw [liftM_bind]
+    exact allQueriesSatisfy_bind ((allQueriesSatisfy_query_iff _ _).2 trivial) ih
+
 /-- At a raw query, the router held by the program makes, on `(unifSpec + hs) + sig`, the queries
 of the router lifted along the left summand. -/
 theorem isQueryBoundP_run_programRouterImpl_inr_inr
@@ -377,6 +386,34 @@ theorem UnforgeableAdversary.RomQueryBound.route
       exact (isQueryBoundP_false _ 0).of_imp fun t h => by simp [IsSignQuery] at h
     · exact (ht trivial).elim
 
+/-- **The typed queries of the routed adversary.** If every run of the router at the public key
+`pk` queries the typed oracles only at points satisfying `P pk`, and the adversary on the common
+interface queries them only at such points, then so does the adversary that holds the router. -/
+theorem UnforgeableAdversary.allQueriesSatisfy_route
+    {sigAlg' : SignatureAlg (OracleComp (unifSpec + (hs + ext))) M PK SK' S}
+    {sigAlg : SignatureAlg (OracleComp (unifSpec + hs)) M PK SK S}
+    {R : PK → QueryImpl ext (StateT σ (OracleComp (unifSpec + hs)))} {P : PK → ι → Prop}
+    (hR : ∀ pk x s, AllQueriesSatisfy ((R pk x).run s) (Sum.elim (fun _ => True) (P pk)))
+    {adv : UnforgeableAdversary sigAlg'}
+    (hadv : ∀ pk, AllQueriesSatisfy (adv.main pk)
+      (Sum.elim (Sum.elim (fun _ => True) (Sum.elim (P pk) fun _ => True)) fun _ => True))
+    (s₀ : σ) (pk : PK) :
+    AllQueriesSatisfy ((adv.route (sigAlg := sigAlg) R s₀).main pk)
+      (Sum.elim (Sum.elim (fun _ => True) (P pk)) fun _ => True) := by
+  refine (allQueriesSatisfy_def _ _).2 ((isQueryBound_map_iff _ _ _ _ _).2
+    ((allQueriesSatisfy_def _ _).1 ((hadv pk).simulateQ_run ?_ s₀)))
+  rintro ((n | t | x) | m) ht s
+  · simp only [programRouterImpl, StateT.run_monadLift]
+    exact allQueriesSatisfy_bind ((allQueriesSatisfy_query_iff _ _).2 trivial) fun _ =>
+      allQueriesSatisfy_pure _ _
+  · simp only [programRouterImpl, StateT.run_monadLift]
+    exact allQueriesSatisfy_bind ((allQueriesSatisfy_query_iff _ _).2 ht) fun _ =>
+      allQueriesSatisfy_pure _ _
+  · exact (hR pk x s).simulateQ fun t ht => (allQueriesSatisfy_query_iff _ _).2 ht
+  · simp only [programRouterImpl, StateT.run_monadLift]
+    exact allQueriesSatisfy_bind ((allQueriesSatisfy_query_iff _ _).2 trivial) fun _ =>
+      allQueriesSatisfy_pure _ _
+
 end SignatureAlg
 
 namespace OracleComp.RandomOracleEncoding
@@ -429,6 +466,22 @@ theorem isQueryBoundP_run_tableRouter_of_route_eq_none {x : D} (hx : E.route x =
   simp only [tableRouter, StateT.run_mk, hx]
   exact isQueryBoundP_bind_zero _ _ (isQueryBoundP_liftM_isRight _) fun _ => trivial
 
+/-- The router holding its table queries the typed oracles only at a point the router reads
+back from its own encoding. -/
+theorem allQueriesSatisfy_run_tableRouter (x : D) (pv : (D →ₒ M).QueryCache) :
+    AllQueriesSatisfy ((E.tableRouter x).run pv)
+      (Sum.elim (fun _ => True) fun t => E.route (E.encode t) = some t) := by
+  simp only [tableRouter, StateT.run_mk]
+  refine allQueriesSatisfy_bind ?_ fun z => ?_
+  · exact allQueriesSatisfy_liftM_sum_elim _ _
+  · cases h : E.route x with
+    | none => exact allQueriesSatisfy_pure _ _
+    | some q =>
+      refine (allQueriesSatisfy_def _ _).2 ((isQueryBound_map_iff _ _ _ _ _).2
+        ((allQueriesSatisfy_def _ _).1 ((allQueriesSatisfy_query_iff _ _).2 ?_)))
+      change E.route (E.encode q) = some q
+      rw [E.encode_eq_of_route_eq_some h, h]
+
 variable [DecidableEq ι]
 
 /-- The typed world is the handler-held router of the random oracle model of `spec` and the router
@@ -469,6 +522,25 @@ theorem romQueryBound_route_tableRouter
     ((adv.mapOracles liftRawImpl (sigAlg' := sigAlg.map (simulateQ' liftTypedImpl))).route
       (sigAlg := sigAlg) (fun pk => (Ek pk).tableRouter) pv).RomQueryBound qh qs :=
   hadv.mapOracles_liftRawImpl.route (fun _ x s => isQueryBoundP_run_tableRouter x s) pv
+
+/-- **The routed adversary queries route-fixed points only.** The adversary holding the routers of
+encodings read off the public key queries the typed oracles, at its public key `pk`, only at points
+that the router of `Ek pk` reads back from their own encodings. -/
+theorem allQueriesSatisfy_route_tableRouter
+    {sigAlg' : SignatureAlg (OracleComp (unifSpec + (D →ₒ M))) Msg PK SK' S}
+    {sigAlg : SignatureAlg (OracleComp (unifSpec + spec)) Msg PK SK S}
+    {Ek : PK → RandomOracleEncoding spec D M} (adv : UnforgeableAdversary sigAlg')
+    (pv : (D →ₒ M).QueryCache) (pk : PK) :
+    AllQueriesSatisfy (((adv.mapOracles liftRawImpl
+        (sigAlg' := sigAlg.map (simulateQ' liftTypedImpl))).route
+      (sigAlg := sigAlg) (fun pk => (Ek pk).tableRouter) pv).main pk)
+      (Sum.elim (Sum.elim (fun _ => True) fun t => (Ek pk).route ((Ek pk).encode t) = some t)
+        fun _ => True) :=
+  UnforgeableAdversary.allQueriesSatisfy_route (R := fun pk => (Ek pk).tableRouter)
+    (P := fun pk t => (Ek pk).route ((Ek pk).encode t) = some t)
+    (fun _ x s => allQueriesSatisfy_run_tableRouter x s)
+    (fun _ => allQueriesSatisfy_mapOracles liftRawImpl adv (by
+      rintro (n | x) <;> exact (allQueriesSatisfy_query_iff _ _).2 trivial) _) pv pk
 
 variable [DecidableEq ι]
 

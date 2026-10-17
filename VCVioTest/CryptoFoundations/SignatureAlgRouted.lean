@@ -27,6 +27,8 @@ over the single oracle reads the raw input encoding the typed point `5` under it
 * When the public key pairs the shift with a uniform bit, key generation has two possible public
   keys; the encoding read off the shift is the same at both, and the same bound holds with the
   router read off the public key.
+* The forger holding the router queries the typed family only at points the router reads back
+  from their raw inputs.
 -/
 
 public section
@@ -163,5 +165,20 @@ example : Pr{let z ← (simulateQ (ℕ →ₒ Bool).romImpl
     twoKeyRawAdv (Ek := fun pk => shifted pk.1) shifted_fst_of_mem_support_keygen
     (fun z => z.wins = true)).trans (le_of_eq ?_)
   exact prEvent_congr _ _ _ fun z => or_iff_left (not_clash 3 z.2)
+
+/-- The forger holding the router read off the shift of its public key queries the typed family
+only at points the router reads back from their raw inputs. -/
+example (pk : ℕ × Bool) :
+    AllQueriesSatisfy (((twoKeyRawAdv.mapOracles liftRawImpl
+        (sigAlg' := twoKeySigAlg.map (simulateQ' liftTypedImpl))).route
+        (sigAlg := twoKeySigAlg) (fun pk => (shifted pk.1).tableRouter) ∅).main pk)
+      (Sum.elim (Sum.elim (fun _ => True) fun t =>
+        (shifted pk.1).route ((shifted pk.1).encode t) = some t) fun _ => True) :=
+  RandomOracleEncoding.allQueriesSatisfy_route_tableRouter twoKeyRawAdv ∅ pk
+
+/-- At the public key `(3, b)`, every typed point read back from its raw input is its own
+preimage under the shift. -/
+example (t : ℕ) : (shifted 3).route ((shifted 3).encode t) = some t := by
+  simp [shifted, RandomOracleEncoding.ofSplit]
 
 end VCVioTest.SignatureAlgRouted
