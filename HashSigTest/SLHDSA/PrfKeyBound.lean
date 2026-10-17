@@ -20,7 +20,7 @@ itself, and `|Y| = 256 ^ n`.
 
 * The run of a forger wins, caches an `H_msg` point at `SK.prf`, or has `SK.prf = PK.seed` with
   probability at most `securityBound vp.params (256 ^ n) 2 1 qh qs + (qs + 1) / 256 ^ n`.
-* The joint form in the ideal hidden-seed game and in the run, at `(2 (qh + V) + qs + 1) / 256 ^ n`.
+* The joint form in the ideal hidden-seed game, at `(2 (qh + V) + qs + 1) / 256 ^ n`.
 * At SLH-DSA-SHAKE-256s in deterministic signing (`opt_rand = PK.seed`), the forging bound with
   both events.
 -/
@@ -37,18 +37,18 @@ open Concrete Security BundleTest
 /-- At every SHAKE bundle whose address fields fit their widths, a forger with budgets `qh` and
 `qs` wins, caches an `H_msg` point at `SK.prf`, or has `SK.prf = PK.seed` with probability at most
 `securityBound vp.params (256 ^ n) 2 1 qh qs + (qs + 1) / 256 ^ n`. -/
-theorem prEvent_romSchemeRun_wins_or_runHmsgAtPrfKey_or_le_shake (vp : ValidatedParams)
+theorem prEvent_romSchemeRun_wins_or_runPrfKeyHit_le_shake (vp : ValidatedParams)
     (hb : CanonicalAddressBounds vp.params) (e : (shakeCore vp).SkSeed ≃ (shakeCore vp).Y)
     (optRand : PublicKeyCore (shakeCore vp) → ProbComp (shakeCore vp).Y)
     (pkSeed : (shakeCore vp).PkSeed)
     {adv : UnforgeableAdversary (romScheme (shakeCore vp) e optRand (pure pkSeed))} {qh qs : ℕ}
     (hadv : adv.RomQueryBound qh qs) :
     Pr{let z ← romSchemeRun (shakeCore vp) e optRand (pure pkSeed) adv}[
-      z.1.wins = true ∨ (RunHmsgAtPrfKey id z ∨ z.1.sk.skPrf = pkSeed)] ≤
+      z.1.wins = true ∨ RunPrfKeyHit id pkSeed z] ≤
     securityBound vp.params (256 ^ vp.params.n) 2 1 qh qs +
       ((qs : ℝ≥0∞) + 1) / ((256 ^ vp.params.n : ℕ) : ℝ≥0∞) := by
   rw [← natCard_shakePrimitives_y]
-  exact prEvent_romSchemeRun_wins_or_runHmsgAtPrfKey_or_le (shakePrimitives_byteLaws vp.params)
+  exact prEvent_romSchemeRun_wins_or_runPrfKeyHit_le (shakePrimitives_byteLaws vp.params)
     (keyDiscipline_shakePrimitives vp hb) le_rfl e optRand pkSeed Function.injective_id pkSeed
     hadv
 
@@ -66,30 +66,13 @@ example (vp : ValidatedParams) (hb : CanonicalAddressBounds vp.params)
           (secretEncoding (shakeCore vp) e pkSeed).merge w.1 w.2.2) ∨
         RunHiddenHit (shakeCore vp) e (DeriveOutcome.fill (shakeCore vp) w.1 w.2.1,
           (secretEncoding (shakeCore vp) e pkSeed).merge w.1 w.2.2)) ∨
-        (RunHmsgAtPrfKey id (DeriveOutcome.fill (shakeCore vp) w.1 w.2.1,
-            (secretEncoding (shakeCore vp) e pkSeed).merge w.1 w.2.2) ∨
-          (DeriveOutcome.fill (shakeCore vp) w.1 w.2.1).sk.skPrf = pkSeed)) ∨
+        RunPrfKeyHit id pkSeed (DeriveOutcome.fill (shakeCore vp) w.1 w.2.1,
+          (secretEncoding (shakeCore vp) e pkSeed).merge w.1 w.2.2)) ∨
       ∃ x, (w.2.2.1 ((secretEncoding (shakeCore vp) e pkSeed).enc w.1 x)).isSome] ≤
     (2 * ((qh : ℝ≥0∞) + GeneralScheme.verifyInternalQueryBound vp.params) + qs + 1) /
       ((256 ^ vp.params.n : ℕ) : ℝ≥0∞) := by
   rw [← natCard_shakePrimitives_y]
-  exact prEvent_idealDraw_runTargetCollision_or_runHiddenHit_or_runHmsgAtPrfKey_or_le
-    (keyDiscipline_shakePrimitives vp hb) le_rfl e optRand pkSeed Function.injective_id pkSeed hadv
-
-/-- The same joint bound for the run at every SHAKE bundle. -/
-example (vp : ValidatedParams) (hb : CanonicalAddressBounds vp.params)
-    (e : (shakeCore vp).SkSeed ≃ (shakeCore vp).Y)
-    (optRand : PublicKeyCore (shakeCore vp) → ProbComp (shakeCore vp).Y)
-    (pkSeed : (shakeCore vp).PkSeed)
-    {adv : UnforgeableAdversary (romScheme (shakeCore vp) e optRand (pure pkSeed))} {qh qs : ℕ}
-    (hadv : adv.RomQueryBound qh qs) :
-    Pr{let z ← romSchemeRun (shakeCore vp) e optRand (pure pkSeed) adv}[
-      (RunTargetCollision (shakeCore vp) e z ∨ RunHiddenHit (shakeCore vp) e z) ∨
-        (RunHmsgAtPrfKey id z ∨ z.1.sk.skPrf = pkSeed)] ≤
-    (2 * ((qh : ℝ≥0∞) + GeneralScheme.verifyInternalQueryBound vp.params) + qs + 1) /
-      ((256 ^ vp.params.n : ℕ) : ℝ≥0∞) := by
-  rw [← natCard_shakePrimitives_y]
-  exact prEvent_romSchemeRun_runTargetCollision_or_runHiddenHit_or_runHmsgAtPrfKey_or_le
+  exact prEvent_idealDraw_runTargetCollision_or_runHiddenHit_or_runPrfKeyHit_or_exists_isSome_le
     (keyDiscipline_shakePrimitives vp hb) le_rfl e optRand pkSeed Function.injective_id pkSeed hadv
 
 /-- At SLH-DSA-SHAKE-256s in deterministic signing (`opt_rand = PK.seed`), at a fixed public seed,
@@ -104,10 +87,10 @@ example (e : (shakeCore FipsParameterSet.SLHDSA_SHAKE_256s.validatedParams).SkSe
     {qh qs : ℕ} (hadv : adv.RomQueryBound qh qs) :
     Pr{let z ← romSchemeRun (shakeCore FipsParameterSet.SLHDSA_SHAKE_256s.validatedParams) e
         (fun pk => pure (shakeRandomizerOfPkSeed _ pk.pkSeed)) (pure pkSeed) adv}[
-      z.1.wins = true ∨ (RunHmsgAtPrfKey id z ∨ z.1.sk.skPrf = pkSeed)] ≤
+      z.1.wins = true ∨ RunPrfKeyHit id pkSeed z] ≤
     securityBound FipsParameterSet.SLHDSA_SHAKE_256s.validatedParams.params (256 ^ 32) 2 1 qh qs +
       ((qs : ℝ≥0∞) + 1) / ((256 ^ 32 : ℕ) : ℝ≥0∞) :=
-  prEvent_romSchemeRun_wins_or_runHmsgAtPrfKey_or_le_shake _
+  prEvent_romSchemeRun_wins_or_runPrfKeyHit_le_shake _
     (fipsApprovedAddressBounds .SLHDSA_SHAKE_256s).toCanonicalAddressBounds e _ pkSeed hadv
 
 end SLHDSA.PrfKeyBoundTest
