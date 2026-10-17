@@ -85,6 +85,7 @@ public import HashSig.SLHDSA.Security.RomSchemeRun
 public import HashSig.SLHDSA.Security.RomSchemeUnion
 public import HashSig.SLHDSA.Security.SchemeGames
 public import HashSig.SLHDSA.Security.SchemeWitnesses
+public import HashSig.SLHDSA.Security.SecretTraces
 public import HashSig.SLHDSA.Security.SeedCoupling
 public import HashSig.SLHDSA.Security.SeedCouplingBound
 public import HashSig.SLHDSA.Security.SeedCouplingQueries

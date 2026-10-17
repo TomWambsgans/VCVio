@@ -359,7 +359,7 @@ theorem xmssNodeAdrs_mem_constructionAddresses_of_position (pos : LayerPosition 
   exact xmssNodeAdrs_mem_constructionAddresses _ hh hhp hi
 
 /-- A leaf index of a subtree at `(z, t)` inside a height-`hp` tree is below `2 ^ hp`. -/
-private theorem lt_pow_of_div_pow_lt {i z t hp : ℕ} (hz : z ≤ hp) (hi : i / 2 ^ z = t)
+theorem lt_pow_of_div_pow_lt {i z t hp : ℕ} (hz : z ≤ hp) (hi : i / 2 ^ z = t)
     (ht : t < 2 ^ (hp - z)) : i < 2 ^ hp := by
   have hlt : i / 2 ^ z < 2 ^ (hp - z) := by
     rw [hi]
