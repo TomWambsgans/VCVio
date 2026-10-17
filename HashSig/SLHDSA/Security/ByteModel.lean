@@ -200,6 +200,15 @@ noncomputable def shakeAdvantage
     (adv : UnforgeableAdversary (shakeRomScheme vp optRand pkSeedDist)) : ℝ≥0∞ :=
   unforgeableAdvantage (shakeRuntime vp) adv
 
+/-- The forging advantage against `shakeRomScheme` is the unforgeability advantage under
+`shakeRuntime`. -/
+theorem shakeAdvantage_def
+    {optRand : PublicKeyCore (shakeCore vp) → ProbComp (shakeCore vp).Y}
+    {pkSeedDist : ProbComp (shakeCore vp).PkSeed}
+    (adv : UnforgeableAdversary (shakeRomScheme vp optRand pkSeedDist)) :
+    shakeAdvantage vp adv = unforgeableAdvantage (shakeRuntime vp) adv := by
+  rw [shakeAdvantage]
+
 /-! ## The shape of each layout -/
 
 section Layout

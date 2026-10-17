@@ -46,6 +46,7 @@ public import HashSig.SLHDSA.Security
 public import HashSig.SLHDSA.Security.AddressKeys
 public import HashSig.SLHDSA.Security.ByteConformance
 public import HashSig.SLHDSA.Security.ByteModel
+public import HashSig.SLHDSA.Security.ByteRouter
 public import HashSig.SLHDSA.Security.CacheDecomposition
 public import HashSig.SLHDSA.Security.CacheReaders
 public import HashSig.SLHDSA.Security.CacheSecret
