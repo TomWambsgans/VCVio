@@ -366,18 +366,31 @@ theorem labKeygen_pred : Q (labKeygen core) :=
   labXmssNode_pred core hpure hbind htouch hread _ _ _
 
 include hpure hbind htouch hread in
-/-- Lab signing satisfies `Q` when, besides the touches and reads of cells, its `H_msg` query
-does. -/
-theorem labSignInternal_pred (pkSeed : core.PkSeed) (msg : List Byte) (pkRoot R : core.Y)
-    (hmsg : Q (PublicHash.hmsg core R pkSeed pkRoot msg)) :
-    Q (labSignInternal core pkSeed msg pkRoot R) :=
+/-- Lab signing satisfies a predicate `P` of signing programs when `P` holds of its `H_msg` query
+followed by any continuation satisfying `Q`: everything after the `H_msg` query only touches and
+reads cells. -/
+theorem labSignInternal_pred_of_hmsg_bind (pkSeed : core.PkSeed) (msg : List Byte)
+    (pkRoot R : core.Y)
+    {P : OracleComp (labSpec core) (GeneralScheme.SignatureCore vp core) → Prop}
+    (hmsg : ∀ ob, (∀ x, Q (ob x)) →
+      P ((PublicHash.hmsg core R pkSeed pkRoot msg : OracleComp (labSpec core) _) >>= ob)) :
+    P (labSignInternal core pkSeed msg pkRoot R) :=
   have hnode := labNode_pred core hpure hread
-  hbind _ _ hmsg fun _ =>
+  hmsg _ fun _ =>
     hbind _ _ (labForsSign_pred core hpure hbind htouch hread _ _) fun _ =>
       hbind _ _ (forsPkFromSigWith_pred Q hpure hbind core (fun a _ _ => hnode a)
         (fun a _ _ => hnode a) (fun a _ _ _ => hnode a) _ _ _) fun _ =>
         hbind _ _ (labSignFromPosition_pred core hpure hbind htouch hread _ _ _ _ _) fun _ =>
           hpure _
+
+include hpure hbind htouch hread in
+/-- Lab signing satisfies `Q` when, besides the touches and reads of cells, its `H_msg` query
+does. -/
+theorem labSignInternal_pred (pkSeed : core.PkSeed) (msg : List Byte) (pkRoot R : core.Y)
+    (hmsg : Q (PublicHash.hmsg core R pkSeed pkRoot msg)) :
+    Q (labSignInternal core pkSeed msg pkRoot R) :=
+  labSignInternal_pred_of_hmsg_bind core hpure hbind htouch hread pkSeed msg pkRoot R
+    fun ob hob => hbind _ ob hmsg hob
 
 end Pred
 

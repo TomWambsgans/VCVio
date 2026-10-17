@@ -44,6 +44,12 @@ Under key separation no point at a node key is derivable, so the two kinds are d
 (`two_mul_encard_keyEntries_div_add_seedCharge_le_of_mem_support`). This is the pathwise budget
 of `CanonicalGraph.NodeKeys.prEvent_deferredFillDraw_le_of_budget`, with the hazard charge
 `seedCharge core pkSeed`.
+
+Counting every public query (`IsPublicLabQuery`) instead, signing makes one, so the lab experiment
+makes at most `qh + qs + V` public queries for a forger with signing budget `qs`
+(`isQueryBoundP_labExperiment_public`). Lab signing makes at most `n` queries of any predicate
+that holds only at public queries and charges its `H_msg` query at most `n`
+(`isQueryBoundP_labScheme_sign_of_hmsg`).
 -/
 
 public section
@@ -70,6 +76,16 @@ variable {vp : ValidatedParams} (core : CorePrimitives vp.params)
 /-- Charged lab queries are decided classically. -/
 noncomputable instance instDecidablePredIsChargedLabQuery (pkSeed : core.PkSeed) :
     DecidablePred (IsChargedLabQuery core pkSeed) :=
+  fun _ => Classical.dec _
+
+/-- A public hash query of a lab program. -/
+@[expose] def IsPublicLabQuery : (labSpec core).Domain → Prop
+  | .inl (.inl (.inr _)) => True
+  | _ => False
+
+/-- Public lab queries are decided classically. -/
+noncomputable instance instDecidablePredIsPublicLabQuery :
+    DecidablePred (IsPublicLabQuery core) :=
   fun _ => Classical.dec _
 
 variable {core}
@@ -106,34 +122,50 @@ theorem isQueryBoundP_labScheme_keygen {q : (labSpec core).Domain → Prop} [Dec
         | .inr _ => (isQueryBoundP_query_iff _ _ _).2 fun h => (hlabel _ h).elim)
     fun _ _ => isQueryBoundP_pure _ _ 0
 
-/-- Signing with the lab scheme makes no charged query: the randomizer is a derivation query
-after uniform sampling, and lab signing only touches and reads cells besides its `H_msg` query,
-which is at no node key and not derivable. -/
-theorem isQueryBoundP_labScheme_sign (pk sk : PublicKeyCore core) (msg : List Byte) :
-    IsQueryBoundP ((labScheme core optRand pkSeed).sign pk sk msg)
-      (IsChargedLabQuery core pkSeed) 0 := by
+/-- Signing with the lab scheme makes at most `n` `q`-queries when `q` holds only at public
+queries and the `H_msg` query makes at most `n`: the randomizer is a derivation query after uniform
+sampling, and lab signing only touches and reads cells besides its `H_msg` query. -/
+theorem isQueryBoundP_labScheme_sign_of_hmsg {q : (labSpec core).Domain → Prop}
+    [DecidablePred q] {n : ℕ} (hq : ∀ t, q t → IsPublicLabQuery core t)
+    (pk sk : PublicKeyCore core) (msg : List Byte) (hmsg : ∀ R, IsQueryBoundP
+      (PublicHash.hmsg core R pkSeed sk.pkRoot msg : OracleComp (labSpec core) _) q n) :
+    IsQueryBoundP ((labScheme core optRand pkSeed).sign pk sk msg) q n := by
+  rw [show n = 0 + n from (zero_add n).symm]
   refine isQueryBoundP_bind ?_ fun R _ =>
-    labSignInternal_pred core (Q := (IsQueryBoundP · (IsChargedLabQuery core pkSeed) 0))
-      (isQueryBoundP_pure _ · 0) (fun _ _ h h' => isQueryBoundP_bind h fun x _ => h' x)
-      (fun _ => (isQueryBoundP_query_iff _ _ _).2 False.elim)
-      (fun | .inl _ | .inr _ => (isQueryBoundP_query_iff _ _ _).2 False.elim) _ _ _ _
-      ((isQueryBoundP_query_iff _ _ _).2 fun h => by
-        change IsChargedPoint core pkSeed (.inl (.hmsg R pkSeed sk.pkRoot msg)) at h
-        rcases h with h | h
-        · rw [slhNodeKeys_node_eq_none_of_forall_ne_thash core (by simp)] at h
-          exact absurd h (by simp)
-        · exact h.elim)
+    labSignInternal_pred_of_hmsg_bind core (Q := (IsQueryBoundP · q 0))
+      (P := (IsQueryBoundP · q n)) (isQueryBoundP_pure _ · 0)
+      (fun _ _ h h' => isQueryBoundP_bind h fun x _ => h' x)
+      (fun _ => (isQueryBoundP_query_iff _ _ _).2 fun h => (show False from hq _ h).elim)
+      (fun | .inl _ | .inr _ => (isQueryBoundP_query_iff _ _ _).2 fun h =>
+        (show False from hq _ h).elim)
+      pkSeed msg sk.pkRoot R fun _ hob => isQueryBoundP_bind (hmsg R) fun x _ => hob x
   have h : IsQueryBoundP ((do
       let addrnd ← (optRand pk : ProbComp core.Y)
       query (spec := deriveSpec core) (.inr (.inr (addrnd, msg)))) :
-        OracleComp (deriveSpec core) core.Y) (fun t => IsChargedLabQuery core pkSeed (.inl t)) 0 :=
-    isQueryBoundP_bind (n := 0) (m := 0) (isQueryBoundP_liftM_withDerivations (fun _ => id) _)
-      fun _ _ => (isQueryBoundP_query_iff _ _ _).2 False.elim
+        OracleComp (deriveSpec core) core.Y) (fun t => q (.inl t)) 0 :=
+    isQueryBoundP_bind (n := 0) (m := 0) (isQueryBoundP_liftM_withDerivations
+        (fun n h => (show False from hq (.inl (.inl (.inl n))) h)) _)
+      fun _ _ => (isQueryBoundP_query_iff _ _ _).2 fun h => (show False from hq _ h).elim
   rw [liftComp_def]
   exact IsQueryBoundP.simulateQ_of_step h
     (fun _ _ => (isQueryBoundP_query_iff _ _ _).2 fun _ => Nat.one_pos)
     fun t ht => by
       rcases t with (_ | _) | _ <;> exact (isQueryBoundP_query_iff _ _ _).2 fun h => (ht h).elim
+
+/-- Signing with the lab scheme makes no charged query: its `H_msg` query is at no node key and
+not derivable. -/
+theorem isQueryBoundP_labScheme_sign (pk sk : PublicKeyCore core) (msg : List Byte) :
+    IsQueryBoundP ((labScheme core optRand pkSeed).sign pk sk msg)
+      (IsChargedLabQuery core pkSeed) 0 :=
+  isQueryBoundP_labScheme_sign_of_hmsg pkSeed optRand
+    (fun | .inl (.inl (.inr _)), _ => trivial | .inl (.inl (.inl _)), h => h.elim
+         | .inl (.inr _), h => h.elim | .inr _, h => h.elim) pk sk msg fun R =>
+    (isQueryBoundP_query_iff _ _ _).2 fun h => by
+      change IsChargedPoint core pkSeed (.inl (.hmsg R pkSeed sk.pkRoot msg)) at h
+      rcases h with h | h
+      · rw [slhNodeKeys_node_eq_none_of_forall_ne_thash core (by simp)] at h
+        exact absurd h (by simp)
+      · exact h.elim
 
 /-- Verification with the lab scheme makes at most `V = verifyInternalQueryBound` `q`-queries,
 for every `q`: it makes at most `V` queries in all. -/
@@ -179,6 +211,34 @@ theorem isQueryBoundP_labExperiment {e : core.SkSeed ≃ core.Y}
     (isQueryBoundP_labScheme_keygen pkSeed optRand (fun _ => id) fun _ => id)
     (fun pk sk msg _ => (isQueryBoundP_labScheme_sign pkSeed optRand pk sk msg).mono zero_le_one)
     (fun pk sk msg _ => isQueryBoundP_labScheme_sign pkSeed optRand pk sk msg)
+    (isQueryBoundP_labScheme_verify pkSeed optRand)
+
+/-- **The lab experiment makes at most `qh + qs + V` public queries**, for a forger with hash
+budget `qh` and signing budget `qs`: each forger hash query is one query, key generation makes
+none, signing makes one (its `H_msg` query) and verification at most `V`. -/
+theorem isQueryBoundP_labExperiment_public {e : core.SkSeed ≃ core.Y}
+    {optRand : PublicKeyCore core → ProbComp core.Y} {pkSeedDist : ProbComp core.PkSeed}
+    {adv : UnforgeableAdversary (romScheme core e optRand pkSeedDist)} {qh qs : ℕ}
+    (hadv : adv.RomQueryBound qh qs) :
+    IsQueryBoundP (labExperiment core adv pkSeed) (IsPublicLabQuery core)
+      (qh + qs + GeneralScheme.verifyInternalQueryBound vp.params) := by
+  have hG (t : (unifSpec + hashSpec core).Domain) :
+      (QueryImpl.ofLift (deriveSpec core) (OracleComp (labSpec core)) ∘ₛ
+        (hashSpec core).withDerivationsLift (DeriveQuery core) core.Y) t =
+        query (spec := labSpec core) (.inl (.inl t)) := by
+    simp only [QueryImpl.apply_compose, OracleSpec.withDerivationsLift]
+    rfl
+  rw [labExperiment, labAdversary, deriveAdversary, UnforgeableAdversary.mapOracles_mapOracles]
+  refine isQueryBoundP_unforgeableTranscriptExperiment_mapOracles_add _
+    (p := fun t => IsHashQuery t ∨ IsSignQuery t)
+    (fun pk => isQueryBoundP_or_add (hadv pk).1 (hadv pk).2)
+    (fun t _ => hG t ▸ (isQueryBoundP_query_iff _ _ _).2 fun _ => Nat.one_pos)
+    (fun | .inl _, _ => hG _ ▸ (isQueryBoundP_query_iff _ _ _).2 False.elim
+         | .inr _, ht => (ht (Or.inl trivial)).elim)
+    (isQueryBoundP_labScheme_keygen pkSeed optRand (fun _ => id) fun _ => id)
+    (fun pk sk msg _ => isQueryBoundP_labScheme_sign_of_hmsg pkSeed optRand (fun _ => id) pk sk
+      msg fun _ => (isQueryBoundP_query_iff _ _ _).2 fun _ => Nat.one_pos)
+    (fun _ _ _ h => (h (Or.inr trivial)).elim)
     (isQueryBoundP_labScheme_verify pkSeed optRand)
 
 /-! ## The budget on every deferred run -/
