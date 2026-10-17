@@ -475,6 +475,7 @@ public import VCVio.Quantum.VC.Proof.OfflineOldCollision
 public import VCVio.Quantum.VC.Proof.OfflineOldComparison
 public import VCVio.Quantum.VC.Proof.OfflineOldEstimate
 public import VCVio.Quantum.VC.Proof.OfflineOldFactor
+public import VCVio.Quantum.VC.Proof.OfflineOldLeaf
 public import VCVio.Quantum.VC.Proof.OfflineOldLeaves
 public import VCVio.Quantum.VC.Proof.OfflineOldPartial
 public import VCVio.Quantum.VC.Proof.OfflineOldResponse
