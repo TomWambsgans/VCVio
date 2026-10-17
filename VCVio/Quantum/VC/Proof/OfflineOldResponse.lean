@@ -100,6 +100,37 @@ theorem encoded_checked_difference_le [Fintype B] [Fintype Z]
   simp only [labelProjector_encode β enc henc] at hh
   exact hh.trans_eq (checked_label_difference_weight (enc ∘ β) Aa Ab Qa Qb hρ)
 
+/-- Unused response codewords have zero projector, including off the image of the encoder. -/
+theorem labelProjector_encode_eq_zero [DecidableEq B] [DecidableEq Z] {ι : Type*}
+    (β : B → ι) (enc : ι → Z) (z : Z) (hz : z ∉ Set.range enc) :
+    (labelProjector (enc ∘ β) z : Matrix B B ℂ) = 0 := by
+  have h (b : B) : enc (β b) ≠ z := fun he ↦ hz ⟨β b, he⟩
+  simp [labelProjector, Function.comp_apply, h]
+
+/-- The decoded branch sum equals the coherent response weight exactly. All unused
+codewords vanish, so injective encodings need not be surjective. -/
+theorem encoded_checked_difference_eq [Fintype B] [Fintype Z]
+    [DecidableEq B] [DecidableEq Z] {ι : Type*} [DecidableEq ι]
+    (β : B → ι) (enc : ι → Z) (henc : Function.Injective enc)
+    (Aa Ab Qa Qb : Matrix B B ℂ) {ρ : Matrix B B ℂ} (hρ : ρ.PosSemidef) :
+    let T := basisMatrix (fun b ↦ (b, enc (β b)))
+    (∑' i, ENNReal.ofReal (conj
+      (Ab * labelProjector β i * Aa - Qb * labelProjector β i * Qa) ρ).trace.re) =
+      ENNReal.ofReal (conj
+        ((Ab ⊗ₖ (1 : Matrix Z Z ℂ)) * T * Aa -
+          (Qb ⊗ₖ (1 : Matrix Z Z ℂ)) * T * Qa) ρ).trace.re := by
+  let w := fun z ↦ ENNReal.ofReal (conj
+    (Ab * labelProjector (enc ∘ β) z * Aa -
+      Qb * labelProjector (enc ∘ β) z * Qa) ρ).trace.re
+  have hs : Function.support w ⊆ Set.range enc := by
+    intro z hz
+    by_contra hn
+    have hp := labelProjector_encode_eq_zero β enc z hn
+    exact hz (by simp [w, hp, conj_apply])
+  have hh := henc.tsum_eq hs
+  simp only [w, labelProjector_encode β enc henc] at hh
+  exact hh.trans (checked_label_difference_weight (enc ∘ β) Aa Ab Qa Qb hρ)
+
 variable [Fintype B] [Fintype Z] [DecidableEq B] [DecidableEq Z]
 
 /-- A translation of the response controlled by the database basis label. -/
@@ -208,6 +239,24 @@ theorem encoded_checked_difference_le_response [AddGroup Z] {ι : Type*} [Decida
         ((Ab ⊗ₖ (1 : Matrix Z Z ℂ)) * U * (Aa ⊗ₖ 1) -
           (Qb ⊗ₖ (1 : Matrix Z Z ℂ)) * U * (Qa ⊗ₖ 1)) (conj J ρ)).trace.re := by
   have hh := encoded_checked_difference_le β enc henc Aa Ab Qa Qb hρ
+  have he := checked_response_difference (enc ∘ β) Aa Ab Qa Qb
+  dsimp only [Function.comp_apply] at he hh
+  rw [← he, conj_mul, LinearMap.comp_apply] at hh
+  exact hh
+
+/-- The response dilation preserves the complete decoded difference weight on the original
+input with a fresh zero response. This equality includes every unused codeword. -/
+theorem encoded_checked_difference_eq_response [AddGroup Z] {ι : Type*} [DecidableEq ι]
+    (β : B → ι) (enc : ι → Z) (henc : Function.Injective enc)
+    (Aa Ab Qa Qb : Matrix B B ℂ) {ρ : Matrix B B ℂ} (hρ : ρ.PosSemidef) :
+    let U := responseTranslation (enc ∘ β)
+    let J := basisMatrix (fun b : B ↦ (b, (0 : Z)))
+    (∑' i, ENNReal.ofReal (conj
+      (Ab * labelProjector β i * Aa - Qb * labelProjector β i * Qa) ρ).trace.re) =
+      ENNReal.ofReal (conj
+        ((Ab ⊗ₖ (1 : Matrix Z Z ℂ)) * U * (Aa ⊗ₖ 1) -
+          (Qb ⊗ₖ (1 : Matrix Z Z ℂ)) * U * (Qa ⊗ₖ 1)) (conj J ρ)).trace.re := by
+  have hh := encoded_checked_difference_eq β enc henc Aa Ab Qa Qb hρ
   have he := checked_response_difference (enc ∘ β) Aa Ab Qa Qb
   dsimp only [Function.comp_apply] at he hh
   rw [← he, conj_mul, LinearMap.comp_apply] at hh
