@@ -221,4 +221,65 @@ theorem two_batch_reference_distance_le (c : OpeningClaim k Cm Msg ℓ Pf) (B : 
     Real.sqrt_nonneg (((batchIO io c.W c).length + (batchIO io c.Wᶜ c).length) /
       (Fintype.card Y : ℝ))]
 
+/-- Conjugated conjunctions over complementary position batches multiply to the full batch. -/
+theorem conjugated_batches_compl {S : Type*} [Fintype S] [DecidableEq S]
+    (C : Matrix S S ℂ) (hC : C * C = 1) (p : Fin k → S → Prop)
+    [∀ i s, Decidable (p i s)] (W : Finset (Fin k)) :
+    (C * diagonal (fun s ↦ if ∀ i ∈ W, p i s then (1 : ℂ) else 0) * C) *
+      (C * diagonal (fun s ↦ if ∀ i ∈ Wᶜ, p i s then (1 : ℂ) else 0) * C) =
+        C * diagonal (fun s ↦ if ∀ i, p i s then (1 : ℂ) else 0) * C := by
+  rw [CompressedReplay.conjugate_mul C hC, diagonal_ite_mul_diagonal_ite]
+  congr 3
+  funext s
+  have he : ((∀ i ∈ W, p i s) ∧ ∀ i ∈ Wᶜ, p i s) ↔ ∀ i, p i s := by
+    constructor
+    · intro h i
+      by_cases hi : i ∈ W
+      · exact h.1 i hi
+      · exact h.2 i (Finset.mem_compl.mpr hi)
+    · intro h
+      exact ⟨fun i _ ↦ h i, fun i _ ↦ h i⟩
+  simp only [he]
+
+/-- Actual complementary checker batches multiply to the actual full batch. -/
+theorem actualBatch_mul_compl (W : Finset (Fin k)) (c : OpeningClaim k Cm Msg ℓ Pf) :
+    actualBatch io W c * actualBatch io Wᶜ c = actualBatch io Finset.univ c := by
+  unfold actualBatch
+  have hh := conjugated_batches_compl (compressDatabases k X Y)
+    (compressDatabases_mul_self k X Y)
+    (fun i D ↦ (io i).checkOn (fun x ↦ some ((D (c.idx i)).lookup x))
+      (c.cm i) (c.ans i) (c.pf i) = true) W
+  simpa only [Finset.mem_univ, forall_const] using hh
+
+/-- Filled complementary checker batches multiply to the filled full batch. -/
+theorem filledBatch_mul_compl (W : Finset (Fin k)) (c : OpeningClaim k Cm Msg ℓ Pf) :
+    filledBatch io W c * filledBatch io Wᶜ c = filledBatch io Finset.univ c := by
+  unfold filledBatch checkPassProjector
+  have hh := conjugated_batches_compl (compressDatabases k X Y)
+    (compressDatabases_mul_self k X Y)
+    (fun i D ↦ (io i).checkOn (D (c.idx i)) (c.cm i) (c.ans i) (c.pf i) = true) W
+  simpa only [Finset.mem_univ, forall_const] using hh
+
+/-- The full actual-to-filled batch difference is bounded by the original invalid Gram matrix,
+including malformed components. -/
+theorem actualBatch_sub_filledBatch_gram_le (c : OpeningClaim k Cm Msg ℓ Pf) :
+    ((CompressedReplay.invalidStack (k := k) (X := X) (Y := Y))ᴴ *
+      CompressedReplay.invalidStack -
+      (actualBatch io Finset.univ c - filledBatch io Finset.univ c)ᴴ *
+        (actualBatch io Finset.univ c - filledBatch io Finset.univ c)).PosSemidef := by
+  classical
+  by_cases hf : ∀ i ∈ Finset.univ,
+      ((io i).outputIO (c.cm i) (c.ans i) (c.pf i)).isSome
+  · rw [actualBatch_eq_actualCheck io _ c hf, filledBatch,
+      checkPassProjector_eq_partialCheck io _ c hf]
+    exact CompressedReplay.actual_sub_filled_gram_le_invalidStack (batchIO io Finset.univ c)
+  · obtain ⟨i, hn⟩ := not_forall.mp hf
+    obtain ⟨hi, hn⟩ := not_imp.mp hn
+    have hz : (io i).outputIO (c.cm i) (c.ans i) (c.pf i) = none := by
+      cases h : (io i).outputIO (c.cm i) (c.ans i) (c.pf i) <;> simp_all
+    obtain ⟨hp, ha⟩ := batch_eq_zero_of_malformed io Finset.univ c i hi hz
+    rw [ha, filledBatch, hp, Matrix.mul_zero, Matrix.zero_mul, sub_zero,
+      conjTranspose_zero, Matrix.zero_mul, sub_zero]
+    exact posSemidef_conjTranspose_mul_self _
+
 end Quantum

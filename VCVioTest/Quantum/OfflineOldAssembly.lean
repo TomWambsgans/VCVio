@@ -7,6 +7,7 @@ Authors: Quang Dao
 module
 public import VCVio.Quantum.VC.Proof.OfflineOldPartial
 public import VCVio.Quantum.VC.Proof.OfflineOldLeaves
+public import VCVio.Quantum.VC.Proof.OfflineOldFactor
 
 /-!
 # Outcome-preserving offline assembly regressions
@@ -70,3 +71,12 @@ example := @extraction_invalid_increment_weighted
 
 /-- Dependent-register leaf aggregation is exported without a finite-leaf assumption. -/
 example := @databaseControl_invalid_leaf_sum_le
+
+/-- Retained decoded outcomes embed into a coherent, zero-initialized response register. -/
+example := @MatrixMap.encoded_checked_difference_le_response
+
+/-- The concrete full-tuple factorization preserves arbitrary reference registers. -/
+example := @full_response_reference_factor
+
+/-- The full checker Gram bound includes malformed and conflicting prescriptions. -/
+example := @actualBatch_sub_filledBatch_gram_le
