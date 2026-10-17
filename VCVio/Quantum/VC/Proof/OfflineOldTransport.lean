@@ -20,6 +20,11 @@ open Matrix
 open scoped ComplexOrder Kronecker ENNReal
 namespace Quantum.MatrixMap
 
+/-- Inclusion into an initialized response basis state, with separate component instances. -/
+@[expose]
+def responseInclusion {A Z : Type*} [DecidableEq A] [DecidableEq Z] (z : Z) :
+    Matrix (A × Z) A ℂ := basisMatrix (fun a ↦ (a, z))
+
 variable {A B : Type*} [Fintype A] [Fintype B]
 
 /-- Relabelling both indices by an equivalence preserves the trace. -/
@@ -56,6 +61,35 @@ theorem supported_zero_response [DecidableEq A] [DecidableEq B] [AddGroup B]
         conj (basisMatrix (fun a : A ↦ (a, (0 : B)))) ρ =
       conj (basisMatrix (fun a : A ↦ (a, (0 : B)))) ρ := by
   rw [conj_apply, ← Matrix.mul_assoc, ← Matrix.mul_assoc, zero_response_intertwines,
+    Matrix.mul_assoc _ P, h]
+
+/-- A fixed response basis state intertwines every operator on the original register. -/
+theorem response_inclusion_intertwines [DecidableEq A] [DecidableEq B]
+    (z : B) (K : Matrix A A ℂ) :
+    (K ⊗ₖ (1 : Matrix B B ℂ)) * basisMatrix (fun a : A ↦ (a, z)) =
+      basisMatrix (fun a : A ↦ (a, z)) * K := by
+  ext ⟨a, b⟩ a'
+  simp only [Matrix.mul_apply, basisMatrix_apply, mul_ite, mul_one, mul_zero,
+    Finset.sum_ite_eq', Finset.mem_univ, ite_true, kroneckerMap_apply, one_apply,
+    Prod.mk.injEq]
+  by_cases h : b = z <;> simp [h]
+
+/-- Inserting any fixed response basis state preserves the original conjugation weight. -/
+theorem trace_conj_response_inclusion [DecidableEq A] [DecidableEq B]
+    (z : B) (K ρ : Matrix A A ℂ) :
+    (conj (K ⊗ₖ (1 : Matrix B B ℂ))
+      (conj (basisMatrix (fun a : A ↦ (a, z))) ρ)).trace = (conj K ρ).trace := by
+  rw [← LinearMap.comp_apply, ← conj_mul, response_inclusion_intertwines,
+    conj_mul, LinearMap.comp_apply]
+  exact isTP_conj (conjTranspose_basisMatrix_mul_self
+    (fun _ _ h ↦ congrArg Prod.fst h)) _
+
+/-- Inserting any fixed response basis state preserves original support equations. -/
+theorem supported_response_inclusion [DecidableEq A] [DecidableEq B]
+    (z : B) (P ρ : Matrix A A ℂ) (h : P * ρ = ρ) :
+    (P ⊗ₖ (1 : Matrix B B ℂ)) * conj (basisMatrix (fun a : A ↦ (a, z))) ρ =
+      conj (basisMatrix (fun a : A ↦ (a, z))) ρ := by
+  rw [conj_apply, ← Matrix.mul_assoc, ← Matrix.mul_assoc, response_inclusion_intertwines,
     Matrix.mul_assoc _ P, h]
 
 end Quantum.MatrixMap
@@ -203,6 +237,41 @@ theorem response_databaseControl_invalid_increment
       tsum_congr (fun c ↦ congrArg (fun t : ℂ ↦ ENNReal.ofReal t.re) (ht _)), htr] at hh
   simpa only [V, e, response_invalid_flat, responseTranslation_flat] using hh
 
+/-- The component increment after inserting a fixed response retains the original potential
+and input trace, for any database-dependent response with the given changing-label bound. -/
+theorem response_seed_invalid_increment [AddCommGroup Y]
+    {k : ℕ} {B Z : Type*} [Fintype B] [DecidableEq B]
+    [Fintype Z] [DecidableEq Z] [AddCommGroup Z]
+    (β : (Fin k → Database X Y) → Z) (z : Z) (s : ℕ) {a : ℝ} (ha : 0 ≤ a)
+    (hβ : ∀ D : Database (Fin k × X) Y, D.size ≤ s → ∀ c, (D c).isSome →
+      changingFraction (fun D ↦ β (Function.curry D)) c (fun i ↦ D i.1) ≤ a)
+    {ρ : Matrix (B × (Fin k → Database X Y)) _ ℂ} (hρ : ρ.PosSemidef)
+    (hpop : diagonal (fun a : B × (Fin k → Database X Y) ↦
+      if databasePopulation a.2 ≤ s then (1 : ℂ) else 0) * ρ = ρ) :
+    let J := responseInclusion (A := B × (Fin k → Database X Y)) z
+    let V := responseTranslation (fun a : B × (Fin k → Database X Y) ↦ β a.2)
+    (∑' x : Fin k × X, ENNReal.ofReal (conj
+      (((1 : Matrix B B ℂ) ⊗ₖ CompressedReplay.invalid x) ⊗ₖ (1 : Matrix Z Z ℂ))
+        (conj V (conj J ρ))).trace.re) ^ (2⁻¹ : ℝ) ≤
+      (QuantumRuntime.potential (CompressedReplay.invalidStack (k := k) (X := X) (Y := Y)) ρ) ^
+          (2⁻¹ : ℝ) +
+        (ENNReal.ofReal (4 * s * a) * ENNReal.ofReal ρ.trace.re) ^ (2⁻¹ : ℝ) := by
+  let J := responseInclusion (A := B × (Fin k → Database X Y)) z
+  let σ := conj J ρ
+  have hσ : σ.PosSemidef := (isCP_conj J).posSemidef hρ
+  have ht : σ.trace = ρ.trace := isTP_conj
+    (conjTranspose_basisMatrix_mul_self (fun _ _ h ↦ congrArg Prod.fst h)) ρ
+  have hf := response_databaseControl_invalid_increment β s ha hβ hσ
+    (supported_response_inclusion z _ ρ hpop)
+  have hi (x : Fin k × X) : (conj
+      (((1 : Matrix B B ℂ) ⊗ₖ CompressedReplay.invalid x) ⊗ₖ (1 : Matrix Z Z ℂ))
+        σ).trace = (conj ((1 : Matrix B B ℂ) ⊗ₖ CompressedReplay.invalid x) ρ).trace :=
+    trace_conj_response_inclusion z _ ρ
+  dsimp only at hf ⊢
+  simp_rw [hi, ht] at hf
+  rw [← CompressedReplay.invalidStack_potential_eq hρ] at hf
+  exact hf
+
 end Quantum
 
 namespace Quantum.SaltedMerkle
@@ -236,5 +305,40 @@ theorem response_extraction_invalid_increment
     (B := B) (Z := Z) (fun D ↦ f ((_root_.SaltedMerkle.multiExtract enc d).extract tic D))
     s (a := oldChangingFraction (Fintype.card Y) s)
     (le_min (by norm_num) (by positivity)) hβ hρ hpop
+
+/-- A selected response component has the original-state invalid-norm bound after adjoining
+zero response. Both the reference and the input trace are preserved. -/
+theorem partResponse_zero_invalid_increment [AddCommGroup Y]
+    (enc : _root_.SaltedMerkle.Encoding X Y Msg Salt) {k : ℕ} (d : Fin k → ℕ)
+    (tic : TpIC k Y) (I : Finset (Fin k)) (B : QReg) (s : ℕ)
+    {ρ : Matrix (B × (Fin k → Database X Y)) _ ℂ} (hρ : ρ.PosSemidef)
+    (hpop : diagonal (fun a : B × (Fin k → Database X Y) ↦
+      if databasePopulation a.2 ≤ s then (1 : ℂ) else 0) * ρ = ρ) :
+    let Z := TpDCode.ConcatReg k (DmOf (fun i ↦ 2 ^ d i) Msg
+      (fun i ↦ _root_.SaltedMerkle.Td Y Salt (d i)))
+    let J := responseInclusion (A := B × (Fin k → Database X Y)) (0 : Z)
+    let V := responseTranslation (fun a : B × (Fin k → Database X Y) ↦
+      TpDCode.partResponse (_root_.SaltedMerkle.multiExtract enc d) I tic a.2)
+    (∑' x : Fin k × X, ENNReal.ofReal (conj
+      (((1 : Matrix B B ℂ) ⊗ₖ CompressedReplay.invalid x) ⊗ₖ (1 : Matrix Z Z ℂ))
+        (conj V (conj J ρ))).trace.re) ^ (2⁻¹ : ℝ) ≤
+      (QuantumRuntime.potential (CompressedReplay.invalidStack (k := k) (X := X) (Y := Y)) ρ) ^
+          (2⁻¹ : ℝ) +
+        (ENNReal.ofReal (4 * s * oldChangingFraction (Fintype.card Y) s) *
+          ENNReal.ofReal ρ.trace.re) ^ (2⁻¹ : ℝ) := by
+  classical
+  let Dm := DmOf (fun i ↦ 2 ^ d i) Msg (fun i ↦ _root_.SaltedMerkle.Td Y Salt (d i))
+  let Z := TpDCode.ConcatReg k Dm
+  let : DecidableEq Z := inferInstanceAs (DecidableEq (TpDCode.ConcatReg k Dm))
+  let : Fintype Z := inferInstanceAs (Fintype (TpDCode.ConcatReg k Dm))
+  let : AddCommGroup Z := inferInstanceAs (AddCommGroup (TpDCode.ConcatReg k Dm))
+  let f : TpDLen k Dm tic.1 → Z := fun tdm ↦
+    (0, fun i ↦ if i ∈ I then TpDCode.concatPayload tic.1 tdm i else 0)
+  refine response_seed_invalid_increment (X := X) (Y := Y) (k := k) (B := B) (Z := Z)
+    (fun D ↦ TpDCode.partResponse (_root_.SaltedMerkle.multiExtract enc d) I tic D)
+    (0 : Z) s (a := oldChangingFraction (Fintype.card Y) s)
+    (le_min (by norm_num) (by positivity)) ?_ hρ hpop
+  intro D hD c hc
+  exact extraction_changingFraction_le enc d tic f D s hD c hc
 
 end Quantum.SaltedMerkle
