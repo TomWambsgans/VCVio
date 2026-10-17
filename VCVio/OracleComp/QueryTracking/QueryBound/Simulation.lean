@@ -946,6 +946,21 @@ theorem AllQueriesSatisfy.simulateQ {τ : Type u} {spec' : OracleSpec.{u, u} τ}
     rw [simulateQ_bind, simulateQ_spec_query]
     exact allQueriesSatisfy_bind (himpl t h.1) fun u ↦ ih u (h.2 u)
 
+/-- A stateful simulation of a program whose queries all satisfy `P`, through a handler whose
+steps at the queries satisfying `P` make, from every state, only queries satisfying `Q`, makes only
+queries satisfying `Q` from every initial state. -/
+theorem AllQueriesSatisfy.simulateQ_run {τ σ : Type u} {spec' : OracleSpec.{u, u} τ}
+    {impl : QueryImpl spec (StateT σ (OracleComp spec'))} {P : ι → Prop} {Q : τ → Prop}
+    {oa : OracleComp spec α} (h : AllQueriesSatisfy oa P)
+    (himpl : ∀ t, P t → ∀ s, AllQueriesSatisfy ((impl t).run s) Q) (s : σ) :
+    AllQueriesSatisfy ((_root_.simulateQ impl oa).run s) Q := by
+  induction oa using OracleComp.inductionOn generalizing s with
+  | pure x => exact allQueriesSatisfy_pure _ _
+  | query_bind t k ih =>
+    rw [allQueriesSatisfy_query_bind_iff] at h
+    rw [simulateQ_bind, simulateQ_spec_query, StateT.run_bind]
+    exact allQueriesSatisfy_bind (himpl t h.1 s) fun z ↦ ih z.1 (h.2 z.1) z.2
+
 /-! ## Biconditional transfer under query-count-preserving simulators
 
 `loggingOracle`, `countingOracle`, and the `withTrace*` / `withCost` / `withCounting`

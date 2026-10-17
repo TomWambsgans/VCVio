@@ -525,6 +525,18 @@ theorem AllQueriesSatisfy.mono {oa : OracleComp spec α} {P Q : ι → Prop}
       obtain ⟨ht, hmx⟩ := (allQueriesSatisfy_query_bind_iff _ _ _).mp h
       exact (allQueriesSatisfy_query_bind_iff _ _ _).mpr ⟨hPQ t ht, fun u => ih u (hmx u)⟩
 
+/-- Two predicates that every query of `oa` satisfies hold jointly of every query. -/
+theorem AllQueriesSatisfy.and {oa : OracleComp spec α} {P Q : ι → Prop}
+    (hP : AllQueriesSatisfy oa P) (hQ : AllQueriesSatisfy oa Q) :
+    AllQueriesSatisfy oa fun t => P t ∧ Q t := by
+  induction oa using OracleComp.inductionOn with
+  | pure _ => exact allQueriesSatisfy_pure _ _
+  | query_bind t mx ih =>
+      obtain ⟨hPt, hPmx⟩ := (allQueriesSatisfy_query_bind_iff _ _ _).mp hP
+      obtain ⟨hQt, hQmx⟩ := (allQueriesSatisfy_query_bind_iff _ _ _).mp hQ
+      exact (allQueriesSatisfy_query_bind_iff _ _ _).mpr
+        ⟨⟨hPt, hQt⟩, fun u => ih u (hPmx u) (hQmx u)⟩
+
 /-- A predicate-only bound composes through monadic sequencing.  The unit budget discharges both
 side conditions of `isQueryBound_bind`. -/
 lemma allQueriesSatisfy_bind {oa : OracleComp spec α} {ob : α → OracleComp spec β}

@@ -34,6 +34,12 @@ def adaptive : OracleComp flagSpec Bool := do
 example : ¬ AllQueriesSatisfy adaptive (· = true) := by
   simp [adaptive, allQueriesSatisfy_query_bind_iff]
 
+/-- Two predicates every query satisfies hold jointly: every query of `adaptive` is to an index
+that is `true` or `false`, and to an index equal to itself. -/
+example : AllQueriesSatisfy adaptive fun t => (t = true ∨ t = false) ∧ t = t :=
+  (allQueriesSatisfy_of_forall (fun t => by cases t <;> simp) adaptive).and
+    (allQueriesSatisfy_of_forall (fun _ => rfl) adaptive)
+
 /-- With only the allowed query, the budget for its complement is zero. -/
 example : IsQueryBoundP (liftM (flagSpec.query true) : OracleComp flagSpec Bool)
     (fun t => ¬ t = true) 0 := by
