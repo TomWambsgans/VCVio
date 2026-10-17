@@ -24,6 +24,9 @@ over the single oracle reads the raw input encoding the typed point `5` under it
 * The encoding is injective, so no clash occurs, and the forger's success in the random oracle
   model of the single oracle is at most the routed forger's success in the random oracle model
   of the typed family.
+* When the public key pairs the shift with a uniform bit, key generation has two possible public
+  keys; the encoding read off the shift is the same at both, and the same bound holds with the
+  router read off the public key.
 -/
 
 public section
@@ -110,10 +113,55 @@ example : Pr{let z ← (simulateQ (ℕ →ₒ Bool).romImpl
       (unforgeableTranscriptExperiment rawAdv)).run ∅}[z.1.wins = true] ≤
     Pr{let z ← (simulateQ spec.romImpl
       (unforgeableTranscriptExperiment routedAdv)).run ∅}[z.1.wins = true] := by
-  refine ((shifted 3).prEvent_simulateQ_romImpl_unforgeableTranscriptExperiment_le
+  refine ((shifted 3).prEvent_simulateQ_romImpl_run_unforgeableTranscriptExperiment_le
     rawAdv (Ek := shifted) (fun z hz => ?_) (fun z => z.wins = true)).trans (le_of_eq ?_)
   · simp only [hashSigAlg, support_pure, Set.mem_singleton_iff] at hz
     rw [hz]
   · exact prEvent_congr _ _ _ fun z => or_iff_left (not_clash 3 z.2)
+
+/-! ## A public key with a random part -/
+
+/-- A scheme whose public key pairs the shift `3` with a uniform bit, so that key generation has
+two possible public keys. -/
+noncomputable def twoKeySigAlg :
+    SignatureAlg (OracleComp (unifSpec + spec)) ℕ (ℕ × Bool) Unit Bool where
+  keygen := do
+    let b ← (liftM ($ᵗ Bool : ProbComp Bool) : OracleComp (unifSpec + spec) Bool)
+    return ((3, b), ())
+  sign _ _ m := (unifSpec + spec).query (.inr m)
+  verify _ m σ := (fun b => b == σ) <$> (unifSpec + spec).query (.inr m)
+
+/-- The forger over the single oracle reads the raw input encoding the typed point `5` under the
+shift of its public key. -/
+noncomputable def twoKeyRawAdv :
+    UnforgeableAdversary (twoKeySigAlg.map (simulateQ' ((shifted 3).encodeImpl ∘ₛ liftTypedImpl)))
+    where
+  main pk := do
+    let b ← ((unifSpec + (ℕ →ₒ Bool)) + (ℕ →ₒ Bool)).query (.inl (.inr (pk.1 + 5)))
+    return (5, b)
+
+/-- Every public key the key generation can output has shift `3`, whichever bit it draws, so the
+encoding read off the public key is the encoding at `3`. -/
+theorem shifted_fst_of_mem_support_keygen :
+    ∀ z ∈ support twoKeySigAlg.keygen, shifted z.1.1 = shifted 3 := by
+  intro z hz
+  simp only [twoKeySigAlg, support_bind, support_pure, Set.mem_iUnion,
+    Set.mem_singleton_iff] at hz
+  obtain ⟨b, -, rfl⟩ := hz
+  rfl
+
+/-- With two possible public keys, the forger's success over the single oracle is at most the
+success of the forger holding the router read off the shift of its public key. -/
+example : Pr{let z ← (simulateQ (ℕ →ₒ Bool).romImpl
+      (unforgeableTranscriptExperiment twoKeyRawAdv)).run ∅}[z.1.wins = true] ≤
+    Pr{let z ← (simulateQ spec.romImpl (unforgeableTranscriptExperiment
+      ((twoKeyRawAdv.mapOracles liftRawImpl
+        (sigAlg' := twoKeySigAlg.map (simulateQ' liftTypedImpl))).route
+        (sigAlg := twoKeySigAlg) (fun pk => (shifted pk.1).tableRouter) ∅))).run ∅}[
+        z.1.wins = true] := by
+  refine ((shifted 3).prEvent_simulateQ_romImpl_run_unforgeableTranscriptExperiment_le
+    twoKeyRawAdv (Ek := fun pk => shifted pk.1) shifted_fst_of_mem_support_keygen
+    (fun z => z.wins = true)).trans (le_of_eq ?_)
+  exact prEvent_congr _ _ _ fun z => or_iff_left (not_clash 3 z.2)
 
 end VCVioTest.SignatureAlgRouted
