@@ -27,6 +27,34 @@ namespace PFunctor.Resumption
 variable {P : PFunctor} [∀ a, MeasurableSpace (P.B a)] [P.AnswerMeasure]
   {α Ω : Type*} [MeasurableSpace α] [MeasurableSpace Ω]
 
+/-- Almost surely persistent finite observations identify eventual return with the returned law.
+Paths that violate the transition law may be ignored when they have measure zero. -/
+theorem returnedMeasure_eq_observed_event_of_ae [∀ a, DiscreteMeasurableSpace (P.B a)]
+    (tree : Resumption P α) (μ : Measure Ω) (observe : ℕ → Ω → Option α)
+    (hobserve : ∀ n, Measurable (observe n))
+    (hpersist : ∀ᵐ ω ∂μ, ∀ n m a, n ≤ m → observe n ω = some a → observe m ω = some a)
+    (hlaw : ∀ n, μ.map (observe n) = truncateMeasure n tree)
+    (event : Set α) (hevent : MeasurableSet event) :
+    returnedMeasure tree event = μ {ω | ∃ n, observe n ω ∈ some '' event} := by
+  let good := {ω | ∀ n m a, n ≤ m → observe n ω = some a → observe m ω = some a}
+  let events (n : ℕ) := (observe n ⁻¹' (some '' event)) ∩ good
+  have hmono : Monotone events := by
+    intro n m hnm ω hω
+    obtain ⟨⟨a, ha, heq⟩, hgood⟩ := hω
+    exact ⟨⟨a, ha, (hgood n m a hnm heq.symm).symm⟩, hgood⟩
+  have hevents (n : ℕ) : events n =ᵐ[μ] observe n ⁻¹' (some '' event) := by
+    filter_upwards [hpersist] with ω hω
+    exact propext ⟨And.left, fun h => ⟨h, hω⟩⟩
+  have hunion : (⋃ n, events n) =ᵐ[μ] {ω | ∃ n, observe n ω ∈ some '' event} := by
+    filter_upwards [hpersist] with ω hω
+    simp only [Set.mem_iUnion, events, Set.mem_inter_iff, Set.mem_preimage]
+    exact propext ⟨fun ⟨n, hn, _⟩ => ⟨n, hn⟩, fun ⟨n, hn⟩ => ⟨n, hn, hω⟩⟩
+  rw [← measure_congr hunion, hmono.measure_iUnion, returnedMeasure_apply _ _ hevent]
+  congr 1
+  funext n
+  rw [measure_congr (hevents n), outputMeasure, Measure.dropNone_apply _ hevent, ← hlaw n,
+    Measure.map_apply (hobserve n) (Option.measurableSet_some_image.mpr hevent)]
+
 /-- Persistent finite observations identify every eventual-return event with the returned law. -/
 theorem returnedMeasure_eq_observed_event [∀ a, DiscreteMeasurableSpace (P.B a)]
     (tree : Resumption P α) (μ : Measure Ω) (observe : ℕ → Ω → Option α)
@@ -34,19 +62,9 @@ theorem returnedMeasure_eq_observed_event [∀ a, DiscreteMeasurableSpace (P.B a
     (hpersist : ∀ ω n m a, n ≤ m → observe n ω = some a → observe m ω = some a)
     (hlaw : ∀ n, μ.map (observe n) = truncateMeasure n tree)
     (event : Set α) (hevent : MeasurableSet event) :
-    returnedMeasure tree event = μ {ω | ∃ n, observe n ω ∈ some '' event} := by
-  let events (n : ℕ) := observe n ⁻¹' (some '' event)
-  have hmono : Monotone events := by
-    intro n m hnm ω hω
-    obtain ⟨a, ha, heq⟩ := hω
-    exact ⟨a, ha, (hpersist ω n m a hnm heq.symm).symm⟩
-  have hunion : {ω | ∃ n, observe n ω ∈ some '' event} = ⋃ n, events n := by
-    ext ω; simp [events]
-  rw [hunion, hmono.measure_iUnion, returnedMeasure_apply _ _ hevent]
-  congr 1
-  funext n
-  rw [outputMeasure, Measure.dropNone_apply _ hevent, ← hlaw n,
-    Measure.map_apply (hobserve n) (Option.measurableSet_some_image.mpr hevent)]
+    returnedMeasure tree event = μ {ω | ∃ n, observe n ω ∈ some '' event} :=
+  returnedMeasure_eq_observed_event_of_ae tree μ observe hobserve
+    (Filter.Eventually.of_forall hpersist) hlaw event hevent
 
 /-- The query-cost tail series is also the tail series in any finite-law-correct path model. -/
 theorem expectedQueries_eq_observed_tails (tree : Resumption P α) (μ : Measure Ω)

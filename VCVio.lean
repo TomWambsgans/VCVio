@@ -174,12 +174,15 @@ public import VCVio.EvalDist.Divergence.KLDivergence
 public import VCVio.EvalDist.EvalDistEq
 public import VCVio.EvalDist.EvalDistTV
 public import VCVio.EvalDist.Expectation
+public import VCVio.EvalDist.ITreeMeasure
 public import VCVio.EvalDist.IndepProduct
 public import VCVio.EvalDist.IndepProductMeasure
 public import VCVio.EvalDist.Inequalities
 public import VCVio.EvalDist.Instances.ErrorT
 public import VCVio.EvalDist.Instances.OptionT
 public import VCVio.EvalDist.Kernel
+public import VCVio.EvalDist.KernelHandler.Machine
+public import VCVio.EvalDist.KernelHandler.Realizes
 public import VCVio.EvalDist.List
 public import VCVio.EvalDist.Lossless
 public import VCVio.EvalDist.MachineMeasure
@@ -205,6 +208,7 @@ public import VCVio.EvalDist.Monad.Seq.Uniform
 public import VCVio.EvalDist.Monad.Support
 public import VCVio.EvalDist.Monad.UniformTable
 public import VCVio.EvalDist.PFunctorKernel
+public import VCVio.EvalDist.PFunctorKernel.Stateless
 public import VCVio.EvalDist.PFunctorKernelTransport
 public import VCVio.EvalDist.PFunctorMeasure.Core
 public import VCVio.EvalDist.PFunctorPath
@@ -216,7 +220,9 @@ public import VCVio.EvalDist.ProbabilityNotation.Elab
 public import VCVio.EvalDist.Prod
 public import VCVio.EvalDist.ResumptionApproximation
 public import VCVio.EvalDist.ResumptionCost
+public import VCVio.EvalDist.ResumptionKernel
 public import VCVio.EvalDist.ResumptionMeasure
+public import VCVio.EvalDist.ResumptionMeasure.Domain
 public import VCVio.EvalDist.StoppedObservation
 public import VCVio.EvalDist.Trajectory
 public import VCVio.EvalDist.WiringKernel

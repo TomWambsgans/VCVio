@@ -94,6 +94,22 @@ theorem concrete_uniform :
     Measure.map_map measurable_fst hm]
   exact bin_uniform
 
+/-- The whole ternary sampler as one machine, including persistent service state. -/
+@[expose] def compiled := machineHandler.compile (fun _ : Unit => client)
+
+/-- The actual composed machine has the exact uniform ternary returned law. -/
+theorem compiled_uniform :
+    (𝒟[ITree.ofResumptionWithTau (compiled.denote ((), Prefix.empty))]).map Prod.fst =
+      uniformOn (Set.univ : Set (Fin 3)) := by
+  rw [compiled, machineHandler.evalDist_compile answerKernel machineHandler_realizes]
+  exact concrete_uniform
+
+/-- Execute the ternary sampler through an injected source of independent fair bits. -/
+def sampleIO (drawBit : IO Bool) : IO (Fin 3) := do
+  let result ← compiled.runIO (ITree.withSilentSteps (fun _ => drawBit))
+    (compiled.init ((), Prefix.empty))
+  return result.1
+
 /-- The client uses at most two threshold queries on every branch. -/
 theorem client_query_bound : client.IsTotalRollBound 2 := by
   rw [client, FreeM.isTotalRollBound_liftBind_iff]
@@ -113,5 +129,13 @@ theorem capped_error_le (fuel : ℕ) :
   exact h.trans (KernelHandler.expectedCharge_le_of_totalRollBound
     (cappedAnswer (fun _ _ => fuel)) (fun _ _ => (2 : ℝ≥0∞)⁻¹ ^ fuel)
     ((2 : ℝ≥0∞)⁻¹ ^ fuel) (fun _ _ => le_rfl) client 2 client_query_bound Prefix.empty)
+
+/-- The executable optional sampler inherits the precision bound, including timeout mass. -/
+theorem capped_program_error_le (fuel : ℕ) :
+    (uniformOn (Set.univ : Set (Fin 3))).etvDist
+      (𝒟[cappedClient (fun _ _ => fuel) client Prefix.empty].map Prod.fst) ≤
+        2 * (2 : ℝ≥0∞)⁻¹ ^ fuel := by
+  rw [evalDist_cappedClient]
+  exact capped_error_le fuel
 
 end UniformTernary

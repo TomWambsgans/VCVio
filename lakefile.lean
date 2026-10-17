@@ -71,9 +71,12 @@ declaration order, so this keeps the direct Mathlib requirement authoritative
 over PolyFun's inherited pin and makes `lake update --keep-toolchain`
 idempotent.
 -/
-require PolyFun from git
-  "https://github.com/Verified-zkEVM/PolyFun" @
-  "v4.35.0-patch1"
+meta if (get_config? polyfunPath).isSome then
+  require PolyFun from (get_config? polyfunPath).getD ".lake/packages/PolyFun"
+else
+  require PolyFun from git
+    "https://github.com/Verified-zkEVM/PolyFun" @
+    "be5095ef56e623df2bdef93f471600cf5319f088"
 
 require "leanprover-community" / "mathlib" @ git "v4.35.0"
 

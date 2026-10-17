@@ -71,6 +71,7 @@ public import ToMathlib.MeasureTheory.Measure.GiryMonad
 public import ToMathlib.MeasureTheory.Measure.IndependentDraws
 public import ToMathlib.MeasureTheory.Measure.Monotone
 public import ToMathlib.MeasureTheory.Measure.Observation
+public import ToMathlib.MeasureTheory.Measure.OmegaCompletePartialOrder
 public import ToMathlib.MeasureTheory.Measure.Option
 public import ToMathlib.MeasureTheory.Measure.Prop
 public import ToMathlib.MeasureTheory.Measure.Subprobability
@@ -87,6 +88,7 @@ public import ToMathlib.Probability.FairBit
 public import ToMathlib.Probability.InfiniteTable
 public import ToMathlib.Probability.InfiniteTable.Resampling
 public import ToMathlib.Probability.Kernel.Bounds
+public import ToMathlib.Probability.Kernel.OmegaCompletePartialOrder
 public import ToMathlib.Probability.Kernel.Quadratic
 public import ToMathlib.Probability.Kernel.RetainLeft
 public import ToMathlib.Probability.Kernel.Subprobability

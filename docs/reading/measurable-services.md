@@ -1,6 +1,6 @@
 # Measurable services, observations, and executable randomness
 
-Exploratory design and literature survey, 16 October 2026.
+Exploratory design and literature survey, updated 17 October 2026.
 
 ## Why a non-maximal sigma algebra is useful
 
@@ -59,6 +59,80 @@ The implementation intentionally leaves `OracleComp`'s discrete answer interface
 Measurable internal states enter through kernels and `PFunctor` interpretations. Replacing
 all continuations by unbundled functions on arbitrary measurable answers would create a
 measurability obligation that the current free syntax does not enforce.
+
+### Polynomial syntax, stateful machines, and continuous interpretations
+
+The companion [PolyFun PR #308](https://github.com/Verified-zkEVM/PolyFun/pull/308)
+provides the generic syntax/execution layer. VCVio pins its immutable commit
+`be5095ef56e623df2bdef93f471600cf5319f088`; normal builds do not require a sibling
+checkout. The optional `-KpolyfunPath=/path/to/PolyFun` Lake setting is for local
+companion development, and is not used in the committed manifest.
+
+`MachineHandler P Q S` assigns each dependent operation of `P` a returning
+`DynComputation` over `Q`. Its dispatcher retains the caller continuation,
+shared service state, and the active operation's private state. Entry and return
+are explicit unary administrative events. The existing chunk runners therefore
+pause within a call and resume without replaying primitive effects. The same
+dispatcher accepts arbitrary caller machines; finite clients use `compile`.
+`execute_ofFreeM` identifies finite service implementations with the existing
+stateful fold, and `execute_liftM` reuses stateful reindexing for interface translation.
+
+| Existing model | Role in this development | Checked bridge |
+| --- | --- | --- |
+| `FreeM` | Finite adaptive clients, capped optional implementations | Finite measure/kernel folds; machine compilation |
+| `DynComputation` | Retained execution phases and injected bit drivers | Dispatch behavior weakly bisimilar to stateful ITree interpretation |
+| `Resumption` | Visible-query, potentially infinite behavior | Least continuous measure/kernel interpretation; increasing finite truncations |
+| `ITree` | Explicit silent steps and stateful interpretation | Returned measures respect weak bisimulation; silent divergence returns zero |
+| `DynSystem`, `M`, `CofreeC` | A continuing adaptive threshold client | Canonical behavior, trajectory, and ITree equations |
+| `IPFunctor`, scoped/displayed syntax | Indexed protocols and binding already supplied by PolyFun | Existing fold/reindex/traversal coverage reused; no redundant indexed probability AST |
+
+The measure and kernel continuity proofs support substitution and fixed-point
+fusion. The free-to-resumption measure theorem now applies to *every* well-founded
+free client, including a client that first receives a natural number and then
+performs that many queries. Such a program need not admit any uniform finite
+query-depth bound. An ordinary-import regression proves that distinction.
+
+[`KernelHandler.Realizes`](../../VCVio/EvalDist/KernelHandler/Realizes.lean)
+is a local joint answer/state contract. It lifts to arbitrary adaptive finite
+clients and then to the actual composed machine, through the generic behavior
+bridge. The ternary sampler now has both an executable `sampleIO` and a theorem
+about the returned law of that exact composed machine. A separate capped handler
+produces ordinary `OptionT (FreeM ...)` syntax; the proved error bound applies to
+that program, including timeout mass. A noncomputable semantic `ProbResponder`
+bundle is not passed into the executable sampler: its computable machine family
+and its mathematical certificate are kept separately accessible.
+
+[`KernelAdmissible`](../../VCVio/EvalDist/PFunctorKernel.lean) certifies the
+joint measurability of answer-dependent continuation laws on ordinary `FreeM`
+syntax. Countable answers receive the certificate automatically. Continuous
+answers require an explicit proof. Certified bind/map laws and probability-mass
+preservation make the obligation compositional. The
+[stateless compatibility theorem](../../VCVio/EvalDist/PFunctorKernel/Stateless.lean)
+identifies the certified interpretation with the existing guarded `FreeM.denote`.
+The [continuous-answer example](../../Examples/MeasurableServices/ContinuousSyntax.lean)
+samples a Borel real, applies the measurable ternary partition, and proves equality
+with the fair-bit machine's output law. This is a prototype proof predicate over
+existing syntax, not an assertion that every Lean continuation is measurable.
+
+The [reactive threshold example](../../Examples/MeasurableServices/ReactiveThreshold.lean)
+continually queries the midpoint of its current dyadic interval. Each completed
+call consumes exactly one fair bit and retains the chosen half. Its finite history
+clients compile to machines and have the same output law as observation of one
+persistent ideal real. The completed-call Markov kernel equals the kernel obtained
+by reconstructing the real from the current cell, giving equality of their full
+product-space path laws. This path theorem concerns the posterior-reconstructed
+completed-call chain. It does not identify equal micro-fuel cutoffs, or construct a
+concurrent scheduler. The continuing client's empty return type separately gives
+zero returned-output mass, illustrating why a returned law cannot replace a path law.
+
+The stateful machine layer is stacked on PolyFun #290 and integrates #297
+(silent-step machines), #298 (continuous-domain interpretations), #299 (indexed
+traversal), #301 (execution runners), #302 (transformer bounds), and #307 (dependent
+answer elaboration fixes), together with the then-current main branch. The scoped
+consumers use the canonical indexed `FoldAlgebra`; the execution runner uses the
+canonical silent-step adapter. This avoids maintaining competing abstractions
+from the overlapping PRs. The stack remains exploratory and should be split/rebased
+as its dependencies land.
 
 ### Infinite random functions with finite lazy state
 
@@ -156,7 +230,7 @@ Returned-output measures are already available for resumptions; the new
 [machine bridge](../../VCVio/EvalDist/MachineMeasure.lean) identifies finite operational unrolling
 and chunk/resume laws with those measures. The
 [stopped-observation bridge](../../VCVio/EvalDist/StoppedObservation.lean) proves that any
-measurable path model with the supplied finite truncation laws and persistent returned values
+measurable path model with the supplied finite truncation laws and almost surely persistent returned values
 has the corresponding eventual-return events. Its waiting-prefix count integrates to the
 resumption tail-sum cost. The premises remain explicit: this does not construct a path model
 for arbitrary syntax.
@@ -194,6 +268,8 @@ inspiration. These are not claims of priority based on an exhaustive search.
 
 | Work | Connection and boundary |
 | --- | --- |
+| [Interaction Trees, POPL 2020](https://arxiv.org/abs/1906.00046) | Direct ancestry for coinductive effectful syntax, interpretation, and equivalence up to silent steps. The dispatch/interpretation theorem is an application of this established approach, not a new semantics of effects. |
+| [Niu–Spivak, Polynomial Functors](https://arxiv.org/abs/2312.00990) | Mathematical ancestry for polynomial interfaces, dynamical systems, and interaction. PolyFun's existing lens, coalgebra, and cofree constructions provide these models; VCVio supplies probability and concrete consumers. |
 | [CertiCrypt, POPL 2009](https://software.imdea.org/~szanella/Zanella.2009.POPL.pdf), [EasyCrypt](https://easycrypt.gitlab.io/easycrypt-web/docs/reference/) | Mechanized game-based cryptography, probabilistic relational reasoning, and game transformations are established. EasyCrypt's [PRF encryption tutorial](https://easycrypt.gitlab.io/easycrypt-web/docs/tutorials/encryption-from-prf/proof/) is a concrete comparison for lazy oracles. Non-maximal sigma algebras are not necessary for most finite games. |
 | [Foundational Cryptography Framework](https://arxiv.org/abs/1410.3735) | Coq development of probabilistic computations, oracle reasoning, and cryptographic reductions. A discrete foundation can support substantial verified cryptography and implementation reasoning. |
 | [CryptHOL](https://isa-afp.org/entries/CryptHOL.html) | Isabelle/HOL's probabilistic programs and generative probabilistic values are close ancestors of oracle-oriented semantics. Discrete subprobabilities already handle failure and unbounded probabilistic behavior; unbounded execution is not by itself a reason to abandon them. |
@@ -287,7 +363,7 @@ mass times its eventual uniform law. This is a cumulative timing/output factoriz
 the threshold example's correlated cutoff. A full joint return-time distribution would package
 these cumulative results more conveniently.
 
-Useful next consumers are a concrete precision-budgeted reactive protocol and a finite-field
+Useful next consumers are a precision-budgeted reactive protocol beyond dyadic refinement and a finite-field
 multi-share refresh/probing example with an explicit observation schedule. The threshold
 implementation should be used as an exact sampling example, not as a constant-time primitive.
 

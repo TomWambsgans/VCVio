@@ -37,6 +37,25 @@ instance (cap : ℚ → Prefix → ℕ) (q : ℚ) : IsSubprobabilityKernel (capp
   exact (Resumption.outputMeasure_le_returnedMeasure (P := coinSpec.toPFunctor)
     (cap q p) ((machine q).denote p) Set.univ).trans_eq (returnedMeasure_univ q p)
 
+/-- Executable finite syntax for an adaptive client with permanently capped operations. -/
+@[expose] def cappedClient {α : Type} (cap : ℚ → Prefix → ℕ)
+    (program : FreeM spec.toPFunctor α) (p : Prefix) :
+    OptionT (FreeM coinSpec.toPFunctor) (α × Prefix) :=
+  (machineHandler.capped cap).run program p
+
+/-- The capped machine implementation realizes the cutoff kernel without renormalization. -/
+theorem capped_realizes (cap : ℚ → Prefix → ℕ) :
+    KernelHandler.Realizes (cappedAnswer cap) (machineHandler.capped cap) := by
+  intro q p
+  rw [MachineHandler.evalDist_capped (P := spec.toPFunctor) machineHandler cap q p]
+  exact (outputLaw_eq_outputMeasure q p (cap q p)).symm
+
+/-- The finite optional client has exactly the capped stateful kernel law. -/
+theorem evalDist_cappedClient {α : Type} [MeasurableSpace α] (cap : ℚ → Prefix → ℕ)
+    (program : FreeM spec.toPFunctor α) (p : Prefix) :
+    𝒟[cappedClient cap program p] = FreeM.runKernel (cappedAnswer cap) program p :=
+  (capped_realizes cap).run program p
+
 /-- Precision caps incur at most their geometric tail as local reconstruction error. -/
 theorem capped_reconstructionContract (cap : ℚ → Prefix → ℕ) :
     KernelHandler.ApproxReconstructionContract (P := spec.toPFunctor)

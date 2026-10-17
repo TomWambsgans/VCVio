@@ -204,6 +204,16 @@ theorem adaptive_output_law {α : Type} [MeasurableSpace α]
   simpa only [Measure.dirac_bind reconstruct.measurable, reconstruct_apply,
     Measure.dirac_bind (FreeM.runKernel answerKernel program).measurable] using h
 
+/-- Executable rational-arithmetic machines, independent of the measure-valued service bundle. -/
+@[expose] def machineHandler :
+    MachineHandler spec.toPFunctor coinSpec.toPFunctor Prefix := machine
+
+/-- Each executable machine has its advertised joint answer-and-prefix law. -/
+theorem machineHandler_realizes :
+    KernelHandler.Realizes answerKernel machineHandler.toHandler := by
+  intro q p
+  exact (answerKernel_apply q p).symm
+
 /-- A service whose concrete state is the finite prefix of a single persistent random real. -/
 @[expose] noncomputable def responder : ProbResponder spec where
   State := Prefix
