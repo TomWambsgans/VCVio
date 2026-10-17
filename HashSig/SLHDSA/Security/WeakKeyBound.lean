@@ -477,6 +477,19 @@ theorem weakKeyMass_eq_zero_of_n_eq_32 (hn : vp.params.n = 32) {pkSeed : (shakeC
     weakKeyMass vp pkSeed = 0 :=
   prEvent_eq_zero_of_forall_not _ _ fun r hr => h ((isWeakKey_iff_of_n_eq_32 hn ⟨pkSeed, r⟩).1 hr)
 
+/-- At `n = 32`, a public seed has weak-key mass zero exactly when it is not an honest address key;
+otherwise its mass is one. -/
+theorem weakKeyMass_eq_zero_iff_of_n_eq_32 (hn : vp.params.n = 32)
+    (pkSeed : (shakeCore vp).PkSeed) :
+    weakKeyMass vp pkSeed = 0 ↔
+      ¬IsHonestKey vp (shakeCore vp) (adrsKeyOfList vp (Vector.toList (pkSeed : Bytes _))) := by
+  refine ⟨fun h0 hk => ?_, weakKeyMass_eq_zero_of_n_eq_32 hn⟩
+  have h1 : weakKeyMass vp pkSeed = 1 :=
+    (SampleableType.prEvent_uniformSample_eq_one_iff _).2 fun r =>
+      (isWeakKey_iff_of_n_eq_32 hn ⟨pkSeed, r⟩).2 hk
+  rw [h0] at h1
+  exact zero_ne_one h1
+
 /-- **No weak-key term off the weak seeds at `n = 32`.** At `n = 32`, in the run at a public seed
 that is not an honest address key, the public key is never weak. -/
 theorem prEvent_romSchemeRun_isWeakKey_eq_zero_of_n_eq_32 (hb : CanonicalAddressBounds vp.params)
