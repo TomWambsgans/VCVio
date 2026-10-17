@@ -90,6 +90,17 @@ noncomputable def unforgeableTranscriptExperiment
   let verified ← sigAlg.verify pk msg σ
   return ⟨pk, sk, log, msg, σ, verified⟩
 
+/-- The transcript experiment generates a key pair, runs the adversary on the public key with the
+signing oracle, verifies the forgery, and returns all of it. -/
+theorem unforgeableTranscriptExperiment_def
+    {sigAlg : SignatureAlg (OracleComp spec) M PK SK S} (adv : UnforgeableAdversary sigAlg) :
+    unforgeableTranscriptExperiment adv = do
+      let (pk, sk) ← sigAlg.keygen
+      let ((msg, σ), log) ← sigAlg.runWithSigningOracle pk sk (adv.main pk)
+      let verified ← sigAlg.verify pk msg σ
+      return ⟨pk, sk, log, msg, σ, verified⟩ := by
+  unfold unforgeableTranscriptExperiment; rfl
+
 /-- The transcript with its secret key replaced by its image under `g`. -/
 def UnforgeableTranscript.mapSk (g : SK' → SK) (z : UnforgeableTranscript M PK SK' S) :
     UnforgeableTranscript M PK SK S :=
