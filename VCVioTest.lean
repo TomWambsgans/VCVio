@@ -15,6 +15,7 @@ public import VCVioTest.CryptoFoundations.OracleClosure
 public import VCVioTest.CryptoFoundations.PRFTableMeasure
 public import VCVioTest.CryptoFoundations.SignatureAlg
 public import VCVioTest.CryptoFoundations.SignatureAlgBudget
+public import VCVioTest.CryptoFoundations.SignatureAlgRouted
 public import VCVioTest.CryptoFoundations.SymmEncAlgMeasure
 public import VCVioTest.CryptoFoundations.UniversalHash
 public import VCVioTest.EvalDist.BundledSemantics
