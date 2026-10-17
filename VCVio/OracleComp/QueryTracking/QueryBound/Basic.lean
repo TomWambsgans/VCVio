@@ -390,6 +390,19 @@ lemma IsQueryBoundP.of_imp {oa : OracleComp spec α} {p p' : ι → Prop}
       · refine (ih u (h.2 u)).mono ?_
         grind
 
+/-- Budgets add over a disjunction: a program making at most `n` `p`-queries and at most `m`
+`q`-queries makes at most `n + m` queries at which `p` or `q` holds. -/
+lemma isQueryBoundP_or_add {oa : OracleComp spec α} {p q : ι → Prop} [DecidablePred p]
+    [DecidablePred q] {n m : ℕ} (hp : IsQueryBoundP oa p n) (hq : IsQueryBoundP oa q m) :
+    IsQueryBoundP oa (fun t => p t ∨ q t) (n + m) := by
+  induction oa using OracleComp.inductionOn generalizing n m with
+  | pure _ => trivial
+  | query_bind t mx ih =>
+      rw [isQueryBoundP_query_bind_iff] at hp hq ⊢
+      refine ⟨?_, fun u => (ih u (hp.2 u) (hq.2 u)).mono ?_⟩
+      · grind
+      · by_cases h1 : p t <;> by_cases h2 : q t <;> grind
+
 @[simp]
 lemma isQueryBoundP_map_iff (oa : OracleComp spec α) (f : α → β) (n : ℕ) :
     IsQueryBoundP (f <$> oa) p n ↔ IsQueryBoundP oa p n :=
