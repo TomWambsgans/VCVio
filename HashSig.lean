@@ -83,6 +83,7 @@ public import HashSig.SLHDSA.Security.RomDescentSecret
 public import HashSig.SLHDSA.Security.RomSchemeBridge
 public import HashSig.SLHDSA.Security.RomSchemeRun
 public import HashSig.SLHDSA.Security.RomSchemeUnion
+public import HashSig.SLHDSA.Security.RunProvenance
 public import HashSig.SLHDSA.Security.SchemeGames
 public import HashSig.SLHDSA.Security.SchemeWitnesses
 public import HashSig.SLHDSA.Security.SecretTraces
