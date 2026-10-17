@@ -133,6 +133,46 @@ theorem toList_prefixBytes_of_le {n m : ℕ} (h : n ≤ m) (v : Bytes m) :
     (prefixBytes n v).toList = v.toList.take n :=
   toList_bytesOfList_of_le (by simpa using h)
 
+/-- The first `k` blocks of `n` bytes of a byte string, each padded with zeros when the string runs
+short. -/
+@[expose] def bytesBlocks (n : ℕ) : ℕ → List Byte → List (Bytes n)
+  | 0, _ => []
+  | k + 1, l => bytesOfList n l :: bytesBlocks n k (l.drop n)
+
+/-- A string of `n k` bytes is the concatenation of its `k` blocks of `n` bytes. -/
+theorem flatten_map_toList_bytesBlocks {n k : ℕ} {l : List Byte} (h : l.length = n * k) :
+    ((bytesBlocks n k l).map Vector.toList).flatten = l := by
+  induction k generalizing l with
+  | zero => simp_all [bytesBlocks]
+  | succ k ih =>
+      rw [bytesBlocks, List.map_cons, List.flatten_cons,
+        toList_bytesOfList_of_le (by rw [h, Nat.mul_succ]; omega),
+        ih (by rw [List.length_drop, h, Nat.mul_succ]; omega), List.take_append_drop]
+
+/-- `Bytes m ≃ Bytes n × Bytes (m - n)` for `n ≤ m`: the first `n` bytes and the rest. -/
+@[expose] def splitBytes {n m : ℕ} (h : n ≤ m) : Bytes m ≃ Bytes n × Bytes (m - n) where
+  toFun w := (prefixBytes n w, bytesOfList (m - n) (w.toList.drop n))
+  invFun p := bytesOfList m (p.1.toList ++ p.2.toList)
+  left_inv w := by
+    apply Vector.toList_inj.mp
+    change (bytesOfList m ((bytesOfList n w.toList).toList ++
+      (bytesOfList (m - n) (w.toList.drop n)).toList)).toList = w.toList
+    have h₁ : n ≤ w.toList.length := by simpa using h
+    have h₂ : m - n ≤ (w.toList.drop n).length := by simp
+    rw [toList_bytesOfList_of_le h₁, toList_bytesOfList_of_le h₂, List.take_of_length_le
+      (l := List.drop n w.toList) (by simp), List.take_append_drop, toList_bytesOfList_of_le
+      (by simp), List.take_of_length_le (by simp)]
+  right_inv p := by
+    obtain ⟨a, b⟩ := p
+    have hw : (bytesOfList m (a.toList ++ b.toList)).toList = a.toList ++ b.toList := by
+      rw [toList_bytesOfList_of_le (by simp; omega), List.take_of_length_le (by simp; omega)]
+    refine Prod.ext (Vector.toList_inj.mp ?_) (Vector.toList_inj.mp ?_)
+    · change (bytesOfList n (bytesOfList m (a.toList ++ b.toList)).toList).toList = a.toList
+      rw [hw, toList_bytesOfList_of_le (by simp), List.take_left' (by simp)]
+    · change (bytesOfList (m - n) ((bytesOfList m (a.toList ++ b.toList)).toList.drop n)).toList =
+        b.toList
+      rw [hw, List.drop_left' (by simp), bytesOfList_toList]
+
 /-! ## The encodings -/
 
 variable (vp)

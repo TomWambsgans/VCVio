@@ -14,11 +14,13 @@ public import HashSig.SLHDSA.Security.ByteConformance
 
 `HashSig.SLHDSA.Security.ByteRouter` reads byte strings as queries of the three SLH-DSA oracles
 and routes an adversary against the single-oracle scheme `shakeRomScheme` into one against
-`romScheme`. This file checks it at the FIPS 205 SHAKE parameter sets.
+`romScheme`. This file checks it at the parameters of FIPS 205.
 
-* **The encoding and the bound at every FIPS 205 parameter set**, with the side conditions
-  `n ≤ 32` and `n ≤ m` discharged: the encoding, its agreement with `encImpl`, the routed
-  adversary's budget, and the per-seed bound `shakeAdvantage_pure_le`.
+* **The encoding and the bound at all 12 FIPS 205 parameter sets** (`FipsParameterSet`, whose
+  SHA-2 sets share their parameters with the SHAKE sets), with the side conditions `n ≤ 32` and
+  `n ≤ m` discharged: the encoding, its agreement with `encImpl`, the routed adversary's budget,
+  the per-seed bound `shakeAdvantage_pure_le`, and route-fixedness at the honest keys of every
+  node of the SLH-DSA graph.
 * **Each rule at SLH-DSA-SHAKE-128s** on concrete strings, with the address-key predicate
   everywhere true or everywhere false. Which rule fires is decided by evaluation; the query read
   then follows from the router's equations. An `F` string is read as the tweakable-hash query it
@@ -26,7 +28,8 @@ and routes an adversary against the single-oracle scheme `shakeRomScheme` into o
   `H_msg` string with `R ≠ PK.seed` is read as its `H_msg` query (rule 2), while one with
   `R = PK.seed` and no message is also a tweakable-hash string at `PK.seed` and fires rule 1 when
   its key is admitted; a string of `2n - 1` bytes is read as no query (rule 4).
-* **Route-fixedness** of honest queries from the lemmas.
+* **Route-fixedness** of honest queries from the lemmas, with the honest-key decidability
+  instance found without opening `Classical`.
 -/
 
 public section
@@ -40,9 +43,9 @@ open Concrete Security
 /-- SLH-DSA-SHAKE-128s. -/
 abbrev vp128s : ValidatedParams := FipsParameterSet.validatedParams .SLHDSA_SHAKE_128s
 
-/-! ## At every FIPS 205 parameter set -/
+/-! ## At all 12 FIPS 205 parameter sets -/
 
-/-- The encoding exists at every FIPS 205 parameter set and public seed. -/
+/-- The encoding exists at all 12 FIPS 205 parameter sets and every public seed. -/
 noncomputable example (set : FipsParameterSet) (pkSeed : (shakeCore set.validatedParams).PkSeed) :
     RandomOracleEncoding (hashSpec (shakeCore set.validatedParams)) (List Byte)
       (Bytes set.validatedParams.params.m) :=
@@ -64,7 +67,7 @@ example (set : FipsParameterSet)
     (routeAdv set.validatedParams set.n_le_32 set.n_le_m adv).RomQueryBound qh qs :=
   romQueryBound_routeAdv set.n_le_32 set.n_le_m hadv
 
-/-- The per-seed bound at every FIPS 205 parameter set, both signing modes. -/
+/-- The per-seed bound at all 12 FIPS 205 parameter sets, both signing modes. -/
 example (set : FipsParameterSet)
     (optRand : PublicKeyCore (shakeCore set.validatedParams) →
       ProbComp (shakeCore set.validatedParams).Y)
@@ -75,6 +78,14 @@ example (set : FipsParameterSet)
           (pure pkSeed) (routeAdv _ set.n_le_32 set.n_le_m adv)}[
         z.1.wins = true ∨ (shakeEncoding _ set.n_le_32 set.n_le_m pkSeed).Clash z.2] :=
   shakeAdvantage_pure_le set.n_le_32 set.n_le_m pkSeed adv
+
+/-- At the honest keys, the tweakable-hash query at the key of every node of the SLH-DSA graph is
+route-fixed in the encoding. -/
+example (set : FipsParameterSet) (pkSeed : (shakeCore set.validatedParams).PkSeed)
+    (κ : NodeKey (shakeCore set.validatedParams)) (xs : List (shakeCore set.validatedParams).Y) :
+    (shakeEncoding _ set.n_le_32 set.n_le_m pkSeed).route
+        (encode _ (.inl (.thash pkSeed κ.1 xs))) = some (.inl (.thash pkSeed κ.1 xs)) :=
+  shakeEncoding_route_encode_thash set.n_le_32 set.n_le_m pkSeed (isHonestKey_nodeKey κ) xs
 
 /-! ## Each rule at SLH-DSA-SHAKE-128s -/
 
@@ -120,7 +131,7 @@ example : shakeRoute vp128s admitAll seed fString = some (.inl (.thash seed key 
 example : shakeRoute vp128s admitNone seed fString =
     some (.inr ⟨skPrfOfList vp128s fString, nodeOfList vp128s (fString.drop 16),
       fString.drop 32⟩) :=
-  shakeRoute_of_le (by decide) (by decide) (by decide)
+  shakeRoute_of_two_mul_le_length (by decide) (by decide) (by decide)
 
 /-- An `H_msg` string `R ‖ PK.seed ‖ PK.root` with `R ≠ PK.seed` and no message has the length of
 a tweakable-hash string with no input block, but does not begin with the public seed: rule 1 does
@@ -162,6 +173,9 @@ example (r pkRoot : (shakeCore vp128s).Y) (msg : List Byte) :
     shakeRoute vp128s admitNone seed (encode vp128s (.inl (.hmsg r seed pkRoot msg))) =
       some (.inl (.hmsg r seed pkRoot msg)) :=
   shakeRoute_encode_hmsg _ _ _ fun h => h.2.2.2
+
+/-- The honest keys are decidable without opening `Classical`. -/
+noncomputable example : DecidablePred (IsHonestKey vp128s (shakeCore vp128s)) := inferInstance
 
 /-- The keys of the nodes of the SLH-DSA graph are honest at the SHAKE bundle. -/
 example (κ : NodeKey (shakeCore vp128s)) : IsHonestKey vp128s (shakeCore vp128s) κ.1 :=

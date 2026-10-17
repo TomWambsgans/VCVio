@@ -178,6 +178,16 @@ theorem romScheme_keygen (e : core.SkSeed ≃ core.Y)
       return ((⟨pkSeed, pkRoot⟩ : PublicKeyCore core), (⟨skSeed, skPrf, pkSeed, pkRoot⟩ :
         SecretKeyCore core)) : OracleComp (unifSpec + hashSpec core) _) := rfl
 
+/-- Every key pair of `romScheme` at a fixed public seed carries that seed. -/
+theorem pkSeed_eq_of_mem_support_romScheme_keygen (e : core.SkSeed ≃ core.Y)
+    {optRand : PublicKeyCore core → ProbComp core.Y} {pkSeed : core.PkSeed}
+    {z : PublicKeyCore core × SecretKeyCore core}
+    (hz : z ∈ support (romScheme core e optRand (pure pkSeed)).keygen) : z.1.pkSeed = pkSeed := by
+  rw [romScheme_keygen] at hz
+  simp only [support_bind, support_pure, Set.mem_iUnion, Set.mem_singleton_iff] at hz
+  obtain ⟨s, hs, _, _, _, _, _, _, rfl⟩ := hz
+  simpa using hs
+
 /-- Signing of `romScheme` draws `opt_rand`, queries the `PRF_msg` oracle for the randomizer, and
 signs with every secret value drawn from `oracleSecret` at the signer's seeds. -/
 theorem romScheme_sign (e : core.SkSeed ≃ core.Y)

@@ -51,9 +51,13 @@ the rule 2 string of a `PRF_msg` query `opt_rand = PK.seed` with a message of at
 The router is instantiated at the honest address keys `IsHonestKey vp core`: the keys of the
 addresses of the union ledger `constructionAddresses vp` and of their secret children
 (`IsHonestAdrs`), so that every tweakable-hash query of honest SLH-DSA at the public seed is
-route-fixed. The keys of the nodes of the SLH-DSA graph are honest (`isHonestKey_nodeKey`), and so
-are those of their secret children (`isHonestKey_of_inl_mem_childAdrs`). The predicate is decided
-classically and never enumerated.
+route-fixed (`shakeEncoding_route_encode_thash`). That honest SLH-DSA queries the tweakable hash
+only at honest keys is argued here from the ledger, not proved: this module proves route-fixedness
+of a query from its key, and the membership of the keys of honest queries is a statement about the
+programs, proved separately. The keys of the nodes of the SLH-DSA graph are honest
+(`isHonestKey_nodeKey`), and so are those of their secret children
+(`isHonestKey_of_inl_mem_childAdrs`). The predicate is decided classically, by a pinned instance,
+and never enumerated.
 
 ## The encoding and the routed adversary
 
@@ -75,7 +79,11 @@ keeps the budget of `adv` (`romQueryBound_routeAdv`).
   `shakeRomScheme` is at most the probability that the run of `romScheme` against the routed
   adversary wins or ends with two distinct cached typed queries of the same encoding.
 * `romQueryBound_routeAdv`: the routed adversary keeps the budget.
-* `encode_eq_of_shakeRoute_eq_some`, `isSome_shakeRoute_encode`, and the route-fixedness lemmas.
+* `encode_eq_of_shakeRoute_eq_some`, `isSome_shakeRoute_encode`, and the route-fixedness lemmas,
+  for the router at any key predicate (`shakeRoute_encode_thash`, `shakeRoute_encode_hmsg`,
+  `shakeRoute_encode_prfMsg`) and for the encoding at the honest keys
+  (`shakeEncoding_route_encode_thash`, `shakeEncoding_route_encode_hmsg`,
+  `shakeEncoding_route_encode_prfMsg`).
 
 ## References
 
@@ -89,24 +97,6 @@ open OracleComp OracleSpec SignatureAlg
 namespace SLHDSA.Security
 
 open Concrete
-
-/-! ## Blocks -/
-
-/-- The first `k` blocks of `n` bytes of a byte string, each padded with zeros when the string runs
-short. -/
-@[expose] def bytesBlocks (n : ℕ) : ℕ → List Byte → List (Bytes n)
-  | 0, _ => []
-  | k + 1, l => bytesOfList n l :: bytesBlocks n k (l.drop n)
-
-/-- A string of `n k` bytes is the concatenation of its `k` blocks of `n` bytes. -/
-theorem flatten_map_toList_bytesBlocks {n k : ℕ} {l : List Byte} (h : l.length = n * k) :
-    ((bytesBlocks n k l).map Vector.toList).flatten = l := by
-  induction k generalizing l with
-  | zero => simp_all [bytesBlocks]
-  | succ k ih =>
-      rw [bytesBlocks, List.map_cons, List.flatten_cons,
-        toList_bytesOfList_of_le (by rw [h, Nat.mul_succ]; omega),
-        ih (by rw [List.length_drop, h, Nat.mul_succ]; omega), List.take_append_drop]
 
 /-! ## Reading fields at the carriers -/
 
@@ -213,7 +203,7 @@ theorem shakeRoute_of_isHmsgString {x : List Byte} (h₁ : ¬IsThashString vp A 
   simp only [shakeRoute, h₁, h₂, ↓reduceIte]
 
 /-- Rule 3 of the router. -/
-theorem shakeRoute_of_le {x : List Byte} (h₁ : ¬IsThashString vp A pkSeed x)
+theorem shakeRoute_of_two_mul_le_length {x : List Byte} (h₁ : ¬IsThashString vp A pkSeed x)
     (h₂ : ¬IsHmsgString vp pkSeed x) (h₃ : 2 * vp.params.n ≤ x.length) :
     shakeRoute vp A pkSeed x = some (.inr ⟨skPrfOfList vp x, nodeOfList vp (x.drop vp.params.n),
       x.drop (2 * vp.params.n)⟩) := by
@@ -238,7 +228,7 @@ theorem encode_eq_of_shakeRoute_eq_some {x : List Byte} {t : (hashSpec (shakeCor
       ← List.drop_drop, List.append_assoc, List.take_append_drop, List.take_append_drop]
 
 /-- The router reads every string of at least `2n` bytes as a query. -/
-theorem isSome_shakeRoute_of_le {x : List Byte} (h : 2 * vp.params.n ≤ x.length) :
+theorem isSome_shakeRoute_of_two_mul_le_length {x : List Byte} (h : 2 * vp.params.n ≤ x.length) :
     (shakeRoute vp A pkSeed x).isSome := by
   unfold shakeRoute
   split_ifs <;> simp
@@ -246,7 +236,7 @@ theorem isSome_shakeRoute_of_le {x : List Byte} (h : 2 * vp.params.n ≤ x.lengt
 /-- For `n ≤ 32`, the router reads every encoding as a query. -/
 theorem isSome_shakeRoute_encode (hn : vp.params.n ≤ 32) (t : (hashSpec (shakeCore vp)).Domain) :
     (shakeRoute vp A pkSeed (encode vp t)).isSome :=
-  isSome_shakeRoute_of_le (two_mul_le_length_encode vp hn t)
+  isSome_shakeRoute_of_two_mul_le_length (two_mul_le_length_encode vp hn t)
 
 /-! ## Route-fixed queries -/
 
@@ -297,7 +287,7 @@ theorem shakeRoute_encode_prfMsg (q : PrfMsgQuery (shakeCore vp).SkPrf (shakeCor
     (h₁ : ¬IsThashString vp A pkSeed (encode vp (.inr q)))
     (h₂ : ¬IsHmsgString vp pkSeed (encode vp (.inr q))) :
     shakeRoute vp A pkSeed (encode vp (.inr q)) = some (.inr q) := by
-  have h := shakeRoute_of_le h₁ h₂ (by rw [length_encode_prfMsg]; omega)
+  have h := shakeRoute_of_two_mul_le_length h₁ h₂ (by rw [length_encode_prfMsg]; omega)
   rw [h, (encode_prfMsg_inj (vp := vp)).1 (encode_eq_of_shakeRoute_eq_some h)]
 
 /-- The address key read from an `H_msg` string `R ‖ PK.seed ‖ PK.root ‖ M` is the first `32`
@@ -308,15 +298,20 @@ theorem adrsKeyOfList_drop_encode_hmsg (s : (shakeCore vp).PkSeed) :
         Vector.toList (pkRoot : Bytes vp.params.n) ++ msg) := by
   rw [drop_encode_hmsg]
 
-omit [DecidablePred A] in
+end Fixed
+
+end Route
+
+/-! ## Which rule fires on an encoding -/
+
 /-- An `H_msg` string that is also a tweakable-hash string at the public seed has `R = PK.seed`.
 -/
-theorem toList_eq_of_isThashString_encode_hmsg (s : (shakeCore vp).PkSeed)
+theorem toList_eq_of_isThashString_encode_hmsg {r pkRoot : (shakeCore vp).Y} {msg : List Byte}
+    (s : (shakeCore vp).PkSeed)
     (h : IsThashString vp A pkSeed (encode vp (.inl (.hmsg r s pkRoot msg)))) :
     Vector.toList (r : Bytes vp.params.n) = Vector.toList (pkSeed : Bytes vp.params.n) :=
   (take_encode_hmsg vp r s pkRoot msg).symm.trans h.2.2.1
 
-omit [DecidablePred A] in
 /-- A `PRF_msg` string that is also a tweakable-hash string at the public seed has
 `SK.prf = PK.seed`. -/
 theorem toList_eq_of_isThashString_encode_prfMsg
@@ -325,7 +320,6 @@ theorem toList_eq_of_isThashString_encode_prfMsg
     Vector.toList (q.skPrf : Bytes vp.params.n) = Vector.toList (pkSeed : Bytes vp.params.n) :=
   (take_encode_prfMsg vp q).symm.trans h.2.2.1
 
-omit [DecidablePred A] in
 /-- A `PRF_msg` string that is also an `H_msg` string at the public seed has
 `opt_rand = PK.seed` and a message of at least `n` bytes. -/
 theorem toList_eq_of_isHmsgString_encode_prfMsg
@@ -337,17 +331,13 @@ theorem toList_eq_of_isHmsgString_encode_prfMsg
   rw [length_encode_prfMsg] at hl
   exact ⟨(take_drop_encode_prfMsg vp q).symm.trans ht, by omega⟩
 
-end Fixed
-
-end Route
-
 /-! ## Honest addresses -/
 
 section Honest
 
 variable (vp) (core : CorePrimitives vp.params)
 
-/-- An address at which honest SLH-DSA evaluates the tweakable hash: an address of the union
+/-- An address at which honest SLH-DSA may evaluate the tweakable hash: an address of the union
 ledger `constructionAddresses vp`, or a secret-key address that is the secret child of one
 (`childAdrs`), where `PRF` derives a secret value. -/
 @[expose] def IsHonestAdrs (a : Adrs) : Prop :=
@@ -356,6 +346,9 @@ ledger `constructionAddresses vp`, or a secret-key address that is the secret ch
 /-- The oracle key of an honest address (`IsHonestAdrs`). -/
 @[expose] def IsHonestKey (k : core.AdrsKey) : Prop :=
   ∃ a, IsHonestAdrs vp a ∧ core.adrsToKey a = k
+
+/-- Honest keys are decided classically; the predicate is never enumerated. -/
+noncomputable instance : DecidablePred (IsHonestKey vp core) := Classical.decPred _
 
 variable {vp core}
 
@@ -389,30 +382,6 @@ instance : ∀ t, SampleableType (ShakeTail vp t)
 
 variable {vp}
 
-/-- `Bytes m ≃ Bytes n × Bytes (m - n)` for `n ≤ m`: the first `n` bytes and the rest. -/
-@[expose] def splitBytes {n m : ℕ} (h : n ≤ m) : Bytes m ≃ Bytes n × Bytes (m - n) where
-  toFun w := (prefixBytes n w, bytesOfList (m - n) (w.toList.drop n))
-  invFun p := bytesOfList m (p.1.toList ++ p.2.toList)
-  left_inv w := by
-    apply Vector.toList_inj.mp
-    change (bytesOfList m ((bytesOfList n w.toList).toList ++
-      (bytesOfList (m - n) (w.toList.drop n)).toList)).toList = w.toList
-    have h₁ : n ≤ w.toList.length := by simpa using h
-    have h₂ : m - n ≤ (w.toList.drop n).length := by simp
-    rw [toList_bytesOfList_of_le h₁, toList_bytesOfList_of_le h₂, List.take_of_length_le
-      (l := List.drop n w.toList) (by simp), List.take_append_drop, toList_bytesOfList_of_le
-      (by simp), List.take_of_length_le (by simp)]
-  right_inv p := by
-    obtain ⟨a, b⟩ := p
-    have hw : (bytesOfList m (a.toList ++ b.toList)).toList = a.toList ++ b.toList := by
-      rw [toList_bytesOfList_of_le (by simp; omega), List.take_of_length_le (by simp; omega)]
-    refine Prod.ext (Vector.toList_inj.mp ?_) (Vector.toList_inj.mp ?_)
-    · change (bytesOfList n (bytesOfList m (a.toList ++ b.toList)).toList).toList = a.toList
-      rw [hw, toList_bytesOfList_of_le (by simp), List.take_left' (by simp)]
-    · change (bytesOfList (m - n) ((bytesOfList m (a.toList ++ b.toList)).toList.drop n)).toList =
-        b.toList
-      rw [hw, List.drop_left' (by simp), bytesOfList_toList]
-
 /-- An `m`-byte answer split, at each typed query, into the typed answer and the tail. -/
 @[expose] def shakeSplit (hnm : vp.params.n ≤ vp.params.m) :
     (t : (hashSpec (shakeCore vp)).Domain) →
@@ -423,7 +392,6 @@ variable {vp}
 
 variable (vp)
 
-open Classical in
 /-- **The SHAKE256 encoding of the three SLH-DSA oracles at the public seed `pkSeed`.** A typed
 query is encoded at its FIPS 205 §11.1 layout (`encode`); its answer is the first `n` bytes of the
 `m`-byte answer of the single oracle at a tweakable-hash or `PRF_msg` query and the whole answer at
@@ -445,11 +413,36 @@ variable (hn : vp.params.n ≤ 32) (hnm : vp.params.n ≤ vp.params.m)
 /-- The encoding of a typed query is its FIPS 205 §11.1 layout. -/
 theorem shakeEncoding_encode : (shakeEncoding vp hn hnm pkSeed).encode = encode vp := rfl
 
-open Classical in
 /-- The router of the encoding is `shakeRoute` at the honest address keys. -/
 theorem shakeEncoding_route :
     (shakeEncoding vp hn hnm pkSeed).route =
       shakeRoute vp (IsHonestKey vp (shakeCore vp)) pkSeed := rfl
+
+/-- **Honest tweakable-hash queries are route-fixed in the encoding.** A tweakable-hash query at
+the public seed whose address key is honest is read back from its encoding. -/
+theorem shakeEncoding_route_encode_thash {k : (shakeCore vp).AdrsKey}
+    (hk : IsHonestKey vp (shakeCore vp) k) (xs : List (shakeCore vp).Y) :
+    (shakeEncoding vp hn hnm pkSeed).route (encode vp (.inl (.thash pkSeed k xs))) =
+      some (.inl (.thash pkSeed k xs)) :=
+  shakeRoute_encode_thash k xs hk
+
+/-- An `H_msg` query at the public seed is read back from its encoding in the encoding unless its
+encoding is a tweakable-hash string at the public seed with an honest address key. -/
+theorem shakeEncoding_route_encode_hmsg (r pkRoot : (shakeCore vp).Y) (msg : List Byte)
+    (h : ¬IsThashString vp (IsHonestKey vp (shakeCore vp)) pkSeed
+      (encode vp (.inl (.hmsg r pkSeed pkRoot msg)))) :
+    (shakeEncoding vp hn hnm pkSeed).route (encode vp (.inl (.hmsg r pkSeed pkRoot msg))) =
+      some (.inl (.hmsg r pkSeed pkRoot msg)) :=
+  shakeRoute_encode_hmsg r pkRoot msg h
+
+/-- A `PRF_msg` query is read back from its encoding in the encoding unless its encoding is a
+tweakable-hash string at the public seed with an honest address key, or an `H_msg` string at the
+public seed. -/
+theorem shakeEncoding_route_encode_prfMsg (q : PrfMsgQuery (shakeCore vp).SkPrf (shakeCore vp).Y)
+    (h₁ : ¬IsThashString vp (IsHonestKey vp (shakeCore vp)) pkSeed (encode vp (.inr q)))
+    (h₂ : ¬IsHmsgString vp pkSeed (encode vp (.inr q))) :
+    (shakeEncoding vp hn hnm pkSeed).route (encode vp (.inr q)) = some (.inr q) :=
+  shakeRoute_encode_prfMsg q h₁ h₂
 
 /-- The typed answer at a tweakable-hash query is the first `n` bytes. -/
 theorem shakeEncoding_trunc_thash (s : (shakeCore vp).PkSeed) (k : (shakeCore vp).AdrsKey)
@@ -476,8 +469,7 @@ theorem encodeImpl_shakeEncoding_compose_liftTypedImpl :
   rcases u with k | ((⟨_, _, _⟩ | ⟨_, _, _, _⟩) | _)
   · rfl
   · rfl
-  · simp [liftTypedImpl, RandomOracleEncoding.encodeImpl, encImpl, encHashImpl,
-      shakeEncoding_trunc_hmsg, shakeEncoding_encode]
+  · simp only [encImpl]
     rfl
   · rfl
 
@@ -520,18 +512,6 @@ section Bound
 
 variable {optRand : PublicKeyCore (shakeCore vp) → ProbComp (shakeCore vp).Y}
 
-/-- Every key pair of `romScheme` at a fixed public seed carries that seed. -/
-theorem pkSeed_eq_of_mem_support_romScheme_keygen {core : CorePrimitives vp.params}
-    [SampleableType core.SkSeed] [SampleableType core.SkPrf] [DecidableEq core.Y]
-    (e : core.SkSeed ≃ core.Y)
-    {optRand : PublicKeyCore core → ProbComp core.Y} {pkSeed : core.PkSeed}
-    {z : PublicKeyCore core × SecretKeyCore core}
-    (hz : z ∈ support (romScheme core e optRand (pure pkSeed)).keygen) : z.1.pkSeed = pkSeed := by
-  rw [romScheme_keygen] at hz
-  simp only [support_bind, support_pure, Set.mem_iUnion, Set.mem_singleton_iff] at hz
-  obtain ⟨s, hs, _, _, _, _, _, _, rfl⟩ := hz
-  simpa using hs
-
 /-- The advantage against `shakeRomScheme` is the probability that the transcript of its
 experiment, run in the random oracle model of the single oracle from the empty cache, wins. -/
 theorem shakeAdvantage_eq {pkSeedDist : ProbComp (shakeCore vp).PkSeed}
@@ -557,7 +537,7 @@ theorem shakeAdvantage_pure_le (hn : vp.params.n ≤ 32) (hnm : vp.params.n ≤ 
         z.1.wins = true ∨ (shakeEncoding vp hn hnm pkSeed).Clash z.2] := by
   have hE : ∀ z ∈ support (romScheme (shakeCore vp) (Equiv.refl _) optRand (pure pkSeed)).keygen,
       shakeEncoding vp hn hnm z.1.pkSeed = shakeEncoding vp hn hnm pkSeed := fun _ hz =>
-    congrArg (shakeEncoding vp hn hnm) (pkSeed_eq_of_mem_support_romScheme_keygen _ hz)
+    congrArg (shakeEncoding vp hn hnm) (pkSeed_eq_of_mem_support_romScheme_keygen _ _ hz)
   have h := fun a : UnforgeableAdversary ((romScheme (shakeCore vp) (Equiv.refl _) optRand
       (pure pkSeed)).map (simulateQ' ((shakeEncoding vp hn hnm pkSeed).encodeImpl ∘ₛ
         liftTypedImpl))) =>
