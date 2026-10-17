@@ -475,6 +475,7 @@ public import VCVio.Quantum.VC.Proof.OfflineOldFactor
 public import VCVio.Quantum.VC.Proof.OfflineOldLeaves
 public import VCVio.Quantum.VC.Proof.OfflineOldPartial
 public import VCVio.Quantum.VC.Proof.OfflineOldResponse
+public import VCVio.Quantum.VC.Proof.OfflineOldTransport
 public import VCVio.Quantum.VC.Proof.Repeatability
 public import VCVio.Quantum.VC.Tuples
 public import VCVio.Quantum.VC.Unitaries
