@@ -10,71 +10,52 @@ public import VCVio.Quantum.Comp.QueryBound
 /-!
 # Quantum combs
 
-A `q`-query comb on a register `M` is an initial substate, `q + 1` lossless steps and a final
-lossless instrument. Run against a query step `Q`, it interleaves the steps with `q` copies of `Q`
-and then applies the final instrument: `step 0, Q, step 1, Q, …, Q, step q, final`. Its steps
-cannot branch on classical outcomes, the number of queries is fixed by the type, and all queries
-go to one port.
+A `q`-query comb on a memory register `M` is the textbook form of a quantum query algorithm: an
+initial substate, `q + 1` lossless steps on `M`, and a final lossless instrument. Run against a
+query step `Q`, it interleaves the steps with `q` copies of `Q` and then applies the final
+instrument:
 
-## Combs are a normal form, not the model
+`step 0, Q, step 1, Q, …, Q, step q, final`.
 
-The model of quantum oracle algorithms is the quantum program (`Quantum.QuantumComp`) run against
-a runtime (`Quantum.QuantumRuntime.run`). Combs are a restricted form of program:
+With unitary steps (`Quantum.SubInstrument.ofIsometry`) this is the model of Boneh et al.,
+*Random Oracles in a Quantum World* (arXiv:1008.0931v2, §2.1, PDF p. 7). A comb cannot branch on
+classical outcomes, its number of queries is fixed by its type, and all queries go to one port.
+"Comb" here means this concrete sequential form, not the Choi-operator formalism of general quantum
+combs.
 
-* `Quantum.QuantumComb.toComp` embeds a comb as a straight-line program whose queries go to port
-  `i` through `ℓ : M ≃ In i × E`, and return to `M` through `ℓ' : Out i × E ≃ M`.
-* `Quantum.QuantumComb.run_toComp` (Proposition 1): running the program against a runtime `R`
-  is running the comb, framed by `R.D`, against the query step `R.combQuery i E ℓ ℓ'`. So
-  statements about combs apply to the programs they embed as, against every runtime.
+## Combs embed as programs
 
-A converse holds only under hypotheses on the runtime and the program, and is a follow-up not
-stated here. Suppose the runtime has a single port, with an *idle input* (a state on which a call
-changes nothing, including the private register, and returns a fixed result), and that the port's
-classical result is trivial (`Result = Unit`). Then every lossless program making at most `q`
-calls on every path has a comb with exactly `q` slots, on the memory `M × H × R'` with a classical
-history register `H` and a scratch copy `R'` of the port register, with the same joint distribution
-of output and private register against the runtime.
+The model of quantum oracle algorithms is the program (`Quantum.QuantumComp`) run against a runtime.
+Combs are a restricted form of program:
 
-Both hypotheses on top of the idle input are needed for combs as defined here. A comb discards
-the classical result of each call (`Quantum.QuantumRuntime.combQuery`): against a port that
-measures a private uniform bit and returns it, a one-query program outputs a bit correlated with
-the private register, and no comb does. The program must be lossless because the steps of a comb
-are. Take a runtime whose private bit `d` starts uniform and whose port, on a control bit `1`,
-adds `d` to a target bit of the port register, and on control `0` does nothing; no call changes
-`d`. Every operation of a comb against it is lossless and preserves the classical label `d`, so
-the marginal of `d`, after summing over all outputs, keeps equal weights on `0` and `1`. A
-program that copies `d` with one call, reads the copy and fails on `1` leaves weight only on
-`d = 0`, and no comb reproduces its joint distribution. The invariant belongs to this runtime and
-not to combs in general: calls may change the private register. A port that resets the private bit
-to `0` on control `1` and does nothing on control `0` is lossless with an idle input, and a lossless
-one-slot comb that prepares control `1` turns a uniform private bit into a deterministic one.
+* `Quantum.QuantumComb.toComp` embeds a comb as a straight-line program whose queries go to port `i`
+  through `ℓ : M ≃ In i × E` and return to `M` through `ℓ' : Out i × E ≃ M`.
+* `Quantum.QuantumComb.run_toComp`: running that program against a runtime `R` is running the comb,
+  framed by `R.D`, against the query step `R.combQuery i E ℓ ℓ'`, which discards the classical
+  result of each call. So theorems about combs apply to the programs they embed as, against every
+  runtime.
 
-Without an idle input combs are strictly weaker as well: against a runtime that counts its calls,
-a program that calls a different number of times on different paths has a joint distribution that no
-comb reproduces (see the counting-runtime test in `VCVioTest/Quantum/Oracle.lean`), and with several
-ports a comb fixes the order of its calls in advance.
-
-Combs embed as programs over instruments (`Quantum.QComp`): their steps are subinstruments, and
-their output is a value on the fixed register `M`. The statements below are therefore about this
-fixed-register form.
+The converse, that a program can be put in comb form, is not proved here, and fails without
+hypotheses: a comb makes the same number of calls on every path and ignores call results, while a
+program need not.
 
 ## Main definitions
 
 * `Quantum.interleave Q q s`: the composite `s 0, Q, s 1, …, Q, s q`.
 * `Quantum.QuantumComb M α q`, with `Quantum.QuantumComb.run`.
 * `Quantum.QuantumComb.stateAfterStep`: the substate after step `i`, on which query `i` acts.
-* `Quantum.QuantumComb.ofClassical`: the comb that runs a classical deterministic algorithm on
-  basis states.
+* `Quantum.QuantumComb.ofClassical`: the comb that runs a deterministic classical algorithm on basis
+  states.
 * `Quantum.QuantumComb.toComp`: the program of a comb.
 
 ## Main results
 
-* `Quantum.QuantumComb.outcomeMeasure_run_congr`: two query steps that act in the same way on
-  the substates the comb presents to them give the same outcome measure.
+* `Quantum.QuantumComb.outcomeMeasure_run_congr`: two query steps that act in the same way on the
+  substates the comb presents to them give the same outcome measure.
 * `Quantum.QuantumComb.outcomeMeasure_run_ofClassical`: against a query step that permutes basis
-  states, a classical comb reports the output of the classical run with certainty.
+  states, a classical comb returns the output of the classical run with certainty.
 * `Quantum.QuantumComb.run_toComp` and `Quantum.QuantumComb.evalDist_toComp`: the run and the
-  outcome distribution of the program of a comb against a runtime.
+  distribution of the program of a comb against a runtime.
 -/
 
 public section
@@ -180,10 +161,15 @@ theorem post_interleave (Q : SubInstrument M M Unit) (ρ : SubState M) :
 
 /-! ## Combs -/
 
-/-- **Quantum combs.** A `q`-query comb on the register `M` with outputs in `α`: an initial
-substate, `q + 1` lossless steps between which the queries are made, and a final lossless
-instrument reporting the output. The steps are arbitrary channels on the register; unitary gates
-(`Quantum.SubInstrument.ofIsometry`) are a special case. -/
+/-- A fixed-slot quantum query strategy on a finite memory register `M`, returning a value in `α`:
+an initial substate, lossless steps `step 0, …, step q` on `M`, and a final lossless instrument with
+outcomes in `α`. Against a query step `Q` it runs `step 0, Q, step 1, …, Q, step q, final`, with
+exactly `q` copies of `Q`. The initial substate and `Q` may lose trace.
+
+The steps have outcome `Unit`: they may be any channels, but report nothing a later step could
+branch on. Unitary steps (`SubInstrument.ofIsometry`) are the textbook case. `toComp` embeds a comb
+as a program, and `run_toComp` shows the embedding runs as the comb against every runtime; no
+converse is proved. -/
 structure QuantumComb (M : Type*) [Fintype M] (α : Type*) (q : ℕ) where
   /-- The substate of the register before the first step. -/
   init : SubState M

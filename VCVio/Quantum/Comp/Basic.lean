@@ -9,110 +9,112 @@ public import PolyFun.IPFunctor.Free.Indexed
 public import VCVio.Quantum.Comp.LocalSig
 
 /-!
-# Quantum programs
+# Quantum oracle programs
 
-A quantum program is a tree of commands over a primitive signature `L` (`Quantum.LocalSig`) and
-a quantum oracle signature `spec` (`Quantum.QuantumOracleSpec`). The oracle signature names a
-type of ports; port `i` takes an input register `In i`, leaves an output register `Out i`, and
-returns a classical result of type `Result i`. A program has two kinds of command:
+This file defines the syntax of quantum algorithms that query oracles. A program holds a finite
+quantum register, applies local operations to it, and calls oracles on part of it. Measurement
+outcomes and oracle results are classical, and select what the program does next. Amplitudes live
+in the state of the register, not in the branching of the program.
 
-* `prim o`: a local operation `o : L.Op A` on the program's own register `A`. Its outcome `b`
-  selects the continuation, which runs on the register `L.next o b`.
-* `query i E ℓ`: a call of port `i`. The equivalence `ℓ : A ≃ In i × E` exposes the port's input
-  register as a tensor factor of the current register; the rest `E` is carried through the call
-  untouched, and the register afterwards is `Out i × E`. The result `r : Result i` selects the
-  continuation.
+## Commands
 
-Programs mention neither the meaning of the local operations nor any oracle: an interpretation
-of `L` (`Quantum.LocalSig.Interp`) and a runtime (`Quantum.QuantumRuntime`) supply them when the
-program is run (`Quantum.QuantumRuntime.run`).
+A program is a tree of two kinds of command.
 
-## The general model
+* `prim o`: a local operation `o : L.Op A` on the current register `A`, named by a *primitive
+  signature* `L` (`Quantum.LocalSig`). It reports an outcome `b`, and the program continues on the
+  register `L.next o b`, which may depend on `b`: a measurement may keep a qubit on one outcome and
+  discard it on another.
+* `query i E ℓ`: a call of port `i` of an *oracle signature* `spec` (`Quantum.QuantumOracleSpec`).
+  The port takes the register `In i`, leaves `Out i` and reports a classical result in
+  `Result i`. The equivalence `ℓ : A ≃ In i × E` exposes `In i` as a tensor factor of the current
+  register; the rest `E` is carried through the call untouched, even when it is entangled with
+  `In i`, and the register afterwards is `Out i × E`.
 
-`Quantum.QuantumComp L spec X A` is the free monad on these commands in McBride's style
-(PolyFun's `IPFunctor.IFreeM`): a program from the register `A` over the leaf family
-`X : QReg → Type w` is a tree whose leaves `x : X u` each sit on their own final register `u`.
-This is the general model of quantum oracle programs with a definite causal order:
+A program says neither what its local operations do nor how the oracle answers. An
+interpretation of `L` (`Quantum.LocalSig.Interp`) gives each operation a dependent subinstrument,
+and a runtime (`Quantum.QuantumRuntime`) answers the calls; `Quantum.QuantumRuntime.run`, in
+`VCVio.Quantum.Comp.Runtime`, combines them.
 
-* **Adaptive.** Every continuation sees all classical outcomes so far, so the number of queries,
-  their ports and their order, and the point at which the program stops all depend on them.
-* **Multi-port.** A signature has any type of ports, each with its own registers and classical
-  result type.
-* **Register-changing.** Each command changes the register, and the register after a local
-  operation may depend on its outcome: programs allocate, discard and reshape registers between
-  queries, and different branches may end on different registers.
-* **Parametric in the primitives.** Local operations are drawn from a signature and interpreted
-  separately, so the same tree can be read as a circuit over a gate set, with its gate count read
-  off the tree, or as a program over arbitrary instruments.
-* **Stateful oracles.** An oracle is a runtime with a private register that persists across
-  calls (`Quantum.QuantumRuntime`); the program has no command acting on it.
+## Which program type to use
 
-The other forms are abbreviations of this one:
+* `Quantum.QuantumComp L spec X A` is the general program. Its leaves `x : X u` each sit on their
+  own final register `u`, so different branches may end on different registers.
+* `Quantum.QuantumComp₂ L spec A B α` is the case in which every branch ends on `B` and returns a
+  value in `α`. Intermediate registers may still depend on outcomes. It is a lawful monad when
+  `A = B`, and a lawful indexed monad in general.
+* `Quantum.QComp spec A B α` is `QuantumComp₂` over the signature of all instruments
+  (`Quantum.LocalSig.instruments`), in which a local step is any subinstrument
+  (`Quantum.QComp.act`). Use it to build programs from arbitrary quantum operations, and a named
+  signature to reason about a specific gate set.
 
-* `Quantum.QuantumComp₂ L spec A B α`: every leaf sits on the register `B` and carries a value of
-  type `α`. This is the leaf family `fun u ↦ PSigma fun _ : u = B ↦ α`, that is PolyFun's
-  `IPFunctor.FreeM₂`, a lawful indexed monad.
-* `Quantum.QComp spec A B α`: the fixed-register form over the signature of instruments
-  (`Quantum.LocalSig.instruments`), where a local step is any subinstrument
-  (`Quantum.QComp.act`).
+Fixed-slot strategies (`Quantum.QuantumComb`) embed as straight-line programs
+(`Quantum.QuantumComb.toComp`, in `VCVio.Quantum.Oracle.Comb`). Query budgets are properties of
+the tree (`Quantum.QuantumComp.IsQueryBound`), not type indices.
 
-Query budgets are read off the tree (`Quantum.QuantumComp.IsQueryBound`) rather than fixed by a
-type index. Fixed-slot adversaries (`Quantum.QuantumComb`) are a further derived form: they embed
-as straight-line programs (`Quantum.QuantumComb.toComp`).
+## What the model covers
+
+* **Adaptive.** Every continuation sees all classical outcomes so far, so the number of calls,
+  their ports and their order, the registers allocated, and the point at which the program stops
+  may all depend on them.
+* **Multi-port.** A signature has any type of ports, each with its own registers and result type.
+* **Stateful oracles.** A runtime has a private register that persists across calls; the program
+  has no command on it.
+* **Gate sets.** Local operations are named by a signature and interpreted separately, so the
+  same tree can be read as a circuit over a gate set, with its number of gates read off the tree
+  (`Quantum.QuantumComp.IsCostBound`).
+
+## What it does not cover
+
+* **Coherent choice of port.** The port of a call is classical. A call whose port is selected by a
+  quantum register needs a single port acting on `ι × X × Y`, implemented by its own runtime; the
+  runtimes of the separate ports do not determine it.
+* **Loops.** Program trees are well founded: every path is finite, although path lengths need not
+  be bounded when an operation has infinitely many outcomes. A loop that terminates only with
+  probability one has an infinite path, and needs a coinductive tree and execution as a limit.
+* **Infinite dimension.** Registers are finite-dimensional. Outcome and result types may be
+  infinite, but only countably many outcomes of an operation have nonzero weight, so measurements
+  with continuous outcomes are not modelled.
+
+## Implementation: PolyFun's free indexed monad
+
+`QuantumComp L spec X A` is PolyFun's `IPFunctor.IFreeM`, the free monad in McBride's indexed
+style, on the commands `prim` and `query`. Sequencing (`Quantum.QuantumComp.bind`) replaces each
+leaf `x : X u` by a continuation that starts on the same register `u`. `QuantumComp₂` is PolyFun's
+`IPFunctor.FreeM₂`. PolyFun supplies only the trees; the quantum meaning comes from the
+interpretation and the runtime. The command equations, induction principle
+(`Quantum.QuantumComp.inductionOn`) and sequencing laws here let clients work without PolyFun's
+internals.
 
 ## Universes
 
-Every type a user supplies may lie in any universe:
+Every type a user supplies may lie in any universe. For `L : Quantum.LocalSig.{u, v}` (operations
+in `Type u`, outcomes in `Type v`), `spec : Quantum.QuantumOracleSpec.{u₁, v₁}` (ports in
+`Type u₁`, results in `Type v₁`) and `X : QReg → Type w`, the program type lies in
+`Type (max u v u₁ v₁ (w + 1))`, and `bind` may change the universe of the leaves.
 
-* a primitive signature `L : Quantum.LocalSig.{u, v}` has operations in `Type u` and outcomes in
-  `Type v`;
-* an oracle signature `spec : Quantum.QuantumOracleSpec.{u₁, v₁}` has ports in `Type u₁` and
-  results in `Type v₁`;
-* the leaf family is `X : QReg → Type w`.
+Registers (`Quantum.QReg`) are finite types with carriers in `Type`. This loses nothing, since
+every finite type is equivalent to some `Fin n`, and puts `QReg` in `Type 1`. PolyFun's indexed
+functors have one universe of responses, so `Quantum.QuantumComp.Cmd.Resp` lifts outcomes and
+results to `Type (max v v₁)` with `ULift`, and `Quantum.QuantumComp.onDown` adapts continuations.
+That is the only lift: `primBind`, `queryBind`, `prim`, `query`, execution and every statement
+about them take unlifted outcomes and results.
 
-Then `Quantum.QuantumComp L spec X A : Type (max u v u₁ v₁ (w + 1))`, and sequencing
-(`Quantum.QuantumComp.bind`) may move to a leaf family in another universe. A command responds
-with either an outcome (in `Type v`) or a result (in `Type v₁`), and PolyFun's indexed polynomial
-functors have one universe of responses, so `Quantum.QuantumComp.Cmd.Resp` lifts both to
-`Type (max v v₁)` with `ULift`, and the continuations of `primBind` and `queryBind` meet the
-lifted responses through `Quantum.QuantumComp.onDown`. That is the only lift: `primBind`,
-`queryBind`, `prim`, `query`, execution and every statement about them take unlifted outcomes
-and results.
-
-The one fixed level is the index universe. Registers (`Quantum.QReg`) are finite types with
-carriers in `Type`, which loses nothing because every finite type is equivalent to some `Fin n`;
-this puts `QReg` in `Type 1`, so the commands are indexed by `Type 1` and contain registers (the
-remainder `E` of a call), which is why `Quantum.QuantumComp.Cmd` lies in `Type (max 1 u u₁)`. The
-`w + 1` in the universe of programs is the bound PolyFun's `IPFunctor.IFreeM` declares; it does
-not restrict the leaves.
-
-The derived forms take the universes they inherit: `Quantum.QuantumComp₂ L spec A B α` takes
-`α : Type w` for any `w`, and `Quantum.QComp spec A B α` takes `α : Type w` together with the
-signature of instruments whose outcomes lie in the same `Type w`
-(`Quantum.LocalSig.instruments.{w}`).
-
-## Not covered
-
-* **Coherent port choice.** The port of a query is classical. A query whose port is chosen by a
-  quantum register is expressed through a single sum port acting on `ι × X × Y`, which is a
-  different resource from one call to each port. An isometric layer of programs, in which this
-  choice is coherent, is left to later work.
-* **Unbounded loops.** Program trees are well founded, so every path is finite. Unbounded or
-  expected-time programs need a coinductive tree and execution as a limit.
-* **Infinite dimension.** Registers are finite-dimensional (`Quantum.QReg`); the outcome types of
-  operations and the result types of ports may be infinite.
+`QuantumComp₂` keeps all these universes independent. The alias `QComp spec A B α` with
+`α : Type w` uses instruments with outcomes in the same `Type w`
+(`Quantum.LocalSig.instruments.{w}`); write `QuantumComp₂ LocalSig.instruments.{v} spec A B α` to
+separate them.
 
 ## Main definitions
 
 * `Quantum.QuantumOracleSpec`, with the commands `Quantum.QuantumComp.Cmd L spec` and the indexed
   polynomial functor `Quantum.QuantumComp.toIPFunctor L spec`.
-* `Quantum.QuantumComp L spec X A`, with `pure`, McBride `bind`, the commands followed by
-  continuations `primBind` and `queryBind`, the generic commands `prim` and `query`, and the
-  induction principle `Quantum.QuantumComp.inductionOn`.
+* `Quantum.QuantumComp L spec X A`, with `pure`, `bind`, the commands followed by continuations
+  `primBind` and `queryBind`, the generic commands `prim` and `query`, and the induction principle
+  `Quantum.QuantumComp.inductionOn`.
 * `Quantum.QuantumComp₂ L spec A B α`, with its `Monad`, `LawfulMonad`, `IndexedMonad` and
   `LawfulIndexedMonad` instances.
 * `Quantum.QComp spec A B α`, with `Quantum.QComp.act`.
-* `Quantum.QuantumComp.Lossless I x`: every local operation on every branch is interpreted by a
+* `Quantum.QuantumComp.Lossless I x`: every local operation on every path is interpreted by a
   lossless dependent subinstrument.
 -/
 
@@ -124,8 +126,13 @@ universe u v u₁ v₁ w w₁ w₂
 
 namespace Quantum
 
-/-- A quantum oracle signature: a type of ports, and for each port an input register, an output
-register and a classical result type. Ports lie in `Type u₁` and results in `Type v₁`. -/
+/-- The interface of a quantum oracle: a type of ports, and for each port `i` an input register
+`In i`, an output register `Out i`, and a type `Result i` of classical results. A coherent oracle
+call, such as a unitary, has result type `Unit`; a port that measures has a nontrivial result type.
+
+The signature fixes types only. A runtime (`QuantumRuntime spec`) implements the ports. A call
+may act on a superposition of inputs of one port; the choice of port is classical. Ports and
+results lie in independent universes. -/
 structure QuantumOracleSpec where
   /-- The oracle ports. -/
   Port : Type u₁
@@ -185,9 +192,16 @@ def toIPFunctor : IPFunctor.Endo.{1, max 1 u u₁, max v v₁} QReg where
 
 end QuantumComp
 
-/-- **Quantum programs.** A program over the primitive signature `L` and the oracle signature
-`spec` that starts on the register `A`, whose leaves `x : X u` each sit on their own final
-register `u`. The operations, outcomes, ports, results and leaves may lie in any universes. -/
+/-- A quantum oracle program starting on the register `A`. Each node either applies a local
+operation named by `L` or calls a port of `spec`; its classical outcome or result selects the next
+subtree, and the register that subtree starts on. A leaf `x : X u` returns classical data on the
+final register `u`, which may depend on earlier outcomes.
+
+The tree contains commands, not states: `QuantumRuntime.run` gives it meaning from an
+interpretation of `L` and a runtime for `spec`. Every path is finite, but path lengths need not be
+bounded. Formally this is PolyFun's free indexed monad `IFreeM`. Use `QuantumComp₂` when every
+branch ends on the same register, and `QComp` to supply local operations directly as
+subinstruments. -/
 @[expose]
 def QuantumComp (L : LocalSig.{u, v}) (spec : QuantumOracleSpec.{u₁, v₁}) (X : QReg → Type w)
     (A : QReg) : Type (max u v u₁ v₁ (w + 1)) :=
@@ -335,12 +349,15 @@ end QuantumComp
 abbrev QuantumComp₂.Leaf (B : QReg) (α : Type w) (u : QReg) : Type w :=
   PSigma fun _ : u = B ↦ α
 
-/-- **Programs on a fixed final register.** A program over `L` and `spec` that starts on the
-register `A`, ends on the register `B` on every branch and returns a value of type `α`: the leaf
-family `Quantum.QuantumComp₂.Leaf B α`. The value type `α : Type w` may lie in any universe, and
-`L` and `spec` keep theirs. It is PolyFun's free indexed monad
-`IPFunctor.FreeM₂ (Quantum.QuantumComp.toIPFunctor L spec) A B α`, with the same `pure` and, on
-value types in one universe, the same `bind` (`Quantum.QuantumComp₂.bind_eq_freeM₂_bind`). -/
+/-- A quantum oracle program from the register `A` that ends on the register `B` on every branch
+and returns a value in `α`. Intermediate registers may still depend on outcomes; only the final one
+is fixed.
+
+It is `QuantumComp` with the leaf family `fun u ↦ PSigma fun _ : u = B ↦ α`, whose leaves are
+identified with values in `α` by `QuantumComp₂.leafEquiv`, and its execution is the general one
+read at those leaves (`QuantumRuntime.branch_run₂`). It is PolyFun's `FreeM₂`, a lawful indexed
+monad, and a lawful monad when `A = B`. Use `QuantumComp` when branches end on different
+registers. -/
 @[expose]
 def QuantumComp₂ (L : LocalSig.{u, v}) (spec : QuantumOracleSpec.{u₁, v₁}) (A B : QReg)
     (α : Type w) : Type (max u v u₁ v₁ (w + 1)) :=
@@ -560,11 +577,14 @@ end QuantumComp₂
 
 /-! ## Programs over instruments -/
 
-/-- **Programs over instruments.** The fixed-register programs over the signature of instruments
-(`Quantum.LocalSig.instruments`): every local step is a dependent subinstrument. For a value type
-`α : Type w`, the instruments have outcomes in the same universe `Type w`
-(`Quantum.LocalSig.instruments.{w}`); programs whose instrument outcomes and values lie in
-different universes are `Quantum.QuantumComp₂ LocalSig.instruments.{v} spec A B α`. -/
+/-- Quantum oracle programs whose local steps are given directly as dependent subinstruments:
+`QuantumComp₂ LocalSig.instruments spec A B α`, interpreted by `LocalSig.Interp.instruments`.
+`QComp.act p` inserts a subinstrument `p` with a fixed output register.
+
+Use it to build programs from arbitrary quantum operations. A local step here can be any
+subinstrument, so the number of steps says nothing about efficiency; use a named signature with
+`QuantumComp₂ L spec` to count gates. For `α : Type w` the local outcomes are also in `Type w`;
+write `QuantumComp₂ LocalSig.instruments.{v} spec A B α` to separate the two universes. -/
 abbrev QComp (spec : QuantumOracleSpec.{u₁, v₁}) (A B : QReg) (α : Type w) :
     Type (max u₁ v₁ (w + 1)) :=
   QuantumComp₂ LocalSig.instruments.{w} spec A B α

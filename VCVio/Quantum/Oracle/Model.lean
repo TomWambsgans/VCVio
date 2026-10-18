@@ -12,57 +12,76 @@ public import VCVio.Quantum.Comp.Simulation
 public import VCVio.Quantum.Oracle.Unitary
 
 /-!
-# The quantum random-oracle model
+# Sampled quantum oracles and the quantum random-oracle model
 
-An oracle is realized by a family of runtimes indexed by a sampled value.
-`Quantum.sampledEvalDist R I x ρ` draws the value `ω` uniformly, with VCVio's `$ᵗ`, and observes the
-leaf reached by the program `x`, under the interpretation `I` of its local operations, against
-the runtime `R ω` from `ρ` (`Quantum.QuantumRuntime.evalDist`). Another realization of the
-oracle is another family of runtimes for the same signature, and "same outcome distribution" is an
-equation between two values of `Quantum.sampledEvalDist`.
+In the quantum random-oracle model (QROM), a function `H : X → Y` is sampled uniformly once, before
+the program runs, and every call of the program is answered by the same `H`, through the unitary
 
-Events that mention the sampled value, such as "the program's guess `(x, y)` satisfies
-`y = H x`", are measured by `Quantum.sampledEvalDistMap`, which observes the leaf of each run
-through a function `f ω` that sees the sampled value. The observed distribution is a sum of weighted
-point masses (`Quantum.QuantumRuntime.evalDistMap`), so `f` need not be measurable.
+`U_H |x, y⟩ = |x, y + H x⟩`.
 
-The quantum random-oracle model is the instance for the signature `Quantum.qromSpec X Y`, with
-one port acting on `X × Y`, in which the sampled value is a function `H : X → Y` and the runtime
-`Quantum.additiveOracleRuntime H` answers each call with the oracle unitary of `H`
-(`Quantum.qromEvalDist`). Programs are quantum programs over any primitive signature: adaptive,
-with their own registers, and with any number of calls on each path.
+The program may call `U_H` on a superposition of inputs. Nothing is measured by the oracle. Here
+`X` is finite and `Y` is a finite additive commutative group. For bitstrings with addition modulo
+two, `y + H x` is `y XOR H x`, and `U_H` is the usual oracle, which is its own inverse; for a
+general group the inverse is `U_{-H}`.
 
-Every distribution here is stated for general programs (`Quantum.QuantumComp`), whose final register
-may depend on the outcome: such a program returns a leaf in `Σ u, W u`, and its distributions are
-distributions of that leaf, observed if need be through a function of the leaf. For a program on a
-fixed final register (`Quantum.QuantumComp₂`), the distribution of its returned value is the general
-distribution observed through the value of each leaf (`Quantum.QuantumComp₂.leafEquiv`):
-`Quantum.sampledEvalDist₂`, `Quantum.sampledEvalDistMap₂`, `Quantum.qromEvalDist₂` and
-`Quantum.qromEvalDistMap₂` are defined so, and are the mixtures of the fixed-register outcome
-distributions (`Quantum.sampledEvalDist₂_eq_bind`, `Quantum.sampledEvalDistMap₂_eq_bind`).
+## The experiment
+
+The program `x`, its interpretation `I` and its input substate `ρ` are fixed first. Then:
+
+* `Quantum.qromSpec X Y` is the signature: one port on the register `X × Y` (query input, then
+  response), with result `Unit`. It names no function.
+* `Quantum.additiveOracleRuntime H` is the runtime answering every call with `U_H`, with no
+  private memory.
+* `Quantum.qromEvalDist I x ρ` is the distribution of the leaf reached, averaged over `H`:
+  `qromEvalDist I x ρ S = |Y|^(-|X|) * ∑_H (additiveOracleRuntime H).evalDist I x ρ S`.
+
+This averages complete runs, each against one function; it does not sample afresh at each call.
+The program brings its own workspace: a call exposes `X × Y` as a factor of its register and
+carries the rest. Programs may be adaptive, allocate registers and make any number of calls on each
+path (`VCVio.Quantum.Comp.Basic`).
+
+## What is observed
+
+`Quantum.qromEvalDist` is a measure on leaves `p = ⟨u, a⟩`, which record the final register and the
+returned data. These distributions are subprobability measures: for a lossless program from a
+normalized state the total mass is one (`Quantum.isProbabilityMeasure_qromEvalDist`).
+`Quantum.qromEvalDistMap I x ρ f` observes `f H p` instead, so that the challenger can check a
+relation between the returned data and the hidden function, such as `y = H x`; the program does not
+receive `H`. Observations are sums of weighted point masses, so `f` need not be measurable. The
+suffix `₂` gives the distribution of the returned value of a fixed-final-register program
+(`Quantum.qromEvalDist₂`, `Quantum.qromEvalDistMap₂`).
+
+## Other sampled oracles
+
+`Quantum.sampledEvalDist R I x ρ` and `Quantum.sampledEvalDistMap` are the same construction for any
+uniformly sampled parameter `ω` and family of runtimes `R ω`, which may have private memory. The
+QROM is the instance `R = additiveOracleRuntime`. Showing that two implementations of an oracle
+are indistinguishable is an equation between two values of `sampledEvalDist`.
 
 ## Main results
 
-* `Quantum.qromEvalDist_eq_sum`: the distribution is the average over all functions of the outcome
+* `Quantum.qromEvalDist_eq_sum`: the distribution is the average over all functions of the
   distributions of the runs.
-* `Quantum.qromEvalDist_apply_univ`: against every function, a lossless run gives total mass the
-  trace of the program's initial substate; `Quantum.isProbabilityMeasure_qromEvalDist` for a
-  lossless program from a normalized state.
-* `Quantum.run_additiveOracleRuntime_eq_of_isQueryBound_zero`: a program with query budget zero
-  runs to the
-  same dependent subinstrument against every function.
-* `Quantum.qromEvalDistMap_guess_zero`: with query budget zero, a guess `(gx p, gy p)` read off the
-  leaf `p` satisfies `gy p = H (gx p)` with probability the total weight of the run (the trace
-  functional of its branches) divided by `|Y|`; `1 / |Y|` for a lossless program from a
-  normalized state (`Quantum.qromEvalDistMap_guess_zero_of_trace_eq_one`).
-* `Quantum.evalDist_additiveOracleRuntime_eq_of_eqOn`: if every call along the run against `H`
-  receives
-  an operator supported on the query inputs in `S` (`Quantum.QueriesWithin`), the run against any
-  `H'` that agrees with `H` on `S` has the same outcome distribution, and the same joint
-  post-states.
+* `Quantum.qromEvalDist_apply_univ_of_lossless`: a lossless program has total mass the trace of its
+  input; `Quantum.isProbabilityMeasure_qromEvalDist` for a normalized input.
+* `Quantum.run_additiveOracleRuntime_eq_of_isQueryBound_zero`: a program that makes no calls runs
+  in the same way against every function. Hence `Quantum.qromEvalDistMap_guess_zero`: such a program
+  guesses a pair `(x, H x)` with probability its total weight divided by `|Y|`, which is `1 / |Y|`
+  for a lossless program from a normalized state.
+* `Quantum.evalDist_additiveOracleRuntime_eq_of_eqOn` and
+  `Quantum.jointPost_additiveOracleRuntime_eq_of_eqOn`: if every call receives inputs in `S`
+  (`Quantum.QueriesWithin`), the run against any `H'` that agrees with `H` on `S` has the same
+  distribution and the same joint post-states.
+* In `VCVio.Quantum.Oracle.Classical`, `Quantum.qromEvalDist₂_toQuantum_eq_randomOracle`: a
+  classical algorithm has the same distribution in the QROM as under VCVio's lazily sampled random
+  oracle.
 
-Each has a fixed-register form with `₂` in its name (`Quantum.qromEvalDist₂_eq_sum`,
-`Quantum.qromEvalDistMap₂_guess_zero`, and so on).
+The general-program results also have fixed-register forms with `₂` in their names.
+
+## References
+
+* D. Boneh, Ö. Dagdelen, M. Fischlin, A. Lehmann, C. Schaffner, M. Zhandry, *Random Oracles in a
+  Quantum World*, ASIACRYPT 2011, arXiv:1008.0931v2, §2.1 (PDF p. 7), for bitstrings and XOR.
 -/
 
 public section
@@ -359,9 +378,11 @@ section qrom
 
 variable {X Y : Type} [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y]
 
-/-- The signature of a random oracle `X → Y`: one port, whose call acts on the query register
-`X × Y` and returns no classical result. It is reducible, so that its ports, registers and
-results unfold to `Unit` and `X × Y` when rewriting. -/
+/-- The signature of a function oracle `X → Y`: one port, whose input and output register is `X × Y`
+(query input, then response), and whose classical result is `Unit`. The response stays in the
+quantum register; it is read only if the program measures it. The signature names no function:
+`additiveOracleRuntime H` implements it for a fixed `H`, and `qromEvalDist` samples `H`. It is
+reducible, so its ports, registers and results unfold when rewriting. -/
 @[expose, reducible]
 def qromSpec (X Y : Type) [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y] :
     QuantumOracleSpec.{0, 0} where
@@ -372,8 +393,14 @@ def qromSpec (X Y : Type) [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y
 
 variable [AddCommGroup Y]
 
-/-- The runtime of the oracle unitary of `H : X → Y`: a trivial private register, and each call
-applies `|x, y⟩ ↦ |x, y + H x⟩` to the query register. -/
+/-- The oracle of a fixed function `H : X → Y`: every call applies the unitary
+`U_H |x, y⟩ = |x, y + H x⟩` to the query register, that is `ρ ↦ U_H ρ U_H†`, and reports nothing.
+The private register is `Unit`. Sampling `H` happens outside, in `qromEvalDist`.
+
+For bitstrings with addition modulo two this is the XOR oracle, which is its own inverse. For a
+general finite additive group the inverse is `U_{-H}`, and two calls need not cancel. See
+`oracleUnitary_mulVec_single` (action on basis states), `conjTranspose_oracleUnitary` (inverse) and
+`lossless_additiveOracleRuntime_step`. -/
 @[expose]
 noncomputable def additiveOracleRuntime (H : X → Y) : QuantumRuntime (qromSpec X Y) where
   D := QReg.of Unit
@@ -424,8 +451,15 @@ noncomputable def qromEvalDistMap [MeasurableSpace β] (I : L.Interp)
     Measure β :=
   sampledEvalDistMap additiveOracleRuntime I x ρ f
 
-/-- The distribution of the leaf reached by `x` from `ρ` in the quantum random-oracle model: `H : X
-→ Y` is drawn uniformly and the program runs under `I` against the oracle unitary of `H`. -/
+/-- The distribution of the leaf a program reaches in the quantum random-oracle model. With `I`, `x`
+and `ρ` fixed, a function `H : X → Y` is sampled uniformly once, and `x` runs against
+`additiveOracleRuntime H`: a set `S` of leaves has weight `|Y|^(-|X|) * ∑_H (additiveOracleRuntime
+H).evalDist I x ρ S` (`qromEvalDist_eq_sum`).
+
+A leaf records the final register and returned data; the final quantum state is kept by `jointPost`
+and `reducedPost`. Use `qromEvalDistMap` for an observation that also sees `H`, and `qromEvalDist₂`
+for the returned value of a fixed-final-register program. The distribution is a subprobability
+measure; for a lossless program its total mass is `tr ρ`. -/
 @[expose]
 noncomputable def qromEvalDist [MeasurableSpace (Σ u, W u)] (I : L.Interp)
     (x : QuantumComp L (qromSpec X Y) W A) (ρ : SubState A) : Measure (Σ u, W u) :=

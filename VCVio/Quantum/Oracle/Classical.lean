@@ -12,37 +12,39 @@ public import VCVio.Quantum.Oracle.Model
 /-!
 # Classical oracle algorithms in the quantum random-oracle model
 
-A classical algorithm with oracle access to a function `X → Y` is an `OracleComp (X →ₒ Y) α`.
-`OracleComp.toQuantum oa` is the quantum program over `Quantum.qromSpec X Y` that runs it on the
-trivial register, by `simulateQ`: each query `t` is answered by `Quantum.classicalQuery t`, which
-prepares the basis state `|t, 0⟩`, calls the oracle on it, reads the register in the
-computational basis, returns the response, and discards the register. The program is adaptive
-exactly as `oa` is: its continuation after each call is the continuation of `oa` at the response.
+A classical algorithm with access to a function oracle `X → Y` is an `OracleComp (X →ₒ Y) α`: its
+only source of randomness is the oracle, so it is deterministic once the oracle's answers are
+fixed. `OracleComp.toQuantum oa` runs it as a quantum program over `Quantum.qromSpec X Y` on the
+trivial register. It is built with VCVio's handler `simulateQ`: each query `t` becomes
+`Quantum.classicalQuery t`, which prepares `|t, 0⟩`, calls the oracle, measures the register in the
+computational basis, returns the response and discards the register. The program is adaptive
+exactly as `oa` is, and needs no query bound, workspace or default value.
 
-No query bound, workspace or default value is needed: the program tree is the tree of `oa`.
-
-The embedding is a program over instruments (`Quantum.QComp`): its local steps, the preparation
-of `|t, 0⟩` and the measurement of the register, are subinstruments, and it returns the value of
-`oa` on the trivial register. The theorems below are stated for this fixed-register form and the
-distribution of its value (`Quantum.qromEvalDist₂`), which is the general distribution of the
-quantum random-oracle model (`Quantum.qromEvalDistMap`) read through the value of each leaf.
+Against `Quantum.additiveOracleRuntime H`, the measured response is `H t`, so the program returns
+the value of `oa` when every query is answered by `H`. Averaging over `H` gives the distribution of
+`oa` under VCVio's lazily sampled random oracle `randomOracle`. So the quantum random-oracle model,
+restricted to classical algorithms, is the classical random-oracle model.
 
 ## Main results
 
-* `OracleComp.lossless_toQuantum` and `OracleComp.isQueryBound_toQuantum`: the program is
-  lossless, and an algorithm making at most `n` queries runs to a program with budget `n`.
-* `Quantum.evalDist_toQuantum_of_basis`: against any runtime that answers a call on a basis
-  state `|x, y⟩` with `|x, y + H x⟩`, leaves its private register alone and starts it in a basis
-  state, the program reports `evalWithAnswerFn (QueryImpl.ofFn H) oa` with certainty.
-* `Quantum.evalDist_additiveOracleRuntime_toQuantum`: against the oracle unitary of `H`, the
-  program
-  reports `evalWithAnswerFn (QueryImpl.ofFn H) oa`, the value of `oa` when every query is answered
-  by `H`, with certainty.
-* `Quantum.qromEvalDist₂_toQuantum`: its distribution in the quantum random-oracle model is the
-  output measure of the classical experiment that samples `H` uniformly and evaluates `oa` against
-  it.
-* `Quantum.qromEvalDist₂_toQuantum_eq_randomOracle`: this is also the output measure of `oa` under
-  VCVio's lazily sampled, cached random oracle `randomOracle`.
+* `OracleComp.lossless_toQuantum` and `OracleComp.isQueryBound_toQuantum`: the program is lossless,
+  and an algorithm making at most `n` queries gives a program with budget `n`.
+* `Quantum.evalDist_toQuantum_of_basis`: against any runtime that answers a call on a basis state
+  `|x, y⟩` with `|x, y + H x⟩`, leaves its private register alone and starts it in a basis state,
+  the program returns `evalWithAnswerFn (QueryImpl.ofFn H) oa` with certainty.
+* `Quantum.evalDist_additiveOracleRuntime_toQuantum`: the case of the oracle of `H`.
+* `Quantum.qromEvalDist₂_toQuantum`: the distribution in the QROM is the distribution of the
+  classical experiment that samples `H` uniformly and runs `oa` against it.
+* `Quantum.qromEvalDist₂_toQuantum_eq_randomOracle`: this is the distribution of `oa` under
+  `randomOracle`.
+
+## Not covered
+
+* **Private randomness.** Algorithms that also sample coins, `OracleComp (unifSpec + (X →ₒ Y)) α`,
+  are not embedded.
+* **Result universes.** The result type is `α : Type`. Allowing any universe needs universe
+  generalizations in the classical layer (`simulateQ`, `evalWithAnswerFn`, `IsTotalQueryBound`,
+  `randomOracle`) first.
 -/
 
 public section
@@ -100,8 +102,15 @@ open Quantum
 
 variable {X Y α : Type} [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y] [AddCommGroup Y]
 
-/-- A classical oracle algorithm as a quantum program over the random-oracle signature, on the
-trivial register: every query is answered by `Quantum.classicalQuery`. -/
+/-- The classical algorithm `oa`, run as a quantum program on the trivial register. It is
+`simulateQ` with each query `t` answered by `Quantum.classicalQuery t`: prepare `|t, 0⟩`, call the
+oracle, measure the response in the computational basis, return it and discard the register. The
+continuations of `oa`, adaptive queries included, are kept as they are.
+
+Against `additiveOracleRuntime H` the program returns the value of `oa` against `H`, and its
+distribution in the QROM is the distribution of `oa` under `randomOracle`
+(`Quantum.qromEvalDist₂_toQuantum_eq_randomOracle`), with no query-bound hypothesis. The algorithm
+uses no randomness besides the oracle, and its result type lies in `Type`. -/
 @[expose]
 noncomputable def toQuantum (oa : OracleComp (X →ₒ Y) α) :
     QComp (qromSpec X Y) (QReg.of Unit) (QReg.of Unit) α :=

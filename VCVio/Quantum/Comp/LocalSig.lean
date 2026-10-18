@@ -54,9 +54,14 @@ universe u v
 
 namespace Quantum
 
-/-- **Primitive signatures.** For each register `A`, a type of local operations `Op A`; each
-operation `o` has a type of classical outcomes `Outcome o`, and on outcome `b` it leaves the
-register `next o b`. Operations lie in `Type u` and outcomes in `Type v`. -/
+/-- The names of the local operations a quantum program may apply to its own register. For each
+register `A`, `Op A` is a type of operations; an operation `o` reports a classical outcome
+`b : Outcome o` and leaves the register `next o b`, which may depend on `b`.
+
+A signature is syntax: it gives no matrices, probabilities or physicality conditions. An
+interpretation (`LocalSig.Interp`) supplies them. Use named operations for a gate set, or
+`LocalSig.instruments` to allow every dependent subinstrument. Operations and outcomes lie in
+independent universes `u` and `v`. -/
 structure LocalSig where
   /-- The local operations on the register `A`. -/
   Op : QReg → Type u
@@ -73,9 +78,14 @@ variable (L : LocalSig.{u, v})
 abbrev OutcomeAt {A : QReg} (o : L.Op A) (u : QReg) : Type v :=
   {b : L.Outcome o // L.next o b = u}
 
-/-- **Interpretations.** An interpretation of the signature `L` sends each operation
-`o : L.Op A` to a dependent subinstrument from `A` with outcomes in `L.Outcome o`, whose output
-register on outcome `b` is `L.next o b`. -/
+/-- The meaning of the operations of `L`: for each `o : L.Op A`, a dependent subinstrument from
+`A` with outcomes in `L.Outcome o` and output register `L.next o b` on outcome `b`. Its branches
+are completely positive, and on positive semidefinite `ρ` their traces sum to at most `tr ρ`; the
+missing trace is the probability of failure. `Interp.Lossless` asks every operation to lose no
+trace.
+
+With finitely many outcomes, a fixed output register and no loss, these are the instruments of
+Watrous, *The Theory of Quantum Information*, equations (2.258)–(2.261), p. 112. -/
 @[expose]
 def Interp : Type (max 1 u v) :=
   ∀ ⦃A : QReg⦄ (o : L.Op A), DSubInstrument A (L.Outcome o) fun b ↦ L.next o b
