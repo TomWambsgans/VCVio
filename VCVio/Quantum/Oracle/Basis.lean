@@ -6,6 +6,7 @@ Authors: Quang Dao
 
 module
 public import VCVio.Quantum.Observe
+import all VCVio.Quantum.SubInstrument
 
 /-!
 # Computational-basis gates, states and instruments
@@ -25,12 +26,12 @@ in that basis.
 * `Quantum.SubInstrument.relabel e`: the gate of a bijection `e` of the basis, which transports
   `ρ` to `P_e ρ P_e†`; between two different basis types it moves the register without changing its
   coordinates.
-* `Quantum.SubInstrument.classical f g`: measure the register in the computational basis; on
+* `Quantum.DSubInstrument.classical g f`: measure the register in the computational basis; on
   reading `a`, report `g a` and prepare `|f a⟩`.
 
 Coherent gates and other one-outcome steps have outcomes in `Unit`; the lemmas
-`Quantum.SubInstrument.branch_bind_unit`, `Quantum.SubInstrument.post_bind_unit` and
-`Quantum.SubInstrument.outcomeMeasure_bind_unit` sequence such steps without sums over outcomes.
+`Quantum.DSubInstrument.branch_bind_unit`, `Quantum.DSubInstrument.post_bind_unit` and
+`Quantum.DSubInstrument.outcomeMeasure_bind_unit` sequence such steps without sums over outcomes.
 -/
 
 public section
@@ -44,73 +45,72 @@ variable {A B C : Type*} {α β : Type*}
 
 /-! ## Relabelled outcomes and steps without outcome -/
 
-namespace SubInstrument
+namespace DSubInstrument
 
 section
 
-variable [Fintype A] [Fintype B] [Fintype C]
+variable [Fintype A] {B : α → Type*} [∀ a, Fintype (B a)]
+  {C : β → Type*} [∀ b, Fintype (C b)]
 
-/-- The branch of a relabelled subinstrument at `b` sums the branches of the outcomes sent to
-`b`. -/
-theorem branch_map_apply_univ [Fintype α] [DecidableEq β] (f : α → β) (p : SubInstrument A B α)
-    (b : β) : (p.map f).branch b = ∑ a, if f a = b then p.branch a else 0 := by
-  rw [map_eq_bind_pure, branch_bind_apply_univ]
+/-- Relabelling finitely many outcomes sums the transported branches sent to `b`. -/
+theorem branch_map_apply_univ [Fintype α] [DecidableEq β] (f : α → β)
+    (p : DSubInstrument A α fun a ↦ C (f a)) (b : β) :
+    (p.map f).branch b = ∑ a, if h : f a = b then
+      cast (congrArg (fun j ↦ MatrixMap A (C j)) h) (p.branch a) else 0 := by
+  rw [map_eq_bind_ret, branch_bind_apply_univ]
   refine Finset.sum_congr rfl fun a _ ↦ ?_
-  rw [branch_pure, Finsupp.single_apply]
-  split_ifs
-  · exact LinearMap.id_comp _
-  · exact LinearMap.zero_comp _
+  split_ifs with h
+  · subst b
+    simp only [branch_ret_self, LinearMap.id_comp, cast_eq]
+  · rw [branch_ret_of_ne C (Ne.symm h), LinearMap.zero_comp]
 
-/-- The outcome measure of a relabelled subinstrument moves each point mass along the
-relabelling. -/
-theorem outcomeMeasure_map [MeasurableSpace β] (f : α → β) (p : SubInstrument A B α)
-    (ρ : SubState A) :
+/-- Relabelling outcomes moves each branch's point mass along the relabelling. -/
+theorem outcomeMeasure_map [MeasurableSpace β] (f : α → β)
+    (p : DSubInstrument A α fun a ↦ C (f a)) (ρ : SubState A) :
     (p.map f).outcomeMeasure ρ =
-      ∑ a ∈ p.branch.support,
-        ENNReal.ofReal (p.branch a ρ.matrix).trace.re • Measure.dirac (f a) := by
-  rw [map_eq_bind_pure, outcomeMeasure_bind]
-  exact Finset.sum_congr rfl fun a _ ↦ by rw [outcomeMeasure_pure, matrix_post]
+      Measure.sum fun a ↦ ENNReal.ofReal (p.branch a ρ.matrix).trace.re • Measure.dirac (f a) := by
+  rw [map_eq_bind_ret, outcomeMeasure_bind]
+  exact congrArg Measure.sum <| funext fun a ↦ by rw [outcomeMeasure_ret, matrix_post]
 
-/-- The outcome measure of a relabelled subinstrument as a sum over a finite type of
-outcomes. -/
+/-- Relabelling finitely many outcomes gives a finite sum of the moved point masses. -/
 theorem outcomeMeasure_map_univ [Fintype α] [MeasurableSpace β] (f : α → β)
-    (p : SubInstrument A B α) (ρ : SubState A) :
+    (p : DSubInstrument A α fun a ↦ C (f a)) (ρ : SubState A) :
     (p.map f).outcomeMeasure ρ =
       ∑ a, ENNReal.ofReal (p.branch a ρ.matrix).trace.re • Measure.dirac (f a) := by
-  rw [outcomeMeasure_map]
-  refine Finset.sum_subset (Finset.subset_univ _) fun a _ ha ↦ ?_
-  simp [Finsupp.notMem_support_iff.mp ha]
+  rw [outcomeMeasure_map, Measure.sum_fintype]
 
-/-- After a step without outcome, the branch of a composite at `b` is the branch of the
-continuation at `b` after the unique branch of the step. -/
-theorem branch_bind_unit (p : SubInstrument A B Unit) (k : Unit → SubInstrument B C β) (b : β) :
+/-- After a step without outcome, each branch is the continuation after the unique branch. -/
+theorem branch_bind_unit {B : Unit → Type*} [∀ u, Fintype (B u)]
+    (p : DSubInstrument A Unit B) (k : (u : Unit) → DSubInstrument (B u) β C) (b : β) :
     (p.bind k).branch b = (k ()).branch b ∘ₗ p.branch () := by
   rw [branch_bind_apply_univ, Fintype.sum_unique]
 
-/-- After a step without outcome, the post-branch substate of a composite is the post-branch
-substate of the continuation on the substate left by the step. -/
-theorem post_bind_unit (p : SubInstrument A B Unit) (k : Unit → SubInstrument B C β)
+/-- After a step without outcome, the continuation receives the unique post-branch substate. -/
+theorem post_bind_unit {B : Unit → Type*} [∀ u, Fintype (B u)]
+    (p : DSubInstrument A Unit B) (k : (u : Unit) → DSubInstrument (B u) β C)
     (ρ : SubState A) (b : β) : (p.bind k).post ρ b = (k ()).post (p.post ρ ()) b :=
   SubState.ext <| by simp [branch_bind_unit]
 
-/-- After a step without outcome, the outcome measure of a composite is the outcome measure of
-the continuation on the substate left by the step. -/
-theorem outcomeMeasure_bind_unit [MeasurableSpace β] (p : SubInstrument A B Unit)
-    (k : Unit → SubInstrument B C β) (ρ : SubState A) :
+/-- After a step without outcome, the outcome measure is that of its continuation. -/
+theorem outcomeMeasure_bind_unit [MeasurableSpace β] {B : Unit → Type*}
+    [∀ u, Fintype (B u)] (p : DSubInstrument A Unit B)
+    (k : (u : Unit) → DSubInstrument (B u) β C) (ρ : SubState A) :
     (p.bind k).outcomeMeasure ρ = (k ()).outcomeMeasure (p.post ρ ()) := by
-  have hs : (p.bind k).branch.support ⊆ (k ()).branch.support := fun b hb ↦ by
-    rw [Finsupp.mem_support_iff] at hb ⊢
-    intro h
-    exact hb (by rw [branch_bind_unit, h, LinearMap.zero_comp])
-  rw [outcomeMeasure_eq_sum_of_subset _ _ hs, outcomeMeasure_eq_sum]
-  exact Finset.sum_congr rfl fun b _ ↦ by rw [branch_bind_unit, matrix_post, LinearMap.comp_apply]
+  rw [outcomeMeasure_bind, Measure.sum_fintype, Fintype.sum_unique]
 
 /-- A lossless step without outcome preserves the trace of the substate. -/
-theorem Lossless.trace_post_unit {p : SubInstrument A B Unit} (hp : p.Lossless) (ρ : SubState A) :
+theorem Lossless.trace_post_unit {B : Unit → Type*} [∀ u, Fintype (B u)]
+    {p : DSubInstrument A Unit B} (hp : p.Lossless) (ρ : SubState A) :
     (p.post ρ ()).matrix.trace = ρ.matrix.trace := by
-  rw [matrix_post, ← hp ρ.matrix, total_eq_sum_univ, Fintype.sum_unique]
+  rw [matrix_post, ← hp.tsum_trace_eq ρ.matrix, tsum_fintype, Fintype.sum_unique]
 
 end
+
+end DSubInstrument
+
+namespace SubInstrument
+
+open DSubInstrument
 
 /-! ## Isometries -/
 
@@ -128,7 +128,7 @@ noncomputable def ofIsometry (K : Matrix B A ℂ) (hK : Kᴴ * K = 1) : SubInstr
 @[simp]
 theorem branch_ofIsometry_apply (K : Matrix B A ℂ) (hK : Kᴴ * K = 1) (u : Unit) :
     (ofIsometry K hK).branch u = MatrixMap.conj K :=
-  Finsupp.single_eq_same
+  rfl
 
 /-- The gate of an isometry is lossless. -/
 theorem lossless_ofIsometry (K : Matrix B A ℂ) (hK : Kᴴ * K = 1) : (ofIsometry K hK).Lossless :=
@@ -137,7 +137,8 @@ theorem lossless_ofIsometry (K : Matrix B A ℂ) (hK : Kᴴ * K = 1) : (ofIsomet
 /-- The gate of the identity matrix returns without touching the state. -/
 theorem ofIsometry_one :
     ofIsometry (1 : Matrix A A ℂ) (by simp) = SubInstrument.pure () :=
-  SubInstrument.ext <| by simp [ofIsometry]
+  DSubInstrument.ext <| funext fun u ↦ by
+    rw [branch_ofIsometry_apply, MatrixMap.conj_one, branch_pure_self]
 
 /-- Sequencing the gates of two isometries is the gate of their product. -/
 theorem ofIsometry_bind_ofIsometry [Fintype C] [DecidableEq B] (K : Matrix B A ℂ)
@@ -146,7 +147,7 @@ theorem ofIsometry_bind_ofIsometry [Fintype C] [DecidableEq B] (K : Matrix B A �
       ofIsometry (L * K) (by
         rw [Matrix.conjTranspose_mul, Matrix.mul_assoc, ← Matrix.mul_assoc Lᴴ, hL,
           Matrix.one_mul, hK]) := by
-  refine SubInstrument.ext <| Finsupp.ext fun u ↦ ?_
+  refine DSubInstrument.ext <| funext fun u ↦ ?_
   rw [branch_bind_unit, branch_ofIsometry_apply, branch_ofIsometry_apply,
     branch_ofIsometry_apply, MatrixMap.conj_mul]
 
@@ -319,6 +320,8 @@ end prod
 
 namespace SubInstrument
 
+open DSubInstrument
+
 section relabel
 
 variable [Fintype A] [Fintype B] [Fintype C] [DecidableEq A] [DecidableEq B] [DecidableEq C]
@@ -348,15 +351,14 @@ theorem lossless_relabel (e : A ≃ B) : (relabel e).Lossless :=
 /-- Relabelling along the identity bijection returns without touching the state. -/
 @[simp]
 theorem relabel_refl : relabel (Equiv.refl A) = SubInstrument.pure () :=
-  SubInstrument.ext <| Finsupp.ext fun u ↦ LinearMap.ext fun ρ ↦ by
-    cases u
-    rw [relabel_branch_apply, branch_pure, Finsupp.single_eq_same]
+  DSubInstrument.ext <| funext fun u ↦ LinearMap.ext fun ρ ↦ by
+    rw [relabel_branch_apply, branch_pure_self]
     rfl
 
 /-- Relabelling along `e` and then along `f` is relabelling along the composite bijection. -/
 theorem relabel_bind_relabel (e : A ≃ B) (f : B ≃ C) :
     ((relabel e).bind fun _ ↦ relabel f) = relabel (e.trans f) :=
-  SubInstrument.ext <| Finsupp.ext fun u ↦ LinearMap.ext fun ρ ↦ by
+  DSubInstrument.ext <| funext fun u ↦ LinearMap.ext fun ρ ↦ by
     rw [branch_bind_unit, LinearMap.comp_apply, relabel_branch_apply, relabel_branch_apply,
       relabel_branch_apply, Matrix.submatrix_submatrix]
     rfl
@@ -374,16 +376,15 @@ end SubInstrument
 
 /-! ## Classical instruments -/
 
-namespace SubInstrument
+namespace DSubInstrument
 
 section classical
 
-variable [Fintype A] [DecidableEq A] [DecidableEq B]
+variable [Fintype A] [DecidableEq A]
 
-variable [Fintype B]
-
-/-- The operators `|f a⟩⟨a|` satisfy the completeness relation. -/
-theorem sum_conjTranspose_single_mul_single (f : A → B) :
+/-- The operators `|f a⟩⟨a|`, with an output system for each `a`, are complete. -/
+theorem sum_conjTranspose_single_mul_single {B : A → Type*}
+    [∀ a, Fintype (B a)] [∀ a, DecidableEq (B a)] (f : (a : A) → B a) :
     ∑ a, (Matrix.single (f a) a (1 : ℂ))ᴴ * Matrix.single (f a) a (1 : ℂ) = 1 := by
   ext a a'
   simp only [Matrix.conjTranspose_single, star_one, Matrix.single_mul_single_same, mul_one,
@@ -391,50 +392,62 @@ theorem sum_conjTranspose_single_mul_single (f : A → B) :
   rw [Finset.sum_eq_single a (fun x _ hx ↦ by simp [hx]) (by simp)]
   simp
 
-/-- The classical instrument of `f` and `g`: measure the register in the computational basis
-and, on reading `a`, report `g a` and prepare the basis state at `f a`. Its Kraus operators are
-`|f a⟩⟨a|`. -/
+variable {B : α → Type*} [∀ c, Fintype (B c)] [∀ c, DecidableEq (B c)]
+
+/-- Measure in the computational basis; on reading `a`, report `g a` and prepare the basis
+state at `f a` in the output system `B (g a)`. -/
 @[expose]
-noncomputable def classical (f : A → B) (g : A → α) : SubInstrument A B α :=
+noncomputable def classical (g : A → α) (f : (a : A) → B (g a)) : DSubInstrument A α B :=
   (ofKraus (fun a ↦ Matrix.single (f a) a 1) (sum_conjTranspose_single_mul_single f)).map g
 
 /-- A classical instrument is lossless. -/
-theorem lossless_classical (f : A → B) (g : A → α) : (classical f g).Lossless :=
-  (lossless_ofKraus _ _).map g
+theorem lossless_classical (g : A → α) (f : (a : A) → B (g a)) : (classical g f).Lossless :=
+  (lossless_ofKraus _ _).map
 
-/-- On the basis state at `a`, a classical instrument reports `g a` with weight one and leaves
-the basis state at `f a`. -/
-theorem branch_classical_basis [DecidableEq α] (f : A → B) (g : A → α) (a : A) (c : α) :
-    (classical f g).branch c (Matrix.single a a 1) =
-      if g a = c then Matrix.single (f a) (f a) 1 else 0 := by
+/-- On a basis state, a classical instrument reports `g a` and prepares `f a`, transported to
+its reported output system. -/
+theorem branch_classical_basis [DecidableEq α] (g : A → α) (f : (a : A) → B (g a))
+    (a : A) (c : α) :
+    (classical g f).branch c (Matrix.single a a 1) =
+      if h : g a = c then
+        cast (congrArg (fun j ↦ Matrix (B j) (B j) ℂ) h) (Matrix.single (f a) (f a) 1)
+      else 0 := by
   rw [classical, branch_map_apply_univ, LinearMap.sum_apply,
     Finset.sum_eq_single a (fun a' _ ha' ↦ ?_) (by simp)]
-  · split_ifs <;> simp
-  · split_ifs <;> simp [ha']
+  · split_ifs with h
+    · subst c
+      simp
+    · simp
+  · split_ifs with h
+    · subst c
+      simp [ha']
+    · simp
 
-/-- A classical step without outcome sends the basis state at `a` to the basis state at
-`f a`. -/
-theorem post_classical_basis (f : A → B) (a : A) :
-    (classical f fun _ ↦ ()).post (SubState.basis a) () = SubState.basis (f a) :=
+/-- A classical step without outcome prepares its specified basis state. -/
+theorem post_classical_basis {B : Unit → Type*} [∀ u, Fintype (B u)]
+    [∀ u, DecidableEq (B u)] (f : A → B ()) (a : A) :
+    (classical (B := B) (fun _ ↦ ()) f).post (SubState.basis a) () = SubState.basis (f a) :=
   SubState.ext <| by simp [branch_classical_basis]
 
 /-- On the basis state at `a`, a classical instrument reports `g a` with certainty. -/
-theorem outcomeMeasure_classical_basis [MeasurableSpace α] (f : A → B) (g : A → α) (a : A) :
-    (classical f g).outcomeMeasure (SubState.basis a) = Measure.dirac (g a) := by
+theorem outcomeMeasure_classical_basis [MeasurableSpace α] (g : A → α)
+    (f : (a : A) → B (g a)) (a : A) :
+    (classical g f).outcomeMeasure (SubState.basis a) = Measure.dirac (g a) := by
   rw [classical, outcomeMeasure_map_univ, Finset.sum_eq_single a (fun a' _ ha' ↦ ?_) (by simp)]
   · simp
   · simp [ha']
 
-omit [DecidableEq B] in
+end classical
+
+variable [Fintype A] [DecidableEq A] {B : α → Type*} [∀ a, Fintype (B a)]
+
 /-- A framed subinstrument acts on a product basis state through its first factor. -/
-theorem branch_frame_single {R : Type*} [Fintype R] [DecidableEq R] (p : SubInstrument A B α)
+theorem branch_frame_single {R : Type*} [Fintype R] [DecidableEq R] (p : DSubInstrument A α B)
     (c : α) (a : A) (r : R) :
     (p.frame R).branch c (Matrix.single (a, r) (a, r) 1) =
       p.branch c (Matrix.single a a 1) ⊗ₖ Matrix.single r r 1 := by
   rw [branch_frame_apply, ← MatrixMap.amplify_kronecker, Matrix.single_kronecker_single, one_mul]
 
-end classical
-
-end SubInstrument
+end DSubInstrument
 
 end Quantum

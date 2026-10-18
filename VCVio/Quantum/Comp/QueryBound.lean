@@ -398,9 +398,8 @@ theorem run₂_congr_of_isQueryBound {D : QReg} {σ₁ σ₂ : SubState D}
     {s₁ s₂ : ∀ i, SubInstrument (spec.In i × D) (spec.Out i × D) (spec.Result i)}
     {x : QuantumComp₂ L spec A B α} {b : spec.Port → ℕ} (hx : x.IsQueryBound b)
     (hs : ∀ i, b i ≠ 0 → s₁ i = s₂ i) :
-    (QuantumRuntime.mk D σ₁ s₁).run₂ I x = (QuantumRuntime.mk D σ₂ s₂).run₂ I x :=
-  SubInstrument.toD_injective <| by
-    rw [toD_run₂, toD_run₂, run_congr_of_isQueryBound I hx hs]
+    (QuantumRuntime.mk D σ₁ s₁).run₂ I x = (QuantumRuntime.mk D σ₂ s₂).run₂ I x := by
+  rw [run₂_eq_comap, run₂_eq_comap, run_congr_of_isQueryBound I hx hs]
 
 /-- Two runtimes with the same initial substate whose steps agree on every port with a nonzero
 budget give every program within that budget the same outcome distribution. -/
@@ -419,7 +418,7 @@ theorem evalDist₂_congr_of_isQueryBound [MeasurableSpace α] {D : QReg} {σ : 
     {x : QuantumComp₂ L spec A B α} {b : spec.Port → ℕ} (hx : x.IsQueryBound b)
     (hs : ∀ i, b i ≠ 0 → s₁ i = s₂ i) (ρ : SubState A) :
     (QuantumRuntime.mk D σ s₁).evalDist₂ I x ρ = (QuantumRuntime.mk D σ s₂).evalDist₂ I x ρ :=
-  congrArg (fun p ↦ SubInstrument.outcomeMeasure p (ρ.prod σ))
+  congrArg (fun p ↦ DSubInstrument.outcomeMeasure p (ρ.prod σ))
     (run₂_congr_of_isQueryBound (σ₁ := σ) (σ₂ := σ) I hx hs)
 
 end QuantumRuntime
