@@ -24,6 +24,7 @@ public import Examples.MeasurableServices.ContinuousSyntax
 public import Examples.MeasurableServices.Masking
 public import Examples.MeasurableServices.ReactiveThreshold
 public import Examples.MeasurableServices.RejectionTiming
+public import Examples.MeasurableServices.ThresholdSecretTiming
 public import Examples.MeasurableServices.ThresholdTiming
 public import Examples.MeasurableServices.UniformTernary
 public import Examples.MerkleCheckpoints

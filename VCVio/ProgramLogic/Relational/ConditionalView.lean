@@ -38,7 +38,21 @@ def SimulatesView (secret : Ω → Secret) (publicView : Ω → Public) (leak : 
 namespace SimulatesView
 
 variable {secret : Ω → Secret} {publicView : Ω → Public} {leak : Ω → Leak}
-  {sim : Kernel Public Leak} {μ : Measure Ω} [SFinite μ] [IsSFiniteKernel sim]
+  {sim : Kernel Public Leak} {μ : Measure Ω}
+
+/-- A simulator for a mapped experiment also simulates its observations on the source space. -/
+theorem of_map {Ω' : Type*} [MeasurableSpace Ω'] {f : Ω → Ω'}
+    {secret' : Ω' → Secret} {publicView' : Ω' → Public} {leak' : Ω' → Leak}
+    (hf : Measurable f) (hsecret : Measurable secret') (hpublic : Measurable publicView')
+    (hleak : Measurable leak')
+    (h : SimulatesView secret' publicView' leak' sim (μ.map f)) :
+    SimulatesView (secret' ∘ f) (publicView' ∘ f) (leak' ∘ f) sim μ := by
+  refine ⟨(((hpublic.comp hf).prodMk (hsecret.comp hf)).prodMk
+    (hleak.comp hf)).aemeasurable, ?_⟩
+  simpa only [Measure.map_map ((hpublic.prodMk hsecret).prodMk hleak) hf,
+    Measure.map_map (hpublic.prodMk hsecret) hf, Function.comp_def] using h.map_eq
+
+variable [SFinite μ] [IsSFiniteKernel sim]
 
 /-- Forgetting the secret recovers the simulator's conditional law given the public view. -/
 theorem public_law (h : SimulatesView secret publicView leak sim μ) :
@@ -52,6 +66,25 @@ theorem postprocess {L : Type*} [MeasurableSpace L]
   unfold SimulatesView
   rw [← Kernel.map_prodMkRight]
   exact h.comp_left hf
+
+/-- On any public/secret atom, the leakage event probability uses only the public view.
+This necessary condition can refute proposed simulators while retaining the secret. -/
+theorem measure_atom_inter [MeasurableSingletonClass Secret] [MeasurableSingletonClass Public]
+    (h : SimulatesView secret publicView leak sim μ)
+    (hsecret : Measurable secret) (hpublic : Measurable publicView) (hleak : Measurable leak)
+    (s : Secret) (p : Public) {event : Set Leak} (hevent : MeasurableSet event) :
+    μ {ω | publicView ω = p ∧ secret ω = s ∧ leak ω ∈ event} =
+      μ {ω | publicView ω = p ∧ secret ω = s} * sim p event := by
+  have heq := congrArg (fun ν : Measure ((Public × Secret) × Leak) =>
+    ν ({(p, s)} ×ˢ event)) h.map_eq
+  rw [Measure.map_apply ((hpublic.prodMk hsecret).prodMk hleak)
+      ((measurableSet_singleton _).prod hevent),
+    Measure.compProd_apply_prod (measurableSet_singleton _) hevent,
+    lintegral_singleton,
+    Measure.map_apply (hpublic.prodMk hsecret) (measurableSet_singleton _)] at heq
+  simpa only [Kernel.prodMkRight_apply, Set.preimage, Set.mem_prod,
+    Set.mem_singleton_iff, Prod.mk.injEq, and_assoc, mul_comm] using heq
+
 
 end SimulatesView
 

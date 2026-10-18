@@ -104,7 +104,12 @@ continuous algebra as resumptions, and agrees with them through the canonical
 embedding. `MachineHandler.evalDist_dispatch` consequently identifies the actual
 composed continuing machine's joint returned law; its caller state and result
 need not be countable. This uses PolyFun's shared least-iteration and exact
-stateful-interpreter equations. Returned-law adequacy does not identify microstep
+stateful-interpreter equations. The dispatcher also has an exact finite-prefix
+decomposition into completed calls and an unfinished service trace. It preserves
+ordered observations, including entry/return administration, and connects to
+the existing quantitative observation fold with separate initialization and
+endpoint costs. This decomposition concerns actual prefixes without requiring
+that the client or active call eventually return. Returned-law adequacy does not identify microstep
 clocks or establish the law of an infinite history of completed calls.
 
 The [coinductive reconstruction contract](../../VCVio/ProgramLogic/Relational/Reconstruction/Coinductive.lean)
@@ -456,6 +461,16 @@ The approximate rule exposes a potential condition; consumers still have to prov
 particular potential pays for all reachable adaptive steps. The countable timeout union theorem
 likewise requires bounds on the reached-query events in one common session probability space.
 It does not silently construct that coupling or certify a restart policy.
+
+The [secret-threshold timing counterexample](../../Examples/MeasurableServices/ThresholdSecretTiming.lean)
+uses the actual chunk/resume runner with a private choice between thresholds
+`1/4` and `1/2`. Its joint law retains that secret, the public Boolean answer,
+and whether the first bit sufficed. Even with the answer permitted as public,
+no public-view simulator can reproduce timing while retaining the secret.
+`SimulatesView.measure_atom_inter` supplies the reusable necessary atom equation;
+`SimulatesView.of_map` transports simulation claims from a mapped experiment
+back to its finite source space. The proof includes unused bits on early return
+only in the source probability space; the executable program reads no such bit.
 
 The [rejection timing example](../../Examples/MeasurableServices/RejectionTiming.lean) proves
 that every finite successful law of the existing four-outcome rejection sampler is completion
