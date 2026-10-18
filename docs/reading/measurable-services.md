@@ -82,7 +82,7 @@ stateful fold, and `execute_liftM` reuses stateful reindexing for interface tran
 | `FreeM` | Finite adaptive clients, capped optional implementations | Finite measure/kernel folds; machine compilation |
 | `DynComputation` | Retained execution phases and injected bit drivers | Dispatch behavior weakly bisimilar to stateful ITree interpretation |
 | `Resumption` | Visible-query, potentially infinite behavior | Least continuous measure/kernel interpretation; increasing finite truncations |
-| `ITree` | Explicit silent steps and stateful interpretation | Returned measures respect weak bisimulation; silent divergence returns zero |
+| `ITree` | Explicit silent steps and stateful interpretation | Joint returned-state kernels respect weak bisimulation; local handler laws imply coinductive adequacy |
 | `DynSystem`, `M`, `CofreeC` | A continuing adaptive threshold client | Canonical behavior, trajectory, and ITree equations |
 | `IPFunctor`, scoped/displayed syntax | Indexed protocols and binding already supplied by PolyFun | Existing fold/reindex/traversal coverage reused; no redundant indexed probability AST |
 
@@ -95,7 +95,17 @@ query-depth bound. An ordinary-import regression proves that distinction.
 [`KernelHandler.Realizes`](../../VCVio/EvalDist/KernelHandler/Realizes.lean)
 is a local joint answer/state contract. It lifts to arbitrary adaptive finite
 clients and then to the actual composed machine, through the generic behavior
-bridge. The ternary sampler now has both an executable `sampleIO` and a theorem
+bridge. The [coinductive adequacy theorem](../../VCVio/EvalDist/KernelHandler/ITree.lean)
+also lifts it to arbitrary ITree clients, including divergence. Joint measurability
+in private service state is explicit in `Realizes.interp_of_measurable`; countable
+separated state discharges it automatically in `Realizes.interp`. The
+[ITree kernel interpretation](../../VCVio/EvalDist/ITreeKernel.lean) reuses the same
+continuous algebra as resumptions, and agrees with them through the canonical
+embedding. `MachineHandler.evalDist_dispatch` consequently identifies the actual
+composed continuing machine's joint returned law; its caller state and result
+need not be countable. This uses PolyFun's shared least-iteration and exact
+stateful-interpreter equations. Returned-law adequacy does not identify microstep
+clocks or establish the law of an infinite history of completed calls. The ternary sampler now has both an executable `sampleIO` and a theorem
 about the returned law of that exact composed machine. A separate capped handler
 produces ordinary `OptionT (FreeM ...)` syntax; the proved error bound applies to
 that program, including timeout mass. A noncomputable semantic `ProbResponder`
@@ -422,8 +432,9 @@ library decision, not a proof that PMFs are inadequate for finite cryptographic 
 
 Finite service-refinement contracts concern arbitrary terminating free clients. Measurable
 machines also have infinite path laws agreeing with all executable finite histories, and their
-eventual-return events agree with resumption returned measures. Comparing coinductive clients
-across a handler still requires a completed-call projection: two implementations need not use
+eventual-return events agree with resumption returned measures. Coinductive
+returned-law adequacy is proved separately through the shared iteration semantics.
+Comparing infinite histories across a handler still requires a completed-call projection: two implementations need not use
 the same number of internal steps per call. Full concurrent/UC scheduler composition is outside
 this prototype.
 

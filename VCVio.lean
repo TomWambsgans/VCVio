@@ -174,6 +174,7 @@ public import VCVio.EvalDist.Divergence.KLDivergence
 public import VCVio.EvalDist.EvalDistEq
 public import VCVio.EvalDist.EvalDistTV
 public import VCVio.EvalDist.Expectation
+public import VCVio.EvalDist.ITreeKernel
 public import VCVio.EvalDist.ITreeMeasure
 public import VCVio.EvalDist.IndepProduct
 public import VCVio.EvalDist.IndepProductMeasure
@@ -182,6 +183,7 @@ public import VCVio.EvalDist.Instances.ErrorT
 public import VCVio.EvalDist.Instances.OptionT
 public import VCVio.EvalDist.Kernel
 public import VCVio.EvalDist.KernelHandler.Except
+public import VCVio.EvalDist.KernelHandler.ITree
 public import VCVio.EvalDist.KernelHandler.Machine
 public import VCVio.EvalDist.KernelHandler.Realizes
 public import VCVio.EvalDist.List

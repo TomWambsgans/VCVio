@@ -52,6 +52,11 @@ noncomputable def runKernel (K : KernelHandler P S) (tree : Resumption P α) : K
   denote (fun x => Kernel.deterministic (fun s => (x, s))
     (measurable_const.prodMk measurable_id)) K.continuousAlgebra tree
 
+/-- The joint kernel is the shared continuous-algebra interpretation. -/
+theorem runKernel_eq_denote (K : KernelHandler P S) (tree : Resumption P α) :
+    runKernel K tree = denote (fun x => Kernel.deterministic (fun s => (x, s))
+      (measurable_const.prodMk measurable_id)) K.continuousAlgebra tree := by rfl
+
 @[simp] theorem runKernel_pure (K : KernelHandler P S) (x : α) (s : S) :
     runKernel K (pure x) s = Measure.dirac (x, s) := by
   simp only [runKernel, denote_pure]

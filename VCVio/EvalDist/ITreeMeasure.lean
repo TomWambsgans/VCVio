@@ -34,6 +34,10 @@ variable {P : PFunctor.{uA, u}} [∀ a, MeasurableSpace (P.B a)]
 noncomputable def returnedMeasure (tree : ITree P α) : Measure α :=
   denote Measure.dirac (AnswerMeasure.continuousAlgebra P α) tree
 
+/-- Returned mass is the shared continuous interpretation into measures. -/
+theorem returnedMeasure_eq_denote (tree : ITree P α) :
+    returnedMeasure tree = denote Measure.dirac (AnswerMeasure.continuousAlgebra P α) tree := by rfl
+
 @[simp] theorem returnedMeasure_pure (a : α) :
     returnedMeasure (pure (F := P) a) = Measure.dirac a :=
   denote_pure _ _ _
@@ -94,18 +98,16 @@ theorem WeakBisim.returnedMeasure_eq {t s : ITree P α} (h : WeakBisim t s) :
     returnedMeasure tree.toITree = Resumption.returnedMeasure tree := by
   rw [returnedMeasure, denote_toITree, ← Resumption.returnedMeasure_eq_denote]
 
-/-- Sequencing commutes with the returned law for measurable continuations. -/
-theorem returnedMeasure_bind (tree : ITree P α) (next : α → ITree P β)
-    (hnext : Measurable fun a => returnedMeasure (next a)) :
-    returnedMeasure (tree >>= next) =
-      (returnedMeasure tree).bind (fun a => returnedMeasure (next a)) := by
-  rw [bind_eq_bind, returnedMeasure, denote_bind]
+/-- A measurable return interpretation is postcomposition of the tree's returned law. -/
+theorem denote_eq_bind_returnedMeasure (tree : ITree P α)
+    (next : α → Measure β) (hnext : Measurable next) :
+    denote next (AnswerMeasure.continuousAlgebra P β) tree = (returnedMeasure tree).bind next := by
   have hfusion := denote_fusion (P := P) (α := α) Measure.dirac
     (AnswerMeasure.continuousAlgebra P α) (AnswerMeasure.continuousAlgebra P β)
     (Measure.bindContinuousLeft hnext)
     (by
       rw [Measure.bindContinuousLeft_apply]
-      change (0 : Measure α).bind (fun a => returnedMeasure (next a)) = 0
+      change (0 : Measure α).bind next = 0
       simp)
     (by
       intro a k
@@ -114,6 +116,15 @@ theorem returnedMeasure_bind (tree : ITree P α) (next : α → ITree P β)
   simp only [Measure.bindContinuousLeft_apply] at hfusion
   simp_rw [Measure.dirac_bind hnext] at hfusion
   exact hfusion.symm
+
+
+/-- Sequencing commutes with the returned law for measurable continuations. -/
+theorem returnedMeasure_bind (tree : ITree P α) (next : α → ITree P β)
+    (hnext : Measurable fun a => returnedMeasure (next a)) :
+    returnedMeasure (tree >>= next) =
+      (returnedMeasure tree).bind (fun a => returnedMeasure (next a)) := by
+  rw [bind_eq_bind, returnedMeasure, denote_bind]
+  exact denote_eq_bind_returnedMeasure tree (fun a => returnedMeasure (next a)) hnext
 
 /-- Interaction trees use the common successful-output probability interface. -/
 noncomputable instance instEvalDistSemantics : EvalDistSemantics (ITree P) where
