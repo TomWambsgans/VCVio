@@ -7,7 +7,6 @@ Authors: Quang Dao
 module
 public import Mathlib.LinearAlgebra.UnitaryGroup
 public import VCVio.Quantum.Oracle.Basis
-import all VCVio.Quantum.SubInstrument
 
 /-!
 # The oracle unitary of a function

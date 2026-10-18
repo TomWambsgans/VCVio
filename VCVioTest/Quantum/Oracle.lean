@@ -7,7 +7,6 @@ Authors: Quang Dao
 module
 public import VCVio.Quantum.Oracle.Classical
 public import VCVio.Quantum.Oracle.Comb
-import all VCVio.Quantum.SubInstrument
 
 /-!
 # Quantum oracle regression tests

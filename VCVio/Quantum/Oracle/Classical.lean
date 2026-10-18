@@ -8,7 +8,6 @@ module
 public import VCVio.OracleComp.QueryTracking.QueryBound.Basic
 public import VCVio.OracleComp.QueryTracking.RandomOracle.EagerTable
 public import VCVio.Quantum.Oracle.Model
-import all VCVio.Quantum.SubInstrument
 
 /-!
 # Classical oracle algorithms in the quantum random-oracle model
