@@ -51,6 +51,13 @@ positivity (`Quantum.MatrixMap.IsCPTNIFamily.prod`).
 * `Quantum.SubInstrument M M`: subinstruments from a register `M` to itself form a lawful monad,
   the semantic domain of quantum programs on that register.
 
+Every branch has a finite Kraus representation (`Quantum.SubInstrument.exists_kraus_branch`),
+even when the outcome type is infinite. For finitely many outcomes,
+`Quantum.SubInstrument.exists_kraus_of_fintype` gives a joint completeness inequality, and
+`Quantum.SubInstrument.Lossless.exists_kraus` gives equality. For two stages with finitely many
+intermediate outcomes, `Quantum.SubInstrument.branch_bind_eq_sum_conj_mul` expresses each final
+branch as the sum of Kraus maps along paths, with the later operator multiplying on the left.
+
 ## Outcome-dependent output systems
 
 Here every branch has the same output system `B`. `Quantum.DSubInstrument A ι B`, in
