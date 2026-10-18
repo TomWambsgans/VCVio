@@ -57,6 +57,7 @@ public import ToMathlib.MeasureTheory.Integral.Countable
 public import ToMathlib.MeasureTheory.Integral.Quadratic
 public import ToMathlib.MeasureTheory.MeasurableSpace.Except
 public import ToMathlib.MeasureTheory.MeasurableSpace.Fin
+public import ToMathlib.MeasureTheory.MeasurableSpace.NNRat
 public import ToMathlib.MeasureTheory.MeasurableSpace.Option
 public import ToMathlib.MeasureTheory.MeasurableSpace.Sum
 public import ToMathlib.MeasureTheory.MeasurableSpace.TypeTags

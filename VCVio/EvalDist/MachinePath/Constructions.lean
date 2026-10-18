@@ -25,6 +25,37 @@ namespace PFunctor.DynSystem.DynComputation
 
 namespace Chunk
 
+/-- A measurable residual observation may also inspect an external parameter. -/
+theorem measurable_elim_withInput {T S β γ : Type*}
+    [MeasurableSpace T] [MeasurableSpace S] [MeasurableSpace β] [MeasurableSpace γ]
+    {returned : T × β → γ} {paused : T × S → γ}
+    (hreturned : Measurable returned) (hpaused : Measurable paused) :
+    Measurable (fun input : T × Chunk S β => match input.2 with
+      | .done value => returned (input.1, value)
+      | .paused state => paused (input.1, state)) := by
+  have hsum : Measurable (Sum.elim returned paused) := measurable_fun_sum hreturned hpaused
+  have h := hsum.comp
+    ((MeasurableEquiv.prodSumDistrib T β S).measurable.comp
+      (measurable_fst.prodMk (measurableSumEquiv.measurable.comp measurable_snd)))
+  convert h using 1
+  funext input
+  rcases input with ⟨param, chunk⟩
+  cases chunk <;> simp only [Function.comp_apply, measurableSumEquiv_apply, sumEquiv] <;> rfl
+
+/-- The two branches of a mapped chunk may depend measurably on external input. -/
+theorem measurable_map_withInput {I S T β γ : Type*}
+    [MeasurableSpace I] [MeasurableSpace S] [MeasurableSpace T]
+    [MeasurableSpace β] [MeasurableSpace γ]
+    {state : I × S → T} {result : I × β → γ}
+    (hstate : Measurable state) (hresult : Measurable result) :
+    Measurable (fun input : I × Chunk S β =>
+      input.2.map (fun s => state (input.1, s)) (fun value => result (input.1, value))) := by
+  convert measurable_elim_withInput (measurable_done.comp hresult)
+    (measurable_paused.comp hstate) using 1
+  funext input
+  rcases input with ⟨param, chunk⟩
+  cases chunk <;> rfl
+
 /-- State and result observations may be mapped separately and measurably. -/
 @[fun_prop] theorem measurable_map {S T β γ : Type*}
     [MeasurableSpace S] [MeasurableSpace T] [MeasurableSpace β] [MeasurableSpace γ]

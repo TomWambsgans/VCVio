@@ -6,7 +6,7 @@ Authors: Devon Tuma
 
 module
 
-public import VCVio.EvalDist.MachinePath.Constructions
+public import VCVio.EvalDist.MachinePath.Observe
 public import VCVio.OracleComp.Coinductive.UniformThreshold
 
 /-!
@@ -119,5 +119,21 @@ example (input : ℝ) :
       (returnReal_measurable.pathLaw input).map
         (fun path n => (path n).map id (fun value => value * value)) :=
   returnReal_measurable.pathLaw_mapResult _ (measurable_id.mul measurable_id) input
+
+/-- State-dependent real weights accumulate in the usual Borel measurable space. -/
+theorem threshold_accumulator_measurable (q : ℚ)
+    (observe : (UniformThreshold.machine q).toDynSystem.EventMap (Multiplicative ℝ)) :
+    MeasurableExecution ((UniformThreshold.machine q).withAccumulator observe) :=
+  MeasurableExecution.withAccumulator_of_countable _ observe measurable_id
+
+/-- Every coordinate retains the accumulator, including unfinished executions. -/
+example (q : ℚ)
+    (observe : (UniformThreshold.machine q).toDynSystem.EventMap (Multiplicative ℝ))
+    (p : UniformThreshold.Prefix) (initial : Multiplicative ℝ) (fuel : ℕ) :
+    ((threshold_accumulator_measurable q observe).pathLaw (p, initial)).map
+        (fun path (i : Fin (fuel + 1)) => path i) =
+      FreeM.denote (((UniformThreshold.machine q).withAccumulator observe).unrollHistory
+        fuel (p, initial)) :=
+  (threshold_accumulator_measurable q observe).pathLaw_map_history (p, initial) fuel
 
 end MachinePathTest

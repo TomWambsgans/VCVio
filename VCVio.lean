@@ -181,6 +181,7 @@ public import VCVio.EvalDist.Inequalities
 public import VCVio.EvalDist.Instances.ErrorT
 public import VCVio.EvalDist.Instances.OptionT
 public import VCVio.EvalDist.Kernel
+public import VCVio.EvalDist.KernelHandler.Except
 public import VCVio.EvalDist.KernelHandler.Machine
 public import VCVio.EvalDist.KernelHandler.Realizes
 public import VCVio.EvalDist.List
@@ -188,6 +189,7 @@ public import VCVio.EvalDist.Lossless
 public import VCVio.EvalDist.MachineMeasure
 public import VCVio.EvalDist.MachinePath
 public import VCVio.EvalDist.MachinePath.Constructions
+public import VCVio.EvalDist.MachinePath.Observe
 public import VCVio.EvalDist.MeasureSemantics
 public import VCVio.EvalDist.MeasureTVDist.Basic
 public import VCVio.EvalDist.MeasureTVDist.Bind
@@ -261,6 +263,7 @@ public import VCVio.OracleComp.Coinductive.SecurityFamily
 public import VCVio.OracleComp.Coinductive.UniformThreshold
 public import VCVio.OracleComp.Coinductive.UniformThreshold.Approximation
 public import VCVio.OracleComp.Coinductive.UniformThreshold.Budget
+public import VCVio.OracleComp.Coinductive.UniformThreshold.Budget.Semantics
 public import VCVio.OracleComp.Coinductive.UniformThreshold.Cost
 public import VCVio.OracleComp.Coinductive.UniformThreshold.Interval
 public import VCVio.OracleComp.Coinductive.UniformThreshold.Semantics

@@ -193,6 +193,14 @@ returns `budgetExhausted` without sampling; a timeout retains the refined prefix
 and debit and permanently aborts the client. PolyFun's `MachineHandler.admitted`
 provides the shared adapter, using `ExceptT` over `StateT` with separate admission
 data. `cutoff_le_charge` connects the executable reserve to the measure bound.
+The [joint kernel law](../../VCVio/OracleComp/Coinductive/UniformThreshold/Budget/Semantics.lean)
+retains the explicit error or answer, prefix and allowance for every finite adaptive
+client. It uses `KernelHandler.Realizes.runExcept`, derived from the ordinary
+finite-client theorem through PolyFun's `FreeM.withExcept` adapter. Refusal and
+timeout are outcomes of a total kernel; no successful-mass conditioning occurs.
+For an admitted call, `failure_le_charge_of_admitted` bounds this kernel's actual
+error probability by the reserved charge. Its proof projects to the established
+capped threshold law, while the full kernel continues to retain failure state.
 This local bound and the executable policy do not yet constitute a whole-session
 comparison with an ideal service following the same admission policy.
 
@@ -255,6 +263,15 @@ Input adapters substitute the initial input; result maps push forward the full
 path coordinatewise, retaining residual states and the execution clock. The result
 map need not be injective. The underlying syntax laws also support independent
 input and result universes.
+
+[`MachinePath.Observe`](../../VCVio/EvalDist/MachinePath/Observe.lean) supplies a
+certificate for countable control states with continuous monoidal accumulators.
+Initialization and multiplication must be measurable; the state-dependent
+observations of discrete answers may otherwise be arbitrary. This includes a
+Borel real-valued running total, recorded on paused as well as returned chunks.
+The constructor uses the shared `withAccumulator` runner and its left-multiplier
+law. A certificate for the uninstrumented step alone would not suffice for
+arbitrary observations, which can expose information that the original state discards.
 
 The [stopped-observation bridge](../../VCVio/EvalDist/StoppedObservation.lean) proves that
 measurable path observations with the supplied finite truncation laws and almost surely

@@ -43,6 +43,12 @@ def measurableSumEquiv : Chunk S β ≃ᵐ β ⊕ S where
   measurable_invFun := measurable_comap_iff.mpr (by
     simpa only [Equiv.self_comp_symm] using measurable_id (α := β ⊕ S))
 
+/-- The measurable equivalence uses the underlying residual sum representation. -/
+@[simp] theorem measurableSumEquiv_apply (chunk : Chunk S β) :
+    measurableSumEquiv chunk = sumEquiv chunk := by
+  unfold measurableSumEquiv
+  rfl
+
 @[fun_prop] theorem measurable_done : Measurable (@Chunk.done S β) :=
   measurableSumEquiv.symm.measurable.comp measurable_inl
 

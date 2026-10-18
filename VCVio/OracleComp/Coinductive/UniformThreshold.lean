@@ -114,7 +114,7 @@ theorem machine_view (q : ℚ) (p : Prefix) :
 @[expose, reducible] def spec : OracleSpec ℚ := fun _ => Bool
 
 /-- Executable rational-arithmetic machines, independent of the measure-valued service bundle. -/
-@[expose] def machineHandler :
+@[expose, reducible] def machineHandler :
     MachineHandler spec.toPFunctor coinSpec.toPFunctor Prefix := machine
 
 /-- Execute a query with an injected bit source, retaining the prefix across invocations. -/

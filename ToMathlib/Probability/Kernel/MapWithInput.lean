@@ -8,7 +8,8 @@ module
 
 public import Mathlib.Probability.Kernel.Composition.MeasureCompProd
 
-/-!+# Measurable observations of a kernel's input and output
+/-!
+# Measurable observations of a kernel's input and output
 
 An observation can retain input information together with the sampled result.
 Its law is measurable in the input, and integrating these laws is the pushforward
