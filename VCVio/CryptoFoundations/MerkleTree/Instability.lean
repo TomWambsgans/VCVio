@@ -17,14 +17,16 @@ collision-free database whose extracted tree at that root does not open `idx` to
 Extending the database by one fresh answer makes the opening verify only when the answer is one
 of the labels that extraction reaches from the root. A full binary skeleton with `L` leaves has
 `2 * L - 1` nodes, so the flip probability into "the opening verifies" is at most
-`(2 * L - 1) / |Y|`, for every query bound.
+`(2 * L - 1) / |Y|`, for every query bound. Answers are uniform on the finite
+label type `Y`.
 
 This is the one-step form of `fresh_extractedTarget_of_extractor_disagreement`, with the commit
 cache the database before the query and the final cache the database after it.
 
 ## Main definitions
 
-* `MerkleTreeExtractability.LogRepresentsCache`: a query log lists exactly the entries of a cache.
+* `MerkleTreeExtractability.LogRepresentsCache`: a query log whose entries are exactly the entries
+  of a cache, in any order and with repetitions.
 * `MerkleTreeExtractability.OpeningDisagrees`: an opening differs from the one read off the tree
   that extraction reconstructs from a log.
 * `MerkleTreeExtractability.acceptingCaches`: the databases that contain an authentication chain
@@ -76,7 +78,9 @@ universe u
 
 variable {Query Y : Type} {Address : Type u}
 
-/-- The query log `log` lists exactly the entries of the cache `cache`. -/
+/-- The entries of the query log `log` are exactly the entries of `cache`: every logged pair is
+cached, and every cached pair is logged. Order and repetitions are unrestricted. Such a log exists
+only for a finite cache (`exists_logRepresentsCache_of_finite` gives the converse). -/
 @[expose] def LogRepresentsCache (log : (Query →ₒ Y).QueryLog)
     (cache : (Query →ₒ Y).QueryCache) : Prop :=
   (∀ entry ∈ log, cache entry.1 = some entry.2) ∧
@@ -166,8 +170,11 @@ path, from the opening read off the tree that extraction reconstructs from `log`
     (proof : List.Vector Y idx.depth) : Set (Query →ₒ Y).QueryCache :=
   {cache | ChainInCache model addressKey cache leaf root idx proof}
 
-/-- The collision-free databases represented by a log whose extracted tree at `root` disagrees
-with the opening `(leaf, proof)` at `idx`. -/
+/-- The finite collision-free caches that have a representing log whose extracted tree, at the
+fixed `root` and position `idx`, does not open to `(leaf, proof)`. A missing leaf or sibling in the
+extracted tree counts as disagreement. The log is an existential witness; extraction from a
+collision-free cache is independent of the representing log
+(`tree_eq_of_logRepresentsCache`). -/
 @[expose] def nonExtractingCaches (leaf root : Y) (idx : SkeletonLeafIndex s)
     (proof : List.Vector Y idx.depth) : Set (Query →ₒ Y).QueryCache :=
   {cache | ¬CacheHasCollision cache ∧
@@ -258,9 +265,14 @@ theorem updateProb_acceptingCaches_le (hlog : LogRepresentsCache log cache)
   exact_mod_cast (Finset.card_le_card hsub).trans ((List.toFinset_card_le _).trans
     (MerkleTreeExtractor.targets_length_le model.view s addressKey log root))
 
-/-- The flip probability from the collision-free databases whose extracted tree disagrees with an
-opening to the databases in which that opening verifies is at most `(2 * s.leafCount - 1) / |Y|`,
-for every query bound. -/
+/-- Fix the skeleton, the root, the position and the opening `(leaf, proof)`. With uniform answers
+in the finite type `Y`, the flip probability from `nonExtractingCaches` to `acceptingCaches` is at
+most `(2 * s.leafCount - 1) / |Y|`, for every query bound `t`.
+
+A fresh answer completes the authentication chain only if it equals one of the at most
+`2 * s.leafCount - 1` labels that extraction reaches from the root before the update. The extended
+cache need not be collision-free. This is a bound for one fixed opening, not for a change of the
+extracted tree; see the module's Scope section. -/
 theorem flip_nonExtractingCaches_acceptingCaches_le (t : ℕ) :
     QueryCache.flip (nonExtractingCaches model addressKey leaf root idx proof)
         (acceptingCaches model addressKey leaf root idx proof) t ≤

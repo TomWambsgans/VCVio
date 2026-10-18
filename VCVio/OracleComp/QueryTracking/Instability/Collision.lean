@@ -12,10 +12,20 @@ public import VCVio.OracleComp.QueryTracking.Birthday
 /-!
 # Instability of the collision property
 
-The collision property is the set of databases in which two distinct inputs have the same answer
-(`OracleComp.CacheHasCollision`). One fresh answer cannot remove a collision, and it creates one
-only by hitting an answer already in the database. So, when every answer type has at least `n`
-elements, the instability of the collision property with query bound `t` is at most `(t - 1) / n`.
+The collision property is the set of databases with equal answers at two distinct inputs
+(`OracleComp.CacheHasCollision`; answers at different inputs may have different types and are
+compared by heterogeneous equality). Extending a database never removes a collision, whatever the
+answer measure.
+
+For the quantitative bound, answers are uniform on finite answer types with at least `n` elements
+each. A database with fewer than `t` entries stores at most `t - 1` answers, and a fresh answer
+creates a collision only by equalling one of them. So the instability of the collision property
+with query bound `t` is at most `(t - 1) / n`. Here `t - 1` is subtraction in `ℕ`, so the bound is
+`0` at `t = 0`, and division is in `ℝ≥0∞`, so `n = 0` is allowed.
+
+This is a bound for one extension. A bound on a quantum algorithm's probability of finding a
+collision needs, in addition, the compressed-oracle argument that sums these one-query bounds;
+that argument is not here.
 
 ## Main statements
 
@@ -26,21 +36,17 @@ elements, the instability of the collision property with query bound `t` is at m
   "no collision" to "collision" is at most `(t - 1) / n`.
 * `OracleSpec.QueryCache.instability_cacheHasCollision_le`: the resulting instability bound, with
   the corollaries `instability_cacheHasCollision_le_div` (the bound `t / n`) and
-  `instability_cacheHasCollision_lt` (the strict bound `t / n` for `0 < t`).
-
-## Implementation notes
-
-Index and answer types here both live in `Type`, as required by the counting lemma
-`OracleComp.card_responses_creating_cacheCollision_le`. The predicate
-`OracleComp.CacheHasCollision` is universe-polymorphic, with tied index and answer universes.
+  `instability_cacheHasCollision_lt` (the strict bound `t / n` for `0 < t` and `0 < n`).
 
 ## References
 
-* Alessandro Chiesa, Peter Manohar, Nicholas Spooner, *Succinct Arguments in the Quantum Random
-  Oracle Model*, TCC 2019: Lemma 6.11. The printed bound `I(P_col, t) < t / 2^λ` is strict and
-  fails at `t = 0`, where both sides are `0`; `instability_cacheHasCollision_lt` assumes `0 < t`.
-* Alessandro Chiesa, Zijing Di, Zihan Hu, Yuxi Zheng, *How to Prove Post-Quantum Security for
-  Succinct Non-Interactive Reductions*, 2026: Lemma 8.7.
+* A. Chiesa, P. Manohar, N. Spooner, *Succinct Arguments in the Quantum Random Oracle Model*,
+  TCC 2019, ePrint 2019/834: Lemma 6.11 (PDF p. 35). The printed bound `I(P_col, t) < t / 2^λ` is
+  strict, and fails at `t = 0`, where both sides are `0`; `instability_cacheHasCollision_lt`
+  assumes `0 < t`.
+* A. Chiesa, Z. Di, Z. Hu, Y. Zheng, *How to Prove Post-Quantum Security for Succinct
+  Non-Interactive Reductions*, ePrint 2025/2166: Lemma 8.7 (PDF p. 56), the non-strict bound
+  `t / 2^σ`.
 -/
 
 public section
@@ -97,8 +103,13 @@ theorem flip_compl_cacheHasCollision_le {n : ℕ} (hn : ∀ x, n ≤ Fintype.car
     (ENNReal.div_le_div (by exact_mod_cast Nat.le_sub_one_of_lt hScard)
       (by exact_mod_cast hn x))
 
-/-- The instability of the collision property with query bound `t` is at most `(t - 1) / n` when
-every answer type has at least `n` elements. -/
+/-- With uniform answers on finite answer types of at least `n` elements each, the collision
+property has instability at most `(t - 1) / n` with query bound `t`. Here `t - 1` is subtraction
+in `ℕ` before the cast to `ℝ≥0∞`.
+
+A fresh answer never removes a collision, and creates one only by equalling one of the at most
+`t - 1` stored answers. For `n > 0` this sharpens Chiesa–Manohar–Spooner, Lemma 6.11 (ePrint
+2019/834, PDF p. 35), and Chiesa–Di–Hu–Zheng, Lemma 8.7 (ePrint 2025/2166, PDF p. 56). -/
 theorem instability_cacheHasCollision_le {n : ℕ} (hn : ∀ x, n ≤ Fintype.card (spec.Range x))
     (t : ℕ) :
     instability {D : QueryCache spec | CacheHasCollision D} t ≤ ((t - 1 : ℕ) : ℝ≥0∞) / n :=
