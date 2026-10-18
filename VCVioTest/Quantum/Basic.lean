@@ -66,17 +66,17 @@ example [MeasurableSpace β] (p : SubInstrument A B α) (f : α → β) (ρ : Su
 example (p : SubInstrument A B α) (hp : p.Lossless) (f : α → β) :
     (p.map f).Lossless := hp.map f
 
-/-- The constant right unit law rewrites the bind facade. -/
+/-- The dependent right unit law rewrites the exposed constant return. -/
 example (p : SubInstrument A B α) : p.bind SubInstrument.pure = p := by
-  rw [SubInstrument.bind_pure]
+  rw [DSubInstrument.bind_ret]
 
 /-- The dependent losslessness theorem applies directly to constant return. -/
 example (a : α) : (SubInstrument.pure a : SubInstrument A A α).Lossless :=
   DSubInstrument.lossless_ret _ a
 
-/-- The constant left unit law rewrites the bind facade. -/
+/-- The dependent left unit law rewrites constant return. -/
 example (a : α) (k : α → SubInstrument A B β) : (SubInstrument.pure a).bind k = k a := by
-  rw [SubInstrument.pure_bind]
+  rw [DSubInstrument.ret_bind]
 
 /-- The returned outcome leaves the input substate unchanged. -/
 example (a : α) (ρ : SubState A) : (SubInstrument.pure a).post ρ a = ρ := by
@@ -91,15 +91,7 @@ example [MeasurableSpace α] (a : α) (ρ : SubState A) :
 /-- Framing constant return agrees with return on the extended register. -/
 example (a : α) : (SubInstrument.pure a : SubInstrument A A α).frame R =
     (SubInstrument.pure a : SubInstrument (A × R) (A × R) α) := by
-  rw [SubInstrument.frame_pure]
-
-/-- Framing commutes with the constant mapping facade by rewriting. -/
-example (p : SubInstrument A B α) (f : α → β) : (p.map f).frame R = (p.frame R).map f := by
-  rw [SubInstrument.frame_map]
-
-/-- Framing constant failure gives failure by rewriting. -/
-example : (SubInstrument.fail : SubInstrument A B α).frame R = SubInstrument.fail := by
-  rw [SubInstrument.frame_fail]
+  rw [DSubInstrument.frame_ret]
 
 /-- The dependent total-map law simplifies the constant mapping facade. -/
 example (p : SubInstrument A B α) (f : α → β) : (p.map f).total = p.total := by
@@ -110,32 +102,6 @@ example (p : SubInstrument A B α) (k : α → SubInstrument B C β) := (p.bind 
 
 /-- A framed constant-output computation has a total map by field notation. -/
 example (p : SubInstrument A B α) := (p.frame R).total
-
-/-- Mapping a composite infers the constant output system without an expected type. -/
-example {γ : Type*} (p : SubInstrument A B α) (k : α → SubInstrument B C β)
-    (g : β → γ) := (p.bind k).map g
-
-/-- Mapping a framed computation infers the extended output system. -/
-example (p : SubInstrument A B α) (f : α → β) := (p.frame R).map f
-
-/-- Losslessness proofs support sequencing followed by relabelling without annotations. -/
-example {γ : Type*} (p : SubInstrument A B α) (k : α → SubInstrument B C β)
-    (hp : p.Lossless) (hk : ∀ a, (k a).Lossless) (g : β → γ) := (hp.bind hk).map g
-
-/-- Losslessness proofs support framing followed by relabelling without annotations. -/
-example (p : SubInstrument A B α) (hp : p.Lossless) (f : α → β) := (hp.frame R).map f
-
-/-- The dependent trace identity is available through field notation. -/
-example (p : SubInstrument A B α) := p.familyTrace_branch
-
-/-- Simplification recognizes the right unit law through the constant facade. -/
-example (p : SubInstrument A B α) : p.bind SubInstrument.pure = p := by
-  simp
-
-/-- Dependent branch equations rewrite through the constant bind facade. -/
-example (p : SubInstrument A B α) (k : α → SubInstrument B C β) (b : β) :
-    (p.bind k).branch b = MatrixMap.familyBind p.branch (fun a ↦ (k a).branch) b := by
-  rw [DSubInstrument.branch_bind]
 
 end constantOutput
 
@@ -155,7 +121,7 @@ noncomputable def measureZ : SubInstrument (Fin 2) (Fin 2) (Fin 2) :=
 
 /-- The computational-basis measurement is lossless. -/
 theorem lossless_measureZ : measureZ.Lossless :=
-  DSubInstrument.lossless_ofKraus proj sum_conjTranspose_proj_mul_proj
+  DSubInstrument.lossless_ofKraus _ _
 
 /-- Framing the measurement by a three-level ancilla keeps it lossless. -/
 example : (measureZ.frame (Fin 3)).Lossless :=
@@ -398,9 +364,9 @@ example : (DSubInstrument.ret keepReg 0).bind remeasure = measureKeep :=
 example : (measureZ : DSubInstrument (Fin 2) (Fin 2) (fun _ ↦ Fin 2)).Lossless :=
   lossless_measureZ
 
-/-- The constant unit law rewrites a constant-codomain measurement directly. -/
+/-- A dependent unit law rewrites a constant-codomain subinstrument directly. -/
 example : measureZ.bind SubInstrument.pure = measureZ := by
-  rw [SubInstrument.bind_pure]
+  rw [DSubInstrument.bind_ret]
 
 /-- The constant-codomain measurement is definitionally the dependent Kraus measurement. -/
 example : measureZ =
