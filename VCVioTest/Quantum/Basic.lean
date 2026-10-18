@@ -100,6 +100,129 @@ example : (SubInstrument.semanticsVia plus).evalDist measureZ Set.univ = 1 := by
   rw [SubInstrument.semanticsVia_evalDist, lossless_measureZ.outcomeMeasure_apply_univ]
   simp [plus, Matrix.trace]
 
+/-- The phase operator `S = diag(1, i)` on a qubit. -/
+def phaseOp : Matrix (Fin 2) (Fin 2) ℂ :=
+  !![1, 0; 0, Complex.I]
+
+/-- The phase operator satisfies the single-Kraus completeness relation. -/
+theorem phaseOp_complete : ∑ _ : Unit, phaseOpᴴ * phaseOp = 1 := by
+  ext i j
+  fin_cases i <;> fin_cases j <;>
+    simp [phaseOp, Matrix.mul_apply, Fin.sum_univ_two]
+
+/-- The phase gate as a single-outcome quantum channel. -/
+noncomputable def phaseGate : SubInstrument (Fin 2) (Fin 2) Unit :=
+  SubInstrument.ofKraus (fun _ ↦ phaseOp) phaseOp_complete
+
+/-- The phase gate sends `½ [[1,1],[1,1]]` to `½ [[1,-i],[i,1]]`.
+The imaginary off-diagonal entries distinguish conjugate transpose from transpose. -/
+theorem phaseGate_plus :
+    phaseGate.branch () plus.matrix = !![1 / 2, -Complex.I / 2; Complex.I / 2, 1 / 2] := by
+  ext i j
+  fin_cases i <;> fin_cases j <;>
+    simp [phaseGate, phaseOp, plus, Matrix.mul_apply, Fin.sum_univ_two,
+      Matrix.vecHead, Matrix.vecTail] <;> ring_nf
+  norm_num
+
+/-- The bit-flip operator `X = [[0,1],[1,0]]` on a qubit. -/
+def flipOp : Matrix (Fin 2) (Fin 2) ℂ :=
+  !![0, 1; 1, 0]
+
+/-- The bit-flip operator satisfies the single-Kraus completeness relation. -/
+theorem flipOp_complete : ∑ _ : Unit, flipOpᴴ * flipOp = 1 := by
+  ext i j
+  fin_cases i <;> fin_cases j <;>
+    simp [flipOp, Matrix.mul_apply, Fin.sum_univ_two]
+
+/-- The bit flip as a single-outcome quantum channel. -/
+noncomputable def flipGate : SubInstrument (Fin 2) (Fin 2) Unit :=
+  SubInstrument.ofKraus (fun _ ↦ flipOp) flipOp_complete
+
+/-- Applying `S` then `X` to `|+⟩` gives `½ [[1,i],[-i,1]]`, the state of `(i,1)/√2`. -/
+example : (phaseGate.bind fun _ ↦ flipGate).branch () plus.matrix =
+    !![1 / 2, Complex.I / 2; -Complex.I / 2, 1 / 2] := by
+  rw [SubInstrument.branch_bind_apply_univ]
+  simp only [Fintype.sum_unique, LinearMap.comp_apply]
+  change flipGate.branch () (phaseGate.branch () plus.matrix) = _
+  rw [phaseGate_plus]
+  ext i j
+  fin_cases i <;> fin_cases j <;>
+    simp [flipGate, flipOp, Matrix.mul_apply, Fin.sum_univ_two]
+
+/-- Applying `X` then `S` to `|+⟩` gives `½ [[1,-i],[i,1]]`, the state of `(1,i)/√2`.
+This differs from the reverse order, so the bind tests detect reversed composition. -/
+example : (flipGate.bind fun _ ↦ phaseGate).branch () plus.matrix =
+    !![1 / 2, -Complex.I / 2; Complex.I / 2, 1 / 2] := by
+  rw [SubInstrument.branch_bind_apply_univ]
+  simp only [Fintype.sum_unique, LinearMap.comp_apply]
+  have h : flipGate.branch () plus.matrix = plus.matrix := by
+    ext i j
+    fin_cases i <;> fin_cases j <;>
+      simp [flipGate, flipOp, plus, Matrix.mul_apply, Fin.sum_univ_two,
+        Matrix.vecHead, Matrix.vecTail]
+  rw [h, phaseGate_plus]
+
+/-- The Bell state `( |00⟩ + |11⟩ ) / √2`, with system first and reference second.
+In the basis `00, 01, 10, 11`, its matrix is `½ [[1,0,0,1],[0,0,0,0],[0,0,0,0],[1,0,0,1]]`. -/
+noncomputable def bell : SubState (Fin 2 × Fin 2) where
+  matrix := Matrix.of fun x y ↦ if x.1 = x.2 ∧ y.1 = y.2 then 1 / 2 else 0
+  posSemidef := by
+    let ρ : Matrix (Fin 2 × Fin 2) (Fin 2 × Fin 2) ℂ :=
+      Matrix.of fun x y ↦ if x.1 = x.2 ∧ y.1 = y.2 then 1 / 2 else 0
+    have h : ρ = ρᴴ * ρ := by
+      ext ⟨i, r⟩ ⟨j, s⟩
+      fin_cases i <;> fin_cases r <;> fin_cases j <;> fin_cases s <;>
+        norm_num [ρ, Matrix.mul_apply, Fintype.sum_prod_type, Fin.sum_univ_two, map_ofNat]
+    change ρ.PosSemidef
+    rw [h]
+    exact Matrix.posSemidef_conjTranspose_mul_self _
+  trace_re_le_one := by
+    change (∑ x : Fin 2 × Fin 2,
+      (if x.1 = x.2 ∧ x.1 = x.2 then (1 / 2 : ℂ) else 0)).re ≤ 1
+    rw [Fintype.sum_prod_type]
+    norm_num [Fin.sum_univ_two]
+
+/-- Measuring the first Bell qubit gives `½ |aa⟩⟨aa|` in branch `a`:
+`diag(½,0,0,0)` for `0`, and `diag(0,0,0,½)` for `1` in the basis `00,01,10,11`.
+The conditioned reference changes too. Positivity on isolated inputs cannot justify applying
+an operation to this entangled input; the framed instrument uses complete positivity. -/
+theorem frame_measureZ_bell (a : Fin 2) :
+    (measureZ.frame (Fin 2)).branch a bell.matrix = Matrix.single (a, a) (a, a) (1 / 2) := by
+  ext ⟨i, r⟩ ⟨j, s⟩
+  fin_cases a <;> fin_cases i <;> fin_cases r <;> fin_cases j <;> fin_cases s <;>
+    simp [measureZ, proj, bell, MatrixMap.amplify_apply]
+
+/-- Each branch of the framed Bell measurement has probability `½`. -/
+example (a : Fin 2) :
+    (measureZ.frame (Fin 2)).outcomeMeasure bell {a} = ENNReal.ofReal (1 / 2) := by
+  rw [SubInstrument.outcomeMeasure_apply_singleton, frame_measureZ_bell]
+  fin_cases a <;> norm_num [Matrix.trace, Fintype.sum_prod_type, Fin.sum_univ_two]
+
+/-- Flipping one Bell qubit gives `( |01⟩ + |10⟩ ) / √2`. Measuring the first factor then
+returns `½ |01⟩⟨01|` at `0` and `½ |10⟩⟨10|` at `1`. These unequal factors distinguish
+system-first framing from reference-first framing; the symmetric Bell branches alone do not. -/
+example (a : Fin 2) :
+    (measureZ.frame (Fin 2)).branch a ((flipGate.frame (Fin 2)).post bell ()).matrix =
+      Matrix.single (a, 1 - a) (a, 1 - a) (1 / 2) := by
+  ext ⟨i, r⟩ ⟨j, s⟩
+  fin_cases a <;> fin_cases i <;> fin_cases r <;> fin_cases j <;> fin_cases s <;>
+    simp [measureZ, proj, flipGate, flipOp, bell, MatrixMap.amplify_apply,
+      Matrix.mul_apply, Matrix.vecMul, dotProduct, Fin.sum_univ_two]
+
+/-- Remeasuring the subnormalized state `½ |0⟩⟨0|` gives exactly `½ δ₀`.
+The input is the unnormalized zero branch on `|+⟩`; its missing half is not restored. -/
+theorem measureZ_post_zero_outcomeMeasure :
+    measureZ.outcomeMeasure (measureZ.post plus 0) =
+      ENNReal.ofReal (1 / 2) • Measure.dirac 0 := by
+  rw [SubInstrument.outcomeMeasure_eq_sum_univ, Fin.sum_univ_two]
+  simp [measureZ, proj, plus, Matrix.trace]
+
+/-- The total mass after remeasurement is exactly `½`, strictly less than one. -/
+example : measureZ.outcomeMeasure (measureZ.post plus 0) Set.univ = ENNReal.ofReal (1 / 2) ∧
+    measureZ.outcomeMeasure (measureZ.post plus 0) Set.univ < 1 := by
+  rw [measureZ_post_zero_outcomeMeasure]
+  norm_num
+
 /-! ## Outcome-dependent registers -/
 
 /-- The register after measuring a qubit: the qubit on outcome `0`, nothing on outcome `1`. -/
