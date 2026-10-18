@@ -474,6 +474,19 @@ theorem prEvent_bind_le_prEvent_add_of_support (mx : m α) (f : α → m β)
   (prEvent_bind_le_prEvent_add_mul_prEvent_not_of_support mx f p q h).trans
     (add_le_add_right (mul_le_of_le_one_right' (prEvent_le_one _)) _)
 
+/-- A continuation event bounded by `ε` at the reachable draws satisfying `p`, and null at the
+reachable draws outside `p`, is bounded after the draw by the probability of `p` times `ε`. -/
+theorem prEvent_bind_le_prEvent_mul_of_forall_le_of_support (mx : m α) (f : α → m β)
+    (p : α → Prop) (q : β → Prop) {ε : ℝ≥0∞}
+    (h₁ : ∀ a ∈ support mx, p a → Pr{let y ← f a}[q y] ≤ ε)
+    (h₂ : ∀ a ∈ support mx, ¬ p a → Pr{let y ← f a}[q y] = 0) :
+    Pr{let y ← mx >>= f}[q y] ≤ Pr{let a ← mx}[p a] * ε := by
+  rw [bind_eq_attach_bind mx f]
+  refine (prEvent_bind_le_prEvent_mul_of_forall_le (MonadAttach.attach mx) (fun a ↦ f a.1)
+    (fun a ↦ p a.1) q (fun a ha ↦ h₁ a.1 a.2 ha) fun a ha ↦ h₂ a.1 a.2 ha).trans (le_of_eq ?_)
+  conv_rhs => rw [← WeaklyLawfulMonadAttach.map_attach (x := mx)]
+  rw [prEvent_map]
+
 end attach
 
 /-! ## Failure of a bind -/
