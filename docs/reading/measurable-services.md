@@ -111,6 +111,12 @@ the existing quantitative observation fold with separate initialization and
 endpoint costs. This decomposition concerns actual prefixes without requiring
 that the client or active call eventually return. Returned-law adequacy does not identify microstep
 clocks or establish the law of an infinite history of completed calls.
+For one-query services, `StateLens.dispatch_weakBisim_wrapState` relates the
+general dispatcher to the direct product-state wrapper. Their weak behavior
+and final shared state agree, while a direct finite prefix corresponds to a
+dispatcher prefix of exactly three times its length. The direct wrapper keeps
+its existing tighter resource certificates; weak bisimulation does not
+transport those clock bounds.
 
 The [coinductive reconstruction contract](../../VCVio/ProgramLogic/Relational/Reconstruction/Coinductive.lean)
 lifts local reconstruction to arbitrary ITree and resumption clients. It preserves
@@ -137,6 +143,10 @@ answers require an explicit proof. Certified bind/map laws and probability-mass
 preservation make the obligation compositional. The
 [stateless compatibility theorem](../../VCVio/EvalDist/PFunctorKernel/Stateless.lean)
 identifies the certified interpretation with the existing guarded `FreeM.denote`.
+Its [coinductive counterpart](../../VCVio/EvalDist/ResumptionKernel/Stateless.lean)
+identifies the countable-answer resumption kernel, after erasing trivial state,
+with the returned measure. Continuous-algebra fusion covers divergence without
+introducing a second interpreter.
 The [continuous-answer example](../../Examples/MeasurableServices/ContinuousSyntax.lean)
 samples a Borel real, applies the measurable ternary partition, and proves equality
 with the fair-bit machine's output law. This is a prototype proof predicate over
@@ -474,9 +484,17 @@ only in the source probability space; the executable program reads no such bit.
 
 The [rejection timing example](../../Examples/MeasurableServices/RejectionTiming.lean) proves
 that every finite successful law of the existing four-outcome rejection sampler is completion
-mass times its eventual uniform law. This is a cumulative timing/output factorization, unlike
-the threshold example's correlated cutoff. A full joint return-time distribution would package
-these cumulative results more conveniently.
+mass times its eventual uniform law. The
+[compiled joint-law example](../../Examples/MeasurableServices/CompiledRejection.lean)
+instruments that same rejection step with a retry counter and implements each
+four-outcome request by two fair bits through the common dispatcher. Its actual
+returned law is uniform `Fin 3` times Mathlib's geometric retry measure, and it
+returns almost surely. The named `retrySimulator` simulates retries from any
+public view while retaining the entire accepted value as secret. Eight exact
+tape tests cover all accepted values, rejection, exhaustion, and pauses inside
+an attempt without replay. This proves distributional independence of retry
+counts; backend timing and efficient simulator certificates require their own
+cost models.
 
 Useful next consumers are a precision-budgeted reactive protocol beyond dyadic refinement and a finite-field
 multi-share refresh/probing example with an explicit observation schedule. The threshold

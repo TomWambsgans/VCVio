@@ -7,6 +7,7 @@ Authors: Devon Tuma
 module
 
 public import VCVio.EvalDist.KernelHandler.Machine
+public import VCVio.EvalDist.ResumptionKernel.Stateless
 public import VCVio.OracleComp.Coinductive.UniformThreshold.Coinductive
 
 /-!
@@ -69,5 +70,13 @@ example {concrete ideal : KernelHandler coinSpec.toPFunctor ℝ} {R : Kernel ℝ
       (μ.bind (ITree.runKernel concrete (ITree.diverge : ITree coinSpec.toPFunctor ℝ))).map
         Prod.fst :=
   contract.output_law_itree μ ITree.diverge
+
+example {P : PFunctor.{0, 1}} {α : Type 1}
+    [∀ a, MeasurableSpace (P.B a)] [∀ a, Countable (P.B a)]
+    [∀ a, MeasurableSingletonClass (P.B a)] [P.AnswerMeasure] [MeasurableSpace α]
+    (tree : Resumption P α) :
+    (Resumption.runKernel (AnswerMeasure.statelessKernel P) tree ()).map Prod.fst =
+      Resumption.returnedMeasure tree :=
+  Resumption.map_runKernel_stateless tree
 
 end VCVioTest.KernelCoinductive

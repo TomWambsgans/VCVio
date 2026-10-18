@@ -20,6 +20,7 @@ public import Examples.ElGamal.HandlerExecution
 public import Examples.ElGamal.Hash
 public import Examples.ElGamal.ReductionCost
 public import Examples.ElGamal.SSP
+public import Examples.MeasurableServices.CompiledRejection
 public import Examples.MeasurableServices.ContinuousSyntax
 public import Examples.MeasurableServices.Masking
 public import Examples.MeasurableServices.ReactiveThreshold

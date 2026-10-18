@@ -37,6 +37,16 @@ noncomputable instance instOmegaCompletePartialOrder : OmegaCompletePartialOrder
 theorem ωSup_apply (c : Chain (Kernel α β)) (a : α) :
     ωSup c a = ⨆ n, c n a := by rfl
 
+/-- Evaluate a kernel at one input while preserving increasing limits. -/
+noncomputable def evalContinuous (a : α) : Kernel α β →𝒄 Measure β :=
+  .ofFun (fun κ => κ a) (by
+    apply ωScottContinuous.of_monotone_map_ωSup
+    exact ⟨fun _ _ h => h a, fun c => ωSup_apply c a⟩)
+
+/-- The continuous evaluation map uses ordinary kernel application. -/
+@[simp] theorem evalContinuous_apply (a : α) (κ : Kernel α β) :
+    evalContinuous a κ = κ a := by rfl
+
 /-- An increasing limit of subprobability kernels is a subprobability kernel. -/
 instance isSubprobabilityKernel_ωSup (c : Chain (Kernel α β))
     [∀ n, IsSubprobabilityKernel (c n)] : IsSubprobabilityKernel (ωSup c) := by

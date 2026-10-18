@@ -76,7 +76,7 @@ meta if (get_config? polyfunPath).isSome then
 else
   require PolyFun from git
     "https://github.com/Verified-zkEVM/PolyFun" @
-    "7c8987c8a1c6edd598759206776217abc2616095"
+    "d377c76f79e6456ab707cb3bb394a132e6e64d74"
 
 require "leanprover-community" / "mathlib" @ git "v4.35.0"
 

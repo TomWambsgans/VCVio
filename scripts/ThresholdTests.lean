@@ -6,10 +6,13 @@ Authors: Devon Tuma
 
 module
 import VCVioTest.UniformThreshold
+import VCVioTest.RejectionTiming
 
-/-! # Executable entry point for persistent threshold tape regressions -/
+/-! # Executable entry point for threshold and rejection tape regressions -/
 
 public section
 
 /-- Run exact deterministic tape tests without a production random-number source. -/
-def main : IO Unit := UniformThresholdTest.run
+def main : IO Unit := do
+  UniformThresholdTest.run
+  RejectionTimingTest.run

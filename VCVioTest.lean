@@ -119,6 +119,7 @@ public import VCVioTest.ReactiveNetwork
 public import VCVioTest.ReactiveNetworkAdversarial
 public import VCVioTest.ReactiveSecurity
 public import VCVioTest.ReactiveWorld
+public import VCVioTest.RejectionTiming
 public import VCVioTest.ReplayCheckpoint
 public import VCVioTest.ResumptionCompatibility
 public import VCVioTest.RoundByRound.OneRound

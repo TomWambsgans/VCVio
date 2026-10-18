@@ -227,6 +227,7 @@ public import VCVio.EvalDist.Prod
 public import VCVio.EvalDist.ResumptionApproximation
 public import VCVio.EvalDist.ResumptionCost
 public import VCVio.EvalDist.ResumptionKernel
+public import VCVio.EvalDist.ResumptionKernel.Stateless
 public import VCVio.EvalDist.ResumptionMeasure
 public import VCVio.EvalDist.ResumptionMeasure.Domain
 public import VCVio.EvalDist.StoppedObservation
