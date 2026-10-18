@@ -86,7 +86,7 @@ lemma exists_finset_card_lt_of_encard_lt {ι : Type u} {spec : OracleSpec.{u, v}
   · obtain ⟨u, hu⟩ := Option.ne_none_iff_exists'.mp hx
     exact Finset.mem_image.mpr ⟨⟨x, u⟩, hfin.mem_toFinset.mpr hu, rfl⟩
 
-variable {ι : Type u} {spec : OracleSpec.{u, 0} ι} [DecidableEq ι] [AnswerMeasure spec]
+variable {ι : Type u} {spec : OracleSpec.{u, v} ι} [DecidableEq ι] [AnswerMeasure spec]
   {S S' T T' P Q : Set (QueryCache spec)} {D : QueryCache spec} {x : spec.Domain} {t t' : ℕ}
 
 /-! ## One-step extension probability -/
@@ -95,36 +95,49 @@ variable {ι : Type u} {spec : OracleSpec.{u, 0} ι} [DecidableEq ι] [AnswerMea
 answer measure of `x`, lies in the property `T`. -/
 @[expose] noncomputable def extendProb (D : QueryCache spec) (x : spec.Domain)
     (T : Set (QueryCache spec)) : ℝ≥0∞ :=
-  Pr{let u ← (query x : OracleComp spec (spec.Range x))}[D.cacheQuery x u ∈ T]
+  AnswerMeasure.toMeasure x {u | D.cacheQuery x u ∈ T}
+
+/-- For answers in `Type`, the update measure equals the event probability of a single query. -/
+lemma extendProb_eq_prEvent {ι : Type u} {spec : OracleSpec.{u, 0} ι} [DecidableEq ι]
+    [AnswerMeasure spec] (D : QueryCache spec) (x : spec.Domain)
+    (T : Set (QueryCache spec)) :
+    D.extendProb x T =
+      Pr{let u ← (query x : OracleComp spec (spec.Range x))}[D.cacheQuery x u ∈ T] := by
+  let : MeasurableSpace (spec.Range x) := ⊤
+  rw [prEvent_eq_evalDist_of_discrete, evalDist_query,
+    MeasureTheory.trim_measurableSet_eq _ MeasurableSpace.measurableSet_top]
+  rfl
 
 /-- The extension probability is monotone in the target property. -/
 lemma extendProb_mono (D : QueryCache spec) (x : spec.Domain) (h : T ⊆ T') :
     D.extendProb x T ≤ D.extendProb x T' :=
-  prEvent_mono _ _ _ fun _ hu => h hu
+  MeasureTheory.measure_mono fun _ hu => h hu
 
 /-- Union bound for the extension probability. -/
 lemma extendProb_union_le (D : QueryCache spec) (x : spec.Domain) (T T' : Set (QueryCache spec)) :
     D.extendProb x (T ∪ T') ≤ D.extendProb x T + D.extendProb x T' :=
-  prEvent_or_le _ _ _
+  MeasureTheory.measure_union_le _ _
 
 @[simp]
 lemma extendProb_empty (D : QueryCache spec) (x : spec.Domain) : D.extendProb x ∅ = 0 :=
-  prEvent_eq_zero_of_forall_not _ _ fun _ h => h
+  MeasureTheory.measure_empty
 
 lemma extendProb_le_one (D : QueryCache spec) (x : spec.Domain) (T : Set (QueryCache spec)) :
     D.extendProb x T ≤ 1 :=
-  prEvent_le_one _
+  MeasureTheory.prob_le_one
 
 /-- Under uniform answers, the extension probability is the proportion of answers that land in
 the target property. -/
-lemma extendProb_eq_card_div {ι : Type u} {spec : OracleSpec.{u, 0} ι} [DecidableEq ι]
+lemma extendProb_eq_card_div {ι : Type u} {spec : OracleSpec.{u, v} ι} [DecidableEq ι]
     [UniformAnswerMeasure spec] (D : QueryCache spec) (x : spec.Domain)
     [Fintype (spec.Range x)] (T : Set (QueryCache spec))
     [DecidablePred fun u : spec.Range x => D.cacheQuery x u ∈ T] :
     D.extendProb x T =
       ((Finset.univ.filter fun u : spec.Range x => D.cacheQuery x u ∈ T).card : ℝ≥0∞) /
-        Fintype.card (spec.Range x) :=
-  prEvent_query_eq_card_div x _
+        Fintype.card (spec.Range x) := by
+  let : MeasurableSpace (spec.Range x) := ⊤
+  rw [extendProb, AnswerMeasure.toMeasure_eq_uniformOn,
+    ProbabilityTheory.uniformOn_univ_apply_setOf]
 
 /-! ## Flip probability -/
 

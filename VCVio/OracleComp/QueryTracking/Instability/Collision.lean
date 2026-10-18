@@ -30,8 +30,9 @@ elements, the instability of the collision property with query bound `t` is at m
 
 ## Implementation notes
 
-Index and answer types both live in `Type`, as in `OracleComp.CacheHasCollision` and the counting
-lemma `OracleComp.card_responses_creating_cacheCollision_le` that this file builds on.
+Index and answer types here both live in `Type`, as required by the counting lemma
+`OracleComp.card_responses_creating_cacheCollision_le`. The predicate
+`OracleComp.CacheHasCollision` is universe-polymorphic, with tied index and answer universes.
 
 ## References
 
@@ -65,8 +66,10 @@ variable {ι : Type} {spec : OracleSpec.{0, 0} ι} [DecidableEq ι]
 theorem flip_cacheHasCollision_compl [AnswerMeasure spec] (t : ℕ) :
     flip {D : QueryCache spec | CacheHasCollision D} {D | CacheHasCollision D}ᶜ t = 0 :=
   nonpos_iff_eq_zero.mp <| flip_le_iff.mpr fun D hD _ _ hx =>
-    (prEvent_eq_zero_of_forall_not _ _ fun _ hu =>
-      hu (CacheHasCollision.mono (le_cacheQuery D hx) hD)).le
+    (by
+      rw [extendProb_eq_prEvent]
+      exact (prEvent_eq_zero_of_forall_not _ _ fun _ hu =>
+        hu (CacheHasCollision.mono (le_cacheQuery D hx) hD)).le)
 
 variable [UniformAnswerMeasure spec] [∀ x, Fintype (spec.Range x)]
 

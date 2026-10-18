@@ -58,7 +58,8 @@ example : QueryCache.flip {∅} answersOne 1 = 1 / 4 := by
     by_cases hx : x = 0
     · subst hx
       exact extendProb_empty_answersOne.le
-    · refine le_of_eq_of_le (prEvent_eq_zero_of_forall_not _ _ fun u hu => ?_) zero_le
+    · rw [QueryCache.extendProb_eq_prEvent]
+      refine le_of_eq_of_le (prEvent_eq_zero_of_forall_not _ _ fun u hu => ?_) zero_le
       have h0 : ((∅ : QueryCache TestSpec).cacheQuery x u) 0 = some 1 := hu
       rw [QueryCache.cacheQuery_of_ne _ _ (Ne.symm hx)] at h0
       simp at h0
@@ -75,6 +76,7 @@ example : QueryCache.flip {(∅ : QueryCache TestSpec).cacheQuery 0 0} answersOn
   have hx0 : x ≠ 0 := by
     rintro rfl
     simp at hx
+  rw [QueryCache.extendProb_eq_prEvent]
   refine le_of_eq (prEvent_eq_zero_of_forall_not _ _ fun u hu => ?_)
   have h0 : (((∅ : QueryCache TestSpec).cacheQuery 0 0).cacheQuery x u) 0 = some 1 := hu
   rw [QueryCache.cacheQuery_of_ne _ _ (Ne.symm hx0)] at h0
@@ -82,8 +84,9 @@ example : QueryCache.flip {(∅ : QueryCache TestSpec).cacheQuery 0 0} answersOn
 
 /-- Every extension of the empty database is nonempty. -/
 private lemma extendProb_empty_nonempty :
-    (∅ : QueryCache TestSpec).extendProb 0 nonempty = 1 :=
-  (prEvent_eq_one_iff _ _).mpr fun u _ => cacheQuery_ne_empty ∅ 0 u
+    (∅ : QueryCache TestSpec).extendProb 0 nonempty = 1 := by
+  rw [QueryCache.extendProb_eq_prEvent]
+  exact (prEvent_eq_one_iff _ _).mpr fun u _ => cacheQuery_ne_empty ∅ 0 u
 
 -- Instability of a property and of a union containing it are incomparable in general: "nonempty"
 -- has instability `1`, and its union with "empty" is the stable property of all databases.
@@ -151,6 +154,7 @@ example : QueryCache.partitionInstability byEntryAtZero 1 = 1 := by
   refine le_antisymm (QueryCache.partitionInstability_le_one _ 1)
     (le_iSup_of_le none ?_)
   refine le_trans (le_of_eq ?_) (QueryCache.extendProb_le_flip (D := ∅) (x := 0) rfl (by simp) rfl)
+  rw [QueryCache.extendProb_eq_prEvent]
   refine ((prEvent_eq_one_iff _ _).mpr fun u _ => ?_).symm
   exact Set.mem_iUnion₂.mpr ⟨some u, by simp, by simp [byEntryAtZero]⟩
 
@@ -168,5 +172,19 @@ example (P : Set (QueryCache TestSpec)) (t : ℕ) :
     simpa [collision] using
       QueryCache.instability_cacheHasCollision_le_div (spec := TestSpec) (n := 4)
         (fun _ => (Fintype.card_fin 4).ge) t
+
+-- Independent index and answer universes through an ordinary public import.
+example [AnswerMeasure (Unit →ₒ ULift.{1} Bool)]
+    (D : QueryCache (Unit →ₒ ULift.{1} Bool)) (P Q : Set (QueryCache (Unit →ₒ ULift.{1} Bool)))
+    (t : ℕ) :
+    D.extendProb () P ≤ 1 ∧ QueryCache.flip P Q t ≤ 1 ∧
+      QueryCache.instability P t ≤ 1 ∧ QueryCache.condFlip P Q t ≤ 1 ∧
+      QueryCache.condInstability P Q t ≤ 1 ∧
+      QueryCache.partitionInstability (fun b : Bool => cond b P Q) t ≤ 1 := by
+  exact ⟨QueryCache.extendProb_le_one _ _ _, QueryCache.flip_le_one _ _ _,
+    QueryCache.instability_le_one _ _,
+    (QueryCache.condFlip_le_flip _ _ _).trans (QueryCache.flip_le_one _ _ _),
+    (QueryCache.condInstability_le_instability _ _ _).trans (QueryCache.instability_le_one _ _),
+    QueryCache.partitionInstability_le_one _ _⟩
 
 end VCVioTest.QueryCacheInstability
