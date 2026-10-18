@@ -65,6 +65,24 @@ in types and noncomputable programs, and is not evaluated when the module is loa
 noncomputable abbrev qrom2 : QuantumOracleSpec :=
   qromSpec (Fin 2) (Fin 2)
 
+/-- Over `Fin 3`, two constant-one calls send `|0,0⟩` to `|0,2⟩`. -/
+example (d : (additiveOracleRuntime (fun _ : Fin 3 ↦ (1 : Fin 3))).D) :
+    ((additiveOracleRuntime (fun _ : Fin 3 ↦ (1 : Fin 3))).step ()).branch ()
+      (((additiveOracleRuntime (fun _ : Fin 3 ↦ (1 : Fin 3))).step ()).branch ()
+        (Matrix.single ((0, 0), d) ((0, 0), d) 1)) =
+      Matrix.single ((0, 2), d) ((0, 2), d) 1 := by
+  rw [additiveOracleRuntime_step_branch_single, additiveOracleRuntime_step_branch_single]
+  rfl
+
+/-- Over bits, two constant-one calls restore the projector `|0,0⟩⟨0,0|`. -/
+example (d : (additiveOracleRuntime (fun _ : Fin 2 ↦ (1 : Fin 2))).D) :
+    ((additiveOracleRuntime (fun _ : Fin 2 ↦ (1 : Fin 2))).step ()).branch ()
+      (((additiveOracleRuntime (fun _ : Fin 2 ↦ (1 : Fin 2))).step ()).branch ()
+        (Matrix.single ((0, 0), d) ((0, 0), d) 1)) =
+      Matrix.single ((0, 0), d) ((0, 0), d) 1 := by
+  rw [additiveOracleRuntime_step_branch_single, additiveOracleRuntime_step_branch_single]
+  rfl
+
 /-! ## Deutsch's algorithm -/
 
 /-- The register of Deutsch's algorithm: one query qubit and one response qubit. -/
@@ -175,9 +193,9 @@ noncomputable def deutschComp : QComp qrom2 (QReg.of Reg) (QReg.of Reg) (Fin 2) 
 /-- **Proposition 1** for Deutsch's algorithm: against the oracle runtime, the program runs as the
 comb, framed by the runtime register, against the runtime's query step. -/
 example (H : Fin 2 → Fin 2) :
-    (xorRuntime H).run₂ .instruments deutschComp =
-      (deutsch.frame (xorRuntime H).D (xorRuntime H).init).run
-        ((xorRuntime H).combQuery () (QReg.of Unit) (Equiv.prodPUnit Reg).symm
+    (additiveOracleRuntime H).run₂ .instruments deutschComp =
+      (deutsch.frame (additiveOracleRuntime H).D (additiveOracleRuntime H).init).run
+        ((additiveOracleRuntime H).combQuery () (QReg.of Unit) (Equiv.prodPUnit Reg).symm
           (Equiv.prodPUnit Reg)) :=
   QuantumComb.run_toComp ..
 
@@ -201,9 +219,9 @@ theorem isTotalQueryBound_queryZero : OracleComp.IsTotalQueryBound queryZero 1 :
 /-- Against the oracle unitary of `H`, the program of the algorithm reports `H 0` with
 certainty. -/
 example (H : Fin 2 → Fin 2) :
-    (xorRuntime H).outcomeLaw₂ .instruments queryZero.toQuantum (SubState.basis ()) =
+    (additiveOracleRuntime H).outcomeLaw₂ .instruments queryZero.toQuantum (SubState.basis ()) =
       Measure.dirac (H 0) :=
-  outcomeLaw_xorRuntime_toQuantum H queryZero
+  outcomeLaw_additiveOracleRuntime_toQuantum H queryZero
 
 /-- The program makes one call. -/
 example : queryZero.toQuantum.IsQueryBound fun _ ↦ 1 :=
@@ -224,16 +242,16 @@ def queryTwice : OracleComp (Fin 2 →ₒ Fin 2) (Fin 2) := do
 /-- Its program, whose second call depends on the measured result of the first, reports
 `H (H 0)` with certainty. -/
 example (H : Fin 2 → Fin 2) :
-    (xorRuntime H).outcomeLaw₂ .instruments queryTwice.toQuantum (SubState.basis ()) =
+    (additiveOracleRuntime H).outcomeLaw₂ .instruments queryTwice.toQuantum (SubState.basis ()) =
       Measure.dirac (H (H 0)) :=
-  outcomeLaw_xorRuntime_toQuantum H queryTwice
+  outcomeLaw_additiveOracleRuntime_toQuantum H queryTwice
 
 /-- Running the program of a sequenced algorithm is sequencing the runs of the programs. -/
 example {α β : Type} (H : Fin 2 → Fin 2) (oa : OracleComp (Fin 2 →ₒ Fin 2) α)
     (f : α → OracleComp (Fin 2 →ₒ Fin 2) β) :
-    (xorRuntime H).run₂ .instruments (oa >>= f).toQuantum =
-      ((xorRuntime H).run₂ .instruments oa.toQuantum).bind fun a ↦
-        (xorRuntime H).run₂ .instruments (f a).toQuantum := by
+    (additiveOracleRuntime H).run₂ .instruments (oa >>= f).toQuantum =
+      ((additiveOracleRuntime H).run₂ .instruments oa.toQuantum).bind fun a ↦
+        (additiveOracleRuntime H).run₂ .instruments (f a).toQuantum := by
   rw [OracleComp.toQuantum, simulateQ_bind]
   exact QuantumRuntime.run₂_bind _ _ _ _
 
@@ -328,11 +346,11 @@ example : queryWithAncilla.IsQueryBound fun _ ↦ 1 := by
 
 /-- Against the oracle unitary, the program with an ancilla keeps the trace of its input. -/
 example (H : Fin 2 → Fin 2) (ρ : SubState (QReg.of Reg)) :
-    (xorRuntime H).outcomeLaw₂ .instruments queryWithAncilla ρ Set.univ =
+    (additiveOracleRuntime H).outcomeLaw₂ .instruments queryWithAncilla ρ Set.univ =
       ENNReal.ofReal ρ.matrix.trace.re := by
-  rw [(xorRuntime H).outcomeLaw₂_apply_univ_of_lossless .instruments
-    (lossless_run₂_xorRuntime .instruments lossless_queryWithAncilla H),
-    trace_re_xorRuntime_init, mul_one]
+  rw [(additiveOracleRuntime H).outcomeLaw₂_apply_univ_of_lossless .instruments
+    (lossless_run₂_additiveOracleRuntime .instruments lossless_queryWithAncilla H),
+    trace_re_additiveOracleRuntime_init, mul_one]
 
 /-! ## Two ports -/
 
@@ -604,17 +622,17 @@ example : queryKeepOrDiscard.IsQueryBound fun _ ↦ 1 :=
 
 /-- Against the oracle unitary, the program runs to a lossless dependent subinstrument. -/
 example (H : Fin 2 → Fin 2) :
-    ((xorRuntime H).run .instruments queryKeepOrDiscard).Lossless :=
-  lossless_run_xorRuntime .instruments lossless_queryKeepOrDiscard H
+    ((additiveOracleRuntime H).run .instruments queryKeepOrDiscard).Lossless :=
+  lossless_run_additiveOracleRuntime .instruments lossless_queryKeepOrDiscard H
 
 /-- Against the oracle unitary, the program keeps the trace of its input, summed over both final
 registers. -/
 example (H : Fin 2 → Fin 2) (ρ : SubState (QReg.of (Reg × Fin 2))) :
-    (xorRuntime H).outcomeLaw .instruments queryKeepOrDiscard ρ Set.univ =
+    (additiveOracleRuntime H).outcomeLaw .instruments queryKeepOrDiscard ρ Set.univ =
       ENNReal.ofReal ρ.matrix.trace.re := by
-  rw [(xorRuntime H).outcomeLaw_apply_univ_of_lossless .instruments
-    (lossless_run_xorRuntime .instruments lossless_queryKeepOrDiscard H),
-    trace_re_xorRuntime_init, mul_one]
+  rw [(additiveOracleRuntime H).outcomeLaw_apply_univ_of_lossless .instruments
+    (lossless_run_additiveOracleRuntime .instruments lossless_queryKeepOrDiscard H),
+    trace_re_additiveOracleRuntime_init, mul_one]
 
 /-- In the quantum random-oracle model, the law of the leaf of the program that keeps or discards
 the ancilla, whose two leaves sit on different registers, has the trace of its input as total
@@ -671,11 +689,11 @@ theorem single_kronecker_single_one {A B : Type} [DecidableEq A] [DecidableEq B]
 the outcome `r`: the call moves the query register to `|x, y + H x⟩`, and the measurement keeps
 the ancilla `|0⟩` or discards the ancilla `|1⟩`. -/
 theorem run_queryKeepOrDiscard_branch_single (H : Fin 2 → Fin 2) (x y : Fin 2)
-    (d : (xorRuntime H).D) :
-    ((xorRuntime H).run .instruments queryKeepOrDiscard).branch ⟨ancReg 0, 0, rfl⟩
+    (d : (additiveOracleRuntime H).D) :
+    ((additiveOracleRuntime H).run .instruments queryKeepOrDiscard).branch ⟨ancReg 0, 0, rfl⟩
         (Matrix.single (((x, y), 0), d) (((x, y), 0), d) 1) =
       Matrix.single (((x, y + H x), 0), d) (((x, y + H x), 0), d) 1 ∧
-    ((xorRuntime H).run .instruments queryKeepOrDiscard).branch ⟨ancReg 1, 1, rfl⟩
+    ((additiveOracleRuntime H).run .instruments queryKeepOrDiscard).branch ⟨ancReg 1, 1, rfl⟩
         (Matrix.single (((x, y), 1), d) (((x, y), 1), d) 1) =
       Matrix.single ((x, y + H x), d) ((x, y + H x), d) 1 := by
   have hne : (⟨ancReg 1, 1, rfl⟩ : Σ u, {b : Fin 2 // ancReg b = u}) ≠ ⟨ancReg 0, 0, rfl⟩ :=
@@ -683,7 +701,7 @@ theorem run_queryKeepOrDiscard_branch_single (H : Fin 2 → Fin 2) (x y : Fin 2)
   constructor <;>
   ( rw [queryKeepOrDiscard, QuantumRuntime.run_queryBind, DSubInstrument.branch_bind_apply_univ,
       Fintype.sum_unique, LinearMap.comp_apply, SubInstrument.branch_toD_apply,
-      QuantumRuntime.queryStep_branch_single, xorRuntime_step_branch_single,
+      QuantumRuntime.queryStep_branch_single, additiveOracleRuntime_step_branch_single,
       Matrix.single_kronecker_single, one_mul, SubInstrument.branch_relabel,
       conj_basisMatrix_equiv_single, QuantumRuntime.queryEquivOut_apply, QuantumComp.prim,
       QuantumRuntime.run_primBind, DSubInstrument.branch_bind_apply_univ, Fin.sum_univ_two,
@@ -704,17 +722,18 @@ theorem run_queryKeepOrDiscard_branch_single (H : Fin 2 → Fin 2) (x y : Fin 2)
 the leaf on `Reg × Fin 2` in the state `|x, y + H x, 0⟩`; on `|x, y, 1⟩` it reaches the leaf on
 `Reg` in the state `|x, y + H x⟩`. -/
 theorem jointPost_queryKeepOrDiscard (H : Fin 2 → Fin 2) (x y : Fin 2) :
-    (xorRuntime H).jointPost .instruments queryKeepOrDiscard (SubState.basis ((x, y), 0))
+    (additiveOracleRuntime H).jointPost .instruments queryKeepOrDiscard (SubState.basis ((x, y), 0))
         ⟨ancReg 0, 0, rfl⟩ = SubState.basis (((x, y + H x), 0), ()) ∧
-      (xorRuntime H).jointPost .instruments queryKeepOrDiscard (SubState.basis ((x, y), 1))
+      (additiveOracleRuntime H).jointPost .instruments queryKeepOrDiscard (SubState.basis ((x, y),
+        1))
         ⟨ancReg 1, 1, rfl⟩ = SubState.basis ((x, y + H x), ()) := by
   constructor
   · refine SubState.ext ?_
-    exact (congrArg (((xorRuntime H).run .instruments queryKeepOrDiscard).branch
+    exact (congrArg (((additiveOracleRuntime H).run .instruments queryKeepOrDiscard).branch
       ⟨ancReg 0, 0, rfl⟩) (single_kronecker_single_one ((x, y), (0 : Fin 2)) ())).trans
         (run_queryKeepOrDiscard_branch_single H x y ()).1
   · refine SubState.ext ?_
-    exact (congrArg (((xorRuntime H).run .instruments queryKeepOrDiscard).branch
+    exact (congrArg (((additiveOracleRuntime H).run .instruments queryKeepOrDiscard).branch
       ⟨ancReg 1, 1, rfl⟩) (single_kronecker_single_one ((x, y), (1 : Fin 2)) ())).trans
         (run_queryKeepOrDiscard_branch_single H x y ()).2
 
@@ -802,9 +821,9 @@ noncomputable def geomProg :
 /-- Against the oracle unitary, the program reaches the leaf of outcome `n` with weight
 `2⁻¹ ^ (n + 1)` times the trace of its input. -/
 theorem trace_jointPost_geomProg (H : Fin 2 → Fin 2) (ρ : SubState (QReg.of Unit)) (n : ℕ) :
-    ((xorRuntime H).jointPost .instruments geomProg ρ ⟨_, n, rfl⟩).matrix.trace =
+    ((additiveOracleRuntime H).jointPost .instruments geomProg ρ ⟨_, n, rfl⟩).matrix.trace =
       (geomWeight n : ℂ) * ρ.matrix.trace := by
-  have hi : (xorRuntime H).init.matrix.trace = 1 := SubState.trace_basis (A := Unit) ()
+  have hi : (additiveOracleRuntime H).init.matrix.trace = 1 := SubState.trace_basis (A := Unit) ()
   rw [QuantumRuntime.matrix_jointPost, geomProg, QuantumComp.prim, QuantumRuntime.run_primBind,
     DSubInstrument.branch_bind_apply, tsum_eq_single n fun b hb ↦ ?_]
   · simp only [QuantumRuntime.run_pure, LocalSig.Interp.instruments_apply]
@@ -824,11 +843,11 @@ theorem lossless_geomProg : geomProg.Lossless .instruments :=
 infinitely many leaves. -/
 example [MeasurableSpace (Σ u, LocalSig.instruments.OutcomeAt geomOp u)] (H : Fin 2 → Fin 2)
     (ρ : SubState (QReg.of Unit)) :
-    (xorRuntime H).outcomeLaw .instruments geomProg ρ Set.univ =
+    (additiveOracleRuntime H).outcomeLaw .instruments geomProg ρ Set.univ =
       ENNReal.ofReal ρ.matrix.trace.re := by
-  rw [(xorRuntime H).outcomeLaw_apply_univ_of_lossless .instruments
-    (lossless_run_xorRuntime .instruments lossless_geomProg H),
-    trace_re_xorRuntime_init, mul_one]
+  rw [(additiveOracleRuntime H).outcomeLaw_apply_univ_of_lossless .instruments
+    (lossless_run_additiveOracleRuntime .instruments lossless_geomProg H),
+    trace_re_additiveOracleRuntime_init, mul_one]
 
 /-! ## Outcomes and leaves in a higher universe -/
 
@@ -847,11 +866,11 @@ theorem lossless_measureLift : measureLift.Lossless .instruments :=
 input. -/
 example [MeasurableSpace (ULift.{1} (Fin 2))] (H : Fin 2 → Fin 2)
     (ρ : SubState (QReg.of (Fin 2))) :
-    (xorRuntime H).outcomeLaw₂ .instruments measureLift ρ Set.univ =
+    (additiveOracleRuntime H).outcomeLaw₂ .instruments measureLift ρ Set.univ =
       ENNReal.ofReal ρ.matrix.trace.re := by
-  rw [(xorRuntime H).outcomeLaw₂_apply_univ_of_lossless .instruments
-    (lossless_run₂_xorRuntime .instruments lossless_measureLift H),
-    trace_re_xorRuntime_init, mul_one]
+  rw [(additiveOracleRuntime H).outcomeLaw₂_apply_univ_of_lossless .instruments
+    (lossless_run₂_additiveOracleRuntime .instruments lossless_measureLift H),
+    trace_re_additiveOracleRuntime_init, mul_one]
 
 /-- The final register of a leaf, as a leaf: a family in `Type 1`. -/
 abbrev RegLeaf (u : QReg) : Type 1 :=
@@ -871,11 +890,11 @@ theorem lossless_queryKeepOrDiscardReg : queryKeepOrDiscardReg.Lossless .instrum
 input. -/
 example [MeasurableSpace (Σ u, RegLeaf u)] (H : Fin 2 → Fin 2)
     (ρ : SubState (QReg.of (Reg × Fin 2))) :
-    (xorRuntime H).outcomeLaw .instruments queryKeepOrDiscardReg ρ Set.univ =
+    (additiveOracleRuntime H).outcomeLaw .instruments queryKeepOrDiscardReg ρ Set.univ =
       ENNReal.ofReal ρ.matrix.trace.re := by
-  rw [(xorRuntime H).outcomeLaw_apply_univ_of_lossless .instruments
-    (lossless_run_xorRuntime .instruments lossless_queryKeepOrDiscardReg H),
-    trace_re_xorRuntime_init, mul_one]
+  rw [(additiveOracleRuntime H).outcomeLaw_apply_univ_of_lossless .instruments
+    (lossless_run_additiveOracleRuntime .instruments lossless_queryKeepOrDiscardReg H),
+    trace_re_additiveOracleRuntime_init, mul_one]
 
 /-! ## A gate set -/
 
@@ -971,7 +990,8 @@ example : ¬ xThenZ.IsCostBound (fun _ _ ↦ 1) 1 := by
 
 /-- Under the gate interpretation, against the oracle unitary, the program runs to a lossless
 subinstrument. -/
-example (H : Fin 2 → Fin 2) : ((xorRuntime H).run₂ gateInterp xThenZ).Lossless :=
-  lossless_run₂_xorRuntime gateInterp (QuantumComp.lossless_of_interp lossless_gateInterp _) H
+example (H : Fin 2 → Fin 2) : ((additiveOracleRuntime H).run₂ gateInterp xThenZ).Lossless :=
+  lossless_run₂_additiveOracleRuntime gateInterp (QuantumComp.lossless_of_interp
+    lossless_gateInterp _) H
 
 end VCVioTest.QuantumOracle

@@ -34,7 +34,8 @@ law of its value (`Quantum.qromLaw₂`), which is the general law of the quantum
 * `Quantum.outcomeLaw_toQuantum_of_basis`: against any runtime that answers a call on a basis
   state `|x, y⟩` with `|x, y + H x⟩`, leaves its private register alone and starts it in a basis
   state, the program reports `evalWithAnswerFn (QueryImpl.ofFn H) oa` with certainty.
-* `Quantum.outcomeLaw_xorRuntime_toQuantum`: against the oracle unitary of `H`, the program
+* `Quantum.outcomeLaw_additiveOracleRuntime_toQuantum`: against the oracle unitary of `H`, the
+  program
   reports `evalWithAnswerFn (QueryImpl.ofFn H) oa`, the value of `oa` when every query is answered
   by `H`, with certainty.
 * `Quantum.qromLaw₂_toQuantum`: its law in the quantum random-oracle model is the output measure
@@ -188,8 +189,9 @@ private theorem frame_oracleQuery_branch_single (H : X → Y) (m : X × Y) (d : 
 
 /-- The oracle runtime answers a call on a basis state `|x, y⟩` by moving it to
 `|x, y + H x⟩`. -/
-theorem xorRuntime_step_branch_single (H : X → Y) (m : X × Y) (d : (xorRuntime H).D) :
-    ((xorRuntime H).step ()).branch () (Matrix.single (m, d) (m, d) 1) =
+theorem additiveOracleRuntime_step_branch_single (H : X → Y) (m : X × Y) (d :
+  (additiveOracleRuntime H).D) :
+    ((additiveOracleRuntime H).step ()).branch () (Matrix.single (m, d) (m, d) 1) =
       Matrix.single ((m.1, m.2 + H m.1), d) ((m.1, m.2 + H m.1), d) 1 :=
   frame_oracleQuery_branch_single H m d
 
@@ -241,11 +243,12 @@ theorem outcomeLaw_toQuantum_of_basis [MeasurableSpace α] (H : X → Y)
 
 /-- Against the oracle unitary of `H`, the program of a classical algorithm reports the value of
 the algorithm against `H` with certainty. -/
-theorem outcomeLaw_xorRuntime_toQuantum [MeasurableSpace α] (H : X → Y)
+theorem outcomeLaw_additiveOracleRuntime_toQuantum [MeasurableSpace α] (H : X → Y)
     (oa : OracleComp (X →ₒ Y) α) :
-    (xorRuntime H).outcomeLaw₂ .instruments oa.toQuantum (SubState.basis ()) =
+    (additiveOracleRuntime H).outcomeLaw₂ .instruments oa.toQuantum (SubState.basis ()) =
       Measure.dirac (evalWithAnswerFn (QueryImpl.ofFn H) oa) :=
-  outcomeLaw_toQuantum_of_basis H (xorRuntime_step_branch_single H) (xorRuntime_init H) oa
+  outcomeLaw_toQuantum_of_basis H (additiveOracleRuntime_step_branch_single H)
+    (additiveOracleRuntime_init H) oa
 
 /-! ## Agreement with the classical random-oracle model -/
 
@@ -263,7 +266,7 @@ theorem qromLaw₂_toQuantum [MeasurableSpace α] (oa : OracleComp (X →ₒ Y) 
   congr 1
   funext H
   rw [evalDist_pure]
-  exact outcomeLaw_xorRuntime_toQuantum H oa
+  exact outcomeLaw_additiveOracleRuntime_toQuantum H oa
 
 /-- The law, in the quantum random-oracle model, of the program of a classical algorithm is the
 output measure of the algorithm under the lazily sampled, cached random oracle. -/
