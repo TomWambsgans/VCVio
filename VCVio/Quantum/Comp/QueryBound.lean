@@ -226,9 +226,13 @@ def isCostBoundAux (c : ∀ ⦃A : QReg⦄, L.Op A → ℕ) :
   | _, .liftBind (.prim o) k, n => c o ≤ n ∧ ∀ b, isCostBoundAux c (k (ULift.up b)) (n - c o)
   | _, .liftBind (.query _ _ _) k, n => ∀ r, isCostBoundAux c (k (ULift.up r)) n
 
-/-- **Cost bound.** Along every path of `x`, including paths reached with weight zero, the costs
-`c o` of the local operations add up to at most `n`. With `c o = 1` for every operation of a
-gate set, this bounds the number of gates. -/
+/-- Along every path of `x`, including branches reached with weight zero, the costs `c o`
+of the named local operations sum to at most `n`. With unit cost this bounds the number of
+local-operation nodes on each path.
+
+Oracle calls, their basis equivalences, and the classical computation of continuations
+are uncharged. This predicate is a syntactic local-operation budget, not an overall
+circuit-size or running-time bound. -/
 @[expose]
 def IsCostBound (c : ∀ ⦃A : QReg⦄, L.Op A → ℕ) (x : QuantumComp L spec X A) (n : ℕ) : Prop :=
   isCostBoundAux c x n

@@ -60,8 +60,9 @@ the tree (`Quantum.QuantumComp.IsQueryBound`), not type indices.
 * **Stateful oracles.** A runtime has a private register that persists across calls; the program
   has no command on it.
 * **Gate sets.** Local operations are named by a signature and interpreted separately, so the
-  same tree can be read as a circuit over a gate set, with its number of gates read off the tree
-  (`Quantum.QuantumComp.IsCostBound`).
+  tree records the number and cost of named local operations
+  (`Quantum.QuantumComp.IsCostBound`). Basis equivalences at calls and classical continuation
+  computation are uncharged.
 
 ## What it does not cover
 
@@ -126,13 +127,17 @@ universe u v u₁ v₁ w w₁ w₂
 
 namespace Quantum
 
-/-- The interface of a quantum oracle: a type of ports, and for each port `i` an input register
-`In i`, an output register `Out i`, and a type `Result i` of classical results. A coherent oracle
-call, such as a unitary, has result type `Unit`; a port that measures has a nontrivial result type.
+/-- The interface of quantum oracle calls: a type of ports, each with an input register
+`In i`, an output register `Out i`, and a classical result type `Result i`.
 
-The signature fixes types only. A runtime (`QuantumRuntime spec`) implements the ports. A call
-may act on a superposition of inputs of one port; the choice of port is classical. Ports and
-results lie in independent universes. -/
+A runtime implements port `i` by a subinstrument on the input and its private memory.
+`Result i = Unit` means that the call reports no classical information. Unitary oracle
+calls have this form, as do channels that measure internally and discard the report;
+the result type alone does not assert coherence or losslessness.
+
+A call may act on a superposition within one port's input register. The choice of port is
+classical. The signature specifies types only, and ports and results have independent
+universes. See `QuantumRuntime` for the physical implementation. -/
 structure QuantumOracleSpec where
   /-- The oracle ports. -/
   Port : Type u₁
@@ -583,8 +588,9 @@ end QuantumComp₂
 
 Use it to build programs from arbitrary quantum operations. A local step here can be any
 subinstrument, so the number of steps says nothing about efficiency; use a named signature with
-`QuantumComp₂ L spec` to count gates. For `α : Type w` the local outcomes are also in `Type w`;
-write `QuantumComp₂ LocalSig.instruments.{v} spec A B α` to separate the two universes. -/
+`QuantumComp₂ L spec` to count named local operations. For `α : Type w` the local outcomes are
+also in `Type w`; write `QuantumComp₂ LocalSig.instruments.{v} spec A B α` to separate the two
+universes. -/
 abbrev QComp (spec : QuantumOracleSpec.{u₁, v₁}) (A B : QReg) (α : Type w) :
     Type (max u₁ v₁ (w + 1)) :=
   QuantumComp₂ LocalSig.instruments.{w} spec A B α

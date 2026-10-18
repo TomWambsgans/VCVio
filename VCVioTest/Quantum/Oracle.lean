@@ -14,7 +14,8 @@ public import VCVio.Quantum.Oracle.Comb
 Oracles `Fin 2 → Fin 2`, queried on the register `Fin 2 × Fin 2`.
 
 * **Deutsch's algorithm**, as a one-query comb, reports `H 0 + H 1` with certainty. Its program
-  (`Quantum.QuantumComb.toComp`) runs as the comb does (Proposition 1), with one call.
+  (`Quantum.QuantumComb.toComp`) runs as the comb does (`Quantum.QuantumComb.run_toComp`),
+  with one call.
 * **Classical algorithms.** The program of the algorithm that queries `0` reports `H 0`; its
   distribution in the quantum random-oracle model is its distribution under the lazily sampled
   random oracle, with no query bound. The adaptive algorithm that queries `H 0` next reports `H (H
@@ -27,14 +28,15 @@ Oracles `Fin 2 → Fin 2`, queried on the register `Fin 2 × Fin 2`.
 * **Two ports.** A program calling each port once has budget one per port, and not budget one
   on one port alone. A program that calls only one port runs in the same way whatever the other
   port does.
-* **A stateful runtime.** A counting runtime records the number of calls in its private register.
-  A program that measures a bit, calls twice on `1` and once on `0`, and returns the bit, leaves the
-  counter at `2` from `|1⟩` and at `1` from `|0⟩`. The final private state depends on the path,
-  which a fixed-slot comb cannot produce, since it makes the same number of calls on every path.
+* **A stateful runtime.** A program measures a bit, calls twice on `1` and once on `0`, and
+  returns the bit. From the fair mixture of the two basis states, the joint distribution of
+  that bit and a final basis measurement of the private counter is
+  `(1/2) δ_(0,1) + (1/2) δ_(1,2)` (`coinCounterDist_eq`). The counter retains information about
+  the path taken by the program.
 * **Guessing without queries.** A lossless program with budget zero, over any primitive
-  signature and interpretation, guesses a point of a uniformly sampled oracle with probability
-  `1 / 2`, whether it returns its guess on a fixed final register or reads it off a leaf whose
-  register depends on the outcome.
+  signature and interpretation, started from a normalized state, guesses a point of a uniformly
+  sampled oracle with probability `1 / 2`, whether it returns its guess on a fixed final register
+  or reads it off a leaf whose register depends on the outcome.
 * **A register that depends on an outcome.** A program calls the oracle with an ancilla as the
   remainder, measures the ancilla and keeps it on `0` or discards it on `1`, so that its final
   register depends on the outcome. Against the oracle unitary it is lossless, makes one call, and
@@ -44,9 +46,10 @@ Oracles `Fin 2 → Fin 2`, queried on the register `Fin 2 × Fin 2`.
 * **Infinitely many outcomes.** The geometric distribution over `ℕ`, a dependent subinstrument on
   the trivial register with outcome `n` of weight `2⁻¹ ^ (n + 1)`, is lossless; a program that
   draws from it reaches the leaf of `n` with that weight, and keeps the trace of its input.
-* **Higher universes.** A measurement whose outcomes lie in `Type 1`, and a program whose leaves
-  (its final registers) lie in `Type 1`, run against the oracle unitary and keep the trace of
-  their input.
+* **Higher universes.** A runtime parameter in `Type 1` selects a constant oracle; querying it
+  gives a fair mixture of the two answers (`sampledEvalDist₂_ulift_bool`). A measurement whose
+  outcomes lie in `Type 1`, and a program whose leaves (its final registers) lie in `Type 1`,
+  run against the oracle unitary and keep the trace of their input.
 * **A gate set.** A primitive signature of two named gates, interpreted by the bit flip and the
   phase flip: the bit flip moves `|0⟩` to `|1⟩` and the phase flip moves `|+⟩` to `|-⟩`. A
   program applying both uses two gates and not one, and runs to a lossless subinstrument.
@@ -191,7 +194,7 @@ whole register, with the trivial remainder. -/
 noncomputable def deutschComp : QComp qrom2 (QReg.of Reg) (QReg.of Reg) (Fin 2) :=
   deutsch.toComp () (QReg.of Unit) (Equiv.prodPUnit Reg).symm (Equiv.prodPUnit Reg)
 
-/-- **Proposition 1** for Deutsch's algorithm: against the oracle runtime, the program runs as the
+/-- Against the oracle runtime, Deutsch's program runs as the
 comb, framed by the runtime register, against the runtime's query step. -/
 example (H : Fin 2 → Fin 2) :
     (additiveOracleRuntime H).run₂ .instruments deutschComp =
@@ -540,7 +543,7 @@ example (c : Fin 2) :
       (countRuntime.run .instruments coinProg).branch ⟨QReg.of (Unit × Fin 2), rfl, c⟩ :=
   QuantumRuntime.branch_run₂ ..
 
-/-- **Proposition 3** on the general form: the joint post-measurement state of the tree at the
+/-- The joint post-measurement state of the tree at the
 leaf on `Unit × Fin 2`. -/
 example :
     countRuntime.jointPost .instruments coinProg (SubState.basis 1) ⟨_, rfl, 1⟩ =
@@ -653,8 +656,9 @@ theorem branch_frame_single {A : Type} [Fintype A] [DecidableEq A] {ι : Type} {
   rw [DSubInstrument.branch_frame_apply, ← MatrixMap.amplify_kronecker,
     Matrix.single_kronecker_single, one_mul]
 
-/-- The Kraus map of `K` sends the basis projector `|a⟩⟨a|` to the projector onto the column of
-`K` at `a`. -/
+/-- The Kraus map of `K` sends the basis projector `|a⟩⟨a|` to the positive outer-product
+operator `v v†`, where `v` is column `a` of `K`. This is a rank-one orthogonal projector when
+`v` has norm one. -/
 theorem conj_single_apply {A B : Type} [Fintype A] [DecidableEq A] (K : Matrix B A ℂ) (a : A)
     (b b' : B) : MatrixMap.conj K (Matrix.single a a 1) b b' = K b a * star (K b' a) := by
   simp only [MatrixMap.conj_apply, Matrix.mul_apply, Matrix.single_apply,
@@ -850,7 +854,23 @@ example [MeasurableSpace (Σ u, LocalSig.instruments.OutcomeAt geomOp u)] (H : F
     (lossless_run_additiveOracleRuntime .instruments lossless_geomProg H),
     trace_re_additiveOracleRuntime_init, mul_one]
 
-/-! ## Outcomes and leaves in a higher universe -/
+/-! ## Sampled parameters, outcomes and leaves in a higher universe -/
+
+/-- A uniformly sampled parameter in `Type 1` selects the constant-zero or constant-one
+oracle. Querying it gives the fair mixture of the two answers. -/
+theorem sampledEvalDist₂_ulift_bool :
+    sampledEvalDist₂
+        (fun ω : ULift.{1} Bool ↦
+          additiveOracleRuntime (fun _ : Fin 2 ↦ if ω.down then (1 : Fin 2) else 0))
+        .instruments queryZero.toQuantum (SubState.basis ()) =
+      (2 : ℝ≥0∞)⁻¹ • Measure.dirac (0 : Fin 2) +
+        (2 : ℝ≥0∞)⁻¹ • Measure.dirac (1 : Fin 2) := by
+  have h (H : Fin 2 → Fin 2) :
+      (additiveOracleRuntime H).evalDist₂ .instruments queryZero.toQuantum (SubState.basis ()) =
+        Measure.dirac (H 0) :=
+    evalDist_additiveOracleRuntime_toQuantum H queryZero
+  rw [sampledEvalDist₂_eq_sum, ← Equiv.ulift.symm.sum_comp, Fintype.sum_bool]
+  simp [h, smul_add, add_comm]
 
 /-- Measure a qubit in the computational basis and report the bit lifted to `Type 1`: a local
 operation of the signature of instruments `LocalSig.instruments.{1}`, whose outcomes lie in

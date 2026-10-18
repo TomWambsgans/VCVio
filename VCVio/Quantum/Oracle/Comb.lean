@@ -17,11 +17,14 @@ instrument:
 
 `step 0, Q, step 1, Q, …, Q, step q, final`.
 
-With unitary steps (`Quantum.SubInstrument.ofIsometry`) this is the model of Boneh et al.,
-*Random Oracles in a Quantum World* (arXiv:1008.0931v2, §2.1, PDF p. 7). A comb cannot branch on
-classical outcomes, its number of queries is fixed by its type, and all queries go to one port.
-"Comb" here means this concrete sequential form, not the Choi-operator formalism of general quantum
-combs.
+With normalized input, finite qubit registers, unitary steps
+(`Quantum.SubInstrument.ofIsometry`), XOR queries and the usual final output measurement, this
+has the fixed-query circuit form of Boneh et al., *Random Oracles in a Quantum World*
+(arXiv:1008.0931v2, §2.1, PDF p. 7). No efficient circuit-family condition is imposed here.
+The external sequence and number of query slots are fixed, and all queries go to one port.
+Intermediate channels report no classical result to the syntax, but may measure internally,
+store a record in memory, and act on it later. "Comb" here means this concrete sequential form,
+not the Choi-operator formalism of general quantum combs.
 
 ## Combs embed as programs
 
@@ -161,15 +164,20 @@ theorem post_interleave (Q : SubInstrument M M Unit) (ρ : SubState M) :
 
 /-! ## Combs -/
 
-/-- A fixed-slot quantum query strategy on a finite memory register `M`, returning a value in `α`:
-an initial substate, lossless steps `step 0, …, step q` on `M`, and a final lossless instrument with
-outcomes in `α`. Against a query step `Q` it runs `step 0, Q, step 1, …, Q, step q, final`, with
-exactly `q` copies of `Q`. The initial substate and `Q` may lose trace.
+/-- A fixed-slot query strategy on finite memory `M`, returning a classical value in `α`.
+It consists of an initial substate, channels `step 0, …, step q` on `M`, and a lossless final
+instrument. Against a query subinstrument `Q`, execution is
+`step 0, Q, step 1, …, Q, step q, final`, with exactly `q` query slots.
 
-The steps have outcome `Unit`: they may be any channels, but report nothing a later step could
-branch on. Unitary steps (`SubInstrument.ofIsometry`) are the textbook case. `toComp` embeds a comb
-as a program, and `run_toComp` shows the embedding runs as the comb against every runtime; no
-converse is proved. -/
+Intermediate steps report only `Unit`, so the external schedule cannot depend on a reported
+result. Channels may nevertheless measure internally, store a record in `M`, and act on that
+record later. The initial substate may have trace below one, and `Q` may lose trace.
+
+With normalized input, qubit registers, unitary steps and XOR queries, this has the fixed-query
+circuit form in Boneh et al., Random Oracles in a Quantum World, §2.1 (PDF p. 7).
+No efficient circuit-family condition is imposed here. This is a concrete sequential strategy,
+not a Choi-operator representation. `toComp` and `run_toComp` give its program embedding;
+no converse is proved. -/
 structure QuantumComb (M : Type*) [Fintype M] (α : Type*) (q : ℕ) where
   /-- The substate of the register before the first step. -/
   init : SubState M
@@ -555,8 +563,13 @@ noncomputable def toComp (c : QuantumComb M α q) (i : spec.Port) (E : QReg)
     QComp spec (QReg.of M) (QReg.of M) α :=
   (interleaveCompLift i E ℓ ℓ' q c.step).bind fun _ ↦ QComp.act c.final
 
-/-- **Proposition 1.** Running the program of a comb against a runtime `R` is running the comb,
-framed by the runtime register, against the query step `R.combQuery i E ℓ ℓ'`. -/
+/-- The program embedding preserves the whole outcome-indexed quantum operation.
+Running `c.toComp i E ℓ ℓ'` against `R` gives the same subinstrument on `M × R.D` as
+interleaving the comb's steps, framed by `R.D`, with `R.combQuery i E ℓ ℓ'`.
+
+Each query's classical result is discarded by this embedding. The equality holds on every
+joint input operator, including entangled inputs; initialization is used only when the
+subinstrument is observed. This is the comb-to-program direction only. -/
 theorem run_toComp (c : QuantumComb M α q) (R : QuantumRuntime spec) (i : spec.Port) (E : QReg)
     (ℓ : M ≃ spec.In i × E) (ℓ' : spec.Out i × E ≃ M) :
     R.run₂ .instruments (c.toComp i E ℓ ℓ') =

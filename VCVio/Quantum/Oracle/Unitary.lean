@@ -90,7 +90,8 @@ section oracleUnitary
 variable [AddCommGroup Y] [DecidableEq X] [DecidableEq Y]
 
 /-- The oracle unitary of `H : X → Y` on the register `X × Y`: the permutation matrix sending the
-basis vector `|x, y⟩` to `|x, y + H x⟩`. -/
+basis vector `|x, y⟩` to `|x, y + H x⟩`. See `VCVio.Quantum.Oracle.Model` for the QROM
+experiment and the Boneh et al. reference with its §2.1 / PDF p. 7 locator. -/
 @[expose]
 def oracleUnitary (H : X → Y) : Matrix (X × Y) (X × Y) ℂ :=
   basisMatrix (oracleEquiv H)
