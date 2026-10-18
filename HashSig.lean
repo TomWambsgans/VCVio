@@ -62,6 +62,7 @@ public import HashSig.SLHDSA.Security.CoverageRun
 public import HashSig.SLHDSA.Security.DigestTransport
 public import HashSig.SLHDSA.Security.EncodedTargets
 public import HashSig.SLHDSA.Security.ForsWitnesses
+public import HashSig.SLHDSA.Security.HedgedKeyBound
 public import HashSig.SLHDSA.Security.HiddenCells
 public import HashSig.SLHDSA.Security.HiddenUndrawn
 public import HashSig.SLHDSA.Security.HmsgWitnesses
