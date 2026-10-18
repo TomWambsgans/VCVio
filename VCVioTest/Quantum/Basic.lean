@@ -17,9 +17,9 @@ semantics.
 
 A measurement whose output register depends on the outcome, keeping the qubit on outcome `0` and
 discarding it to `Unit` on outcome `1`, is a lossless dependent subinstrument with the uniform
-outcome law on `|+⟩⟨+|`. Sequencing it with a continuation whose input register depends on the
+outcome measure on `|+⟩⟨+|`. Sequencing it with a continuation whose input register depends on the
 first outcome is lossless, and the computational-basis measurement transported along the
-constant-codomain equivalence keeps its losslessness and its outcome law.
+constant-codomain equivalence keeps its losslessness and its outcome measure.
 
 Outcomes need not be finitely many: the instrument on a qubit that reports `n : ℕ` with weight
 `2^{-(n+1)}` and leaves the state unchanged, built directly as a summable family, is lossless,
@@ -303,7 +303,7 @@ example : SubInstrument.toD measureZ =
     DSubInstrument.ofKraus (B := fun _ ↦ Fin 2) proj sum_conjTranspose_proj_mul_proj :=
   SubInstrument.toD_ofKraus _ _
 
-/-- On `|+⟩⟨+|`, the outcome law of the transported measurement is that of the measurement, so
+/-- On `|+⟩⟨+|`, the outcome measure of the transported measurement is that of the measurement, so
 each outcome has mass `1 / 2`. -/
 example (a : Fin 2) :
     (SubInstrument.toD measureZ).outcomeMeasure plus {a} = ENNReal.ofReal (1 / 2) := by
@@ -383,7 +383,7 @@ example (n : ℕ) : geometric.outcomeMeasure plus {n} = ENNReal.ofReal ((1 / 2) 
   simp only [Matrix.trace_smul, smul_eq_mul, Complex.re_ofReal_mul, geomWeight]
   simp [plus, Matrix.trace]
 
-/-- On `|+⟩⟨+|`, the outcome law of the geometric instrument has total mass one. -/
+/-- On `|+⟩⟨+|`, the outcome measure of the geometric instrument has total mass one. -/
 example : geometric.outcomeMeasure plus Set.univ = 1 := by
   rw [lossless_geometric.outcomeMeasure_apply_univ]
   simp [plus, Matrix.trace]
