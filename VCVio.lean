@@ -268,6 +268,7 @@ public import VCVio.OracleComp.Coinductive.UniformThreshold.Budget
 public import VCVio.OracleComp.Coinductive.UniformThreshold.Budget.Semantics
 public import VCVio.OracleComp.Coinductive.UniformThreshold.Categorical
 public import VCVio.OracleComp.Coinductive.UniformThreshold.Categorical.Semantics
+public import VCVio.OracleComp.Coinductive.UniformThreshold.Coinductive
 public import VCVio.OracleComp.Coinductive.UniformThreshold.Cost
 public import VCVio.OracleComp.Coinductive.UniformThreshold.Interval
 public import VCVio.OracleComp.Coinductive.UniformThreshold.Semantics
@@ -387,6 +388,7 @@ public import VCVio.ProgramLogic.Relational.ProgrammingOracle
 public import VCVio.ProgramLogic.Relational.Quantitative
 public import VCVio.ProgramLogic.Relational.QuantitativeDefs
 public import VCVio.ProgramLogic.Relational.Reconstruction
+public import VCVio.ProgramLogic.Relational.Reconstruction.Coinductive
 public import VCVio.ProgramLogic.Relational.SimulateQ
 public import VCVio.ProgramLogic.Relational.SimulateQ.Coupling
 public import VCVio.ProgramLogic.Relational.SimulateQ.Resource

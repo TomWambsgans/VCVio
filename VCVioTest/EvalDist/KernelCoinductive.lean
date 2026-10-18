@@ -7,7 +7,7 @@ Authors: Devon Tuma
 module
 
 public import VCVio.EvalDist.KernelHandler.Machine
-public import VCVio.OracleComp.Coinductive.UniformThreshold.Semantics
+public import VCVio.OracleComp.Coinductive.UniformThreshold.Coinductive
 
 /-!
 # Coinductive handler laws through ordinary imports
@@ -15,7 +15,8 @@ public import VCVio.OracleComp.Coinductive.UniformThreshold.Semantics
 The persistent threshold service can implement a continuing caller with a Borel
 real result. A second consumer uses continuous private state and supplies its
 measurability obligation explicitly. The kernel bridge also accepts independent
-result universes and handles silent divergence.
+result universes and handles silent divergence. Reconstruction also covers continuous private
+state, independent result universes and the actual persistent threshold dispatcher.
 -/
 
 public section
@@ -46,5 +47,27 @@ example (K : KernelHandler coinSpec.toPFunctor ℝ)
 example (K : KernelHandler coinSpec.toPFunctor ℝ) :
     ITree.runKernel K (ITree.diverge : ITree coinSpec.toPFunctor ℝ) = 0 :=
   ITree.runKernel_diverge K
+
+example {concrete ideal : KernelHandler coinSpec.toPFunctor ℝ} {R : Kernel ℝ ℝ}
+    (contract : KernelHandler.ReconstructionContract concrete ideal R)
+    (tree : ITree coinSpec.toPFunctor (ULift.{1} ℝ)) :
+    ITree.runKernel ideal tree ∘ₖ R =
+      Kernel.retainLeft (ULift.{1} ℝ) R ∘ₖ ITree.runKernel concrete tree :=
+  contract.runKernel_itree tree
+
+example (caller : DynSystem.DynComputation spec.toPFunctor Unit ℝ) (p : Prefix) :
+    (𝒟[ITree.ofResumptionWithTau
+      ((machineHandler.dispatch caller).denote ((), p))]).map Prod.fst =
+      ((cellLaw p).bind (Resumption.runKernel idealAnswer (caller.denote ()))).map Prod.fst :=
+  adaptive_dispatch_output_law caller () p
+
+example {concrete ideal : KernelHandler coinSpec.toPFunctor ℝ} {R : Kernel ℝ ℝ}
+    (contract : KernelHandler.ReconstructionContract concrete ideal R)
+    (μ : Measure ℝ) :
+    ((μ.bind R).bind (ITree.runKernel ideal (ITree.diverge : ITree coinSpec.toPFunctor ℝ))).map
+        Prod.fst =
+      (μ.bind (ITree.runKernel concrete (ITree.diverge : ITree coinSpec.toPFunctor ℝ))).map
+        Prod.fst :=
+  contract.output_law_itree μ ITree.diverge
 
 end VCVioTest.KernelCoinductive

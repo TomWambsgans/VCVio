@@ -105,7 +105,20 @@ embedding. `MachineHandler.evalDist_dispatch` consequently identifies the actual
 composed continuing machine's joint returned law; its caller state and result
 need not be countable. This uses PolyFun's shared least-iteration and exact
 stateful-interpreter equations. Returned-law adequacy does not identify microstep
-clocks or establish the law of an infinite history of completed calls. The ternary sampler now has both an executable `sampleIO` and a theorem
+clocks or establish the law of an infinite history of completed calls.
+
+The [coinductive reconstruction contract](../../VCVio/ProgramLogic/Relational/Reconstruction/Coinductive.lean)
+lifts local reconstruction to arbitrary ITree and resumption clients. It preserves
+the joint result and reconstructed private state, then gives output-law equality
+by hiding that state. Continuous-algebra fusion supplies the proof; the shared
+service algebra allows any terminal measurable space, so it can change the
+private-state representation. No almost-sure termination hypothesis is needed.
+The [threshold dispatcher law](../../VCVio/OracleComp/Coinductive/UniformThreshold/Coinductive.lean)
+compares the actual continuing fair-bit machine with one persistent ideal uniform
+real in the initial cell, retaining both the result and that real. This also
+preserves missing mass for divergent clients.
+
+The ternary sampler now has both an executable `sampleIO` and a theorem
 about the returned law of that exact composed machine. A separate capped handler
 produces ordinary `OptionT (FreeM ...)` syntax; the proved error bound applies to
 that program, including timeout mass. A noncomputable semantic `ProbResponder`
@@ -433,8 +446,9 @@ library decision, not a proof that PMFs are inadequate for finite cryptographic 
 Finite service-refinement contracts concern arbitrary terminating free clients. Measurable
 machines also have infinite path laws agreeing with all executable finite histories, and their
 eventual-return events agree with resumption returned measures. Coinductive
-returned-law adequacy is proved separately through the shared iteration semantics.
-Comparing infinite histories across a handler still requires a completed-call projection: two implementations need not use
+returned-law adequacy and private-state reconstruction are proved separately
+through the shared iteration semantics. Comparing infinite histories across a
+handler still requires a completed-call projection: two implementations need not use
 the same number of internal steps per call. Full concurrent/UC scheduler composition is outside
 this prototype.
 

@@ -32,14 +32,14 @@ variable {P : PFunctor.{uA, uB}} {S : Type uS} {α : Type uR}
   [∀ a, MeasurableSpace (P.B a)] [∀ a, Countable (P.B a)]
   [∀ a, MeasurableSingletonClass (P.B a)] [MeasurableSpace S] [MeasurableSpace α]
 
-/-- The joint answer-and-state service algebra is continuous in its continuation kernels. -/
+/-- The service algebra is continuous in continuation kernels with any terminal space. -/
 noncomputable def KernelHandler.continuousAlgebra (K : KernelHandler P S) :
-    Resumption.ContinuousAlgebra P (Kernel S (α × S)) := fun a =>
+    Resumption.ContinuousAlgebra P (Kernel S α) := fun a =>
   (Kernel.compContinuousLeft (K a)).comp Kernel.uncurryCountable
 
 /-- The service algebra samples an answer and successor state before selecting a continuation. -/
 theorem KernelHandler.continuousAlgebra_apply (K : KernelHandler P S) (a : P.A)
-    (next : P.B a → Kernel S (α × S)) (s : S) :
+    (next : P.B a → Kernel S α) (s : S) :
     K.continuousAlgebra a next s = (K a s).bind (fun result => next result.1 result.2) := by
   simp only [continuousAlgebra, ContinuousHom.comp_apply, Kernel.compContinuousLeft_apply,
     Kernel.comp_apply]
