@@ -7,7 +7,6 @@ Authors: Quang Dao
 module
 public import VCVio.Quantum.Comp.Basic
 public import VCVio.Quantum.Oracle.Basis
-import all VCVio.Quantum.SubInstrument
 
 /-!
 # Runtimes and the execution of quantum programs
@@ -337,8 +336,9 @@ theorem run₂_bind (x : QuantumComp₂ L spec A B α) (k : α → QuantumComp�
 /-- Running a program with a relabelled return value relabels the outcomes of its run. -/
 theorem run₂_map (f : α → β) (x : QuantumComp₂ L spec A B α) :
     R.run₂ I (x.map f) = (R.run₂ I x).map f := by
-  rw [QuantumComp₂.map_eq_bind_pure, run₂_bind, DSubInstrument.map_eq_bind_ret]
+  rw [QuantumComp₂.map_eq_bind_pure, run₂_bind]
   simp only [run₂_pure]
+  exact (DSubInstrument.map_eq_bind_ret f _).symm
 
 /-- A lossless fixed-register program run against a runtime whose steps are lossless is
 lossless. -/

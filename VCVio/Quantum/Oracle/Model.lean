@@ -417,16 +417,16 @@ output of `P` on `ρ` divided by `|Y|`. -/
 theorem sum_outcomeMeasure_map_guess {M N : Type*} [Fintype M] [Fintype N]
     (P : SubInstrument M N α) (ρ : SubState M) (x : α → X) (y : α → Y) :
     ∑ H : X → Y, (Fintype.card (X → Y) : ℝ≥0∞)⁻¹ *
-        (P.map (C := fun _ ↦ N) fun a ↦ y a = H (x a)).outcomeMeasure ρ {True} =
+        (P.map fun a ↦ y a = H (x a)).outcomeMeasure ρ {True} =
       ENNReal.ofReal (P.total ρ.matrix).trace.re / Fintype.card Y := by
-  have hmeas : ∀ H : X → Y, (P.map (C := fun _ ↦ N) fun a ↦ y a = H (x a)).outcomeMeasure ρ {True} =
+  have hmeas : ∀ H : X → Y, (P.map fun a ↦ y a = H (x a)).outcomeMeasure ρ {True} =
       ∑' a, ENNReal.ofReal (P.branch a ρ.matrix).trace.re *
         Set.indicator {True} 1 (y a = H (x a)) := fun H ↦ by
     rw [DSubInstrument.outcomeMeasure_map, Measure.sum_apply _ (MeasurableSet.singleton True)]
     simp only [Measure.smul_apply, Measure.dirac_apply' _ (MeasurableSet.singleton True),
       smul_eq_mul]
   simp only [hmeas]
-  rw [sum_tsum_guess, SubInstrument.trace_re_total_apply,
+  rw [sum_tsum_guess, DSubInstrument.trace_re_total_apply,
     ENNReal.ofReal_tsum_of_nonneg (fun a ↦ P.trace_re_branch_apply_nonneg a ρ.posSemidef)
       (P.isCPTNIFamily.summable_trace_re_apply ρ.posSemidef)]
 
@@ -758,7 +758,7 @@ theorem qromEvalDistMap₂_guess_zero [SampleableType (X → Y)] (I : L.Interp)
         Fintype.card Y := by
   have hrun : ∀ H : X → Y, (additiveOracleRuntime H).evalDist₂ I (x.map fun a ↦ gy a = H (gx a))
     ρ =
-      (((additiveOracleRuntime H₀).run₂ I x).map (C := fun _ ↦ B × Unit) fun a ↦
+      (((additiveOracleRuntime H₀).run₂ I x).map fun a ↦
         gy a = H (gx a)).outcomeMeasure (ρ.prod (SubState.basis ())) := fun H ↦ by
     rw [QuantumRuntime.evalDist₂, QuantumRuntime.run₂_map,
       run₂_additiveOracleRuntime_eq_of_isQueryBound_zero I hx H H₀]
@@ -776,7 +776,7 @@ theorem qromEvalDistMap₂_guess_zero_of_lossless [SampleableType (X → Y)] (I 
       ENNReal.ofReal ρ.matrix.trace.re / Fintype.card Y := by
   have h : (((additiveOracleRuntime 0).run₂ I x).total (ρ.prod (SubState.basis ())).matrix).trace =
       (ρ.prod (SubState.basis ())).matrix.trace :=
-    (SubInstrument.lossless_iff_isTP_total _).mp
+    (DSubInstrument.lossless_iff_isTP_total _).mp
       (lossless_run₂_additiveOracleRuntime I hl 0) _
   rw [qromEvalDistMap₂_guess_zero I hx ρ gx gy 0, h, SubState.trace_re_prod, SubState.trace_basis,
     Complex.one_re, mul_one]

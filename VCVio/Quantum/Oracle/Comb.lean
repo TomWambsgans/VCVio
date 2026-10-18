@@ -6,7 +6,6 @@ Authors: Quang Dao
 
 module
 public import VCVio.Quantum.Comp.QueryBound
-import all VCVio.Quantum.SubInstrument
 
 /-!
 # Quantum combs
@@ -493,7 +492,7 @@ theorem run_actUnit {A B : QReg} (R : QuantumRuntime spec) (p : SubInstrument A 
 theorem lossless_actUnit {A B : QReg} {p : SubInstrument A B Unit} (hp : p.Lossless) :
     (actUnit.{u₁, v₁, w} (spec := spec) p).Lossless .instruments :=
   QuantumComp₂.lossless_bind
-    (QComp.lossless_act (hp.map (f := ULift.up.{w}) (C := fun _ ↦ B))) fun _ ↦
+    (QComp.lossless_act (hp.map ULift.up.{w})) fun _ ↦
     QuantumComp₂.lossless_pure _
 
 /-- Lifting a local outcome introduces no oracle calls. -/

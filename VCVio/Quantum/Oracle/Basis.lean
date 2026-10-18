@@ -6,7 +6,6 @@ Authors: Quang Dao
 
 module
 public import VCVio.Quantum.Observe
-import all VCVio.Quantum.SubInstrument
 
 /-!
 # Computational-basis gates, states and instruments

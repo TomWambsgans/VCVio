@@ -6,7 +6,6 @@ Authors: Quang Dao
 
 module
 public import VCVio.Quantum.Comp.Runtime
-import all VCVio.Quantum.SubInstrument
 
 /-!
 # Simulation of runtimes
