@@ -103,6 +103,23 @@ example (set : FipsParameterSet)
     RunPrfKeyHit id pkSeed z ∨ IsWeakKey _ z.1.pk :=
   runPrfKeyHit_or_isWeakKey_of_clash set.n_le_32 set.n_le_m set.sixteen_le_n pkSeed adv hz h
 
+/-- The classification with the `opt_rand` of a `PRF_msg` clash, both signing modes: a clash
+through a cached `H_msg` point at `SK.prf` also caches a `PRF_msg` point keyed by `SK.prf` with
+`opt_rand = PK.seed`. -/
+example (set : FipsParameterSet)
+    {optRand : PublicKeyCore (shakeCore set.validatedParams) →
+      ProbComp (shakeCore set.validatedParams).Y}
+    (pkSeed : (shakeCore set.validatedParams).PkSeed)
+    (adv : UnforgeableAdversary (shakeRomScheme set.validatedParams optRand (pure pkSeed)))
+    {z : RomOutcome set.validatedParams (shakeCore set.validatedParams) ×
+      (hashSpec (shakeCore set.validatedParams)).QueryCache}
+    (hz : z ∈ support (romSchemeRun (shakeCore set.validatedParams) (Equiv.refl _) optRand
+      (pure pkSeed) (routeAdv _ set.n_le_32 set.n_le_m adv)))
+    (h : (shakeEncoding _ set.n_le_32 set.n_le_m pkSeed).Clash z.2) :
+    ((RunHmsgAtPrfKey id z ∧ PrfMsgAt z.1.sk.skPrf pkSeed z.2) ∨ z.1.sk.skPrf = pkSeed) ∨
+      IsWeakKey _ z.1.pk :=
+  runPrfKeyClash_or_isWeakKey_of_clash set.n_le_32 set.n_le_m set.sixteen_le_n pkSeed adv hz h
+
 /-- The weak-key `H_msg` event makes the public key weak. -/
 example (set : FipsParameterSet) {pkSeed : (shakeCore set.validatedParams).PkSeed}
     {pkRoot : (shakeCore set.validatedParams).Y}
