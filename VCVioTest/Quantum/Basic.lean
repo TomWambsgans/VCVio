@@ -56,7 +56,7 @@ theorem sum_conjTranspose_proj_mul_proj : ∑ i, (proj i)ᴴ * proj i = 1 := by
 
 /-- Measurement of a qubit in the computational basis. -/
 noncomputable def measureZ : SubInstrument (Fin 2) (Fin 2) (Fin 2) :=
-  SubInstrument.ofKraus proj sum_conjTranspose_proj_mul_proj
+  DSubInstrument.ofKraus proj sum_conjTranspose_proj_mul_proj
 
 /-- The computational-basis measurement is lossless. -/
 theorem lossless_measureZ : measureZ.Lossless :=
@@ -118,7 +118,7 @@ theorem phaseOp_complete : ∑ _ : Unit, phaseOpᴴ * phaseOp = 1 := by
 
 /-- The phase gate as a single-outcome quantum channel. -/
 noncomputable def phaseGate : SubInstrument (Fin 2) (Fin 2) Unit :=
-  SubInstrument.ofKraus (fun _ ↦ phaseOp) phaseOp_complete
+  DSubInstrument.ofKraus (fun _ ↦ phaseOp) phaseOp_complete
 
 /-- The phase gate sends `½ [[1,1],[1,1]]` to `½ [[1,-i],[i,1]]`.
 The imaginary off-diagonal entries distinguish conjugate transpose from transpose. -/
@@ -142,7 +142,7 @@ theorem flipOp_complete : ∑ _ : Unit, flipOpᴴ * flipOp = 1 := by
 
 /-- The bit flip as a single-outcome quantum channel. -/
 noncomputable def flipGate : SubInstrument (Fin 2) (Fin 2) Unit :=
-  SubInstrument.ofKraus (fun _ ↦ flipOp) flipOp_complete
+  DSubInstrument.ofKraus (fun _ ↦ flipOp) flipOp_complete
 
 /-- Applying `S` then `X` to `|+⟩` gives `½ [[1,i],[-i,1]]`, the state of `(i,1)/√2`. -/
 example : (phaseGate.bind fun _ ↦ flipGate).branch () plus.matrix =

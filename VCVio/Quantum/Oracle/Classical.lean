@@ -8,6 +8,7 @@ module
 public import VCVio.OracleComp.QueryTracking.QueryBound.Basic
 public import VCVio.OracleComp.QueryTracking.RandomOracle.EagerTable
 public import VCVio.Quantum.Oracle.Model
+import all VCVio.Quantum.SubInstrument
 
 /-!
 # Classical oracle algorithms in the quantum random-oracle model
@@ -65,11 +66,12 @@ register. -/
 noncomputable def classicalQuery (t : X) :
     QComp (qromSpec X Y) (QReg.of Unit) (QReg.of Unit) Y :=
   (QComp.act (B := QReg.of (X × Y))
-      (SubInstrument.classical (fun _ : Unit ↦ (t, (0 : Y))) fun _ ↦ ())).bind fun _ ↦
+      (DSubInstrument.classical (B := fun _ ↦ X × Y) (fun _ : Unit ↦ ())
+        (fun _ ↦ (t, (0 : Y))))).bind fun _ ↦
     (QuantumComp₂.query (L := LocalSig.instruments) (spec := qromSpec X Y) () (QReg.of Unit)
         (Equiv.prodPUnit (X × Y)).symm).bind fun _ ↦
       QComp.act (A := QReg.of ((X × Y) × Unit))
-        (SubInstrument.classical (fun _ ↦ ()) fun m : (X × Y) × Unit ↦ m.1.2)
+        (DSubInstrument.classical (B := fun _ ↦ Unit) (fun m : (X × Y) × Unit ↦ m.1.2) (fun _ ↦ ()))
 
 /-- The implementation of the classical oracle `X →ₒ Y` by quantum programs on the trivial
 register: query `t` is answered by `Quantum.classicalQuery t`. -/
@@ -81,9 +83,9 @@ noncomputable def classicalImpl :
 /-- A classical query is a lossless program. -/
 theorem lossless_classicalQuery (t : X) :
     (classicalQuery (Y := Y) t).Lossless .instruments :=
-  QuantumComp₂.lossless_bind (QComp.lossless_act (SubInstrument.lossless_classical _ _)) fun _ ↦
+  QuantumComp₂.lossless_bind (QComp.lossless_act (DSubInstrument.lossless_classical _ _)) fun _ ↦
     QuantumComp₂.lossless_bind (QuantumComp₂.lossless_query _ _ _) fun _ ↦
-      QComp.lossless_act (SubInstrument.lossless_classical _ _)
+      QComp.lossless_act (DSubInstrument.lossless_classical _ _)
 
 /-- A classical query makes one call. -/
 theorem isQueryBound_classicalQuery (t : X) :
@@ -166,7 +168,7 @@ private theorem branch_oracleQuery_single (H : X → Y) (m : X × Y) :
     (oracleQuery H).branch () (Matrix.single m m 1) =
       Matrix.single (m.1, m.2 + H m.1) (m.1, m.2 + H m.1) 1 := by
   have h := congrArg SubState.matrix (post_oracleQuery_basis H m)
-  rwa [SubInstrument.matrix_post, SubState.matrix_basis, SubState.matrix_basis] at h
+  rwa [DSubInstrument.matrix_post, SubState.matrix_basis, SubState.matrix_basis] at h
 
 /-- Against a runtime that answers a call on a basis state `|x, y⟩` by moving it to
 `|x, y + H x⟩` and leaves its private register alone, a classical query `t` from the trivial
@@ -177,24 +179,24 @@ theorem run_classicalQuery_branch_of_basis (H : X → Y) {R : QuantumRuntime (qr
     (t : X) (d : R.D) (y : Y) :
     (R.run₂ .instruments (classicalQuery t)).branch y (Matrix.single ((), d) ((), d) 1) =
       if H t = y then Matrix.single ((), d) ((), d) 1 else 0 := by
-  rw [classicalQuery, QuantumRuntime.run₂_act_bind, SubInstrument.branch_bind_unit,
-    LinearMap.comp_apply, SubInstrument.branch_frame_single, SubInstrument.branch_classical_basis]
-  simp only [↓reduceIte]
+  rw [classicalQuery, QuantumRuntime.run₂_act_bind, DSubInstrument.branch_bind_unit,
+    LinearMap.comp_apply, DSubInstrument.branch_frame_single, DSubInstrument.branch_classical_basis]
+  simp only [↓reduceDIte, cast_eq]
   rw [Matrix.single_kronecker_single, one_mul, QuantumRuntime.run₂_query_bind,
-    SubInstrument.branch_bind_unit, LinearMap.comp_apply, QuantumRuntime.queryStep_branch_apply,
+    DSubInstrument.branch_bind_unit, LinearMap.comp_apply, QuantumRuntime.queryStep_branch_apply,
     SubInstrument.branch_relabel, SubInstrument.branch_relabel, conj_basisMatrix_equiv_single]
   simp only [QuantumRuntime.queryEquivIn_apply, Equiv.prodPUnit_symm_apply]
-  rw [SubInstrument.branch_frame_single, hR, Matrix.single_kronecker_single, one_mul,
-    conj_basisMatrix_equiv_single, QuantumRuntime.run₂_act, SubInstrument.bind_pure]
+  rw [DSubInstrument.branch_frame_single, hR, Matrix.single_kronecker_single, one_mul,
+    conj_basisMatrix_equiv_single, QuantumRuntime.run₂_act, DSubInstrument.bind_ret]
   simp only [QuantumRuntime.queryEquivOut_apply]
-  rw [SubInstrument.branch_frame_single, SubInstrument.branch_classical_basis]
+  rw [DSubInstrument.branch_frame_single, DSubInstrument.branch_classical_basis]
   by_cases h : H t = y <;> simp [h, Matrix.single_kronecker_single]
 
 /-- The oracle unitary of `H`, framed by the trivial register, on a basis matrix. -/
 private theorem frame_oracleQuery_branch_single (H : X → Y) (m : X × Y) (d : Unit) :
     ((oracleQuery H).frame Unit).branch () (Matrix.single (m, d) (m, d) 1) =
       Matrix.single ((m.1, m.2 + H m.1), d) ((m.1, m.2 + H m.1), d) 1 := by
-  rw [SubInstrument.branch_frame_single, branch_oracleQuery_single, Matrix.single_kronecker_single,
+  rw [DSubInstrument.branch_frame_single, branch_oracleQuery_single, Matrix.single_kronecker_single,
     one_mul]
 
 /-- The oracle runtime answers a call on a basis state `|x, y⟩` by moving it to
@@ -225,7 +227,7 @@ theorem run_toQuantum_branch_of_basis [DecidableEq α] (H : X → Y)
     · simp [h, SubInstrument.branch_pure_of_ne (Ne.symm h)]
   | query_bind t k ih =>
     rw [OracleComp.toQuantum_query_bind, QuantumRuntime.run₂_bind,
-      SubInstrument.branch_bind_apply, tsum_eq_single (H t) fun y hy ↦ by
+      DSubInstrument.branch_bind_apply, tsum_eq_single (H t) fun y hy ↦ by
         simp [run_classicalQuery_branch_of_basis H hR, Ne.symm hy],
       run_classicalQuery_branch_of_basis H hR]
     simp only [↓reduceIte]
@@ -245,7 +247,7 @@ theorem evalDist_toQuantum_of_basis [MeasurableSpace α] (H : X → Y)
   classical
   rw [QuantumRuntime.evalDist₂, hinit, SubState.basis_prod_basis]
   ext t ht
-  rw [SubInstrument.outcomeMeasure_apply _ _ ht,
+  rw [DSubInstrument.outcomeMeasure_apply _ _ ht,
     tsum_eq_single (evalWithAnswerFn (QueryImpl.ofFn H) oa) fun b hb ↦ by
       simp [SubState.matrix_basis, run_toQuantum_branch_of_basis H hR, Ne.symm hb],
     Measure.dirac_apply' _ ht]

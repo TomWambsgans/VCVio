@@ -7,6 +7,7 @@ Authors: Quang Dao
 module
 public import VCVio.Quantum.Oracle.Classical
 public import VCVio.Quantum.Oracle.Comb
+import all VCVio.Quantum.SubInstrument
 
 /-!
 # Quantum oracle regression tests
@@ -128,9 +129,9 @@ noncomputable def plusMinus : SubState Reg where
 noncomputable def deutsch : QuantumComb Reg (Fin 2) 1 where
   init := plusMinus
   step _ := SubInstrument.pure ()
-  lossless_step _ := SubInstrument.lossless_pure ()
-  final := SubInstrument.ofKraus proj sum_conjTranspose_proj_mul_proj
-  lossless_final := SubInstrument.lossless_ofKraus _ _
+  lossless_step _ := DSubInstrument.lossless_ret (fun _ : Unit ↦ Reg) ()
+  final := DSubInstrument.ofKraus proj sum_conjTranspose_proj_mul_proj
+  lossless_final := DSubInstrument.lossless_ofKraus _ _
 
 /-- The weight of a Kraus branch on a pure state is the squared norm of the image vector. -/
 theorem trace_conj_vecMulVec {A B : Type} [Fintype A] [Fintype B] (K : Matrix B A ℂ)
@@ -163,16 +164,16 @@ theorem outcomeMeasure_deutsch (H : Fin 2 → Fin 2) :
     QuantumComb.stateAfterStep_succ]
   change deutsch.final.outcomeMeasure ((SubInstrument.pure ()).post
     ((oracleQuery H).post ((SubInstrument.pure ()).post plusMinus ()) ()) ()) = _
-  rw [SubInstrument.post_pure_self, SubInstrument.post_pure_self,
-    SubInstrument.outcomeMeasure_eq_sum_univ, Fin.sum_univ_two]
+  rw [DSubInstrument.post_ret_self, DSubInstrument.post_ret_self,
+    DSubInstrument.outcomeMeasure_eq_sum_univ, Fin.sum_univ_two]
   have h : ∀ b, (deutsch.final.branch b ((oracleQuery H).post plusMinus ()).matrix).trace =
       if b = H 0 + H 1 then 1 else 0 := fun b ↦ by
     have h₁ : ((oracleQuery H).post plusMinus ()).matrix =
         MatrixMap.conj (oracleUnitary H) (vecMulVec amp (star amp)) := by
       simp [MatrixMap.conj_apply, plusMinus]
     rw [h₁]
-    change ((SubInstrument.ofKraus proj sum_conjTranspose_proj_mul_proj).branch b _).trace = _
-    rw [SubInstrument.branch_ofKraus_apply]
+    change ((DSubInstrument.ofKraus proj sum_conjTranspose_proj_mul_proj).branch b _).trace = _
+    rw [DSubInstrument.branch_ofKraus_apply]
     exact trace_conj_proj H b
   rw [h, h]
   rcases eq_zero_or_one (H 0) with h0 | h0 <;> rcases eq_zero_or_one (H 1) with h1 | h1 <;>
@@ -265,7 +266,7 @@ example {α β : Type} (H : Fin 2 → Fin 2) (oa : OracleComp (Fin 2 →ₒ Fin 
 then return the bit. The number of calls depends on the measured outcome. -/
 noncomputable def callIfOne : QComp qrom2 (QReg.of Reg) (QReg.of Reg) (Fin 2) :=
   (QComp.act (A := QReg.of Reg) (B := QReg.of Reg)
-      (SubInstrument.classical id fun m : Reg ↦ m.1)).bind fun b ↦
+      (DSubInstrument.classical (B := fun _ ↦ Reg) (fun m : Reg ↦ m.1) id)).bind fun b ↦
     if b = 1 then
       ((QuantumComp₂.query (L := LocalSig.instruments) () (QReg.of Unit)
           (Equiv.prodPUnit Reg).symm).bind fun _ ↦
@@ -325,7 +326,7 @@ theorem sum_discardKraus (A : Type) [Fintype A] [DecidableEq A] :
 /-- Discard an ancilla qubit: the partial trace over it. -/
 noncomputable def discard (A : Type) [Fintype A] [DecidableEq A] :
     SubInstrument (A × Fin 2) A Unit :=
-  (SubInstrument.ofKraus (discardKraus A) (sum_discardKraus A)).map fun _ ↦ ()
+  (DSubInstrument.ofKraus (discardKraus A) (sum_discardKraus A)).map fun _ ↦ ()
 
 /-- Allocate an ancilla, call the oracle with the ancilla as the remainder of the register, and
 discard the ancilla. -/
@@ -339,7 +340,7 @@ noncomputable def queryWithAncilla : QComp qrom2 (QReg.of Reg) (QReg.of Reg) Uni
 theorem lossless_queryWithAncilla : queryWithAncilla.Lossless .instruments :=
   QuantumComp₂.lossless_bind (QComp.lossless_act (SubInstrument.lossless_ofIsometry _ _)) fun _ ↦
     QuantumComp₂.lossless_bind (QuantumComp₂.lossless_query _ _ _) fun _ ↦
-      QComp.lossless_act ((SubInstrument.lossless_ofKraus _ _).map _)
+      QComp.lossless_act (DSubInstrument.lossless_ofKraus _ _).map
 
 example : queryWithAncilla.IsQueryBound fun _ ↦ 1 := by
   rw [queryWithAncilla, QComp.isQueryBound_act_bind_iff]
@@ -436,13 +437,15 @@ saturating at `2`. It is reducible, so that its register unfolds to `Fin 3` when
 noncomputable def countRuntime : QuantumRuntime countSpec where
   D := QReg.of (Fin 3)
   init := SubState.basis 0
-  step _ := SubInstrument.classical (fun m : Unit × Fin 3 ↦ ((), tick m.2)) fun _ ↦ ()
+  step _ := DSubInstrument.classical (B := fun _ ↦ Unit × Fin 3) (fun _ ↦ ())
+    (fun m : Unit × Fin 3 ↦ ((), tick m.2))
 
 /-- A call of the counting runtime on a basis state advances the counter. -/
 theorem countRuntime_step_branch_single (d : Fin 3) :
     (countRuntime.step ()).branch () (Matrix.single ((), d) ((), d) 1) =
       Matrix.single ((), tick d) ((), tick d) 1 :=
-  (SubInstrument.branch_classical_basis (fun m : Unit × Fin 3 ↦ ((), tick m.2)) (fun _ ↦ ())
+  (DSubInstrument.branch_classical_basis (B := fun _ ↦ Unit × Fin 3) (fun _ ↦ ())
+    (fun m : Unit × Fin 3 ↦ ((), tick m.2))
     ((), d) ()).trans (by simp)
 
 /-- Measure a coin; call twice on heads (`1`) and once on tails (`0`); return the coin. -/
@@ -450,7 +453,7 @@ theorem countRuntime_step_branch_single (d : Fin 3) :
 noncomputable def coinProg :
     QComp countSpec (QReg.of (Fin 2)) (QReg.of (Unit × Fin 2)) (Fin 2) :=
   (QComp.act (A := QReg.of (Fin 2)) (B := QReg.of (Fin 2))
-      (SubInstrument.classical id id)).bind fun b ↦
+      (DSubInstrument.classical (B := fun _ ↦ _) id id)).bind fun b ↦
     (QuantumComp₂.query (L := LocalSig.instruments) () (QReg.of (Fin 2))
         (Equiv.punitProd (Fin 2)).symm).bind fun _ ↦
       if b = 1 then
@@ -478,11 +481,11 @@ theorem run_coinProg_branch_single (b c : Fin 2) (d : Fin 3) :
         Matrix.single (((), b), if b = 1 then tick (tick d) else tick d)
           (((), b), if b = 1 then tick (tick d) else tick d) 1
       else 0 := by
-  rw [coinProg, QuantumRuntime.run₂_act_bind, SubInstrument.branch_bind_apply_univ,
+  rw [coinProg, QuantumRuntime.run₂_act_bind, DSubInstrument.branch_bind_apply_univ,
     LinearMap.sum_apply, Finset.sum_eq_single b (fun b' _ hb' ↦ ?_) (by simp),
-    LinearMap.comp_apply, SubInstrument.branch_frame_single, SubInstrument.branch_classical_basis]
-  · simp only [id, ↓reduceIte, Matrix.single_kronecker_single, one_mul]
-    rw [QuantumRuntime.run₂_query_bind, SubInstrument.branch_bind_unit, LinearMap.comp_apply,
+    LinearMap.comp_apply, DSubInstrument.branch_frame_single, DSubInstrument.branch_classical_basis]
+  · simp only [id, ↓reduceDIte, cast_eq, Matrix.single_kronecker_single, one_mul]
+    rw [QuantumRuntime.run₂_query_bind, DSubInstrument.branch_bind_unit, LinearMap.comp_apply,
       QuantumRuntime.queryStep_branch_single, Equiv.punitProd_symm_apply,
       countRuntime_step_branch_single, Matrix.single_kronecker_single, one_mul,
       SubInstrument.branch_relabel, conj_basisMatrix_equiv_single,
@@ -491,15 +494,15 @@ theorem run_coinProg_branch_single (b c : Fin 2) (d : Fin 3) :
     · simp [SubInstrument.branch_pure, Pi.single_apply]
       split_ifs <;> simp_all
     · simp only [↓reduceIte]
-      rw [QuantumRuntime.run₂_query_bind, SubInstrument.branch_bind_unit, LinearMap.comp_apply,
+      rw [QuantumRuntime.run₂_query_bind, DSubInstrument.branch_bind_unit, LinearMap.comp_apply,
         QuantumRuntime.queryStep_branch_single, Equiv.refl_apply,
         countRuntime_step_branch_single, Matrix.single_kronecker_single, one_mul,
         SubInstrument.branch_relabel, conj_basisMatrix_equiv_single,
         QuantumRuntime.queryEquivOut_apply]
       simp [SubInstrument.branch_pure, Pi.single_apply]
       split_ifs <;> simp_all
-  · rw [LinearMap.comp_apply, SubInstrument.branch_frame_single,
-      SubInstrument.branch_classical_basis]
+  · rw [LinearMap.comp_apply, DSubInstrument.branch_frame_single,
+      DSubInstrument.branch_classical_basis]
     simp [Ne.symm hb']
 
 /-- The counting runtime after the coin program: from `|1⟩` the counter ends at `2`, and from `|0⟩`
@@ -705,7 +708,7 @@ theorem run_queryKeepOrDiscard_branch_single (H : Fin 2 → Fin 2) (x y : Fin 2)
     fun h ↦ absurd (congrArg (fun p : Σ u, {b : Fin 2 // ancReg b = u} ↦ p.2.1) h) (by decide)
   constructor <;>
   ( rw [queryKeepOrDiscard, QuantumRuntime.run_queryBind, DSubInstrument.branch_bind_apply_univ,
-      Fintype.sum_unique, LinearMap.comp_apply, SubInstrument.branch_toD_apply,
+      Fintype.sum_unique, LinearMap.comp_apply,
       QuantumRuntime.queryStep_branch_single, additiveOracleRuntime_step_branch_single,
       Matrix.single_kronecker_single, one_mul, SubInstrument.branch_relabel,
       conj_basisMatrix_equiv_single, QuantumRuntime.queryEquivOut_apply, QuantumComp.prim,
@@ -877,11 +880,11 @@ operation of the signature of instruments `LocalSig.instruments.{1}`, whose outc
 `Type 1`. -/
 noncomputable def measureLift :
     QComp qrom2 (QReg.of (Fin 2)) (QReg.of (Fin 2)) (ULift.{1} (Fin 2)) :=
-  QComp.act (SubInstrument.classical id ULift.up)
+  QComp.act (DSubInstrument.classical (B := fun _ ↦ _) ULift.up id)
 
 /-- The measurement with outcomes in `Type 1` is lossless. -/
 theorem lossless_measureLift : measureLift.Lossless .instruments :=
-  QComp.lossless_act (SubInstrument.lossless_classical _ _)
+  QComp.lossless_act (DSubInstrument.lossless_classical _ _)
 
 /-- Against the oracle unitary, the measurement with outcomes in `Type 1` keeps the trace of its
 input. -/
@@ -977,12 +980,14 @@ theorem conjTranspose_pauliZ_mul_self : pauliZᴴ * pauliZ = 1 := by
 /-- The interpretation of the gate set: each gate is the gate of its unitary. -/
 noncomputable def gateInterp : gates.Interp := fun _ g ↦
   match g with
-  | .x => SubInstrument.toD (SubInstrument.ofIsometry pauliX conjTranspose_pauliX_mul_self)
-  | .z => SubInstrument.toD (SubInstrument.ofIsometry pauliZ conjTranspose_pauliZ_mul_self)
+  | .x => SubInstrument.ofIsometry pauliX conjTranspose_pauliX_mul_self
+  | .z => SubInstrument.ofIsometry pauliZ conjTranspose_pauliZ_mul_self
 
 /-- The interpretation of the gate set is lossless. -/
 theorem lossless_gateInterp : gateInterp.Lossless := fun _ g ↦ by
-  cases g <;> exact SubInstrument.lossless_toD_iff.mpr (SubInstrument.lossless_ofIsometry _ _)
+  cases g with
+  | x => exact SubInstrument.lossless_ofIsometry _ conjTranspose_pauliX_mul_self
+  | z => exact SubInstrument.lossless_ofIsometry _ conjTranspose_pauliZ_mul_self
 
 /-- The bit flip moves the basis state `|0⟩` to `|1⟩`, so it is not the identity. -/
 theorem gateInterp_x_branch_single_zero :
@@ -1058,10 +1063,10 @@ theorem run_spectatorCall_apply (H : Fin 2 → Fin 2)
     ((spectatorRuntime H).run₂ .instruments spectatorCall).branch () ρ
         (((x, y), e), d) (((x', y'), e'), d') =
       ρ (((x, y - H x), e), d) (((x', y' - H x'), e'), d') := by
-  rw [spectatorCall, QuantumRuntime.run₂_query, SubInstrument.bind_pure]
-  simp only [QuantumRuntime.queryStep, SubInstrument.branch_bind_unit,
+  rw [spectatorCall, QuantumRuntime.run₂_query, DSubInstrument.bind_ret]
+  simp only [QuantumRuntime.queryStep, DSubInstrument.branch_bind_unit,
     SubInstrument.branch_pure_self, LinearMap.id_comp, LinearMap.comp_apply,
-    SubInstrument.relabel_branch_apply, SubInstrument.branch_frame_apply,
+    SubInstrument.relabel_branch_apply, DSubInstrument.branch_frame_apply,
     spectatorRuntime, branch_oracleQuery_apply, MatrixMap.amplify_apply,
     conj_oracleUnitary_apply, Matrix.submatrix_apply]
   rfl
@@ -1086,7 +1091,7 @@ example (H : Fin 2 → Fin 2)
     (ρ : Matrix ((Reg × Fin 2) × Fin 2) ((Reg × Fin 2) × Fin 2) ℂ) :
     ((spectatorRuntime H).run₂ .instruments
       (spectatorCall.bind fun _ ↦ spectatorCall)).branch () ρ = ρ := by
-  rw [QuantumRuntime.run₂_bind, SubInstrument.branch_bind_unit, LinearMap.comp_apply]
+  rw [QuantumRuntime.run₂_bind, DSubInstrument.branch_bind_unit, LinearMap.comp_apply]
   ext ⟨⟨⟨x, y⟩, e⟩, d⟩ ⟨⟨⟨x', y'⟩, e'⟩, d'⟩
   rw [run_spectatorCall_apply, run_spectatorCall_apply]
   have h (a b : Fin 2) : a - b - b = a := by decide +revert
@@ -1120,7 +1125,7 @@ example : qromEvalDist₂ .instruments repeatRead.toQuantum (SubState.basis ()) 
 
 /-- Reset a qubit to zero, discarding its input. -/
 noncomputable def resetZero : SubInstrument (Fin 2) (Fin 2) Unit :=
-  SubInstrument.classical (fun _ ↦ 0) (fun _ ↦ ())
+  DSubInstrument.classical (B := fun _ ↦ _) (fun _ ↦ ()) (fun _ ↦ 0)
 
 /-- Apply the bit flip then reset: on `|0⟩⟨0|`, the exact output is `diag(1,0)`. -/
 example (H : Fin 2 → Fin 2) (d : (additiveOracleRuntime H).D) :
@@ -1131,14 +1136,14 @@ example (H : Fin 2 → Fin 2) (d : (additiveOracleRuntime H).D) :
       (Matrix.single (0, d) (0, d) 1) =
       Matrix.single (0, d) (0, d) 1 := by
   rw [QuantumRuntime.run₂_bind, QuantumRuntime.run₂_act, QuantumRuntime.run₂_act,
-    SubInstrument.bind_pure, SubInstrument.bind_pure, SubInstrument.branch_bind_unit,
-    LinearMap.comp_apply, SubInstrument.branch_frame_single,
+    DSubInstrument.bind_ret, DSubInstrument.bind_ret, DSubInstrument.branch_bind_unit,
+    LinearMap.comp_apply, DSubInstrument.branch_frame_single,
     SubInstrument.branch_ofIsometry_apply]
   change (resetZero.frame _).branch ()
     (MatrixMap.conj (basisMatrix (Equiv.addRight (1 : Fin 2))) (Matrix.single 0 0 1) ⊗ₖ
       Matrix.single d d 1) = _
   rw [conj_basisMatrix_equiv_single, Matrix.single_kronecker_single, one_mul,
-    SubInstrument.branch_frame_single, resetZero, SubInstrument.branch_classical_basis]
+    DSubInstrument.branch_frame_single, resetZero, DSubInstrument.branch_classical_basis]
   simp [Matrix.single_kronecker_single]
 
 /-- Reset then flip gives `diag(0,1)`, so the two channels do not commute. -/
@@ -1149,11 +1154,11 @@ example (H : Fin 2 → Fin 2) (d : (additiveOracleRuntime H).D) :
         (SubInstrument.ofIsometry pauliX conjTranspose_pauliX_mul_self))).branch ()
       (Matrix.single (0, d) (0, d) 1) = Matrix.single (1, d) (1, d) 1 := by
   rw [QuantumRuntime.run₂_bind, QuantumRuntime.run₂_act, QuantumRuntime.run₂_act,
-    SubInstrument.bind_pure, SubInstrument.bind_pure, SubInstrument.branch_bind_unit,
-    LinearMap.comp_apply, SubInstrument.branch_frame_single, resetZero,
-    SubInstrument.branch_classical_basis]
-  simp only [↓reduceIte, Matrix.single_kronecker_single, one_mul]
-  rw [SubInstrument.branch_frame_single, SubInstrument.branch_ofIsometry_apply]
+    DSubInstrument.bind_ret, DSubInstrument.bind_ret, DSubInstrument.branch_bind_unit,
+    LinearMap.comp_apply, DSubInstrument.branch_frame_single, resetZero,
+    DSubInstrument.branch_classical_basis]
+  simp only [↓reduceDIte, cast_eq, Matrix.single_kronecker_single, one_mul]
+  rw [DSubInstrument.branch_frame_single, SubInstrument.branch_ofIsometry_apply]
   change MatrixMap.conj (basisMatrix (Equiv.addRight (1 : Fin 2))) (Matrix.single 0 0 1) ⊗ₖ
     Matrix.single d d 1 = _
   rw [conj_basisMatrix_equiv_single, Matrix.single_kronecker_single, one_mul]
@@ -1272,10 +1277,12 @@ theorem matrix_jointPost₂_coinProg_fairCoin (b : Fin 2) :
 
 /-- Measuring a basis projector of weight `1/2` reports its label with that same weight. -/
 theorem outcomeMeasure_classical_half_basis {A α : Type} [Fintype A] [DecidableEq A]
-    [MeasurableSpace α] (g : A → α) (a : A) (ρ : SubState A)
+    {B : α → Type} [∀ c, Fintype (B c)] [∀ c, DecidableEq (B c)]
+    [MeasurableSpace α] (g : A → α) (f : (a : A) → B (g a)) (a : A) (ρ : SubState A)
     (hρ : ρ.matrix = (1 / 2 : ℂ) • Matrix.single a a 1) :
-    (SubInstrument.classical id g).outcomeMeasure ρ = (2 : ℝ≥0∞)⁻¹ • Measure.dirac (g a) := by
-  rw [SubInstrument.classical, SubInstrument.outcomeMeasure_map_univ,
+    (DSubInstrument.classical g f).outcomeMeasure ρ =
+      (2 : ℝ≥0∞)⁻¹ • Measure.dirac (g a) := by
+  rw [DSubInstrument.classical, DSubInstrument.outcomeMeasure_map_univ,
     Finset.sum_eq_single a (fun a' _ ha' ↦ ?_) (by simp)]
   · norm_num [hρ, Matrix.trace_smul,
       ENNReal.ofReal_div_of_pos (by norm_num : (0 : ℝ) < 2)]
@@ -1285,7 +1292,8 @@ theorem outcomeMeasure_classical_half_basis {A α : Type} [Fintype A] [Decidable
 counter. -/
 noncomputable def coinCounterDist : Measure (Fin 2 × Fin 3) :=
   ∑ b : Fin 2,
-    (SubInstrument.classical id (fun m : (Unit × Fin 2) × Fin 3 ↦ (b, m.2))).outcomeMeasure
+    (DSubInstrument.classical (B := fun _ ↦ _)
+      (fun m : (Unit × Fin 2) × Fin 3 ↦ (b, m.2)) id).outcomeMeasure
       (countRuntime.jointPost₂ .instruments coinProg fairCoin b)
 
 /-- From the uniform mixture of `|0⟩` and `|1⟩`, the joint distribution of the returned bit and
@@ -1293,7 +1301,8 @@ the counter is `(1/2) δ(0, 1) + (1/2) δ(1, 2)`. -/
 theorem coinCounterDist_eq : coinCounterDist =
     (2 : ℝ≥0∞)⁻¹ • Measure.dirac (0, 1) + (2 : ℝ≥0∞)⁻¹ • Measure.dirac (1, 2) := by
   unfold coinCounterDist
-  simp_rw [outcomeMeasure_classical_half_basis _ _ _ (matrix_jointPost₂_coinProg_fairCoin _)]
+  simp_rw [outcomeMeasure_classical_half_basis (B := fun _ ↦ (Unit × Fin 2) × Fin 3) _ id _ _
+    (matrix_jointPost₂_coinProg_fairCoin _)]
   simp [Fin.sum_univ_two]
 
 end VCVioTest.QuantumOracle

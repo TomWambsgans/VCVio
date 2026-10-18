@@ -7,6 +7,7 @@ Authors: Quang Dao
 module
 public import PolyFun.IPFunctor.Free.Indexed
 public import VCVio.Quantum.Comp.LocalSig
+public import VCVio.Quantum.SubInstrument
 
 /-!
 # Quantum oracle programs
@@ -600,16 +601,16 @@ namespace QComp
 variable {spec : QuantumOracleSpec.{u₁, v₁}} {A B C : QReg} {α β : Type w}
 
 /-- Run a local subinstrument on the program's register and return its outcome: the operation of
-the signature of instruments given by the dependent form `Quantum.SubInstrument.toD p`. -/
+the signature of instruments with constant output register. -/
 @[expose]
 def act (p : SubInstrument A B α) : QComp spec A B α :=
-  QuantumComp₂.primBind (L := LocalSig.instruments) ⟨α, fun _ ↦ B, SubInstrument.toD p⟩
+  QuantumComp₂.primBind (L := LocalSig.instruments) ⟨α, fun _ ↦ B, p⟩
     fun a ↦ QuantumComp₂.pure a
 
 /-- A local subinstrument followed by a continuation is the command with that continuation. -/
 theorem act_bind (p : SubInstrument A B β) (k : β → QComp spec B C α) :
     (act p).bind k =
-      QuantumComp₂.primBind (L := LocalSig.instruments) ⟨β, fun _ ↦ B, SubInstrument.toD p⟩ k :=
+      QuantumComp₂.primBind (L := LocalSig.instruments) ⟨β, fun _ ↦ B, p⟩ k :=
   rfl
 
 end QComp
@@ -715,12 +716,12 @@ every continuation are. -/
 theorem lossless_act_bind_iff (p : SubInstrument A B β) (k : β → QComp spec B C α) :
     ((act p).bind k).Lossless .instruments ↔
       p.Lossless ∧ ∀ b, (k b).Lossless .instruments :=
-  and_congr_left' SubInstrument.lossless_toD_iff
+  Iff.rfl
 
 /-- A lossless local subinstrument is a lossless program. -/
 theorem lossless_act {p : SubInstrument A B α} (hp : p.Lossless) :
     (act (spec := spec) p).Lossless .instruments :=
-  ⟨SubInstrument.lossless_toD_iff.mpr hp, fun _ ↦ trivial⟩
+  ⟨hp, fun _ ↦ trivial⟩
 
 end QComp
 
