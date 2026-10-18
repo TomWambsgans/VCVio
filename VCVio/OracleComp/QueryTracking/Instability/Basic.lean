@@ -20,25 +20,31 @@ these bounds. Nothing in this file is quantum.
 
 ## Why these quantities
 
-In the quantum random-oracle model, the oracle is a uniformly random function `H`, and a quantum
-algorithm queries it through the unitary `|x, y⟩ ↦ |x, y + H x⟩`, on a superposition of inputs.
-The compressed-oracle technique of Zhandry (ePrint 2018/276) replaces `H` by a quantum register
-holding a superposition of databases, in which a query adds, changes or removes one entry. This
-register is not a record of queries obtained by measuring the algorithm. A database property `P`
-gives the projector `Π_P` onto the databases in `P`.
+In the finite bitstring random-oracle model, sample a uniformly random function `H` once.
+A quantum algorithm queries it through `|x,y⟩ ↦ |x,y ⊕ H(x)⟩`, where `⊕` is bitwise XOR;
+linearity specifies the action on superpositions.
+The compressed standard oracle of Zhandry (ePrint 2018/276, Section 3, "Oracle Variations")
+represents `H` by a private quantum register with database basis states `|D⟩`, in which a query
+adds, changes or removes one entry. This register is not a record of queries obtained by measuring
+the algorithm. A database property `P` gives the projector `Π_P` onto the databases in `P`.
 
-The *instability* `I(P, t)` defined here is classical, and bounds how much amplitude one quantum
-query can move across the boundary of `P`. Chiesa, Manohar and Spooner (ePrint 2019/834,
-Lemma 5.10, PDF p. 24) prove `‖Π_P · cO · Π_{Pᶜ}‖² ≤ 6 · I(P, t)`, where `cO` is one
-compressed-oracle query restricted to databases with at most `t` entries. A small instability
-therefore bounds the transferred amplitude by `√(6 I)` per query. It does not say that a quantum
-query is a classical random extension. For a partition of the databases, Chiesa, Di, Hu and Zheng
-(ePrint 2025/2166, Theorem 5.4, PDF p. 31) bound a commutator by `80 · I(P, t)` under their
-hypotheses.
+The classical instability `I(P,t)` bounds amplitude transfer in the finite uniform oracle model.
+Let `C_t = Π_{≤t} C Π_{≤t}`, where `C` is one compressed-oracle query and `Π_{≤t}` keeps databases
+with at most `t` entries. The property projector `Π_P` keeps database basis states in `P` and acts
+as the identity on the algorithm's other registers. Here `‖·‖` is the operator norm.
+Chiesa–Manohar–Spooner, Lemma 5.10 (ePrint 2019/834, PDF p. 24), proves
+`‖Π_P C_t Π_{Pᶜ}‖² ≤ 6 I(P,t)`. Thus one query transfers at most `√(6 I(P,t))` amplitude from
+the complement subspace into `P` for a unit input vector. The classical definition uses `< t`;
+the quantum cutoff uses `≤ t`.
 
-Those quantum statements are the motivation and are not proved here. This file proves the
-classical definitions and their closure rules, for arbitrary answer measures; the cited bounds use
-uniformly random answers.
+For a partition with projectors `Π_i`, Chiesa–Di–Hu–Zheng, Theorem 5.4 (ePrint 2025/2166,
+PDF p. 31), proves `‖[V,C_t]‖² ≤ 80 I(P,t)`, where `[A,B] = AB - BA` and
+`V = Σ_i Π_i ⊗ V_i`. Each `V_i` is a unitary on the other registers whose extension commutes
+with `C_t`, as required in that theorem.
+
+These are paper statements motivating the API. This file proves the classical calculus for
+arbitrary chosen answer probability measures. It does not construct the compressed oracle,
+prove either quantum norm bound, or iterate them over an adversary.
 
 ## Main definitions
 
@@ -53,6 +59,8 @@ uniformly random answers.
 
 ## Main statements
 
+* `updateProb_eq_prEvent`: for `Type` answers, the update measure equals the event probability of
+  one classical oracle query.
 * `flip_mono`, `flip_union_left`, `flip_iUnion_left`, `flip_union_right_le`, `flip_empty_left`:
   the closure rules of the flip probability.
 * `condInstability_le_instability` and `instability_union_le`: restricting to `Q` lowers
@@ -63,11 +71,16 @@ uniformly random answers.
 
 ## Conventions
 
-* The size of a database is `D.toSet.encard`, and "fewer than `t` entries" is
-  `D.toSet.encard < t`, as in Chiesa–Manohar–Spooner, Definition 5.4.
+* A cache is a dependent partial function `x ↦ Option (spec.Range x)`, without the chronology or
+  multiplicity of a log. Its size `D.toSet.encard` counts graph entries, equivalently populated
+  keys. A cache may be infinite; then it fails every finite bound `D.toSet.encard < t`.
+  The strict bound follows Chiesa–Manohar–Spooner, Definition 5.4; `t` does not itself certify an
+  adversary's number of oracle calls.
 * The answer at the fresh input is drawn from `[AnswerMeasure spec]`. The cited papers take
   uniform answers, which is `[UniformAnswerMeasure spec]`, and `updateProb_eq_card_div` gives the
-  counting form in that case.
+  counting form in that case. Answer measures are normalized probability measures on the discrete
+  sigma algebra; they may be nonuniform and query-dependent. No measurable space on caches is
+  required. A cached oracle call at an occupied input reuses its answer; `updateProb` resamples it.
 * Index and answer types may live in any universes.
 * `partitionInstability` accepts any indexed family. A statement that reads it as the instability
   of a partition must assume that the members are pairwise disjoint and cover all databases, as
@@ -76,7 +89,8 @@ uniformly random answers.
 ## References
 
 * M. Zhandry, *How to Record Quantum Queries, and Applications to Quantum Indifferentiability*,
-  CRYPTO 2019, ePrint 2018/276.
+  CRYPTO 2019, [ePrint 2018/276](https://eprint.iacr.org/2018/276), March 1, 2019 revision:
+  Section 3, "Oracle Variations", compressed standard oracle construction.
 * A. Chiesa, P. Manohar, N. Spooner, *Succinct Arguments in the Quantum Random Oracle Model*,
   TCC 2019, ePrint 2019/834: Definition 5.4 (PDF p. 23), Proposition 5.5, Definition 5.6
   (PDF p. 24), Lemma 5.10 (PDF p. 24), Definition 5.11 and Proposition 5.12 (PDF p. 26).
@@ -109,7 +123,7 @@ lemma exists_finset_card_lt_of_encard_lt {ι : Type u} {spec : OracleSpec.{u, v}
 variable {ι : Type u} {spec : OracleSpec.{u, v} ι} [DecidableEq ι] [AnswerMeasure spec]
   {S S' T T' P Q : Set (QueryCache spec)} {D : QueryCache spec} {x : spec.Domain} {t t' : ℕ}
 
-/-! ## One-step extension probability -/
+/-! ## One-step update probability -/
 
 /-- The probability `μₓ {u | D[x ↦ u] ∈ T}` that updating `D` at `x` with an answer drawn from
 the answer measure `μₓ` of `x` gives a database in `T`. No uniformity is assumed.
@@ -131,12 +145,12 @@ lemma updateProb_eq_prEvent {ι : Type u} {spec : OracleSpec.{u, 0} ι} [Decidab
     MeasureTheory.trim_measurableSet_eq _ MeasurableSpace.measurableSet_top]
   rfl
 
-/-- The extension probability is monotone in the target property. -/
+/-- The update probability is monotone in the target property. -/
 lemma updateProb_mono (D : QueryCache spec) (x : spec.Domain) (h : T ⊆ T') :
     D.updateProb x T ≤ D.updateProb x T' :=
   MeasureTheory.measure_mono fun _ hu => h hu
 
-/-- Union bound for the extension probability. -/
+/-- Union bound for the update probability. -/
 lemma updateProb_union_le (D : QueryCache spec) (x : spec.Domain) (T T' : Set (QueryCache spec)) :
     D.updateProb x (T ∪ T') ≤ D.updateProb x T + D.updateProb x T' :=
   MeasureTheory.measure_union_le _ _
@@ -151,7 +165,7 @@ lemma updateProb_le_one (D : QueryCache spec) (x : spec.Domain) (T : Set (QueryC
     D.updateProb x T ≤ 1 :=
   MeasureTheory.prob_le_one
 
-/-- Under uniform answers, the extension probability is the proportion of answers that land in
+/-- Under uniform answers, the update probability is the proportion of answers that land in
 the target property. -/
 lemma updateProb_eq_card_div {ι : Type u} {spec : OracleSpec.{u, v} ι} [DecidableEq ι]
     [UniformAnswerMeasure spec] (D : QueryCache spec) (x : spec.Domain)
@@ -299,12 +313,12 @@ probability that one fresh answer changes membership in `P` while staying in `Q`
 @[expose] noncomputable def condInstability (P Q : Set (QueryCache spec)) (t : ℕ) : ℝ≥0∞ :=
   max (condFlip P Q t) (condFlip Pᶜ Q t)
 
-/-- Conditioning lowers the flip probability. -/
+/-- Restricting both endpoints to `Q` cannot increase the entering flip probability. -/
 theorem condFlip_le_flip (P Q : Set (QueryCache spec)) (t : ℕ) :
     condFlip P Q t ≤ flip Pᶜ P t :=
   flip_mono inter_subset_left inter_subset_left le_rfl
 
-/-- Conditioning lowers instability. -/
+/-- Restricting both endpoints to `Q` cannot increase instability. -/
 theorem condInstability_le_instability (P Q : Set (QueryCache spec)) (t : ℕ) :
     condInstability P Q t ≤ instability P t :=
   max_le_max (condFlip_le_flip P Q t) (by simpa using condFlip_le_flip Pᶜ Q t)
@@ -315,13 +329,13 @@ theorem condFlip_univ (P : Set (QueryCache spec)) (t : ℕ) :
     condFlip P univ t = flip Pᶜ P t := by
   simp [condFlip]
 
-/-- Conditioning on the property of all databases gives back the instability. -/
+/-- Restricting both endpoints to all databases leaves instability unchanged. -/
 @[simp]
 theorem condInstability_univ (P : Set (QueryCache spec)) (t : ℕ) :
     condInstability P univ t = instability P t := by
   simp [condInstability, instability]
 
-/-- Conditional instability is symmetric under complement of the conditioned property. -/
+/-- Complementing `P` with the endpoint restriction `Q` held fixed leaves instability unchanged. -/
 @[simp]
 theorem condInstability_compl (P Q : Set (QueryCache spec)) (t : ℕ) :
     condInstability Pᶜ Q t = condInstability P Q t := by
@@ -375,7 +389,7 @@ theorem partitionInstability_le_one {κ : Type*} (P : κ → Set (QueryCache spe
   iSup_le fun _ => flip_le_one _ _ t
 
 /-- In a partition, the other members together are the complement of a member, so the partition
-instability is the largest flip probability from a member to its complement. -/
+instability is the supremum of the flip probabilities from members to their complements. -/
 theorem partitionInstability_eq_iSup_flip_compl {κ : Type*} {P : κ → Set (QueryCache spec)}
     (hdisj : Pairwise (Function.onFun Disjoint P)) (hcover : ⋃ i, P i = univ) (t : ℕ) :
     partitionInstability P t = ⨆ i, flip (P i) (P i)ᶜ t := by
@@ -388,7 +402,7 @@ theorem partitionInstability_eq_iSup_flip_compl {κ : Type*} {P : κ → Set (Qu
     exact ⟨j, fun hji => hi (hji ▸ hj), hj⟩
   simp only [partitionInstability, hothers]
 
-/-- The two-class partition `{P, Pᶜ}` has partition instability `instability P t`. -/
+/-- The two-class partition `{P, Pᶜ}` defined by `Bool.cond` has instability `instability P t`. -/
 theorem partitionInstability_cond (P : Set (QueryCache spec)) (t : ℕ) :
     partitionInstability (fun b : Bool => cond b P Pᶜ) t = instability P t := by
   rw [partitionInstability_eq_iSup_flip_compl _

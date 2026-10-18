@@ -14,9 +14,9 @@ public import VCVio.OracleComp.QueryTracking.Instability.Basic
 
 Fix a Merkle opening `(leaf, proof)` at a leaf position `idx` for a claimed root. Take a
 collision-free database whose extracted tree at that root does not open `idx` to `(leaf, proof)`.
-Extending the database by one fresh answer makes the opening verify only when the answer is one
-of the labels that extraction reaches from the root. A full binary skeleton with `L` leaves has
-`2 * L - 1` nodes, so the flip probability into "the opening verifies" is at most
+Extending the database by one fresh answer completes its cached authentication chain only when
+the answer is one of the labels that extraction reaches from the root. A full binary skeleton with
+`L` leaves has `2 * L - 1` nodes, so the flip probability into "the opening verifies" is at most
 `(2 * L - 1) / |Y|`, for every query bound. Answers are uniform on the finite
 label type `Y`.
 
@@ -27,20 +27,31 @@ cache the database before the query and the final cache the database after it.
 
 * `MerkleTreeExtractability.LogRepresentsCache`: a query log whose entries are exactly the entries
   of a cache, in any order and with repetitions.
-* `MerkleTreeExtractability.OpeningDisagrees`: an opening differs from the one read off the tree
-  that extraction reconstructs from a log.
-* `MerkleTreeExtractability.acceptingCaches`: the databases that contain an authentication chain
-  for the opening.
-* `MerkleTreeExtractability.nonExtractingCaches`: the collision-free databases whose extracted
+* `MerkleTreeExtractability.OpeningDisagrees`: an opening differs from the partial tree extracted
+  from a log; a missing leaf or sibling counts as disagreement.
+* `MerkleTreeExtractability.acceptingCaches`: caches already containing the complete authentication
+  chain for the opening, without sampling any further answers.
+* `MerkleTreeExtractability.nonExtractingCaches`: the finite collision-free caches whose extracted
   tree disagrees with the opening.
 
 ## Main statements
 
+* `tree_eq_of_logRepresentsCache`: representing logs extract the same partial tree from a
+  collision-free cache, regardless of order and repetitions.
+* `openingDisagrees_iff_of_logRepresentsCache`: disagreement is independent of that log.
+* `mem_nonExtractingCaches_iff_of_logRepresentsCache`: any fixed representing log characterizes
+  membership in `nonExtractingCaches`.
 * `not_openingDisagrees_of_chainInCache`: in one collision-free database, every authentication
   chain agrees with extraction, so `acceptingCaches` and `nonExtractingCaches` are disjoint.
 * `answer_mem_extractedTargets_of_chainInCache_cacheQuery`: a fresh answer that completes a
   disagreeing chain is a label of the extracted tree.
 * `flip_nonExtractingCaches_acceptingCaches_le`: the flip probability bound.
+
+The query model projects each query to an address and an ordered left/right child pair. Its two
+projection laws specify this interface; they do not assume an extraction conclusion. Address maps
+need not be injective. Extraction keeps the claimed root even with an empty log, but descendants
+may be `none`. The exceptional targets here are root-reachable labels, at most `2 * L - 1` in
+number; paper half-preimages are child labels occurring in cached inputs.
 
 ## Scope
 
@@ -50,12 +61,14 @@ database to be collision-free. The statement is therefore a corollary of the det
 disagreement kernel for one fixed opening. It is related to the following results and does not
 formalize any of them:
 
-* [CMS19, Lemma 6.5] and [CDHZ25, Lemma 8.6] bound the probability that one fresh answer changes
-  the *extracted tree*, through the exceptional set of the root and the half-preimages of the
-  database. A fresh answer can change the extracted tree without completing the fixed opening, so
-  that event is not contained in `acceptingCaches`. Those lemmas also need an extractor that is a
-  function of the database; `MerkleTreeExtractor.tree` takes a log, and on a database with a
-  collision its output depends on the order of the log.
+* CMS19 Lemma 6.5 (ePrint 2019/834, PDF p. 33) and CDHZ Lemma 8.6 (ePrint 2025/2166,
+  PDF p. 55) give deterministic exceptional-set statements for a change of the extracted tree:
+  under their respective hypotheses, the new answer must be the root or a half-preimage already
+  present in the database. Sampling bounds then follow by measuring this set. CMS19 assumes both
+  databases are collision-free. A change of tree need not complete the fixed opening, so it is
+  not the event `acceptingCaches` studied here. Our extractor takes a log; the theorem
+  `tree_eq_of_logRepresentsCache` makes its value independent of that log for a collision-free
+  cache. This invariance need not hold on caches with collisions.
 * [CMS19, Lemma 6.10] bounds the conditional instability of the Micali property given no
   collision. It involves the query that derives the verifier randomness from the root and the
   soundness of the underlying proof, neither of which appears here.
@@ -63,9 +76,12 @@ formalize any of them:
 ## References
 
 * [CMS19] Alessandro Chiesa, Peter Manohar, Nicholas Spooner, *Succinct Arguments in the Quantum
-  Random Oracle Model*, TCC 2019.
+  Random Oracle Model*, TCC 2019, [ePrint 2019/834](https://eprint.iacr.org/2019/834),
+  January 14, 2020 revision: Lemma 6.5 (PDF p. 33), Lemma 6.10 (PDF p. 35).
 * [CDHZ25] Alessandro Chiesa, Zijing Di, Zihan Hu, Yuxi Zheng, *How to Prove Post-Quantum
-  Security for Succinct Non-Interactive Reductions*, 2026.
+  Security for Succinct Non-Interactive Reductions*,
+  [ePrint 2025/2166](https://eprint.iacr.org/2025/2166), March 2, 2026 revision:
+  Lemma 8.6 (PDF p. 55).
 -/
 
 public section
@@ -157,15 +173,24 @@ section extraction
 variable [DecidableEq Address] [DecidableEq Y] (model : NodeQueryModel Query Address Y)
   {s : Skeleton} (addressKey : SkeletonInternalIndex s → Address)
 
-/-- The opening `(leaf, proof)` at position `idx` differs, in its leaf or in its authentication
-path, from the opening read off the tree that extraction reconstructs from `log` at `root`. -/
+/-- The fixed opening `(leaf, proof)` disagrees with the partial tree extracted from `log` at
+`root`: either its leaf is not `some leaf`, or its sibling path is not `proof.map some`.
+
+Extracted labels lie in `Option Y`. A missing leaf or sibling therefore counts as disagreement,
+as does a different known label. `openingDisagrees_iff_of_logRepresentsCache` makes this predicate
+independent of the representing log when the cache is collision-free. -/
 @[expose] def OpeningDisagrees (log : (Query →ₒ Y).QueryLog) (leaf root : Y)
     (idx : SkeletonLeafIndex s) (proof : List.Vector Y idx.depth) : Prop :=
   some leaf ≠ (MerkleTreeExtractor.tree model.view s addressKey log root).get idx.toNodeIndex ∨
     proof.toList.map some ≠
       (generateProof (MerkleTreeExtractor.tree model.view s addressKey log root) idx).toList
 
-/-- The databases that contain an authentication chain from `leaf` to `root` along `proof`. -/
+/-- The caches containing the complete authentication chain for the fixed opening
+`(leaf, proof)` at `idx` and `root`, using `model` and `addressKey`.
+
+Every hash response needed by this chain is already stored in the cache. This is the predicate
+`ChainInCache`, not an execution that samples additional answers. Collision-freedom and
+finiteness of the whole cache are not required. -/
 @[expose] def acceptingCaches (leaf root : Y) (idx : SkeletonLeafIndex s)
     (proof : List.Vector Y idx.depth) : Set (Query →ₒ Y).QueryCache :=
   {cache | ChainInCache model addressKey cache leaf root idx proof}

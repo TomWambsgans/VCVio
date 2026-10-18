@@ -23,9 +23,17 @@ creates a collision only by equalling one of them. So the instability of the col
 with query bound `t` is at most `(t - 1) / n`. Here `t - 1` is subtraction in `ℕ`, so the bound is
 `0` at `t = 0`, and division is in `ℝ≥0∞`, so `n = 0` is allowed.
 
-This is a bound for one extension. A bound on a quantum algorithm's probability of finding a
-collision needs, in addition, the compressed-oracle argument that sums these one-query bounds;
-that argument is not here.
+This is a classical bound for one fresh extension. A quantum collision-success bound also needs
+the compressed-oracle norm estimate and an argument accumulating amplitude across queries.
+For example, CMS19 Lemma 5.7 (ePrint 2019/834, PDF p. 24) gives `6 q² I(P,q)` for a database
+game, using the associated property (with the empty database outside it) and the lifting hypotheses.
+This is not obtained by summing the classical one-step probabilities. No quantum accumulation
+theorem is proved here.
+
+Collision persistence supports arbitrary equal input and answer universes, as does
+`CacheHasCollision`. The quantitative counting API is restricted to `Type` by the existing
+`Birthday` counting lemma. The Merkle application separately inherits its `Type` query and label
+restriction from `MerkleTreeExtractability.NodeQueryModel`.
 
 ## Main statements
 
@@ -65,23 +73,34 @@ end OracleComp
 
 namespace OracleSpec.QueryCache
 
-variable {ι : Type} {spec : OracleSpec.{0, 0} ι} [DecidableEq ι]
+universe u
 
 /-- One fresh answer never removes a collision: the flip probability from "collision" to
 "no collision" is `0`. -/
-theorem flip_cacheHasCollision_compl [AnswerMeasure spec] (t : ℕ) :
-    flip {D : QueryCache spec | CacheHasCollision D} {D | CacheHasCollision D}ᶜ t = 0 :=
-  nonpos_iff_eq_zero.mp <| flip_le_iff.mpr fun D hD _ _ hx =>
-    (by
-      rw [updateProb_eq_prEvent]
-      exact (prEvent_eq_zero_of_forall_not _ _ fun _ hu =>
-        hu (CacheHasCollision.mono (le_cacheQuery D hx) hD)).le)
+theorem flip_cacheHasCollision_compl {ι : Type u} {spec : OracleSpec.{u, u} ι}
+    [DecidableEq ι] [AnswerMeasure spec] (t : ℕ) :
+    flip {D : QueryCache spec | CacheHasCollision D} {D | CacheHasCollision D}ᶜ t = 0 := by
+  apply nonpos_iff_eq_zero.mp
+  apply flip_le_iff.mpr
+  intro D hD _ x hx
+  have hempty : {a : spec.Range x | D.cacheQuery x a ∈
+      ({D : QueryCache spec | CacheHasCollision D}ᶜ)} = ∅ := by
+    ext a
+    simp only [Set.mem_ofPred_eq, Set.mem_compl_iff, Set.mem_empty_iff_false, iff_false]
+    exact not_not.mpr (CacheHasCollision.mono (le_cacheQuery D hx) hD)
+  rw [updateProb, hempty, MeasureTheory.measure_empty]
+
+variable {ι : Type} {spec : OracleSpec.{0, 0} ι} [DecidableEq ι]
 
 variable [UniformAnswerMeasure spec] [∀ x, Fintype (spec.Range x)]
 
-/-- Extending a collision-free database at `x` creates a collision with probability at most the
-number of populated keys over the number of answers at `x`. The finite set `S` need only cover
-the populated keys. -/
+/-- With uniform answers on finite answer types, updating a collision-free cache `D` at `x`
+creates a collision with probability at most `|S| / |spec.Range x|`, where the finite set `S`
+contains every populated key of `D`.
+
+The update may overwrite an occupied key. A collision after the update must match the new answer
+with an answer stored at another key, so at most `|S|` answers are bad. For a fresh `x`, this is the
+counting step in CMS19 Lemma 6.11 (ePrint 2019/834, PDF p. 35). -/
 theorem updateProb_cacheHasCollision_le {D : QueryCache spec} (hD : ¬CacheHasCollision D)
     {S : Finset spec.Domain} (hS : ∀ x', D x' ≠ none → x' ∈ S) (x : spec.Domain) :
     D.updateProb x {D' | CacheHasCollision D'} ≤
@@ -91,8 +110,12 @@ theorem updateProb_cacheHasCollision_le {D : QueryCache spec} (hD : ¬CacheHasCo
   exact ENNReal.div_le_div_right
     (by exact_mod_cast card_responses_creating_cacheCollision_le (t := x) hD hS) _
 
-/-- The flip probability from "no collision" to "collision" with query bound `t` is at most
-`(t - 1) / n` when every answer type has at least `n` elements. -/
+/-- With uniform answers on finite answer types of cardinality at least `n`,
+`flip(P_colᶜ → P_col,t) ≤ (t - 1) / n`. The initial database has fewer than `t` entries and the
+updated input is fresh. Subtraction is in `ℕ` before casting to `ℝ≥0∞`.
+
+This is the entering-collision estimate underlying CMS19 Lemma 6.11 (ePrint 2019/834, PDF p. 35)
+and CDHZ Lemma 8.7 (ePrint 2025/2166, PDF p. 56). -/
 theorem flip_compl_cacheHasCollision_le {n : ℕ} (hn : ∀ x, n ≤ Fintype.card (spec.Range x))
     (t : ℕ) :
     flip {D : QueryCache spec | CacheHasCollision D}ᶜ {D | CacheHasCollision D} t ≤
@@ -116,16 +139,19 @@ theorem instability_cacheHasCollision_le {n : ℕ} (hn : ∀ x, n ≤ Fintype.ca
   max_le (flip_compl_cacheHasCollision_le hn t)
     ((flip_cacheHasCollision_compl t).trans_le zero_le)
 
-/-- The instability of the collision property with query bound `t` is at most `t / n` when every
-answer type has at least `n` elements. -/
+/-- With uniform answers on finite answer types of cardinality at least `n`, collision
+instability satisfies `I(P_col,t) ≤ t / n`. This follows from
+`instability_cacheHasCollision_le`; see CDHZ Lemma 8.7 (ePrint 2025/2166, PDF p. 56). -/
 theorem instability_cacheHasCollision_le_div {n : ℕ}
     (hn : ∀ x, n ≤ Fintype.card (spec.Range x)) (t : ℕ) :
     instability {D : QueryCache spec | CacheHasCollision D} t ≤ (t : ℝ≥0∞) / n :=
   (instability_cacheHasCollision_le hn t).trans
     (ENNReal.div_le_div_right (by exact_mod_cast Nat.sub_le t 1) _)
 
-/-- For a positive query bound `t`, the instability of the collision property is strictly below
-`t / n` when every answer type has at least `n ≥ 1` elements. -/
+/-- With uniform answers on finite answer types of cardinality at least `n > 0`, collision
+instability satisfies `I(P_col,t) < t / n` for `t > 0`.
+This is the strict form of CMS19 Lemma 6.11 (ePrint 2019/834, PDF p. 35), with the positive-query
+hypothesis needed because both sides are zero at `t = 0`. -/
 theorem instability_cacheHasCollision_lt {n : ℕ} (hn : ∀ x, n ≤ Fintype.card (spec.Range x))
     (hn0 : 0 < n) {t : ℕ} (ht : 0 < t) :
     instability {D : QueryCache spec | CacheHasCollision D} t < (t : ℝ≥0∞) / n :=

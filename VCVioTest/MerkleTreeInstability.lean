@@ -15,7 +15,8 @@ A two-leaf tree over `Fin 4` with pair queries. The empty database does not extr
 the left leaf `1` with sibling `2` at the root `3`, and one fresh answer at the query `(1, 2)`
 makes that opening verify exactly when the answer is `3`. So the source property of
 `MerkleTreeExtractability.flip_nonExtractingCaches_acceptingCaches_le` is inhabited and the
-transition has positive probability.
+transition has positive probability. Reordered and duplicated representing logs test extraction
+invariance and the fixed-log characterization of disagreement.
 -/
 
 public section

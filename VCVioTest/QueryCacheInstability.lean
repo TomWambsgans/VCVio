@@ -14,6 +14,9 @@ public import VCVio.OracleComp.QueryTracking.Instability.Collision
 Exact values of the flip probability, the instability and the partition instability on a random
 oracle from `ℕ` to `Fin 4`. They pin the freshness and size side conditions of
 `OracleSpec.QueryCache.flip` and show that the collision bound `(t - 1) / n` is attained.
+Occupied-key updates test overwrite semantics, and ordinary-import canaries exercise independent
+input/answer universes and higher-universe collision persistence. Biased answers show why the
+collision bound needs uniformity, and a positive restricted event retains its original mass.
 -/
 
 public section
@@ -120,6 +123,54 @@ example : QueryCache.condFlip nonempty {∅} 1 = 0 := by
     simp [nonempty]
   rw [QueryCache.condFlip, h, QueryCache.flip_empty_right]
 
+-- Restriction retains the original mass: the only allowed nonempty target has mass `1/4`.
+example : QueryCache.condFlip answersOne ({∅} ∪ answersOne) 1 = 1 / 4 := by
+  have hsource : answersOneᶜ ∩ ({∅} ∪ answersOne) = ({∅} : Set (QueryCache TestSpec)) := by
+    ext D
+    simp only [Set.mem_inter_iff, Set.mem_compl_iff, Set.mem_union, Set.mem_singleton_iff]
+    constructor
+    · rintro ⟨hnot, hempty | hone⟩
+      · exact hempty
+      · exact (hnot hone).elim
+    · rintro rfl
+      exact ⟨by simp [answersOne], Or.inl rfl⟩
+  have htarget : answersOne ∩ ({∅} ∪ answersOne) = answersOne :=
+    Set.inter_eq_self_of_subset_left Set.subset_union_right
+  rw [QueryCache.condFlip, hsource, htarget]
+  refine le_antisymm (QueryCache.flip_le_iff.mpr fun D hD _ x _ => ?_) ?_
+  · obtain rfl : D = ∅ := hD
+    by_cases hx : x = 0
+    · subst hx
+      exact updateProb_empty_answersOne.le
+    · rw [QueryCache.updateProb_eq_prEvent]
+      refine le_of_eq_of_le (prEvent_eq_zero_of_forall_not _ _ fun u hu => ?_) zero_le
+      have h0 : ((∅ : QueryCache TestSpec).cacheQuery x u) 0 = some 1 := hu
+      rw [QueryCache.cacheQuery_of_ne _ _ (Ne.symm hx)] at h0
+      simp at h0
+  · rw [← updateProb_empty_answersOne]
+    exact QueryCache.updateProb_le_flip rfl (by simp) rfl
+
+-- Cardinality alone gives no collision bound: a point mass makes the fresh answer collide surely.
+example :
+    letI : AnswerMeasure TestSpec :=
+      { toMeasure := fun _ => MeasureTheory.Measure.dirac 0
+        isProbabilityMeasure := fun _ => inferInstance }
+    ((∅ : QueryCache TestSpec).cacheQuery 0 0).updateProb 1 collision = 1 ∧
+      ¬(1 : ℝ≥0∞) ≤ 1 / 4 := by
+  let : AnswerMeasure TestSpec :=
+    { toMeasure := fun _ => MeasureTheory.Measure.dirac 0
+      isProbabilityMeasure := fun _ => inferInstance }
+  constructor
+  · change (MeasureTheory.Measure.dirac (0 : Fin 4))
+      {u | ((∅ : QueryCache TestSpec).cacheQuery 0 0).cacheQuery 1 u ∈ collision} = 1
+    have hcoll : ((∅ : QueryCache TestSpec).cacheQuery 0 0).cacheQuery 1 0 ∈ collision :=
+      ⟨0, 1, 0, 0, by decide, by simp, by simp, HEq.rfl⟩
+    rw [MeasureTheory.Measure.dirac_apply' _ MeasurableSpace.measurableSet_top]
+    have hmem : (0 : Fin 4) ∈
+        {u | ((∅ : QueryCache TestSpec).cacheQuery 0 0).cacheQuery 1 u ∈ collision} := hcoll
+    exact Set.indicator_of_mem hmem _
+  · norm_num
+
 /-- The database `{0 ↦ 0}` has no collision. -/
 private lemma not_collision_single :
     ¬CacheHasCollision ((∅ : QueryCache TestSpec).cacheQuery 0 0) := by
@@ -193,5 +244,12 @@ example [AnswerMeasure (Unit →ₒ ULift.{1} Bool)]
     (QueryCache.condFlip_le_flip _ _ _).trans (QueryCache.flip_le_one _ _ _),
     (QueryCache.condInstability_le_instability _ _ _).trans (QueryCache.instability_le_one _ _),
     QueryCache.partitionInstability_le_one _ _⟩
+
+-- Collision persistence also works when both input and answer types live in `Type 1`.
+example [AnswerMeasure (ULift.{1} Bool →ₒ ULift.{1} Bool)] (t : ℕ) :
+    QueryCache.flip
+      {D : QueryCache (ULift.{1} Bool →ₒ ULift.{1} Bool) | CacheHasCollision D}
+      {D | CacheHasCollision D}ᶜ t = 0 :=
+  QueryCache.flip_cacheHasCollision_compl t
 
 end VCVioTest.QueryCacheInstability
