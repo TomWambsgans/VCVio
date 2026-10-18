@@ -27,10 +27,10 @@ Oracles `Fin 2 → Fin 2`, queried on the register `Fin 2 × Fin 2`.
 * **Two ports.** A program calling each port once has budget one per port, and not budget one
   on one port alone. A program that calls only one port runs in the same way whatever the other
   port does.
-* **A stateful runtime.** The counting runtime of the design note's Proposition 3 counts the
-  calls in its private register. A program that flips a coin and calls twice on heads and once
-  on tails leaves the counter at `2` or `1` according to the coin; a comb with a fixed number of
-  slots cannot.
+* **A stateful runtime.** A counting runtime records the number of calls in its private register.
+  A program that measures a bit, calls twice on `1` and once on `0`, and returns the bit, leaves the
+  counter at `2` from `|1⟩` and at `1` from `|0⟩`. The final private state depends on the path,
+  which a fixed-slot comb cannot produce, since it makes the same number of calls on every path.
 * **Guessing without queries.** A lossless program with budget zero, over any primitive
   signature and interpretation, guesses a point of a uniformly sampled oracle with probability
   `1 / 2`, whether it returns its guess on a fixed final register or reads it off a leaf whose
@@ -51,7 +51,7 @@ Oracles `Fin 2 → Fin 2`, queried on the register `Fin 2 × Fin 2`.
   phase flip: the bit flip moves `|0⟩` to `|1⟩` and the phase flip moves `|+⟩` to `|-⟩`. A
   program applying both uses two gates and not one, and runs to a lossless subinstrument.
 * **The fixed-register run.** The run of the coin program as a fixed-register program is the run
-  of its tree read at the leaf on its final register; Proposition 3 holds for both.
+  of its tree read at the leaf on its final register; the counter calculation holds for both.
 -/
 
 public section
@@ -499,9 +499,9 @@ theorem run_coinProg_branch_single (b c : Fin 2) (d : Fin 3) :
       SubInstrument.branch_classical_basis]
     simp [Ne.symm hb']
 
-/-- **Proposition 3.** On heads the counting runtime ends at `2`, on tails at `1`: the final
-state of its private register depends on the path of the program. A comb with a fixed number of
-slots calls the same number of times on every path. -/
+/-- The counting runtime after the coin program: from `|1⟩` the counter ends at `2`, and from `|0⟩`
+at `1`. The number of calls, and so the final state of the private register, depends on the path the
+program takes. -/
 theorem jointPost₂_coinProg :
     countRuntime.jointPost₂ .instruments coinProg (SubState.basis 1) 1 =
         SubState.basis (((), 1), (2 : Fin 3)) ∧
@@ -1268,7 +1268,8 @@ noncomputable def coinCounterDist : Measure (Fin 2 × Fin 3) :=
     (SubInstrument.classical id (fun m : (Unit × Fin 2) × Fin 3 ↦ (b, m.2))).outcomeMeasure
       (countRuntime.jointPost₂ .instruments coinProg fairCoin b)
 
-/-- The fair-coin run has joint distribution `1/2 · δ_(0,1) + 1/2 · δ_(1,2)`. -/
+/-- From the uniform mixture of `|0⟩` and `|1⟩`, the joint distribution of the returned bit and
+the counter is `(1/2) δ(0, 1) + (1/2) δ(1, 2)`. -/
 theorem coinCounterDist_eq : coinCounterDist =
     (2 : ℝ≥0∞)⁻¹ • Measure.dirac (0, 1) + (2 : ℝ≥0∞)⁻¹ • Measure.dirac (1, 2) := by
   unfold coinCounterDist

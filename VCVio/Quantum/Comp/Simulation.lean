@@ -17,8 +17,9 @@ after `id ⊗ V` is `id ⊗ V` after the matching step of `R₁`:
 `(R₂.step i).branch r ∘ₗ (id ⊗ V) = (id ⊗ V) ∘ₗ (R₁.step i).branch r`.
 
 Then every program, under any interpretation of its local operations, run against `R₂` after
-`id ⊗ V` is `id ⊗ V` after its run against `R₁`, on every leaf `⟨u, y⟩`, with `id ⊗ V` on the
-register `u` of that leaf (`Quantum.QuantumRuntime.simulation`). A program has no command on the
+`id ⊗ V` is `id ⊗ V` after its run against `R₁`, on every leaf `⟨u, y⟩`, with `id_u ⊗ V`,
+where `id_u` acts on the program register `u` and `V` on the runtime register
+(`Quantum.QuantumRuntime.simulation`). A program has no command on the
 runtime register, so the proof is an induction on the program tree. The statement asks nothing of
 `V` beyond linearity.
 
@@ -276,7 +277,8 @@ theorem intertwines_run
 
 /-- **Simulation.** If every step of `R₂` after `id ⊗ V` is `id ⊗ V` after the matching step of
 `R₁`, then every program run against `R₂` after `id ⊗ V` is `id ⊗ V` after its run against
-`R₁`, on every leaf `⟨u, y⟩`, with `id ⊗ V` on the register `u` of that leaf. -/
+`R₁`, on every leaf `⟨u, y⟩`, with `id_u ⊗ V`: `id_u` acts on the program register `u`,
+and `V` acts on the runtime register. -/
 theorem simulation
     (h : ∀ i r, (R₂.step i).branch r ∘ₗ V.amplifyLeft (spec.In i) =
       V.amplifyLeft (spec.Out i) ∘ₗ (R₁.step i).branch r)

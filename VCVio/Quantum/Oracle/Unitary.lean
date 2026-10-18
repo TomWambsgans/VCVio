@@ -11,12 +11,12 @@ public import VCVio.Quantum.Oracle.Basis
 /-!
 # The oracle unitary of a function
 
-A quantum algorithm queries a function `H : X → Y` into an additive group `Y` on a register
-`X × Y`: a query input and a response register. The query is the permutation of the
-computational basis that adds the value of `H` into the response register,
-`|x, y⟩ ↦ |x, y + H x⟩`. For `Y` a vector space over `ZMod 2` this is the XOR oracle. A program
-keeps the rest of its register outside the call (`Quantum.QuantumComp.query` carries it along),
-so the query register has no workspace.
+A quantum algorithm queries a function `H : X → Y` into a finite additive group `Y` on a register
+`X × Y`: a query input and a response register. The query is the permutation of the computational
+basis that adds the value of `H` into the response, `|x, y⟩ ↦ |x, y + H x⟩`, and its matrix is
+unitary. For bitstrings with addition modulo two this is the XOR oracle. A program keeps the rest of
+its register outside the call (`Quantum.QuantumComp.query` carries it along), so the query register
+has no workspace.
 
 ## Main definitions
 

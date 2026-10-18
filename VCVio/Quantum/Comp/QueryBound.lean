@@ -18,7 +18,9 @@ over paths is bounded.
 A cost function `c` on the local operations of a signature (for a gate set, `c o = 1` for every
 gate) bounds the cost of a program in the same way: `x.IsCostBound c n` says that along every
 path, the costs of the local operations add up to at most `n`. Costs are read off the tree and do
-not depend on an interpretation.
+not depend on an interpretation. This counts named local operations in the tree. It does not
+charge the classical computation of continuations or the basis equivalences given to calls, so it
+is not a bound on running time.
 
 Paths include branches that are reached with weight zero, so both bounds are syntactic, and they
 hold against every interpretation and every runtime.

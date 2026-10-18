@@ -22,13 +22,14 @@ in that basis.
 * `Quantum.SubState.basis a`: the basis state `|a⟩⟨a|`.
 * `Quantum.SubState.prod ρ σ` and `Quantum.SubState.traceRight ρ`: the product of substates of
   two registers, and the reduced substate of the left register of a joint substate.
-* `Quantum.SubInstrument.relabel e`: the gate of a bijection `e` between bases, which moves a
-  register to another basis without changing its state.
+* `Quantum.SubInstrument.relabel e`: the gate of a bijection `e` of the basis, which transports
+  `ρ` to `P_e ρ P_e†`; between two different basis types it moves the register without changing its
+  coordinates.
 * `Quantum.SubInstrument.classical f g`: measure the register in the computational basis; on
   reading `a`, report `g a` and prepare `|f a⟩`.
 
-Steps of an oracle algorithm report no classical value, so they have outcomes in `Unit`; the
-lemmas `Quantum.SubInstrument.branch_bind_unit`, `Quantum.SubInstrument.post_bind_unit` and
+Coherent gates and other one-outcome steps have outcomes in `Unit`; the lemmas
+`Quantum.SubInstrument.branch_bind_unit`, `Quantum.SubInstrument.post_bind_unit` and
 `Quantum.SubInstrument.outcomeMeasure_bind_unit` sequence such steps without sums over outcomes.
 -/
 

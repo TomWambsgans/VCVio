@@ -11,10 +11,13 @@ public import VCVio.Quantum.Oracle.Basis
 /-!
 # Runtimes and the execution of quantum programs
 
-A runtime interprets the ports of a signature. It owns a private register `D`, which starts in
-the substate `init` and persists from one call to the next, and it answers a call of port `i`
-with a subinstrument `step i` from `In i × D` to `Out i × D` with outcomes in `Result i`. The
-program has no command that acts on `D`: it reaches `D` only through calls.
+A runtime implements the ports of a signature, and is the quantum analogue of a stateful query
+implementation. It owns a private register `D`, which starts in the substate `init` and persists
+from one call to the next, and it answers a call of port `i` with a subinstrument `step i` from
+`In i × D` to `Out i × D` with outcomes in `Result i`. The program has no command that acts on `D`:
+it reaches `D` only through calls, and `D` may become entangled with the program's register. The
+joint register is ordered program first, private register second. "Runtime" means an
+implementation of the oracle, not a running time.
 
 Running a program `x : QuantumComp L spec X A` under an interpretation `I` of its local
 operations and against a runtime `R` gives a dependent subinstrument `R.run I x` from `A × R.D`
@@ -85,8 +88,14 @@ universe u v u₁ v₁ w w₁
 
 namespace Quantum
 
-/-- A runtime for the signature `spec`: a private register `D` with initial substate `init`, and
-for each port the subinstrument that answers a call of it. -/
+/-- An implementation of the ports of `spec` with private quantum memory. The private register
+`D` starts in the substate `init` and persists across calls. A call of port `i` applies the
+subinstrument `step i` from `In i × D` to `Out i × D`, whose outcomes are the classical results
+`Result i`.
+
+During a run, local operations act as `Φ ⊗ id_D`, and a call applies `step i ⊗ id_E` to
+`(In i × D) × E`, where `E` is the rest of the program register; so `D` can carry information
+from one call to the next. `init` and the steps may lose trace. -/
 structure QuantumRuntime (spec : QuantumOracleSpec.{u₁, v₁}) where
   /-- The runtime's private register, which persists across calls. -/
   D : QReg
@@ -160,9 +169,13 @@ noncomputable def runAux :
   | _, .liftBind (.query i E ℓ) k =>
       (SubInstrument.toD (R.queryStep i E ℓ)).bind fun r ↦ runAux (k (ULift.up r))
 
-/-- **Execution.** A program run under the interpretation `I` against the runtime `R` is a
-dependent subinstrument on the joint register of the program and the runtime, whose outcomes are
-the leaves `⟨u, y⟩` of the program, with output register `u × R.D` on the leaf `⟨u, y⟩`. -/
+/-- The execution of the program `x` under the interpretation `I` of its local operations, against
+the runtime `R`: a dependent subinstrument from `A × R.D` whose outcomes are the leaves `⟨u, y⟩` of
+`x`, with output register `u × R.D` on the leaf `⟨u, y⟩`. A local operation applies `I o ⊗ id_D`;
+a call applies `R.step i` to the exposed port register and `D`, with the rest of the program
+register carried along (`queryStep`). `run` sends `bind` of programs to `bind` of dependent
+subinstruments (`run_bind`). It does not choose an initial state; the observations below start
+from `ρ ⊗ R.init`. -/
 @[expose]
 noncomputable def run (x : QuantumComp L spec X A) :
     DSubInstrument (A × R.D) (Σ u, X u) fun p ↦ p.1 × R.D :=
@@ -370,8 +383,11 @@ noncomputable def reducedPost (x : QuantumComp L spec X A) (ρ : SubState A) (p 
     SubState p.1 :=
   (R.jointPost I x ρ p).traceRight
 
-/-- The distribution of the leaf reached by `x` run from `ρ ⊗ init`: a subprobability measure whose
-missing mass is the weight of failure. -/
+/-- The distribution of the leaf reached when `x` runs under `I` against `R`, from the substate `ρ`
+of its starting register and the runtime's initial substate, that is from `ρ ⊗ R.init`. It is a
+subprobability measure on the leaves `Σ u, X u`; its missing mass is failure. A leaf records the
+final register and the returned data, not the final quantum state, which `jointPost` and
+`reducedPost` keep. -/
 @[expose]
 noncomputable def evalDist [MeasurableSpace (Σ u, X u)] (x : QuantumComp L spec X A)
     (ρ : SubState A) : Measure (Σ u, X u) :=
