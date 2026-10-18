@@ -2,9 +2,11 @@
 
 This optional development connects resolved Cryptol descriptions, a lazy Lean
 semantics, total native implementations, and VCVio specifications. It shares
-VCVio's root toolchain and dependency manifest. The specification target is
-Cryptol **3.6.0's reference evaluator**; normal-evaluator differences are recorded
-in the [model guide](docs/model.md).
+VCVio's root toolchain and dependency manifest. The existing partial model specifies
+Cryptol **3.6.0's reference evaluator**. Broader imports are intended to target the
+pinned normal evaluator; migrating demand rules and their proofs remains work.
+The [tooling integration report](docs/tooling.md) records the implemented route,
+architecture decisions, literature ancestry and remaining gates.
 
 Run commands from the VCVio repository root:
 
@@ -101,10 +103,13 @@ scope and kinds, and separately checks closed numeric and class constraints.
 The scalar `(sigma_256_0 : [32] -> [32])` additionally has checked expression
 elaboration from its exact quoted seven-declaration dependency graph. The kernel
 checks its resolved output, and `ImportedScalar.core_correct` proves agreement
-with `VCVio.Algorithms.Sha2.ssig0` for every input. This gate supports explicit
-nonrecursive specialization, lambdas, applications, conditionals and the scalar
-primitive fragment; it rejects other constructs. The broader graph still needs
-checked elaboration and a shared evaluator. Component theorems cover Keccak coordinate inverses and byte-aligned
+with `VCVio.Algorithms.Sha2.ssig0` for every input. This gate also supports lexical monomorphic declarations, records, tuples,
+sequence literals, projections, closed guards and single-generator comprehensions.
+The official specializer supplies a candidate for the scalar; a Lean proof checks
+its partial meaning before `CertifiedFunction.congrSource` reuses the native
+implementation. Nine importer canaries cover higher-order composition, folds,
+captured locals and finite observations of infinite sequences. The broader graph
+still needs general checked elaboration and normal-semantics correspondence. Component theorems cover Keccak coordinate inverses and byte-aligned
 CRC polynomial updates; whole-algorithm differential tests exercise all SHA2,
 SHA3 and SHAKE cores, AES vectors and CRC splits. The tests retain the pinned
 reference evaluator's negative-index failure in Foundation Keccak separately
@@ -113,7 +118,7 @@ CRC implementation certificate is claimed.
 
 The [evaluator audit](docs/evaluators.md) compares the release with upstream
 `51405420cb90cf9959ca4349eea0ae8b77487855`, maps the integer discrepancy to
-Cryptol #2060, and records why reference evaluation remains the semantic target.
+Cryptol #2060, and records the obligations for migration to normal semantics.
 Set `CRYPTOL_UPSTREAM_BINARY` during external validation to reproduce its
 152 observations and compare the committed report. The portable theta variant
 is tested separately; the imported Foundation source retains its original bytes.
@@ -122,3 +127,9 @@ The [coverage catalogue](docs/coverage.md) separates planned reference coverage,
 external probes and all-input Lean certificates, and records the next semantic
 and algorithm milestones. Shared hashes live in `VCVio/Algorithms/`; conformance
 proofs stay in this optional project.
+
+The official-loader [Foundation census](artifacts/foundation-inventory.json) covers
+all 135 tracked source files, including parameterized modules and interfaces.
+Export, Lean typing, semantic import, native view, independent equivalence and
+property proofs have separate statuses. See [tooling integration](docs/tooling.md)
+for reproduction and the distinction between corpus discovery and certificates.

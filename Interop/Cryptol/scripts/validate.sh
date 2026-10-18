@@ -58,7 +58,11 @@ if (( run_test )); then
   model_cmd=(python3 -u Interop/Cryptol/scripts/test_model.py)
   if (( run_external )); then model_cmd+=(--cryptol "$CRYPTOL_BINARY"); fi
   "${model_cmd[@]}"
-  python3 -u Interop/Cryptol/scripts/test_source.py
+  source_cmd=(python3 -u Interop/Cryptol/scripts/test_source.py)
+  if (( run_external )); then
+    source_cmd+=(--cryptol "$CRYPTOL_BINARY" --foundation "$FOUNDATION_PATH")
+  fi
+  "${source_cmd[@]}"
   reference_cmd=(python3 -u Interop/Cryptol/scripts/test_references.py
     --report "$report_dir/references.json")
   if (( run_external )); then
@@ -83,6 +87,8 @@ if (( run_test )); then
       python3 -u Interop/Cryptol/scripts/export_references.py --check \
         --exporter "$CRYPTOL_EXPORTER" --foundation "$FOUNDATION_PATH" \
         --cryptol-source "$CRYPTOL_SOURCE"
+      python3 -u Interop/Cryptol/scripts/inventory_foundation.py --check \
+        --exporter "$CRYPTOL_EXPORTER" --foundation "$FOUNDATION_PATH"
     fi
   fi
 fi

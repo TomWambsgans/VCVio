@@ -85,6 +85,17 @@ provenance still uses the pinned exporter and regeneration hashes, and general
 semantic preservation of the source-AST elaborator is a further obligation.
 The existing compression path and probability theorems retain their boundaries.
 
+## Checked upstream specialization
+
+The official specializer produces `ImportedSpecializationSource`; the Lean importer
+checks its monomorphic local declarations and root schema. `ImportedSpecialization.correct`
+proves equality of its partial meaning with `ImportedScalar`, and `congrSource`
+reuses the existing finite native implementation. The corresponding core theorem
+still quantifies over every input. This scalar pilot is independent of the older
+full-compression certificate: that certificate has not yet migrated to the broader
+typed-AST importer. See [tooling integration](tooling.md) for the whole-Foundation
+census, canonical choices and remaining compression/CRC obligations.
+
 ## Reproduce
 
 From the VCVio repository root, use the commands in the [project README](../README.md).

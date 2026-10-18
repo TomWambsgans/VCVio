@@ -34,13 +34,8 @@ public def run (args : List String) : IO UInt32 := do
       | .ok bundle =>
           let reports : List (Except ImportError (ULift.{1} Lean.Json)) :=
             bundle.roots.map fun root => do
-            let certificate ← SourceElaboration.certify bundle root.expression
-            let ⟨(_, type)⟩ ← SourceElaboration.liftCheck
-              ((root.schema.instantiate 1000 [] []).mapError (⟨["root schema"], ·⟩))
-            let ⟨expected⟩ ← SourceElaboration.liftCheck
-              ((SourceElaboration.coreType type).mapError (⟨["root type"], ·⟩))
-            let term ← (SourceElaboration.expect expected certificate.result).mapError
-              (⟨["root type"], ·⟩)
+            let certificate ← SourceElaboration.certify bundle root
+            let ⟨expected, term⟩ := certificate.result
             pure ⟨Lean.Json.mkObj [("root", .str root.text), ("status", .str "typed"),
               ("type", .str (reprStr expected)),
               ("source", .str (Export.expression term))]⟩

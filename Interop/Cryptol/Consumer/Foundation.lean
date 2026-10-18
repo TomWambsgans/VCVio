@@ -7,6 +7,7 @@ Authors: Devon Tuma
 module
 
 import Interop.Cryptol.Bridge.ImportedScalar
+import Interop.Cryptol.Bridge.ImportedSpecialization
 import Interop.Cryptol.Bridge.KeccakCodec
 
 /-! # Foundation certificates through ordinary imports in an independent package -/
@@ -14,7 +15,7 @@ import Interop.Cryptol.Bridge.KeccakCodec
 open Interop.Cryptol Interop.Cryptol.Bridge
 
 example : Translation.SourceElaboration.check ImportedScalarSource.bundle
-    ImportedScalarSource.root.expression 1000 = .ok ImportedScalar.certificate.result :=
+    ImportedScalarSource.root 1000 = .ok ImportedScalar.certificate.result :=
   ImportedScalar.accepted
 
 example (x : UInt32) :
@@ -23,6 +24,13 @@ example (x : UInt32) :
       (.value (wordValue x.toBitVec)) =
         .value (wordValue (VCVio.Algorithms.Sha2.ssig0 x).toBitVec) :=
   ImportedScalar.core_correct x
+
+example (x : UInt32) :
+    DomainResult.applyContinuous
+      (Resolved.denote ImportedSpecialization.source Environment.empty)
+      (.value (wordValue x.toBitVec)) =
+        .value (wordValue (VCVio.Algorithms.Sha2.ssig0 x).toBitVec) :=
+  ImportedSpecialization.core_correct x
 
 example (pre : BitVec 32 → Prop) (post : BitVec 32 → BitVec 32 → Prop) :
     Finite.DataContract (.word 32) (Resolved.lower ImportedScalar.compiled.source) pre post ↔

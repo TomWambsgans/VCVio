@@ -65,3 +65,29 @@ To include regeneration in optional external validation, set `CRYPTOL_EXPORTER`
 and `CRYPTOL_SOURCE` alongside `CRYPTOL_BINARY` and `FOUNDATION_PATH`. Ordinary
 validation checks the committed artifacts and all rejection cases without GHC,
 Cabal, Cryptol, or network access.
+
+## Official transformation candidates and complete module discovery
+
+`cryptol-lean-export --specialize FOUNDATION MODULE ROOT...` returns the original
+bundle and an untrusted specialization candidate. It invokes the official
+`Specialize.specializeEWhere` API while keeping primitive instantiations explicit;
+the convenience specializer loses arguments from cloned primitives. The committed
+`specialized-scalar-bundle.json` is quoted without semantic processing, accepted
+by the Lean importer and related to the original scalar by
+`ImportedSpecialization.correct`. Reusing its native implementation requires that
+proof. A same-typed rotation mutation fails the kernel certificate.
+
+`cryptol-lean-export --module FOUNDATION MODULE` uses the official loader to
+export public declarations, property pragmas, parameters, interfaces, module
+provenance and declaration locations. Run the census with:
+
+```bash
+python3 Interop/Cryptol/scripts/inventory_foundation.py \
+  --exporter /path/to/cryptol-lean-export --foundation /path/to/pinned/Foundation
+```
+
+`--check` requires byte-identical reproduction. All 135 tracked files are covered;
+export success is separate from typing, semantic and native-equivalence stages.
+The [integration report](../docs/tooling.md) explains the architecture and gaps.
+The same reference regeneration driver quotes nine local language canaries,
+including records, lexical capture, higher-order functions and infinite mapping.

@@ -41,12 +41,28 @@ def type_expr(value):
         return app(".constructor", string(args[0]), array(map(type_expr, args[1])))
     if tag == "synonym":
         return app(".synonym", name(args[0]), array(map(type_expr, args[1])), type_expr(args[2]))
+    if tag == "tuple":
+        return app(".tuple", str(args[0]), array(map(type_expr, args[1])))
+    if tag == "record":
+        return app(".record", array(app("Prod.mk", string(k), type_expr(t)) for k, t in args[0]))
+    if tag == "has":
+        return app(".has", selector(args[0]), array(map(type_expr, args[1])))
     raise ValueError(f"unhandled raw type constructor: {tag}")
 
 
 def schema(value):
     return app("Reference.Schema.mk", array(map(parameter, value["parameters"])),
                array(map(type_expr, value["constraints"])), type_expr(value["body"]))
+
+
+def selector(value):
+    tag, (index, shape) = value["tag"], value["args"]
+    if tag == "record":
+        return app(".record", string(index), ".none" if shape is None else
+                   app(".some", array(map(string, shape))))
+    if tag in {"tuple", "list"}:
+        return app("." + tag, str(index), ".none" if shape is None else app(".some", str(shape)))
+    raise ValueError(f"unhandled selector: {tag}")
 
 
 def expression(value):
@@ -65,7 +81,34 @@ def expression(value):
         return app(".proofAbs", type_expr(args[0]), expression(args[1]))
     if tag == "proofApp":
         return app(".proofApp", expression(args[0]))
+    if tag == "where":
+        return app(".whereE", expression(args[0]), array(map(group, args[1])))
+    if tag == "list":
+        return app(".list", type_expr(args[0]), array(map(expression, args[1])))
+    if tag == "if":
+        return app(".ite", *map(expression, args))
+    if tag == "guards":
+        return app(".guards", type_expr(args[0]), array(
+            app("Prod.mk", array(map(type_expr, cs)), expression(e)) for cs, e in args[1]))
+    if tag == "tuple":
+        return app(".tuple", array(map(expression, args[0])))
+    if tag == "record":
+        return app(".record", array(app("Prod.mk", string(k), expression(e)) for k, e in args[0]))
+    if tag == "select":
+        return app(".select", expression(args[0]), selector(args[1]))
+    if tag == "comprehension":
+        return app(".comprehension", type_expr(args[0]), type_expr(args[1]), expression(args[2]),
+                   array(array(map(match_expr, branch)) for branch in args[3]))
     raise ValueError(f"unhandled raw expression constructor: {tag}")
+
+
+def match_expr(value):
+    tag, args = value["tag"], value["args"]
+    if tag == "from":
+        return app(".from", name(args[0]), type_expr(args[1]), type_expr(args[2]), expression(args[3]))
+    if tag == "let":
+        return app(".letE", declaration(args[0]))
+    raise ValueError(f"unhandled match: {tag}")
 
 
 def declaration(value):
@@ -77,6 +120,14 @@ def declaration(value):
     else:
         raise ValueError("unsupported raw declaration form")
     return app("Reference.Decl.mk", name(value["name"]), schema(value["schema"]), body)
+
+
+def group(value):
+    if value["tag"] == "nonrecursive":
+        return app(".nonrecursive", declaration(value["args"][0]))
+    if value["tag"] == "recursive":
+        return app(".recursive", array(map(declaration, value["args"][0])))
+    raise ValueError("unsupported declaration group")
 
 
 def wrap(source):
@@ -91,9 +142,9 @@ def wrap(source):
     return "\n".join(lines + [line.rstrip()])
 
 
-def quote_scalar(bundle):
-    assert len(bundle["roots"]) == 1 and not bundle["primitive_fallbacks"]
-    root = bundle["roots"][0]
+def quote_bundle(bundle, *, namespace="ImportedScalarSource", artifact="scalar-bundle.json",
+                 title="Quoted Foundation scalar source"):
+    assert bundle["roots"] and not bundle["primitive_fallbacks"]
     declarations = []
     for group in bundle["groups"]:
         assert group["tag"] == "nonrecursive"
@@ -129,13 +180,19 @@ open Interop.Cryptol Translation
     for i, d in enumerate(declarations):
         source += f'/-- Source declaration {i + 1} in dependency order. -/\n'
         source += f'@[expose] def declaration{i} : Reference.Decl :=\n{wrap(d)}\n\n'
-    source += '/-- The official frontend\'s fully instantiated scalar root. -/\n'
-    source += '@[expose] def root : SourceRoot :=\n' + wrap(app(
-        'SourceRoot.mk', string(root['text']), expression(root['expression']),
-        schema(root['schema']))) + '\n\n'
+    roots = []
+    for i, root in enumerate(bundle['roots']):
+        roots.append('root' if len(bundle['roots']) == 1 else f'root{i}')
+        source += '/-- The official frontend\'s fully instantiated entry point. -/\n'
+        source += f'@[expose] def {roots[-1]} : SourceRoot :=\n' + wrap(app(
+            'SourceRoot.mk', string(root['text']), expression(root['expression']),
+            schema(root['schema']))) + '\n\n'
     groups = array(app('.nonrecursive', f'declaration{i}') for i in range(len(declarations)))
     source += '/-- The exact exported scalar bundle, retaining its provenance metadata. -/\n'
     source += '@[expose] def bundle : SourceBundle :=\n' + wrap(app(
-        'SourceBundle.mk', string(bundle['cryptol_revision']), '[root]', groups,
+        'SourceBundle.mk', string(bundle['cryptol_revision']), array(roots), groups,
         array(modules), '[]')) + '\n\nend Interop.Cryptol.Bridge.ImportedScalarSource\n'
+    source = source.replace("ImportedScalarSource", namespace)
+    source = source.replace("scalar-bundle.json", artifact)
+    source = source.replace("Quoted Foundation scalar source", title)
     return source.encode()

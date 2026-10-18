@@ -12,6 +12,7 @@ public import Interop.Cryptol.Bridge.CompressionTotal
 public import Interop.Cryptol.Bridge.Round
 public import Interop.Cryptol.Translation.SourceElaboration
 public import Interop.Cryptol.Translation.Certified
+import all Interop.Cryptol.Translation.SourceElaboration
 import all Interop.Cryptol.Translation.SourceScope
 import all Interop.Cryptol.Model.Reference.Kinds
 import all Interop.Cryptol.Model.Reference.Types
@@ -36,12 +37,12 @@ open Translation SourceElaboration ImportedScalarSource
 
 set_option maxRecDepth 10000
 /-- Kernel reduction checks the actual exported dependency graph and scalar expression. -/
-theorem accepted : check bundle root.expression 1000 =
+theorem accepted : check bundle root 1000 =
     .ok ⟨.arrow (wordTy 32) (wordTy 32), Foundation.wordSource1In⟩ := by
   with_unfolding_all rfl
 
 /-- The imported scalar's typing certificate retains its exact source and output. -/
-@[expose] def certificate : Certificate bundle root.expression where
+@[expose] def certificate : Certificate bundle root where
   budget := 1000
   result := ⟨.arrow (wordTy 32) (wordTy 32), Foundation.wordSource1In⟩
   accepted := accepted

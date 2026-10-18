@@ -162,7 +162,7 @@ open Interop.Cryptol Translation
   "algorithms::SHA2::Notation::SHR" )) (.number 3)) (.var (Reference.Parameter.mk 1571
   .number))))) (.var (Reference.Name.mk 4863 "x" "x" ))))))))))))
 
-/-- The official frontend's fully instantiated scalar root. -/
+/-- The official frontend's fully instantiated entry point. -/
 @[expose] def root : SourceRoot :=
   (SourceRoot.mk "(sigma_256_0 : [32] -> [32])" (.proofApp (.proofApp (.proofApp (.proofApp
   (.typeApp (.var (Reference.Name.mk 4839 "sigma_256_0"

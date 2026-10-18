@@ -21,8 +21,11 @@ import qualified Cryptol.TypeCheck.AST as C
 import qualified Cryptol.TypeCheck.Type as T
 import qualified Cryptol.ModuleSystem.Name as N
 import qualified Cryptol.ModuleSystem.Env as M
+import qualified Cryptol.ModuleSystem as Module
+import qualified Cryptol.ModuleSystem.Monad as Module
 import qualified Cryptol.Parser.Selector as S
 import qualified Cryptol.Parser.AST as P
+import qualified Cryptol.Parser.Position as Position
 import qualified Cryptol.Utils.RecordMap as R
 import qualified Cryptol.IR.FreeVars as F
 import qualified Cryptol.REPL.Command as Cmd
@@ -34,6 +37,7 @@ import qualified Cryptol.TypeCheck.Solver.Class as Class
 import qualified Cryptol.TypeCheck.Solver.Types as Solve
 import qualified Cryptol.Eval as Eval
 import qualified Cryptol.Eval.Type as EvalType
+import qualified Cryptol.Transform.Specialize as Specialize
 import Cryptol.Utils.Logger (stderrLogger)
 import Cryptol.ModuleSystem.Fingerprint (fingerprint, fingerprintHexString)
 
@@ -163,7 +167,11 @@ dependencyOrder groups = mapM acyclic (stronglyConnComp vertices)
     acyclic (CyclicSCC _) = Left "Dependency cycle crosses declared recursive groups"
 
 moduleInfo :: FilePath -> FilePath -> M.LoadedModule -> IO Value
-moduleInfo base entry lm = do
+moduleInfo base entry lm = sourceInfo base entry lm $ toJSON
+  [(name n, pretty target) | (n,target) <- Map.toAscList (C.mModAliases (M.lmModule lm))]
+
+sourceInfo :: FilePath -> FilePath -> M.LoadedModuleG a -> Value -> IO Value
+sourceInfo base entry lm aliases = do
   (path, bytes) <- case M.lmFilePath lm of
     M.InFile p -> do
       absolute <- canonicalizePath p
@@ -176,8 +184,7 @@ moduleInfo base entry lm = do
     M.InMem label bytes -> pure ("$builtin/" ++ label, bytes)
   pure $ object ["name" .= pretty (M.lmName lm), "path" .= path,
     "sha256" .= fingerprintHexString (fingerprint bytes),
-    "aliases" .= [(name n, pretty target) | (n,target) <-
-      Map.toAscList (C.mModAliases (M.lmModule lm))]]
+    "aliases" .= aliases]
 
 numericCases :: Value
 numericCases = toJSON $
@@ -232,16 +239,30 @@ classCases = toJSON [object ["constraint" .= ty p, "result" .= classHolds p] | p
     cases = [T.TCon (T.PC pc) [a] | pc <- classes, a <- types] ++
       [T.TCon (T.PC pc) [n,a] | pc <- [T.PLiteral,T.PLiteralLessThan], n <- sizes, a <- types]
 
-main :: IO ()
-main = do
-  args <- getArgs
-  case args of
-    ["--numeric"] -> BL.putStrLn (encode numericCases)
-    ["--classes"] -> BL.putStrLn (encode classCases)
-    foundation : file : roots@(_ : _) -> do
+-- Candidate generation is deliberately separate from the trusted typed export.
+-- Consumers must supply a checked correspondence before using the transformed body.
+-- The convenience 'specialize' entry point clones DPrim and loses its type
+-- arguments (including the value of numeric literals). Keep primitive calls
+-- explicit by excluding DPrim from the specializable declaration cache.
+specializeDefinitions :: C.Expr -> Module.ModuleCmd C.Expr
+specializeDefinitions expression input = Module.runModuleT input $
+  fmap fst $ Specialize.runSpecT Map.empty $ do
+    let (parameters, body) = Specialize.destETAbs expression
+        ordinary d = case C.dDefinition d of C.DPrim -> False; _ -> True
+        groups = concatMap (\case
+          C.NonRecursive d -> [C.NonRecursive d | ordinary d]
+          C.Recursive ds -> case filter ordinary ds of
+            [] -> []
+            kept -> [C.Recursive kept])
+          (Specialize.allDeclGroups (Module.minpModuleEnv input))
+    specialized <- Specialize.specializeEWhere body groups
+    pure (foldr C.ETAbs specialized parameters)
+
+exportRoots :: Bool -> FilePath -> FilePath -> [String] -> IO Value
+exportRoots specialize foundation file roots = do
       base <- canonicalizePath foundation
       entry <- canonicalizePath file
-      bundle <- Repl.runREPL True False stderrLogger $ do
+      Repl.runREPL True False stderrLogger $ do
         Repl.prependSearchPath [base]
         loaded <- Cmd.loadCmd file
         unless (Cmd.crSuccess loaded) (Repl.io (die "Cryptol module loading failed"))
@@ -257,17 +278,90 @@ main = do
             fallbacks = Map.fromList [(C.dName d, n) | g <- allGroups, d <- C.groupDecls g,
               C.DPrim <- [C.dDefinition d], n <- referenceNames,
               N.asPrim (C.dName d) == Just (prelPrim (identText (N.nameIdent n)))]
-        groups <- either (Repl.io . die) pure
-          (closure fallbacks allGroups [e | (_,e,_) <- checked])
-        let retained = Set.fromList [C.dName d | g <- groups, d <- C.groupDecls g]
         provenance <- Repl.io $ mapM (moduleInfo base entry)
           (M.getLoadedModules (M.meLoadedModules env))
-        pure $ object ["format" .= ("cryptol-typed-ast" :: Text.Text), "version" .= (1 :: Int),
-          "cryptol_revision" .= ("61dd17b0c45ddf8c5c1e952afd5e789c4dc4ec4b" :: Text.Text),
-          "roots" .= [object ["text" .= t, "expression" .= expr e, "schema" .= schema s]
-                       | (t,e,s) <- checked],
-          "groups" .= map group groups, "modules" .= provenance,
-          "primitive_fallbacks" .= [(name n, name target) | (n,target) <- Map.toAscList fallbacks,
-            Set.member n retained]]
-      BL.putStrLn (encode bundle)
+        let bundle rs = do
+              groups <- either (Repl.io . die) pure
+                (closure fallbacks allGroups [e | (_,e,_) <- rs])
+              let retained = Set.fromList [C.dName d | g <- groups, d <- C.groupDecls g]
+              pure $ object ["format" .= ("cryptol-typed-ast" :: Text.Text),
+                "version" .= (1 :: Int),
+                "cryptol_revision" .= ("61dd17b0c45ddf8c5c1e952afd5e789c4dc4ec4b" :: Text.Text),
+                "roots" .= [object ["text" .= t, "expression" .= expr e, "schema" .= schema s]
+                             | (t,e,s) <- rs],
+                "groups" .= map group groups, "modules" .= provenance,
+                "primitive_fallbacks" .= [(name n, name target) |
+                  (n,target) <- Map.toAscList fallbacks, Set.member n retained]]
+        source <- bundle checked
+        if not specialize then pure source else do
+          specialized <- mapM (\(t,e,s) -> do
+            candidate <- Cmd.liftModuleCmd (specializeDefinitions e)
+            pure (t,candidate,s)) checked
+          candidate <- bundle specialized
+          pure $ object ["format" .= ("cryptol-specialization-candidate" :: Text.Text),
+            "version" .= (1 :: Int),
+            "pass" .= ("Cryptol.Transform.Specialize.specializeEWhere" :: Text.Text),
+            "primitive_policy" .= ("retain-explicit-instantiations" :: Text.Text),
+            "source" .= source, "candidate" .= candidate]
+
+-- Inventory uses the official module loader, including parameterized modules.
+-- It is discovery data, not evidence that the Lean semantic importer accepts a module.
+exportModule :: FilePath -> FilePath -> IO Value
+exportModule foundation file = do
+  base <- canonicalizePath foundation
+  entry <- canonicalizePath file
+  Repl.runREPL True False stderrLogger $ do
+    Repl.prependSearchPath [base]
+    loaded <- Cmd.loadCmd file
+    unless (Cmd.crSuccess loaded) (Repl.io (die "Cryptol module loading failed"))
+    env <- Repl.getModuleEnv
+    modules <- Repl.io $ mapM (\lm -> do
+      provenance <- moduleInfo base entry lm
+      let m = M.lmModule lm
+      pure $ object ["provenance" .= provenance,
+        "type_parameters" .= [object ["name" .= name (T.mtpName p),
+          "parameter" .= parameter (T.mtpParam p)] | p <- Map.elems (C.mParamTypes m)],
+        "value_parameters" .= [object ["name" .= name (T.mvpName p),
+          "schema" .= schema (T.mvpType p)] | p <- Map.elems (C.mParamFuns m)],
+        "constraints" .= map (ty . P.thing) (C.mParamConstraints m),
+        "exports" .= [object ["declaration" .= decl d,
+          "property" .= (P.PragmaProperty `elem` C.dPragmas d),
+          "location" .= let r = N.nameLoc (C.dName d) in object
+            ["source_basename" .= takeFileName (Position.source r),
+             "start" .= [Position.line (Position.from r), Position.col (Position.from r)],
+             "end" .= [Position.line (Position.to r), Position.col (Position.to r)]]] |
+          g <- C.mDecls m, d <- C.groupDecls g,
+          C.isExportedBind (C.dName d) (C.mExports m)],
+        "type_exports" .= [name n | n <- Map.keys (C.mTySyns m),
+          C.isExportedType n (C.mExports m)],
+        "nominal_exports" .= [name n | n <- Map.keys (C.mNominalTypes m),
+          C.isExportedType n (C.mExports m)],
+        "nested_functors" .= map name (Map.keys (C.mFunctors m)),
+        "nested_signatures" .= map name (Map.keys (C.mSignatures m)),
+        "groups" .= map group (C.mDecls m)])
+      (M.getLoadedModules (M.meLoadedModules env))
+    signatures <- Repl.io $ mapM (\lm -> do
+      provenance <- sourceInfo base entry lm (toJSON ([] :: [Value]))
+      let sig = M.lmData lm
+      pure $ object ["provenance" .= provenance,
+        "type_parameters" .= [object ["name" .= name (T.mtpName p),
+          "parameter" .= parameter (T.mtpParam p)] | p <- Map.elems (T.mpnTypes sig)],
+        "value_parameters" .= [object ["name" .= name (T.mvpName p),
+          "schema" .= schema (T.mvpType p)] | p <- Map.elems (T.mpnFuns sig)],
+        "constraints" .= map (ty . P.thing) (T.mpnConstraints sig),
+        "type_exports" .= map name (Map.keys (T.mpnTySyn sig))])
+      (M.lmLoadedSignatures (M.meLoadedModules env))
+    pure $ object ["format" .= ("cryptol-module-inventory" :: Text.Text),
+      "version" .= (1 :: Int), "modules" .= modules, "interfaces" .= signatures]
+
+main :: IO ()
+main = do
+  args <- getArgs
+  result <- case args of
+    ["--numeric"] -> pure numericCases
+    ["--classes"] -> pure classCases
+    ["--module", foundation, file] -> exportModule foundation file
+    "--specialize" : foundation : file : roots@(_ : _) -> exportRoots True foundation file roots
+    foundation : file : roots@(_ : _) -> exportRoots False foundation file roots
     _ -> die "Usage: cryptol-lean-export FOUNDATION MODULE ROOT [ROOT ...]"
+  BL.putStrLn (encode result)

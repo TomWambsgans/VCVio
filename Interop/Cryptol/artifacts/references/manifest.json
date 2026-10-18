@@ -4,13 +4,26 @@
   "foundation_revision": "7d0528bd998682788f4e23661f2829298f9e47db",
   "bundle_sha256": "7e5f46488fc0a8324df383429438997219bfc21bd43dc09974ab5f3f2972f6ba",
   "entry_sha256": "caf0e9fae38d70d0cdc915cd45b8be918e0ba9b95b95b0fada22d5c8941c9a40",
-  "exporter_sha256": "e9f7e0f4dda3f4ad0dca6db252dcf373ac2e4579f52d79c814d0f4831f555103",
+  "exporter_sha256": "36c0ce03dcdaefdec5318be84fbd46dcc25dd1f8a1734daea2282b1c4e365f37",
   "numeric_cases": 2020,
   "class_cases": 345,
   "numeric_sha256": "9c0a5c4df4474003545422686a7fa9ab401d309e097f2dba7eedc403da9ee5c8",
   "class_sha256": "06addcaf599dacc61f7b15fc2cbd3fd26203f0ed958c674dc25ba0942eed45c4",
   "scalar_bundle_sha256": "38201d157463c9804b82b92a9ecf1c7f21745898331ce04875e6c99f2870c639",
-  "scalar_lean_sha256": "bf2dd3c66b4998a7e67eed304d9d273b448f5b2d1dcf0020740b4844a4f05608",
+  "scalar_lean_sha256": "a0f82381e7ea0a1654559b8295d5c0a5e001bc63a69f6f0a4058e5cb0a02c10c",
+  "specialization": {
+    "pass": "Cryptol.Transform.Specialize.specializeEWhere",
+    "primitive_policy": "retain-explicit-instantiations",
+    "bundle_sha256": "d526282e11cc3671560ba094d5250115d7b4bbb4d5fde7b6e05182561cf60296",
+    "lean_sha256": "d2dcd27e4d26811bb79a6cd32148c9304bdcd4420a3a3ff156afe30552a123da",
+    "evidence": "Interop.Cryptol.Bridge.ImportedSpecialization.correct"
+  },
+  "canaries": {
+    "roots": 9,
+    "bundle_sha256": "aa0881768682d5261d14016d9a92b85c3a5c6ecc5029ca64a79dcde13edb5b81",
+    "lean_sha256": "f0684670c57fa647d48594383c655e853b1161bc308ea6c5938570d2dab36a32",
+    "source_sha256": "597d95a499c6f1156fad67431e2f0a5d6cabb7f0768d2313394b0a0980c6f8a4"
+  },
   "entries": [
     {
       "id": "sha256-compression",

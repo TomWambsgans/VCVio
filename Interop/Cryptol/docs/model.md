@@ -8,7 +8,7 @@ validation, CLI and local-dependency instructions.
 
 ## Specification boundary
 
-The specification target is the reference evaluator distributed with Cryptol
+The current proved partial model specifies the reference evaluator distributed with Cryptol
 3.6.0. Its [syntax and semantics references](../REFERENCES.md#cryptol360--cryptol-syntax-and-reference-semantics)
 describe a tractable typed core, but do not remove the need to model laziness,
 errors, and recursion. `Semantics.pdf` is generated from `Reference.lhs`;

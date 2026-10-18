@@ -29,7 +29,67 @@ inductive ValueType where
   | function (argument result : ValueType)
   | tuple (fields : List ValueType)
   | record (fields : List (String × ValueType))
-  deriving Repr, BEq, Inhabited
+  deriving Repr, Inhabited
+
+mutual
+
+  /-- Structural equality executable by kernel reduction, including nested aggregates. -/
+  @[expose] def ValueType.beq : ValueType → ValueType → Bool
+    | .bit, .bit | .integer, .integer => true
+    | .seq n a, .seq m b => n == m && a.beq b
+    | .function a b, .function c d => a.beq c && b.beq d
+    | .tuple as, .tuple bs => ValueType.beqFields as bs
+    | .record as, .record bs => ValueType.beqRecordFields as bs
+    | _, _ => false
+
+  /-- Compare an ordered tuple of source types. -/
+  @[expose] def ValueType.beqFields : List ValueType → List ValueType → Bool
+    | [], [] => true
+    | a :: as, b :: bs => a.beq b && ValueType.beqFields as bs
+    | _, _ => false
+
+  /-- Compare canonical record labels and their source types. -/
+  @[expose] def ValueType.beqRecordFields :
+      List (String × ValueType) → List (String × ValueType) → Bool
+    | [], [] => true
+    | (label, a) :: as, (name, b) :: bs =>
+        label == name && a.beq b && ValueType.beqRecordFields as bs
+    | _, _ => false
+
+end
+
+instance : BEq ValueType := ⟨ValueType.beq⟩
+
+mutual
+
+  theorem ValueType.beq_eq_true (a b : ValueType) : a.beq b = true ↔ a = b := by
+    cases a <;> cases b <;>
+      simp [ValueType.beq, ValueType.beq_eq_true, ValueType.beqFields_eq_true,
+        ValueType.beqRecordFields_eq_true]
+
+  theorem ValueType.beqFields_eq_true (as bs : List ValueType) :
+      ValueType.beqFields as bs = true ↔ as = bs := by
+    cases as <;> cases bs <;>
+      simp [ValueType.beqFields, ValueType.beq_eq_true, ValueType.beqFields_eq_true]
+
+  theorem ValueType.beqRecordFields_eq_true (as bs : List (String × ValueType)) :
+      ValueType.beqRecordFields as bs = true ↔ as = bs := by
+    cases as with
+    | nil => cases bs <;> simp [ValueType.beqRecordFields]
+    | cons a as =>
+      cases bs with
+      | nil => simp [ValueType.beqRecordFields]
+      | cons b bs =>
+        rcases a with ⟨label, a⟩
+        rcases b with ⟨name, b⟩
+        simp [ValueType.beqRecordFields, ValueType.beq_eq_true,
+          ValueType.beqRecordFields_eq_true, and_assoc]
+
+end
+
+instance : LawfulBEq ValueType where
+  eq_of_beq := ValueType.beq_eq_true _ _ |>.mp
+  rfl := ValueType.beq_eq_true _ _ |>.mpr rfl
 
 /-- The structural classes supported by the reference fragment. -/
 inductive ValueClass where

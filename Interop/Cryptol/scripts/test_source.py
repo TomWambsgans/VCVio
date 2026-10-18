@@ -2,11 +2,16 @@
 """Scope/kind acceptance, malformed-source rejection, and reference provenance."""
 
 from copy import deepcopy
+import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 import subprocess
 import tempfile
+
+from inventory_foundation import validate as validate_inventory
+from quote_reference import quote_bundle
 
 ROOT = Path(__file__).resolve().parents[1]
 LEAN = ROOT.parents[1] / ".lake/build/bin/cryptol-interop"
@@ -23,12 +28,133 @@ def nodes(value):
         yield value
         for child in value.values():
             yield from nodes(child)
+
     elif isinstance(value, list):
         for child in value:
             yield from nodes(child)
 
 
+def extension_checks(artifacts, manifest):
+    for key, bundle_file, lean_file in [
+            ("specialization", "specialized-scalar-bundle.json", "Bridge/ImportedSpecializationSource.lean"),
+            ("canaries", "import-canaries.json", "Tests/Translation/ImportedSource.lean")]:
+        assert hashlib.sha256((artifacts / bundle_file).read_bytes()).hexdigest() == \
+            manifest[key]["bundle_sha256"]
+        assert hashlib.sha256((ROOT / lean_file).read_bytes()).hexdigest() == \
+            manifest[key]["lean_sha256"]
+        code, report = run(artifacts / bundle_file, "elaborate")
+        assert code == 0 and all(r["status"] == "typed" for r in report), report
+    assert hashlib.sha256((ROOT / "fixtures/ImportCanaries.cry").read_bytes()).hexdigest() == \
+        manifest["canaries"]["source_sha256"]
+    census = json.loads((ROOT / "artifacts/foundation-inventory.json").read_bytes())
+    assert census["exporter_sha256"] == manifest["exporter_sha256"]
+    print("Foundation census:", validate_inventory(census))
+    canaries = json.loads((artifacts / "import-canaries.json").read_bytes())
+    mutations = []
+
+    def canary(label, root, change):
+        mutant = deepcopy(canaries)
+        mutant["roots"] = [mutant["roots"][root]]
+        change(mutant)
+        mutations.append((label, mutant))
+
+    def wrong_record(b):
+        fields = b["roots"][0]["schema"]["body"]["args"][1][0]["args"][0]
+        fields[1][0] = "wrong"
+
+    def tuple_for_record(b):
+        arg = b["roots"][0]["schema"]["body"]["args"][1][0]
+        fields = arg["args"][0]
+        arg.update(tag="tuple", args=[len(fields), [t for _, t in fields]])
+
+    canary("record labels", 1, wrong_record)
+    canary("tuple/record carrier collision", 1, tuple_for_record)
+    canary("comprehension length", 4, lambda b: next(n for n in nodes(b["groups"])
+        if n.get("tag") == "comprehension")["args"].__setitem__(0, {"tag": "num", "args": ["2"]}))
+    canary("local declaration annotation", 0, lambda b: next(n for n in nodes(b["groups"])
+        if n.get("name", {}).get("text") == "saved")["schema"].update(
+            body={"tag": "con", "args": ["TC TCBit", []]}))
+    specialized = json.loads((artifacts / "specialized-scalar-bundle.json").read_bytes())
+    mutant = deepcopy(specialized)
+    mutant["roots"][0]["expression"]["args"][1].reverse()
+    mutations.append(("specialized local dependency order", mutant))
+    with tempfile.TemporaryDirectory(prefix="cryptol-extended-import-") as temporary:
+        path = Path(temporary) / "mutated.json"
+        for label, mutant in mutations:
+            path.write_text(json.dumps(mutant))
+            code, report = run(path, "elaborate")
+            assert code != 0 and report["status"] == "rejected", (label, report)
+
+        # A same-typed semantic mutation must pass typing and fail the kernel certificate.
+        mutant = deepcopy(specialized)
+        next(n for n in nodes(mutant) if n.get("tag") == "num" and n["args"] == ["7"])["args"] = ["8"]
+        path.write_text(json.dumps(mutant))
+        code, report = run(path, "elaborate")
+        assert code == 0, report
+        source = quote_bundle(mutant, namespace="MutatedSpecialization").decode()
+        source = source.replace("public import Interop.Cryptol.Translation.SourceBundle", """
+public import Interop.Cryptol.Bridge.ImportedSpecialization
+import all Interop.Cryptol.Translation.SourceElaboration
+import all Interop.Cryptol.Translation.SourceScope
+import all Interop.Cryptol.Model.Reference.Kinds
+import all Interop.Cryptol.Model.Reference.Types
+import all Interop.Cryptol.Model.Reference.Syntax
+import all Interop.Cryptol.Model.Types""".strip())
+        source += """
+open Interop.Cryptol Translation SourceElaboration Bridge.MutatedSpecialization
+set_option maxRecDepth 10000 in
+example : check bundle root = .ok ⟨_, Bridge.ImportedSpecialization.source⟩ := by
+  with_unfolding_all rfl
+"""
+        proof = Path(temporary) / "MutatedSpecialization.lean"
+        proof.write_text(source)
+        lake = ["lake"]
+        if os.environ.get("POLYFUN_PATH"):
+            lake += ["-R", "-K", "polyfunPath=" + os.environ["POLYFUN_PATH"]]
+        result = subprocess.run([*lake, "env", "lean", str(proof)], cwd=ROOT.parents[1],
+                                text=True, capture_output=True)
+        assert result.returncode != 0 and "Tactic `rfl` failed" in result.stdout, result.stdout
+        assert result.stdout.count("error:") == 1, result.stdout
+    print(f"Extended imports: 9 typed canaries, {len(mutations)} malformed imports rejected; "
+          "same-typed specialization mutation rejected by the kernel certificate")
+
+
+def external_canaries(cryptol, foundation):
+    from test_evaluators import observe
+    from export_references import CRYPTOL, FOUNDATION, verify_checkout
+
+    verify_checkout(foundation, FOUNDATION)
+    assert "Git commit " + CRYPTOL in subprocess.check_output([str(cryptol), "--version"], text=True)
+    code, imported = run(ROOT / "artifacts/references/import-canaries.json", "elaborate")
+    assert code == 0
+    observations = [
+        (0, "4 5", "4 5", "9"),
+        (1, "{flag=False, value=7}", "(False, (7, ()))", "7"),
+        (2, "(9, False)", "(9, (False, ()))", "9"),
+        (3, r"(\x -> x+1) (\x -> x*2) 10", r"(\x -> x+1) (\x -> x*2) 10", "21"),
+        (4, "[1,2,3]", "[1,2,3]", "[2, 3, 4]"),
+        (5, "([0...] : [inf]Integer) @ (12 : Integer)",
+            "([0...] : [inf]Integer) @ (12 : Integer)", "13"),
+        (6, "[1,2,3]", "[1,2,3]", "6"),
+        (7, "[]", "[]", "0"),
+        (8, "[4,5,6]", "[4,5,6]", "4"),
+    ]
+    for i, source_args, imported_args, expected in observations:
+        for mode in ("normal", "reference"):
+            for expression, args in ((imported[i]["root"], source_args),
+                                     (imported[i]["source"], imported_args)):
+                observe(cryptol, f"({expression}) {args}", expected, mode, foundation,
+                        ROOT / "fixtures/ImportCanaries.cry")
+    print("Imported canaries: 36 original/lowered normal/reference observations passed")
+
+
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--cryptol", type=Path)
+    parser.add_argument("--foundation", type=Path)
+    args = parser.parse_args()
+    if bool(args.cryptol) != bool(args.foundation):
+        parser.error("--cryptol and --foundation must be provided together")
     artifacts = ROOT / "artifacts/references"
     source = artifacts / "bundle.json"
     data = source.read_bytes()
@@ -118,6 +244,9 @@ def main():
             code, report = run(path, "elaborate")
             assert code != 0 and report["status"] == "rejected", (label, report)
     print(f"Scalar elaboration: imported root typed, {len(mutations)} malformed terms rejected")
+    extension_checks(artifacts, manifest)
+    if args.cryptol:
+        external_canaries(args.cryptol, args.foundation)
 
 
 if __name__ == "__main__":

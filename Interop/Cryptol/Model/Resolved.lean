@@ -319,6 +319,10 @@ variable {Γ : List ClosedTy} {a b : ClosedTy}
 @[expose] def integer (i : Int) : Term Γ .integer :=
   .liftBind (.integer i) (fun i => nomatch i)
 
+/-- The empty tuple. -/
+@[expose] def unit : Term Γ .unit :=
+  .liftBind .unit (fun i => nomatch i)
+
 /-- A finite word literal remains compact until lowering. -/
 @[expose] def word {n : Nat} (x : BitVec n) : Term Γ (wordTy n) := primitive (.word x)
 

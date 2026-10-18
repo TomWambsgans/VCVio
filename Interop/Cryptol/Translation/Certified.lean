@@ -35,6 +35,15 @@ namespace CertifiedFunction
 
 variable {a b : Ty} {ha : DataShape a} {hb : DataShape b}
 
+/-- Reuse an implementation after a checked transformation of its source meaning. -/
+@[expose] def congrSource (f : CertifiedFunction ha hb)
+    (source : Resolved.Term [] (.arrow a.core b.core))
+    (h : Resolved.denote source Environment.empty =
+      Resolved.denote f.source Environment.empty) : CertifiedFunction ha hb where
+  source := source
+  implementation := f.implementation
+  correct x := by rw [h]; exact f.correct x
+
 /-- A finite description certifies its own compact source translation. -/
 @[expose] noncomputable def ofTerm (ha : DataShape a) (hb : DataShape b)
     (f : Term [] (.arrow a b)) : CertifiedFunction ha hb where

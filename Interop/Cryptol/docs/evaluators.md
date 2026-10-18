@@ -1,11 +1,12 @@
 # Evaluator target and upstream discrepancies
 
-The semantic target remains the pinned reference evaluator. Production evaluation
-is an independent compatibility target. Replacing the reference target would
-change integer arithmetic, strictness and partial-value observations already
-covered by Lean theorems. Upstream discussion also favors changing production
-integer division toward the reference behavior, so production behavior is not a
-stable substitute for that specification.
+The intended canonical target for broader imports is the pinned normal evaluator.
+The existing domain model and its partial-input theorems still specify the pinned
+reference evaluator. Migrating them requires changes to integer arithmetic,
+strictness and partial-value observations; the matrix below is the acceptance
+checklist for that migration. Upstream discussion about future division behavior
+does not change the current pinned implementation. See [tooling integration](tooling.md)
+for the checked candidate route and the remaining normal-semantics obligations.
 
 ## Reproduced versions
 
