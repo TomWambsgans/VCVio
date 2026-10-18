@@ -24,9 +24,11 @@ open OracleSpec OracleComp ENNReal BinaryTree MerkleTreeExtractability
 
 namespace VCVioTest.MerkleTreeInstability
 
-private abbrev Y := Fin 4
+/-- The four labels used by the Merkle extraction canaries. -/
+abbrev Y := Fin 4
 
-private abbrev TestSpec := (Y × Y) →ₒ Y
+/-- An oracle hashing ordered pairs of four-valued labels. -/
+abbrev TestSpec := (Y × Y) →ₒ Y
 
 noncomputable local instance : UniformAnswerMeasure TestSpec :=
   UniformAnswerMeasure.ofFiniteNonempty TestSpec

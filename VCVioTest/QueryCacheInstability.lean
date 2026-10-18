@@ -22,7 +22,8 @@ open OracleComp OracleSpec ENNReal
 
 namespace VCVioTest.QueryCacheInstability
 
-private abbrev TestSpec : OracleSpec ℕ := ℕ →ₒ Fin 4
+/-- A natural-number oracle with four uniformly sampled answers. -/
+abbrev TestSpec : OracleSpec ℕ := ℕ →ₒ Fin 4
 
 noncomputable local instance : UniformAnswerMeasure TestSpec :=
   UniformAnswerMeasure.ofFiniteNonempty TestSpec
