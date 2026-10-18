@@ -58,10 +58,10 @@ example : (∅ : QueryCache TestSpec) ∈ nonExtractingCaches model address 1 3 
     decide
 
 -- Exactly one of the four answers at `(1, 2)` completes the opening.
-example : (∅ : QueryCache TestSpec).extendProb (1, 2)
+example : (∅ : QueryCache TestSpec).updateProb (1, 2)
     (acceptingCaches model address 1 3 idx proof) = 1 / 4 := by
   classical
-  rw [QueryCache.extendProb_eq_card_div]
+  rw [QueryCache.updateProb_eq_card_div]
   have hp : ∀ u : Y, (∅ : QueryCache TestSpec).cacheQuery (1, 2) u ∈
       acceptingCaches model address 1 3 idx proof ↔ u = 3 := by
     intro u

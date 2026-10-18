@@ -45,10 +45,16 @@ private lemma cacheQuery_ne_empty (D : QueryCache TestSpec) (x : ℕ) (u : Fin 4
   simp at hx
 
 /-- One of the four answers at the point `0` lands in `answersOne`. -/
-private lemma extendProb_empty_answersOne :
-    (∅ : QueryCache TestSpec).extendProb 0 answersOne = 1 / 4 := by
+private lemma updateProb_empty_answersOne :
+    (∅ : QueryCache TestSpec).updateProb 0 answersOne = 1 / 4 := by
   classical
-  rw [QueryCache.extendProb_eq_card_div]
+  rw [QueryCache.updateProb_eq_card_div]
+  simp [answersOne, Finset.filter_eq']
+
+-- Updating an occupied key samples a new answer and overwrites the stored value.
+example : ((∅ : QueryCache TestSpec).cacheQuery 0 0).updateProb 0 answersOne = 1 / 4 := by
+  classical
+  rw [QueryCache.updateProb_eq_card_div]
   simp [answersOne, Finset.filter_eq']
 
 -- The flip probability is attained at the fresh point `0` and is `0` at every other point.
@@ -57,14 +63,14 @@ example : QueryCache.flip {∅} answersOne 1 = 1 / 4 := by
   · obtain rfl : D = ∅ := hD
     by_cases hx : x = 0
     · subst hx
-      exact extendProb_empty_answersOne.le
-    · rw [QueryCache.extendProb_eq_prEvent]
+      exact updateProb_empty_answersOne.le
+    · rw [QueryCache.updateProb_eq_prEvent]
       refine le_of_eq_of_le (prEvent_eq_zero_of_forall_not _ _ fun u hu => ?_) zero_le
       have h0 : ((∅ : QueryCache TestSpec).cacheQuery x u) 0 = some 1 := hu
       rw [QueryCache.cacheQuery_of_ne _ _ (Ne.symm hx)] at h0
       simp at h0
-  · rw [← extendProb_empty_answersOne]
-    exact QueryCache.extendProb_le_flip rfl (by simp) rfl
+  · rw [← updateProb_empty_answersOne]
+    exact QueryCache.updateProb_le_flip rfl (by simp) rfl
 
 -- A query bound of `0` admits no database, whatever the properties are.
 example : QueryCache.flip Set.univ (Set.univ : Set (QueryCache TestSpec)) 0 = 0 := by simp
@@ -76,24 +82,24 @@ example : QueryCache.flip {(∅ : QueryCache TestSpec).cacheQuery 0 0} answersOn
   have hx0 : x ≠ 0 := by
     rintro rfl
     simp at hx
-  rw [QueryCache.extendProb_eq_prEvent]
+  rw [QueryCache.updateProb_eq_prEvent]
   refine le_of_eq (prEvent_eq_zero_of_forall_not _ _ fun u hu => ?_)
   have h0 : (((∅ : QueryCache TestSpec).cacheQuery 0 0).cacheQuery x u) 0 = some 1 := hu
   rw [QueryCache.cacheQuery_of_ne _ _ (Ne.symm hx0)] at h0
   simp at h0
 
 /-- Every extension of the empty database is nonempty. -/
-private lemma extendProb_empty_nonempty :
-    (∅ : QueryCache TestSpec).extendProb 0 nonempty = 1 := by
-  rw [QueryCache.extendProb_eq_prEvent]
+private lemma updateProb_empty_nonempty :
+    (∅ : QueryCache TestSpec).updateProb 0 nonempty = 1 := by
+  rw [QueryCache.updateProb_eq_prEvent]
   exact (prEvent_eq_one_iff _ _).mpr fun u _ => cacheQuery_ne_empty ∅ 0 u
 
 -- Instability of a property and of a union containing it are incomparable in general: "nonempty"
 -- has instability `1`, and its union with "empty" is the stable property of all databases.
 example : QueryCache.instability nonempty 1 = 1 :=
   le_antisymm (QueryCache.instability_le_one _ 1) <| le_max_of_le_left <| by
-    rw [← extendProb_empty_nonempty]
-    exact QueryCache.extendProb_le_flip (by simp [nonempty]) (by simp) rfl
+    rw [← updateProb_empty_nonempty]
+    exact QueryCache.updateProb_le_flip (by simp [nonempty]) (by simp) rfl
 
 example : QueryCache.instability (nonempty ∪ nonemptyᶜ) 1 = 0 := by
   rw [Set.union_compl_self, QueryCache.instability_univ]
@@ -103,8 +109,8 @@ example : QueryCache.instability (∅ : Set (QueryCache TestSpec)) 1 <
     QueryCache.instability (∅ ∪ nonempty) 1 := by
   rw [Set.empty_union, QueryCache.instability_empty]
   refine lt_of_lt_of_le zero_lt_one (le_max_of_le_left ?_)
-  rw [← extendProb_empty_nonempty]
-  exact QueryCache.extendProb_le_flip (by simp [nonempty]) (by simp) rfl
+  rw [← updateProb_empty_nonempty]
+  exact QueryCache.updateProb_le_flip (by simp [nonempty]) (by simp) rfl
 
 -- Conditioning restricts the target as well as the source: no nonempty database is empty.
 example : QueryCache.condFlip nonempty {∅} 1 = 0 := by
@@ -135,9 +141,9 @@ example : QueryCache.instability collision 2 = 1 / 4 := by
   · classical
     have hsize : ((∅ : QueryCache TestSpec).cacheQuery 0 0).toSet.encard < (2 : ℕ) :=
       lt_of_le_of_lt (QueryCache.toSet_encard_cacheQuery_le _ _ _) (by simp)
-    refine le_trans ?_ (QueryCache.extendProb_le_flip (x := 1) not_collision_single hsize
+    refine le_trans ?_ (QueryCache.updateProb_le_flip (x := 1) not_collision_single hsize
       (by simp))
-    rw [QueryCache.extendProb_eq_card_div]
+    rw [QueryCache.updateProb_eq_card_div]
     refine ENNReal.div_le_div (Nat.one_le_cast.mpr (Finset.card_pos.mpr ⟨0, ?_⟩)) (by simp)
     exact Finset.mem_filter.mpr ⟨Finset.mem_univ _, 0, 1, 0, 0, by decide, by simp, by simp,
       HEq.rfl⟩
@@ -153,8 +159,8 @@ example : ¬QueryCache.instability collision 0 < (0 : ℕ) / (4 : ℝ≥0∞) :=
 example : QueryCache.partitionInstability byEntryAtZero 1 = 1 := by
   refine le_antisymm (QueryCache.partitionInstability_le_one _ 1)
     (le_iSup_of_le none ?_)
-  refine le_trans (le_of_eq ?_) (QueryCache.extendProb_le_flip (D := ∅) (x := 0) rfl (by simp) rfl)
-  rw [QueryCache.extendProb_eq_prEvent]
+  refine le_trans (le_of_eq ?_) (QueryCache.updateProb_le_flip (D := ∅) (x := 0) rfl (by simp) rfl)
+  rw [QueryCache.updateProb_eq_prEvent]
   refine ((prEvent_eq_one_iff _ _).mpr fun u _ => ?_).symm
   exact Set.mem_iUnion₂.mpr ⟨some u, by simp, by simp [byEntryAtZero]⟩
 
@@ -177,11 +183,11 @@ example (P : Set (QueryCache TestSpec)) (t : ℕ) :
 example [AnswerMeasure (Unit →ₒ ULift.{1} Bool)]
     (D : QueryCache (Unit →ₒ ULift.{1} Bool)) (P Q : Set (QueryCache (Unit →ₒ ULift.{1} Bool)))
     (t : ℕ) :
-    D.extendProb () P ≤ 1 ∧ QueryCache.flip P Q t ≤ 1 ∧
+    D.updateProb () P ≤ 1 ∧ QueryCache.flip P Q t ≤ 1 ∧
       QueryCache.instability P t ≤ 1 ∧ QueryCache.condFlip P Q t ≤ 1 ∧
       QueryCache.condInstability P Q t ≤ 1 ∧
       QueryCache.partitionInstability (fun b : Bool => cond b P Q) t ≤ 1 := by
-  exact ⟨QueryCache.extendProb_le_one _ _ _, QueryCache.flip_le_one _ _ _,
+  exact ⟨QueryCache.updateProb_le_one _ _ _, QueryCache.flip_le_one _ _ _,
     QueryCache.instability_le_one _ _,
     (QueryCache.condFlip_le_flip _ _ _).trans (QueryCache.flip_le_one _ _ _),
     (QueryCache.condInstability_le_instability _ _ _).trans (QueryCache.instability_le_one _ _),

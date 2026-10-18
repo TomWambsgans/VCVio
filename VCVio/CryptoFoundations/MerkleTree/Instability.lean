@@ -163,14 +163,14 @@ variable [Fintype Y] [UniformAnswerMeasure (Query →ₒ Y)]
 /-- Extending a collision-free database whose extracted tree disagrees with an opening, at a
 fresh point and by a uniform answer, makes the opening verify with probability at most
 `(2 * s.leafCount - 1) / |Y|`. -/
-theorem extendProb_acceptingCaches_le (hlog : LogRepresentsCache log cache)
+theorem updateProb_acceptingCaches_le (hlog : LogRepresentsCache log cache)
     (hno : ¬CacheHasCollision cache)
     (hdisagree : OpeningDisagrees model addressKey log leaf root idx proof)
     {x : Query} (hx : cache x = none) :
-    cache.extendProb x (acceptingCaches model addressKey leaf root idx proof) ≤
+    cache.updateProb x (acceptingCaches model addressKey leaf root idx proof) ≤
       ((2 * s.leafCount - 1 : ℕ) : ℝ≥0∞) / Fintype.card Y := by
   classical
-  rw [QueryCache.extendProb_eq_card_div]
+  rw [QueryCache.updateProb_eq_card_div]
   refine ENNReal.div_le_div_right ?_ _
   have hsub : (Finset.univ.filter fun u : Y =>
       cache.cacheQuery x u ∈ acceptingCaches model addressKey leaf root idx proof) ⊆
@@ -188,7 +188,7 @@ theorem flip_nonExtractingCaches_acceptingCaches_le (t : ℕ) :
         (acceptingCaches model addressKey leaf root idx proof) t ≤
       ((2 * s.leafCount - 1 : ℕ) : ℝ≥0∞) / Fintype.card Y :=
   QueryCache.flip_le_iff.mpr fun _ ⟨hno, _, hlog, hdisagree⟩ _ _ hx =>
-    extendProb_acceptingCaches_le hlog hno hdisagree hx
+    updateProb_acceptingCaches_le hlog hno hdisagree hx
 
 end extraction
 

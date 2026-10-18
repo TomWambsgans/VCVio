@@ -22,9 +22,9 @@ table at one fresh point with one sampled answer. Nothing in this file is quantu
 
 ## Main definitions
 
-* `OracleSpec.QueryCache.extendProb D x T`: the probability that `D` extended at `x` by a sampled
+* `OracleSpec.QueryCache.updateProb D x T`: the probability that `D` extended at `x` by a sampled
   answer lies in `T`.
-* `OracleSpec.QueryCache.flip S T t`: the supremum of `extendProb D x T` over databases `D ∈ S`
+* `OracleSpec.QueryCache.flip S T t`: the supremum of `updateProb D x T` over databases `D ∈ S`
   with fewer than `t` entries and points `x` not in `D`. It is `0` when no such pair exists.
 * `OracleSpec.QueryCache.instability P t`: the larger of `flip Pᶜ P t` and `flip P Pᶜ t`.
 * `OracleSpec.QueryCache.condFlip P Q t` and `OracleSpec.QueryCache.condInstability P Q t`: the
@@ -48,9 +48,9 @@ The number of entries of a database `D` is `D.toSet.encard`, and a query bound i
 number `t`, so "fewer than `t` entries" is `D.toSet.encard < t`. The answer at the fresh point is
 drawn from the answer measure of the specification. The definitions and closure rules therefore
 hold for any `[AnswerMeasure spec]`; the cited papers take uniform answers, which is
-`[UniformAnswerMeasure spec]`, and `extendProb_eq_card_div` gives the counting form in that case.
+`[UniformAnswerMeasure spec]`, and `updateProb_eq_card_div` gives the counting form in that case.
 
-Answer types live in `Type`: `extendProb` is stated with `Pr{…}[…]`, whose computations return
+Answer types live in `Type`: `updateProb` is stated with `Pr{…}[…]`, whose computations return
 values in `Type`. The index type of the specification may live in any universe.
 
 `partitionInstability` accepts any indexed family. A statement that uses it as the instability of
@@ -93,15 +93,15 @@ variable {ι : Type u} {spec : OracleSpec.{u, v} ι} [DecidableEq ι] [AnswerMea
 
 /-- The probability that the database `D`, extended at the point `x` by an answer drawn from the
 answer measure of `x`, lies in the property `T`. -/
-@[expose] noncomputable def extendProb (D : QueryCache spec) (x : spec.Domain)
+@[expose] noncomputable def updateProb (D : QueryCache spec) (x : spec.Domain)
     (T : Set (QueryCache spec)) : ℝ≥0∞ :=
   AnswerMeasure.toMeasure x {u | D.cacheQuery x u ∈ T}
 
 /-- For answers in `Type`, the update measure equals the event probability of a single query. -/
-lemma extendProb_eq_prEvent {ι : Type u} {spec : OracleSpec.{u, 0} ι} [DecidableEq ι]
+lemma updateProb_eq_prEvent {ι : Type u} {spec : OracleSpec.{u, 0} ι} [DecidableEq ι]
     [AnswerMeasure spec] (D : QueryCache spec) (x : spec.Domain)
     (T : Set (QueryCache spec)) :
-    D.extendProb x T =
+    D.updateProb x T =
       Pr{let u ← (query x : OracleComp spec (spec.Range x))}[D.cacheQuery x u ∈ T] := by
   let : MeasurableSpace (spec.Range x) := ⊤
   rw [prEvent_eq_evalDist_of_discrete, evalDist_query,
@@ -109,34 +109,34 @@ lemma extendProb_eq_prEvent {ι : Type u} {spec : OracleSpec.{u, 0} ι} [Decidab
   rfl
 
 /-- The extension probability is monotone in the target property. -/
-lemma extendProb_mono (D : QueryCache spec) (x : spec.Domain) (h : T ⊆ T') :
-    D.extendProb x T ≤ D.extendProb x T' :=
+lemma updateProb_mono (D : QueryCache spec) (x : spec.Domain) (h : T ⊆ T') :
+    D.updateProb x T ≤ D.updateProb x T' :=
   MeasureTheory.measure_mono fun _ hu => h hu
 
 /-- Union bound for the extension probability. -/
-lemma extendProb_union_le (D : QueryCache spec) (x : spec.Domain) (T T' : Set (QueryCache spec)) :
-    D.extendProb x (T ∪ T') ≤ D.extendProb x T + D.extendProb x T' :=
+lemma updateProb_union_le (D : QueryCache spec) (x : spec.Domain) (T T' : Set (QueryCache spec)) :
+    D.updateProb x (T ∪ T') ≤ D.updateProb x T + D.updateProb x T' :=
   MeasureTheory.measure_union_le _ _
 
 @[simp]
-lemma extendProb_empty (D : QueryCache spec) (x : spec.Domain) : D.extendProb x ∅ = 0 :=
+lemma updateProb_empty (D : QueryCache spec) (x : spec.Domain) : D.updateProb x ∅ = 0 :=
   MeasureTheory.measure_empty
 
-lemma extendProb_le_one (D : QueryCache spec) (x : spec.Domain) (T : Set (QueryCache spec)) :
-    D.extendProb x T ≤ 1 :=
+lemma updateProb_le_one (D : QueryCache spec) (x : spec.Domain) (T : Set (QueryCache spec)) :
+    D.updateProb x T ≤ 1 :=
   MeasureTheory.prob_le_one
 
 /-- Under uniform answers, the extension probability is the proportion of answers that land in
 the target property. -/
-lemma extendProb_eq_card_div {ι : Type u} {spec : OracleSpec.{u, v} ι} [DecidableEq ι]
+lemma updateProb_eq_card_div {ι : Type u} {spec : OracleSpec.{u, v} ι} [DecidableEq ι]
     [UniformAnswerMeasure spec] (D : QueryCache spec) (x : spec.Domain)
     [Fintype (spec.Range x)] (T : Set (QueryCache spec))
     [DecidablePred fun u : spec.Range x => D.cacheQuery x u ∈ T] :
-    D.extendProb x T =
+    D.updateProb x T =
       ((Finset.univ.filter fun u : spec.Range x => D.cacheQuery x u ∈ T).card : ℝ≥0∞) /
         Fintype.card (spec.Range x) := by
   let : MeasurableSpace (spec.Range x) := ⊤
-  rw [extendProb, AnswerMeasure.toMeasure_eq_uniformOn,
+  rw [updateProb, AnswerMeasure.toMeasure_eq_uniformOn,
     ProbabilityTheory.uniformOn_univ_apply_setOf]
 
 /-! ## Flip probability -/
@@ -147,24 +147,24 @@ probability that `D` extended at `x` by a sampled answer lies in `T`. It is `0` 
 such pair `(D, x)`. -/
 @[expose] noncomputable def flip (S T : Set (QueryCache spec)) (t : ℕ) : ℝ≥0∞ :=
   ⨆ (D : QueryCache spec) (_ : D ∈ S) (_ : D.toSet.encard < t) (x : spec.Domain)
-    (_ : D x = none), D.extendProb x T
+    (_ : D x = none), D.updateProb x T
 
 /-- A bound on the flip probability is a bound on every admissible one-step extension. -/
 lemma flip_le_iff {c : ℝ≥0∞} :
     flip S T t ≤ c ↔
-      ∀ D ∈ S, D.toSet.encard < t → ∀ x, D x = none → D.extendProb x T ≤ c := by
+      ∀ D ∈ S, D.toSet.encard < t → ∀ x, D x = none → D.updateProb x T ≤ c := by
   simp only [flip, iSup_le_iff]
 
 /-- Every admissible one-step extension is bounded by the flip probability. -/
-lemma extendProb_le_flip (hD : D ∈ S) (ht : D.toSet.encard < t) (hx : D x = none) :
-    D.extendProb x T ≤ flip S T t :=
+lemma updateProb_le_flip (hD : D ∈ S) (ht : D.toSet.encard < t) (hx : D x = none) :
+    D.updateProb x T ≤ flip S T t :=
   flip_le_iff.mp le_rfl D hD ht x hx
 
 /-- The flip probability is monotone in the source property, the target property and the query
 bound. -/
 theorem flip_mono (hS : S ⊆ S') (hT : T ⊆ T') (ht : t ≤ t') : flip S T t ≤ flip S' T' t' :=
-  flip_le_iff.mpr fun D hD hlt x hx => (extendProb_mono D x hT).trans
-    (extendProb_le_flip (hS hD) (hlt.trans_le (by exact_mod_cast ht)) hx)
+  flip_le_iff.mpr fun D hD hlt x hx => (updateProb_mono D x hT).trans
+    (updateProb_le_flip (hS hD) (hlt.trans_le (by exact_mod_cast ht)) hx)
 
 /-- The flip probability out of a union of an indexed family is the supremum of the flip
 probabilities out of its members. -/
@@ -173,7 +173,7 @@ theorem flip_iUnion_left {κ : Sort*} (S : κ → Set (QueryCache spec)) (T : Se
   refine le_antisymm (flip_le_iff.mpr fun D hD hlt x hx => ?_)
     (iSup_le fun i => flip_mono (subset_iUnion S i) le_rfl le_rfl)
   obtain ⟨i, hi⟩ := mem_iUnion.mp hD
-  exact (extendProb_le_flip hi hlt hx).trans (le_iSup (fun i => flip (S i) T t) i)
+  exact (updateProb_le_flip hi hlt hx).trans (le_iSup (fun i => flip (S i) T t) i)
 
 /-- The flip probability out of a union is the larger of the two flip probabilities. -/
 theorem flip_union_left (S S' T : Set (QueryCache spec)) (t : ℕ) :
@@ -182,14 +182,14 @@ theorem flip_union_left (S S' T : Set (QueryCache spec)) (t : ℕ) :
     (max_le (flip_mono subset_union_left le_rfl le_rfl)
       (flip_mono subset_union_right le_rfl le_rfl))
   rintro D (hD | hD) hlt x hx
-  · exact (extendProb_le_flip hD hlt hx).trans (le_max_left _ _)
-  · exact (extendProb_le_flip hD hlt hx).trans (le_max_right _ _)
+  · exact (updateProb_le_flip hD hlt hx).trans (le_max_left _ _)
+  · exact (updateProb_le_flip hD hlt hx).trans (le_max_right _ _)
 
 /-- Union bound for the flip probability into a union. -/
 theorem flip_union_right_le (S T T' : Set (QueryCache spec)) (t : ℕ) :
     flip S (T ∪ T') t ≤ flip S T t + flip S T' t :=
-  flip_le_iff.mpr fun D hD hlt x hx => (extendProb_union_le D x T T').trans
-    (add_le_add (extendProb_le_flip hD hlt hx) (extendProb_le_flip hD hlt hx))
+  flip_le_iff.mpr fun D hD hlt x hx => (updateProb_union_le D x T T').trans
+    (add_le_add (updateProb_le_flip hD hlt hx) (updateProb_le_flip hD hlt hx))
 
 @[simp]
 theorem flip_empty_left (T : Set (QueryCache spec)) (t : ℕ) : flip ∅ T t = 0 :=
@@ -197,7 +197,7 @@ theorem flip_empty_left (T : Set (QueryCache spec)) (t : ℕ) : flip ∅ T t = 0
 
 @[simp]
 theorem flip_empty_right (S : Set (QueryCache spec)) (t : ℕ) : flip S ∅ t = 0 :=
-  nonpos_iff_eq_zero.mp (flip_le_iff.mpr fun D _ _ x _ => (extendProb_empty D x).le)
+  nonpos_iff_eq_zero.mp (flip_le_iff.mpr fun D _ _ x _ => (updateProb_empty D x).le)
 
 /-- With query bound `0` there is no admissible database, so the flip probability is `0`. -/
 @[simp]
@@ -205,7 +205,7 @@ theorem flip_zero (S T : Set (QueryCache spec)) : flip S T 0 = 0 :=
   nonpos_iff_eq_zero.mp (flip_le_iff.mpr fun _ _ hlt => by simp at hlt)
 
 theorem flip_le_one (S T : Set (QueryCache spec)) (t : ℕ) : flip S T t ≤ 1 :=
-  flip_le_iff.mpr fun D _ _ x _ => extendProb_le_one D x T
+  flip_le_iff.mpr fun D _ _ x _ => updateProb_le_one D x T
 
 /-! ## Instability -/
 

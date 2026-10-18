@@ -67,7 +67,7 @@ theorem flip_cacheHasCollision_compl [AnswerMeasure spec] (t : ℕ) :
     flip {D : QueryCache spec | CacheHasCollision D} {D | CacheHasCollision D}ᶜ t = 0 :=
   nonpos_iff_eq_zero.mp <| flip_le_iff.mpr fun D hD _ _ hx =>
     (by
-      rw [extendProb_eq_prEvent]
+      rw [updateProb_eq_prEvent]
       exact (prEvent_eq_zero_of_forall_not _ _ fun _ hu =>
         hu (CacheHasCollision.mono (le_cacheQuery D hx) hD)).le)
 
@@ -76,12 +76,12 @@ variable [UniformAnswerMeasure spec] [∀ x, Fintype (spec.Range x)]
 /-- Extending a collision-free database at `x` creates a collision with probability at most the
 number of populated keys over the number of answers at `x`. The finite set `S` need only cover
 the populated keys. -/
-theorem extendProb_cacheHasCollision_le {D : QueryCache spec} (hD : ¬CacheHasCollision D)
+theorem updateProb_cacheHasCollision_le {D : QueryCache spec} (hD : ¬CacheHasCollision D)
     {S : Finset spec.Domain} (hS : ∀ x', D x' ≠ none → x' ∈ S) (x : spec.Domain) :
-    D.extendProb x {D' | CacheHasCollision D'} ≤
+    D.updateProb x {D' | CacheHasCollision D'} ≤
       (S.card : ℝ≥0∞) / Fintype.card (spec.Range x) := by
   classical
-  rw [extendProb_eq_card_div]
+  rw [updateProb_eq_card_div]
   exact ENNReal.div_le_div_right
     (by exact_mod_cast card_responses_creating_cacheCollision_le (t := x) hD hS) _
 
@@ -93,7 +93,7 @@ theorem flip_compl_cacheHasCollision_le {n : ℕ} (hn : ∀ x, n ≤ Fintype.car
       ((t - 1 : ℕ) : ℝ≥0∞) / n := by
   refine flip_le_iff.mpr fun D hD hlt x _ => ?_
   obtain ⟨S, hScard, hS⟩ := exists_finset_card_lt_of_encard_lt hlt
-  exact (extendProb_cacheHasCollision_le hD hS x).trans
+  exact (updateProb_cacheHasCollision_le hD hS x).trans
     (ENNReal.div_le_div (by exact_mod_cast Nat.le_sub_one_of_lt hScard)
       (by exact_mod_cast hn x))
 
