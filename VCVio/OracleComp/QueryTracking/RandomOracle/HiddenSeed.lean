@@ -555,6 +555,38 @@ theorem isSome_fst_apply_iff_of_mem_support_idealImpl {t : (pub.withDerivations 
     obtain ⟨y, -, rfl⟩ := hw
     simp only [reduceCtorEq, or_false]
 
+/-- A step of the ideal game draws a derivation exactly when the derivation was drawn before the
+step or is the step's query. -/
+theorem isSome_snd_apply_iff_of_mem_support_idealImpl {t : (pub.withDerivations X R).Domain}
+    {st : SplitCache pub X R} {w : (pub.withDerivations X R).Range t × SplitCache pub X R}
+    (hw : w ∈ support ((idealImpl pub X R t).run st)) (x' : X) :
+    (w.2.2 x').isSome ↔ (st.2 x').isSome ∨ .inr x' = t := by
+  rcases t with (n | t) | x
+  · simp only [idealImpl, StateT.run_mk, support_map, Set.mem_image] at hw
+    obtain ⟨u, -, rfl⟩ := hw
+    simp only [reduceCtorEq, or_false]
+  · simp only [idealImpl, StateT.run_mk, support_map, Set.mem_image] at hw
+    obtain ⟨y, -, rfl⟩ := hw
+    simp only [reduceCtorEq, or_false]
+  · simp only [idealImpl, StateT.run_mk, support_map, Set.mem_image] at hw
+    obtain ⟨y, hy, rfl⟩ := hw
+    rw [QueryImpl.withCaching_run_isSome_apply_iff _ hy, Sum.inr.injEq]
+
+/-- A probabilistic computation lifted into the derivation world runs in the ideal game as
+itself, leaving the state unchanged. -/
+theorem run_simulateQ_idealImpl_liftM {α : Type} (oa : ProbComp α) (st : SplitCache pub X R) :
+    (simulateQ (idealImpl pub X R) (liftM oa : OracleComp (pub.withDerivations X R) α)).run st =
+      (·, st) <$> oa := by
+  induction oa using OracleComp.inductionOn with
+  | pure x => simp
+  | query_bind n k ih =>
+    simp only [liftM_bind, simulateQ_bind, StateT.run_bind, map_bind]
+    have h1 : (simulateQ (idealImpl pub X R) (liftM (liftM (OracleSpec.query n) : ProbComp _) :
+        OracleComp (pub.withDerivations X R) _)).run st =
+          (fun u => (u, st)) <$> (liftM (OracleSpec.query n) : ProbComp _) := rfl
+    rw [h1, bind_map_left]
+    exact bind_congr fun u => ih u
+
 /-- From empty states, the flag of the flagged ideal game is raised exactly when the final public
 cache holds a point encoded under `s`. -/
 theorem flag_eq_true_iff_of_mem_support_flaggedIdealImpl (s : S) {α : Type}
