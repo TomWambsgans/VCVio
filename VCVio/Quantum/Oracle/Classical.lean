@@ -272,7 +272,7 @@ theorem qromEvalDist₂_toQuantum [MeasurableSpace α] (oa : OracleComp (X →�
     qromEvalDist₂ .instruments oa.toQuantum (SubState.basis ()) =
       𝒟[do let H ← $ᵗ (X → Y); pure (evalWithAnswerFn (QueryImpl.ofFn H) oa)] := by
   let : MeasurableSpace (X → Y) := ⊤
-  rw [evalDist_bind_of_discrete, qromEvalDist₂, sampledEvalDist₂_eq_bind]
+  rw [evalDist_bind_of_discrete, qromEvalDist₂, sampledEvalDist₂_eq_bind_uniformSample]
   congr 1
   funext H
   rw [evalDist_pure]

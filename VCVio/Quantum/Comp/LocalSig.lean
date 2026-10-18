@@ -29,7 +29,8 @@ interpretations, and properties of its tree, such as a count of its operations
   interpretation `Quantum.LocalSig.Interp.instruments` sends it to itself. Programs over this
   signature (`Quantum.QComp`) may apply any subinstrument as one step.
 * A gate set is a signature whose operations are finitely many named gates, interpreted by their
-  channels; the cost of a program in gates is read off its tree.
+  channels; the tree records the cost of these named local operations. Basis equivalences at
+  calls and classical continuation computation are uncharged.
 
 ## Universes
 
@@ -78,14 +79,19 @@ variable (L : LocalSig.{u, v})
 abbrev OutcomeAt {A : QReg} (o : L.Op A) (u : QReg) : Type v :=
   {b : L.Outcome o // L.next o b = u}
 
-/-- The meaning of the operations of `L`: for each `o : L.Op A`, a dependent subinstrument from
-`A` with outcomes in `L.Outcome o` and output register `L.next o b` on outcome `b`. Its branches
-are completely positive, and on positive semidefinite `ρ` their traces sum to at most `tr ρ`; the
-missing trace is the probability of failure. `Interp.Lossless` asks every operation to lose no
-trace.
+/-- The physical meaning of the local operations in `L`. For each `o : L.Op A`, an
+interpretation gives completely positive branch maps `Φ_b : M_A → M_{L.next o b}`, where
+`M_A = Matrix A A ℂ`. For every positive semidefinite `ρ`,
+`∑' b, tr (Φ_b ρ) ≤ tr ρ`.
 
-With finitely many outcomes, a fixed output register and no loss, these are the instruments of
-Watrous, *The Theory of Quantum Information*, equations (2.258)–(2.261), p. 112. -/
+The branch operator `Φ_b ρ` is unnormalized. On a normalized input its trace is the probability
+of reporting `b`, and `1 - ∑' b, tr (Φ_b ρ)` is the failure probability. On a substate these
+are weights; the trace deficit is additional lost weight. `Interp.Lossless` requires equality
+in the trace bound for every operation.
+
+Finite outcomes, a fixed output register and no loss give the instruments in Watrous,
+The Theory of Quantum Information, §2.3.2, equations (2.258)–(2.261), printed p. 112
+(PDF p. 120). Matrix and tensor conventions are fixed in `VCVio.Quantum.MatrixMap`. -/
 @[expose]
 def Interp : Type (max 1 u v) :=
   ∀ ⦃A : QReg⦄ (o : L.Op A), DSubInstrument A (L.Outcome o) fun b ↦ L.next o b
