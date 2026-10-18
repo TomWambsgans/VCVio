@@ -22,22 +22,22 @@ open OracleComp OracleSpec ENNReal
 
 namespace VCVioTest.QueryCacheInstability
 
-abbrev TestSpec : OracleSpec ℕ := ℕ →ₒ Fin 4
+private abbrev TestSpec : OracleSpec ℕ := ℕ →ₒ Fin 4
 
 noncomputable local instance : UniformAnswerMeasure TestSpec :=
   UniformAnswerMeasure.ofFiniteNonempty TestSpec
 
 /-- The databases that answer `1` at the point `0`. -/
-def answersOne : Set (QueryCache TestSpec) := {D | D 0 = some 1}
+private def answersOne : Set (QueryCache TestSpec) := {D | D 0 = some 1}
 
 /-- The nonempty databases. -/
-def nonempty : Set (QueryCache TestSpec) := {D | D ≠ ∅}
+private def nonempty : Set (QueryCache TestSpec) := {D | D ≠ ∅}
 
 /-- The databases with a collision. -/
-def collision : Set (QueryCache TestSpec) := {D | CacheHasCollision D}
+private def collision : Set (QueryCache TestSpec) := {D | CacheHasCollision D}
 
 /-- The partition of all databases by their entry at the point `0`. -/
-def byEntryAtZero (o : Option (Fin 4)) : Set (QueryCache TestSpec) := {D | D 0 = o}
+private def byEntryAtZero (o : Option (Fin 4)) : Set (QueryCache TestSpec) := {D | D 0 = o}
 
 private lemma cacheQuery_ne_empty (D : QueryCache TestSpec) (x : ℕ) (u : Fin 4) :
     D.cacheQuery x u ≠ ∅ := fun h => by

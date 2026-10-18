@@ -118,10 +118,12 @@ lemma updateProb_union_le (D : QueryCache spec) (x : spec.Domain) (T T' : Set (Q
     D.updateProb x (T ∪ T') ≤ D.updateProb x T + D.updateProb x T' :=
   MeasureTheory.measure_union_le _ _
 
+/-- Updating a database lands in the empty property with probability zero. -/
 @[simp]
 lemma updateProb_empty (D : QueryCache spec) (x : spec.Domain) : D.updateProb x ∅ = 0 :=
   MeasureTheory.measure_empty
 
+/-- The probability of an update landing in any property is at most one. -/
 lemma updateProb_le_one (D : QueryCache spec) (x : spec.Domain) (T : Set (QueryCache spec)) :
     D.updateProb x T ≤ 1 :=
   MeasureTheory.prob_le_one
@@ -191,10 +193,12 @@ theorem flip_union_right_le (S T T' : Set (QueryCache spec)) (t : ℕ) :
   flip_le_iff.mpr fun D hD hlt x hx => (updateProb_union_le D x T T').trans
     (add_le_add (updateProb_le_flip hD hlt hx) (updateProb_le_flip hD hlt hx))
 
+/-- There is no transition out of the empty source property. -/
 @[simp]
 theorem flip_empty_left (T : Set (QueryCache spec)) (t : ℕ) : flip ∅ T t = 0 :=
   nonpos_iff_eq_zero.mp (flip_le_iff.mpr fun _ hD => (notMem_empty _ hD).elim)
 
+/-- The flip probability into the empty target property is zero. -/
 @[simp]
 theorem flip_empty_right (S : Set (QueryCache spec)) (t : ℕ) : flip S ∅ t = 0 :=
   nonpos_iff_eq_zero.mp (flip_le_iff.mpr fun D _ _ x _ => (updateProb_empty D x).le)
@@ -204,6 +208,7 @@ theorem flip_empty_right (S : Set (QueryCache spec)) (t : ℕ) : flip S ∅ t = 
 theorem flip_zero (S T : Set (QueryCache spec)) : flip S T 0 = 0 :=
   nonpos_iff_eq_zero.mp (flip_le_iff.mpr fun _ _ hlt => by simp at hlt)
 
+/-- Every flip probability is at most one. -/
 theorem flip_le_one (S T : Set (QueryCache spec)) (t : ℕ) : flip S T t ≤ 1 :=
   flip_le_iff.mpr fun D _ _ x _ => updateProb_le_one D x T
 
@@ -225,18 +230,22 @@ theorem instability_mono_query (P : Set (QueryCache spec)) (h : t ≤ t') :
     instability P t ≤ instability P t' :=
   max_le_max (flip_mono le_rfl le_rfl h) (flip_mono le_rfl le_rfl h)
 
+/-- A zero query bound gives zero instability. -/
 @[simp]
 theorem instability_zero (P : Set (QueryCache spec)) : instability P 0 = 0 := by
   simp [instability]
 
+/-- The empty database property has zero instability. -/
 @[simp]
 theorem instability_empty (t : ℕ) : instability (∅ : Set (QueryCache spec)) t = 0 := by
   simp [instability]
 
+/-- The property of all databases has zero instability. -/
 @[simp]
 theorem instability_univ (t : ℕ) : instability (univ : Set (QueryCache spec)) t = 0 := by
   simp [instability]
 
+/-- The instability of any database property is at most one. -/
 theorem instability_le_one (P : Set (QueryCache spec)) (t : ℕ) : instability P t ≤ 1 :=
   max_le (flip_le_one _ _ t) (flip_le_one _ _ t)
 
@@ -261,6 +270,7 @@ theorem condInstability_le_instability (P Q : Set (QueryCache spec)) (t : ℕ) :
     condInstability P Q t ≤ instability P t :=
   max_le_max (condFlip_le_flip P Q t) (by simpa using condFlip_le_flip Pᶜ Q t)
 
+/-- Restricting both endpoints to all databases leaves the entering flip unchanged. -/
 @[simp]
 theorem condFlip_univ (P : Set (QueryCache spec)) (t : ℕ) :
     condFlip P univ t = flip Pᶜ P t := by
@@ -317,6 +327,7 @@ theorem partitionInstability_mono_query {κ : Type*} (P : κ → Set (QueryCache
     (h : t ≤ t') : partitionInstability P t ≤ partitionInstability P t' :=
   iSup_mono fun _ => flip_mono le_rfl le_rfl h
 
+/-- The instability of any indexed family of properties is at most one. -/
 theorem partitionInstability_le_one {κ : Type*} (P : κ → Set (QueryCache spec)) (t : ℕ) :
     partitionInstability P t ≤ 1 :=
   iSup_le fun _ => flip_le_one _ _ t

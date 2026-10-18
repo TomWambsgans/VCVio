@@ -24,31 +24,31 @@ open OracleSpec OracleComp ENNReal BinaryTree MerkleTreeExtractability
 
 namespace VCVioTest.MerkleTreeInstability
 
-abbrev Y := Fin 4
+private abbrev Y := Fin 4
 
-abbrev TestSpec := (Y × Y) →ₒ Y
+private abbrev TestSpec := (Y × Y) →ₒ Y
 
 noncomputable local instance : UniformAnswerMeasure TestSpec :=
   UniformAnswerMeasure.ofFiniteNonempty TestSpec
 
 /-- Queries are the ordered pairs of children, with one address for every node. -/
-def model : NodeQueryModel (Y × Y) Unit Y where
+private def model : NodeQueryModel (Y × Y) Unit Y where
   view := ⟨fun _ => (), id⟩
   mkQuery := fun _ p => p
   address_mkQuery := fun _ _ => rfl
   input_mkQuery := fun _ _ => rfl
 
-def shape : Skeleton := .internal .leaf .leaf
+private def shape : Skeleton := .internal .leaf .leaf
 
-def address : SkeletonInternalIndex shape → Unit := fun _ => ()
+private def address : SkeletonInternalIndex shape → Unit := fun _ => ()
 
 /-- The left leaf. -/
-def idx : SkeletonLeafIndex shape := .ofLeft .ofLeaf
+private def idx : SkeletonLeafIndex shape := .ofLeft .ofLeaf
 
 /-- The authentication path of the left leaf with sibling `2`. -/
-def proof : List.Vector Y idx.depth := ⟨[2], rfl⟩
+private def proof : List.Vector Y idx.depth := ⟨[2], rfl⟩
 
--- The empty database has no collision and extracts nothing, so it disagrees with the opening.
+-- The empty database has no collision and does not extract this opening.
 example : (∅ : QueryCache TestSpec) ∈ nonExtractingCaches model address 1 3 idx proof := by
   refine ⟨?_, [], ?_, ?_⟩
   · rintro ⟨x, y, a, b, _, h, _, _⟩
