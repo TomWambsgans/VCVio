@@ -82,6 +82,7 @@ noncomputable def amp : Reg → ℂ :=
 noncomputable def proj (b : Fin 2) : Matrix Reg Reg ℂ :=
   Matrix.of fun m m' ↦ if m.2 = m'.2 then sgn (b * (m.1 + m'.1)) / 2 else 0
 
+/-- Every bit is zero or one. -/
 theorem eq_zero_or_one (a : Fin 2) : a = 0 ∨ a = 1 := by
   fin_cases a <;> simp
 
