@@ -73,4 +73,54 @@ example : (∅ : QueryCache TestSpec).updateProb (1, 2)
   simp only [hp]
   simp [Finset.filter_eq']
 
+/-- A collision-free cache with two distinct queries and responses. -/
+private def twoEntryCache : QueryCache TestSpec :=
+  ⟨fun q => if q = (1, 2) then some 3 else if q = (0, 0) then some 0 else none⟩
+
+/-- The two cached responses uniquely identify their queries. -/
+private lemma twoEntryCache_noCollision : ¬CacheHasCollision twoEntryCache := by
+  rintro ⟨x, y, a, b, hxy, hx, hy, hab⟩
+  have hab' : a = b := eq_of_heq hab
+  simp only [twoEntryCache] at hx hy
+  split_ifs at hx hy <;> simp_all
+  all_goals have h := hx.trans hy.symm; norm_num at h
+
+/-- Listing each entry once represents the two-entry cache. -/
+private lemma twoEntryLog_represents :
+    LogRepresentsCache [⟨(1, 2), 3⟩, ⟨(0, 0), 0⟩] twoEntryCache := by
+  constructor
+  · intro entry hentry
+    simp only [List.mem_cons, List.not_mem_nil, or_false] at hentry
+    rcases hentry with rfl | rfl <;> decide
+  · intro input value hvalue
+    simp only [twoEntryCache] at hvalue
+    split_ifs at hvalue with h₁ h₂ <;> simp_all
+
+/-- Reordering and repeating the entries still represents the same cache. -/
+private lemma repeatedLog_represents :
+    LogRepresentsCache [⟨(0, 0), 0⟩, ⟨(1, 2), 3⟩, ⟨(0, 0), 0⟩] twoEntryCache := by
+  constructor
+  · intro entry hentry
+    simp only [List.mem_cons, List.not_mem_nil, or_false] at hentry
+    rcases hentry with rfl | rfl | rfl <;> decide
+  · intro input value hvalue
+    simp only [twoEntryCache] at hvalue
+    split_ifs at hvalue with h₁ h₂ <;> simp_all
+
+-- The public invariance bridge handles permutations and duplicate log entries together.
+example :
+    MerkleTreeExtractor.tree model.view shape address [⟨(1, 2), 3⟩, ⟨(0, 0), 0⟩] 3 =
+      MerkleTreeExtractor.tree model.view shape address
+        [⟨(0, 0), 0⟩, ⟨(1, 2), 3⟩, ⟨(0, 0), 0⟩] 3 :=
+  tree_eq_of_logRepresentsCache model.view twoEntryLog_represents repeatedLog_represents
+    twoEntryCache_noCollision shape address 3
+
+-- A fixed representing log suffices to characterize failure to extract an opening.
+example (leaf root : Y) :
+    twoEntryCache ∈ nonExtractingCaches model address leaf root idx proof ↔
+      OpeningDisagrees model address [⟨(0, 0), 0⟩, ⟨(1, 2), 3⟩, ⟨(0, 0), 0⟩]
+        leaf root idx proof := by
+  rw [mem_nonExtractingCaches_iff_of_logRepresentsCache repeatedLog_represents,
+    and_iff_right twoEntryCache_noCollision]
+
 end VCVioTest.MerkleTreeInstability

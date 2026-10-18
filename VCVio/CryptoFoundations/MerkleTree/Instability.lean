@@ -90,6 +90,64 @@ lemma exists_logRepresentsCache_of_finite {cache : (Query →ₒ Y).QueryCache}
     fun input value hvalue =>
       ⟨⟨input, value⟩, Finset.mem_toList.mpr (h.mem_toFinset.mpr hvalue), rfl, rfl⟩⟩
 
+/-- Child lookup is independent of the log representing a collision-free cache. -/
+private lemma children_eq_of_logRepresentsCache [DecidableEq Address] [DecidableEq Y]
+    (view : MerkleTreeExtractor.QueryView Query Address Y)
+    {log₁ log₂ : (Query →ₒ Y).QueryLog} {cache : (Query →ₒ Y).QueryCache}
+    (h₁ : LogRepresentsCache log₁ cache) (h₂ : LogRepresentsCache log₂ cache)
+    (hno : ¬CacheHasCollision cache) (address : Address) (root : Y) :
+    MerkleTreeExtractor.children view log₁ address root =
+      MerkleTreeExtractor.children view log₂ address root := by
+  have hmem : ∀ entry, entry ∈ log₁ ↔ entry ∈ log₂ := by
+    intro ⟨q, y⟩
+    constructor
+    · intro h
+      obtain ⟨⟨q', y'⟩, h', rfl, rfl⟩ := h₂.2 q y (h₁.1 _ h)
+      exact h'
+    · intro h
+      obtain ⟨⟨q', y'⟩, h', rfl, rfl⟩ := h₁.2 q y (h₂.1 _ h)
+      exact h'
+  cases hfind : log₁.find? (fun entry => view.address entry.1 == address && entry.2 == root) with
+  | none =>
+      have hfind₂ : log₂.find?
+          (fun entry => view.address entry.1 == address && entry.2 == root) = none := by
+        apply List.find?_eq_none.mpr
+        intro entry hentry
+        exact List.find?_eq_none.mp hfind entry ((hmem entry).mpr hentry)
+      simp [MerkleTreeExtractor.children, hfind, hfind₂]
+  | some entry =>
+      have hpred := List.find?_some hfind
+      simp only [Bool.and_eq_true, beq_iff_eq] at hpred
+      have hentry := (hmem entry).mp (List.mem_of_find?_eq_some hfind)
+      have hchildren := MerkleTreeExtractor.children_eq_some_of_mem_of_responseInjectiveOn
+        view log₂ address root entry.1 hpred.1
+        (by simpa only [← hpred.2] using hentry)
+        (responseInjectiveOn_of_cache_noCollision log₂ cache h₂.1 hno)
+      simp only [MerkleTreeExtractor.children, hfind]
+      exact hchildren.symm
+
+/-- Logs representing the same collision-free cache extract the same partial labelled tree,
+regardless of their order or repeated entries. -/
+theorem tree_eq_of_logRepresentsCache [DecidableEq Address] [DecidableEq Y]
+    (view : MerkleTreeExtractor.QueryView Query Address Y)
+    {log₁ log₂ : (Query →ₒ Y).QueryLog} {cache : (Query →ₒ Y).QueryCache}
+    (h₁ : LogRepresentsCache log₁ cache) (h₂ : LogRepresentsCache log₂ cache)
+    (hno : ¬CacheHasCollision cache) (s : Skeleton)
+    (addressKey : SkeletonInternalIndex s → Address) (root : Y) :
+    MerkleTreeExtractor.tree view s addressKey log₁ root =
+      MerkleTreeExtractor.tree view s addressKey log₂ root := by
+  induction s generalizing root with
+  | leaf => rfl
+  | internal left right ihLeft ihRight =>
+      simp only [MerkleTreeExtractor.tree, MerkleTreeExtractor.treeAt]
+      rw [children_eq_of_logRepresentsCache view h₁ h₂ hno]
+      cases MerkleTreeExtractor.children view log₂ (addressKey .ofInternal) root with
+      | none => rfl
+      | some pair =>
+          obtain ⟨leftRoot, rightRoot⟩ := pair
+          exact congrArg₂ (FullData.internal (some root))
+            (ihLeft _ leftRoot) (ihRight _ rightRoot)
+
 section extraction
 
 variable [DecidableEq Address] [DecidableEq Y] (model : NodeQueryModel Query Address Y)
@@ -117,6 +175,26 @@ with the opening `(leaf, proof)` at `idx`. -/
 
 variable {model addressKey} {log : (Query →ₒ Y).QueryLog} {cache : (Query →ₒ Y).QueryCache}
   {leaf root : Y} {idx : SkeletonLeafIndex s} {proof : List.Vector Y idx.depth}
+
+/-- Opening disagreement is independent of the log representing a collision-free cache. -/
+theorem openingDisagrees_iff_of_logRepresentsCache {log' : (Query →ₒ Y).QueryLog}
+    (hlog : LogRepresentsCache log cache) (hlog' : LogRepresentsCache log' cache)
+    (hno : ¬CacheHasCollision cache) :
+    OpeningDisagrees model addressKey log leaf root idx proof ↔
+      OpeningDisagrees model addressKey log' leaf root idx proof := by
+  unfold OpeningDisagrees
+  rw [tree_eq_of_logRepresentsCache model.view hlog hlog' hno]
+
+/-- Any representing log can witness failure to extract from a collision-free cache. -/
+theorem mem_nonExtractingCaches_iff_of_logRepresentsCache
+    (hlog : LogRepresentsCache log cache) :
+    cache ∈ nonExtractingCaches model addressKey leaf root idx proof ↔
+      ¬CacheHasCollision cache ∧ OpeningDisagrees model addressKey log leaf root idx proof := by
+  constructor
+  · rintro ⟨hno, log', hlog', hdisagree⟩
+    exact ⟨hno, (openingDisagrees_iff_of_logRepresentsCache hlog' hlog hno).mp hdisagree⟩
+  · rintro ⟨hno, hdisagree⟩
+    exact ⟨hno, log, hlog, hdisagree⟩
 
 /-- In one collision-free database, every authentication chain agrees with the tree that
 extraction reconstructs from that database. -/
