@@ -108,6 +108,7 @@ def keepReg : Fin 2 → Type
   | 0 => Fin 2
   | 1 => Unit
 
+/-- Each outcome of the keep-or-discard measurement has a finite output register. -/
 instance instFintypeKeepReg : (i : Fin 2) → Fintype (keepReg i)
   | 0 => inferInstanceAs (Fintype (Fin 2))
   | 1 => inferInstanceAs (Fintype Unit)
