@@ -72,7 +72,9 @@ example (a b : Fin 2) (h : a ≠ b) :
     simp [measureZ, SubInstrument.branch_bind_apply_univ, Fin.sum_univ_two,
       SubInstrument.branch_pure, Pi.single_apply, ← MatrixMap.conj_mul, proj] at h ⊢
 
-/-- The state `|+⟩⟨+|`. -/
+/-- The density matrix of `|+⟩ = (|0⟩ + |1⟩) / √2`: all four entries are `1 / 2`. Measuring it
+in the computational basis gives each outcome probability `1 / 2`, and leaves the unnormalized
+post-state `(1 / 2) • |a⟩⟨a|` on outcome `a`. -/
 noncomputable def plus : SubState (Fin 2) where
   matrix := Matrix.of fun _ _ ↦ 1 / 2
   posSemidef := by
@@ -225,7 +227,9 @@ example : measureZ.outcomeMeasure (measureZ.post plus 0) Set.univ = ENNReal.ofRe
 
 /-! ## Outcome-dependent registers -/
 
-/-- The register after measuring a qubit: the qubit on outcome `0`, nothing on outcome `1`. -/
+/-- The register after measuring a qubit: the qubit on outcome `0`, nothing on outcome `1`.
+"Nothing" is the one-point basis `Unit`, whose state space `ℂ` is one-dimensional: it carries
+only the weight of the branch. -/
 @[expose]
 def keepReg : Fin 2 → Type
   | 0 => Fin 2
