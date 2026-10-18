@@ -1223,4 +1223,54 @@ example (ρ : SubState (Fin 2)) :
   QuantumRuntime.outcomeLaw₂_eq_of_simulation .instruments eraseCounter_step
     eraseCounter_isTP eraseCounter_init coinProg ρ
 
+/-! ## The mixed-input counter law -/
+
+/-- The fair classical coin, with density matrix `diag(1/2,1/2)`. -/
+noncomputable def fairCoin : SubState (Fin 2) where
+  matrix := Matrix.diagonal fun _ ↦ 1 / 2
+  posSemidef := Matrix.PosSemidef.diagonal fun _ ↦ by norm_num [Complex.nonneg_iff]
+  trace_re_le_one := by norm_num [Matrix.trace, Fin.sum_univ_two]
+
+/-- The fair coin is the equal mixture of the two basis projectors. -/
+theorem matrix_fairCoin : fairCoin.matrix =
+    (1 / 2 : ℂ) • (Matrix.single 0 0 1 + Matrix.single 1 1 1) := by
+  ext i j
+  fin_cases i <;> fin_cases j <;> norm_num [fairCoin, Matrix.diagonal, Matrix.single_apply]
+
+/-- On a fair coin, branch `b` has weight `1/2` and counter `1` on zero or `2` on one. -/
+theorem matrix_jointPost₂_coinProg_fairCoin (b : Fin 2) :
+    (countRuntime.jointPost₂ .instruments coinProg fairCoin b).matrix =
+      (1 / 2 : ℂ) •
+        Matrix.single (((), b), if b = 1 then (2 : Fin 3) else 1)
+          (((), b), if b = 1 then (2 : Fin 3) else 1) 1 := by
+  rw [QuantumRuntime.matrix_jointPost₂, matrix_fairCoin, SubState.matrix_basis,
+    Matrix.smul_kronecker, Matrix.add_kronecker, Matrix.single_kronecker_single,
+    Matrix.single_kronecker_single, one_mul, map_smul, map_add,
+    run_coinProg_branch_single, run_coinProg_branch_single]
+  fin_cases b <;> simp [tick]
+
+/-- Measuring a basis projector of weight `1/2` reports its label with that same weight. -/
+theorem outcomeMeasure_classical_half_basis {A α : Type} [Fintype A] [DecidableEq A]
+    [MeasurableSpace α] (g : A → α) (a : A) (ρ : SubState A)
+    (hρ : ρ.matrix = (1 / 2 : ℂ) • Matrix.single a a 1) :
+    (SubInstrument.classical id g).outcomeMeasure ρ = (2 : ℝ≥0∞)⁻¹ • Measure.dirac (g a) := by
+  rw [SubInstrument.classical, SubInstrument.outcomeMeasure_map_univ,
+    Finset.sum_eq_single a (fun a' _ ha' ↦ ?_) (by simp)]
+  · norm_num [hρ, Matrix.trace_smul,
+      ENNReal.ofReal_div_of_pos (by norm_num : (0 : ℝ) < 2)]
+  · simp [hρ, ha']
+
+/-- The joint law of the coin and a final computational-basis measurement of the private counter. -/
+noncomputable def coinCounterLaw : Measure (Fin 2 × Fin 3) :=
+  ∑ b : Fin 2,
+    (SubInstrument.classical id (fun m : (Unit × Fin 2) × Fin 3 ↦ (b, m.2))).outcomeMeasure
+      (countRuntime.jointPost₂ .instruments coinProg fairCoin b)
+
+/-- The fair-coin run has joint law `1/2 · δ_(0,1) + 1/2 · δ_(1,2)`. -/
+theorem coinCounterLaw_eq : coinCounterLaw =
+    (2 : ℝ≥0∞)⁻¹ • Measure.dirac (0, 1) + (2 : ℝ≥0∞)⁻¹ • Measure.dirac (1, 2) := by
+  unfold coinCounterLaw
+  simp_rw [outcomeMeasure_classical_half_basis _ _ _ (matrix_jointPost₂_coinProg_fairCoin _)]
+  simp [Fin.sum_univ_two]
+
 end VCVioTest.QuantumOracle
