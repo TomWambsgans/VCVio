@@ -82,7 +82,7 @@ public section
 open MeasureTheory
 open scoped ComplexOrder
 
-universe u₁ v₁
+universe u₁ v₁ w
 
 namespace Quantum
 
@@ -414,7 +414,7 @@ end QuantumRuntime
 
 section toComp
 
-variable {spec : QuantumOracleSpec.{u₁, v₁}} {M : Type} [Fintype M] [DecidableEq M] {α : Type}
+variable {spec : QuantumOracleSpec.{u₁, v₁}} {M : Type} [Fintype M] [DecidableEq M] {α : Type w}
   {q : ℕ}
 
 /-- The straight-line program `s 0, call, s 1, …, call, s q`: each call goes to port `i` on the
@@ -476,6 +476,88 @@ theorem isQueryBound_interleaveComp [DecidableEq spec.Port] (i : spec.Port) (E :
           (by simp)) fun _ ↦ QComp.isQueryBound_act _ 0).mono (le_of_eq ?_)
     rw [add_zero, Pi.single_add]
 
+/-- Run a one-outcome step using instrument outcomes in universe `w`. -/
+@[expose]
+noncomputable def actUnit {A B : QReg} (p : SubInstrument A B Unit) :
+    QuantumComp₂ LocalSig.instruments.{w} spec A B Unit :=
+  (QComp.act (p.map (ULift.up : Unit → ULift.{w} Unit))).bind fun _ ↦
+    QuantumComp₂.pure ()
+
+/-- Lifting the internal unit outcome preserves the executed subinstrument. -/
+theorem run_actUnit {A B : QReg} (R : QuantumRuntime spec) (p : SubInstrument A B Unit) :
+    R.run₂ .instruments (actUnit.{u₁, v₁, w} p) = p.frame R.D := by
+  rw [actUnit, QuantumRuntime.run₂_bind, QuantumRuntime.run₂_act,
+    SubInstrument.bind_pure, SubInstrument.frame_map, SubInstrument.map_eq_bind_pure,
+    SubInstrument.bind_assoc]
+  simp only [SubInstrument.pure_bind, QuantumRuntime.run₂_pure]
+  exact SubInstrument.bind_pure _
+
+/-- A lifted one-outcome step is lossless when its instrument is lossless. -/
+theorem lossless_actUnit {A B : QReg} {p : SubInstrument A B Unit} (hp : p.Lossless) :
+    (actUnit.{u₁, v₁, w} (spec := spec) p).Lossless .instruments :=
+  QuantumComp₂.lossless_bind (QComp.lossless_act (hp.map _)) fun _ ↦
+    QuantumComp₂.lossless_pure _
+
+/-- Lifting a local outcome introduces no oracle calls. -/
+theorem isQueryBound_actUnit {A B : QReg} (p : SubInstrument A B Unit)
+    (b : spec.Port → ℕ) : (actUnit.{u₁, v₁, w} p).IsQueryBound b := by
+  exact (QuantumComp₂.isQueryBound_bind (b₁ := b) (b₂ := 0)
+    (QComp.isQueryBound_act _ _) fun _ ↦ QuantumComp₂.isQueryBound_pure _ _).mono
+      (add_zero b).le
+
+/-- Interleave comb steps and calls with local outcomes in an arbitrary universe. -/
+@[expose]
+noncomputable def interleaveCompLift (i : spec.Port) (E : QReg)
+    (ℓ : M ≃ spec.In i × E) (ℓ' : spec.Out i × E ≃ M) :
+    (q : ℕ) → (Fin (q + 1) → SubInstrument M M Unit) →
+      QuantumComp₂ LocalSig.instruments.{w} spec (QReg.of M) (QReg.of M) Unit
+  | 0, s => actUnit (s 0)
+  | q + 1, s =>
+    ((interleaveCompLift i E ℓ ℓ' q (Fin.init s)).bind fun _ ↦
+      QuantumComp₂.query i E ℓ).bind fun _ ↦
+        actUnit ((SubInstrument.relabel ℓ').bind fun _ ↦ s (Fin.last _))
+
+/-- Lifting the internal outcomes preserves the interleaved execution. -/
+theorem run_interleaveCompLift (R : QuantumRuntime spec) (i : spec.Port) (E : QReg)
+    (ℓ : M ≃ spec.In i × E) (ℓ' : spec.Out i × E ≃ M) :
+    ∀ (q : ℕ) (s : Fin (q + 1) → SubInstrument M M Unit),
+      R.run₂ .instruments (interleaveCompLift.{u₁, v₁, w} i E ℓ ℓ' q s) =
+        interleave (R.combQuery i E ℓ ℓ') q fun j ↦ (s j).frame R.D
+  | 0, s => by rw [interleaveCompLift, run_actUnit, interleave_zero]
+  | q + 1, s => by
+    rw [interleaveCompLift, QuantumRuntime.run₂_bind, QuantumRuntime.run₂_bind,
+      run_interleaveCompLift R i E ℓ ℓ' q, QuantumRuntime.run₂_query,
+      SubInstrument.bind_pure, run_actUnit, SubInstrument.frame_bind, interleave_succ,
+      QuantumRuntime.combQuery]
+    simp only [SubInstrument.bind_assoc]
+    rfl
+
+/-- Lossless comb steps remain lossless after lifting their internal outcomes. -/
+theorem lossless_interleaveCompLift (i : spec.Port) (E : QReg)
+    (ℓ : M ≃ spec.In i × E) (ℓ' : spec.Out i × E ≃ M) :
+    ∀ {q : ℕ} {s : Fin (q + 1) → SubInstrument M M Unit}, (∀ j, (s j).Lossless) →
+      (interleaveCompLift.{u₁, v₁, w} i E ℓ ℓ' q s).Lossless .instruments
+  | 0, _, hs => lossless_actUnit (hs 0)
+  | _ + 1, _, hs =>
+    QuantumComp₂.lossless_bind (QuantumComp₂.lossless_bind
+      (lossless_interleaveCompLift i E ℓ ℓ' fun j ↦ hs j.castSucc) fun _ ↦
+        QuantumComp₂.lossless_query _ _ _) fun _ ↦
+      lossless_actUnit ((SubInstrument.lossless_relabel _).bind fun _ ↦ hs _)
+
+/-- Lifting internal outcomes preserves the comb's per-port query budget. -/
+theorem isQueryBound_interleaveCompLift [DecidableEq spec.Port] (i : spec.Port) (E : QReg)
+    (ℓ : M ≃ spec.In i × E) (ℓ' : spec.Out i × E ≃ M) :
+    ∀ (q : ℕ) (s : Fin (q + 1) → SubInstrument M M Unit),
+      (interleaveCompLift.{u₁, v₁, w} i E ℓ ℓ' q s).IsQueryBound (Pi.single i q)
+  | 0, s => by rw [Pi.single_zero]; exact isQueryBound_actUnit _ _
+  | q + 1, s => by
+    rw [interleaveCompLift]
+    refine (QuantumComp₂.isQueryBound_bind (QuantumComp₂.isQueryBound_bind
+      (isQueryBound_interleaveCompLift i E ℓ ℓ' q (Fin.init s)) fun _ ↦
+        (QuantumComp₂.isQueryBound_query_iff (A := QReg.of M) i E ℓ (Pi.single i 1)).mpr
+          (by simp)) fun _ ↦ isQueryBound_actUnit _ 0).mono (le_of_eq ?_)
+    rw [add_zero, Pi.single_add]
+
 namespace QuantumComb
 
 /-- **The program of a comb.** Its queries go to port `i` on the factor of `M` exposed by `ℓ`,
@@ -485,7 +567,7 @@ part of the program, which is observed from a substate of its starting register.
 noncomputable def toComp (c : QuantumComb M α q) (i : spec.Port) (E : QReg)
     (ℓ : M ≃ spec.In i × E) (ℓ' : spec.Out i × E ≃ M) :
     QComp spec (QReg.of M) (QReg.of M) α :=
-  (interleaveComp i E ℓ ℓ' q c.step).bind fun _ ↦ QComp.act c.final
+  (interleaveCompLift i E ℓ ℓ' q c.step).bind fun _ ↦ QComp.act c.final
 
 /-- **Proposition 1.** Running the program of a comb against a runtime `R` is running the comb,
 framed by the runtime register, against the query step `R.combQuery i E ℓ ℓ'`. -/
@@ -493,7 +575,7 @@ theorem run_toComp (c : QuantumComb M α q) (R : QuantumRuntime spec) (i : spec.
     (ℓ : M ≃ spec.In i × E) (ℓ' : spec.Out i × E ≃ M) :
     R.run₂ .instruments (c.toComp i E ℓ ℓ') =
       (c.frame R.D R.init).run (R.combQuery i E ℓ ℓ') := by
-  rw [toComp, QuantumRuntime.run₂_bind, run_interleaveComp, QuantumRuntime.run₂_act,
+  rw [toComp, QuantumRuntime.run₂_bind, run_interleaveCompLift, QuantumRuntime.run₂_act,
     SubInstrument.bind_pure]
   rfl
 
@@ -511,14 +593,14 @@ theorem outcomeLaw_toComp [MeasurableSpace α] (c : QuantumComb M α q) (R : Qua
 theorem lossless_toComp (c : QuantumComb M α q) (i : spec.Port) (E : QReg)
     (ℓ : M ≃ spec.In i × E) (ℓ' : spec.Out i × E ≃ M) :
     (c.toComp i E ℓ ℓ').Lossless .instruments :=
-  QuantumComp₂.lossless_bind (lossless_interleaveComp i E ℓ ℓ' c.lossless_step) fun _ ↦
+  QuantumComp₂.lossless_bind (lossless_interleaveCompLift i E ℓ ℓ' c.lossless_step) fun _ ↦
     QComp.lossless_act c.lossless_final
 
 /-- The program of a `q`-query comb makes `q` calls of port `i` and none of any other port. -/
 theorem isQueryBound_toComp [DecidableEq spec.Port] (c : QuantumComb M α q) (i : spec.Port)
     (E : QReg) (ℓ : M ≃ spec.In i × E) (ℓ' : spec.Out i × E ≃ M) :
     (c.toComp i E ℓ ℓ').IsQueryBound (Pi.single i q) :=
-  (QuantumComp₂.isQueryBound_bind (isQueryBound_interleaveComp i E ℓ ℓ' q c.step) fun _ ↦
+  (QuantumComp₂.isQueryBound_bind (isQueryBound_interleaveCompLift i E ℓ ℓ' q c.step) fun _ ↦
     QComp.isQueryBound_act _ 0).mono (add_zero _).le
 
 end QuantumComb
