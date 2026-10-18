@@ -24,8 +24,8 @@ runtime register, so the proof is an induction on the program tree. The statemen
 
 When `V` is trace preserving and sends the initial operator of `R₁` to that of `R₂`, no
 observation by the program can tell the runtimes apart: the reduced post-states and the outcome
-laws agree (`Quantum.QuantumRuntime.reducedPost_eq_of_simulation` and
-`Quantum.QuantumRuntime.outcomeLaw_eq_of_simulation`). An example is a runtime that also counts
+distributions agree (`Quantum.QuantumRuntime.reducedPost_eq_of_simulation` and
+`Quantum.QuantumRuntime.evalDist_eq_of_simulation`). An example is a runtime that also counts
 the calls in a counter register, against the same runtime without the counter: `V` forgets the
 counter by the partial trace over it, from the counting runtime to the stateless one.
 
@@ -34,7 +34,7 @@ calls of one particular run receive (`Quantum.QuantumRuntime.ForallQueries`). Th
 agree on that input (`Quantum.QuantumRuntime.run_branch_apply_eq_of_forallQueries`).
 
 Each statement is proved for general programs, with the fixed-register forms (`simulation₂`,
-`outcomeLaw₂_eq_of_simulation`, ...) as corollaries at the leaves `⟨B, rfl, a⟩`.
+`evalDist₂_eq_of_simulation`, ...) as corollaries at the leaves `⟨B, rfl, a⟩`.
 
 ## Main definitions
 
@@ -48,7 +48,7 @@ Each statement is proved for general programs, with the fixed-register forms (`s
 
 * `Quantum.QuantumRuntime.simulation`.
 * `Quantum.QuantumRuntime.reducedPost_eq_of_simulation`,
-  `Quantum.QuantumRuntime.outcomeLaw_eq_of_simulation`.
+  `Quantum.QuantumRuntime.evalDist_eq_of_simulation`.
 * `Quantum.QuantumRuntime.run_branch_apply_eq_of_forallQueries`: two runtimes whose steps agree
   on the operators the calls of a run receive give the same run on that input. This is the
   general form of "the oracle is only seen where it is queried".
@@ -328,12 +328,12 @@ theorem trace_jointPost_eq_of_simulation
   rw [← trace_reducedPost, ← trace_reducedPost, reducedPost_eq_of_simulation I h hV hinit]
 
 /-- **Indistinguishability.** Under a simulation through a trace-preserving `V` that sends the
-initial operator of `R₁` to that of `R₂`, the outcome laws of every program agree. -/
-theorem outcomeLaw_eq_of_simulation [MeasurableSpace (Σ u, X u)]
+initial operator of `R₁` to that of `R₂`, the outcome distributions of every program agree. -/
+theorem evalDist_eq_of_simulation [MeasurableSpace (Σ u, X u)]
     (h : ∀ i r, (R₂.step i).branch r ∘ₗ V.amplifyLeft (spec.In i) =
       V.amplifyLeft (spec.Out i) ∘ₗ (R₁.step i).branch r)
     (hV : V.IsTP) (hinit : V R₁.init.matrix = R₂.init.matrix) (x : QuantumComp L spec X A)
-    (ρ : SubState A) : R₂.outcomeLaw I x ρ = R₁.outcomeLaw I x ρ :=
+    (ρ : SubState A) : R₂.evalDist I x ρ = R₁.evalDist I x ρ :=
   DSubInstrument.outcomeMeasure_congr fun p ↦ trace_jointPost_eq_of_simulation I h hV hinit x ρ p
 
 /-- Under a simulation, the joint post-state of a fixed-register program against `R₂` is
@@ -354,13 +354,13 @@ theorem reducedPost₂_eq_of_simulation
     (ρ : SubState A) (a : α) : R₂.reducedPost₂ I x ρ a = R₁.reducedPost₂ I x ρ a :=
   reducedPost_eq_of_simulation I h hV hinit x ρ ⟨B, rfl, a⟩
 
-/-- **Indistinguishability** for fixed-register programs: the laws of the returned value
+/-- **Indistinguishability** for fixed-register programs: the distributions of the returned value
 agree. -/
-theorem outcomeLaw₂_eq_of_simulation [MeasurableSpace α]
+theorem evalDist₂_eq_of_simulation [MeasurableSpace α]
     (h : ∀ i r, (R₂.step i).branch r ∘ₗ V.amplifyLeft (spec.In i) =
       V.amplifyLeft (spec.Out i) ∘ₗ (R₁.step i).branch r)
     (hV : V.IsTP) (hinit : V R₁.init.matrix = R₂.init.matrix) (x : QuantumComp₂ L spec A B α)
-    (ρ : SubState A) : R₂.outcomeLaw₂ I x ρ = R₁.outcomeLaw₂ I x ρ :=
+    (ρ : SubState A) : R₂.evalDist₂ I x ρ = R₁.evalDist₂ I x ρ :=
   SubInstrument.outcomeMeasure_congr fun a ↦
     trace_jointPost_eq_of_simulation I h hV hinit x ρ ⟨B, rfl, a⟩
 
@@ -530,18 +530,18 @@ theorem ForallQueries.of_congr {D : QReg} {σ₁ σ₂ : SubState D}
     exact ih r (hx.2 r)
 
 /-- Under the hypotheses of `run_branch_apply_eq_of_forallQueries` from the joint substate
-`ρ ⊗ init`, with the same initial substate, the outcome laws agree. -/
-theorem outcomeLaw_eq_of_forallQueries [MeasurableSpace (Σ u, X u)] {D : QReg} {σ : SubState D}
+`ρ ⊗ init`, with the same initial substate, the outcome distributions agree. -/
+theorem evalDist_eq_of_forallQueries [MeasurableSpace (Σ u, X u)] {D : QReg} {σ : SubState D}
     {s₁ s₂ : ∀ i, SubInstrument (spec.In i × D) (spec.Out i × D) (spec.Result i)}
     {P : ∀ (i : spec.Port) (E : QReg), Matrix ((spec.In i × D) × E) ((spec.In i × D) × E) ℂ → Prop}
     (hs : ∀ i E σ, P i E σ → ∀ r, ((s₁ i).frame E).branch r σ = ((s₂ i).frame E).branch r σ)
     {x : QuantumComp L spec X A} {ρ : SubState A}
     (hx : (QuantumRuntime.mk D σ s₁).ForallQueries I P x (ρ.prod σ).matrix) :
-    (QuantumRuntime.mk D σ s₁).outcomeLaw I x ρ = (QuantumRuntime.mk D σ s₂).outcomeLaw I x ρ :=
+    (QuantumRuntime.mk D σ s₁).evalDist I x ρ = (QuantumRuntime.mk D σ s₂).evalDist I x ρ :=
   DSubInstrument.outcomeMeasure_congr fun p ↦ by
     rw [run_branch_apply_eq_of_forallQueries (σ₂ := σ) I hs hx p]
 
-/-- Under the hypotheses of `outcomeLaw_eq_of_forallQueries`, the joint post-states agree. -/
+/-- Under the hypotheses of `evalDist_eq_of_forallQueries`, the joint post-states agree. -/
 theorem jointPost_eq_of_forallQueries {D : QReg} {σ : SubState D}
     {s₁ s₂ : ∀ i, SubInstrument (spec.In i × D) (spec.Out i × D) (spec.Result i)}
     {P : ∀ (i : spec.Port) (E : QReg), Matrix ((spec.In i × D) × E) ((spec.In i × D) × E) ℂ → Prop}
@@ -552,20 +552,20 @@ theorem jointPost_eq_of_forallQueries {D : QReg} {σ : SubState D}
   SubState.ext <| run_branch_apply_eq_of_forallQueries (σ₂ := σ) I hs hx p
 
 /-- Under the hypotheses of `run_branch_apply_eq_of_forallQueries` from the joint substate
-`ρ ⊗ init`, with the same initial substate, the laws of the value returned by a fixed-register
-program agree. -/
-theorem outcomeLaw₂_eq_of_forallQueries [MeasurableSpace α] {D : QReg} {σ : SubState D}
+`ρ ⊗ init`, with the same initial substate, the distributions of the value returned by a
+fixed-register program agree. -/
+theorem evalDist₂_eq_of_forallQueries [MeasurableSpace α] {D : QReg} {σ : SubState D}
     {s₁ s₂ : ∀ i, SubInstrument (spec.In i × D) (spec.Out i × D) (spec.Result i)}
     {P : ∀ (i : spec.Port) (E : QReg), Matrix ((spec.In i × D) × E) ((spec.In i × D) × E) ℂ → Prop}
     (hs : ∀ i E σ, P i E σ → ∀ r, ((s₁ i).frame E).branch r σ = ((s₂ i).frame E).branch r σ)
     {x : QuantumComp₂ L spec A B α} {ρ : SubState A}
     (hx : (QuantumRuntime.mk D σ s₁).ForallQueries I P x (ρ.prod σ).matrix) :
-    (QuantumRuntime.mk D σ s₁).outcomeLaw₂ I x ρ =
-      (QuantumRuntime.mk D σ s₂).outcomeLaw₂ I x ρ :=
+    (QuantumRuntime.mk D σ s₁).evalDist₂ I x ρ =
+      (QuantumRuntime.mk D σ s₂).evalDist₂ I x ρ :=
   SubInstrument.outcomeMeasure_congr fun a ↦ by
     rw [run₂_branch_apply_eq_of_forallQueries (σ₂ := σ) I hs hx a]
 
-/-- Under the hypotheses of `outcomeLaw₂_eq_of_forallQueries`, the joint post-states of the
+/-- Under the hypotheses of `evalDist₂_eq_of_forallQueries`, the joint post-states of the
 fixed-register program agree. -/
 theorem jointPost₂_eq_of_forallQueries {D : QReg} {σ : SubState D}
     {s₁ s₂ : ∀ i, SubInstrument (spec.In i × D) (spec.Out i × D) (spec.Result i)}

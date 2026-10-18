@@ -24,23 +24,24 @@ No query bound, workspace or default value is needed: the program tree is the tr
 The embedding is a program over instruments (`Quantum.QComp`): its local steps, the preparation
 of `|t, 0⟩` and the measurement of the register, are subinstruments, and it returns the value of
 `oa` on the trivial register. The theorems below are stated for this fixed-register form and the
-law of its value (`Quantum.qromLaw₂`), which is the general law of the quantum random-oracle model
-(`Quantum.qromLawWith`) read through the value of each leaf.
+distribution of its value (`Quantum.qromEvalDist₂`), which is the general distribution of the
+quantum random-oracle model (`Quantum.qromEvalDistMap`) read through the value of each leaf.
 
 ## Main results
 
 * `OracleComp.lossless_toQuantum` and `OracleComp.isQueryBound_toQuantum`: the program is
   lossless, and an algorithm making at most `n` queries runs to a program with budget `n`.
-* `Quantum.outcomeLaw_toQuantum_of_basis`: against any runtime that answers a call on a basis
+* `Quantum.evalDist_toQuantum_of_basis`: against any runtime that answers a call on a basis
   state `|x, y⟩` with `|x, y + H x⟩`, leaves its private register alone and starts it in a basis
   state, the program reports `evalWithAnswerFn (QueryImpl.ofFn H) oa` with certainty.
-* `Quantum.outcomeLaw_additiveOracleRuntime_toQuantum`: against the oracle unitary of `H`, the
+* `Quantum.evalDist_additiveOracleRuntime_toQuantum`: against the oracle unitary of `H`, the
   program
   reports `evalWithAnswerFn (QueryImpl.ofFn H) oa`, the value of `oa` when every query is answered
   by `H`, with certainty.
-* `Quantum.qromLaw₂_toQuantum`: its law in the quantum random-oracle model is the output measure
-  of the classical experiment that samples `H` uniformly and evaluates `oa` against it.
-* `Quantum.qromLaw₂_toQuantum_eq_randomOracle`: this is also the output measure of `oa` under
+* `Quantum.qromEvalDist₂_toQuantum`: its distribution in the quantum random-oracle model is the
+  output measure of the classical experiment that samples `H` uniformly and evaluates `oa` against
+  it.
+* `Quantum.qromEvalDist₂_toQuantum_eq_randomOracle`: this is also the output measure of `oa` under
   VCVio's lazily sampled, cached random oracle `randomOracle`.
 -/
 
@@ -225,15 +226,15 @@ theorem run_toQuantum_branch_of_basis [DecidableEq α] (H : X → Y)
 /-- Against a runtime that answers basis queries by `H`, leaves its private register alone and
 starts it in a basis state, the program of a classical algorithm from the trivial state reports
 the value of the algorithm against `H` with certainty. -/
-theorem outcomeLaw_toQuantum_of_basis [MeasurableSpace α] (H : X → Y)
+theorem evalDist_toQuantum_of_basis [MeasurableSpace α] (H : X → Y)
     {R : QuantumRuntime (qromSpec X Y)}
     (hR : ∀ (m : X × Y) (d : R.D), (R.step ()).branch () (Matrix.single (m, d) (m, d) 1) =
       Matrix.single ((m.1, m.2 + H m.1), d) ((m.1, m.2 + H m.1), d) 1)
     {d₀ : R.D} (hinit : R.init = SubState.basis d₀) (oa : OracleComp (X →ₒ Y) α) :
-    R.outcomeLaw₂ .instruments oa.toQuantum (SubState.basis ()) =
+    R.evalDist₂ .instruments oa.toQuantum (SubState.basis ()) =
       Measure.dirac (evalWithAnswerFn (QueryImpl.ofFn H) oa) := by
   classical
-  rw [QuantumRuntime.outcomeLaw₂, hinit, SubState.basis_prod_basis]
+  rw [QuantumRuntime.evalDist₂, hinit, SubState.basis_prod_basis]
   ext t ht
   rw [SubInstrument.outcomeMeasure_apply _ _ ht,
     tsum_eq_single (evalWithAnswerFn (QueryImpl.ofFn H) oa) fun b hb ↦ by
@@ -243,11 +244,11 @@ theorem outcomeLaw_toQuantum_of_basis [MeasurableSpace α] (H : X → Y)
 
 /-- Against the oracle unitary of `H`, the program of a classical algorithm reports the value of
 the algorithm against `H` with certainty. -/
-theorem outcomeLaw_additiveOracleRuntime_toQuantum [MeasurableSpace α] (H : X → Y)
+theorem evalDist_additiveOracleRuntime_toQuantum [MeasurableSpace α] (H : X → Y)
     (oa : OracleComp (X →ₒ Y) α) :
-    (additiveOracleRuntime H).outcomeLaw₂ .instruments oa.toQuantum (SubState.basis ()) =
+    (additiveOracleRuntime H).evalDist₂ .instruments oa.toQuantum (SubState.basis ()) =
       Measure.dirac (evalWithAnswerFn (QueryImpl.ofFn H) oa) :=
-  outcomeLaw_toQuantum_of_basis H (additiveOracleRuntime_step_branch_single H)
+  evalDist_toQuantum_of_basis H (additiveOracleRuntime_step_branch_single H)
     (additiveOracleRuntime_init H) oa
 
 /-! ## Agreement with the classical random-oracle model -/
@@ -255,25 +256,26 @@ theorem outcomeLaw_additiveOracleRuntime_toQuantum [MeasurableSpace α] (H : X �
 variable [SampleableType (X → Y)]
 
 /-- **The quantum random-oracle model agrees with the classical one on classical algorithms.**
-The law, in the quantum random-oracle model, of the program of a classical algorithm is the
+The distribution, in the quantum random-oracle model, of the program of a classical algorithm is the
 output measure of the classical experiment that samples a function `H : X → Y` uniformly and
 evaluates the algorithm with every query answered by `H`. No query bound is needed. -/
-theorem qromLaw₂_toQuantum [MeasurableSpace α] (oa : OracleComp (X →ₒ Y) α) :
-    qromLaw₂ .instruments oa.toQuantum (SubState.basis ()) =
+theorem qromEvalDist₂_toQuantum [MeasurableSpace α] (oa : OracleComp (X →ₒ Y) α) :
+    qromEvalDist₂ .instruments oa.toQuantum (SubState.basis ()) =
       𝒟[do let H ← $ᵗ (X → Y); pure (evalWithAnswerFn (QueryImpl.ofFn H) oa)] := by
   let : MeasurableSpace (X → Y) := ⊤
-  rw [evalDist_bind_of_discrete, qromLaw₂, sampledLaw₂_eq_bind]
+  rw [evalDist_bind_of_discrete, qromEvalDist₂, sampledEvalDist₂_eq_bind]
   congr 1
   funext H
   rw [evalDist_pure]
-  exact outcomeLaw_additiveOracleRuntime_toQuantum H oa
+  exact evalDist_additiveOracleRuntime_toQuantum H oa
 
-/-- The law, in the quantum random-oracle model, of the program of a classical algorithm is the
-output measure of the algorithm under the lazily sampled, cached random oracle. -/
-theorem qromLaw₂_toQuantum_eq_randomOracle [SampleableType Y] [MeasurableSpace α]
+/-- The distribution, in the quantum random-oracle model, of the program of a classical algorithm is
+the output measure of the algorithm under the lazily sampled, cached random oracle. -/
+theorem qromEvalDist₂_toQuantum_eq_randomOracle [SampleableType Y] [MeasurableSpace α]
     (oa : OracleComp (X →ₒ Y) α) :
-    qromLaw₂ .instruments oa.toQuantum (SubState.basis ()) =
+    qromEvalDist₂ .instruments oa.toQuantum (SubState.basis ()) =
       𝒟[(simulateQ randomOracle oa).run' ∅] := by
-  rw [qromLaw₂_toQuantum, OracleComp.evalDist_simulateQ_randomOracle_run'_empty_eq_uniformTable]
+  rw [qromEvalDist₂_toQuantum,
+    OracleComp.evalDist_simulateQ_randomOracle_run'_empty_eq_uniformTable]
 
 end Quantum
