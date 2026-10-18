@@ -212,6 +212,20 @@ are integer multiples of `2⁻ᵏ`. Unbounded almost-sure bit execution or an ex
 approximation is the relevant implementation bridge. VCVio's existing uniform finite oracle
 can already sample `Fin 3`; the new point is a certified realization using fair bits.
 
+The [generic categorical client](../../VCVio/OracleComp/Coinductive/UniformThreshold/Categorical.lean)
+consumes the existing `FinRatPMF.Raw` array of normalized rational tickets. Cumulative
+thresholds reuse one prefix, and the last ticket requires no query. Zero-weight
+tickets, repeated thresholds and duplicate outcomes are allowed; singleton
+distributions consume no random bits. Its
+[measure theorem](../../VCVio/OracleComp/Coinductive/UniformThreshold/Categorical/Semantics.lean)
+identifies the exact compiled machine's returned law with `Raw.toMeasure` and proves
+almost-sure return under fair-bit answers. Capping each threshold at `k` new bits
+gives event-TV error at most `(n - 1) · 2⁻ᵏ` for `n` tickets, including timeout mass.
+The ternary example is a consumer of this construction and retains its explicit
+three-bin Borel view. Each `sampleIO` call starts with a fresh empty prefix; within
+that call, comparisons share the same persistent uniform value. This is a certified
+implementation of cumulative-threshold sampling, not a new sampling algorithm.
+
 The [timing example](../../Examples/MeasurableServices/ThresholdTiming.lean) computes the one-bit
 law at threshold `1/3`: half the runs time out, and every run finishing then returns false.
 This establishes timing/output correlation; it does not by itself prove additional leakage

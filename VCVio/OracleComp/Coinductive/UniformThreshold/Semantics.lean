@@ -173,7 +173,7 @@ theorem idealAnswer_apply (q : ℚ) (u : ℝ) :
     idealAnswer q u = Measure.dirac (readReal q u, u) := by rfl
 
 /-- An ideal query selects its continuation without changing the persistent real. -/
-theorem runKernel_ideal_liftBind {α : Type} [MeasurableSpace α] (q : ℚ)
+theorem runKernel_ideal_liftBind {α : Type*} [MeasurableSpace α] (q : ℚ)
     (next : Bool → FreeM spec.toPFunctor α) (u : ℝ) :
     FreeM.runKernel idealAnswer (FreeM.liftBind (P := spec.toPFunctor) q next) u =
       FreeM.runKernel idealAnswer (next (readReal q u)) u := by
@@ -193,7 +193,7 @@ theorem reconstructionContract :
   exact Measure.bind_dirac_eq_map _ ((measurable_readReal q).prodMk measurable_id)
 
 /-- Every adaptive client has the same result law under the executable and ideal services. -/
-theorem adaptive_output_law {α : Type} [MeasurableSpace α]
+theorem adaptive_output_law {α : Type*} [MeasurableSpace α]
     (program : FreeM spec.toPFunctor α) (p : Prefix) :
     ((cellLaw p).bind (FreeM.runKernel idealAnswer program)).map Prod.fst =
       (FreeM.runKernel answerKernel program p).map Prod.fst := by

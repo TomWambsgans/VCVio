@@ -6,6 +6,7 @@ Authors: Devon Tuma
 
 module
 public import VCVio.OracleComp.Coinductive.UniformThreshold.Budget
+public import VCVio.OracleComp.Coinductive.UniformThreshold.Categorical
 
 /-!
 # Deterministic tape checks for the persistent threshold machine
@@ -13,6 +14,7 @@ public import VCVio.OracleComp.Coinductive.UniformThreshold.Budget
 The tape handler fails when it runs out of supplied bits. These checks exercise exact
 endpoints, non-dyadic thresholds, timeout, and retained state. They do not use a statistical
 test or a production RNG assumption.
+Categorical checks exercise the actual IO sampler with normalized rational ticket arrays.
 -/
 
 open PFunctor UniformThreshold
@@ -53,6 +55,27 @@ def inspectBudget (cap : ℚ → Budget.Session → ℕ) (allowance : ℚ≥0) (
   let (out, rest) ← (Budget.run cap adaptive (Prefix.empty, allowance)).liftM tape bits
   return (out.1, out.2.1.depth, out.2.1.cell, out.2.2, rest)
 
+private def categoricalZeros : FinRatPMF.Raw Nat :=
+  ⟨#[(0, 0), (1, 1 / 3), (99, 0), (2, 2 / 3)], by norm_num⟩
+
+private def categoricalDuplicates : FinRatPMF.Raw Nat :=
+  ⟨#[(7, 1 / 3), (7, 2 / 3)], by norm_num⟩
+
+private def categoricalQuarters : FinRatPMF.Raw Nat :=
+  ⟨#[(0, 1 / 4), (1, 1 / 2), (2, 1 / 4)], by norm_num⟩
+
+private def checkCategorical (label : String) (distribution : FinRatPMF.Raw Nat)
+    (bits : List Bool) (expected : Nat) (remaining : List Bool) : IO Unit := do
+  let source ← IO.mkRef bits
+  let draw : IO Bool := do
+    match ← source.get with
+    | [] => throw (IO.userError s!"{label}: unexpected bit query")
+    | bit :: rest => source.set rest; return bit
+  let out ← Categorical.sampleIO distribution draw
+  let rest ← source.get
+  unless out == expected && rest == remaining do
+    throw (IO.userError s!"{label}: got {out} and {rest}, expected {expected} and {remaining}")
+
 /-- Run deterministic regression cases through the compiled generic chunk driver. -/
 def run : IO Unit := do
   let check (label : String) (actual expected : Option (Option Bool × ℕ × ℕ × List Bool)) := do
@@ -88,6 +111,14 @@ def run : IO Unit := do
   checkBudget "later refusal keeps earlier effects"
     (inspectBudget (fun _ state => if state.1.depth = 0 then 2 else 0) 1 [false, false, true])
     (some (.error .budgetExhausted, 2, 0, 3 / 4, [true]))
-  IO.println "Persistent uniform threshold: 16 deterministic tape cases passed"
+  checkCategorical "singleton needs no bits" (pure 9) [] 9 []
+  checkCategorical "zero weights below" categoricalZeros [false, false, true] 1 [true]
+  checkCategorical "repeated thresholds above" categoricalZeros [true, false] 2 [false]
+  checkCategorical "duplicate outcome below" categoricalDuplicates [false, false, true] 7 [true]
+  checkCategorical "duplicate outcome above" categoricalDuplicates [true, false] 7 [false]
+  checkCategorical "lower quarter" categoricalQuarters [false, false, true] 0 [true]
+  checkCategorical "middle reuses prefix" categoricalQuarters [false, true, true] 1 [true]
+  checkCategorical "upper quarter" categoricalQuarters [true, true, false] 2 [false]
+  IO.println "Persistent threshold and categorical sampling: 24 deterministic tape cases passed"
 
 end UniformThresholdTest
