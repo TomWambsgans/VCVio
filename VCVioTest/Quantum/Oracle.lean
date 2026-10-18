@@ -1016,4 +1016,211 @@ example (H : Fin 2 → Fin 2) : ((additiveOracleRuntime H).run₂ gateInterp xTh
   lossless_run₂_additiveOracleRuntime gateInterp (QuantumComp.lossless_of_interp
     lossless_gateInterp _) H
 
+/-! ## Entangled spectators and persistent oracle functions -/
+
+/-- An additive bit oracle with an untouched private qubit initially in `|1⟩`. -/
+@[expose, reducible]
+noncomputable def spectatorRuntime (H : Fin 2 → Fin 2) : QuantumRuntime qrom2 where
+  D := QReg.of (Fin 2)
+  init := SubState.basis 1
+  step _ := (oracleQuery H).frame (Fin 2)
+
+/-- Call the bit oracle while retaining a qubit as the adversary's remainder. -/
+noncomputable def spectatorCall :
+    QComp qrom2 (QReg.of (Reg × Fin 2)) (QReg.of (Reg × Fin 2)) Unit :=
+  QuantumComp₂.query () (QReg.of (Fin 2)) (Equiv.refl (Reg × Fin 2))
+
+/-- A call changes only response indices, including on off-diagonal spectator blocks. -/
+theorem run_spectatorCall_apply (H : Fin 2 → Fin 2)
+    (ρ : Matrix ((Reg × Fin 2) × Fin 2) ((Reg × Fin 2) × Fin 2) ℂ)
+    (x y e d x' y' e' d' : Fin 2) :
+    ((spectatorRuntime H).run₂ .instruments spectatorCall).branch () ρ
+        (((x, y), e), d) (((x', y'), e'), d') =
+      ρ (((x, y - H x), e), d) (((x', y' - H x'), e'), d') := by
+  rw [spectatorCall, QuantumRuntime.run₂_query, SubInstrument.bind_pure]
+  simp only [QuantumRuntime.queryStep, SubInstrument.branch_bind_unit,
+    SubInstrument.branch_pure_self, LinearMap.id_comp, LinearMap.comp_apply,
+    SubInstrument.relabel_branch_apply, SubInstrument.branch_frame_apply,
+    spectatorRuntime, branch_oracleQuery_apply, MatrixMap.amplify_apply,
+    conj_oracleUnitary_apply, Matrix.submatrix_apply]
+  rfl
+
+/-- The Bell projector on query and remainder, with response `b` and private qubit `|1⟩`. -/
+noncomputable def bellSpectator (b : Fin 2) :
+    Matrix ((Reg × Fin 2) × Fin 2) ((Reg × Fin 2) × Fin 2) ℂ :=
+  fun m n ↦ if m.1.1.1 = m.1.2 ∧ n.1.1.1 = n.1.2 ∧
+    m.1.1.2 = b ∧ n.1.1.2 = b ∧ m.2 = 1 ∧ n.2 = 1 then 1 / 2 else 0
+
+/-- The constant-one runtime sends the Bell state with response zero to response one.
+The four Bell entries, including both off-diagonal coherences, remain `1/2`; all others vanish. -/
+example :
+    ((spectatorRuntime fun _ ↦ 1).run₂ .instruments spectatorCall).branch ()
+      (bellSpectator 0) = bellSpectator 1 := by
+  ext ⟨⟨⟨x, y⟩, e⟩, d⟩ ⟨⟨⟨x', y'⟩, e'⟩, d'⟩
+  rw [run_spectatorCall_apply]
+  fin_cases y <;> fin_cases y' <;> simp [bellSpectator]
+
+/-- For each fixed bit function, two calls restore every operator, including entangled inputs. -/
+example (H : Fin 2 → Fin 2)
+    (ρ : Matrix ((Reg × Fin 2) × Fin 2) ((Reg × Fin 2) × Fin 2) ℂ) :
+    ((spectatorRuntime H).run₂ .instruments
+      (spectatorCall.bind fun _ ↦ spectatorCall)).branch () ρ = ρ := by
+  rw [QuantumRuntime.run₂_bind, SubInstrument.branch_bind_unit, LinearMap.comp_apply]
+  ext ⟨⟨⟨x, y⟩, e⟩, d⟩ ⟨⟨⟨x', y'⟩, e'⟩, d'⟩
+  rw [run_spectatorCall_apply, run_spectatorCall_apply]
+  have h (a b : Fin 2) : a - b - b = a := by decide +revert
+  rw [h, h]
+
+/-- Evaluate the same oracle input twice and report whether its answers agree. -/
+noncomputable def repeatRead : OracleComp (Fin 2 →ₒ Fin 2) Bool := do
+  let a : Fin 2 ← query (spec := Fin 2 →ₒ Fin 2) 0
+  let b : Fin 2 ← query (spec := Fin 2 →ₒ Fin 2) 0
+  pure (decide (a = b))
+
+/-- Each fixed function gives the exact law `δ_true` for repeated evaluation. -/
+theorem repeatRead_fixed (H : Fin 2 → Fin 2) :
+    (additiveOracleRuntime H).outcomeLaw₂ .instruments repeatRead.toQuantum
+      (SubState.basis ()) = Measure.dirac true := by
+  rw [outcomeLaw_additiveOracleRuntime_toQuantum]
+  simp [repeatRead, evalWithAnswerFn_bind]
+
+/-- Sampling one function for the whole QROM execution gives `δ_true`, with no disagreements. -/
+example : qromLaw₂ .instruments repeatRead.toQuantum (SubState.basis ()) =
+    Measure.dirac true := by
+  rw [qromLaw₂_eq_sum]
+  trans ((Fintype.card (Fin 2) : ℝ≥0∞) ^ Fintype.card (Fin 2))⁻¹ •
+    ∑ _ : Fin 2 → Fin 2, (Measure.dirac true : Measure Bool)
+  · congr 1
+    exact Finset.sum_congr rfl fun H _ ↦ repeatRead_fixed H
+  · norm_num [Finset.sum_const, Fintype.card_fun,
+      ← Nat.cast_smul_eq_nsmul ℝ≥0∞, smul_smul, ENNReal.inv_mul_cancel]
+
+/-! ## Order and missing mass -/
+
+/-- Reset a qubit to zero, discarding its input. -/
+noncomputable def resetZero : SubInstrument (Fin 2) (Fin 2) Unit :=
+  SubInstrument.classical (fun _ ↦ 0) (fun _ ↦ ())
+
+/-- Apply the bit flip then reset: on `|0⟩⟨0|`, the exact output is `diag(1,0)`. -/
+example (H : Fin 2 → Fin 2) (d : (additiveOracleRuntime H).D) :
+    ((additiveOracleRuntime H).run₂ .instruments
+      ((QComp.act (A := QReg.of (Fin 2)) (B := QReg.of (Fin 2))
+        (SubInstrument.ofIsometry pauliX conjTranspose_pauliX_mul_self)).bind
+        fun _ ↦ QComp.act (A := QReg.of (Fin 2)) (B := QReg.of (Fin 2)) resetZero)).branch ()
+      (Matrix.single (0, d) (0, d) 1) =
+      Matrix.single (0, d) (0, d) 1 := by
+  rw [QuantumRuntime.run₂_bind, QuantumRuntime.run₂_act, QuantumRuntime.run₂_act,
+    SubInstrument.bind_pure, SubInstrument.bind_pure, SubInstrument.branch_bind_unit,
+    LinearMap.comp_apply, SubInstrument.branch_frame_single,
+    SubInstrument.branch_ofIsometry_apply]
+  change (resetZero.frame _).branch ()
+    (MatrixMap.conj (basisMatrix (Equiv.addRight (1 : Fin 2))) (Matrix.single 0 0 1) ⊗ₖ
+      Matrix.single d d 1) = _
+  rw [conj_basisMatrix_equiv_single, Matrix.single_kronecker_single, one_mul,
+    SubInstrument.branch_frame_single, resetZero, SubInstrument.branch_classical_basis]
+  simp [Matrix.single_kronecker_single]
+
+/-- Reset then flip gives `diag(0,1)`, so the two channels do not commute. -/
+example (H : Fin 2 → Fin 2) (d : (additiveOracleRuntime H).D) :
+    ((additiveOracleRuntime H).run₂ .instruments
+      ((QComp.act (A := QReg.of (Fin 2)) (B := QReg.of (Fin 2)) resetZero).bind fun _ ↦
+        QComp.act (A := QReg.of (Fin 2)) (B := QReg.of (Fin 2))
+        (SubInstrument.ofIsometry pauliX conjTranspose_pauliX_mul_self))).branch ()
+      (Matrix.single (0, d) (0, d) 1) = Matrix.single (1, d) (1, d) 1 := by
+  rw [QuantumRuntime.run₂_bind, QuantumRuntime.run₂_act, QuantumRuntime.run₂_act,
+    SubInstrument.bind_pure, SubInstrument.bind_pure, SubInstrument.branch_bind_unit,
+    LinearMap.comp_apply, SubInstrument.branch_frame_single, resetZero,
+    SubInstrument.branch_classical_basis]
+  simp only [↓reduceIte, Matrix.single_kronecker_single, one_mul]
+  rw [SubInstrument.branch_frame_single, SubInstrument.branch_ofIsometry_apply]
+  change MatrixMap.conj (basisMatrix (Equiv.addRight (1 : Fin 2))) (Matrix.single 0 0 1) ⊗ₖ
+    Matrix.single d d 1 = _
+  rw [conj_basisMatrix_equiv_single, Matrix.single_kronecker_single, one_mul]
+  rfl
+
+/-- The geometric branch zero has input mass `1/2`; a pure program's observed law keeps exactly
+that mass rather than normalizing it to one. -/
+example (H : Fin 2 → Fin 2) :
+    (additiveOracleRuntime H).outcomeLaw₂ .instruments
+      (QuantumComp₂.pure (L := LocalSig.instruments) (A := QReg.of Unit) ())
+      (geometric.post (SubState.basis ()) 0) Set.univ = 2⁻¹ := by
+  rw [QuantumRuntime.outcomeLaw₂_apply_univ_of_lossless _ _
+    (lossless_run₂_additiveOracleRuntime .instruments (QuantumComp₂.lossless_pure ()) H),
+    trace_re_additiveOracleRuntime_init, mul_one]
+  change ENNReal.ofReal (geometric.branch 0 (SubState.basis ()).matrix).trace.re = _
+  rw [trace_geometric_branch, SubState.trace_basis, mul_one]
+  norm_num [geomWeight, ENNReal.ofReal_div_of_pos (by norm_num : (0 : ℝ) < 2)]
+
+/-! ## Erasing an unused query counter -/
+
+/-- The trivial oracle with no counter and no effect on its port. -/
+@[expose, reducible]
+noncomputable def idleRuntime : QuantumRuntime countSpec where
+  D := QReg.of Unit
+  init := SubState.basis ()
+  step _ := SubInstrument.pure ()
+
+/-- The same trivial oracle with a private counter modulo three. -/
+@[expose, reducible]
+noncomputable def counterRuntime : QuantumRuntime countSpec where
+  D := QReg.of (Unit × Fin 3)
+  init := SubState.basis ((), 0)
+  step _ := SubInstrument.relabel
+    (Equiv.prodCongr (Equiv.refl Unit)
+      (Equiv.prodCongr (Equiv.refl Unit) (Equiv.addRight (1 : Fin 3))))
+
+/-- Partial trace forgets the private counter. -/
+noncomputable abbrev eraseCounter : MatrixMap counterRuntime.D idleRuntime.D :=
+  MatrixMap.traceRight Unit (Fin 3)
+
+/-- Erasing the counter preserves trace. -/
+theorem eraseCounter_isTP : eraseCounter.IsTP := MatrixMap.trace_traceRight
+
+/-- Erasing the initial zero counter gives the initial state of the trivial oracle. -/
+theorem eraseCounter_init : eraseCounter counterRuntime.init.matrix = idleRuntime.init.matrix := by
+  ext ⟨⟩ ⟨⟩
+  simp [eraseCounter, counterRuntime, idleRuntime, SubState.matrix_basis,
+    MatrixMap.traceRight_apply, Matrix.single_apply]
+
+/-- Incrementing the hidden counter commutes with forgetting it: the diagonal sum is unchanged. -/
+theorem eraseCounter_step (i r : Unit) :
+    (idleRuntime.step i).branch r ∘ₗ eraseCounter.amplifyLeft (countSpec.In i) =
+      eraseCounter.amplifyLeft (countSpec.Out i) ∘ₗ (counterRuntime.step i).branch r := by
+  cases i
+  cases r
+  ext ρ ⟨⟨⟩, ⟨⟩⟩ ⟨⟨⟩, ⟨⟩⟩
+  simp only [SubInstrument.branch_pure_self, LinearMap.id_comp, MatrixMap.amplifyLeft_apply,
+    MatrixMap.traceRight_apply, Matrix.submatrix_apply, LinearMap.coe_comp, Function.comp_apply,
+    SubInstrument.relabel_branch_apply, Equiv.prodCongr_symm, Equiv.refl_symm, Equiv.addRight_symm,
+    Equiv.prodCongr_apply, Equiv.coe_refl, Equiv.coe_addRight, Matrix.submatrix_submatrix,
+    Prod.map_apply, id_eq, Fin.sum_univ_succ, Finset.univ_eq_empty, Finset.sum_empty, add_zero]
+  change ρ ((), (), 0) ((), (), 0) +
+      (ρ ((), (), 1) ((), (), 1) + ρ ((), (), 2) ((), (), 2)) =
+    ρ ((), (), -1) ((), (), -1) +
+      (ρ ((), (), 0) ((), (), 0) + ρ ((), (), 2 + -1) ((), (), 2 + -1))
+  rw [show -(1 : Fin 3) = 2 from rfl, show (2 : Fin 3) + 2 = 1 from rfl]
+  ring
+
+/-- The simulation theorem applies to the adaptive coin program and the counter erasure. -/
+example (b : Fin 2) :
+    (idleRuntime.run₂ .instruments coinProg).branch b ∘ₗ
+        eraseCounter.amplifyLeft (QReg.of (Fin 2)) =
+      eraseCounter.amplifyLeft (QReg.of (Unit × Fin 2)) ∘ₗ
+        (counterRuntime.run₂ .instruments coinProg).branch b :=
+  QuantumRuntime.simulation₂ .instruments eraseCounter_step coinProg b
+
+/-- Both runtimes leave exactly the same reduced operator on every adaptive-program branch. -/
+example (ρ : SubState (Fin 2)) (b : Fin 2) :
+    idleRuntime.reducedPost₂ .instruments coinProg ρ b =
+      counterRuntime.reducedPost₂ .instruments coinProg ρ b :=
+  QuantumRuntime.reducedPost₂_eq_of_simulation .instruments eraseCounter_step
+    eraseCounter_isTP eraseCounter_init coinProg ρ b
+
+/-- Forgetting the unused counter leaves the entire observed law unchanged. -/
+example (ρ : SubState (Fin 2)) :
+    idleRuntime.outcomeLaw₂ .instruments coinProg ρ =
+      counterRuntime.outcomeLaw₂ .instruments coinProg ρ :=
+  QuantumRuntime.outcomeLaw₂_eq_of_simulation .instruments eraseCounter_step
+    eraseCounter_isTP eraseCounter_init coinProg ρ
+
 end VCVioTest.QuantumOracle
