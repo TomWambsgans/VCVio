@@ -15,10 +15,11 @@ Oracles `Fin 2 → Fin 2`, queried on the register `Fin 2 × Fin 2`.
 
 * **Deutsch's algorithm**, as a one-query comb, reports `H 0 + H 1` with certainty. Its program
   (`Quantum.QuantumComb.toComp`) runs as the comb does (Proposition 1), with one call.
-* **Classical algorithms.** The program of the algorithm that queries `0` reports `H 0`; its law
-  in the quantum random-oracle model is its law under the lazily sampled random oracle, with no
-  query bound. The adaptive algorithm that queries `H 0` next reports `H (H 0)`. Running the
-  program of a sequenced algorithm is sequencing the runs (`Quantum.QuantumRuntime.run_bind`).
+* **Classical algorithms.** The program of the algorithm that queries `0` reports `H 0`; its
+  distribution in the quantum random-oracle model is its distribution under the lazily sampled
+  random oracle, with no query bound. The adaptive algorithm that queries `H 0` next reports `H (H
+  0)`. Running the program of a sequenced algorithm is sequencing the runs
+  (`Quantum.QuantumRuntime.run_bind`).
 * **An adaptive program** measures a bit and calls the oracle only when it reads `1`: it has
   budget one, and not budget zero.
 * **An ancilla** is allocated, carried through a call as the remainder of the register, and
@@ -38,8 +39,8 @@ Oracles `Fin 2 → Fin 2`, queried on the register `Fin 2 × Fin 2`.
   remainder, measures the ancilla and keeps it on `0` or discards it on `1`, so that its final
   register depends on the outcome. Against the oracle unitary it is lossless, makes one call, and
   keeps the trace of its input; on `|x, y, 0⟩` it ends in `|x, y + H x, 0⟩` on the register with
-  the ancilla, and on `|x, y, 1⟩` in `|x, y + H x⟩` on the register without it. Its law in the
-  quantum random-oracle model has total mass the trace of its input.
+  the ancilla, and on `|x, y, 1⟩` in `|x, y + H x⟩` on the register without it. Its distribution in
+  the quantum random-oracle model has total mass the trace of its input.
 * **Infinitely many outcomes.** The geometric distribution over `ℕ`, a dependent subinstrument on
   the trivial register with outcome `n` of weight `2⁻¹ ^ (n + 1)`, is lossless; a program that
   draws from it reaches the leaf of `n` with that weight, and keeps the trace of its input.
@@ -219,20 +220,20 @@ theorem isTotalQueryBound_queryZero : OracleComp.IsTotalQueryBound queryZero 1 :
 /-- Against the oracle unitary of `H`, the program of the algorithm reports `H 0` with
 certainty. -/
 example (H : Fin 2 → Fin 2) :
-    (additiveOracleRuntime H).outcomeLaw₂ .instruments queryZero.toQuantum (SubState.basis ()) =
+    (additiveOracleRuntime H).evalDist₂ .instruments queryZero.toQuantum (SubState.basis ()) =
       Measure.dirac (H 0) :=
-  outcomeLaw_additiveOracleRuntime_toQuantum H queryZero
+  evalDist_additiveOracleRuntime_toQuantum H queryZero
 
 /-- The program makes one call. -/
 example : queryZero.toQuantum.IsQueryBound fun _ ↦ 1 :=
   OracleComp.isQueryBound_toQuantum isTotalQueryBound_queryZero
 
-/-- The law of the program in the quantum random-oracle model is the law of the algorithm under
-the lazily sampled random oracle; no query bound is used. -/
+/-- The distribution of the program in the quantum random-oracle model is the distribution of the
+algorithm under the lazily sampled random oracle; no query bound is used. -/
 example :
-    qromLaw₂ .instruments queryZero.toQuantum (SubState.basis ()) =
+    qromEvalDist₂ .instruments queryZero.toQuantum (SubState.basis ()) =
       𝒟[(simulateQ randomOracle queryZero).run' ∅] :=
-  qromLaw₂_toQuantum_eq_randomOracle queryZero
+  qromEvalDist₂_toQuantum_eq_randomOracle queryZero
 
 /-- The adaptive algorithm that queries `0`, and then queries the answer. -/
 def queryTwice : OracleComp (Fin 2 →ₒ Fin 2) (Fin 2) := do
@@ -242,9 +243,9 @@ def queryTwice : OracleComp (Fin 2 →ₒ Fin 2) (Fin 2) := do
 /-- Its program, whose second call depends on the measured result of the first, reports
 `H (H 0)` with certainty. -/
 example (H : Fin 2 → Fin 2) :
-    (additiveOracleRuntime H).outcomeLaw₂ .instruments queryTwice.toQuantum (SubState.basis ()) =
+    (additiveOracleRuntime H).evalDist₂ .instruments queryTwice.toQuantum (SubState.basis ()) =
       Measure.dirac (H (H 0)) :=
-  outcomeLaw_additiveOracleRuntime_toQuantum H queryTwice
+  evalDist_additiveOracleRuntime_toQuantum H queryTwice
 
 /-- Running the program of a sequenced algorithm is sequencing the runs of the programs. -/
 example {α β : Type} (H : Fin 2 → Fin 2) (oa : OracleComp (Fin 2 →ₒ Fin 2) α)
@@ -346,9 +347,9 @@ example : queryWithAncilla.IsQueryBound fun _ ↦ 1 := by
 
 /-- Against the oracle unitary, the program with an ancilla keeps the trace of its input. -/
 example (H : Fin 2 → Fin 2) (ρ : SubState (QReg.of Reg)) :
-    (additiveOracleRuntime H).outcomeLaw₂ .instruments queryWithAncilla ρ Set.univ =
+    (additiveOracleRuntime H).evalDist₂ .instruments queryWithAncilla ρ Set.univ =
       ENNReal.ofReal ρ.matrix.trace.re := by
-  rw [(additiveOracleRuntime H).outcomeLaw₂_apply_univ_of_lossless .instruments
+  rw [(additiveOracleRuntime H).evalDist₂_apply_univ_of_lossless .instruments
     (lossless_run₂_additiveOracleRuntime .instruments lossless_queryWithAncilla H),
     trace_re_additiveOracleRuntime_init, mul_one]
 
@@ -518,8 +519,8 @@ theorem jointPost₂_coinProg :
 in a state of trace one, guesses a point of the oracle with probability `1 / 2`. -/
 example {L : LocalSig} (I : L.Interp) {A B : QReg} (x : QuantumComp₂ L qrom2 A B (Fin 2 × Fin 2))
     (hx : x.IsQueryBound 0) (hl : x.Lossless I) {ρ : SubState A} (h : ρ.matrix.trace = 1) :
-    qromLawWith₂ I x ρ (fun H a ↦ a.2 = H a.1) {True} = 2⁻¹ := by
-  simpa using qromLawWith₂_guess_zero_of_trace_eq_one I hx hl h
+    qromEvalDistMap₂ I x ρ (fun H a ↦ a.2 = H a.1) {True} = 2⁻¹ := by
+  simpa using qromEvalDistMap₂_guess_zero_of_trace_eq_one I hx hl h
 
 /-- The same for a general program, whose final register may depend on the outcome: a lossless
 program with budget zero whose leaves carry guesses guesses a point of the oracle with probability
@@ -527,8 +528,8 @@ program with budget zero whose leaves carry guesses guesses a point of the oracl
 example {L : LocalSig} (I : L.Interp) {W : QReg → Type} {A : QReg}
     (x : QuantumComp L qrom2 W A) (hx : x.IsQueryBound 0) (hl : x.Lossless I)
     (gx gy : (Σ u, W u) → Fin 2) {ρ : SubState A} (h : ρ.matrix.trace = 1) :
-    qromLawWith I x ρ (fun H p ↦ gy p = H (gx p)) {True} = 2⁻¹ := by
-  simpa using qromLawWith_guess_zero_of_trace_eq_one I hx hl gx gy h
+    qromEvalDistMap I x ρ (fun H p ↦ gy p = H (gx p)) {True} = 2⁻¹ := by
+  simpa using qromEvalDistMap_guess_zero_of_trace_eq_one I hx hl gx gy h
 
 /-! ## The fixed-register run is the general run -/
 
@@ -628,19 +629,19 @@ example (H : Fin 2 → Fin 2) :
 /-- Against the oracle unitary, the program keeps the trace of its input, summed over both final
 registers. -/
 example (H : Fin 2 → Fin 2) (ρ : SubState (QReg.of (Reg × Fin 2))) :
-    (additiveOracleRuntime H).outcomeLaw .instruments queryKeepOrDiscard ρ Set.univ =
+    (additiveOracleRuntime H).evalDist .instruments queryKeepOrDiscard ρ Set.univ =
       ENNReal.ofReal ρ.matrix.trace.re := by
-  rw [(additiveOracleRuntime H).outcomeLaw_apply_univ_of_lossless .instruments
+  rw [(additiveOracleRuntime H).evalDist_apply_univ_of_lossless .instruments
     (lossless_run_additiveOracleRuntime .instruments lossless_queryKeepOrDiscard H),
     trace_re_additiveOracleRuntime_init, mul_one]
 
-/-- In the quantum random-oracle model, the law of the leaf of the program that keeps or discards
-the ancilla, whose two leaves sit on different registers, has the trace of its input as total
-mass. -/
+/-- In the quantum random-oracle model, the distribution of the leaf of the program that keeps or
+discards the ancilla, whose two leaves sit on different registers, has the trace of its input as
+total mass. -/
 example [MeasurableSpace (Σ u, {b : Fin 2 // ancReg b = u})]
     (ρ : SubState (QReg.of (Reg × Fin 2))) :
-    qromLaw .instruments queryKeepOrDiscard ρ Set.univ = ENNReal.ofReal ρ.matrix.trace.re :=
-  qromLaw_apply_univ_of_lossless lossless_queryKeepOrDiscard ρ
+    qromEvalDist .instruments queryKeepOrDiscard ρ Set.univ = ENNReal.ofReal ρ.matrix.trace.re :=
+  qromEvalDist_apply_univ_of_lossless lossless_queryKeepOrDiscard ρ
 
 /-- Each branch of a framed dependent subinstrument on a product basis state acts on the first
 factor and keeps the second. -/
@@ -843,9 +844,9 @@ theorem lossless_geomProg : geomProg.Lossless .instruments :=
 infinitely many leaves. -/
 example [MeasurableSpace (Σ u, LocalSig.instruments.OutcomeAt geomOp u)] (H : Fin 2 → Fin 2)
     (ρ : SubState (QReg.of Unit)) :
-    (additiveOracleRuntime H).outcomeLaw .instruments geomProg ρ Set.univ =
+    (additiveOracleRuntime H).evalDist .instruments geomProg ρ Set.univ =
       ENNReal.ofReal ρ.matrix.trace.re := by
-  rw [(additiveOracleRuntime H).outcomeLaw_apply_univ_of_lossless .instruments
+  rw [(additiveOracleRuntime H).evalDist_apply_univ_of_lossless .instruments
     (lossless_run_additiveOracleRuntime .instruments lossless_geomProg H),
     trace_re_additiveOracleRuntime_init, mul_one]
 
@@ -866,9 +867,9 @@ theorem lossless_measureLift : measureLift.Lossless .instruments :=
 input. -/
 example [MeasurableSpace (ULift.{1} (Fin 2))] (H : Fin 2 → Fin 2)
     (ρ : SubState (QReg.of (Fin 2))) :
-    (additiveOracleRuntime H).outcomeLaw₂ .instruments measureLift ρ Set.univ =
+    (additiveOracleRuntime H).evalDist₂ .instruments measureLift ρ Set.univ =
       ENNReal.ofReal ρ.matrix.trace.re := by
-  rw [(additiveOracleRuntime H).outcomeLaw₂_apply_univ_of_lossless .instruments
+  rw [(additiveOracleRuntime H).evalDist₂_apply_univ_of_lossless .instruments
     (lossless_run₂_additiveOracleRuntime .instruments lossless_measureLift H),
     trace_re_additiveOracleRuntime_init, mul_one]
 
@@ -890,9 +891,9 @@ theorem lossless_queryKeepOrDiscardReg : queryKeepOrDiscardReg.Lossless .instrum
 input. -/
 example [MeasurableSpace (Σ u, RegLeaf u)] (H : Fin 2 → Fin 2)
     (ρ : SubState (QReg.of (Reg × Fin 2))) :
-    (additiveOracleRuntime H).outcomeLaw .instruments queryKeepOrDiscardReg ρ Set.univ =
+    (additiveOracleRuntime H).evalDist .instruments queryKeepOrDiscardReg ρ Set.univ =
       ENNReal.ofReal ρ.matrix.trace.re := by
-  rw [(additiveOracleRuntime H).outcomeLaw_apply_univ_of_lossless .instruments
+  rw [(additiveOracleRuntime H).evalDist_apply_univ_of_lossless .instruments
     (lossless_run_additiveOracleRuntime .instruments lossless_queryKeepOrDiscardReg H),
     trace_re_additiveOracleRuntime_init, mul_one]
 
@@ -906,16 +907,16 @@ example (c : QuantumComb Reg (ULift.{1} Bool) 1) (H : Fin 2 → Fin 2) :
   c.run_toComp (additiveOracleRuntime H) () (QReg.of Unit)
     (Equiv.prodPUnit Reg).symm (Equiv.prodPUnit Reg)
 
-/-- The lifted-bit comb and its program also have equal observed laws. -/
+/-- The lifted-bit comb and its program also have equal observed distributions. -/
 example [MeasurableSpace (ULift.{1} Bool)] (c : QuantumComb Reg (ULift.{1} Bool) 1)
     (H : Fin 2 → Fin 2) :
-    (additiveOracleRuntime H).outcomeLaw₂ .instruments
+    (additiveOracleRuntime H).evalDist₂ .instruments
         (c.toComp () (QReg.of Unit) (Equiv.prodPUnit Reg).symm (Equiv.prodPUnit Reg)) c.init =
       ((c.frame (additiveOracleRuntime H).D (additiveOracleRuntime H).init).run
         ((additiveOracleRuntime H).combQuery () (QReg.of Unit)
           (Equiv.prodPUnit Reg).symm (Equiv.prodPUnit Reg))).outcomeMeasure
             (c.frame (additiveOracleRuntime H).D (additiveOracleRuntime H).init).init :=
-  c.outcomeLaw_toComp (additiveOracleRuntime H) () (QReg.of Unit)
+  c.evalDist_toComp (additiveOracleRuntime H) () (QReg.of Unit)
     (Equiv.prodPUnit Reg).symm (Equiv.prodPUnit Reg)
 
 /-! ## A gate set -/
@@ -1077,17 +1078,17 @@ noncomputable def repeatRead : OracleComp (Fin 2 →ₒ Fin 2) Bool := do
   let b : Fin 2 ← query (spec := Fin 2 →ₒ Fin 2) 0
   pure (decide (a = b))
 
-/-- Each fixed function gives the exact law `δ_true` for repeated evaluation. -/
+/-- Each fixed function gives the exact distribution `δ_true` for repeated evaluation. -/
 theorem repeatRead_fixed (H : Fin 2 → Fin 2) :
-    (additiveOracleRuntime H).outcomeLaw₂ .instruments repeatRead.toQuantum
+    (additiveOracleRuntime H).evalDist₂ .instruments repeatRead.toQuantum
       (SubState.basis ()) = Measure.dirac true := by
-  rw [outcomeLaw_additiveOracleRuntime_toQuantum]
+  rw [evalDist_additiveOracleRuntime_toQuantum]
   simp [repeatRead, evalWithAnswerFn_bind]
 
 /-- Sampling one function for the whole QROM execution gives `δ_true`, with no disagreements. -/
-example : qromLaw₂ .instruments repeatRead.toQuantum (SubState.basis ()) =
+example : qromEvalDist₂ .instruments repeatRead.toQuantum (SubState.basis ()) =
     Measure.dirac true := by
-  rw [qromLaw₂_eq_sum]
+  rw [qromEvalDist₂_eq_sum]
   trans ((Fintype.card (Fin 2) : ℝ≥0∞) ^ Fintype.card (Fin 2))⁻¹ •
     ∑ _ : Fin 2 → Fin 2, (Measure.dirac true : Measure Bool)
   · congr 1
@@ -1138,13 +1139,13 @@ example (H : Fin 2 → Fin 2) (d : (additiveOracleRuntime H).D) :
   rw [conj_basisMatrix_equiv_single, Matrix.single_kronecker_single, one_mul]
   rfl
 
-/-- The geometric branch zero has input mass `1/2`; a pure program's observed law keeps exactly
-that mass rather than normalizing it to one. -/
+/-- The geometric branch zero has input mass `1/2`; a pure program's observed distribution keeps
+exactly that mass rather than normalizing it to one. -/
 example (H : Fin 2 → Fin 2) :
-    (additiveOracleRuntime H).outcomeLaw₂ .instruments
+    (additiveOracleRuntime H).evalDist₂ .instruments
       (QuantumComp₂.pure (L := LocalSig.instruments) (A := QReg.of Unit) ())
       (geometric.post (SubState.basis ()) 0) Set.univ = 2⁻¹ := by
-  rw [QuantumRuntime.outcomeLaw₂_apply_univ_of_lossless _ _
+  rw [QuantumRuntime.evalDist₂_apply_univ_of_lossless _ _
     (lossless_run₂_additiveOracleRuntime .instruments (QuantumComp₂.lossless_pure ()) H),
     trace_re_additiveOracleRuntime_init, mul_one]
   change ENNReal.ofReal (geometric.branch 0 (SubState.basis ()).matrix).trace.re = _
@@ -1216,14 +1217,14 @@ example (ρ : SubState (Fin 2)) (b : Fin 2) :
   QuantumRuntime.reducedPost₂_eq_of_simulation .instruments eraseCounter_step
     eraseCounter_isTP eraseCounter_init coinProg ρ b
 
-/-- Forgetting the unused counter leaves the entire observed law unchanged. -/
+/-- Forgetting the unused counter leaves the entire observed distribution unchanged. -/
 example (ρ : SubState (Fin 2)) :
-    idleRuntime.outcomeLaw₂ .instruments coinProg ρ =
-      counterRuntime.outcomeLaw₂ .instruments coinProg ρ :=
-  QuantumRuntime.outcomeLaw₂_eq_of_simulation .instruments eraseCounter_step
+    idleRuntime.evalDist₂ .instruments coinProg ρ =
+      counterRuntime.evalDist₂ .instruments coinProg ρ :=
+  QuantumRuntime.evalDist₂_eq_of_simulation .instruments eraseCounter_step
     eraseCounter_isTP eraseCounter_init coinProg ρ
 
-/-! ## The mixed-input counter law -/
+/-! ## The mixed-input counter distribution -/
 
 /-- The fair classical coin, with density matrix `diag(1/2,1/2)`. -/
 noncomputable def fairCoin : SubState (Fin 2) where
@@ -1260,16 +1261,17 @@ theorem outcomeMeasure_classical_half_basis {A α : Type} [Fintype A] [Decidable
       ENNReal.ofReal_div_of_pos (by norm_num : (0 : ℝ) < 2)]
   · simp [hρ, ha']
 
-/-- The joint law of the coin and a final computational-basis measurement of the private counter. -/
-noncomputable def coinCounterLaw : Measure (Fin 2 × Fin 3) :=
+/-- The joint distribution of the coin and a final computational-basis measurement of the private
+counter. -/
+noncomputable def coinCounterDist : Measure (Fin 2 × Fin 3) :=
   ∑ b : Fin 2,
     (SubInstrument.classical id (fun m : (Unit × Fin 2) × Fin 3 ↦ (b, m.2))).outcomeMeasure
       (countRuntime.jointPost₂ .instruments coinProg fairCoin b)
 
-/-- The fair-coin run has joint law `1/2 · δ_(0,1) + 1/2 · δ_(1,2)`. -/
-theorem coinCounterLaw_eq : coinCounterLaw =
+/-- The fair-coin run has joint distribution `1/2 · δ_(0,1) + 1/2 · δ_(1,2)`. -/
+theorem coinCounterDist_eq : coinCounterDist =
     (2 : ℝ≥0∞)⁻¹ • Measure.dirac (0, 1) + (2 : ℝ≥0∞)⁻¹ • Measure.dirac (1, 2) := by
-  unfold coinCounterLaw
+  unfold coinCounterDist
   simp_rw [outcomeMeasure_classical_half_basis _ _ _ (matrix_jointPost₂_coinProg_fairCoin _)]
   simp [Fin.sum_univ_two]
 

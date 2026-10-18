@@ -32,8 +32,8 @@ stated here. Suppose the runtime has a single port, with an *idle input* (a stat
 changes nothing, including the private register, and returns a fixed result), and that the port's
 classical result is trivial (`Result = Unit`). Then every lossless program making at most `q`
 calls on every path has a comb with exactly `q` slots, on the memory `M × H × R'` with a classical
-history register `H` and a scratch copy `R'` of the port register, with the same joint law of
-output and private register against the runtime.
+history register `H` and a scratch copy `R'` of the port register, with the same joint distribution
+of output and private register against the runtime.
 
 Both hypotheses on top of the idle input are needed for combs as defined here. A comb discards
 the classical result of each call (`Quantum.QuantumRuntime.combQuery`): against a port that
@@ -44,14 +44,14 @@ adds `d` to a target bit of the port register, and on control `0` does nothing; 
 `d`. Every operation of a comb against it is lossless and preserves the classical label `d`, so
 the marginal of `d`, after summing over all outputs, keeps equal weights on `0` and `1`. A
 program that copies `d` with one call, reads the copy and fails on `1` leaves weight only on
-`d = 0`, and no comb reproduces its joint law. The invariant belongs to this runtime and not to
-combs in general: calls may change the private register. A port that resets the private bit to
-`0` on control `1` and does nothing on control `0` is lossless with an idle input, and a lossless
+`d = 0`, and no comb reproduces its joint distribution. The invariant belongs to this runtime and
+not to combs in general: calls may change the private register. A port that resets the private bit
+to `0` on control `1` and does nothing on control `0` is lossless with an idle input, and a lossless
 one-slot comb that prepares control `1` turns a uniform private bit into a deterministic one.
 
 Without an idle input combs are strictly weaker as well: against a runtime that counts its calls,
-a program that calls a different number of times on different paths has a joint law that no comb
-reproduces (see the counting-runtime test in `VCVioTest/Quantum/Oracle.lean`), and with several
+a program that calls a different number of times on different paths has a joint distribution that no
+comb reproduces (see the counting-runtime test in `VCVioTest/Quantum/Oracle.lean`), and with several
 ports a comb fixes the order of its calls in advance.
 
 Combs embed as programs over instruments (`Quantum.QComp`): their steps are subinstruments, and
@@ -73,8 +73,8 @@ fixed-register form.
   the substates the comb presents to them give the same outcome measure.
 * `Quantum.QuantumComb.outcomeMeasure_run_ofClassical`: against a query step that permutes basis
   states, a classical comb reports the output of the classical run with certainty.
-* `Quantum.QuantumComb.run_toComp` and `Quantum.QuantumComb.outcomeLaw_toComp`: the run and the
-  outcome law of the program of a comb against a runtime.
+* `Quantum.QuantumComb.run_toComp` and `Quantum.QuantumComb.evalDist_toComp`: the run and the
+  outcome distribution of the program of a comb against a runtime.
 -/
 
 public section
@@ -579,14 +579,14 @@ theorem run_toComp (c : QuantumComb M α q) (R : QuantumRuntime spec) (i : spec.
     SubInstrument.bind_pure]
   rfl
 
-/-- The outcome law of the program of a comb, observed from the comb's initial substate, is the
-outcome measure of the framed comb against the runtime's query step. -/
-theorem outcomeLaw_toComp [MeasurableSpace α] (c : QuantumComb M α q) (R : QuantumRuntime spec)
+/-- The outcome distribution of the program of a comb, observed from the comb's initial substate, is
+the outcome measure of the framed comb against the runtime's query step. -/
+theorem evalDist_toComp [MeasurableSpace α] (c : QuantumComb M α q) (R : QuantumRuntime spec)
     (i : spec.Port) (E : QReg) (ℓ : M ≃ spec.In i × E) (ℓ' : spec.Out i × E ≃ M) :
-    R.outcomeLaw₂ .instruments (c.toComp i E ℓ ℓ') c.init =
+    R.evalDist₂ .instruments (c.toComp i E ℓ ℓ') c.init =
       ((c.frame R.D R.init).run (R.combQuery i E ℓ ℓ')).outcomeMeasure
         (c.frame R.D R.init).init := by
-  rw [QuantumRuntime.outcomeLaw₂, run_toComp]
+  rw [QuantumRuntime.evalDist₂, run_toComp]
   rfl
 
 /-- The program of a comb is lossless. -/

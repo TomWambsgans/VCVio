@@ -47,15 +47,15 @@ in `init`, that is from the product substate `ρ ⊗ init`:
   reports the leaf `p = ⟨u, y⟩`. Its trace is the weight of `p`.
 * `Quantum.QuantumRuntime.reducedPost R I x ρ p`: its reduced substate on the program register
   `u`, which is all a later program can act on.
-* `Quantum.QuantumRuntime.outcomeLaw R I x ρ`: the law of the leaf reached, a subprobability
+* `Quantum.QuantumRuntime.evalDist R I x ρ`: the distribution of the leaf reached, a subprobability
   measure whose missing mass is failure.
-* `Quantum.QuantumRuntime.outcomeLawWith R I x ρ f`: the law of an observation `f` of the leaf
+* `Quantum.QuantumRuntime.evalDistMap R I x ρ f`: the distribution of an observation `f` of the leaf
   reached, as a sum of weighted point masses, so that `f` need not be measurable.
 
-The fixed-register versions `jointPost₂`, `reducedPost₂` and `outcomeLaw₂` observe `R.run₂ I x`,
-and agree with the general ones at the leaves `⟨B, rfl, a⟩`; the law of the value of a
-fixed-register program is the general law observed through the value of the leaf
-(`Quantum.QuantumRuntime.outcomeLaw₂_eq_outcomeLawWith`).
+The fixed-register versions `jointPost₂`, `reducedPost₂` and `evalDist₂` observe `R.run₂ I x`,
+and agree with the general ones at the leaves `⟨B, rfl, a⟩`; the distribution of the value of a
+fixed-register program is the general distribution observed through the value of the leaf
+(`Quantum.QuantumRuntime.evalDist₂_eq_evalDistMap`).
 
 ## Main definitions
 
@@ -63,7 +63,7 @@ fixed-register program is the general law observed through the value of the leaf
 * `Quantum.QuantumRuntime.queryStep`, `Quantum.QuantumRuntime.run` and
   `Quantum.QuantumRuntime.run₂`.
 * `Quantum.QuantumRuntime.jointPost`, `Quantum.QuantumRuntime.reducedPost`,
-  `Quantum.QuantumRuntime.outcomeLaw` and `Quantum.QuantumRuntime.outcomeLawWith`, with the
+  `Quantum.QuantumRuntime.evalDist` and `Quantum.QuantumRuntime.evalDistMap`, with the
   fixed-register versions.
 
 ## Main statements
@@ -370,10 +370,10 @@ noncomputable def reducedPost (x : QuantumComp L spec X A) (ρ : SubState A) (p 
     SubState p.1 :=
   (R.jointPost I x ρ p).traceRight
 
-/-- The law of the leaf reached by `x` run from `ρ ⊗ init`: a subprobability measure whose
+/-- The distribution of the leaf reached by `x` run from `ρ ⊗ init`: a subprobability measure whose
 missing mass is the weight of failure. -/
 @[expose]
-noncomputable def outcomeLaw [MeasurableSpace (Σ u, X u)] (x : QuantumComp L spec X A)
+noncomputable def evalDist [MeasurableSpace (Σ u, X u)] (x : QuantumComp L spec X A)
     (ρ : SubState A) : Measure (Σ u, X u) :=
   (R.run I x).outcomeMeasure (ρ.prod R.init)
 
@@ -388,56 +388,56 @@ theorem trace_reducedPost (x : QuantumComp L spec X A) (ρ : SubState A) (p : Σ
     (R.reducedPost I x ρ p).matrix.trace = (R.jointPost I x ρ p).matrix.trace :=
   MatrixMap.trace_traceRight _
 
-/-- Outcome laws are subprobability measures. -/
+/-- Outcome distributions are subprobability measures. -/
 instance [MeasurableSpace (Σ u, X u)] (x : QuantumComp L spec X A) (ρ : SubState A) :
-    IsSubprobabilityMeasure (R.outcomeLaw I x ρ) :=
+    IsSubprobabilityMeasure (R.evalDist I x ρ) :=
   DSubInstrument.outcomeMeasure.instIsSubprobabilityMeasure _ _
 
 /-- The weight of a single leaf is the trace of the joint post-state. -/
-theorem outcomeLaw_apply_singleton [MeasurableSpace (Σ u, X u)]
+theorem evalDist_apply_singleton [MeasurableSpace (Σ u, X u)]
     [MeasurableSingletonClass (Σ u, X u)] (x : QuantumComp L spec X A) (ρ : SubState A)
     (p : Σ u, X u) :
-    R.outcomeLaw I x ρ {p} = ENNReal.ofReal (R.jointPost I x ρ p).matrix.trace.re :=
+    R.evalDist I x ρ {p} = ENNReal.ofReal (R.jointPost I x ρ p).matrix.trace.re :=
   DSubInstrument.outcomeMeasure_apply_singleton _ _ p
 
-/-- When the run is lossless, the outcome law has the product of the traces of `ρ` and `init`
-as its total mass. -/
-theorem outcomeLaw_apply_univ_of_lossless [MeasurableSpace (Σ u, X u)]
+/-- When the run is lossless, the outcome distribution has the product of the traces of `ρ` and
+`init` as its total mass. -/
+theorem evalDist_apply_univ_of_lossless [MeasurableSpace (Σ u, X u)]
     {x : QuantumComp L spec X A} (hx : (R.run I x).Lossless) (ρ : SubState A) :
-    R.outcomeLaw I x ρ Set.univ =
+    R.evalDist I x ρ Set.univ =
       ENNReal.ofReal (ρ.matrix.trace.re * R.init.matrix.trace.re) := by
-  rw [outcomeLaw, hx.outcomeMeasure_apply_univ, SubState.trace_re_prod]
+  rw [evalDist, hx.outcomeMeasure_apply_univ, SubState.trace_re_prod]
 
-/-- The law of the observation `f` of the leaf reached by `x` run from `ρ ⊗ init`: each leaf `p`
-contributes its weight, the trace of the joint post-state, at the point `f p`. It is a sum of
-weighted point masses, so `f` need not be measurable. -/
+/-- The distribution of the observation `f` of the leaf reached by `x` run from `ρ ⊗ init`: each
+leaf `p` contributes its weight, the trace of the joint post-state, at the point `f p`. It is a sum
+of weighted point masses, so `f` need not be measurable. -/
 @[expose]
-noncomputable def outcomeLawWith {γ : Type*} [MeasurableSpace γ] (x : QuantumComp L spec X A)
+noncomputable def evalDistMap {γ : Type*} [MeasurableSpace γ] (x : QuantumComp L spec X A)
     (ρ : SubState A) (f : (Σ u, X u) → γ) : Measure γ :=
   Measure.sum fun p ↦ ENNReal.ofReal (R.jointPost I x ρ p).matrix.trace.re • Measure.dirac (f p)
 
-/-- The observed law of a measurable set sums the weights of the leaves observed in it. -/
-theorem outcomeLawWith_apply {γ : Type*} [MeasurableSpace γ] (x : QuantumComp L spec X A)
+/-- The observed distribution of a measurable set sums the weights of the leaves observed in it. -/
+theorem evalDistMap_apply {γ : Type*} [MeasurableSpace γ] (x : QuantumComp L spec X A)
     (ρ : SubState A) (f : (Σ u, X u) → γ) {s : Set γ} (hs : MeasurableSet s) :
-    R.outcomeLawWith I x ρ f s =
+    R.evalDistMap I x ρ f s =
       ∑' p, ENNReal.ofReal (R.jointPost I x ρ p).matrix.trace.re * s.indicator 1 (f p) := by
-  simp only [outcomeLawWith, Measure.sum_apply _ hs, Measure.smul_apply,
+  simp only [evalDistMap, Measure.sum_apply _ hs, Measure.smul_apply,
     Measure.dirac_apply' _ hs, smul_eq_mul]
 
-/-- Observing the leaf itself gives the outcome law. -/
-theorem outcomeLawWith_id [MeasurableSpace (Σ u, X u)] (x : QuantumComp L spec X A)
-    (ρ : SubState A) : R.outcomeLawWith I x ρ (fun p ↦ p) = R.outcomeLaw I x ρ :=
+/-- Observing the leaf itself gives the outcome distribution. -/
+theorem evalDistMap_id [MeasurableSpace (Σ u, X u)] (x : QuantumComp L spec X A)
+    (ρ : SubState A) : R.evalDistMap I x ρ (fun p ↦ p) = R.evalDist I x ρ :=
   rfl
 
-/-- The total mass of an observed law is the trace functional of the run at `ρ ⊗ init`, whatever
-the observation. -/
-theorem outcomeLawWith_apply_univ {γ : Type*} [MeasurableSpace γ] (x : QuantumComp L spec X A)
+/-- The total mass of an observed distribution is the trace functional of the run at `ρ ⊗ init`,
+whatever the observation. -/
+theorem evalDistMap_apply_univ {γ : Type*} [MeasurableSpace γ] (x : QuantumComp L spec X A)
     (ρ : SubState A) (f : (Σ u, X u) → γ) :
-    R.outcomeLawWith I x ρ f Set.univ =
+    R.evalDistMap I x ρ f Set.univ =
       ENNReal.ofReal
         (MatrixMap.familyTrace (R.run I x).branch (ρ.prod R.init).matrix).re := by
   let : MeasurableSpace (Σ u, X u) := ⊤
-  rw [outcomeLawWith_apply _ _ _ _ _ MeasurableSet.univ,
+  rw [evalDistMap_apply _ _ _ _ _ MeasurableSet.univ,
     ← DSubInstrument.outcomeMeasure_apply_univ,
     DSubInstrument.outcomeMeasure_apply _ _ MeasurableSet.univ]
   rfl
@@ -448,8 +448,8 @@ theorem tsum_jointPost_trace (x : QuantumComp L spec X A) (ρ : SubState A) :
       ENNReal.ofReal
         (MatrixMap.familyTrace (R.run I x).branch (ρ.prod R.init).matrix).re := by
   let : MeasurableSpace (Σ u, X u) := ⊤
-  rw [← R.outcomeLawWith_apply_univ I x ρ (fun p ↦ p),
-    R.outcomeLawWith_apply I x ρ _ MeasurableSet.univ]
+  rw [← R.evalDistMap_apply_univ I x ρ (fun p ↦ p),
+    R.evalDistMap_apply I x ρ _ MeasurableSet.univ]
   simp
 
 /-! ### Observation of programs on a fixed final register -/
@@ -468,10 +468,10 @@ noncomputable def reducedPost₂ (x : QuantumComp₂ L spec A B α) (ρ : SubSta
     SubState B :=
   (R.jointPost₂ I x ρ a).traceRight
 
-/-- The law of the value returned by the fixed-register program `x` run from `ρ ⊗ init`: a
+/-- The distribution of the value returned by the fixed-register program `x` run from `ρ ⊗ init`: a
 subprobability measure whose missing mass is the weight of failure. -/
 @[expose]
-noncomputable def outcomeLaw₂ [MeasurableSpace α] (x : QuantumComp₂ L spec A B α)
+noncomputable def evalDist₂ [MeasurableSpace α] (x : QuantumComp₂ L spec A B α)
     (ρ : SubState A) : Measure α :=
   (R.run₂ I x).outcomeMeasure (ρ.prod R.init)
 
@@ -487,13 +487,13 @@ theorem reducedPost₂_eq_reducedPost (x : QuantumComp₂ L spec A B α) (ρ : S
     R.reducedPost₂ I x ρ a = R.reducedPost I x ρ ⟨B, rfl, a⟩ :=
   rfl
 
-/-- The outcome law of a fixed-register program is the general outcome law read through the
-equivalence between leaves and values, for any measurable structure on the leaves for which that
-equivalence is measurable. -/
-theorem outcomeLaw₂_eq_map [MeasurableSpace α] [MeasurableSpace (Σ u, QuantumComp₂.Leaf B α u)]
+/-- The outcome distribution of a fixed-register program is the general outcome distribution read
+through the equivalence between leaves and values, for any measurable structure on the leaves for
+which that equivalence is measurable. -/
+theorem evalDist₂_eq_map [MeasurableSpace α] [MeasurableSpace (Σ u, QuantumComp₂.Leaf B α u)]
     (hm : Measurable (QuantumComp₂.leafEquiv B α).symm) (x : QuantumComp₂ L spec A B α)
     (ρ : SubState A) :
-    R.outcomeLaw₂ I x ρ = (R.outcomeLaw I x ρ).map (QuantumComp₂.leafEquiv B α).symm := by
+    R.evalDist₂ I x ρ = (R.evalDist I x ρ).map (QuantumComp₂.leafEquiv B α).symm := by
   ext s hs
   rw [Measure.map_apply hm hs]
   change (R.run₂ I x).outcomeMeasure (ρ.prod R.init) s =
@@ -504,23 +504,24 @@ theorem outcomeLaw₂_eq_map [MeasurableSpace α] [MeasurableSpace (Σ u, Quantu
   classical
   simp only [Set.indicator_apply, Set.mem_preimage, Equiv.symm_apply_apply, Pi.one_apply]
 
-/-- The law of a relabelled value of a fixed-register program is the general observed law, read
-through the value `(leafEquiv B α).symm p` of each leaf `p`. No measurability is needed. -/
-theorem outcomeLaw₂_map_eq_outcomeLawWith {γ : Type*} [MeasurableSpace γ] (g : α → γ)
+/-- The distribution of a relabelled value of a fixed-register program is the general observed
+distribution, read through the value `(leafEquiv B α).symm p` of each leaf `p`. No measurability is
+needed. -/
+theorem evalDist₂_map_eq_evalDistMap {γ : Type*} [MeasurableSpace γ] (g : α → γ)
     (x : QuantumComp₂ L spec A B α) (ρ : SubState A) :
-    R.outcomeLaw₂ I (x.map g) ρ =
-      R.outcomeLawWith I x ρ fun p ↦ g ((QuantumComp₂.leafEquiv B α).symm p) := by
-  rw [outcomeLaw₂, run₂_map, SubInstrument.outcomeMeasure_map]
+    R.evalDist₂ I (x.map g) ρ =
+      R.evalDistMap I x ρ fun p ↦ g ((QuantumComp₂.leafEquiv B α).symm p) := by
+  rw [evalDist₂, run₂_map, SubInstrument.outcomeMeasure_map]
   exact Measure.sum_comp_equiv (QuantumComp₂.leafEquiv B α) fun p ↦
     ENNReal.ofReal (R.jointPost I x ρ p).matrix.trace.re •
       Measure.dirac (g ((QuantumComp₂.leafEquiv B α).symm p))
 
-/-- The law of the value of a fixed-register program is the general observed law, read through
-the value of each leaf. No measurability is needed. -/
-theorem outcomeLaw₂_eq_outcomeLawWith [MeasurableSpace α] (x : QuantumComp₂ L spec A B α)
+/-- The distribution of the value of a fixed-register program is the general observed distribution,
+read through the value of each leaf. No measurability is needed. -/
+theorem evalDist₂_eq_evalDistMap [MeasurableSpace α] (x : QuantumComp₂ L spec A B α)
     (ρ : SubState A) :
-    R.outcomeLaw₂ I x ρ = R.outcomeLawWith I x ρ (QuantumComp₂.leafEquiv B α).symm := by
-  have h := R.outcomeLaw₂_map_eq_outcomeLawWith I id x ρ
+    R.evalDist₂ I x ρ = R.evalDistMap I x ρ (QuantumComp₂.leafEquiv B α).symm := by
+  have h := R.evalDist₂_map_eq_evalDistMap I id x ρ
   rw [QuantumComp₂.map_id] at h
   exact h
 
@@ -535,24 +536,24 @@ theorem trace_reducedPost₂ (x : QuantumComp₂ L spec A B α) (ρ : SubState A
     (R.reducedPost₂ I x ρ a).matrix.trace = (R.jointPost₂ I x ρ a).matrix.trace :=
   MatrixMap.trace_traceRight _
 
-/-- Outcome laws of fixed-register programs are subprobability measures. -/
+/-- Outcome distributions of fixed-register programs are subprobability measures. -/
 instance [MeasurableSpace α] (x : QuantumComp₂ L spec A B α) (ρ : SubState A) :
-    IsSubprobabilityMeasure (R.outcomeLaw₂ I x ρ) :=
+    IsSubprobabilityMeasure (R.evalDist₂ I x ρ) :=
   SubInstrument.outcomeMeasure.instIsSubprobabilityMeasure _ _
 
 /-- The weight of a single value is the trace of the joint post-state. -/
-theorem outcomeLaw₂_apply_singleton [MeasurableSpace α] [MeasurableSingletonClass α]
+theorem evalDist₂_apply_singleton [MeasurableSpace α] [MeasurableSingletonClass α]
     (x : QuantumComp₂ L spec A B α) (ρ : SubState A) (a : α) :
-    R.outcomeLaw₂ I x ρ {a} = ENNReal.ofReal (R.jointPost₂ I x ρ a).matrix.trace.re :=
+    R.evalDist₂ I x ρ {a} = ENNReal.ofReal (R.jointPost₂ I x ρ a).matrix.trace.re :=
   SubInstrument.outcomeMeasure_apply_singleton _ _ a
 
-/-- When the run is lossless, the outcome law has the product of the traces of `ρ` and `init`
-as its total mass. -/
-theorem outcomeLaw₂_apply_univ_of_lossless [MeasurableSpace α] {x : QuantumComp₂ L spec A B α}
+/-- When the run is lossless, the outcome distribution has the product of the traces of `ρ` and
+`init` as its total mass. -/
+theorem evalDist₂_apply_univ_of_lossless [MeasurableSpace α] {x : QuantumComp₂ L spec A B α}
     (hx : (R.run₂ I x).Lossless) (ρ : SubState A) :
-    R.outcomeLaw₂ I x ρ Set.univ =
+    R.evalDist₂ I x ρ Set.univ =
       ENNReal.ofReal (ρ.matrix.trace.re * R.init.matrix.trace.re) := by
-  rw [outcomeLaw₂, hx.outcomeMeasure_apply_univ, SubState.trace_re_prod]
+  rw [evalDist₂, hx.outcomeMeasure_apply_univ, SubState.trace_re_prod]
 
 end QuantumRuntime
 
