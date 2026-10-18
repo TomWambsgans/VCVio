@@ -6,12 +6,15 @@ explicit external assumption. A transformation after that boundary produces a
 candidate, whose correspondence must be proved in Lean before an implementation
 certificate is reused. Typechecking a candidate is insufficient.
 
-The intended canonical target for broader imports is the pinned **normal
-evaluator**. The current domain model and its partial-input theorems still
-specify the reference evaluator. This tranche does not relabel those theorems:
-normal/reference demand differences in the [audit](evaluators.md) are migration
-obligations. The source importer, native representation theorem, external
-execution check and security-game replacement theorem are separate claims.
+The recommended semantic anchor for broader imports is the documented lazy
+language semantics, starting from the pinned reference account. The
+[semantic survey and revised milestones](evaluators.md) distinguish that account
+from both evaluator implementations and from SAW's translation. Known backend
+differences require versioned compatibility claims; they are not automatically
+changes to the canonical language model. The current partial-input theorems
+remain about the existing Lean model. The source importer, native representation
+theorem, external execution check and security-game replacement theorem are
+separate claims.
 
 ## Implemented route
 
@@ -95,7 +98,7 @@ external validation regenerates it through the official loader byte for byte.
 | Official input | `Reference.Expr` and versioned `SourceBundle` | Mirror the external AST, retaining unresolved obligations for checking. This is input data, not a second typed computation model. |
 | Checked monomorphic language | `Resolved.Term` on `ScopedSignature` / `IFreeM` | Intrinsic binding, type-preserving substitution and polynomial directions already exist. Labels are checking metadata, not a new evaluator. |
 | Open quantifiers and module parameters | Existing `ScopedFamily` / `Polymorphic.Term` | Numeric/type/proof stages and simultaneous recursion require this extra information. General source elaboration into it remains missing. Do not approximate higher-order parameters with data-only codecs. |
-| Partial meaning | Existing lifted domains and continuous functions | Error, divergence, suspended components and partial function arguments are relevant. Normal-evaluator migration must audit each affected demand rule. |
+| Partial meaning | Existing lifted domains and continuous functions | Error, divergence, suspended components and partial function arguments are relevant. Document each primitive's intended meaning and any backend disagreement. |
 | Native data implementation | Existing `Finite.Term`, `Represents` and `CertifiedFunction` | This IR has executable total functions and preserves native word operations. The distinction earns its weight at the partial/total boundary; it is not another source language. |
 | Contracts | Existing PolyFun correspondence plus VCVio's domain adapter | `congrSource` extends the existing certificate rather than adding a parallel transformation-contract hierarchy. |
 | Execution | Existing `Control.Transition`, ITree and machine adapters | No heap evaluator was added just to obtain another model. A heap needs a measured sharing requirement and a simulation/adequacy obligation. |
@@ -127,7 +130,7 @@ compression import. The existing SHA256 compression theorem still uses its
 separate preserved-source extraction. The new typed-AST path does not yet cover
 its full primitive closure, sequential/parallel comprehensions, local polymorphic
 definitions and recursive groups. A source elaboration preservation theorem must
-relate accepted constructors to the chosen normal semantics before this route
+relate accepted constructors to the specified source semantics before this route
 can establish general frontend correctness. A type certificate alone cannot do
 that work.
 
@@ -139,22 +142,21 @@ value parameters, connect imported `pmod` to the existing polynomial update
 lemma, and prove incremental composition. The current CRC theorem is still about
 transcribed equations. Module inventory success does not close either gate.
 
-Normal semantics require more than changing integer division. The existing audit
+Backend compatibility requires more than agreeing on integer division. The audit
 finds packed-word comparison, shift/update demand, error precedence in function
-arithmetic, folds and comprehension demand differences. Each migration needs a
-semantic equation, regression on partial arguments and a review of affected
-adequacy proofs. Infinite data must remain lazy where the normal implementation
-is lazy; forcing all fields of every sequence is not a solution. Preserve the
-original Foundation theta expression when changing semantics.
+arithmetic, folds and comprehension differences. The survey classifies upstream
+intent separately from observed behavior. Preserve the original Foundation theta
+expression; a portability repair is a separate source artifact and proof claim.
 
-For broader language coverage, first use the census to select public modules and
-instantiations, then implement one constructor/primitive family with typing,
-semantics, native representation and consumer proofs. Keep property imports
-separate from property proofs. Full hashes need padding and byte APIs in addition
-to compression. AES and Keccak add useful word/array operations; ECDSA and the
-algebra modules expose modular types, nominal cases and module interfaces.
-These are concrete obligations toward “import all of Foundation”; this draft
-does not claim that endpoint.
+The revised priority is whole-module import with explicit unfinished proofs,
+rather than completing every proof for another narrow primitive fragment.
+Import parameterized and recursive definitions before requiring specialization
+or total native implementations. Use the census to measure progress over complete
+dependency closures, including public properties as definitions. The
+[milestones](evaluators.md#revised-implementation-milestones) describe canonical
+syntax, upstream reference-definition reuse, native API generation, named proof
+obligations, and substantive consumers for PolyFun models. They are a proposed
+implementation sequence, not implemented coverage.
 
 ## Related tooling and ancestry
 

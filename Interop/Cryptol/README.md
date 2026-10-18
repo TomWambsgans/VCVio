@@ -2,9 +2,11 @@
 
 This optional development connects resolved Cryptol descriptions, a lazy Lean
 semantics, total native implementations, and VCVio specifications. It shares
-VCVio's root toolchain and dependency manifest. The existing partial model specifies
-Cryptol **3.6.0's reference evaluator**. Broader imports are intended to target the
-pinned normal evaluator; migrating demand rules and their proofs remains work.
+VCVio's root toolchain and dependency manifest. The existing partial model follows
+Cryptol **3.6.0's reference semantics** for its supported fragment; it is not a
+verification of the Haskell evaluator. The [semantic survey](docs/evaluators.md)
+recommends the documented lazy language semantics as the anchor for broader
+imports, with versioned backend compatibility claims and explicit proof gaps.
 The [tooling integration report](docs/tooling.md) records the implemented route,
 architecture decisions, literature ancestry and remaining gates.
 
@@ -109,7 +111,8 @@ The official specializer supplies a candidate for the scalar; a Lean proof check
 its partial meaning before `CertifiedFunction.congrSource` reuses the native
 implementation. Nine importer canaries cover higher-order composition, folds,
 captured locals and finite observations of infinite sequences. The broader graph
-still needs general checked elaboration and normal-semantics correspondence. Component theorems cover Keccak coordinate inverses and byte-aligned
+still needs general elaboration and source correspondence. Component theorems
+cover Keccak coordinate inverses and byte-aligned
 CRC polynomial updates; whole-algorithm differential tests exercise all SHA2,
 SHA3 and SHAKE cores, AES vectors and CRC splits. The tests retain the pinned
 reference evaluator's negative-index failure in Foundation Keccak separately
@@ -118,7 +121,7 @@ CRC implementation certificate is claimed.
 
 The [evaluator audit](docs/evaluators.md) compares the release with upstream
 `51405420cb90cf9959ca4349eea0ae8b77487855`, maps the integer discrepancy to
-Cryptol #2060, and records the obligations for migration to normal semantics.
+Cryptol #2060, and distinguishes language intent from backend compatibility.
 Set `CRYPTOL_UPSTREAM_BINARY` during external validation to reproduce its
 152 observations and compare the committed report. The portable theta variant
 is tested separately; the imported Foundation source retains its original bytes.
