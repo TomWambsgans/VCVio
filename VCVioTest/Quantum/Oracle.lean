@@ -896,6 +896,28 @@ example [MeasurableSpace (Σ u, RegLeaf u)] (H : Fin 2 → Fin 2)
     (lossless_run_additiveOracleRuntime .instruments lossless_queryKeepOrDiscardReg H),
     trace_re_additiveOracleRuntime_init, mul_one]
 
+/-- A comb returning a lifted bit has the same execution as its program. -/
+example (c : QuantumComb Reg (ULift.{1} Bool) 1) (H : Fin 2 → Fin 2) :
+    (additiveOracleRuntime H).run₂ .instruments
+        (c.toComp () (QReg.of Unit) (Equiv.prodPUnit Reg).symm (Equiv.prodPUnit Reg)) =
+      (c.frame (additiveOracleRuntime H).D (additiveOracleRuntime H).init).run
+        ((additiveOracleRuntime H).combQuery () (QReg.of Unit)
+          (Equiv.prodPUnit Reg).symm (Equiv.prodPUnit Reg)) :=
+  c.run_toComp (additiveOracleRuntime H) () (QReg.of Unit)
+    (Equiv.prodPUnit Reg).symm (Equiv.prodPUnit Reg)
+
+/-- The lifted-bit comb and its program also have equal observed laws. -/
+example [MeasurableSpace (ULift.{1} Bool)] (c : QuantumComb Reg (ULift.{1} Bool) 1)
+    (H : Fin 2 → Fin 2) :
+    (additiveOracleRuntime H).outcomeLaw₂ .instruments
+        (c.toComp () (QReg.of Unit) (Equiv.prodPUnit Reg).symm (Equiv.prodPUnit Reg)) c.init =
+      ((c.frame (additiveOracleRuntime H).D (additiveOracleRuntime H).init).run
+        ((additiveOracleRuntime H).combQuery () (QReg.of Unit)
+          (Equiv.prodPUnit Reg).symm (Equiv.prodPUnit Reg))).outcomeMeasure
+            (c.frame (additiveOracleRuntime H).D (additiveOracleRuntime H).init).init :=
+  c.outcomeLaw_toComp (additiveOracleRuntime H) () (QReg.of Unit)
+    (Equiv.prodPUnit Reg).symm (Equiv.prodPUnit Reg)
+
 /-! ## A gate set -/
 
 /-- Two named gates on a qubit: the bit flip `x` and the phase flip `z`. -/
