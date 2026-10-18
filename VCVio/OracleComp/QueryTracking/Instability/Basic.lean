@@ -90,7 +90,8 @@ prove either quantum norm bound, or iterate them over an adversary.
 
 * M. Zhandry, *How to Record Quantum Queries, and Applications to Quantum Indifferentiability*,
   CRYPTO 2019, [ePrint 2018/276](https://eprint.iacr.org/2018/276), March 1, 2019 revision:
-  Section 3, "Oracle Variations", compressed standard oracle construction.
+  Section 3, "Compressed Standard Oracles" (PDF pp. 12–14); Lemma 4 (PDF p. 15) proves
+  equivalence with the standard oracle.
 * A. Chiesa, P. Manohar, N. Spooner, *Succinct Arguments in the Quantum Random Oracle Model*,
   TCC 2019, ePrint 2019/834: Definition 5.4 (PDF p. 23), Proposition 5.5, Definition 5.6
   (PDF p. 24), Lemma 5.10 (PDF p. 24), Definition 5.11 and Proposition 5.12 (PDF p. 26).
