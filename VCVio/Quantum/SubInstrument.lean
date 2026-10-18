@@ -138,10 +138,6 @@ theorem trace_re_total_apply (p : SubInstrument A B α) (ρ : Matrix A A ℂ) :
 theorem isTNI_total (p : SubInstrument A B α) : p.total.IsTNI :=
   p.isCPTNIFamily.isTNI_familySum
 
-/-- The total map of a subinstrument is trace nonincreasing on positive semidefinite inputs. -/
-theorem isTNI_total' (p : SubInstrument A B α) : p.total.IsTNI :=
-  p.isTNI_total
-
 /-- A subinstrument is lossless when the sum of its branches is trace preserving: it never
 fails. -/
 @[expose]
