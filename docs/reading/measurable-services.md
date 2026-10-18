@@ -201,8 +201,21 @@ timeout are outcomes of a total kernel; no successful-mass conditioning occurs.
 For an admitted call, `failure_le_charge_of_admitted` bounds this kernel's actual
 error probability by the reserved charge. Its proof projects to the established
 capped threshold law, while the full kernel continues to retain failure state.
-This local bound and the executable policy do not yet constitute a whole-session
-comparison with an ideal service following the same admission policy.
+`FreeM.runKernel_withExcept_error_le` lifts a local reserve for selected errors
+and the successful continuation to every adaptive finite client, including clients
+with no uniform call-count bound. Applied here, `timeout_le_allowance` bounds the
+probability of any timeout by the initial allowance. Starting at `2⁻λ` gives that
+same whole-client timeout bound, while refusal remains a separate outcome.
+
+The executable `halfAllowanceCap` chooses precision from the denominator's integer
+bit length. It reserves less than half of every positive allowance, without adding
+a counter to the service state. `refusal_halfAllowanceCap_eq_zero` proves that
+positive-budget clients cannot run out of allowance under this policy, and
+`failure_le_allowance_halfAllowanceCap` consequently bounds all client errors by
+the initial allowance. Tape tests check adaptive reuse, timeout with a retained
+positive reserve, and immediate refusal at zero allowance. These are laws of the
+actual execution; comparison with an ideal service following the same admission
+policy remains a separate obligation.
 
 [`UniformTernary`](../../Examples/MeasurableServices/UniformTernary.lean) uses thresholds `1/3`
 and `2/3` on the same persistent real to obtain an exact uniform `Fin 3` output. This ties the

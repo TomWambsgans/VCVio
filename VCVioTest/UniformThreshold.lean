@@ -111,6 +111,15 @@ def run : IO Unit := do
   checkBudget "later refusal keeps earlier effects"
     (inspectBudget (fun _ state => if state.1.depth = 0 then 2 else 0) 1 [false, false, true])
     (some (.error .budgetExhausted, 2, 0, 3 / 4, [true]))
+  checkBudget "half allowance needs no counter"
+    (inspectBudget Budget.halfAllowanceCap (1 / 2) [true, false, false, true])
+    (some (.ok true, 3, 4, 11 / 32, [true]))
+  checkBudget "half allowance timeout retains positive reserve"
+    (inspectBudget Budget.halfAllowanceCap (1 / 2) [false, true, false, true])
+    (some (.error .timeout, 3, 2, 3 / 8, [true]))
+  checkBudget "half allowance zero refuses before bits"
+    (inspectBudget Budget.halfAllowanceCap 0 [true])
+    (some (.error .budgetExhausted, 0, 0, 0, [true]))
   checkCategorical "singleton needs no bits" (pure 9) [] 9 []
   checkCategorical "zero weights below" categoricalZeros [false, false, true] 1 [true]
   checkCategorical "repeated thresholds above" categoricalZeros [true, false] 2 [false]
@@ -119,6 +128,6 @@ def run : IO Unit := do
   checkCategorical "lower quarter" categoricalQuarters [false, false, true] 0 [true]
   checkCategorical "middle reuses prefix" categoricalQuarters [false, true, true] 1 [true]
   checkCategorical "upper quarter" categoricalQuarters [true, true, false] 2 [false]
-  IO.println "Persistent threshold and categorical sampling: 24 deterministic tape cases passed"
+  IO.println "Persistent threshold and categorical sampling: 27 deterministic tape cases passed"
 
 end UniformThresholdTest

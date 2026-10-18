@@ -98,4 +98,33 @@ theorem run_refused {α : Type} (cap : ℚ → Session → ℕ) (q : ℚ)
   machineHandler.liftM_admitted_refused (admission cap) _ q next state .budgetExhausted
     (admission_error cap q state h)
 
+/-- An executable conservative cap reserving less than half of a positive allowance.
+It uses only the denominator's integer bit length and adds no service counter. -/
+@[expose] def halfAllowanceCap (_ : ℚ) (state : Session) : ℕ := state.2.den.log2 + 2
+
+/-- Positive allowance pays the cap and leaves more than half for later calls. -/
+theorem charge_halfAllowanceCap_lt (q : ℚ) (state : Session) (h : 0 < state.2) :
+    charge (halfAllowanceCap q state) < state.2 / 2 := by
+  have hd : (state.2.den : ℚ≥0) < (2 : ℚ≥0) ^ (state.2.den.log2 + 1) := by
+    exact_mod_cast Nat.lt_log2_self (n := state.2.den)
+  have hdpos : (0 : ℚ≥0) < state.2.den := by exact_mod_cast state.2.den_pos
+  have hn : (1 : ℚ≥0) ≤ state.2.num := by
+    exact_mod_cast Nat.succ_le_of_lt (NNRat.num_pos.mpr h)
+  have hbound : 1 / (2 : ℚ≥0) ^ (state.2.den.log2 + 1) < state.2 := by
+    calc
+      _ < 1 / (state.2.den : ℚ≥0) := one_div_lt_one_div_of_lt hdpos hd
+      _ ≤ (state.2.num : ℚ≥0) / state.2.den :=
+        div_le_div_of_nonneg_right hn (le_of_lt hdpos)
+      _ = state.2 := NNRat.num_div_den state.2
+  have hhalf := div_lt_div_of_pos_right hbound (by norm_num : (0 : ℚ≥0) < 2)
+  convert hhalf using 1
+  simp [charge, halfAllowanceCap, pow_succ, div_eq_mul_inv, mul_comm]
+
+/-- The conservative cap admits every call with positive remaining allowance. -/
+theorem admission_halfAllowanceCap (q : ℚ) (state : Session) (h : 0 < state.2) :
+    admission halfAllowanceCap q state =
+      .ok (halfAllowanceCap q state, (state.1, state.2 - charge (halfAllowanceCap q state))) := by
+  apply admission_ok
+  exact (charge_halfAllowanceCap_lt q state h).le.trans (div_le_self zero_le (by norm_num))
+
 end UniformThreshold.Budget
