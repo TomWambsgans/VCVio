@@ -45,16 +45,26 @@ assembled in `HashSig/SLHDSA/Security/ByteBound.lean`, in both signing modes, fo
   `|A_hon| / 2^256`, `|A_hon| = honestAdrsCount vp` (`shakeAdvantage_le_securityBound`);
 - per public seed of weak-key mass zero, the same without a weak-key term
   (`shakeAdvantage_pure_le_securityBound_of_weakKeyMass_eq_zero`); at `n = 32` these are the
-  seeds outside the weak set (`shakeAdvantage_pure_le_securityBound_of_n_eq_32`).
+  seeds outside the weak set (`shakeAdvantage_pure_le_securityBound_of_n_eq_32`);
+- in hedged signing (`opt_rand` uniform), each of these with `1 / 2^{8n} + q_s (q_h + q_s + 1) /
+  2^{16n}` in place of `(q_s + 1) / 2^{8n}` (`shakeAdvantage_pure_le_securityBound_hedged`,
+  `shakeAdvantage_le_securityBound_hedged`,
+  `shakeAdvantage_pure_le_securityBound_hedged_of_weakKeyMass_eq_zero`,
+  `shakeAdvantage_pure_le_securityBound_hedged_of_n_eq_32`), which keeps the three-oracle level
+  ([How the bound is accounted](#how-the-bound-is-accounted)).
 
 At the six SHAKE parameter sets every side condition is discharged and the adversary's budget is
 the only hypothesis (`shakeAdvantage_pure_le_securityBound_validatedParams`,
-`shakeAdvantage_le_securityBound_validatedParams`). These theorems are stated over all twelve
+`shakeAdvantage_le_securityBound_validatedParams`, and in hedged signing
+`shakeAdvantage_pure_le_securityBound_hedged_validatedParams`,
+`shakeAdvantage_le_securityBound_hedged_validatedParams`). These theorems are stated over all twelve
 `FipsParameterSet` values, a SHA-2 value contributing only its parameters, which equal its SHAKE
 twin's. The `(q_s + 1) / 2^{8n}` term is the
 faithfulness hook, charged jointly with the three-oracle events
 (`prEvent_romSchemeRun_wins_or_runPrfKeyHit_le`, `HashSig/SLHDSA/Security/PrfKeyBound.lean`); the
 weak-key term is bounded per seed and averaged in `HashSig/SLHDSA/Security/WeakKeyBound.lean`.
+The hedged terms are `prEvent_romSchemeRun_wins_or_runPrfKeyClash_le`
+(`HashSig/SLHDSA/Security/HedgedKeyBound.lean`).
 
 **Oracle output length (modelling choice).** The oracle answers every string with `m` bytes, the
 longest SHAKE256 output FIPS 205 reads (`H_msg`; every other call reads the first `n ≤ m` bytes).
@@ -64,11 +74,9 @@ oracle, query for query, by sampling those bytes itself, so the choice loses not
 simulation is not formalised.
 
 **What is not proved.** Removing the weak-key term from the averaged bound at `n = 32`, where it
-is about `2^{−172}` ([The 256-bit sets](#the-256-bit-sets)), is not proved. The hedged
-refinement of the faithfulness hook ([How the bound is accounted](#how-the-bound-is-accounted)) is
-not proved, so the byte-level bound is the same in both signing modes. The SHA-2 parameter sets
-have no byte-level model. Of the levels below, "Three-oracle", "Byte level, per seed" and "Byte
-level, averaged" evaluate proved bounds; the other columns evaluate formulas that are not Lean
+is about `2^{−172}` ([The 256-bit sets](#the-256-bit-sets)), is not proved. The SHA-2 parameter
+sets have no byte-level model. Of the levels below, "Three-oracle", the two "Byte level" and the
+two "Hedged" columns evaluate proved bounds; the other columns evaluate formulas that are not Lean
 results.
 
 ## The statement
@@ -85,7 +93,8 @@ results.
   its signing queries `q_s`. Key generation, signing and verification are not charged to `q_h`. The
   bound is stated for each fixed public seed.
 - **Signing modes.** Hedged (`opt_rand` uniform) and deterministic (`opt_rand = PK.seed`) signing
-  are both instances of the same statement.
+  are both instances of the same statement. At byte level a second statement holds for hedged
+  signing, with a smaller faithfulness term.
 
 ## How the bound is accounted
 
@@ -143,11 +152,25 @@ signing mode: signing queries enter only through the coverage term. The byte-lev
 `q_s / 2^{8n}`, the faithfulness event for the signer's strings: a signing query whose randomizer
 equals `SK.prf`, so that its `H_msg` string begins with `SK.prf`. It also adds `1 / 2^{8n}` for
 `SK.prf = PK.seed`. Both are joined into the same joint potential, not added as separate
-probabilities, and both are charged in either signing mode, so the byte-level bound is the same
-for hedged and deterministic signing. For hedged signing the faithfulness event misroutes only if
-some signing query's `opt_rand` equals `PK.seed`; a hedged statement that bounds the two jointly
-would replace `q_s / 2^{8n}` by `q_s (q_h + q_s + 1) / 2^{16n}` and keep the three-oracle level.
-That refinement is not proved.
+probabilities, and both are charged in either signing mode, so this byte-level bound is the same
+for hedged and deterministic signing.
+
+For hedged signing a sharper statement is proved. A signer's `PRF_msg` string
+`SK.prf ‖ opt_rand ‖ M` clashes with an `H_msg` string only if its `opt_rand` equals `PK.seed`, so
+the clash classification keeps that condition (`RunPrfKeyClash`,
+`shakeAdvantage_pure_le_wins_or_runPrfKeyClash_or_isWeakKey`). After the seed hop the condition
+is a randomizer derivation at `opt_rand = PK.seed` in the ideal game, which depends on the run
+only: each signing query draws its `opt_rand` and makes one derivation with it, so the condition
+has probability at most `q_s · ε` when `Pr[opt_rand = PK.seed] ≤ ε`
+(`prEvent_idealRun_randDerivedAt_le`, through the generic
+`SignatureAlg.prEvent_run_unforgeableTranscriptExperiment_le`). Given the run, the drawn `SK.prf`
+hits one of the at most `q_h + q_s + 1` cached `H_msg` points with probability at most
+`(q_h + q_s + 1) / 2^{8n}`, so the joint event costs `q_s · ε · (q_h + q_s + 1) / 2^{8n}`
+(`prEvent_idealDraw_hmsgAtPrfKey_and_randDerivedAt_le`), added outside the potential; the
+`1 / 2^{8n}` for `SK.prf = PK.seed` stays inside it. For a uniform `opt_rand`, `ε = 2^{−8n}` and
+`q_s / 2^{8n}` becomes `q_s (q_h + q_s + 1) / 2^{16n}`, which keeps the three-oracle level
+(`shakeAdvantage_pure_le_securityBound_hedged`). Deterministic signing has `ε = 1` and keeps the
+mode-independent statement.
 
 ### Coverage after the seed hop
 
@@ -181,7 +204,7 @@ Per-query level `−log₂(bound / q_h)` at `q_h = q_s = 2^64`. "Three-oracle" e
 three-oracle bound `securityBound` at `c = 2`, `r = 1`, which is proved per public seed and holds
 in both signing modes (`securityTarget_two_one`); with the weighted coverage term these levels are
 those of the unweighted term to four decimals at every set. It is the level of the three-oracle
-model, not of the byte-level scheme. The two byte-level columns are levels of proved bounds on
+model, not of the byte-level scheme. The two "Byte level" columns are levels of proved bounds on
 `shakeAdvantage`, in hedged and deterministic signing alike. "Byte level, per seed" adds to the
 three-oracle bound the terms `1 / 2^{8n}` (`SK.prf = PK.seed`) and `q_s / 2^{8n}` (the signer's
 faithfulness event) and omits the weak-key term: it is the level of
@@ -191,21 +214,27 @@ mass zero, which at `n = 32` is every seed outside the weak set
 "Byte level, averaged" adds the weak-key term
 `|A_hon| / 2^256`, with `|A_hon| = honestAdrsCount vp` evaluated in
 `HashSigTest/SLHDSA/WeakKeyBound.lean`: it is the level of `shakeAdvantage_le_securityBound` over
-the uniform public seed, and differs from the per-seed column only at `n = 32`. The remaining
+the uniform public seed, and differs from the per-seed column only at `n = 32`. The two "Hedged"
+columns are the same two bounds for hedged signing, with `1 / 2^{8n} + q_s (q_h + q_s + 1) /
+2^{16n}` in place of `(q_s + 1) / 2^{8n}`: the levels of
+`shakeAdvantage_pure_le_securityBound_hedged_of_weakKeyMass_eq_zero` (at `n = 32`,
+`shakeAdvantage_pure_le_securityBound_hedged_of_n_eq_32`) and of
+`shakeAdvantage_le_securityBound_hedged`. They equal the three-oracle levels to two decimals,
+except that the averaged one keeps the weak-key term at `n = 32`. The remaining
 columns are evaluations of formulas, not Lean results. "Losses added separately" charges the
 losses of "Byte level, per seed" as separate `q_h`-bounded terms, the constant 4 above, and also
 omits the weak-key term. "Two-hazard limit" is the level with the coverage term and the constant
 2 alone; `8n − 1` is the level of `Adv ≤ q_h / 2^{8n−1}`. The last column is the coverage term's
 cost in units of `q_h / 2^{8n}`.
 
-| Set | Three-oracle | Byte level, per seed | Byte level, averaged | Losses added separately | Two-hazard limit | `8n − 1` | Coverage cost |
-|---|---|---|---|---|---|---|---|
-| 128s | 126.99 | 126.41 | 126.41 | 125.67 | 126.99 | 127 | 0.02 |
-| 128f | 126.54 | 126.09 | 126.09 | 125.48 | 126.54 | 127 | 0.76 |
-| 192s | 190.82 | 190.29 | 190.29 | 189.60 | 190.82 | 191 | 0.27 |
-| 192f | 190.87 | 190.33 | 190.33 | 189.62 | 190.87 | 191 | 0.19 |
-| 256s | 254.41 | 254.00 | 235.95 | 253.41 | 254.41 | 255 | 1.00 |
-| 256f | 254.27 | 253.89 | 236.26 | 253.34 | 254.27 | 255 | 1.32 |
+| Set | Three-oracle | Byte level, per seed | Byte level, averaged | Hedged, per seed | Hedged, averaged | Losses added separately | Two-hazard limit | `8n − 1` | Coverage cost |
+|---|---|---|---|---|---|---|---|---|---|
+| 128s | 126.99 | 126.41 | 126.41 | 126.99 | 126.99 | 125.67 | 126.99 | 127 | 0.02 |
+| 128f | 126.54 | 126.09 | 126.09 | 126.54 | 126.54 | 125.48 | 126.54 | 127 | 0.76 |
+| 192s | 190.82 | 190.29 | 190.29 | 190.82 | 190.82 | 189.60 | 190.82 | 191 | 0.27 |
+| 192f | 190.87 | 190.33 | 190.33 | 190.87 | 190.87 | 189.62 | 190.87 | 191 | 0.19 |
+| 256s | 254.41 | 254.00 | 235.95 | 254.41 | 235.95 | 253.41 | 254.41 | 255 | 1.00 |
+| 256f | 254.27 | 253.89 | 236.26 | 254.27 | 236.26 | 253.34 | 254.27 | 255 | 1.32 |
 
 The coverage term relaxes the exact coverage probability of the interleaved-target event. With
 the exact probability instead, the coverage costs drop to 0.10 (128f), 0.11 (192f) and 1.06
@@ -244,7 +273,8 @@ is weak. At `q_h = q_s = 2^64` the byte-level levels are:
 - averaged over the uniform `PK.seed`: 235.95 (256s) and 236.26 (256f)
   (`shakeAdvantage_le_securityBound`);
 - per seed, for every `PK.seed` outside the weak set: 254.00 (256s) and 253.89 (256f)
-  (`shakeAdvantage_pure_le_securityBound_of_n_eq_32`).
+  (`shakeAdvantage_pure_le_securityBound_of_n_eq_32`), and in hedged signing 254.41 (256s) and
+  254.27 (256f) (`shakeAdvantage_pure_le_securityBound_hedged_of_n_eq_32`).
 
 The averaged level loses about one bit per halving of `q_h`, because the weak-key term is fixed
 while the per-query normalisation changes: at `q_h = q_s = 2^40` it is about 212 (211.95 at 256s,
@@ -315,10 +345,11 @@ None of the accounting choices above changes the scheme: the bound is about FIPS
 so an implementation proved to refine the Lean byte-level specification inherits it. The facts an
 implementation does depend on are:
 
-- **Signing mode.** The three-oracle bound is the same in both modes, and so is the proved
-  byte-level bound, with the faithfulness hook charged in both, `q_s / 2^{8n}` included. Only a
-  hedged statement that bounds the faithfulness event jointly with `opt_rand = PK.seed`, not
-  proved, would remove that term for hedged signing.
+- **Signing mode.** The three-oracle bound is the same in both modes. At byte level the bound
+  for every signing mode charges `q_s / 2^{8n}` for the signer's strings; hedged signing, with
+  `opt_rand` uniform, has the sharper proved bound with `q_s (q_h + q_s + 1) / 2^{16n}` instead,
+  at the three-oracle level (0.38–0.58 bits above the mode-independent bound at
+  `q_h = q_s = 2^64`). An implementation in deterministic mode gets the mode-independent bound.
 - **Signature count.** The bound is a function of `q_s`; a deployment that signs fewer than `2^64`
   messages per key obtains the corresponding smaller coverage term.
 - **Address encoding.** The key hypothesis `CorePrimitives.KeyDiscipline` bundles injectivity of

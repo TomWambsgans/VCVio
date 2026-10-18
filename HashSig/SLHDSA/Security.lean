@@ -31,7 +31,8 @@ reductions from the forger, and checked query bounds. Primitive packaging alone 
 those ingredients. In the classical random-oracle model, with the tweakable hash, `H_msg` and
 `PRF_msg` as three oracles, the EUF-CMA bound is `HashSig.SLHDSA.Security.CoverageBound`
 (`securityTarget_two_one`); over a single SHAKE256 random oracle on byte strings it is
-`HashSig.SLHDSA.Security.ByteBound` (`shakeAdvantage_le_securityBound`).
+`HashSig.SLHDSA.Security.ByteBound` (`shakeAdvantage_le_securityBound`; in hedged signing,
+`shakeAdvantage_le_securityBound_hedged`).
 
 ## References
 
