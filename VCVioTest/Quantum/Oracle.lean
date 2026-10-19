@@ -55,6 +55,8 @@ Oracles `Fin 2 → Fin 2`, queried on the register `Fin 2 × Fin 2`.
   program applying both uses two gates and not one, and runs to a lossless subinstrument.
 * **The fixed-register run.** The run of the coin program as a fixed-register program is the run
   of its tree read at the leaf on its final register; the counter calculation holds for both.
+* **Constant-output facades.** Mapping and losslessness chain after sequencing or framing;
+  constant map laws and explicit unfolding support rewrites through ordinary imports.
 -/
 
 public section
@@ -63,6 +65,69 @@ open Quantum Matrix MeasureTheory OracleSpec
 open scoped ComplexOrder ENNReal Kronecker
 
 namespace VCVioTest.QuantumOracle
+
+/-! ## Constant-output composition through ordinary imports -/
+
+noncomputable section constantOutput
+
+variable {A B C R α β γ : Type*} [Fintype A] [Fintype B] [Fintype C] [Fintype R]
+
+/-- Relabelling a sequenced computation exposes its cast-free branch fibre. -/
+example (p : SubInstrument A B α) (k : α → SubInstrument B C β)
+    (f : β → γ) (c : γ) (ρ : Matrix A A ℂ) :
+    ((p.bind k).map f).branch c ρ = ∑' b : f ⁻¹' {c}, (p.bind k).branch b ρ := by
+  rw [SubInstrument.branch_map_apply]
+
+/-- Relabelling a framed computation exposes its cast-free branch fibre. -/
+example (p : SubInstrument A B α) (f : α → β) (b : β) (ρ : Matrix (A × R) (A × R) ℂ) :
+    ((p.frame R).map f).branch b ρ = ∑' a : f ⁻¹' {b}, (p.frame R).branch a ρ := by
+  rw [SubInstrument.branch_map_apply]
+
+/-- Sequencing and relabelling preserve losslessness without output-family annotations. -/
+example (p : SubInstrument A B α) (k : α → SubInstrument B C β)
+    (hp : p.Lossless) (hk : ∀ a, (k a).Lossless) (f : β → γ) :
+    ((p.bind k).map f).Lossless :=
+  (hp.bind hk).map f
+
+/-- Framing and relabelling preserve losslessness without output-family annotations. -/
+example (p : SubInstrument A B α) (hp : p.Lossless) (f : α → β) :
+    ((p.frame R).map f).Lossless :=
+  (hp.frame R).map f
+
+/-- Qualified mapping also accepts a composite explicitly formed by dependent bind. -/
+example (p : SubInstrument A B α) (k : α → SubInstrument B C β) (f : β → γ) :=
+  SubInstrument.map f (DSubInstrument.bind p k)
+
+/-- Qualified losslessness mapping accepts a proof formed by the dependent bind law. -/
+example (p : SubInstrument A B α) (k : α → SubInstrument B C β)
+    (hp : p.Lossless) (hk : ∀ a, (k a).Lossless) (f : β → γ) :
+    (SubInstrument.map f (DSubInstrument.bind p k)).Lossless :=
+  SubInstrument.Lossless.map (DSubInstrument.Lossless.bind hp hk) f
+
+/-- The constant map-as-bind law supports a bare rewrite. -/
+example (p : SubInstrument A B α) (f : α → β) :
+    p.map f = p.bind (fun a ↦ SubInstrument.pure (f a)) := by
+  rw [SubInstrument.map_eq_bind_pure]
+
+/-- Simplification applies the dependent map-as-bind law through the constant facades. -/
+example (p : SubInstrument A B α) (f : α → β) :
+    p.map f = p.bind (fun a ↦ SubInstrument.pure (f a)) := by
+  simp only [DSubInstrument.map_eq_bind_ret]
+
+/-- Exposing the map facade permits the dependent map-as-bind law to rewrite. -/
+example (p : SubInstrument A B α) (f : α → β) :
+    p.map f = p.bind (fun a ↦ SubInstrument.pure (f a)) := by
+  rw [SubInstrument.map, DSubInstrument.map_eq_bind_ret]
+
+/-- Exposing the map facade permits the dependent identity law to rewrite. -/
+example (p : SubInstrument A B α) : p.map id = p := by
+  rw [SubInstrument.map, DSubInstrument.map_id]
+
+/-- Simplification also handles identity relabelling directly. -/
+example (p : SubInstrument A B α) : p.map id = p := by
+  simp
+
+end constantOutput
 
 /-- The random-oracle signature for oracles `Fin 2 → Fin 2`. It is noncomputable: it is only used
 in types and noncomputable programs, and is not evaluated when the module is loaded. -/
@@ -1062,7 +1127,7 @@ theorem run_spectatorCall_apply (H : Fin 2 → Fin 2)
     ((spectatorRuntime H).run₂ .instruments spectatorCall).branch () ρ
         (((x, y), e), d) (((x', y'), e'), d') =
       ρ (((x, y - H x), e), d) (((x', y' - H x'), e'), d') := by
-  rw [spectatorCall, QuantumRuntime.run₂_query, DSubInstrument.bind_ret]
+  rw [spectatorCall, QuantumRuntime.run₂_query, SubInstrument.bind_pure]
   simp only [QuantumRuntime.queryStep, DSubInstrument.branch_bind_unit,
     SubInstrument.branch_pure_self, LinearMap.id_comp, LinearMap.comp_apply,
     SubInstrument.relabel_branch_apply, DSubInstrument.branch_frame_apply,
@@ -1135,7 +1200,7 @@ example (H : Fin 2 → Fin 2) (d : (additiveOracleRuntime H).D) :
       (Matrix.single (0, d) (0, d) 1) =
       Matrix.single (0, d) (0, d) 1 := by
   rw [QuantumRuntime.run₂_bind, QuantumRuntime.run₂_act, QuantumRuntime.run₂_act,
-    DSubInstrument.bind_ret, DSubInstrument.bind_ret, DSubInstrument.branch_bind_unit,
+    SubInstrument.bind_pure, SubInstrument.bind_pure, DSubInstrument.branch_bind_unit,
     LinearMap.comp_apply, DSubInstrument.branch_frame_single,
     SubInstrument.branch_ofIsometry_apply]
   change (resetZero.frame _).branch ()
@@ -1153,7 +1218,7 @@ example (H : Fin 2 → Fin 2) (d : (additiveOracleRuntime H).D) :
         (SubInstrument.ofIsometry pauliX conjTranspose_pauliX_mul_self))).branch ()
       (Matrix.single (0, d) (0, d) 1) = Matrix.single (1, d) (1, d) 1 := by
   rw [QuantumRuntime.run₂_bind, QuantumRuntime.run₂_act, QuantumRuntime.run₂_act,
-    DSubInstrument.bind_ret, DSubInstrument.bind_ret, DSubInstrument.branch_bind_unit,
+    SubInstrument.bind_pure, SubInstrument.bind_pure, DSubInstrument.branch_bind_unit,
     LinearMap.comp_apply, DSubInstrument.branch_frame_single, resetZero,
     DSubInstrument.branch_classical_basis]
   simp only [↓reduceDIte, cast_eq, Matrix.single_kronecker_single, one_mul]

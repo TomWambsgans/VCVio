@@ -41,6 +41,13 @@ Its branch at `a` is the branch of `R.run I x` at that leaf
 (`Quantum.QuantumRuntime.branch_run₂`), and it is a
 morphism of indexed monads (`Quantum.QuantumRuntime.run₂_bind`).
 
+Constant-output composites use the `SubInstrument` facades, including chained mapping and
+losslessness proofs. A continuation with an outcome-dependent output uses
+`Quantum.DSubInstrument.bind` explicitly, even when its first step has a constant output.
+For rewrites headed by a constant facade, use its constant law, such as
+`Quantum.SubInstrument.map_eq_bind_pure`. Identity relabelling follows by `simp`, or by
+`rw [SubInstrument.map, DSubInstrument.map_id]` to expose the dependent map law.
+
 ## Observation
 
 A program is observed from a substate `ρ` of its starting register, with the runtime's register
@@ -167,7 +174,7 @@ noncomputable def runAux :
   | _, .pure x => DSubInstrument.ret (fun p : Σ u, X u ↦ p.1 × R.D) ⟨_, x⟩
   | _, .liftBind (.prim o) k => ((I o).frame R.D).bind fun b ↦ runAux (k (ULift.up b))
   | _, .liftBind (.query i E ℓ) k =>
-      (R.queryStep i E ℓ).bind fun r ↦ runAux (k (ULift.up r))
+      DSubInstrument.bind (R.queryStep i E ℓ) fun r ↦ runAux (k (ULift.up r))
 
 /-- The execution of the program `x` under the interpretation `I` of its local operations, against
 the runtime `R`: a dependent subinstrument from `A × R.D` whose outcomes are the leaves `⟨u, y⟩` of
@@ -201,7 +208,7 @@ continuation. -/
 theorem run_queryBind (i : spec.Port) (E : QReg) (ℓ : A ≃ spec.In i × E)
     (k : spec.Result i → QuantumComp L spec X (QReg.of (spec.Out i × E))) :
     R.run I (QuantumComp.queryBind i E ℓ k) =
-      (R.queryStep i E ℓ).bind fun r ↦ R.run I (k r) :=
+      DSubInstrument.bind (R.queryStep i E ℓ) fun r ↦ R.run I (k r) :=
   rfl
 
 /-- Running the generic local operation followed by a continuation. -/
@@ -215,7 +222,7 @@ theorem run_query_bind (i : spec.Port) (E : QReg) (ℓ : A ≃ spec.In i × E)
     (k : ∀ u, (PSigma fun _ : u = QReg.of (spec.Out i × E) ↦ spec.Result i) →
       QuantumComp L spec Y u) :
     R.run I ((QuantumComp.query i E ℓ).bind k) =
-      (R.queryStep i E ℓ).bind fun r ↦ R.run I (k _ ⟨rfl, r⟩) :=
+      DSubInstrument.bind (R.queryStep i E ℓ) fun r ↦ R.run I (k _ ⟨rfl, r⟩) :=
   rfl
 
 /-- **`run` respects sequencing.** Running `x.bind k` runs `x`, and on the leaf `⟨u, y⟩` runs
@@ -239,7 +246,7 @@ theorem lossless_run {x : QuantumComp L spec X A} (hx : x.Lossless I)
   | pure _ _ => exact DSubInstrument.lossless_ret _ _
   | primBind _ o k ih => exact (hx.1.frame R.D).bind fun b ↦ ih b (hx.2 b)
   | queryBind _ i E ℓ k ih =>
-    exact (R.lossless_queryStep (hR i) E ℓ).bind
+    exact DSubInstrument.Lossless.bind (R.lossless_queryStep (hR i) E ℓ)
       fun r ↦ ih r (hx r)
 
 /-! ## Execution of programs on a fixed final register -/
@@ -284,7 +291,7 @@ theorem run₂_queryBind (i : spec.Port) (E : QReg) (ℓ : A ≃ spec.In i × E)
     R.run₂ I (QuantumComp₂.queryBind i E ℓ k) =
       (R.queryStep i E ℓ).bind fun r ↦ R.run₂ I (k r) := by
   refine DSubInstrument.ext (funext fun a ↦ LinearMap.ext fun ρ ↦ ?_)
-  change ((R.queryStep i E ℓ).bind fun r ↦ R.run I (k r)).branch
+  change (DSubInstrument.bind (R.queryStep i E ℓ) fun r ↦ R.run I (k r)).branch
     ⟨B, rfl, a⟩ ρ = _
   rw [DSubInstrument.branch_bind_apply, DSubInstrument.branch_bind_apply]
   rfl
@@ -323,22 +330,21 @@ theorem run₂_bind (x : QuantumComp₂ L spec A B α) (k : α → QuantumComp�
     (k : α → QuantumComp₂ L spec B C β),
       R.run₂ I (x.bind k) = (R.run₂ I x).bind fun a ↦ R.run₂ I (k a)) ?_ ?_ ?_ x k
   · intro _ a _ k
-    rw [QuantumComp₂.pure_bind, run₂_pure, DSubInstrument.ret_bind]
+    rw [QuantumComp₂.pure_bind, run₂_pure, SubInstrument.pure_bind]
   · intro _ _ o k' ih _ k
     rw [QuantumComp₂.primBind_bind, run₂_primBind,
-      run₂_primBind, DSubInstrument.bind_assoc]
+      run₂_primBind, SubInstrument.bind, DSubInstrument.bind_assoc]
     refine congrArg _ (funext fun b ↦ ?_)
     rw [ih b k]
   · intro _ _ i E ℓ k' ih _ k
-    rw [QuantumComp₂.queryBind_bind, run₂_queryBind, run₂_queryBind, DSubInstrument.bind_assoc]
+    rw [QuantumComp₂.queryBind_bind, run₂_queryBind, run₂_queryBind, SubInstrument.bind_assoc]
     exact congrArg _ (funext fun r ↦ ih r k)
 
 /-- Running a program with a relabelled return value relabels the outcomes of its run. -/
 theorem run₂_map (f : α → β) (x : QuantumComp₂ L spec A B α) :
     R.run₂ I (x.map f) = (R.run₂ I x).map f := by
-  rw [QuantumComp₂.map_eq_bind_pure, run₂_bind]
+  rw [QuantumComp₂.map_eq_bind_pure, run₂_bind, SubInstrument.map_eq_bind_pure]
   simp only [run₂_pure]
-  exact (DSubInstrument.map_eq_bind_ret f _).symm
 
 /-- A lossless fixed-register program run against a runtime whose steps are lossless is
 lossless. -/

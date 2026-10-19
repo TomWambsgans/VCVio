@@ -106,11 +106,11 @@ theorem interleave_succ' (Q : SubInstrument M M Unit) (s : Fin (q + 2) → SubIn
     interleave Q (q + 1) s =
       (s 0).bind fun _ ↦ Q.bind fun _ ↦ interleave Q q (Fin.tail s) := by
   induction q with
-  | zero => exact DSubInstrument.bind_assoc ..
+  | zero => exact SubInstrument.bind_assoc ..
   | succ q ih =>
-    rw [interleave_succ, ih, interleave_succ, DSubInstrument.bind_assoc,
-      DSubInstrument.bind_assoc]
-    simp only [DSubInstrument.bind_assoc]
+    rw [interleave_succ, ih, interleave_succ, SubInstrument.bind_assoc,
+      SubInstrument.bind_assoc]
+    simp only [SubInstrument.bind_assoc]
     rfl
 
 /-- Interleaving lossless steps with a lossless query step is lossless. -/
@@ -292,7 +292,7 @@ theorem body_succ (c : QuantumComb M α (q + 1)) (Q : SubInstrument M M Unit) :
 @[simp]
 theorem run_dropLast (c : QuantumComb M α (q + 1)) (Q : SubInstrument M M Unit) :
     c.dropLast.run Q = c.dropLast.body Q :=
-  DSubInstrument.bind_ret _
+  SubInstrument.bind_pure _
 
 /-- Removing the last query does not change the substates after the earlier steps. -/
 theorem stateAfterStep_dropLast (c : QuantumComb M α (q + 1)) (Q : SubInstrument M M Unit)
@@ -434,13 +434,13 @@ theorem run_interleaveComp (R : QuantumRuntime spec) (i : spec.Port) (E : QReg)
       R.run₂ .instruments (interleaveComp i E ℓ ℓ' q s) =
         interleave (R.combQuery i E ℓ ℓ') q fun j ↦ (s j).frame R.D
   | 0, s => by
-    rw [interleaveComp, QuantumRuntime.run₂_act, DSubInstrument.bind_ret, interleave_zero]
+    rw [interleaveComp, QuantumRuntime.run₂_act, SubInstrument.bind_pure, interleave_zero]
   | q + 1, s => by
     rw [interleaveComp, QuantumRuntime.run₂_bind, QuantumRuntime.run₂_bind,
-      run_interleaveComp R i E ℓ ℓ' q, QuantumRuntime.run₂_query, DSubInstrument.bind_ret,
-      QuantumRuntime.run₂_act, DSubInstrument.bind_ret, DSubInstrument.frame_bind, interleave_succ,
+      run_interleaveComp R i E ℓ ℓ' q, QuantumRuntime.run₂_query, SubInstrument.bind_pure,
+      QuantumRuntime.run₂_act, SubInstrument.bind_pure, SubInstrument.frame_bind, interleave_succ,
       QuantumRuntime.combQuery]
-    simp only [DSubInstrument.bind_assoc]
+    simp only [SubInstrument.bind_assoc]
     rfl
 
 /-- Interleaving lossless steps with calls is a lossless program. -/
@@ -483,10 +483,10 @@ noncomputable def actUnit {A B : QReg} (p : SubInstrument A B Unit) :
 theorem run_actUnit {A B : QReg} (R : QuantumRuntime spec) (p : SubInstrument A B Unit) :
     R.run₂ .instruments (actUnit.{u₁, v₁, w} p) = p.frame R.D := by
   rw [actUnit, QuantumRuntime.run₂_bind, QuantumRuntime.run₂_act,
-    DSubInstrument.bind_ret, DSubInstrument.frame_map, DSubInstrument.map_eq_bind_ret,
-    DSubInstrument.bind_assoc]
-  simp only [DSubInstrument.ret_bind, QuantumRuntime.run₂_pure]
-  exact DSubInstrument.bind_ret _
+    SubInstrument.bind_pure, SubInstrument.map_eq_bind_pure, SubInstrument.frame_bind,
+    SubInstrument.bind_assoc]
+  simp only [SubInstrument.frame_pure, SubInstrument.pure_bind, QuantumRuntime.run₂_pure]
+  exact SubInstrument.bind_pure _
 
 /-- A lifted one-outcome step is lossless when its instrument is lossless. -/
 theorem lossless_actUnit {A B : QReg} {p : SubInstrument A B Unit} (hp : p.Lossless) :
@@ -524,9 +524,9 @@ theorem run_interleaveCompLift (R : QuantumRuntime spec) (i : spec.Port) (E : QR
   | q + 1, s => by
     rw [interleaveCompLift, QuantumRuntime.run₂_bind, QuantumRuntime.run₂_bind,
       run_interleaveCompLift R i E ℓ ℓ' q, QuantumRuntime.run₂_query,
-      DSubInstrument.bind_ret, run_actUnit, DSubInstrument.frame_bind, interleave_succ,
+      SubInstrument.bind_pure, run_actUnit, SubInstrument.frame_bind, interleave_succ,
       QuantumRuntime.combQuery]
-    simp only [DSubInstrument.bind_assoc]
+    simp only [SubInstrument.bind_assoc]
     rfl
 
 /-- Lossless comb steps remain lossless after lifting their internal outcomes. -/
@@ -578,7 +578,7 @@ theorem run_toComp (c : QuantumComb M α q) (R : QuantumRuntime spec) (i : spec.
     R.run₂ .instruments (c.toComp i E ℓ ℓ') =
       (c.frame R.D R.init).run (R.combQuery i E ℓ ℓ') := by
   rw [toComp, QuantumRuntime.run₂_bind, run_interleaveCompLift, QuantumRuntime.run₂_act,
-    DSubInstrument.bind_ret]
+    SubInstrument.bind_pure]
   rfl
 
 /-- The outcome distribution of the program of a comb, observed from the comb's initial substate, is
