@@ -186,7 +186,7 @@ theorem run_classicalQuery_branch_of_basis (H : X → Y) {R : QuantumRuntime (qr
     SubInstrument.branch_relabel, SubInstrument.branch_relabel, conj_basisMatrix_equiv_single]
   simp only [QuantumRuntime.queryEquivIn_apply, Equiv.prodPUnit_symm_apply]
   rw [DSubInstrument.branch_frame_single, hR, Matrix.single_kronecker_single, one_mul,
-    conj_basisMatrix_equiv_single, QuantumRuntime.run₂_act, DSubInstrument.bind_ret]
+    conj_basisMatrix_equiv_single, QuantumRuntime.run₂_act, SubInstrument.bind_pure]
   simp only [QuantumRuntime.queryEquivOut_apply]
   rw [DSubInstrument.branch_frame_single, DSubInstrument.branch_classical_basis]
   by_cases h : H t = y <;> simp [h, Matrix.single_kronecker_single]
