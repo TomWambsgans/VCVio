@@ -216,6 +216,10 @@ baseline/report change, not disabled checking or an exception that hides debt.
 ## Revised implementation milestones
 
 These are proposals from the survey; no implementation was changed during it.
+The [unified tracker](https://github.com/Verified-zkEVM/VCVio/issues/879) develops
+them into assignable workstreams with shared dependencies and acceptance gates.
+The [delivery contract](tooling.md#coordinated-development-contract) keeps the
+architecture and meaning of completion explicit.
 
 1. **Specify the import contract and make the corpus the work queue.** Keep the
    official loader, typechecker, module instantiation and exact source provenance.

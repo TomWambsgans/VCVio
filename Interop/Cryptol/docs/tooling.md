@@ -203,4 +203,222 @@ scoped polynomial syntax, partial-domain reasoning, native Lean implementations
 and direct VCVio game replacement. This tranche demonstrates the first three
 with a checked scalar and reuses the established native bridge. A claim of novel
 “full verified Cryptol interop” would be premature until the remaining language,
-normal-semantics and whole-module gates are closed.
+source-preservation and whole-module gates are closed.
+
+## Coordinated development contract
+
+The implementation work is tracked by
+[the unified roadmap (#879)](https://github.com/Verified-zkEVM/VCVio/issues/879);
+its workstream table is the live
+assignment and dependency queue. The semantic survey above remains the evidence
+for these choices. This section specifies the intended delivery contract, not
+additional implemented coverage. Work can stay on VCVio #840 and the companion
+PolyFun drafts while the architecture is tested.
+
+### Completion means several different things
+
+The target is every module, interface and public definition in the pinned
+Foundation corpus, retaining complete dependency closures and original bodies.
+“Import all Foundation” is a corpus milestone, not a claim to support every
+possible Cryptol program or to prove every Foundation property.
+
+| Claim | Required evidence |
+|---|---|
+| Frontend coverage | The official loader exports the pinned source, parameters, schemas, properties, nominal declarations and dependency graph. |
+| Structural import | Every source body is retained with stable identity and scope; unsupported forms remain explicit diagnostics or obligation-bearing syntax, never invented implementations. |
+| Semantic import | Each retained constructor and primitive has the specified meaning. External implementations are explicit parameters/contracts; an unspecified parameter is reported separately from a closed semantic definition. |
+| Natural Lean use | Named module interfaces, records/enums, aliases, words/sequences and public equations support an ordinary-import consumer. |
+| Executable native use | A native implementation exists on a stated represented domain, with explicit totality or partial-execution conditions. Noncomputable denotation alone does not satisfy this. |
+| Verified source/native comparison | Preservation and representation obligations are discharged, or the theorem is clearly conditional with a transitive report of its exact unfinished assumptions. |
+| Backend compatibility | A separate versioned theorem or explicitly limited observation relates the model to normal Cryptol, reference evaluation, SAW or another backend. |
+| Algorithm/security claim | Independent specification or game theorems establish the named algorithm/property. Importing a source property does not establish its truth. |
+
+A first useful broad delivery retains real definitions and named unfinished
+proofs. It need not have optimized code or complete property proofs for every
+module. A `sorry` body, default result, injected bottom or language error is not
+a substitute for an unsupported source definition. Unknown primitives and
+foreign implementations need explicit parameters and contracts. Do not assert
+an equality contradicted by a known semantic discrepancy and call it proof debt.
+
+The optional Cryptol gate currently rejects all admissions. Before admitting
+proofs, extend its existing validation with a deliberately scoped obligation
+manifest: exact declaration/proposition, source identity, reason, owning workstream
+and transitive affected conclusions. Reject unlisted debt and nonstandard proof
+axioms; keep PolyFun's baseline empty and core VCVio's isolation unchanged.
+Proof debt is allowed in this exploratory consumer, not silently inherited by
+generic infrastructure. No admission policy or baseline changes are made by
+this roadmap itself.
+
+### One source language and explicit interpretation boundaries
+
+The planned canonical source is the existing parameter-changing polynomial
+`ScopedFamily` language. It retains numeric, type, proof and value binders;
+open schemas; global references; module interfaces/parameters; and simultaneous
+recursive groups. Specialization is a derived operation. Recursion is interpreted
+before instantiation, rather than by enumerating a finite set of instances.
+
+One immediate design obligation is open class constraints. The raw schema
+already retains them and the closed checker resolves a bounded structural class
+fragment, but `Scheme.guard` currently carries numeric constraints. The open
+scheme/environment contract must handle value-type constraints and their
+evidence before claiming to import general polymorphic modules. Decide whether
+a particular constraint is an admissibility predicate, explicit dictionary, or
+both by the source semantics; do not manufacture dictionaries just to satisfy
+the target typechecker.
+
+Keep source types and nominal identities through checking. Native carrier
+equality does not justify equating different records or enums. Keep global
+dependency sharing rather than expanding definitions into each call site.
+Extend the official adapter, not a new source parser, for cases, nominal forms,
+module linking and source positions.
+
+Consolidate the existing source representations as consumers migrate.
+`Resolved.Term` should become a closed view/embedding or a justified optimization
+IR. The operational `Expr` and internal `force` require an explicit demand and
+adequacy migration, not a cosmetic polynomial wrapper. `Finite.Term` has a
+different possible role as a total implementation IR; compare it with directly
+generated Lean definitions on the same modules before making it mandatory.
+Keep one public correspondence route whichever native path a consumer uses.
+
+The semantic anchor is documented lazy language semantics, beginning with the
+pinned reference account. A known implementation disagreement is a versioned
+compatibility issue. It must not silently change a primitive in isolation and
+create a hybrid evaluator. The original Foundation theta source and a repaired
+variant remain different artifacts.
+
+### Work packages and integration order
+
+The linked sections of that single issue contain concrete files, acceptance
+criteria and handoffs.
+Dependencies mean usable interfaces or inputs, not necessarily completion of
+all proofs in a prerequisite issue.
+
+| Package | Primary deliverable | Required inputs |
+|---|---|---|
+| [V1: track whole-corpus imports and explicit proof obligations](https://github.com/Verified-zkEVM/VCVio/issues/879#v1) | Whole-corpus declaration/SCC queue, provenance and explicit obligation reports | Existing inventory and validation |
+| [V2: import open modules through canonical scoped syntax](https://github.com/Verified-zkEVM/VCVio/issues/879#v2) | Canonical open schemes, module environments and graph importer | V1 identities, P1 binding interfaces |
+| [V3: cover nominal values, cases, and complete comprehensions](https://github.com/Verified-zkEVM/VCVio/issues/879#v3) | Nominal/base value families, cases, updates and complete comprehensions | V2 source contract, P2 semantic laws |
+| [V4: link official reference definitions and primitive fallbacks](https://github.com/Verified-zkEVM/VCVio/issues/879#v4) | Official reference/fallback linking and primitive contracts | V1 provenance, V2 graph interface |
+| [V5: generate natural Lean interfaces for imported modules](https://github.com/Verified-zkEVM/VCVio/issues/879#v5) | Generated native module APIs and representation transport | V2/V3 interfaces, P2 contracts |
+| [V6: import complete Foundation utility modules](https://github.com/Verified-zkEVM/VCVio/issues/879#v6) | Complete List/Sort/Imperative/Enum imports and usable laws | V2–V5, without waiting for every proof |
+| [V7: scale whole-module import from CRC and SHA2 to all Foundation](https://github.com/Verified-zkEVM/VCVio/issues/879#v7) | CRC and full SHA2, then every remaining Foundation module | Corpus queue and common importer/native APIs |
+| [V8: execute real imported closures with resumable machine semantics](https://github.com/Verified-zkEVM/VCVio/issues/879#v8) | Actual imported closure execution and incremental state proofs | Canonical source, utilities, P3 execution laws |
+| [V9: validate semantic preservation and backend compatibility explicitly](https://github.com/Verified-zkEVM/VCVio/issues/879#v9) | Source preservation, candidate validation and backend compatibility | Ledger and source/primitive contracts |
+| [V10: compare imported implementations directly in VCVio](https://github.com/Verified-zkEVM/VCVio/issues/879#v10) | Direct native comparisons and adaptive VCVio game consumers | Native APIs and real algorithm imports |
+| [P1: support reusable open-module binding and recursive environments](https://github.com/Verified-zkEVM/VCVio/issues/879#p1) | Shared mixed-binding/module-environment laws | Concrete V2 interface requirements |
+| [P2: generalize lazy value relations and representation transport](https://github.com/Verified-zkEVM/VCVio/issues/879#p2) | Shared lazy/logical relations and representation transport | Concrete V3/V5 proof requirements |
+| [P3: connect imported programs to observable incremental machines](https://github.com/Verified-zkEVM/VCVio/issues/879#p3) | Shared simulations, finite observations and incremental machines | Concrete V7/V8 workloads |
+| [P4: stress public APIs with complete independent consumers](https://github.com/Verified-zkEVM/VCVio/issues/879#p4) | Independent consumer and proof-ergonomics audit | Existing APIs first; each new API as it arrives |
+
+A practical first wave starts V1, V2/P1 interface design, V9's contract audit
+and P4's public-API baseline. V6 and V10 should write desired consumer theorem
+statements against actual source modules immediately. V3/V4/V5 then implement
+independent families once the small central interface is agreed. The utility and
+algorithm consumers integrate continuously; operational optimization and broader
+backend proofs do not block structural or semantic import.
+
+The first whole-module checkpoint is upstream `Cryptol::Reference` plus
+`shared::common::utils::{List,Sort,Imperative,Enum}`. Preserve their properties
+as definitions, then prove selected useful laws. List's stream/length
+representation and deliberately undefined unused tails test lazy data; its
+changing-instantiation recursive helper tests real open polymorphism.
+A finite Lean List view needs a validity relation, not replacement of the source.
+
+The next checkpoint is parameterized CRC and complete SHA2. CRC connects actual
+imported `pmod` to the polynomial update theorem and chunk composition. SHA2
+migrates the existing compression and byte/client results to the general typed
+graph route. Keccak/SHA3/SHAKE, AES and remaining modular/rational/floating or
+foreign families follow the census's blocker ordering. All 135 pinned files
+remain in the batch report throughout; an unsupported family does not stop
+unrelated modules. Native optimization and proof closure continue independently.
+
+### What a consumer should be able to prove
+
+For finite represented data, the desired theorem has the schematic shape
+
+```text
+∀ x, valid x →
+  denote imported (encodeInput x) = success (encodeOutput (implementation x))
+```
+
+This includes successful definedness on the stated domain. A partial-correctness
+statement that says nothing when the source diverges is a different claim.
+Finite inputs alone do not imply that every intermediate computation is total.
+
+For streams, use a specified finite observation and productivity/definedness
+conditions. For higher-order arguments, use a logical relation respecting their
+partial domains; a data-only codec is insufficient. Reuse `CorrespondsOn`,
+`CertifiedMeaning`, `DataContract` and the existing VCVio adapters. Prefer
+ordinary `Equiv`, standard data types and public equation lemmas over another
+certificate hierarchy.
+
+Require a separate package to state such a theorem using generated names,
+records and native words, without manually unpacking right-associated products,
+recreating casts, or unfolding the interpreter. Then lift that same theorem
+through an actual adaptive oracle client. Randomness remains in VCVio; seeded
+Cryptol random is not a probability interpretation. Functional replacement
+alone establishes neither runtime bounds nor leakage equivalence.
+
+### Computation models must earn their use
+
+Use the same imported development to test distinct roles:
+
+- Scoped free families retain binding and module structure; their laws should
+  remove language-specific recursive proof code.
+- Domains retain partial higher-order/lazy meaning and fixed points without
+  requiring global termination.
+- Transition systems and ITrees execute actual closures, preserve residual
+  state and support finite-observation/adequacy theorems. An empty-event
+  wrapper by itself is insufficient evidence of a useful execution API.
+- Returning dynamical machines express incremental CRC/SHA state invariants
+  and chunk composition.
+- Resumptions and service composition express continuing requests once the
+  relevant productivity/termination conditions are proved.
+- Free oracle computations express the surrounding VCVio client/game.
+
+PolyFun's broader indexed/coinductive/continuation audit remains in
+[issue #309](https://github.com/Verified-zkEVM/PolyFun/issues/309).
+Do not force Cryptol through every model. For each proposed bridge state whether
+it preserves typing, full partial meaning, finite observations, strong/weak
+behavior, retained state or resource observations. Silent divergence cannot be
+discarded to fit a resumption interface. Weak equivalence does not preserve a
+clock. Core Lean/CSLib/Mathlib carriers and laws take precedence when they fit.
+
+Measure graph size, generated term size, import/elaboration time, peak memory
+and runtime on complete workloads. Also record repeated proof patterns, manual
+casts and reliance on private definitions. Consider a heap/sharing evaluator
+only after these measurements identify duplicated work; reuse official
+`MonoValues` as a candidate transformation where appropriate. A new runtime
+needs a simulation and its own semantics, not only faster test results.
+
+### Agent handoff and validation
+
+Use one worktree per agent and one integrator for the central source interface,
+generated module naming and committed dependency pins. V1 owns corpus/obligation
+formats, V2 owns the central typed interface, V4 owns the linked Haskell adapter,
+and V5 owns generated public API conventions. Other agents add consumers or
+separate constructor/primitive modules, agreeing shared-file edits first.
+Record interface decisions and blockers in the owning workstream before expanding
+large proofs. Keep workstream status in the unified issue; owning guides describe the
+resulting contracts.
+
+Every handoff should provide its commit, exact companion pins, public API,
+acceptance consumer, validation results, removed duplication, outstanding proof
+obligations and changed semantic assumptions. Publish an immutable PolyFun
+revision for an integrated checkpoint. Use explicit local overrides while
+iterating; never replace Lake's Git package checkout with a symlink, commit a
+local path manifest, or combine unrelated drafts merely to obtain one theorem.
+
+The current drafts have distinct owners: PolyFun #290 for generic scoped
+interop, #289 for optional independent applications, #308 for service machines;
+VCVio #840 for the Cryptol consumer. None must merge before exploration can
+continue. Prefer extracting a shared prerequisite when it is independently
+useful, fully proved and validated through its consumers. The larger split and
+merge sequence can wait.
+
+Validation follows existing drivers. Changed generic code requires PolyFun's
+lint/test/zero-debt axiom checks and ordinary-import consumers. Cryptol changes
+require optional build/lint/test/obligation checks; exporter/artifact changes
+also require pinned regeneration and external observations. A full corpus report
+must survive partial failure and report progress honestly. Tests diagnose
+regressions; semantic preservation and implementation equality are proof claims.

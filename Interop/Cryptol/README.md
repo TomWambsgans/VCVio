@@ -10,6 +10,13 @@ imports, with versioned backend compatibility claims and explicit proof gaps.
 The [tooling integration report](docs/tooling.md) records the implemented route,
 architecture decisions, literature ancestry and remaining gates.
 
+The [unified development tracker](https://github.com/Verified-zkEVM/VCVio/issues/879)
+coordinates whole-Foundation import and the companion PolyFun work. Its
+workstream sections own assignments, dependencies and progress; the
+[delivery contract](docs/tooling.md#coordinated-development-contract) records
+the canonical architecture, completion criteria and consumer proof obligations.
+These are planned extensions, not additional implemented language coverage.
+
 Run commands from the VCVio repository root:
 
 ```bash
