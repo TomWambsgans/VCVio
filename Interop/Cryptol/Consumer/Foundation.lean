@@ -9,6 +9,8 @@ module
 import Interop.Cryptol.Bridge.ImportedScalar
 import Interop.Cryptol.Bridge.ImportedSpecialization
 import Interop.Cryptol.Bridge.KeccakCodec
+import Interop.Cryptol.Bridge.ListView
+import VCVio.Algorithms.CRC
 
 /-! # Foundation certificates through ordinary imports in an independent package -/
 
@@ -39,3 +41,15 @@ example (pre : BitVec 32 → Prop) (post : BitVec 32 → BitVec 32 → Prop) :
 
 example (x : Fin 5) : Int.tmod ((x.val : Int) + 4) 5 = ((x.val : Int) - 1) % 5 :=
   KeccakCodec.theta_predecessor x
+
+example {A : Type} {a : ClosedTy} (relation : A → Computation a → Prop)
+    (element : A → Computation a) (faithful : ∀ x, relation x (element x))
+    (xs : List A) (tail : Nat → Computation a) :
+    ListView.Represents relation xs (ListView.encode element xs tail) :=
+  ListView.represents_encode relation element faithful xs tail
+
+example {width : Nat} (p : VCVio.Algorithms.Crc.Parameters width) (state : BitVec width)
+    (xs ys : List (BitVec 8)) :
+    VCVio.Algorithms.Crc.updateResult p state (xs ++ ys) =
+      VCVio.Algorithms.Crc.updateResult p (VCVio.Algorithms.Crc.updateResult p state xs).state ys :=
+  VCVio.Algorithms.Crc.updateResult_append p state xs ys

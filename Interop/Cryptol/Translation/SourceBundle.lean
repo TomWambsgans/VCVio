@@ -65,6 +65,79 @@ structure SourceBundle where
   primitiveFallbacks : List (Reference.Name × Reference.Name)
   deriving Repr
 
+/-- Stable source coordinates, independent of frontend allocation order. -/
+structure SourceLocation where
+  /-- Source filename recorded by Cryptol. -/
+  file : String
+  /-- One-based starting line and column. -/
+  start : Nat × Nat
+  /-- One-based ending line and column. -/
+  finish : Nat × Nat
+  deriving DecidableEq, Repr
+
+/-- Source identity for reports; value resolution uses `Reference.Name.id`. -/
+structure SourceIdentity where
+  /-- Defining module path, absent for a local name. -/
+  moduleName : Option String
+  /-- Source spelling. -/
+  name : String
+  /-- Defining source span. -/
+  location : SourceLocation
+  deriving DecidableEq, Repr
+
+/-- Frontend dependency information retained separately from Lean validation. -/
+structure DeclarationInfo where
+  /-- Identity inside this bundle. -/
+  name : Reference.Name
+  /-- Source coordinates suitable for cross-bundle reports. -/
+  source : SourceIdentity
+  /-- Value dependencies reported by the official free-variable traversal. -/
+  dependencies : List Reference.Name
+  /-- The source property pragma; this does not assert the property's truth. -/
+  isProperty : Bool
+  deriving Repr
+
+/-- A complete module, including private definitions and open parameters. -/
+structure ModuleDefinition where
+  /-- Hash and portable path of the original source. -/
+  provenance : SourceModule
+  /-- Named numeric and type parameters. -/
+  typeParameters : List (Reference.Name × Reference.Parameter)
+  /-- Named value parameters and their schemes. -/
+  valueParameters : List (Reference.Name × Reference.Schema)
+  /-- Constraints assumed by this module. -/
+  constraints : List Reference.TypeExpr
+  /-- Public value identities, including properties. -/
+  exports : List Reference.Name
+  /-- Public synonym identities. -/
+  typeExports : List Reference.Name
+  /-- Public nominal type identities. -/
+  nominalExports : List Reference.Name
+  /-- Every synonym definition. -/
+  synonyms : List Reference.TypeSynonym
+  /-- Every nominal definition. -/
+  nominals : List Reference.NominalType
+  /-- Shared declarations in frontend group order. -/
+  groups : List Reference.DeclGroup
+  /-- Metadata for every declaration, including private declarations. -/
+  declarations : List DeclarationInfo
+  /-- Nested functors remain explicit until their definitions are exported. -/
+  nestedFunctors : List Reference.Name
+  /-- Nested signature identities. -/
+  nestedSignatures : List Reference.Name
+  deriving Repr
+
+/-- A versioned whole-module export; decoding alone makes no semantic claim. -/
+structure ModuleBundle where
+  /-- Exact Cryptol source revision. -/
+  cryptolRevision : String
+  /-- Modules loaded by the official frontend, including primitive fallbacks. -/
+  modules : List ModuleDefinition
+  /-- Interface metadata retained verbatim pending interface elaboration. -/
+  interfaces : Lean.Json
+  /-- Primitive redirects to the actual `Cryptol::Reference` bodies. -/
+  primitiveFallbacks : List (Reference.Name × Reference.Name)
+
 namespace SourceBundle
 
 /-- The pinned reference frontend understood by this decoder. -/
@@ -88,12 +161,17 @@ private def named (j : Lean.Json) : Decode Reference.Name := do
   return ⟨← j.getObjValAs? Nat "id", ← j.getObjValAs? String "text",
     ← j.getObjValAs? String "origin"⟩
 
-private def kind (j : Lean.Json) : Decode Reference.Kind := do
-  match ← tagged j with
-  | ("num", []) => return .number
-  | ("type", []) => return .value
-  | ("prop", []) => return .proposition
-  | _ => throw "unsupported parameter kind"
+private def kindAux : Nat → Lean.Json → Decode Reference.Kind
+  | 0, _ => .error "kind nesting budget exhausted"
+  | fuel + 1, j => do
+      match ← tagged j with
+      | ("num", []) => return .number
+      | ("type", []) => return .value
+      | ("prop", []) => return .proposition
+      | ("arrow", [a, b]) => return .arrow (← kindAux fuel a) (← kindAux fuel b)
+      | _ => throw "malformed parameter kind"
+
+private def kind := kindAux 1000
 
 private def parameter (j : Lean.Json) : Decode Reference.Parameter := do
   return ⟨← j.getObjValAs? Nat "id", ← kind (← field j "kind")⟩
@@ -131,7 +209,7 @@ private def typeExpr : Nat → Lean.Json → Decode Reference.TypeExpr
           return .synonym (← named name) (← children args) (← child body)
       | ("has", [sel, args]) => return .has (← selector sel) (← children args)
       | ("free", _) => throw "unresolved frontend type variable"
-      | ("nominal", _) => throw "nominal types are outside the accepted reference fragment"
+      | ("nominal", [name, args]) => return .nominal (← named name) (← children args)
       | _ => throw "malformed or unsupported type constructor"
 
 private def schema (fuel : Nat) (j : Lean.Json) : Decode Reference.Schema := do
@@ -172,9 +250,16 @@ mutual
         | ("where", [e, gs]) => return .whereE (← child e) (← (← array gs).mapM (group fuel))
         | ("guards", [t, gs]) =>
             return .guards (← ty t) (← pairs (fun cs => array cs >>= List.mapM ty) child gs)
-        | ("case", _) =>
-            throw "nominal case expressions are outside the accepted reference fragment"
+        | ("case", [e, arms, fallback]) =>
+            return .caseE (← child e) (← pairs Lean.Json.getStr? (caseAlt fuel) arms)
+              (← optional (caseAlt fuel) fallback)
         | _ => throw "malformed or unsupported expression constructor"
+
+  private def caseAlt : Nat → Lean.Json → Decode Reference.CaseAlt
+    | 0, _ => .error "case-alternative nesting budget exhausted"
+    | fuel + 1, j => do
+        return .mk (← pairs named (typeExpr fuel) (← field j "bindings"))
+          (← expression fuel (← field j "body"))
 
   private def matchExpr : Nat → Lean.Json → Decode Reference.Match
     | 0, _ => .error "comprehension nesting budget exhausted"
@@ -221,6 +306,68 @@ private def sourceModule (j : Lean.Json) : Decode SourceModule := do
     throw "source path must be portable and must not contain parent traversals"
   return ⟨← j.getObjValAs? String "name", path, digest,
     ← pairs named Lean.Json.getStr? (← field j "aliases")⟩
+
+private def location (j : Lean.Json) : Decode SourceLocation := do
+  return ⟨← j.getObjValAs? String "source_basename", ← Lean.fromJson? (← field j "start"),
+    ← Lean.fromJson? (← field j "end")⟩
+
+private def declarationInfo (j : Lean.Json) : Decode DeclarationInfo := do
+  let key ← field j "source_key"
+  return ⟨← named (← field j "name"),
+    ⟨← optional Lean.Json.getStr? (← field key "module"), ← key.getObjValAs? String "name",
+      ← location (← field key "location")⟩,
+    ← (← array (← field j "dependencies")).mapM named, ← j.getObjValAs? Bool "property"⟩
+
+private def synonym (fuel : Nat) (j : Lean.Json) : Decode Reference.TypeSynonym := do
+  return ⟨← named (← field j "name"), ← (← array (← field j "parameters")).mapM parameter,
+    ← (← array (← field j "constraints")).mapM (typeExpr fuel),
+    ← typeExpr fuel (← field j "body")⟩
+
+private def nominal (fuel : Nat) (j : Lean.Json) : Decode Reference.NominalType := do
+  let definition : Reference.NominalDefinition ← match ← tagged (← field j "definition") with
+    | ("abstract", []) => pure Reference.NominalDefinition.abstract
+    | ("struct", [name, fs]) =>
+        pure (.struct (← named name) (← pairs Lean.Json.getStr? (typeExpr fuel) fs))
+    | ("enum", [cs]) =>
+        pure (.enumeration (← (← array cs).mapM fun c => do
+          return ⟨← named (← field c "name"), ← c.getObjValAs? Nat "number",
+            ← c.getObjValAs? Bool "public", ← (← array (← field c "fields")).mapM (typeExpr fuel)⟩))
+    | _ => throw "malformed nominal definition"
+  return ⟨← named (← field j "name"), ← (← array (← field j "parameters")).mapM parameter,
+    ← kind (← field j "kind"), ← (← array (← field j "constraints")).mapM (typeExpr fuel),
+    definition, ← pairs Lean.Json.getStr? (fun cs => array cs >>= List.mapM (typeExpr fuel))
+      (← field j "deriving")⟩
+
+private def moduleDefinition (fuel : Nat) (j : Lean.Json) : Decode ModuleDefinition := do
+  return ⟨← sourceModule (← field j "provenance"),
+    ← (← array (← field j "type_parameters")).mapM (fun p => do
+      return (← named (← field p "name"), ← parameter (← field p "parameter"))),
+    ← (← array (← field j "value_parameters")).mapM (fun p => do
+      return (← named (← field p "name"), ← schema fuel (← field p "schema"))),
+    ← (← array (← field j "constraints")).mapM (typeExpr fuel),
+    ← (← array (← field j "exports")).mapM (fun e => do
+      named (← field (← field e "declaration") "name")),
+    ← (← array (← field j "type_exports")).mapM named,
+    ← (← array (← field j "nominal_exports")).mapM named,
+    ← (← array (← field j "type_synonyms")).mapM (synonym fuel),
+    ← (← array (← field j "nominal_types")).mapM (nominal fuel),
+    ← (← array (← field j "groups")).mapM (group fuel),
+    ← (← array (← field j "declarations")).mapM declarationInfo,
+    ← (← array (← field j "nested_functors")).mapM named,
+    ← (← array (← field j "nested_signatures")).mapM named⟩
+
+/-- Decode the whole-module format without converting unknown semantics to placeholders. -/
+def decodeModuleBundle (j : Lean.Json) (fuel : Nat := 10000) : Except ImportError ModuleBundle :=
+  let decoded : Decode ModuleBundle := do
+    unless (← j.getObjValAs? String "format") = "cryptol-module-bundle" do
+      throw "unknown module-bundle format"
+    unless (← j.getObjValAs? Nat "version") = 2 do throw "unsupported module-bundle version"
+    unless (← j.getObjValAs? String "cryptol_revision") = expectedCryptolRevision do
+      throw "Cryptol frontend revision differs from the supported pin"
+    return ⟨expectedCryptolRevision,
+      ← (← array (← field j "modules")).mapM (moduleDefinition fuel), ← field j "interfaces",
+      ← pairs named named (← field j "primitive_fallbacks")⟩
+  decoded.mapError (⟨["module-bundle"], ·⟩)
 
 /-- Decode a bundle with an explicit nesting budget and an exact version/pin check. -/
 def decode (j : Lean.Json) (fuel : Nat := 10000) : Except ImportError SourceBundle :=

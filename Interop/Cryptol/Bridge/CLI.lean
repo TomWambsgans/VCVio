@@ -12,6 +12,7 @@ import Interop.Cryptol.Bridge.SourceFoundation
 import Interop.Cryptol.Translation.Export
 import Interop.Cryptol.Model.Inspect
 import Interop.Cryptol.Bridge.HashCLI
+import VCVio.Algorithms.CRC
 public import Lean.Data.Json
 
 /-!
@@ -44,6 +45,33 @@ public def run (args : List String) : IO UInt32 := do
   let out ← IO.getStdout
   let err ← IO.getStderr
   match args with
+  | ["crc", file] =>
+      let input ← IO.FS.readFile file
+      let result : Except String Json := do
+        let j ← Json.parse input
+        let width ← j.getObjValAs? Nat "width"
+        unless 0 < width && width ≤ 1024 do throw "Expected a CRC width between 1 and 1024"
+        let word := fun key => do
+          let n ← j.getObjValAs? Nat key
+          unless n < 2 ^ width do throw s!"CRC parameter {key} is outside its width"
+          pure (BitVec.ofNat width n)
+        let p : VCVio.Algorithms.Crc.Parameters width :=
+          ⟨← word "polynomial", ← word "initial", ← j.getObjValAs? Bool "reflectInput",
+            ← j.getObjValAs? Bool "reflectOutput", ← word "xorMask"⟩
+        let chunks ← j.getObjValAs? (List (List Nat)) "chunks"
+        unless chunks.flatten.all (· < 256) do throw "Expected byte values below 256"
+        let mut state := p.initial
+        let mut results : Array Json := #[]
+        for chunk in chunks do
+          let next := VCVio.Algorithms.Crc.updateResult p state (chunk.map (BitVec.ofNat 8))
+          state := next.state
+          results := results.push (.mkObj [("crc", toJson next.crc.toNat),
+            ("state", toJson next.state.toNat)])
+        return .mkObj [("updates", .arr results), ("concatenated", toJson
+          (VCVio.Algorithms.Crc.checksum p (chunks.flatten.map (BitVec.ofNat 8))).toNat)]
+      match result with
+      | .ok value => out.putStrLn value.compress; return 0
+      | .error message => err.putStrLn message; return 1
   | ["hash", algorithm, bytes, length] => HashCLI.run algorithm bytes length
   | ["emit-compression-source"] =>
       out.putStr (Export.moduleText Foundation.compressionSource); return 0

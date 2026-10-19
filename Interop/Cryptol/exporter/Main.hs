@@ -4,7 +4,7 @@
 -- polymorphic binders, recursive groups, guards, or foreign fallback bodies.
 module Main (main) where
 
-import Control.Monad (unless)
+import Control.Monad (unless, when)
 import Data.Aeson (Value, object, (.=), toJSON, encode)
 import Data.Graph (SCC(..), stronglyConnComp)
 import qualified Data.ByteString as BS
@@ -12,6 +12,7 @@ import qualified Data.ByteString.Lazy.Char8 as BL
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import qualified Data.Text as Text
+import qualified Data.Text.Encoding as Text
 import System.Directory (canonicalizePath)
 import System.Environment (getArgs)
 import System.FilePath (makeRelative, takeFileName, isRelative, splitDirectories)
@@ -19,9 +20,11 @@ import System.Exit (die)
 
 import qualified Cryptol.TypeCheck.AST as C
 import qualified Cryptol.TypeCheck.Type as T
+import qualified Cryptol.TypeCheck.FFI.FFIType as FFI
 import qualified Cryptol.ModuleSystem.Name as N
 import qualified Cryptol.ModuleSystem.Env as M
 import qualified Cryptol.ModuleSystem as Module
+import qualified Cryptol.ModuleSystem.Base as Base
 import qualified Cryptol.ModuleSystem.Monad as Module
 import qualified Cryptol.Parser.Selector as S
 import qualified Cryptol.Parser.AST as P
@@ -128,12 +131,75 @@ decl d = object ["name" .= name (C.dName d), "schema" .= schema (C.dSignature d)
   where
     definition C.DPrim = node "primitive" []
     definition (C.DExpr e) = node "expression" [expr e]
-    definition (C.DForeign ffi body) = node "foreign" [shown ffi, toJSON (expr <$> body)]
+    definition (C.DForeign ffi body) = node "foreign"
+      [toJSON (Text.decodeUtf8 (BL.toStrict (encode (foreignInterface ffi)))),
+       toJSON (expr <$> body)]
+
+-- The raw Show instance includes checkout paths buried in parameter flavours.
+-- Retain the actual ABI as canonical structured data inside the format's opaque
+-- interface string, using the same parameter/type grammar as declarations.
+foreignInterface :: C.FFI -> Value
+foreignInterface = \case
+  C.CallC f -> funType "c" ffiType f
+  C.CallAbstract f -> funType "abstract" ty f
+  where
+    funType convention element f = object
+      ["convention" .= (convention :: String),
+       "parameters" .= map parameter (FFI.ffiTParams f),
+       "arguments" .= map element (FFI.ffiArgTypes f), "result" .= element (FFI.ffiRetType f)]
+    ffiType = \case
+      FFI.FFIBool -> node "bool" []
+      FFI.FFIBasic b -> node "basic" [basic b]
+      FFI.FFIArray ns b -> node "array" [toJSON (map ty ns), basic b]
+      FFI.FFITuple ts -> node "tuple" [toJSON (map ffiType ts)]
+      FFI.FFIRecord fs -> node "record" [fields ffiType fs]
+    basic = \case
+      FFI.FFIBasicVal v -> node "value" [shown v]
+      FFI.FFIBasicRef (FFI.FFIInteger modulus) -> node "integer" [toJSON (ty <$> modulus)]
+      FFI.FFIBasicRef FFI.FFIRational -> node "rational" []
 
 group :: C.DeclGroup -> Value
 group = \case
   C.NonRecursive d -> node "nonrecursive" [decl d]
   C.Recursive ds -> node "recursive" [toJSON (map decl ds)]
+
+sourceRange :: N.Name -> Value
+sourceRange n = let r = N.nameLoc n in object
+  ["source_basename" .= takeFileName (Position.source r),
+   "start" .= [Position.line (Position.from r), Position.col (Position.from r)],
+   "end" .= [Position.line (Position.to r), Position.col (Position.to r)]]
+
+-- A frontend unique is only meaningful inside its bundle. This key records the
+-- defining module, spelling and source position independently of that unique.
+sourceKey :: N.Name -> Value
+sourceKey n = object ["module" .= fmap pretty (N.nameModPathMaybe n),
+  "name" .= unpackIdent (N.nameIdent n), "location" .= sourceRange n]
+
+typeSynonym :: T.TySyn -> Value
+typeSynonym s = object ["name" .= name (T.tsName s),
+  "parameters" .= map parameter (T.tsParams s),
+  "constraints" .= map ty (T.tsConstraints s), "body" .= ty (T.tsDef s)]
+
+nominalType :: T.NominalType -> Value
+nominalType t = object ["name" .= name (T.ntName t),
+  "parameters" .= map parameter (T.ntParams t), "kind" .= kind (T.ntKind t),
+  "constraints" .= map ty (T.ntConstraints t),
+  "deriving" .= [(pretty c, map ty cs) | (c,cs) <- Map.toAscList (T.ntDeriving t)],
+  "definition" .= case T.ntDef t of
+    T.Abstract -> node "abstract" []
+    T.Struct c -> node "struct" [name (T.ntConName c), fields ty (T.ntFields c)]
+    T.Enum cs -> node "enum" [toJSON [object ["name" .= name (T.ecName c),
+      "number" .= T.ecNumber c, "public" .= T.ecPublic c,
+      "fields" .= map ty (T.ecFields c)] | c <- cs]]]
+
+primitiveFallbacks :: [C.Module] -> Map.Map N.Name N.Name
+primitiveFallbacks modules = Map.fromList [(C.dName d, n) |
+  m <- modules, g <- C.mDecls m, d <- C.groupDecls g,
+  C.DPrim <- [C.dDefinition d], n <- referenceNames,
+  N.asPrim (C.dName d) == Just (prelPrim (identText (N.nameIdent n)))]
+  where
+    referenceNames = [C.dName d | m <- modules, C.mName m == preludeReferenceName,
+      g <- C.mDecls m, d <- C.groupDecls g]
 
 -- Retain entire recursive groups whenever any member is reachable.
 closure :: Map.Map N.Name N.Name -> [C.DeclGroup] -> [C.Expr] -> Either String [C.DeclGroup]
@@ -306,19 +372,25 @@ exportRoots specialize foundation file roots = do
 
 -- Inventory uses the official module loader, including parameterized modules.
 -- It is discovery data, not evidence that the Lean semantic importer accepts a module.
-exportModule :: FilePath -> FilePath -> IO Value
-exportModule foundation file = do
+exportModule :: Bool -> FilePath -> FilePath -> IO Value
+exportModule complete foundation file = do
   base <- canonicalizePath foundation
   entry <- canonicalizePath file
   Repl.runREPL True False stderrLogger $ do
     Repl.prependSearchPath [base]
     loaded <- Cmd.loadCmd file
     unless (Cmd.crSuccess loaded) (Repl.io (die "Cryptol module loading failed"))
+    -- Loading alone need not load Reference. Retain the fallback source even
+    -- when no evaluation command happened to trigger its loading.
+    when complete $ do
+      _ <- Cmd.liftModuleCmd (\input -> Module.runModuleT input $
+        Base.loadModuleFrom True (Module.FromModule preludeReferenceName))
+      pure ()
     env <- Repl.getModuleEnv
     modules <- Repl.io $ mapM (\lm -> do
       provenance <- moduleInfo base entry lm
       let m = M.lmModule lm
-      pure $ object ["provenance" .= provenance,
+      pure $ object $ ["provenance" .= provenance,
         "type_parameters" .= [object ["name" .= name (T.mtpName p),
           "parameter" .= parameter (T.mtpParam p)] | p <- Map.elems (C.mParamTypes m)],
         "value_parameters" .= [object ["name" .= name (T.mvpName p),
@@ -338,7 +410,14 @@ exportModule foundation file = do
           C.isExportedType n (C.mExports m)],
         "nested_functors" .= map name (Map.keys (C.mFunctors m)),
         "nested_signatures" .= map name (Map.keys (C.mSignatures m)),
-        "groups" .= map group (C.mDecls m)])
+        "groups" .= map group (C.mDecls m)] ++ if complete then
+        ["type_synonyms" .= map typeSynonym (Map.elems (C.mTySyns m)),
+         "nominal_types" .= map nominalType (Map.elems (C.mNominalTypes m)),
+         "declarations" .= [object ["name" .= name (C.dName d),
+           "source_key" .= sourceKey (C.dName d),
+           "dependencies" .= map name (Set.toAscList (F.valDeps (F.freeVars d))),
+           "property" .= (P.PragmaProperty `elem` C.dPragmas d)] |
+           g <- C.mDecls m, d <- C.groupDecls g]] else [])
       (M.getLoadedModules (M.meLoadedModules env))
     signatures <- Repl.io $ mapM (\lm -> do
       provenance <- sourceInfo base entry lm (toJSON ([] :: [Value]))
@@ -351,8 +430,13 @@ exportModule foundation file = do
         "constraints" .= map (ty . P.thing) (T.mpnConstraints sig),
         "type_exports" .= map name (Map.keys (T.mpnTySyn sig))])
       (M.lmLoadedSignatures (M.meLoadedModules env))
-    pure $ object ["format" .= ("cryptol-module-inventory" :: Text.Text),
-      "version" .= (1 :: Int), "modules" .= modules, "interfaces" .= signatures]
+    pure $ object $ ["format" .= (if complete then "cryptol-module-bundle" else
+      "cryptol-module-inventory" :: Text.Text),
+      "version" .= (if complete then 2 else 1 :: Int),
+      "modules" .= modules, "interfaces" .= signatures] ++ if complete then
+      ["cryptol_revision" .= ("61dd17b0c45ddf8c5c1e952afd5e789c4dc4ec4b" :: Text.Text),
+       "primitive_fallbacks" .= [(name n, name target) |
+         (n,target) <- Map.toAscList (primitiveFallbacks (M.loadedModules env))]] else []
 
 main :: IO ()
 main = do
@@ -360,7 +444,8 @@ main = do
   result <- case args of
     ["--numeric"] -> pure numericCases
     ["--classes"] -> pure classCases
-    ["--module", foundation, file] -> exportModule foundation file
+    ["--module", foundation, file] -> exportModule False foundation file
+    ["--module-bundle", foundation, file] -> exportModule True foundation file
     "--specialize" : foundation : file : roots@(_ : _) -> exportRoots True foundation file roots
     foundation : file : roots@(_ : _) -> exportRoots False foundation file roots
     _ -> die "Usage: cryptol-lean-export FOUNDATION MODULE ROOT [ROOT ...]"

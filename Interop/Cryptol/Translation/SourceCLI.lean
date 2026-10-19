@@ -24,6 +24,22 @@ public def run (args : List String) : IO UInt32 := do
   let out ← IO.getStdout
   let err ← IO.getStderr
   match args with
+  | ["modules", file] =>
+      let text ← IO.FS.readFile file
+      let input : Except ImportError ModuleBundle := do
+        let json ← (Lean.Json.parse text).mapError (⟨["json"], ·⟩)
+        SourceBundle.decodeModuleBundle json
+      match input with
+      | .error error => out.putStrLn (errorJson error).compress; return 1
+      | .ok bundle =>
+          let reports := bundle.scopeReport.map fun (name, result) => Lean.Json.mkObj
+            [("module", .str name), ("body_retention", .str "decoded"),
+             ("scope", match result with
+               | .ok () => .mkObj [("status", .str "accepted")]
+               | .error error => errorJson error),
+             ("semantic_import", .str "not-attempted")]
+          out.putStrLn (Lean.toJson reports).compress
+          return if bundle.scopeReport.all (fun r => r.2 matches .ok _) then 0 else 1
   | ["elaborate", file] =>
       let text ← IO.FS.readFile file
       let input : Except ImportError SourceBundle := do
@@ -81,7 +97,8 @@ public def run (args : List String) : IO UInt32 := do
             ("modules", Lean.toJson bundle.modules.length)]).compress
           return 0
   | _ =>
-      err.putStrLn "Usage: cryptol-interop source {inspect | elaborate | constraints} FILE.json"
+      err.putStrLn "Usage: cryptol-interop source \
+        {inspect | elaborate | constraints | modules} FILE.json"
       return 1
 
 end Interop.Cryptol.Translation.SourceCLI

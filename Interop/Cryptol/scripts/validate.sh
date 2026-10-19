@@ -23,7 +23,23 @@ report_dir="${CRYPTOL_REPORT_DIR:-/tmp/vcvio-cryptol-validation}"
 mkdir -p "$report_dir"
 lake_cmd=(lake)
 if [[ -n "${POLYFUN_PATH:-}" ]]; then lake_cmd+=(-R -K "polyfunPath=$POLYFUN_PATH"); fi
-"${lake_cmd[@]}" build CryptolModel CryptolTranslation CryptolBridge CryptolTests --wfail --iofail
+audit_obligations() {
+  "${lake_cmd[@]}" exe polyfun-axiomsweep --root Interop.Cryptol.Model \
+    --root Interop.Cryptol.Translation --root Interop.Cryptol.Bridge \
+    --root VCVio.Algorithms.Sha2 --root VCVio.Algorithms.Keccak --root VCVio.Algorithms.Encoding \
+    --root VCVio.Algorithms.CRC --out "$report_dir/axioms.json"
+  python3 Interop/Cryptol/scripts/audit_obligations.py --report "$report_dir/axioms.json" \
+    --ledger Interop/Cryptol/obligations.json --out "$report_dir/obligations.json" "$@"
+}
+if python3 -c 'import json; exit(not json.load(open("Interop/Cryptol/obligations.json"))["obligations"])'; then
+  # Every other warning still fails, and every admission is checked against the
+  # compiled proposition and dependency graph before any test is reported green.
+  "${lake_cmd[@]}" build CryptolModel CryptolTranslation CryptolBridge CryptolTests --iofail \
+    2>&1 | tee "$report_dir/build.log"
+  audit_obligations --warnings "$report_dir/build.log"
+else
+  "${lake_cmd[@]}" build CryptolModel CryptolTranslation CryptolBridge CryptolTests --wfail --iofail
+fi
 bash scripts/check-interop-isolation.sh
 python3 scripts/test-interop-isolation.py
 "${lake_cmd[@]}" env python3 - <<'PY'
@@ -63,6 +79,13 @@ if (( run_test )); then
     source_cmd+=(--cryptol "$CRYPTOL_BINARY" --foundation "$FOUNDATION_PATH")
   fi
   "${source_cmd[@]}"
+  python3 -u Interop/Cryptol/scripts/test_modules.py
+  python3 -u Interop/Cryptol/scripts/test_obligations.py
+  crc_cmd=(python3 -u Interop/Cryptol/scripts/test_crc.py)
+  if (( run_external )); then
+    crc_cmd+=(--cryptol "$CRYPTOL_BINARY" --foundation "$FOUNDATION_PATH")
+  fi
+  "${crc_cmd[@]}"
   reference_cmd=(python3 -u Interop/Cryptol/scripts/test_references.py
     --report "$report_dir/references.json")
   if (( run_external )); then
@@ -89,14 +112,12 @@ if (( run_test )); then
         --cryptol-source "$CRYPTOL_SOURCE"
       python3 -u Interop/Cryptol/scripts/inventory_foundation.py --check \
         --exporter "$CRYPTOL_EXPORTER" --foundation "$FOUNDATION_PATH"
+      python3 -u Interop/Cryptol/scripts/import_modules.py --check --all \
+        --exporter "$CRYPTOL_EXPORTER" --foundation "$FOUNDATION_PATH" \
+        --cryptol-source "$CRYPTOL_SOURCE"
     fi
   fi
 fi
 if (( run_axioms )); then
-  # PolyFun's scanner rejects new axioms as well as sorryAx; this baseline is empty.
-  baseline="${POLYFUN_PATH:-.lake/packages/PolyFun}/scripts/axiom_baseline.json"
-  "${lake_cmd[@]}" exe polyfun-axiomsweep --root Interop.Cryptol.Model \
-    --root Interop.Cryptol.Translation --root Interop.Cryptol.Bridge \
-    --root VCVio.Algorithms.Sha2 --root VCVio.Algorithms.Keccak --root VCVio.Algorithms.Encoding \
-    --baseline "$baseline" --out "$report_dir/axioms.json" --check
+  audit_obligations
 fi

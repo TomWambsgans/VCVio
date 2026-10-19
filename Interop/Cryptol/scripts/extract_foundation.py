@@ -554,8 +554,14 @@ def extract(cryptol, foundation):
     checked = run(cryptol, foundation, commands + checks)
     output = run(cryptol, foundation, commands + [":extract-coq"])
     raw = output[output.index("[ (NonRecursive"):].strip() + "\n"
-    normalize = lambda x: x.replace(str(foundation.resolve()), "$FOUNDATION").replace(
-        str(cryptol.parent.parent.resolve()), "$CRYPTOL")
+    def normalize(text):
+        text = text.replace(str(foundation.resolve()), "$FOUNDATION").replace(
+            str(cryptol.parent.parent.resolve()), "$CRYPTOL")
+        # Release packages can load the prelude from disk or embed it in the
+        # executable. Canonicalize only this source-coordinate spelling; the
+        # checked revision, AST, and generated Lean definitions stay identical.
+        return text.replace('source = "$CRYPTOL/share/cryptol/Cryptol.cry"',
+                            'source = "Cryptol"')
     raw = normalize(raw)
     decoder = Decoder(parse_dump(raw))
     definitions = []

@@ -15,7 +15,9 @@ coordinates whole-Foundation import and the companion PolyFun work. Its
 workstream sections own assignments, dependencies and progress; the
 [delivery contract](docs/tooling.md#coordinated-development-contract) records
 the canonical architecture, completion criteria and consumer proof obligations.
-These are planned extensions, not additional implemented language coverage.
+The body-retention, scope-checking, representation and obligation-reporting
+infrastructure is implemented. Complete open-module semantic lowering remains
+the next gate; the tracker distinguishes it from those implemented stages.
 
 Run commands from the VCVio repository root:
 
@@ -28,7 +30,7 @@ lake exe cryptol-interop model arx-native 32 8
 ```
 
 The root manifest pins the companion PolyFun development at
-`c026908c752879cd08bf5fdc079162d543795476`. The commands above and the separate
+`3fc600b1cec58a1272d8ac404c064c48eb5e5bef`. The commands above and the separate
 `Consumer` use that published dependency; no sibling checkout is required.
 For local development against a different PolyFun checkout:
 
@@ -143,3 +145,15 @@ all 135 tracked source files, including parameterized modules and interfaces.
 Export, Lean typing, semantic import, native view, independent equivalence and
 property proofs have separate statuses. See [tooling integration](docs/tooling.md)
 for reproduction and the distinction between corpus discovery and certificates.
+
+The [whole-module corpus report](artifacts/modules/corpus.json) now retains the
+declaration/dependency queue for every file, including private properties. All
+135 files decode; 134 pass module scope/kind validation. Complete bodies for the
+List/Sort/Enum/Imperative closure and parameterized CRC/Main are retained in
+`artifacts/modules/`. Their semantic lowering is still **not attempted**, and no
+imported utility or CRC equivalence is claimed. The implemented partial List
+view follows the existing tuple carrier and observes only the finite prefix;
+the independent native CRC register has proved chunk-composition laws and
+normal/reference evaluator regressions. The local obligation ledger is empty;
+future named proof admissions must pass the compiled dependency audit, while
+admitted implementations remain rejected.

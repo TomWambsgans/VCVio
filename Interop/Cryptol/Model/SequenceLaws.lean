@@ -44,6 +44,11 @@ theorem index_value_indexNat {l : Length} {a : ClosedTy}
     indexAt (DomainResult.value xs) (Length.indexNat i) = xs i := by
   rw [indexAt, index_values, Length.checkIndex_indexNat]
 
+/-- Every natural index selects its suspended entry in an infinite stream. -/
+theorem indexAt_value_infinite {a : ClosedTy} (xs : Nat → Computation a) (i : Nat) :
+    indexAt (l := .infinite) (DomainResult.value xs) (i : Int) = xs i :=
+  indexAt_value (l := .infinite) xs i
+
 /-- In-range natural indices select precisely the corresponding suspended entry. -/
 theorem indexAt_value_nat {n : Nat} {a : ClosedTy} (xs : Fin n → Computation a)
     (i : Nat) (hi : i < n) :

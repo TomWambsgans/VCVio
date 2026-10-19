@@ -8,7 +8,6 @@ module
 
 public import Interop.Cryptol.Model.Adequacy
 public import PolyFun.ITree.Domain
-public import PolyFun.ITree.Execution
 
 /-!
 # The abstract machine through generic PolyFun semantics

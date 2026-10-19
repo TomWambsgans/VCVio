@@ -91,3 +91,28 @@ export success is separate from typing, semantic and native-equivalence stages.
 The [integration report](../docs/tooling.md) explains the architecture and gaps.
 The same reference regeneration driver quotes nine local language canaries,
 including records, lexical capture, higher-order functions and infinite mapping.
+
+## Whole-module bundles
+
+`cryptol-lean-export --module-bundle FOUNDATION MODULE` emits version 2 of
+`cryptol-module-bundle`. It preserves private declarations, simultaneous groups,
+module parameters, type synonyms, nominal definitions and case alternatives.
+Reference fallback definitions are loaded through Cryptol's internal loader
+without resetting the requested module's environment. Foreign interfaces have
+canonical ABI metadata, without checkout paths from compiler debug output.
+
+```bash
+python3 Interop/Cryptol/scripts/import_modules.py --all \
+  --exporter /path/to/cryptol-lean-export --foundation /path/to/pinned/Foundation \
+  --cryptol-source /path/to/pinned/cryptol
+```
+
+This continues after individual failures and writes the full declaration queue
+and separate stage results. Add `--check` for byte-identical regeneration.
+The selected utility and parameterized CRC closures must pass scope validation;
+other failures remain explicit in the corpus report. At this checkpoint all
+135 files decode and 134 pass scope/kind checks. The remaining instantiated
+matrix case-binding annotation is documented in the
+[integration report](../docs/tooling.md#whole-module-retention-and-checking).
+Complete semantic import, generated native interfaces and source preservation
+are still separate unfinished gates.

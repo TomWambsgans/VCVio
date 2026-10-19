@@ -41,6 +41,8 @@ def type_expr(value):
         return app(".constructor", string(args[0]), array(map(type_expr, args[1])))
     if tag == "synonym":
         return app(".synonym", name(args[0]), array(map(type_expr, args[1])), type_expr(args[2]))
+    if tag == "nominal":
+        return app(".nominal", name(args[0]), array(map(type_expr, args[1])))
     if tag == "tuple":
         return app(".tuple", str(args[0]), array(map(type_expr, args[1])))
     if tag == "record":
@@ -87,6 +89,13 @@ def expression(value):
         return app(".list", type_expr(args[0]), array(map(expression, args[1])))
     if tag == "if":
         return app(".ite", *map(expression, args))
+    if tag == "case":
+        return app(".caseE", expression(args[0]), array(
+            app("Prod.mk", string(k), case_alt(a)) for k, a in args[1]),
+            ".none" if args[2] is None else app(".some", case_alt(args[2])))
+    if tag == "update":
+        return app(".update", type_expr(args[0]), expression(args[1]),
+                   selector(args[2]), expression(args[3]))
     if tag == "guards":
         return app(".guards", type_expr(args[0]), array(
             app("Prod.mk", array(map(type_expr, cs)), expression(e)) for cs, e in args[1]))
@@ -100,6 +109,12 @@ def expression(value):
         return app(".comprehension", type_expr(args[0]), type_expr(args[1]), expression(args[2]),
                    array(array(map(match_expr, branch)) for branch in args[3]))
     raise ValueError(f"unhandled raw expression constructor: {tag}")
+
+
+def case_alt(value):
+    return app("Reference.CaseAlt.mk", array(
+        app("Prod.mk", name(n), type_expr(t)) for n, t in value["bindings"]),
+        expression(value["body"]))
 
 
 def match_expr(value):
@@ -117,6 +132,10 @@ def declaration(value):
         body = ".primitive"
     elif definition["tag"] == "expression":
         body = app(".expression", expression(definition["args"][0]))
+    elif definition["tag"] == "foreign":
+        interface, fallback = definition["args"]
+        body = app(".foreign", string(interface), ".none" if fallback is None else
+                   app(".some", expression(fallback)))
     else:
         raise ValueError("unsupported raw declaration form")
     return app("Reference.Decl.mk", name(value["name"]), schema(value["schema"]), body)

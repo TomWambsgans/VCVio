@@ -159,6 +159,13 @@ def main():
     source = artifacts / "bundle.json"
     data = source.read_bytes()
     bundle = json.loads(data)
+    foreign = [n for n in nodes(bundle) if n.get("tag") == "foreign"]
+    assert foreign, "the retained reference corpus should exercise foreign ABI metadata"
+    for declaration in foreign:
+        interface = json.loads(declaration["args"][0])
+        assert interface["convention"] in {"c", "abstract"}
+        assert set(interface) == {"convention", "parameters", "arguments", "result"}
+        assert "/private/tmp/" not in declaration["args"][0]
     manifest = json.loads((artifacts / "manifest.json").read_text())
     assert hashlib.sha256(data).hexdigest() == manifest["bundle_sha256"]
     assert hashlib.sha256((artifacts / "FoundationReferences.cry").read_bytes()).hexdigest() == \

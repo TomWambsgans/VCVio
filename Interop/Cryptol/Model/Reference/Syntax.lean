@@ -24,6 +24,7 @@ namespace Interop.Cryptol.Reference
 /-- Kinds accepted by the reference fragment. -/
 inductive Kind where
   | number | value | proposition
+  | arrow (argument result : Kind)
   deriving DecidableEq, Repr
 
 /-- A declaration identity and its diagnostic source spelling. -/
@@ -60,6 +61,7 @@ inductive TypeExpr where
   | tuple (size : Nat) (fields : List TypeExpr)
   | record (fields : List (String × TypeExpr))
   | synonym (name : Name) (arguments : List TypeExpr) (body : TypeExpr)
+  | nominal (name : Name) (arguments : List TypeExpr)
   | has (selector : Selector) (arguments : List TypeExpr)
   deriving Repr, Inhabited
 
@@ -73,6 +75,53 @@ structure Schema where
   body : TypeExpr
   deriving Repr
 
+/-- A nominal constructor carries suspended fields, in source order. -/
+structure EnumConstructor where
+  /-- Bundle-local constructor identity. -/
+  name : Name
+  /-- Constructor index assigned by the frontend. -/
+  number : Nat
+  /-- Whether the constructor is exported. -/
+  isPublic : Bool
+  /-- Field types under the enclosing nominal parameters. -/
+  fields : List TypeExpr
+  deriving Repr
+
+/-- Nominal definitions retain abstract types, structs, and enumerations. -/
+inductive NominalDefinition where
+  | abstract
+  | struct (constructor : Name) (fields : List (String × TypeExpr))
+  | enumeration (constructors : List EnumConstructor)
+  deriving Repr
+
+/-- A named nominal type and its complete parameterized definition. -/
+structure NominalType where
+  /-- Identity used by nominal type applications. -/
+  name : Name
+  /-- Ordered numeric and type parameters. -/
+  parameters : List Parameter
+  /-- Result kind after the parameters are applied. -/
+  kind : Kind
+  /-- Formation constraints under the parameters. -/
+  constraints : List TypeExpr
+  /-- Constructor definitions, with no eager evaluation of fields. -/
+  definition : NominalDefinition
+  /-- Derived classes and their conditions, as supplied by the frontend. -/
+  derived : List (String × List TypeExpr)
+  deriving Repr
+
+/-- A named type synonym retains its formation constraints and defining body. -/
+structure TypeSynonym where
+  /-- Synonym identity. -/
+  name : Name
+  /-- Ordered parameters of the synonym. -/
+  parameters : List Parameter
+  /-- Formation constraints under the parameters. -/
+  constraints : List TypeExpr
+  /-- Defining type expression. -/
+  body : TypeExpr
+  deriving Repr
+
 mutual
 
   /-- Finite reference expressions with explicit binders and declaration groups. -/
@@ -83,6 +132,7 @@ mutual
     | select (value : Expr) (selector : Selector)
     | update (type : TypeExpr) (value : Expr) (selector : Selector) (replacement : Expr)
     | ite (condition yes no : Expr)
+    | caseE (value : Expr) (alternatives : List (String × CaseAlt)) (fallback : Option CaseAlt)
     | comprehension (length element : TypeExpr) (body : Expr) (branches : List (List Match))
     | var (name : Name)
     | typeAbs (parameter : Parameter) (body : Expr)
@@ -93,6 +143,11 @@ mutual
     | proofApp (function : Expr)
     | whereE (body : Expr) (groups : List DeclGroup)
     | guards (type : TypeExpr) (branches : List (List TypeExpr × Expr))
+    deriving Repr
+
+  /-- Constructor fields remain separate binders, with their source types. -/
+  inductive CaseAlt where
+    | mk (bindings : List (Name × TypeExpr)) (body : Expr)
     deriving Repr
 
   /-- One sequential comprehension binding. Parallel branches have separate scopes. -/

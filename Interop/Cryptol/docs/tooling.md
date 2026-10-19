@@ -67,6 +67,121 @@ cannot pass application/root checking merely because their Lean carriers match.
 
 ## Whole-Foundation discovery
 
+### Whole-module retention and checking
+
+`cryptol-lean-export --module-bundle FOUNDATION MODULE` exports the complete
+loaded module graph in `cryptol-module-bundle` version 2. It explicitly loads
+`Cryptol::Reference` without resetting the entry module's environment. The
+bundle retains private declarations, recursive groups, numeric/type/value
+parameters, constraints, synonyms, nominal definitions, enum constructor
+fields, properties, source identities, and primitive fallback redirects.
+Foreign ABI metadata uses a structured canonical description inside the opaque
+interface string; compiler debug output is unsuitable because it embeds local
+checkout paths.
+
+`SourceBundle.decodeModuleBundle` retains those definitions in Lean, including
+nominal applications and case alternatives. `ModuleBundle.checkModuleScopes`
+checks nominal arities/kinds, binding structure, module parameters, public
+identities, declaration metadata and fallback endpoints. Its certificate is an
+acceptance equation for this gate. `ModuleDefinition.findExport?` resolves a
+public declaration without expanding its dependency graph, and rejects
+ambiguous source spellings. The existing closed-expression typing certificates
+remain a separate, stronger gate for their supported fragment.
+
+```bash
+lake build cryptol-interop
+.lake/build/bin/cryptol-interop source modules Interop/Cryptol/artifacts/modules/list.json
+python3 Interop/Cryptol/scripts/import_modules.py --all \
+  --exporter "$CRYPTOL_EXPORTER" --foundation "$FOUNDATION_PATH" \
+  --cryptol-source "$CRYPTOL_SOURCE"
+```
+
+The corpus report separates frontend acceptance, body retention, scope checking,
+expression typing, semantic import, native views, execution, source
+correspondence and property proofs. It continues after rejected files. All 135
+tracked files decode; 134 pass the module scope/kind gate. The remaining
+diagnostic concerns an unbound type parameter under the instantiated
+`Matrix::inverseIsCorrect` in `shared/algebra/Field/Zp/Test.cry`. The `Ok invM`
+case binding retains numeric parameter 5177, while the surrounding declaration
+binds 1920 and 1613. The pinned frontend's
+[`ModuleBacktickInstance.hs`](https://github.com/GaloisInc/cryptol/blob/61dd17b0c45ddf8c5c1e952afd5e789c4dc4ec4b/src/Cryptol/TypeCheck/ModuleBacktickInstance.hs#L396)
+rewrites the expression in `CaseAlt` but leaves its binding types unchanged;
+ordinary lambda annotations do use `rewType`. This is evidence of a frontend
+annotation-rewriting gap, not a claim that the Foundation source is ill typed.
+Reproduce with `--module-bundle` on that file, then `source modules` on the
+output. No guessed renaming or skipped type check repairs the exported body.
+The complete List/Sort/Enum/Imperative closure and parameterized CRC/Main pass.
+The two retained bundles are in `artifacts/modules/{list,crc}.json`; the corpus
+graph stores declarations once per owning source and records dependency origins
+instead of repeating the entire Prelude for each file. Frontend integer IDs
+are bundle-local; source module, spelling, span and digest identify report rows.
+
+**Semantic lowering of these complete modules is not implemented yet.** Their
+report deliberately records `semantic_import: not-attempted`. The next required
+connection is from retained open schemes and recursive groups to the existing
+`ScopedFamily`, including partial numeric expressions, class/selector/literal
+constraints, lazy nominal values and source primitive fallbacks. Decoding and
+scope certificates must not be used as preservation proofs.
+
+### Partial List views and native CRC
+
+`Bridge.ListView.Represents` relates a native finite list to Foundation's
+stream-and-integer representation, using the existing right-associated tuple
+spine. `coreType_list` connects it to the importer's carrier. It requires the
+length and exactly the in-range element observations; the unused tuple-spine
+terminator is unconstrained. An empty list does not demand its stream at all.
+`represents_encode`, `represents_leftTotal`, and `represents_leftUnique` prove
+representation and uniqueness of the native result without equating arbitrary
+unused tails. Contract transfer uses Mathlib's `Relator.LiftFun` and PolyFun's
+`RelationalContract`; the embedding-based contract is a special case using the
+same transfer proof. These representation laws do not yet certify Foundation's
+`toList`, `map`, `fold`, or changing-instantiation recursion.
+
+`VCVio.Algorithms.Crc` supplies a pure executable register with `BitVec` state,
+byte input, reflection and final XOR. The leading generator coefficient is
+implicit. `update_append` and `updateResult_append` are fully proved for all
+parameters and inputs. `Result.crc` is the finalized observation; `Result.state`
+is the resumable register. The independent consumer imports these laws normally.
+The regression driver compares both fields against actual Foundation CRCUpdate
+in normal and reference evaluation: 60 field observations over two standard
+profiles and a seven-bit profile with a nonsymmetric XOR mask. These checks
+exercise reflection order and empty messages as well as nonempty messages.
+The missing all-input connection is imported `pmod`/`CRCUpdate` to this register
+and the existing polynomial update equations. The native generator convention
+does not cover Foundation's zero-polynomial lazy-field behavior; a future
+comparison must state its positive-width/monic-generator domain explicitly.
+
+### Named proof obligations
+
+`obligations.json` is the local ledger; it is currently empty. PolyFun's scanner
+reports the exact dependency graph of `sorryAx`-tainted declarations, including
+internal auxiliaries and direct versus inherited admissions. The local audit
+permits only named theorem admissions with an exact elaborated proposition and
+digest, source, owner and reason. It rejects admitted implementations, additional
+axioms, native trust, unlisted admissions and stale ledger entries. Its output
+lists every declaration's transitive obligations; `no-admissions` describes
+kernel debt, not language-semantic coverage.
+
+The optional validation driver keeps its ordinary warning-failing build when
+the ledger is empty. With recorded obligations, it checks the compiled report
+and accepts only the exact `sorry` diagnostic at a recorded theorem's source
+location. Every other warning still fails. This policy is confined to VCVio's
+optional development: PolyFun's own baseline and `--check` remain strictly
+zero-debt. `test_obligations.py` mutates propositions, kinds, dependencies,
+warning locations and ownership metadata to test the rejection paths. It also
+compiles temporary Lean fixtures and audits the real scanner output and warning
+locations: a named theorem admission propagates to its client, an executable
+definition remains debt-free, and an admitted definition is rejected even if
+listed in the local ledger. These fixtures stay outside the library aggregates.
+
+The implementation checkpoint was validated with the published PolyFun revision
+`3fc600b1cec58a1272d8ac404c064c48eb5e5bef`: optional build/lint/tests/axioms and
+pinned external validation pass, including byte-identical regeneration of the
+31-root export, 135-file census and whole-module corpus. The optional axiom
+sweep covers 4,348 declarations across 116 modules with no admissions or
+nonstandard-axiom taint. The companion PolyFun full suite covers 16,901
+declarations across 447 modules with the same zero-debt result.
+
 `inventory_foundation.py` calls `--module` for every tracked `.cry` file at
 Foundation `7d0528bd998682788f4e23661f2829298f9e47db`. All **135 files** load and
 export through Cryptol 3.6.0. The committed census records 170 module/interface

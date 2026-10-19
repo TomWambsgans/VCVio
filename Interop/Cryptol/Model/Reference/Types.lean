@@ -290,6 +290,7 @@ def TypeExpr.evaluate : Nat → TypeEnvironment → TypeExpr → Except String T
           return .value (.record (← fields.mapM fun (label, t) => do
             return (label, ← child t >>= TypeValue.value?)))
       | .synonym _ _ body => child body
+      | .nominal name _ => throw s!"nominal type {name.origin} requires a module interpretation"
       | .has s args =>
           match ← args.mapM child with
           | [.value aggregate, .value field] =>

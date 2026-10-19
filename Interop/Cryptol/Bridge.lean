@@ -17,6 +17,7 @@ public import Interop.Cryptol.Bridge.ImportedSpecialization
 public import Interop.Cryptol.Bridge.ImportedSpecializationSource
 public import Interop.Cryptol.Bridge.KeccakCodec
 public import Interop.Cryptol.Bridge.KeccakStatement
+public import Interop.Cryptol.Bridge.ListView
 public import Interop.Cryptol.Bridge.Probability
 public import Interop.Cryptol.Bridge.Round
 public import Interop.Cryptol.Bridge.SourceFoundation

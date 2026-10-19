@@ -39,12 +39,13 @@ private def checkSelector : Selector → Except String Unit
 
 mutual
 
-  private def checkExpression : Nat → List Reference.Name → List Parameter →
+  private def checkExpression (nominals : List (Reference.Name × List Kind × Kind)) :
+      Nat → List Reference.Name → List Parameter →
       Reference.Expr → Except String Unit
     | 0, _, _, _ => .error "scope-checking budget exhausted"
     | fuel + 1, bound, params, e => do
-        let child := checkExpression fuel bound params
-        let type := TypeExpr.checkKind fuel params
+        let child := checkExpression nominals fuel bound params
+        let type := TypeExpr.checkKindWith nominals fuel params
         match e with
         | .list t es => type .value t; es.forM child
         | .tuple es => es.forM child
@@ -54,13 +55,19 @@ mutual
         | .select e s => checkSelector s; child e
         | .update t e s v => type .value t; checkSelector s; child e; child v
         | .ite c a b => child c; child a; child b
+        | .caseE value alternatives fallback =>
+            child value
+            unless (alternatives.map Prod.fst).Nodup do throw "duplicate case alternative"
+            for .mk bindings body in alternatives.map Prod.snd ++ fallback.toList do
+              for (_, t) in bindings do type .value t
+              checkExpression nominals fuel (← addNames bound (bindings.map Prod.fst)) params body
         | .comprehension n t body branches =>
             type .number n
             type .value t
             if branches.isEmpty then throw "comprehension must have a branch"
-            let introduced ← branches.mapM (checkMatches fuel bound params)
+            let introduced ← branches.mapM (checkMatches nominals fuel bound params)
             let scope ← addNames bound introduced.flatten
-            checkExpression fuel scope params body
+            checkExpression nominals fuel scope params body
         | .var name =>
             match bound.find? (fun n => n.id == name.id) with
             | none => throw s!"unbound value {name.origin} ({name.id})"
@@ -69,88 +76,187 @@ mutual
         | .typeAbs p body =>
             unless p.kind != .proposition do throw "invalid abstraction kind"
             if params.any (fun q => q.id == p.id) then throw "duplicate parameter binder"
-            checkExpression fuel bound (p :: params) body
-        | .typeApp e t => child e; let _ ← t.kind? fuel params
+            checkExpression nominals fuel bound (p :: params) body
+        | .typeApp e t => child e; let _ ← t.kindWith? nominals fuel params
         | .app f x => child f; child x
         | .abs name t body =>
             type .value t
-            checkExpression fuel (← addNames bound [name]) params body
+            checkExpression nominals fuel (← addNames bound [name]) params body
         | .proofAbs c body => type .proposition c; child body
         | .proofApp e => child e
         | .whereE body groups =>
-            let scope ← checkGroups fuel bound params groups
-            checkExpression fuel scope params body
+            let scope ← checkGroups nominals fuel bound params groups
+            checkExpression nominals fuel scope params body
         | .guards t branches =>
             type .value t
             for (constraints, body) in branches do
               constraints.forM (type .proposition)
               child body
 
-  private def checkDeclaration : Nat → List Reference.Name → List Parameter →
+  private def checkDeclaration (nominals : List (Reference.Name × List Kind × Kind)) :
+      Nat → List Reference.Name → List Parameter →
       Reference.Decl → Except String Unit
     | 0, _, _, _ => .error "declaration-checking budget exhausted"
     | fuel + 1, bound, params, .mk name schema definition =>
         (do
-          schema.checkKinds fuel params
+          schema.checkKindsWith nominals fuel params
           match definition with
           | .primitive => pure ()
-          | .expression body => checkExpression fuel bound params body
-          | .foreign _ (some body) => checkExpression fuel bound params body
+          | .expression body => checkExpression nominals fuel bound params body
+          | .foreign _ (some body) => checkExpression nominals fuel bound params body
           | .foreign _ none => throw "foreign declaration has no pure reference body"
         ).mapError (fun message => s!"{name.origin}: {message}")
 
-  private def checkGroups : Nat → List Reference.Name → List Parameter →
+  private def checkGroups (nominals : List (Reference.Name × List Kind × Kind)) :
+      Nat → List Reference.Name → List Parameter →
       List Reference.DeclGroup → Except String (List Reference.Name)
     | 0, _, _, _ => .error "group-checking budget exhausted"
     | _ + 1, bound, _, [] => .ok bound
     | fuel + 1, bound, params, .nonrecursive d :: rest => do
-        checkDeclaration fuel bound params d
-        checkGroups fuel (← addNames bound [d.name]) params rest
+        checkDeclaration nominals fuel bound params d
+        checkGroups nominals fuel (← addNames bound [d.name]) params rest
     | fuel + 1, bound, params, .recursive ds :: rest => do
         if ds.isEmpty then throw "empty recursive group"
         let scope ← addNames bound (ds.map Reference.Decl.name)
-        ds.forM (checkDeclaration fuel scope params)
-        checkGroups fuel scope params rest
+        ds.forM (checkDeclaration nominals fuel scope params)
+        checkGroups nominals fuel scope params rest
 
-  private def checkMatches : Nat → List Reference.Name → List Parameter →
+  private def checkMatches (nominals : List (Reference.Name × List Kind × Kind)) :
+      Nat → List Reference.Name → List Parameter →
       List Reference.Match → Except String (List Reference.Name)
     | 0, _, _, _ => .error "comprehension-checking budget exhausted"
     | _ + 1, _, _, [] => .ok []
     | fuel + 1, bound, params, .from name n t source :: rest => do
-        n.checkKind fuel params .number
-        t.checkKind fuel params .value
-        checkExpression fuel bound params source
-        return name :: (← checkMatches fuel (← addNames bound [name]) params rest)
+        n.checkKindWith nominals fuel params .number
+        t.checkKindWith nominals fuel params .value
+        checkExpression nominals fuel bound params source
+        return name :: (← checkMatches nominals fuel (← addNames bound [name]) params rest)
     | fuel + 1, bound, params, .letE d :: rest => do
-        checkDeclaration fuel bound params d
-        return d.name :: (← checkMatches fuel (← addNames bound [d.name]) params rest)
+        checkDeclaration nominals fuel bound params d
+        return d.name :: (← checkMatches nominals fuel (← addNames bound [d.name]) params rest)
 
 end
+
+private def checkFallbacks (declarations : List Reference.Decl)
+    (fallbacks : List (Reference.Name × Reference.Name)) : Except String Unit := do
+  let globals := declarations.map Reference.Decl.name
+  unless (fallbacks.map (fun p => p.1.id)).Nodup do
+    throw "duplicate primitive fallback"
+  for (source, target) in fallbacks do
+    unless globals.contains source && globals.contains target do
+      throw "primitive fallback has an unresolved endpoint"
+    unless source.origin == s!"Cryptol::{source.text}" &&
+        target.origin == s!"Cryptol::Reference::{source.text}" do
+      throw "primitive fallback is not an official reference definition"
+    unless ["pmult", "pdiv", "pmod", "foldl", "foldl'", "foldWhile", "scanl", "iterate"].contains
+        source.text do throw "unknown reference primitive fallback"
+    match declarations.find? (fun d => d.name == source),
+        declarations.find? (fun d => d.name == target) with
+    | some (.mk _ _ .primitive), some (.mk _ _ (.expression _)) => pure ()
+    | _, _ => throw "primitive fallback endpoints have the wrong declaration forms"
+
+/-- Nominal constructor names are ordinary value bindings, separate from type names. -/
+def ModuleDefinition.constructors (module : ModuleDefinition) : List Reference.Name :=
+  module.nominals.flatMap fun n => match n.definition with
+    | .abstract => []
+    | .struct name _ => [name]
+    | .enumeration cs => cs.map EnumConstructor.name
+
+/-- Check a whole module under its explicit numeric, type, and value parameters.
+This validates scope and kinds, not expression types or source correspondence. -/
+def ModuleBundle.checkModuleScopes (bundle : ModuleBundle) (module : ModuleDefinition)
+    (fuel : Nat := 10000) : Except ImportError Unit :=
+  let checked : Except String Unit := do
+    checkFallbacks (bundle.modules.flatMap (fun m => m.groups.flatMap DeclGroup.declarations))
+      bundle.primitiveFallbacks
+    let nominals := bundle.modules.flatMap fun m => m.nominals.map fun n =>
+      (n.name, n.parameters.map Parameter.kind, n.kind)
+    unless (nominals.map (fun n => n.1.id)).Nodup do throw "duplicate nominal identity"
+    let declarations := module.groups.flatMap DeclGroup.declarations
+    let names := declarations.map Decl.name
+    unless names = module.declarations.map DeclarationInfo.name do
+      throw "declaration metadata does not match retained groups"
+    unless (names.map Reference.Name.id).Nodup do throw "duplicate declaration identity"
+    unless module.exports.all names.contains do throw "unresolved public value"
+    unless module.typeExports.all (module.synonyms.map TypeSynonym.name).contains do
+      throw "unresolved public type synonym"
+    unless module.nominalExports.all (module.nominals.map NominalType.name).contains do
+      throw "unresolved public nominal type"
+    let params := module.typeParameters.map Prod.snd
+    unless (params.map Parameter.id).Nodup do throw "duplicate module type parameter"
+    let type := TypeExpr.checkKindWith nominals fuel
+    for c in module.constraints do type params .proposition c
+    for (_, scheme) in module.valueParameters do scheme.checkKindsWith nominals fuel params
+    for synonym in module.synonyms do
+      let localParams := synonym.parameters ++ params
+      unless (localParams.map Parameter.id).Nodup do throw "duplicate synonym parameter"
+      for c in synonym.constraints do type localParams .proposition c
+      let _ ← synonym.body.kindWith? nominals fuel localParams
+    for nominal in module.nominals do
+      let localParams := nominal.parameters ++ params
+      unless (localParams.map Parameter.id).Nodup do throw "duplicate nominal parameter"
+      for c in nominal.constraints do type localParams .proposition c
+      for (_, cs) in nominal.derived do
+        for c in cs do type localParams .proposition c
+      match nominal.definition with
+      | .abstract => pure ()
+      | .struct _ fields =>
+          unless (fields.map Prod.fst).Nodup do throw "duplicate struct field"
+          for (_, t) in fields do type localParams .value t
+      | .enumeration constructors =>
+          unless constructors.map EnumConstructor.number = List.range constructors.length do
+            throw "enum constructor indices are not consecutive"
+          for c in constructors do
+            for t in c.fields do type localParams .value t
+    let external := bundle.modules.flatMap fun m =>
+      (m.groups.flatMap DeclGroup.declarations).map Decl.name
+    let ambient := external.filter (fun n => !names.contains n) ++
+      bundle.modules.flatMap ModuleDefinition.constructors ++ module.valueParameters.map Prod.fst
+    let _ ← checkGroups nominals fuel ambient params module.groups
+    pure ()
+  checked.mapError (⟨["module", module.provenance.name, "scope"], ·⟩)
+
+/-- Every module receives its own result, including modules after an earlier failure. -/
+def ModuleBundle.scopeReport (bundle : ModuleBundle) (fuel : Nat := 10000) :
+    List (String × Except ImportError Unit) :=
+  bundle.modules.map fun module =>
+    (module.provenance.name, bundle.checkModuleScopes module fuel)
+
+/-- A module whose retained syntax passed the scope/kind gate. The certificate
+does not imply expression typing, termination, or source-semantic preservation. -/
+structure ModuleBundle.ScopeCertificate (bundle : ModuleBundle) (module : ModuleDefinition) where
+  /-- Explicit recursion budget of the checker. -/
+  budget : Nat
+  /-- Kernel-checked acceptance equation. -/
+  valid : bundle.checkModuleScopes module budget = .ok ()
+
+/-- Successful module validation retains its acceptance equation. -/
+def ModuleBundle.certifyModuleScopes (bundle : ModuleBundle) (module : ModuleDefinition)
+    (fuel : Nat := 10000) : Except ImportError (bundle.ScopeCertificate module) :=
+  match h : bundle.checkModuleScopes module fuel with
+  | .ok () => .ok ⟨fuel, h⟩
+  | .error error => .error error
+
+/-- Resolve a public declaration by source spelling within one module.
+Ambiguous spellings fail rather than selecting an arbitrary frontend identity. -/
+def ModuleDefinition.findExport? (module : ModuleDefinition) (name : String) :
+    Except ImportError Reference.Decl :=
+  match (module.groups.flatMap DeclGroup.declarations).filter
+      (fun d => module.exports.contains d.name && d.name.text == name) with
+  | [declaration] => .ok declaration
+  | [] => .error ⟨[module.provenance.name, name], "unknown public declaration"⟩
+  | _ => .error ⟨[module.provenance.name, name], "ambiguous public declaration"⟩
 
 /-- Validate binding structure, complete dependencies, and all type-expression kinds. -/
 def SourceBundle.checkScopes (bundle : SourceBundle) (fuel : Nat := 10000) :
     Except ImportError Unit :=
   let checked : Except String Unit := do
-    let globals ← checkGroups fuel [] [] bundle.groups
-    unless (bundle.primitiveFallbacks.map (fun p => p.1.id)).Nodup do
-      throw "duplicate primitive fallback"
-    let declarations := bundle.groups.flatMap DeclGroup.declarations
-    for (source, target) in bundle.primitiveFallbacks do
-      unless globals.contains source && globals.contains target do
-        throw "primitive fallback has an unresolved endpoint"
-      unless source.origin == s!"Cryptol::{source.text}" &&
-          target.origin == s!"Cryptol::Reference::{source.text}" do
-        throw "primitive fallback is not an official reference definition"
-      unless ["pmult", "pdiv", "pmod", "foldl", "foldl'", "foldWhile", "scanl", "iterate"].contains
-          source.text do throw "unknown reference primitive fallback"
-      match declarations.find? (fun d => d.name == source),
-          declarations.find? (fun d => d.name == target) with
-      | some (.mk _ _ .primitive), some (.mk _ _ (.expression _)) => pure ()
-      | _, _ => throw "primitive fallback endpoints have the wrong declaration forms"
+    let globals ← checkGroups [] fuel [] [] bundle.groups
+    checkFallbacks (bundle.groups.flatMap DeclGroup.declarations) bundle.primitiveFallbacks
     for root in bundle.roots do
       (do
         root.schema.checkKinds fuel []
-        checkExpression fuel globals [] root.expression
+        checkExpression [] fuel globals [] root.expression
       ).mapError (fun message => s!"root {root.text}: {message}")
   checked.mapError (⟨["scope"], ·⟩)
 

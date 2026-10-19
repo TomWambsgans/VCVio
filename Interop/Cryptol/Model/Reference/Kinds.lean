@@ -17,7 +17,10 @@ namespace Interop.Cryptol.Reference
 /-- Kinds of each argument and of the result of a fully applied constructor. -/
 @[expose] def constructorKinds : String → Option (List Kind × Kind)
   | "TC TCInf" => some ([], .number)
-  | "TC TCBit" | "TC TCInteger" => some ([], .value)
+  | "TC TCBit" | "TC TCInteger" | "TC TCRational" => some ([], .value)
+  | "TC TCIntMod" => some ([.number], .value)
+  | "TC TCFloat" => some ([.number, .number], .value)
+  | "TC TCArray" => some ([.value, .value], .value)
   | "TC TCSeq" => some ([.number, .value], .value)
   | "TC TCFun" => some ([.value, .value], .value)
   | "TF TCWidth" => some ([.number], .number)
@@ -28,17 +31,20 @@ namespace Interop.Cryptol.Reference
   | "PC PEqual" | "PC PNeq" | "PC PGeq" => some ([.number, .number], .proposition)
   | "PC PFin" | "PC PPrime" | "PC PNotPrime" => some ([.number], .proposition)
   | "PC PZero" | "PC PLogic" | "PC PRing" | "PC PIntegral" | "PC PEq" |
-    "PC PCmp" | "PC PSignedCmp" => some ([.value], .proposition)
+    "PC PCmp" | "PC PSignedCmp" | "PC PField" | "PC PRound" => some ([.value], .proposition)
+  | "PC PFLiteral" => some ([.number, .number, .number, .value], .proposition)
+  | "PC PValidFloat" => some ([.number, .number], .proposition)
   | "PC PLiteral" | "PC PLiteralLessThan" => some ([.number, .value], .proposition)
   | "PC PTrue" => some ([], .proposition)
   | "PC PAnd" => some ([.proposition, .proposition], .proposition)
   | _ => none
 
 /-- Infer a type expression's kind while checking parameter identities and arities. -/
-def TypeExpr.kind? : Nat → List Parameter → TypeExpr → Except String Kind
+def TypeExpr.kindWith? (nominals : List (Name × List Kind × Kind)) :
+    Nat → List Parameter → TypeExpr → Except String Kind
   | 0, _, _ => .error "type-kind nesting budget exhausted"
   | fuel + 1, params, expression => do
-      let child := TypeExpr.kind? fuel params
+      let child := TypeExpr.kindWith? nominals fuel params
       match expression with
       | .var p =>
           match params.find? (fun q => q.id == p.id) with
@@ -68,24 +74,43 @@ def TypeExpr.kind? : Nat → List Parameter → TypeExpr → Except String Kind
       | .synonym _ arguments body =>
           for argument in arguments do let _ ← child argument
           child body
+      | .nominal name arguments =>
+          match nominals.find? (fun entry => entry.1 == name) with
+          | none => throw s!"unknown nominal type {name.origin}"
+          | some (_, expected, result) =>
+              unless (← arguments.mapM child) = expected do
+                throw s!"kind or arity mismatch for {name.origin}"
+              return result
       | .has _ arguments =>
           unless (← arguments.mapM child) = [.value, .value] do
             throw "selector constraint requires an aggregate and a field type"
           return .proposition
 
+/-- Kind inference without ambient nominal declarations. -/
+def TypeExpr.kind? := TypeExpr.kindWith? []
+
 /-- Check one type expression against a required kind. -/
-def TypeExpr.checkKind (fuel : Nat) (params : List Parameter) (kind : Kind)
+def TypeExpr.checkKindWith (nominals : List (Name × List Kind × Kind))
+    (fuel : Nat) (params : List Parameter) (kind : Kind)
     (expression : TypeExpr) : Except String Unit := do
-  unless (← expression.kind? fuel params) = kind do throw "unexpected type-expression kind"
+  unless (← expression.kindWith? nominals fuel params) = kind do
+    throw "unexpected type-expression kind"
+
+/-- Kind checking without ambient nominal declarations. -/
+def TypeExpr.checkKind := TypeExpr.checkKindWith []
 
 /-- Check a scheme under its ambient numeric and type parameters. -/
-def Schema.checkKinds (fuel : Nat) (ambient : List Parameter) (schema : Schema) :
+def Schema.checkKindsWith (nominals : List (Name × List Kind × Kind))
+    (fuel : Nat) (ambient : List Parameter) (schema : Schema) :
     Except String Unit := do
   let params := schema.parameters ++ ambient
   unless (params.map Parameter.id).Nodup do throw "duplicate type-parameter identity"
   unless schema.parameters.all (fun p => p.kind != .proposition) do
     throw "proposition parameters must be represented by proof abstraction"
-  for c in schema.constraints do c.checkKind fuel params .proposition
-  schema.body.checkKind fuel params .value
+  for c in schema.constraints do c.checkKindWith nominals fuel params .proposition
+  schema.body.checkKindWith nominals fuel params .value
+
+/-- Scheme checking without ambient nominal declarations. -/
+def Schema.checkKinds := Schema.checkKindsWith []
 
 end Interop.Cryptol.Reference
