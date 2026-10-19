@@ -185,11 +185,12 @@ theorem sampledEvalDist_eq_sum [Fintype Ω]
 
 /-- When every run is lossless and every initial substate has trace `c`, the distribution has total
 mass the trace of `ρ` times `c`. -/
-theorem sampledEvalDist_apply_univ [Fintype Ω] [Nonempty Ω]
+theorem sampledEvalDist_apply_univ [Finite Ω] [Nonempty Ω]
     [MeasurableSpace (Σ u, W u)] {R : Ω → QuantumRuntime spec}
     {I : L.Interp} {x : QuantumComp L spec W A} (h : ∀ ω, ((R ω).run I x).Lossless) {c : ℝ}
     (hc : ∀ ω, (R ω).init.matrix.trace.re = c) (ρ : SubState A) :
     sampledEvalDist R I x ρ Set.univ = ENNReal.ofReal (ρ.matrix.trace.re * c) := by
+  have := Fintype.ofFinite Ω
   rw [sampledEvalDist_apply _ _ _ _ MeasurableSet.univ]
   simp only [(R _).evalDist_apply_univ_of_lossless I (h _), hc]
   rw [Finset.sum_const, Finset.card_univ, nsmul_eq_mul, ← mul_assoc,
@@ -292,11 +293,12 @@ theorem sampledEvalDist₂_eq_sum [Fintype Ω]
 
 /-- When every run is lossless and every initial substate has trace `c`, the distribution of the
 value has total mass the trace of `ρ` times `c`. -/
-theorem sampledEvalDist₂_apply_univ [Fintype Ω] [Nonempty Ω]
+theorem sampledEvalDist₂_apply_univ [Finite Ω] [Nonempty Ω]
     [MeasurableSpace α] {R : Ω → QuantumRuntime spec} {I : L.Interp}
     {x : QuantumComp₂ L spec A B α} (h : ∀ ω, ((R ω).run₂ I x).Lossless) {c : ℝ}
     (hc : ∀ ω, (R ω).init.matrix.trace.re = c) (ρ : SubState A) :
     sampledEvalDist₂ R I x ρ Set.univ = ENNReal.ofReal (ρ.matrix.trace.re * c) := by
+  have := Fintype.ofFinite Ω
   rw [sampledEvalDist₂_apply _ _ _ _ MeasurableSet.univ]
   simp only [(R _).evalDist₂_apply_univ_of_lossless I (h _), hc]
   rw [Finset.sum_const, Finset.card_univ, nsmul_eq_mul, ← mul_assoc,
@@ -309,7 +311,7 @@ end sampled
 
 section sampleable
 
-variable {Ω : Type} [Fintype Ω] [SampleableType Ω]
+variable {Ω : Type} [SampleableType Ω]
 
 /-- For a classical uniform sampler, the observed finite mixture agrees with binding its
 output measure to the observed runtime distributions. -/
