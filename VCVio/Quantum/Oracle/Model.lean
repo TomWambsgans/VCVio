@@ -54,11 +54,13 @@ suffix `₂` gives the distribution of the returned value of a fixed-final-regis
 ## Other sampled oracles
 
 `Quantum.sampledEvalDist R I x ρ` and `Quantum.sampledEvalDistMap` are the same construction for any
-finite nonempty parameter type `Ω` and family of runtimes `R ω`, which may have private memory.
-The parameter has the discrete measurable structure and may lie in any universe; its uniform
-measure is `uniformOn Set.univ`. For a `SampleableType Ω` in `Type`, this agrees with `𝒟[$ᵗ Ω]`.
-The QROM is the instance `R = additiveOracleRuntime`. Showing that two implementations of an oracle
-are indistinguishable is an equation between two values of `sampledEvalDist`.
+parameter type `Ω` and family of runtimes `R ω`, which may have private memory. The parameter has
+the discrete measurable structure and may lie in any universe; its uniform measure is
+`uniformOn Set.univ`, which is the zero measure unless `Ω` is finite and nonempty. The definitions
+assume nothing about `Ω`; each theorem assumes the finiteness it uses. For a `SampleableType Ω`
+in `Type`, this agrees with `𝒟[$ᵗ Ω]`. The QROM is the instance `R = additiveOracleRuntime`.
+Showing that two implementations of an oracle are indistinguishable is an equation between two
+values of `sampledEvalDist`.
 
 ## Main results
 
@@ -104,17 +106,17 @@ section sampled
 
 variable {Ω : Type uΩ}
 
-/-- The observed output measure obtained by choosing a parameter `ω` uniformly from a
-finite nonempty type `Ω`, then running the fixed program `x` under `I` against `R ω` from `ρ`.
-It is the mixture
-`|Ω|⁻¹ • ∑ ω, (R ω).evalDistMap I x ρ (f ω)`.
+/-- The observed output measure obtained by choosing a parameter `ω` uniformly from `Ω`, then
+running the fixed program `x` under `I` against `R ω` from `ρ`. For finite `Ω` it is the mixture
+`|Ω|⁻¹ • ∑ ω, (R ω).evalDistMap I x ρ (f ω)` (`Quantum.sampledEvalDistMap_eq_sum`); it is the
+zero measure when `Ω` is empty or infinite.
 
 The parameter is sampled once for the whole run. The observer sees `ω` and the classical
 leaf, including its final-register label; the program receives neither through this
 construction. Observations are sums of weighted point masses, so `f` need not be measurable.
 The parameter and observation types may lie in independent universes. -/
 @[expose]
-noncomputable def sampledEvalDistMap [Fintype Ω] [Nonempty Ω]
+noncomputable def sampledEvalDistMap
     [MeasurableSpace β] (R : Ω → QuantumRuntime spec)
     (I : L.Interp) (x : QuantumComp L spec W A) (ρ : SubState A) (f : Ω → (Σ u, W u) → β) :
     Measure β :=
@@ -125,7 +127,7 @@ noncomputable def sampledEvalDistMap [Fintype Ω] [Nonempty Ω]
 realized by the runtime `R ω`: the mixture over `ω` of the outcome distributions of `x` under `I`
 against `R ω` from `ρ`. -/
 @[expose]
-noncomputable def sampledEvalDist [Fintype Ω] [Nonempty Ω]
+noncomputable def sampledEvalDist
     [MeasurableSpace (Σ u, W u)] (R : Ω → QuantumRuntime spec)
     (I : L.Interp) (x : QuantumComp L spec W A) (ρ : SubState A) : Measure (Σ u, W u) :=
   letI : MeasurableSpace Ω := ⊤
@@ -133,7 +135,7 @@ noncomputable def sampledEvalDist [Fintype Ω] [Nonempty Ω]
 
 /-- Observing the leaf itself, without looking at the sampled value, gives the distribution of the
 leaf. -/
-theorem sampledEvalDistMap_id [Fintype Ω] [Nonempty Ω]
+theorem sampledEvalDistMap_id
     [MeasurableSpace (Σ u, W u)] (R : Ω → QuantumRuntime spec)
     (I : L.Interp) (x : QuantumComp L spec W A) (ρ : SubState A) :
     sampledEvalDistMap R I x ρ (fun _ p ↦ p) = sampledEvalDist R I x ρ :=
@@ -141,7 +143,7 @@ theorem sampledEvalDistMap_id [Fintype Ω] [Nonempty Ω]
 
 /-- The observed distribution of a measurable set averages, over the sampled values, its measure
 under the observed runs. -/
-theorem sampledEvalDistMap_apply [Fintype Ω] [Nonempty Ω]
+theorem sampledEvalDistMap_apply [Fintype Ω]
     [MeasurableSpace β] (R : Ω → QuantumRuntime spec) (I : L.Interp)
     (x : QuantumComp L spec W A) (ρ : SubState A) (f : Ω → (Σ u, W u) → β) {s : Set β}
     (hs : MeasurableSet s) :
@@ -152,7 +154,7 @@ theorem sampledEvalDistMap_apply [Fintype Ω] [Nonempty Ω]
 
 /-- The observed distribution is the average, over the sampled values, of the observed distributions
 of the runs. -/
-theorem sampledEvalDistMap_eq_sum [Fintype Ω] [Nonempty Ω]
+theorem sampledEvalDistMap_eq_sum [Fintype Ω]
     [MeasurableSpace β] (R : Ω → QuantumRuntime spec) (I : L.Interp)
     (x : QuantumComp L spec W A) (ρ : SubState A) (f : Ω → (Σ u, W u) → β) :
     sampledEvalDistMap R I x ρ f =
@@ -163,7 +165,7 @@ theorem sampledEvalDistMap_eq_sum [Fintype Ω] [Nonempty Ω]
 
 /-- The distribution of a measurable set of leaves averages, over the sampled values, its measure
 under the runs. -/
-theorem sampledEvalDist_apply [Fintype Ω] [Nonempty Ω]
+theorem sampledEvalDist_apply [Fintype Ω]
     [MeasurableSpace (Σ u, W u)] (R : Ω → QuantumRuntime spec)
     (I : L.Interp) (x : QuantumComp L spec W A) (ρ : SubState A) {s : Set (Σ u, W u)}
     (hs : MeasurableSet s) :
@@ -173,7 +175,7 @@ theorem sampledEvalDist_apply [Fintype Ω] [Nonempty Ω]
 
 /-- The distribution is the average, over the sampled values, of the outcome distributions of the
 runs. -/
-theorem sampledEvalDist_eq_sum [Fintype Ω] [Nonempty Ω]
+theorem sampledEvalDist_eq_sum [Fintype Ω]
     [MeasurableSpace (Σ u, W u)] (R : Ω → QuantumRuntime spec)
     (I : L.Interp) (x : QuantumComp L spec W A) (ρ : SubState A) :
     sampledEvalDist R I x ρ = (Fintype.card Ω : ℝ≥0∞)⁻¹ • ∑ ω, (R ω).evalDist I x ρ := by
@@ -201,7 +203,7 @@ function that sees the sampled value: the general observed distribution, reading
 through its value `(leafEquiv B α).symm p`. It is the mixture over `ω` of the outcome distributions
 of `x.map (f ω)` (`Quantum.sampledEvalDistMap₂_eq_bind`). -/
 @[expose]
-noncomputable def sampledEvalDistMap₂ [Fintype Ω] [Nonempty Ω]
+noncomputable def sampledEvalDistMap₂
     [MeasurableSpace β] (R : Ω → QuantumRuntime spec)
     (I : L.Interp) (x : QuantumComp₂ L spec A B α) (ρ : SubState A) (f : Ω → α → β) :
     Measure β :=
@@ -211,14 +213,14 @@ noncomputable def sampledEvalDistMap₂ [Fintype Ω] [Nonempty Ω]
 distribution, reading each leaf through its value. It is the mixture over `ω` of the outcome
 distributions of `x` (`Quantum.sampledEvalDist₂_eq_bind`). -/
 @[expose]
-noncomputable def sampledEvalDist₂ [Fintype Ω] [Nonempty Ω]
+noncomputable def sampledEvalDist₂
     [MeasurableSpace α] (R : Ω → QuantumRuntime spec) (I : L.Interp)
     (x : QuantumComp₂ L spec A B α) (ρ : SubState A) : Measure α :=
   sampledEvalDistMap R I x ρ fun _ p ↦ (QuantumComp₂.leafEquiv B α).symm p
 
 /-- The relabelled distribution of a fixed-register program is the mixture of the outcome
 distributions of its relabellings. -/
-theorem sampledEvalDistMap₂_eq_bind [Fintype Ω] [Nonempty Ω]
+theorem sampledEvalDistMap₂_eq_bind
     [MeasurableSpace β] (R : Ω → QuantumRuntime spec)
     (I : L.Interp) (x : QuantumComp₂ L spec A B α) (ρ : SubState A) (f : Ω → α → β) :
     sampledEvalDistMap₂ R I x ρ f =
@@ -229,7 +231,7 @@ theorem sampledEvalDistMap₂_eq_bind [Fintype Ω] [Nonempty Ω]
 
 /-- The distribution of the value of a fixed-register program is the mixture of its outcome
 distributions. -/
-theorem sampledEvalDist₂_eq_bind [Fintype Ω] [Nonempty Ω]
+theorem sampledEvalDist₂_eq_bind
     [MeasurableSpace α] (R : Ω → QuantumRuntime spec) (I : L.Interp)
     (x : QuantumComp₂ L spec A B α) (ρ : SubState A) :
     sampledEvalDist₂ R I x ρ =
@@ -240,7 +242,7 @@ theorem sampledEvalDist₂_eq_bind [Fintype Ω] [Nonempty Ω]
 
 /-- Relabelling the value without looking at the sampled value or changing it gives the distribution
 of the value. -/
-theorem sampledEvalDistMap₂_id [Fintype Ω] [Nonempty Ω]
+theorem sampledEvalDistMap₂_id
     [MeasurableSpace α] (R : Ω → QuantumRuntime spec) (I : L.Interp)
     (x : QuantumComp₂ L spec A B α) (ρ : SubState A) :
     sampledEvalDistMap₂ R I x ρ (fun _ a ↦ a) = sampledEvalDist₂ R I x ρ :=
@@ -248,7 +250,7 @@ theorem sampledEvalDistMap₂_id [Fintype Ω] [Nonempty Ω]
 
 /-- The relabelled distribution of a measurable set averages, over the sampled values, its measure
 under the relabelled runs. -/
-theorem sampledEvalDistMap₂_apply [Fintype Ω] [Nonempty Ω]
+theorem sampledEvalDistMap₂_apply [Fintype Ω]
     [MeasurableSpace β] (R : Ω → QuantumRuntime spec) (I : L.Interp)
     (x : QuantumComp₂ L spec A B α) (ρ : SubState A) (f : Ω → α → β) {s : Set β}
     (hs : MeasurableSet s) :
@@ -259,7 +261,7 @@ theorem sampledEvalDistMap₂_apply [Fintype Ω] [Nonempty Ω]
 
 /-- The relabelled distribution is the average, over the sampled values, of the outcome
 distributions of the relabelled runs. -/
-theorem sampledEvalDistMap₂_eq_sum [Fintype Ω] [Nonempty Ω]
+theorem sampledEvalDistMap₂_eq_sum [Fintype Ω]
     [MeasurableSpace β] (R : Ω → QuantumRuntime spec) (I : L.Interp)
     (x : QuantumComp₂ L spec A B α) (ρ : SubState A) (f : Ω → α → β) :
     sampledEvalDistMap₂ R I x ρ f =
@@ -270,7 +272,7 @@ theorem sampledEvalDistMap₂_eq_sum [Fintype Ω] [Nonempty Ω]
 
 /-- The distribution of a measurable set of values averages, over the sampled values, its measure
 under the runs. -/
-theorem sampledEvalDist₂_apply [Fintype Ω] [Nonempty Ω]
+theorem sampledEvalDist₂_apply [Fintype Ω]
     [MeasurableSpace α] (R : Ω → QuantumRuntime spec) (I : L.Interp)
     (x : QuantumComp₂ L spec A B α) (ρ : SubState A) {s : Set α} (hs : MeasurableSet s) :
     sampledEvalDist₂ R I x ρ s = ∑ ω, (Fintype.card Ω : ℝ≥0∞)⁻¹ * (R ω).evalDist₂ I x ρ s := by
@@ -279,7 +281,7 @@ theorem sampledEvalDist₂_apply [Fintype Ω] [Nonempty Ω]
 
 /-- The distribution of the value is the average, over the sampled values, of the outcome
 distributions of the runs. -/
-theorem sampledEvalDist₂_eq_sum [Fintype Ω] [Nonempty Ω]
+theorem sampledEvalDist₂_eq_sum [Fintype Ω]
     [MeasurableSpace α] (R : Ω → QuantumRuntime spec) (I : L.Interp)
     (x : QuantumComp₂ L spec A B α) (ρ : SubState A) :
     sampledEvalDist₂ R I x ρ = (Fintype.card Ω : ℝ≥0∞)⁻¹ • ∑ ω, (R ω).evalDist₂ I x ρ := by
@@ -504,7 +506,7 @@ section sampled
 random-oracle model: `H : X → Y` is drawn uniformly, the program runs under `I` against the oracle
 unitary of `H`, and its leaf `p` is reported as `f H p`. -/
 @[expose]
-noncomputable def qromEvalDistMap [SampleableType (X → Y)]
+noncomputable def qromEvalDistMap
     [MeasurableSpace β] (I : L.Interp)
     (x : QuantumComp L (qromSpec X Y) W A) (ρ : SubState A) (f : (X → Y) → (Σ u, W u) → β) :
     Measure β :=
@@ -520,14 +522,14 @@ and `reducedPost`. Use `qromEvalDistMap` for an observation that also sees `H`, 
 for the returned value of a fixed-final-register program. The distribution is a subprobability
 measure; for a lossless program its total mass is `tr ρ`. -/
 @[expose]
-noncomputable def qromEvalDist [SampleableType (X → Y)]
+noncomputable def qromEvalDist
     [MeasurableSpace (Σ u, W u)] (I : L.Interp)
     (x : QuantumComp L (qromSpec X Y) W A) (ρ : SubState A) : Measure (Σ u, W u) :=
   sampledEvalDist additiveOracleRuntime I x ρ
 
 /-- Observing the leaf itself, without looking at the random function, gives the distribution of the
 quantum random-oracle model. -/
-theorem qromEvalDistMap_id [SampleableType (X → Y)]
+theorem qromEvalDistMap_id
     [MeasurableSpace (Σ u, W u)] (I : L.Interp)
     (x : QuantumComp L (qromSpec X Y) W A) (ρ : SubState A) :
     qromEvalDistMap I x ρ (fun _ p ↦ p) = qromEvalDist I x ρ :=
@@ -535,7 +537,7 @@ theorem qromEvalDistMap_id [SampleableType (X → Y)]
 
 /-- The distribution of the quantum random-oracle model is the average, over all `|Y| ^ |X|`
 functions, of the outcome distributions of the runs against their oracle unitaries. -/
-theorem qromEvalDist_eq_sum [SampleableType (X → Y)]
+theorem qromEvalDist_eq_sum
     [MeasurableSpace (Σ u, W u)] (I : L.Interp)
     (x : QuantumComp L (qromSpec X Y) W A) (ρ : SubState A) :
     qromEvalDist I x ρ =
@@ -545,7 +547,7 @@ theorem qromEvalDist_eq_sum [SampleableType (X → Y)]
 
 /-- The observed distribution of the quantum random-oracle model is the average, over all `|Y| ^
 |X|` functions, of the observed distributions of the runs. -/
-theorem qromEvalDistMap_eq_sum [SampleableType (X → Y)]
+theorem qromEvalDistMap_eq_sum
     [MeasurableSpace β] (I : L.Interp)
     (x : QuantumComp L (qromSpec X Y) W A) (ρ : SubState A) (f : (X → Y) → (Σ u, W u) → β) :
     qromEvalDistMap I x ρ f =
@@ -555,14 +557,14 @@ theorem qromEvalDistMap_eq_sum [SampleableType (X → Y)]
 
 /-- When the run against every function is lossless, the distribution of the quantum random-oracle
 model has total mass the trace of the initial substate. -/
-theorem qromEvalDist_apply_univ [SampleableType (X → Y)]
+theorem qromEvalDist_apply_univ
     [MeasurableSpace (Σ u, W u)] {I : L.Interp}
     {x : QuantumComp L (qromSpec X Y) W A} (h : ∀ H, ((additiveOracleRuntime H).run I x).Lossless)
     (ρ : SubState A) : qromEvalDist I x ρ Set.univ = ENNReal.ofReal ρ.matrix.trace.re := by
   rw [qromEvalDist, sampledEvalDist_apply_univ h trace_re_additiveOracleRuntime_init, mul_one]
 
 /-- The distribution of a lossless program has total mass the trace of the initial substate. -/
-theorem qromEvalDist_apply_univ_of_lossless [SampleableType (X → Y)]
+theorem qromEvalDist_apply_univ_of_lossless
     [MeasurableSpace (Σ u, W u)] {I : L.Interp}
     {x : QuantumComp L (qromSpec X Y) W A} (hx : x.Lossless I) (ρ : SubState A) :
     qromEvalDist I x ρ Set.univ = ENNReal.ofReal ρ.matrix.trace.re :=
@@ -570,7 +572,7 @@ theorem qromEvalDist_apply_univ_of_lossless [SampleableType (X → Y)]
 
 /-- When the run against every function is lossless and the initial state is normalized, the
 distribution of the quantum random-oracle model is a probability measure. -/
-theorem isProbabilityMeasure_qromEvalDist [SampleableType (X → Y)]
+theorem isProbabilityMeasure_qromEvalDist
     [MeasurableSpace (Σ u, W u)] {I : L.Interp}
     {x : QuantumComp L (qromSpec X Y) W A} (h : ∀ H, ((additiveOracleRuntime H).run I x).Lossless)
     {ρ : SubState A} (hρ : ρ.matrix.trace = 1) : IsProbabilityMeasure (qromEvalDist I x ρ) :=
@@ -583,7 +585,7 @@ random-oracle model, relabelled by a function that sees the random function: the
 distribution, reading each leaf through its value (`Quantum.qromEvalDistMap₂_eq_qromEvalDistMap`).
 -/
 @[expose]
-noncomputable def qromEvalDistMap₂ [SampleableType (X → Y)]
+noncomputable def qromEvalDistMap₂
     [MeasurableSpace β] (I : L.Interp)
     (x : QuantumComp₂ L (qromSpec X Y) A B α) (ρ : SubState A) (f : (X → Y) → α → β) :
     Measure β :=
@@ -593,14 +595,14 @@ noncomputable def qromEvalDistMap₂ [SampleableType (X → Y)]
 random-oracle model: the general observed distribution, reading each leaf through its value
 (`Quantum.qromEvalDist₂_eq_qromEvalDistMap`). -/
 @[expose]
-noncomputable def qromEvalDist₂ [SampleableType (X → Y)]
+noncomputable def qromEvalDist₂
     [MeasurableSpace α] (I : L.Interp)
     (x : QuantumComp₂ L (qromSpec X Y) A B α) (ρ : SubState A) : Measure α :=
   sampledEvalDist₂ additiveOracleRuntime I x ρ
 
 /-- The relabelled distribution of a fixed-register program is the general observed distribution,
 reading each leaf through its value. -/
-theorem qromEvalDistMap₂_eq_qromEvalDistMap [SampleableType (X → Y)]
+theorem qromEvalDistMap₂_eq_qromEvalDistMap
     [MeasurableSpace β] (I : L.Interp)
     (x : QuantumComp₂ L (qromSpec X Y) A B α) (ρ : SubState A) (f : (X → Y) → α → β) :
     qromEvalDistMap₂ I x ρ f =
@@ -609,7 +611,7 @@ theorem qromEvalDistMap₂_eq_qromEvalDistMap [SampleableType (X → Y)]
 
 /-- The distribution of the value of a fixed-register program is the general observed distribution,
 reading each leaf through its value. -/
-theorem qromEvalDist₂_eq_qromEvalDistMap [SampleableType (X → Y)]
+theorem qromEvalDist₂_eq_qromEvalDistMap
     [MeasurableSpace α] (I : L.Interp)
     (x : QuantumComp₂ L (qromSpec X Y) A B α) (ρ : SubState A) :
     qromEvalDist₂ I x ρ = qromEvalDistMap I x ρ fun _ p ↦ (QuantumComp₂.leafEquiv B α).symm p :=
@@ -617,7 +619,7 @@ theorem qromEvalDist₂_eq_qromEvalDistMap [SampleableType (X → Y)]
 
 /-- Relabelling the value without looking at the random function or changing it gives the
 distribution of the value. -/
-theorem qromEvalDistMap₂_id [SampleableType (X → Y)]
+theorem qromEvalDistMap₂_id
     [MeasurableSpace α] (I : L.Interp)
     (x : QuantumComp₂ L (qromSpec X Y) A B α) (ρ : SubState A) :
     qromEvalDistMap₂ I x ρ (fun _ a ↦ a) = qromEvalDist₂ I x ρ :=
@@ -625,7 +627,7 @@ theorem qromEvalDistMap₂_id [SampleableType (X → Y)]
 
 /-- The distribution of the value is the average, over all `|Y| ^ |X|` functions, of the outcome
 distributions of the runs against their oracle unitaries. -/
-theorem qromEvalDist₂_eq_sum [SampleableType (X → Y)]
+theorem qromEvalDist₂_eq_sum
     [MeasurableSpace α] (I : L.Interp)
     (x : QuantumComp₂ L (qromSpec X Y) A B α) (ρ : SubState A) :
     qromEvalDist₂ I x ρ =
@@ -635,7 +637,7 @@ theorem qromEvalDist₂_eq_sum [SampleableType (X → Y)]
 
 /-- The relabelled distribution of the value is the average, over all `|Y| ^ |X|` functions, of the
 outcome distributions of the relabelled runs. -/
-theorem qromEvalDistMap₂_eq_sum [SampleableType (X → Y)]
+theorem qromEvalDistMap₂_eq_sum
     [MeasurableSpace β] (I : L.Interp)
     (x : QuantumComp₂ L (qromSpec X Y) A B α) (ρ : SubState A) (f : (X → Y) → α → β) :
     qromEvalDistMap₂ I x ρ f =
@@ -645,7 +647,7 @@ theorem qromEvalDistMap₂_eq_sum [SampleableType (X → Y)]
 
 /-- When the run against every function is lossless, the distribution of the value has total mass
 the trace of the initial substate. -/
-theorem qromEvalDist₂_apply_univ [SampleableType (X → Y)]
+theorem qromEvalDist₂_apply_univ
     [MeasurableSpace α] {I : L.Interp}
     {x : QuantumComp₂ L (qromSpec X Y) A B α} (h : ∀ H, ((additiveOracleRuntime H).run₂ I
       x).Lossless)
@@ -654,7 +656,7 @@ theorem qromEvalDist₂_apply_univ [SampleableType (X → Y)]
 
 /-- The distribution of the value of a lossless fixed-register program has total mass the trace of
 the initial substate. -/
-theorem qromEvalDist₂_apply_univ_of_lossless [SampleableType (X → Y)]
+theorem qromEvalDist₂_apply_univ_of_lossless
     [MeasurableSpace α] {I : L.Interp}
     {x : QuantumComp₂ L (qromSpec X Y) A B α} (hx : x.Lossless I) (ρ : SubState A) :
     qromEvalDist₂ I x ρ Set.univ = ENNReal.ofReal ρ.matrix.trace.re :=
@@ -662,7 +664,7 @@ theorem qromEvalDist₂_apply_univ_of_lossless [SampleableType (X → Y)]
 
 /-- When the run against every function is lossless and the initial state is normalized, the
 distribution of the value is a probability measure. -/
-theorem isProbabilityMeasure_qromEvalDist₂ [SampleableType (X → Y)]
+theorem isProbabilityMeasure_qromEvalDist₂
     [MeasurableSpace α] {I : L.Interp}
     {x : QuantumComp₂ L (qromSpec X Y) A B α} (h : ∀ H, ((additiveOracleRuntime H).run₂ I
       x).Lossless)
@@ -699,7 +701,7 @@ branch traces from `ρ ⊗ |()⟩⟨()|`. Failure and subnormalized input reduce
 The guess functions read the classical leaf `p = ⟨u, a⟩`, including the register label `u`;
 they do not receive or measure the quantum state on `u`. For a lossless program with a
 normalized input, `qromEvalDistMap_guess_zero_of_trace_eq_one` gives `w = 1`. -/
-theorem qromEvalDistMap_guess_zero [SampleableType (X → Y)] (I : L.Interp)
+theorem qromEvalDistMap_guess_zero (I : L.Interp)
     {x : QuantumComp L (qromSpec X Y) W A} (hx : x.IsQueryBound 0) (ρ : SubState A)
     (gx : (Σ u, W u) → X) (gy : (Σ u, W u) → Y) (H₀ : X → Y) :
     qromEvalDistMap I x ρ (fun H p ↦ gy p = H (gx p)) {True} =
@@ -724,7 +726,7 @@ theorem qromEvalDistMap_guess_zero [SampleableType (X → Y)] (I : L.Interp)
 
 /-- A lossless program with query budget zero guesses a value of the random function with
 probability the trace of its initial substate divided by `|Y|`. -/
-theorem qromEvalDistMap_guess_zero_of_lossless [SampleableType (X → Y)] (I : L.Interp)
+theorem qromEvalDistMap_guess_zero_of_lossless (I : L.Interp)
     {x : QuantumComp L (qromSpec X Y) W A} (hx : x.IsQueryBound 0) (hl : x.Lossless I)
     (ρ : SubState A) (gx : (Σ u, W u) → X) (gy : (Σ u, W u) → Y) :
     qromEvalDistMap I x ρ (fun H p ↦ gy p = H (gx p)) {True} =
@@ -738,7 +740,7 @@ theorem qromEvalDistMap_guess_zero_of_lossless [SampleableType (X → Y)] (I : L
 /-- In the quantum random-oracle model, a lossless program with query budget zero that starts
 from a normalized state and whose leaf `p` carries a guess `(gx p, gy p)` satisfies
 `gy p = H (gx p)` with probability `1 / |Y|`. -/
-theorem qromEvalDistMap_guess_zero_of_trace_eq_one [SampleableType (X → Y)] (I : L.Interp)
+theorem qromEvalDistMap_guess_zero_of_trace_eq_one (I : L.Interp)
     {x : QuantumComp L (qromSpec X Y) W A} (hx : x.IsQueryBound 0) (hl : x.Lossless I)
     (gx : (Σ u, W u) → X) (gy : (Σ u, W u) → Y) {ρ : SubState A} (hρ : ρ.matrix.trace = 1) :
     qromEvalDistMap I x ρ (fun H p ↦ gy p = H (gx p)) {True} = (Fintype.card Y : ℝ≥0∞)⁻¹ := by
@@ -748,7 +750,7 @@ theorem qromEvalDistMap_guess_zero_of_trace_eq_one [SampleableType (X → Y)] (I
 /-- **No queries, no knowledge of the oracle**, for the value returned by a fixed-register
 program: a guess `(gx a, gy a)` satisfies `gy a = H (gx a)` with probability the total weight of
 the run divided by `|Y|`. -/
-theorem qromEvalDistMap₂_guess_zero [SampleableType (X → Y)] (I : L.Interp)
+theorem qromEvalDistMap₂_guess_zero (I : L.Interp)
     {x : QuantumComp₂ L (qromSpec X Y) A B α} (hx : x.IsQueryBound 0) (ρ : SubState A)
     (gx : α → X) (gy : α → Y) (H₀ : X → Y) :
     qromEvalDistMap₂ I x ρ (fun H a ↦ gy a = H (gx a)) {True} =
@@ -769,7 +771,7 @@ theorem qromEvalDistMap₂_guess_zero [SampleableType (X → Y)] (I : L.Interp)
 
 /-- A lossless fixed-register program with query budget zero guesses a value of the random
 function with probability the trace of its initial substate divided by `|Y|`. -/
-theorem qromEvalDistMap₂_guess_zero_of_lossless [SampleableType (X → Y)] (I : L.Interp)
+theorem qromEvalDistMap₂_guess_zero_of_lossless (I : L.Interp)
     {x : QuantumComp₂ L (qromSpec X Y) A B α} (hx : x.IsQueryBound 0) (hl : x.Lossless I)
     (ρ : SubState A) (gx : α → X) (gy : α → Y) :
     qromEvalDistMap₂ I x ρ (fun H a ↦ gy a = H (gx a)) {True} =
@@ -783,7 +785,7 @@ theorem qromEvalDistMap₂_guess_zero_of_lossless [SampleableType (X → Y)] (I 
 
 /-- A lossless fixed-register program with query budget zero that starts from a normalized state
 and returns a guess `(x, y)` satisfies `y = H x` with probability `1 / |Y|`. -/
-theorem qromEvalDistMap₂_guess_zero_of_trace_eq_one [SampleableType (X → Y)] (I : L.Interp)
+theorem qromEvalDistMap₂_guess_zero_of_trace_eq_one (I : L.Interp)
     {x : QuantumComp₂ L (qromSpec X Y) A B (X × Y)} (hx : x.IsQueryBound 0) (hl : x.Lossless I)
     {ρ : SubState A} (hρ : ρ.matrix.trace = 1) :
     qromEvalDistMap₂ I x ρ (fun H a ↦ a.2 = H a.1) {True} = (Fintype.card Y : ℝ≥0∞)⁻¹ := by
