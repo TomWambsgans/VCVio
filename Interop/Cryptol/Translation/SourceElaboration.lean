@@ -37,28 +37,14 @@ abbrev TypedTerm (Γ : List ClosedTy) := (a : ClosedTy) × Resolved.Term Γ a
   | .ok value => .ok ⟨value⟩
   | .error error => .error error
 
-mutual
+/-- Source aggregate labels are retained by checking and erased only for the carrier. -/
+abbrev coreType := ValueType.coreType
 
-  /-- Erase source aggregate labels only when assigning the resolved carrier type. -/
-  @[expose] def coreType : ValueType → ClosedTy
-    | .bit => .bit
-    | .integer => .integer
-    | .seq n a => .seq n (coreType a)
-    | .function a b => .arrow (coreType a) (coreType b)
-    | .tuple fields => tupleType fields
-    | .record fields => recordType fields
+/-- The canonical lazy product spine of a source tuple. -/
+abbrev tupleType := ValueType.tupleType
 
-  /-- Tuples use a right-associated product ending in the empty tuple. -/
-  @[expose] def tupleType : List ValueType → ClosedTy
-    | [] => .unit
-    | a :: fields => .prod (coreType a) (tupleType fields)
-
-  /-- Record fields retain the canonical order supplied by Cryptol. -/
-  @[expose] def recordType : List (String × ValueType) → ClosedTy
-    | [] => .unit
-    | (_, a) :: fields => .prod (coreType a) (recordType fields)
-
-end
+/-- The canonical lazy product spine of a source record. -/
+abbrev recordType := ValueType.recordType
 
 /-- Elaboration retains source types: records and tuples with equal carriers remain distinct. -/
 abbrev SourceTerm (Γ : List ClosedTy) := (a : ValueType) × Resolved.Term Γ (coreType a)

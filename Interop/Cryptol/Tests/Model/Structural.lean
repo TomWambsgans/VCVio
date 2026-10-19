@@ -80,55 +80,26 @@ example : (Expr.force
         (.zero (Record.type [.integer, .arrow .integer .integer]))))
     (.integer 5)).start.run 300 = .inl (.ok (.integer 5)) := rfl
 
-example : (Reference.ValueType.seq .infinite .bit).supports .logic = true := by
-  rw [Reference.ValueType.supports.eq_def]
-  change Reference.ValueType.bit.supports .logic = true
-  rw [Reference.ValueType.supports.eq_def]
-  rfl
+example : (Reference.ValueType.seq .infinite .bit).supports .logic = true := rfl
 
-example : (Reference.ValueType.seq .infinite .bit).supports .ring = false := by
-  rw [Reference.ValueType.supports.eq_def]
-  rfl
+example : (Reference.ValueType.seq .infinite .bit).supports .ring = false := rfl
 
-example : (Reference.ValueType.seq .infinite .integer).supports .ring = true := by
-  rw [Reference.ValueType.supports.eq_def]
-  change Reference.ValueType.integer.supports .ring = true
-  rw [Reference.ValueType.supports.eq_def]
-  rfl
+example : (Reference.ValueType.seq .infinite .integer).supports .ring = true := rfl
 
-example : (Reference.ValueType.seq .infinite .integer).supports .eq = false := by
-  rw [Reference.ValueType.supports.eq_def]
-  rfl
+example : (Reference.ValueType.seq .infinite .integer).supports .eq = false := rfl
 
-example : (Reference.ValueType.seq (.finite 0) .bit).supports .signedCmp = false := by
-  rw [Reference.ValueType.supports.eq_def]
-  rfl
+example : (Reference.ValueType.seq (.finite 0) .bit).supports .signedCmp = false := rfl
 
-example : (Reference.ValueType.seq (.finite 0) .bit).supports .integral = true := by
-  rw [Reference.ValueType.supports.eq_def]
-  rfl
+example : (Reference.ValueType.seq (.finite 0) .bit).supports .integral = true := rfl
 
-example : (Reference.ValueType.seq (.finite 1) .integer).supports .integral = false := by
-  rw [Reference.ValueType.supports.eq_def]
-  rfl
+example : (Reference.ValueType.seq (.finite 1) .integer).supports .integral = false := rfl
 
-example : (Reference.ValueType.record [("x", .bit), ("y", .integer)]).supports .logic = false := by
-  rw [Reference.ValueType.supports.eq_def]
-  change (Reference.ValueType.bit.supports .logic &&
-    (Reference.ValueType.integer.supports .logic && true)) = false
-  rw [Reference.ValueType.supports.eq_def, Reference.ValueType.supports.eq_def]
-  rfl
+example : (Reference.ValueType.record [("x", .bit), ("y", .integer)]).supports .logic = false := rfl
 
 example : (Reference.ValueType.function .integer (.seq (.finite 8) .bit)).supports .ring =
-    true := by
-  rw [Reference.ValueType.supports.eq_def]
-  change (Reference.ValueType.seq (.finite 8) .bit).supports .ring = true
-  rw [Reference.ValueType.supports.eq_def]
-  rfl
+    true := rfl
 
-example : (Reference.ValueType.function .integer .bit).supports .cmp = false := by
-  rw [Reference.ValueType.supports.eq_def]
-  rfl
+example : (Reference.ValueType.function .integer .bit).supports .cmp = false := rfl
 
 example : Reference.ValueType.bit.literal false (.finite 2) = false := rfl
 example : Reference.ValueType.bit.literal true (.finite 2) = true := rfl

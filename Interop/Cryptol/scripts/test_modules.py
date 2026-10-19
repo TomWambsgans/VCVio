@@ -8,7 +8,8 @@ from pathlib import Path
 import subprocess
 import tempfile
 
-from import_modules import ROOT, STAGES, graph
+from import_modules import ROOT, STAGES, elaborate_module, graph, open_report
+from quote_reference import quote_imperative, quote_imperative_bodies
 from test_source import nodes
 
 
@@ -45,6 +46,36 @@ def main():
         assert {"pmult", "pdiv", "pmod", "foldl", "foldWhile", "scanl", "iterate"} <= {
             e["declaration"]["name"]["text"] for e in reference["exports"]}
     utility, crc = bundles
+    assert json.loads((artifacts / "elaboration.json").read_text()) == open_report(lean, artifacts)
+    assert (ROOT / "Bridge/ImperativeSource.lean").read_bytes() == quote_imperative(utility)
+    imperative_name = "shared::common::utils::Imperative"
+    typed = elaborate_module(lean, artifacts / "list.json", imperative_name, code=True)
+    assert typed["expression_typing"] == "accepted" and typed["shared_declarations"] == 2
+    assert typed["source_correspondence"] == "not-established"
+    assert (ROOT / "Bridge/ImperativeBodies.lean").read_bytes() == quote_imperative_bodies(utility, typed)
+
+    def mutate_imperative(type_preserving):
+        mutant = deepcopy(utility)
+        module = next(m for m in mutant["modules"] if m["provenance"]["name"] == imperative_name)
+        condition = next(n for n in nodes(module["groups"]) if n.get("tag") == "if")
+        if type_preserving:
+            # Returning the initial state has the right polymorphic type but changes the loop.
+            replacement = deepcopy(condition["args"][2])
+            condition.clear()
+            condition.update(replacement)
+        else:
+            # A type parameter cannot be used as Bit; this still passes scope/kind checking.
+            condition["args"][0] = deepcopy(condition["args"][2])
+        assert check(mutant)[0] == 0
+        with tempfile.TemporaryDirectory(prefix="cryptol-typed-module-") as temporary:
+            path = Path(temporary) / "mutant.json"
+            path.write_text(json.dumps(mutant))
+            return elaborate_module(lean, path, imperative_name, code=True)
+
+    rejected = mutate_imperative(False)
+    assert rejected["status"] == "rejected" and "scheme mismatch" in rejected["message"], rejected
+    changed = mutate_imperative(True)
+    assert changed["expression_typing"] == "accepted" and changed["bodies"] != typed["bodies"]
     modules = {m["provenance"]["name"]: m for m in utility["modules"]}
     assert all("shared::common::utils::" + name in modules
                for name in ["List", "Sort", "Enum", "Imperative"])
@@ -85,7 +116,8 @@ def main():
         assert code != 0, report
         if isinstance(report, list):
             assert len(report) == len(mutant["modules"]), "validation stopped at first failure"
-    print(f"Whole modules: complete utility/CRC closures, {len(mutations)} rejection mutations")
+    print(f"Whole modules: utility/CRC retention, 6 typed attempts, complete Imperative import, "
+          f"{len(mutations)} scope mutations and 2 typing/meaning mutations")
 
 
 if __name__ == "__main__":

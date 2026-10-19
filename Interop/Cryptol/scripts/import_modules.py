@@ -14,11 +14,32 @@ from pathlib import Path
 import subprocess
 import tempfile
 
+from quote_reference import quote_imperative, quote_imperative_bodies
 from export_references import CRYPTOL, FOUNDATION, ROOT, canonical, run, verify_checkout
 
 SELECTED = ("shared/common/utils/List.cry", "shared/CRC/Main.cry")
 STAGES = ("expression_typing", "semantic_import", "native_view", "execution",
           "source_correspondence", "property_proof")
+OPEN_MODULES = [("list", name) for name in ["Cryptol::Reference"] + [
+    "shared::common::utils::" + name for name in ["List", "Sort", "Imperative", "Enum"]]] + [
+    ("crc", "shared::CRC::Main")]
+
+
+def elaborate_module(lean, path, module, *, code=False):
+    result = subprocess.run([str(lean), "source", "module-code" if code else "module-elaborate",
+                             str(path), module], capture_output=True, text=True, timeout=120)
+    report = json.loads(result.stdout)
+    if result.returncode and report.get("status") != "rejected":
+        raise ValueError(f"module elaborator failed without a diagnostic: {result.stderr}")
+    return report
+
+
+def open_report(lean, artifacts):
+    """Attempt every selected whole module, retaining each independent blocker."""
+    return {"version": 1, "entries": [
+        {"bundle": stem + ".json", "module": module,
+         "result": elaborate_module(lean, artifacts / (stem + ".json"), module)}
+        for stem, module in OPEN_MODULES]}
 
 
 def declarations(group):
@@ -160,10 +181,29 @@ def main():
     for path, (record, bundle) in zip(files, results):
         if path in SELECTED and bundle is not None:
             write(output / ("list.json" if path.endswith("List.cry") else "crc.json"), bundle)
+            if path.endswith("List.cry"):
+                quotation = ROOT / "Bridge/ImperativeSource.lean"
+                quoted = quote_imperative(bundle)
+                if args.check:
+                    if quotation.read_bytes() != quoted:
+                        raise ValueError("stale complete Imperative quotation")
+                else:
+                    quotation.write_bytes(quoted)
     report = {"version": 1, "cryptol_revision": CRYPTOL, "foundation_revision": FOUNDATION,
               "exporter_sha256": hashlib.sha256((ROOT / "exporter/Main.hs").read_bytes()).hexdigest(),
               "entries": [r for r, _ in results]}
     write(output / ("corpus.json" if args.all else "selected.json"), report)
+    write(output / "elaboration.json", open_report(args.lean, output))
+    utility = json.loads((output / "list.json").read_text())
+    typed = elaborate_module(args.lean, output / "list.json",
+                             "shared::common::utils::Imperative", code=True)
+    quotation = ROOT / "Bridge/ImperativeBodies.lean"
+    quoted = quote_imperative_bodies(utility, typed)
+    if args.check:
+        if quotation.read_bytes() != quoted:
+            raise ValueError("stale checked Imperative bodies")
+    else:
+        quotation.write_bytes(quoted)
     failed = [path for path, (record, _) in zip(files, results)
               if path in SELECTED and record.get("lean_exit") != 0]
     if failed:

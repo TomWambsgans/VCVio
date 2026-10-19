@@ -6,6 +6,8 @@ Authors: Devon Tuma
 
 module
 
+import Interop.Cryptol.Translation.Materialize
+import Interop.Cryptol.Translation.ModuleElaboration
 import Interop.Cryptol.Translation.SourceScope
 import Interop.Cryptol.Translation.SourceElaboration
 import Interop.Cryptol.Translation.Export
@@ -40,6 +42,48 @@ public def run (args : List String) : IO UInt32 := do
              ("semantic_import", .str "not-attempted")]
           out.putStrLn (Lean.toJson reports).compress
           return if bundle.scopeReport.all (fun r => r.2 matches .ok _) then 0 else 1
+  | [mode, file, moduleName] =>
+      unless mode == "module-elaborate" || mode == "module-code" do
+        err.putStrLn "Unknown module command"
+        return 1
+      let text ← IO.FS.readFile file
+      let input : Except ImportError ModuleBundle := do
+        let json ← (Lean.Json.parse text).mapError (⟨["json"], ·⟩)
+        SourceBundle.decodeModuleBundle json
+      match input with
+      | .error error => out.putStrLn (errorJson error).compress; return 1
+      | .ok bundle =>
+          let some source := bundle.modules.find? (fun m => m.provenance.name == moduleName)
+            | out.putStrLn (errorJson ⟨[moduleName], "unknown module"⟩).compress; return 1
+          match bundle.elaborate source with
+          | .error error => out.putStrLn (errorJson error).compress; return 1
+          | .ok result =>
+              let mut exports := #[]
+              for name in source.exports do
+                match result.exportTerm name.text with
+                | .error message =>
+                    out.putStrLn (errorJson ⟨[moduleName, name.text], message⟩).compress
+                    return 1
+                | .ok ⟨scheme, _⟩ =>
+                    exports := exports.push (.mkObj [("name", .str name.text),
+                      ("scheme", .str (reprStr scheme))])
+              let mut bodies := #[]
+              if mode == "module-code" then
+                for i in List.finRange (result.declarations.map Prod.snd).length do
+                  match Materialize.term (result.bodies i) with
+                  | .error message =>
+                      out.putStrLn (errorJson ⟨[moduleName, "materialization"], message⟩).compress
+                      return 1
+                  | .ok code => bodies := bodies.push (.mkObj
+                      [("name", .str result.declarations[i].1.origin),
+                       ("scheme", .str (reprStr (result.declarations.map Prod.snd)[i])),
+                       ("term", .str code)])
+              out.putStrLn (Lean.Json.mkObj [("module", .str moduleName),
+                ("expression_typing", .str "accepted"), ("semantic_import", .str "model"),
+                ("source_correspondence", .str "not-established"),
+                ("shared_declarations", Lean.toJson result.declarations.length),
+                ("exports", .arr exports), ("bodies", .arr bodies)]).compress
+              return 0
   | ["elaborate", file] =>
       let text ← IO.FS.readFile file
       let input : Except ImportError SourceBundle := do
@@ -98,7 +142,8 @@ public def run (args : List String) : IO UInt32 := do
           return 0
   | _ =>
       err.putStrLn "Usage: cryptol-interop source \
-        {inspect | elaborate | constraints | modules} FILE.json"
+        {inspect | elaborate | constraints | modules} FILE.json; \
+        {module-elaborate | module-code} FILE.json MODULE"
       return 1
 
 end Interop.Cryptol.Translation.SourceCLI

@@ -7,6 +7,7 @@ Authors: Devon Tuma
 module
 
 public import Interop.Cryptol.Model.Reference.Kinds
+public import Interop.Cryptol.Model.Types
 
 /-!
 # Closed reference types and constraint interpretation
@@ -91,66 +92,45 @@ instance : LawfulBEq ValueType where
   eq_of_beq := ValueType.beq_eq_true _ _ |>.mp
   rfl := ValueType.beq_eq_true _ _ |>.mpr rfl
 
-/-- The structural classes supported by the reference fragment. -/
-inductive ValueClass where
-  | zero | logic | ring | integral | eq | cmp | signedCmp
-  deriving Repr, DecidableEq
+/-- Structural class identities shared with the open semantic model. -/
+abbrev ValueClass := Interop.Cryptol.ValueClass
 
-/-- Distinguish packed words from general structural sequences. -/
-@[expose] def ValueType.isBit : ValueType → Bool
-  | .bit => true
-  | _ => false
+mutual
 
-/-- Structural instance resolution, including finite-word special cases. -/
+  /-- Erase source aggregate labels only when assigning the resolved carrier type. -/
+  @[expose] def ValueType.coreType : ValueType → ClosedTy
+    | .bit => .bit
+    | .integer => .integer
+    | .seq n a => .seq n (ValueType.coreType a)
+    | .function a b => .arrow (ValueType.coreType a) (ValueType.coreType b)
+    | .tuple fields => ValueType.tupleType fields
+    | .record fields => ValueType.recordType fields
+
+  /-- Tuples use a right-associated product ending in the empty tuple. -/
+  @[expose] def ValueType.tupleType : List ValueType → ClosedTy
+    | [] => .unit
+    | a :: fields => .prod (ValueType.coreType a) (ValueType.tupleType fields)
+
+  /-- Record fields retain the canonical order supplied by Cryptol. -/
+  @[expose] def ValueType.recordType : List (String × ValueType) → ClosedTy
+    | [] => .unit
+    | (_, a) :: fields => .prod (ValueType.coreType a) (ValueType.recordType fields)
+
+end
+
+/-- Distinguish packed words through the canonical carrier shape. -/
+@[expose] def ValueType.isBit (t : ValueType) : Bool := ClosedTy.isBit t.coreType
+
+/-- Source classes use the same structural interpretation as open constraints. -/
 @[expose] def ValueType.supports (c : ValueClass) (t : ValueType) : Bool :=
-  match t with
-  | .bit => c == .zero || c == .logic || c == .eq || c == .cmp
-  | .integer => c == .zero || c == .ring || c == .integral || c == .eq || c == .cmp
-  | .seq n a =>
-      if c == .integral then
-        match n, a with | .finite _, .bit => true | _, _ => false
-      else if c == .ring && a.isBit then
-        match n with | .finite _ => true | .infinite => false
-      else if c == .signedCmp && a.isBit then
-        match n with | .finite n => n > 0 | .infinite => false
-      else if (c == .eq || c == .cmp || c == .signedCmp) &&
-          (match n with | .infinite => true | .finite _ => false) then false
-      else a.supports c
-  | .function _ b =>
-      (c == .zero || c == .logic || c == .ring) && b.supports c
-  | .tuple fields => c != .integral && fields.attach.all (fun field =>
-      have _h := List.sizeOf_lt_of_mem field.property
-      field.val.supports c)
-  | .record fields => c != .integral && fields.attach.all (fun field =>
-      have _h := List.sizeOf_lt_of_mem field.property
-      have _h' : sizeOf field.val = 1 + sizeOf field.val.1 + sizeOf field.val.2 := rfl
-      field.val.2.supports c)
-termination_by sizeOf t
-decreasing_by
-  all_goals simp_wf
-  all_goals omega
+  ClosedTy.supports c t.coreType
 
-/-- Closed literal constraints, distinguishing exact values and exclusive bounds. -/
-@[expose] def ValueType.literal (exclusive : Bool) (n : Length) : ValueType → Bool
-  | .bit => match n with
-      | .finite n => n ≤ if exclusive then 2 else 1
-      | .infinite => false
-  | .integer => exclusive || match n with
-      | .finite _ => true
-      | .infinite => false
-  | .seq (.finite w) .bit => match n with
-      | .finite n =>
-          match (if exclusive then NumericUnary.lg2 else .width).eval (.finite n) with
-          | .finite needed => needed ≤ w
-          | .infinite => false
-      | .infinite => false
-  | _ => false
+/-- Source literal admissibility uses the canonical interpretation of exact and exclusive bounds. -/
+@[expose] def ValueType.literal (exclusive : Bool) (n : Length) (t : ValueType) : Bool :=
+  ClosedTy.literal exclusive n t.coreType
 
 /-- Numeric comparison includes infinity as the greatest length. -/
-@[expose] def lengthGe : Length → Length → Bool
-  | .infinite, _ => true
-  | .finite _, .infinite => false
-  | .finite a, .finite b => b ≤ a
+abbrev lengthGe := Length.ge
 
 /-- A closed argument of any supported kind. -/
 inductive TypeValue where

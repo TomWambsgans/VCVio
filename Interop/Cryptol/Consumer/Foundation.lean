@@ -10,11 +10,25 @@ import Interop.Cryptol.Bridge.ImportedScalar
 import Interop.Cryptol.Bridge.ImportedSpecialization
 import Interop.Cryptol.Bridge.KeccakCodec
 import Interop.Cryptol.Bridge.ListView
+import Interop.Cryptol.Bridge.Imperative
 import VCVio.Algorithms.CRC
 
 /-! # Foundation certificates through ordinary imports in an independent package -/
 
 open Interop.Cryptol Interop.Cryptol.Bridge
+
+example : ImperativeSource.bundle.elaborate ImperativeSource.source 1000 =
+    .ok Imperative.imported := Imperative.import_accepted
+
+example (initial : Computation .integer) :
+    Imperative.whileLoop (.value (.const (.value ⟨false⟩))) ⊥ initial = initial :=
+  Imperative.whileLoop_false _ _
+
+example : Imperative.whileLoop (a := .bit)
+    (.value OmegaCompletePartialOrder.ContinuousHom.id)
+    (.value (.const (.value ⟨false⟩))) (.value ⟨true⟩) = .value ⟨false⟩ := by
+  rw [Imperative.whileLoop_eq_step_of_true _ _ _ rfl]
+  exact Imperative.whileLoop_eq_of_false _ _ _ rfl
 
 example : Translation.SourceElaboration.check ImportedScalarSource.bundle
     ImportedScalarSource.root 1000 = .ok ImportedScalar.certificate.result :=

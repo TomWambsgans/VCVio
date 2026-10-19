@@ -51,6 +51,18 @@ where
     cases h
     rfl
 
+/-- Normalize an ambient identity map beneath a simultaneous declaration group. -/
+theorem append_same {Ξ : List w.ValueSort} (ξ : Env ρ Ξ) (η : Env ρ Γ) :
+    append ρ (ξ, same ρ η) =
+      (congrArg (Ξ ++ ·) (List.map_id Γ)).symm ▸ append ρ (ξ, η) := by
+  rw [same_eq]
+  exact transport (List.map_id Γ).symm ξ η
+where
+  transport {Δ Ξ : List w.ValueSort} (h : Γ = Δ) (ξ : Env ρ Ξ) (η : Env ρ Γ) :
+      append ρ (ξ, h ▸ η) = congrArg (Ξ ++ ·) h ▸ append ρ (ξ, η) := by
+    cases h
+    rfl
+
 end Env
 
 namespace Term
@@ -78,6 +90,14 @@ theorem denote_underSame_cons {a : w.ValueSort} (t : Term w (a :: Γ) s)
     (underSame [a] t).denote ρ (Env.cons ρ (Env.same ρ η, x)) =
       t.denote ρ (Env.cons ρ (η, x)) := by
   rw [Env.cons_same]
+  exact denote_cast ρ _ t _
+
+/-- Normalize context transport beneath all members of a recursive group. -/
+theorem denote_underSame_append (Ξ : List w.ValueSort) (t : Term w (Ξ ++ Γ) s)
+    (ξ : Env ρ Ξ) (η : Env ρ Γ) :
+    (underSame Ξ t).denote ρ (Env.append ρ (ξ, Env.same ρ η)) =
+      t.denote ρ (Env.append ρ (ξ, η)) := by
+  rw [Env.append_same]
   exact denote_cast ρ _ t _
 
 @[simp] theorem denote_bit (b : Bool) (η : Env ρ Γ) :
@@ -166,14 +186,31 @@ theorem denote_beta {a b : PolyTy w.numbers w.types}
     (Env.cons ρ (Env.same ρ η, value.same.denote ρ (Env.same ρ η))) = _
   rw [denote_same, denote_underSame_cons]
 
-@[simp] theorem denote_proofAbs (c : Constraint w.numbers) (t : Term (w.assume c) Γ s)
+/-- Recursive groups use the shared environment fixed point, without context casts in clients. -/
+theorem denote_letRec (bindings : List w.ValueSort)
+    (rhs : (i : Fin bindings.length) → Term w (bindings ++ Γ) bindings[i])
+    (body : Term w (bindings ++ Γ) s) (η : Env ρ Γ) :
+    (letRec bindings rhs body).denote ρ η = body.denote ρ
+      (Env.append ρ (IPFunctor.ScopedDomain.Env.fixGroup (fun s => s.domain ρ.val)
+        (fun i => (rhs i).denote ρ) η, η)) := by
+  change (underSame bindings body).denote ρ (Env.append ρ
+    (IPFunctor.ScopedDomain.Env.fixGroup _
+      (fun i => (underSame bindings (rhs i)).denote ρ) (Env.same ρ η), Env.same ρ η)) = _
+  rw [denote_underSame_append]
+  congr 2
+  apply congrArg (fun ξ => (ξ, η))
+  apply IPFunctor.ScopedDomain.Env.fixGroup_congr
+  intro ξ i
+  exact denote_underSame_append ρ bindings (rhs i) ξ η
+
+@[simp] theorem denote_proofAbs (c : Constraint w.numbers w.types) (t : Term (w.assume c) Γ s)
     (η : Env ρ Γ) :
     (proofAbs c t).denote ρ η =
-      fun h : PLift (c.Holds ρ.val.numbers) => t.denote (ρ.assume h.down) η := by
+      fun h : PLift (c.Holds ρ.val.numbers ρ.val.types) => t.denote (ρ.assume h.down) η := by
   funext h
   exact denote_same (ρ.assume h.down) t η
 
-@[simp] theorem denote_proofApp {c : Constraint w.numbers} (t : Term w Γ (.guard c s))
+@[simp] theorem denote_proofApp {c : Constraint w.numbers w.types} (t : Term w Γ (.guard c s))
     (valid : w.Entails c) (η : Env ρ Γ) :
     (proofApp t valid).denote ρ η = t.denote ρ η ⟨valid ρ⟩ := by
   change t.same.denote ρ (Env.same ρ η) ⟨valid ρ⟩ = _

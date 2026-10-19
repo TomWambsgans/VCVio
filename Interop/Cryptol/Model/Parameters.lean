@@ -52,6 +52,11 @@ theorem eval_subst {n m : Nat} (e : NumExpr n) (σ : Fin n → NumExpr m)
     (ρ : Fin m → Length) : (e.subst σ).eval ρ = e.eval (fun i => (σ i).eval ρ) := by
   induction e <;> simp_all [subst, eval]
 
+/-- Embedding numeric syntax commutes with substitution. -/
+theorem numeric_subst {n m : Nat} (e : NumExpr n) (σ : Fin n → NumExpr m) :
+    (e.subst σ).numeric = e.numeric.subst (fun i => (σ i).numeric) := by
+  induction e <;> simp_all [subst, numeric, NumericExpr.subst]
+
 end NumExpr
 
 namespace Ty
@@ -216,15 +221,35 @@ end ParameterAssignment
 
 namespace Constraint
 
-/-- Substitute the numeric parameters in a supported constraint. -/
-@[expose] def subst {n m : Nat} (σ : Fin n → NumExpr m) : Constraint n → Constraint m
-  | .fin e => .fin (e.subst σ)
-  | .eq a b => .eq (a.subst σ) (b.subst σ)
+/-- Substitute both parameter kinds in a constraint. -/
+@[expose] def subst {n v m w : Nat} (σ : ParameterSubstitution n v m w) :
+    Constraint n v → Constraint m w
+  | .fin e => .fin (e.subst σ.numbers)
+  | .eq a b => .eq (a.subst σ.numbers) (b.subst σ.numbers)
+  | .defined e => .defined (e.subst fun i => (σ.numbers i).numeric)
+  | .numericEq a b => .numericEq (a.subst fun i => (σ.numbers i).numeric)
+      (b.subst fun i => (σ.numbers i).numeric)
+  | .numericNe a b => .numericNe (a.subst fun i => (σ.numbers i).numeric)
+      (b.subst fun i => (σ.numbers i).numeric)
+  | .numericGe a b => .numericGe (a.subst fun i => (σ.numbers i).numeric)
+      (b.subst fun i => (σ.numbers i).numeric)
+  | .valueClass c a => .valueClass c (σ.apply a)
+  | .literal exclusive e a => .literal exclusive
+      (e.subst fun i => (σ.numbers i).numeric) (σ.apply a)
+  | .typeEq a b => .typeEq (σ.apply a) (σ.apply b)
 
-/-- Constraint evidence transports by the same assignment composition as numeric evaluation. -/
-theorem holds_subst {n m : Nat} (c : Constraint n) (σ : Fin n → NumExpr m)
-    (ρ : Fin m → Length) : (c.subst σ).Holds ρ ↔ c.Holds (fun i => (σ i).eval ρ) := by
-  cases c <;> simp only [subst, Holds, NumExpr.eval_subst]
+/-- Constraint evidence transports along the complete parameter assignment. -/
+theorem holds_subst {n v m w : Nat} (c : Constraint n v)
+    (σ : ParameterSubstitution n v m w) (ρ : ParameterAssignment m w) :
+    (c.subst σ).Holds ρ.numbers ρ.types ↔ c.Holds (ρ.pull σ).numbers (ρ.pull σ).types := by
+  have hn (e : NumericExpr n) :
+      (e.subst fun i => (σ.numbers i).numeric).eval? ρ.numbers = e.eval? (ρ.pull σ).numbers :=
+    e.eval?_subst _ _ _ (fun i => NumExpr.eval?_numeric _ _)
+  have ht (a : PolyTy n v) :
+      (σ.apply a).instantiate (NumExpr.eval ρ.numbers) ρ.types =
+        a.instantiate (NumExpr.eval (ρ.pull σ).numbers) (ρ.pull σ).types :=
+    ρ.apply_subst σ a
+  cases c <;> simp only [subst, Holds, hn, ht, NumExpr.eval_subst, ParameterAssignment.pull]
 
 end Constraint
 end Interop.Cryptol

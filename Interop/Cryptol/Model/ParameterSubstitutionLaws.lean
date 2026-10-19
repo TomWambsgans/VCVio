@@ -119,13 +119,18 @@ end ParameterSubstitution
 
 namespace Constraint
 
-@[simp] theorem subst_id {n : Nat} (c : Constraint n) : c.subst .var = c := by
-  cases c <;> simp only [subst, NumExpr.subst_id]
+@[simp] theorem subst_id {n v : Nat} (c : Constraint n v) :
+    c.subst (ParameterSubstitution.id n v) = c := by
+  cases c <;> simp only [subst, ParameterSubstitution.apply_id]
+  all_goals simp only [ParameterSubstitution.id, NumExpr.subst_id,
+    NumExpr.numeric, NumericExpr.subst_id]
 
-theorem subst_subst {n m k : Nat} (c : Constraint n) (σ : Fin n → NumExpr m)
-    (τ : Fin m → NumExpr k) :
-    (c.subst σ).subst τ = c.subst (fun i => (σ i).subst τ) := by
-  cases c <;> simp only [subst, NumExpr.subst_subst]
+theorem subst_subst {n v m w k u : Nat} (c : Constraint n v)
+    (σ : ParameterSubstitution n v m w) (τ : ParameterSubstitution m w k u) :
+    (c.subst σ).subst τ = c.subst (σ.comp τ) := by
+  cases c <;> simp only [subst, ParameterSubstitution.apply_comp]
+  all_goals simp only [NumExpr.subst_subst, NumericExpr.subst_subst,
+    ParameterSubstitution.comp, NumExpr.numeric_subst]
 
 end Constraint
 end Interop.Cryptol

@@ -10,7 +10,11 @@ public import Interop.Cryptol.Translation.Finite.Basic
 public import Interop.Cryptol.Translation.Finite.Loop
 public import Interop.Cryptol.Translation.Finite.Relation
 public import Interop.Cryptol.Translation.FiniteSource
+public import Interop.Cryptol.Translation.Materialize
+public import Interop.Cryptol.Translation.ModuleElaboration
 public import Interop.Cryptol.Translation.NumericCLI
+public import Interop.Cryptol.Translation.OpenElaboration
+public import Interop.Cryptol.Translation.OpenTypes
 public import Interop.Cryptol.Translation.PolymorphicExamples
 public import Interop.Cryptol.Translation.Quote
 public import Interop.Cryptol.Translation.Representation

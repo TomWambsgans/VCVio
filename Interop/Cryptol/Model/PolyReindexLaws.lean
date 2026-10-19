@@ -49,7 +49,8 @@ theorem wordLogic_heq {w : Scope} {l k : NumExpr w.numbers}
   all_goals congr! <;> try simp only [ParameterSubstitution.liftNum_id,
     ParameterSubstitution.liftType_id, ParameterSubstitution.apply_id,
     Scheme.subst_id]
-  all_goals try simp only [ParameterSubstitution.id, NumExpr.subst_id, Constraint.subst_id]
+  all_goals try simp only [Constraint.subst_id]
+  all_goals try simp only [ParameterSubstitution.id, NumExpr.subst_id]
 
 /-- Successive substitutions of constructor data compose at all three binder kinds. -/
 theorem mapHead_comp {w z u : Scope} (μ : Scope.Map w z) (ν : Scope.Map z u)
@@ -104,8 +105,7 @@ theorem childMap_id_world {w : Scope} {s : w.ValueSort} (op : Op w s)
     (p : Fin (op.mapHead (Scope.Map.id w)).2.arity) :
     (op.mapHead (Scope.Map.id w)).2.world p =
       op.world (p.cast (op.mapHead_arity (Scope.Map.id w))) := by
-  cases op <;> simp only [mapHead, world, Scope.Map.id, ParameterSubstitution.id,
-    Constraint.subst_id]
+  cases op <;> simp only [mapHead, world, Scope.Map.id, Constraint.subst_id]
 
 /-- Identity substitution lifts to the identity at every child. -/
 theorem childMap_id_heq {w : Scope} {s : w.ValueSort} (op : Op w s)

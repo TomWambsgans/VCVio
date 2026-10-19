@@ -28,7 +28,8 @@ inductive Scheme : Nat → Nat → Type where
   | mono {n v} (type : PolyTy n v) : Scheme n v
   | allNum {n v} (body : Scheme (n + 1) v) : Scheme n v
   | allType {n v} (body : Scheme n (v + 1)) : Scheme n v
-  | guard {n v} (constraint : Constraint n) (body : Scheme n v) : Scheme n v
+  | guard {n v} (constraint : Constraint n v) (body : Scheme n v) : Scheme n v
+  deriving DecidableEq, Repr
 
 namespace Scheme
 
@@ -38,7 +39,7 @@ namespace Scheme
   | .mono a => .mono (σ.apply a)
   | .allNum s => .allNum (s.subst σ.liftNum)
   | .allType s => .allType (s.subst σ.liftType)
-  | .guard c s => .guard (c.subst σ.numbers) (s.subst σ)
+  | .guard c s => .guard (c.subst σ) (s.subst σ)
 
 @[simp] theorem subst_id {n v : Nat} (s : Scheme n v) :
     s.subst (ParameterSubstitution.id n v) = s := by
@@ -47,7 +48,8 @@ namespace Scheme
   | allNum s ih => rw [subst, ParameterSubstitution.liftNum_id, ih]
   | allType s ih => rw [subst, ParameterSubstitution.liftType_id, ih]
   | guard c s ih =>
-      change guard (c.subst .var) (s.subst (ParameterSubstitution.id _ _)) = guard c s
+      change guard (c.subst (ParameterSubstitution.id _ _))
+        (s.subst (ParameterSubstitution.id _ _)) = guard c s
       rw [Constraint.subst_id, ih]
 
 /-- Ordered schemes preserve composition, including below mixed quantifiers. -/
@@ -66,7 +68,7 @@ theorem subst_subst {n v m w k u : Nat} (s : Scheme n v)
   | .mono a, ρ => .ofType (Computation (ρ.apply a))
   | .allNum s, ρ => .result EvalError (.pi Length (fun l => s.domain (ρ.extendNum l)))
   | .allType s, ρ => .result EvalError (.pi ClosedTy (fun a => s.domain (ρ.extendType a)))
-  | .guard c s, ρ => .pi (PLift (c.Holds ρ.numbers)) (fun _ => s.domain ρ)
+  | .guard c s, ρ => .pi (PLift (c.Holds ρ.numbers ρ.types)) (fun _ => s.domain ρ)
 
 /-- A scheme computation retains every stage's bottom and errors. -/
 abbrev Meaning {n v : Nat} (s : Scheme n v) (ρ : ParameterAssignment n v) : Type := s.domain ρ
@@ -93,10 +95,10 @@ theorem domain_subst {n v m w : Nat} (s : Scheme n v)
       funext a
       rw [ih, ParameterAssignment.pull_liftType]
   | guard c s ih =>
-      change PointedDomain.pi (PLift ((c.subst σ.numbers).Holds ρ.numbers)) _ =
-        PointedDomain.pi (PLift (c.Holds (ρ.pull σ).numbers)) _
-      have hc : (c.subst σ.numbers).Holds ρ.numbers = c.Holds (ρ.pull σ).numbers :=
-        propext (Constraint.holds_subst c σ.numbers ρ.numbers)
+      change PointedDomain.pi (PLift ((c.subst σ).Holds ρ.numbers ρ.types)) _ =
+        PointedDomain.pi (PLift (c.Holds (ρ.pull σ).numbers (ρ.pull σ).types)) _
+      have hc : (c.subst σ).Holds ρ.numbers ρ.types = c.Holds (ρ.pull σ).numbers (ρ.pull σ).types :=
+        propext (Constraint.holds_subst c σ ρ)
       simp only [ih]
       exact congrArg (fun p : Prop => PointedDomain.pi (PLift p)
         (fun _ => s.domain (ρ.pull σ))) hc

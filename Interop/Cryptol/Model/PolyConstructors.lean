@@ -54,13 +54,13 @@ variable {w : Scope} {Γ : List w.ValueSort}
     Term w Γ (s.subst (ParameterSubstitution.singleType a)) :=
   .liftBind (Head.ofOp (.typeApp s a)) (fun _ => f.same)
 
-/-- Introduce an erased numeric assumption. -/
-@[expose] def proofAbs (c : Constraint w.numbers) {s : w.ValueSort}
+/-- Introduce an erased admissibility assumption. -/
+@[expose] def proofAbs (c : Constraint w.numbers w.types) {s : w.ValueSort}
     (body : Term (w.assume c) Γ s) : Term w Γ (.guard c s) :=
   .liftBind (Head.ofOp (.proofAbs c s)) (fun _ => body.same)
 
-/-- Discharge an erased numeric assumption using ambient evidence. -/
-@[expose] def proofApp {c : Constraint w.numbers} {s : w.ValueSort}
+/-- Discharge an erased admissibility assumption using ambient evidence. -/
+@[expose] def proofApp {c : Constraint w.numbers w.types} {s : w.ValueSort}
     (f : Term w Γ (.guard c s)) (h : w.Entails c) : Term w Γ s :=
   .liftBind (Head.ofOp (.proofApp c s h)) (fun _ => f.same)
 

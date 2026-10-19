@@ -16,8 +16,11 @@ workstream sections own assignments, dependencies and progress; the
 [delivery contract](docs/tooling.md#coordinated-development-contract) records
 the canonical architecture, completion criteria and consumer proof obligations.
 The body-retention, scope-checking, representation and obligation-reporting
-infrastructure is implemented. Complete open-module semantic lowering remains
-the next gate; the tracker distinguishes it from those implemented stages.
+infrastructure is implemented. An open-module elaborator now targets the canonical
+scoped polynomial syntax; the complete Imperative module has a kernel-checked
+import and public partial-loop equations. The remaining selected modules still
+fail explicitly at unsupported types. The tracker distinguishes this progress
+from complete language import and source-semantic preservation.
 
 Run commands from the VCVio repository root:
 
@@ -150,8 +153,13 @@ The [whole-module corpus report](artifacts/modules/corpus.json) now retains the
 declaration/dependency queue for every file, including private properties. All
 135 files decode; 134 pass module scope/kind validation. Complete bodies for the
 List/Sort/Enum/Imperative closure and parameterized CRC/Main are retained in
-`artifacts/modules/`. Their semantic lowering is still **not attempted**, and no
-imported utility or CRC equivalence is claimed. The implemented partial List
+`artifacts/modules/`. The separate [elaboration report](artifacts/modules/elaboration.json)
+attempts all six selected modules. Imperative's two definitions import together
+with shared recursive references; generated bodies are checked against the
+retained source, and `Bridge.Imperative` exposes lazy loop equations. Reference,
+List, Sort, Enum and CRC remain rejected at partial numeric or aggregate/nominal
+types. No imported CRC equivalence or general source-preservation theorem is
+claimed. The implemented partial List
 view follows the existing tuple carrier and observes only the finite prefix;
 the independent native CRC register has proved chunk-composition laws and
 normal/reference evaluator regressions. The local obligation ledger is empty;

@@ -116,12 +116,79 @@ graph stores declarations once per owning source and records dependency origins
 instead of repeating the entire Prelude for each file. Frontend integer IDs
 are bundle-local; source module, spelling, span and digest identify report rows.
 
-**Semantic lowering of these complete modules is not implemented yet.** Their
-report deliberately records `semantic_import: not-attempted`. The next required
-connection is from retained open schemes and recursive groups to the existing
-`ScopedFamily`, including partial numeric expressions, class/selector/literal
-constraints, lazy nominal values and source primitive fallbacks. Decoding and
-scope certificates must not be used as preservation proofs.
+The scope-only corpus report deliberately retains `semantic_import: not-attempted`.
+The separate `artifacts/modules/elaboration.json` now attempts expression typing
+and model import for all six selected modules. `OpenTypes`, `OpenElaboration` and
+`ModuleElaboration` lower supported open schemes and expressions into the existing
+`ScopedFamily`; they do not add another evaluator or language carrier.
+
+| Complete module | Current expression-typing result |
+|---|---|
+| Imperative | Both declarations accepted, with one shared environment and recursive references |
+| Cryptol::Reference | Blocked by partial numeric lengths in `Cryptol::fromTo` |
+| List | Blocked by partial numeric lengths in `Cryptol::fromToLessThan` |
+| Sort | Blocked by aggregate source types in `Cryptol::splitAt` |
+| Enum | Blocked by nominal source types in `Enum::unwrap` |
+| CRC/Main | Blocked by the aggregate result of `CRCUpdate` |
+
+These are the first blockers, not an exhaustive unsupported-feature list.
+Decoding and scope certificates remain distinct from expression typing. Successful
+typing constructs a meaning in the current Lean model, not a proof that it
+preserves upstream source semantics.
+
+### Shared open modules and generated loop interfaces
+
+The open checker first registers every declaration's ordered scheme. References
+are typed positions in that shared context; bodies are checked once, without
+recursive inlining or finite monomorphization. Numeric, type, proof and value
+binders use the existing scoped constructors. Local recursive groups use
+`Term.letRec`; global linking uses PolyFun's `ScopedDomain.Env.fixGroup` before
+specialization. Module numeric/type parameters, assumptions and value parameters
+remain explicit. Official primitive fallback edges resolve to actual named source
+declarations, although the complete Reference closure does not yet elaborate.
+Source group boundaries remain in the retained module. The correspondence between
+their ordered binding semantics and the linked simultaneous equation system still
+needs a source-preservation proof; the import acceptance equation does not prove it.
+
+`Constraint n v` now retains both numeric and value-type variables. Structural
+class/literal constraints are admissibility predicates, not runtime dictionaries.
+Closed frontend types and open constraints share the class, literal and numeric
+comparison implementations. The source-to-carrier mapping is defined once in
+`Reference.ValueType`; source shape remains distinct during expression checking.
+Partial numeric comparisons require defined results; two undefined expressions
+do not satisfy equality. Substitution and staged semantic laws cover the expanded
+constraint language. Proof applications currently discharge exact ambient
+assumptions only; general constraint entailment and checked coercions remain work.
+Sequence lengths and numeric instantiations still use the old total `NumExpr`
+fragment: parsing a partial expression does not silently give it a total meaning.
+
+`source module-code FILE MODULE` folds an accepted polynomial tree to candidate
+Lean constructor expressions. It is an untrusted renderer. The generated
+`ImperativeBodies` and retained `ImperativeSource` are tied together by
+`Imperative.import_accepted`, an exact kernel-checked elaboration equation.
+Its function-valued body table requires pointwise equality, rather than only
+checking that the importer returned success. Regeneration checks both quotations.
+Keeping these bodies explicit avoids repeated frontend evaluation in consumer
+proofs. `source module-elaborate FILE MODULE` reports typing without rendering.
+
+`Bridge.Imperative.whileLoop` and `doWhileLoop` use the imported shared environment.
+Their public equations retain suspended callback/state values, observable errors
+and least-fixed-point recursion. A false condition does not demand the while
+body; do-while takes one body application first. Ordinary-import tests include
+an unused divergent body, an undefined initial state ignored by a constant body,
+and a terminating iteration that changes the state. These are partial meanings,
+not a total native loop compiler. No source-correspondence axiom or admitted
+implementation is used.
+
+The next foundational change must make type interpretation partial under valid
+parameter assignments: migrate symbolic lengths and numeric applications together,
+carry definedness through scheme binders and substitution, then reconstruct the
+coercions justified by frontend constraints. Do not use `getD 0`, erase failed
+type computations, or add a parallel syntax to bypass this gate. Aggregate and
+nominal lowering must retain source shape/identity during checking before using
+the existing lazy product/sum carriers. The complete five rejected modules remain
+the acceptance workload; upstream-semantic preservation, native CRC correspondence
+and adaptive VCVio replacement are still separate outstanding gates.
 
 ### Partial List views and native CRC
 
@@ -178,7 +245,7 @@ The implementation checkpoint was validated with the published PolyFun revision
 `3fc600b1cec58a1272d8ac404c064c48eb5e5bef`: optional build/lint/tests/axioms and
 pinned external validation pass, including byte-identical regeneration of the
 31-root export, 135-file census and whole-module corpus. The optional axiom
-sweep covers 4,348 declarations across 116 modules with no admissions or
+sweep covers 4,503 declarations across 124 modules with no admissions or
 nonstandard-axiom taint. The companion PolyFun full suite covers 16,901
 declarations across 447 modules with the same zero-debt result.
 
@@ -372,14 +439,12 @@ open schemas; global references; module interfaces/parameters; and simultaneous
 recursive groups. Specialization is a derived operation. Recursion is interpreted
 before instantiation, rather than by enumerating a finite set of instances.
 
-One immediate design obligation is open class constraints. The raw schema
-already retains them and the closed checker resolves a bounded structural class
-fragment, but `Scheme.guard` currently carries numeric constraints. The open
-scheme/environment contract must handle value-type constraints and their
-evidence before claiming to import general polymorphic modules. Decide whether
-a particular constraint is an admissibility predicate, explicit dictionary, or
-both by the source semantics; do not manufacture dictionaries just to satisfy
-the target typechecker.
+`Scheme.guard` now carries open numeric and value-type constraints through one
+substitution interface. Structural classes in the supported fragment are
+admissibility predicates. General entailment, selector constraints and partial
+type interpretation remain explicit gaps. Decide whether additional constraints
+need evidence or runtime dictionaries from source semantics, rather than from
+what is convenient for the target typechecker.
 
 Keep source types and nominal identities through checking. Native carrier
 equality does not justify equating different records or enums. Keep global

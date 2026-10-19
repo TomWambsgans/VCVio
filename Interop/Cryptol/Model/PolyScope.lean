@@ -14,14 +14,14 @@ public section
 
 namespace Interop.Cryptol.Polymorphic
 
-/-- The free parameter scopes and available numeric assumptions of an expression. -/
+/-- The free parameter scopes and available admissibility assumptions of an expression. -/
 structure Scope where
   /-- Number of numeric parameters. -/
   numbers : Nat
   /-- Number of value-type parameters. -/
   types : Nat
-  /-- Checked numeric assumptions. -/
-  constraints : List (Constraint numbers)
+  /-- Checked admissibility assumptions. -/
+  constraints : List (Constraint numbers types)
 
 namespace Scope
 
@@ -30,14 +30,14 @@ abbrev ValueSort (w : Scope) := Scheme w.numbers w.types
 
 /-- Assignments satisfying the ambient assumptions. -/
 @[expose] def Valid (w : Scope) (ρ : ParameterAssignment w.numbers w.types) : Prop :=
-  ∀ c ∈ w.constraints, c.Holds ρ.numbers
+  ∀ c ∈ w.constraints, c.Holds ρ.numbers ρ.types
 
 /-- A checked assignment used to interpret an open expression. -/
 abbrev Assignment (w : Scope) := {ρ : ParameterAssignment w.numbers w.types // w.Valid ρ}
 
-/-- A numeric assumption follows from every valid ambient assignment. -/
-@[expose] def Entails (w : Scope) (c : Constraint w.numbers) : Prop :=
-  ∀ ρ : w.Assignment, c.Holds ρ.val.numbers
+/-- An admissibility assumption follows from every valid ambient assignment. -/
+@[expose] def Entails (w : Scope) (c : Constraint w.numbers w.types) : Prop :=
+  ∀ ρ : w.Assignment, c.Holds ρ.val.numbers ρ.val.types
 
 /-- The empty parameter context. -/
 @[expose, reducible] def empty : Scope := ⟨0, 0, []⟩
@@ -46,14 +46,16 @@ abbrev Assignment (w : Scope) := {ρ : ParameterAssignment w.numbers w.types // 
 @[expose, reducible] def bindNum (w : Scope) : Scope :=
   ⟨w.numbers + 1, w.types,
     w.constraints.map (Constraint.subst
-      (ParameterSubstitution.weakenNum w.numbers w.types).numbers)⟩
+      (ParameterSubstitution.weakenNum w.numbers w.types))⟩
 
-/-- Enter a value-type binder; numeric assumptions are unchanged. -/
+/-- Enter a value-type binder, shifting types in every existing assumption. -/
 @[expose, reducible] def bindType (w : Scope) : Scope :=
-  ⟨w.numbers, w.types + 1, w.constraints⟩
+  ⟨w.numbers, w.types + 1,
+    w.constraints.map (Constraint.subst
+      (ParameterSubstitution.weakenType w.numbers w.types))⟩
 
 /-- Make a proof assumption available to the body of its abstraction. -/
-@[expose, reducible] def assume (w : Scope) (c : Constraint w.numbers) : Scope :=
+@[expose, reducible] def assume (w : Scope) (c : Constraint w.numbers w.types) : Scope :=
   ⟨w.numbers, w.types, c :: w.constraints⟩
 
 /-- Extend a checked assignment with an arbitrary numeric argument. -/
@@ -62,23 +64,27 @@ abbrev Assignment (w : Scope) := {ρ : ParameterAssignment w.numbers w.types // 
   intro c hc
   obtain ⟨d, hd, he⟩ := List.mem_map.mp hc
   subst c
-  rw [Constraint.holds_subst]
+  rw [Constraint.holds_subst, ParameterAssignment.pull_weakenNum]
   exact ρ.property d hd⟩
 
 /-- Extend a checked assignment with an arbitrary closed value type. -/
 @[expose] def Assignment.extendType {w : Scope} (ρ : w.Assignment) (a : ClosedTy) :
-    w.bindType.Assignment := ⟨ρ.val.extendType a, ρ.property⟩
+    w.bindType.Assignment := ⟨ρ.val.extendType a, by
+  intro c hc
+  obtain ⟨d, hd, rfl⟩ := List.mem_map.mp hc
+  rw [Constraint.holds_subst, ParameterAssignment.pull_weakenType]
+  exact ρ.property d hd⟩
 
 /-- Enter an erased proof binder. -/
-@[expose] def Assignment.assume {w : Scope} (ρ : w.Assignment) {c : Constraint w.numbers}
-    (h : c.Holds ρ.val.numbers) : (w.assume c).Assignment := ⟨ρ.val, by
+@[expose] def Assignment.assume {w : Scope} (ρ : w.Assignment) {c : Constraint w.numbers w.types}
+    (h : c.Holds ρ.val.numbers ρ.val.types) : (w.assume c).Assignment := ⟨ρ.val, by
   intro d hd
   rcases List.mem_cons.mp hd with he | hd
   · exact he.symm ▸ h
   · exact ρ.property d hd⟩
 
 /-- The nearest proof assumption is available without a solver. -/
-theorem entails_here (w : Scope) (c : Constraint w.numbers) : (w.assume c).Entails c :=
+theorem entails_here (w : Scope) (c : Constraint w.numbers w.types) : (w.assume c).Entails c :=
   fun ρ => ρ.property c (List.mem_cons_self ..)
 
 /-- A checked symbolic substitution between parameter contexts. -/

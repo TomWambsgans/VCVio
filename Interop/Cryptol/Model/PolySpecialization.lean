@@ -33,7 +33,7 @@ inductive Specialization : {n v : Nat} → Scheme n v → ParameterAssignment n 
       (b : ClosedTy) (next : Specialization s (ρ.extendType b) a) :
       Specialization (.allType s) ρ a
   | proof {n v} {s : Scheme n v} {ρ : ParameterAssignment n v} {a : ClosedTy}
-      (c : Constraint n) (valid : c.Holds ρ.numbers) (next : Specialization s ρ a) :
+      (c : Constraint n v) (valid : c.Holds ρ.numbers ρ.types) (next : Specialization s ρ a) :
       Specialization (.guard c s) ρ a
 
 namespace Specialization

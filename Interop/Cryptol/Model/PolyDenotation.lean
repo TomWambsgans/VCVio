@@ -57,7 +57,7 @@ namespace Interop.Cryptol.Polymorphic
   | _, .proofAbs _ _, next, ρ =>
       .ofFun (fun η h => next 0 (ρ.assume h.down) (Env.assume ρ h.down η))
   | _, .proofApp c s valid, next, ρ =>
-      (ContinuousHom.ofFun (fun f : PLift (c.Holds ρ.val.numbers) → s.Meaning ρ.val =>
+      (ContinuousHom.ofFun (fun f : PLift (c.Holds ρ.val.numbers ρ.val.types) → s.Meaning ρ.val =>
         f ⟨valid ρ⟩)).comp ((next 0 ρ).comp (Env.same ρ))
   | _, .bit b, _, _ => .const (.value ⟨b⟩)
   | _, .integer i, _, _ => .const (.value ⟨i⟩)

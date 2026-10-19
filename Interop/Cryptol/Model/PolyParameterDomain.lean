@@ -88,7 +88,7 @@ theorem error_subst_heq {n v m u : Nat} (μ : ParameterSubstitution n v m u)
         (congrArg (domain s) (ParameterAssignment.pull_liftType ρ μ a))))
   | guard c s ih =>
     dsimp only [subst, error]
-    apply guard_heq (propext (Constraint.holds_subst c μ.numbers ρ.numbers))
+    apply guard_heq (propext (Constraint.holds_subst c μ ρ))
       (domain_subst s μ ρ)
     exact ih μ ρ
 where

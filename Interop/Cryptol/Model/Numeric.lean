@@ -6,7 +6,7 @@ Authors: Devon Tuma
 
 module
 
-public import Interop.Cryptol.Model.Types
+public import Interop.Cryptol.Model.Length
 public import Mathlib.Data.Nat.Log
 
 /-!
@@ -150,22 +150,5 @@ theorem eval?_subst {n m : Nat} (e : NumericExpr n) (σ : Fin n → NumericExpr 
   exact valid i
 
 end NumericExpr
-
-/-- Embed the total numeric fragment into partial reference numeric syntax. -/
-@[expose] def NumExpr.numeric {n : Nat} : NumExpr n → NumericExpr n
-  | .var i => .var i
-  | .finite k => .finite k
-  | .infinite => .infinite
-  | .add a b => .binary .add a.numeric b.numeric
-  | .mul a b => .binary .mul a.numeric b.numeric
-  | .min a b => .binary .min a.numeric b.numeric
-
-/-- The total fragment has the same meaning in reference numeric semantics. -/
-@[simp] theorem NumExpr.eval?_numeric {n : Nat} (e : NumExpr n) (ρ : Fin n → Length) :
-    e.numeric.eval? ρ = some (e.eval ρ) := by
-  induction e with
-  | var | finite | infinite => rfl
-  | add a b ha hb | mul a b ha hb | min a b ha hb =>
-      simp_all [numeric, NumericExpr.eval?, NumericExpr.eval, eval, NumericBinary.eval]
 
 end Interop.Cryptol

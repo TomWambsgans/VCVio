@@ -12,6 +12,7 @@ public import Interop.Cryptol.Model.Execution
 public import Interop.Cryptol.Model.Fold
 public import Interop.Cryptol.Model.Inspect
 public import Interop.Cryptol.Model.Laws
+public import Interop.Cryptol.Model.Length
 public import Interop.Cryptol.Model.LogicalRelation
 public import Interop.Cryptol.Model.MachineDomain
 public import Interop.Cryptol.Model.NativeLaws

@@ -67,7 +67,8 @@ variable {w : Scope} (ρ : w.Assignment) {Γ : List w.ValueSort}
     rw [ParameterAssignment.pull_weakenType])
 
 /-- Enter an erased proof abstraction. -/
-@[expose] noncomputable def assume {c : Constraint w.numbers} (h : c.Holds ρ.val.numbers) :
+@[expose] noncomputable def assume {c : Constraint w.numbers w.types}
+    (h : c.Holds ρ.val.numbers ρ.val.types) :
     Env ρ Γ →𝒄 Env (ρ.assume h) (Γ.map id) := same ρ
 
 end Env

@@ -7,7 +7,7 @@ Authors: Devon Tuma
 module
 
 public import PolyFun.IPFunctor.Scoped.Basic
-public import ToCslib.Data.Fin.Cases
+public import Interop.Cryptol.Model.Numeric
 
 /-!
 # Kinds, lengths, and types of the Cryptol core
@@ -21,87 +21,6 @@ Infinite lengths are separate from finite lengths, including zero.
 public section
 
 namespace Interop.Cryptol
-
-/-- The numeric kind contains finite sizes and infinity. -/
-inductive Length where
-  | finite (size : Nat)
-  | infinite
-  deriving DecidableEq, Repr
-
-namespace Length
-
-/-- Positions in a sequence, with no position in an empty finite sequence.
-Implicit reduction exposes the position type in dependent public equations. -/
-@[expose, implicit_reducible] def Index : Length → Type
-  | .finite n => Fin n
-  | .infinite => Nat
-
-/-- Addition of numeric lengths. -/
-@[expose] def add : Length → Length → Length
-  | .finite n, .finite m => .finite (n + m)
-  | _, _ => .infinite
-
-/-- Multiplication of lengths, with an empty dimension annihilating infinity. -/
-@[expose] def mul : Length → Length → Length
-  | .finite 0, _ | _, .finite 0 => .finite 0
-  | .finite n, .finite m => .finite (n * m)
-  | _, _ => .infinite
-
-@[simp] theorem mul_finite_zero (l : Length) : l.mul (.finite 0) = .finite 0 := by
-  cases l with
-  | finite n => cases n <;> rfl
-  | infinite => rfl
-
-/-- Length of a parallel comprehension. -/
-@[expose] def min : Length → Length → Length
-  | .finite n, .finite m => .finite (Nat.min n m)
-  | .finite n, .infinite => .finite n
-  | .infinite, n => n
-
-/-- Convert a valid typed sequence position to its natural-number index. -/
-@[expose] def indexNat : {l : Length} → l.Index → Nat
-  | .finite _, i => i.val
-  | .infinite, i => i
-
-/-- A position in a flattened sequence implies a nonempty row width. -/
-theorem each_pos_of_index (parts : Length) (each : Nat)
-    (i : (parts.mul (.finite each)).Index) : 0 < each := by
-  cases each with
-  | zero =>
-      have h : (parts.mul (.finite 0)).Index = Fin 0 := by rw [mul_finite_zero]; rfl
-      exact Fin.elim0 (h ▸ i)
-  | succ each => exact Nat.zero_lt_succ _
-
-/-- Check a possibly negative integer against a finite or infinite length. -/
-@[expose] def checkIndex (l : Length) (i : Int) : Option l.Index :=
-  if 0 ≤ i then
-    match l with
-    | .finite n => if h : i.toNat < n then some ⟨i.toNat, h⟩ else none
-    | .infinite => some i.toNat
-  else none
-
-/-- A successful bounds check retains the original nonnegative index. -/
-theorem indexNat_checkIndex (l : Length) (i : Int) (j : l.Index)
-    (h : l.checkIndex i = some j) : (indexNat j : Int) = i := by
-  cases l with
-  | finite n =>
-      simp only [checkIndex] at h
-      split at h
-      · rename_i hi
-        split at h
-        · cases Option.some.inj h
-          exact Int.toNat_of_nonneg hi
-        · cases h
-      · cases h
-  | infinite =>
-      simp only [checkIndex] at h
-      split at h
-      · rename_i hi
-        cases Option.some.inj h
-        exact Int.toNat_of_nonneg hi
-      · cases h
-
-end Length
 
 /-- Numeric expressions retained at runtime for sizes and primitive arguments. -/
 inductive NumExpr (n : Nat) where
@@ -121,6 +40,23 @@ inductive NumExpr (n : Nat) where
   | .add a b => Length.add (a.eval ρ) (b.eval ρ)
   | .mul a b => Length.mul (a.eval ρ) (b.eval ρ)
   | .min a b => Length.min (a.eval ρ) (b.eval ρ)
+
+/-- Embed the total numeric fragment into partial reference numeric syntax. -/
+@[expose] def NumExpr.numeric {n : Nat} : NumExpr n → NumericExpr n
+  | .var i => .var i
+  | .finite k => .finite k
+  | .infinite => .infinite
+  | .add a b => .binary .add a.numeric b.numeric
+  | .mul a b => .binary .mul a.numeric b.numeric
+  | .min a b => .binary .min a.numeric b.numeric
+
+/-- The total fragment has the same meaning in reference numeric semantics. -/
+@[simp] theorem NumExpr.eval?_numeric {n : Nat} (e : NumExpr n) (ρ : Fin n → Length) :
+    e.numeric.eval? ρ = some (e.eval ρ) := by
+  induction e with
+  | var | finite | infinite => rfl
+  | add a b ha hb | mul a b ha hb | min a b ha hb =>
+      simp_all [numeric, NumericExpr.eval?, NumericExpr.eval, eval, NumericBinary.eval]
 
 /-- Value types; products also encode finite tuples and named record spines. -/
 inductive Ty (N V : Type) where
@@ -150,16 +86,82 @@ abbrev PolyTy (n v : Nat) := Ty (NumExpr n) (Fin v)
   | .prod a b => .prod (a.instantiate ρ θ) (b.instantiate ρ θ)
   | .arrow a b => .arrow (a.instantiate ρ θ) (b.instantiate ρ θ)
 
-/-- Explicit numeric constraints supported by the pilot. -/
-inductive Constraint (n : Nat) where
-  | fin (length : NumExpr n)
-  | eq (left right : NumExpr n)
+/-- Structural classes interpreted by Cryptol's type-directed primitives. -/
+inductive ValueClass where
+  | zero | logic | ring | integral | eq | cmp | signedCmp
   deriving DecidableEq, Repr
 
-/-- Satisfaction of a checked numeric constraint. -/
-@[expose] def Constraint.Holds {n : Nat} (ρ : Fin n → Length) : Constraint n → Prop
+/-- Recognize the bit element type used by packed sequences. -/
+@[expose] def ClosedTy.isBit : ClosedTy → Bool
+  | .bit => true
+  | _ => false
+
+/-- Structural class membership of an evaluated semantic type. -/
+@[expose] def ClosedTy.supports (c : ValueClass) : ClosedTy → Bool
+  | .var i => i.elim
+  | .bit => c == .zero || c == .logic || c == .eq || c == .cmp
+  | .integer => c == .zero || c == .ring || c == .integral || c == .eq || c == .cmp
+  | .unit => c != .integral
+  | .seq n a =>
+      if c == .integral then
+        match n, a with | .finite _, .bit => true | _, _ => false
+      else if c == .ring && ClosedTy.isBit a then
+        match n with | .finite _ => true | .infinite => false
+      else if c == .signedCmp && ClosedTy.isBit a then
+        match n with | .finite n => n > 0 | .infinite => false
+      else if (c == .eq || c == .cmp || c == .signedCmp) && n == .infinite then false
+      else supports c a
+  | .prod a b => c != .integral && supports c a && supports c b
+  | .arrow _ b => (c == .zero || c == .logic || c == .ring) && supports c b
+
+/-- Literal admissibility distinguishes an exact value from an exclusive upper bound. -/
+@[expose] def ClosedTy.literal (exclusive : Bool) (n : Length) : ClosedTy → Bool
+  | .bit => match n with
+      | .finite n => n ≤ if exclusive then 2 else 1
+      | .infinite => false
+  | .integer => exclusive || match n with
+      | .finite _ => true
+      | .infinite => false
+  | .seq (.finite w) .bit => match n with
+      | .finite n =>
+          match (if exclusive then NumericUnary.lg2 else .width).eval (.finite n) with
+          | .finite needed => needed ≤ w
+          | .infinite => false
+      | .infinite => false
+  | _ => false
+
+/-- Numeric comparison with infinity as the greatest length. -/
+@[expose] def Length.ge : Length → Length → Bool
+  | .infinite, _ => true
+  | .finite _, .infinite => false
+  | .finite a, .finite b => b ≤ a
+
+/-- Open admissibility constraints retain numeric and value-type variables. -/
+inductive Constraint (n v : Nat) where
+  | fin (length : NumExpr n)
+  | eq (left right : NumExpr n)
+  | defined (expression : NumericExpr n)
+  | numericEq (left right : NumericExpr n)
+  | numericNe (left right : NumericExpr n)
+  | numericGe (left right : NumericExpr n)
+  | valueClass (cls : ValueClass) (type : PolyTy n v)
+  | literal (exclusive : Bool) (value : NumericExpr n) (type : PolyTy n v)
+  | typeEq (left right : PolyTy n v)
+  deriving DecidableEq, Repr
+
+/-- Satisfaction requires actual defined numeric results, including for equality. -/
+@[expose] def Constraint.Holds {n v : Nat} (ρ : Fin n → Length)
+    (θ : Fin v → ClosedTy) : Constraint n v → Prop
   | .fin l => ∃ k, l.eval ρ = .finite k
   | .eq a b => a.eval ρ = b.eval ρ
+  | .defined e => ∃ l, e.eval? ρ = some l
+  | .numericEq a b => ∃ x y, a.eval? ρ = some x ∧ b.eval? ρ = some y ∧ x = y
+  | .numericNe a b => ∃ x y, a.eval? ρ = some x ∧ b.eval? ρ = some y ∧ x ≠ y
+  | .numericGe a b => ∃ x y, a.eval? ρ = some x ∧ b.eval? ρ = some y ∧ x.ge y = true
+  | .valueClass c a => ClosedTy.supports c (a.instantiate (NumExpr.eval ρ) θ) = true
+  | .literal exclusive e a => ∃ l, e.eval? ρ = some l ∧
+      ClosedTy.literal exclusive l (a.instantiate (NumExpr.eval ρ) θ) = true
+  | .typeEq a b => a.instantiate (NumExpr.eval ρ) θ = b.instantiate (NumExpr.eval ρ) θ
 
 /-- A prenex polymorphic type with explicit constraints. -/
 structure Schema where
@@ -168,7 +170,7 @@ structure Schema where
   /-- Number of value-type parameters. -/
   typeArity : Nat
   /-- Assumptions checked at each instantiation. -/
-  constraints : List (Constraint numericArity)
+  constraints : List (Constraint numericArity typeArity)
   /-- The quantified type. -/
   body : PolyTy numericArity typeArity
   deriving Repr
@@ -180,7 +182,7 @@ structure Schema.Instantiation (schema : Schema) where
   /-- Actual value types. -/
   types : Fin schema.typeArity → ClosedTy
   /-- Evidence for every declared constraint. -/
-  valid : ∀ c ∈ schema.constraints, c.Holds numbers
+  valid : ∀ c ∈ schema.constraints, c.Holds numbers types
 
 /-- Typed variables use PolyFun's shared scoped representation. -/
 abbrev Var {α : Type} : List α → α → Type := @IPFunctor.ScopedVar α

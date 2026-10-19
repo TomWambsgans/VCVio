@@ -33,7 +33,7 @@ type inference engine, or open-constraint entailment solver in Lean.
 |---|---|
 | Types | Bits, integers, unit, binary products, functions, finite and infinite sequences |
 | Polymorphism | Ordered numeric, type, and proof binders; checked instantiation and local polymorphic values; one finite syntax tree before instantiation |
-| Numeric expressions | The ordered core retains addition/multiplication/minimum and finiteness/equality constraints. The source layer additionally has partial subtraction/division/remainder/ceil operations, exponentiation, width/logarithm and enumeration lengths, with substitution laws over partial assignments. |
+| Numeric expressions | Symbolic type lengths retain addition/multiplication/minimum. Open constraints also retain partial arithmetic, definedness, comparisons, structural classes and literals, with numeric/type substitution laws. Partial numeric expressions in type lengths and numeric applications remain unsupported by open elaboration. |
 | Binding | Typed de Bruijn positions and capture-avoiding transformations; semantic parameter/value substitution laws for every current ordered polymorphic constructor, as well as the monomorphic core/native IR |
 | Laziness | Suspended function arguments, let values, product fields, sequence elements; only the selected conditional branch is demanded |
 | Recursion | Least fixed points at every closed type; monomorphic groups use lazy products. Finite polymorphic group syntax takes one fixed point of the whole scheme environment before instantiation. |
@@ -156,7 +156,7 @@ are distinct meanings. Proof binders range over checked evidence and add no
 suspension. `Scheme.domain_subst` identifies the complete pointed domains under
 parameter substitution, including their order and bottom.
 
-[`PolyScope.lean`](../Model/PolyScope.lean) tracks free parameters and numeric
+[`PolyScope.lean`](../Model/PolyScope.lean) tracks free parameters and numeric/value-type
 assumptions. A `Scope.Map` supplies numeric and type expressions and proves
 that they preserve assumptions. [`PolyReindex.lean`](../Model/PolyReindex.lean)
 implements one constructor-local `ScopedFamily.Hom`; the generic PolyFun

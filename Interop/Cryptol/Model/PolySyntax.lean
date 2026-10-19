@@ -48,8 +48,9 @@ inductive Op (w : Scope) : w.ValueSort → Type 1 where
   | typeAbs (body : Scheme w.numbers (w.types + 1)) : Op w (.allType body)
   | typeApp (body : Scheme w.numbers (w.types + 1)) (argument : PolyTy w.numbers w.types) :
       Op w (body.subst (ParameterSubstitution.singleType argument))
-  | proofAbs (c : Constraint w.numbers) (body : w.ValueSort) : Op w (.guard c body)
-  | proofApp (c : Constraint w.numbers) (body : w.ValueSort) (valid : w.Entails c) : Op w body
+  | proofAbs (c : Constraint w.numbers w.types) (body : w.ValueSort) : Op w (.guard c body)
+  | proofApp (c : Constraint w.numbers w.types) (body : w.ValueSort)
+      (valid : w.Entails c) : Op w body
   | bit (value : Bool) : Op w (.mono .bit)
   | integer (value : Int) : Op w (.mono .integer)
   | unit : Op w (.mono .unit)

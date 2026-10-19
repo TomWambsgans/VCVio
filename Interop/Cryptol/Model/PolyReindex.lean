@@ -41,8 +41,8 @@ namespace Op
   | _, .numApp s a => ⟨_, .numApp (s.subst μ.parameters.liftNum) (a.subst μ.parameters.numbers)⟩
   | _, .typeAbs s => ⟨_, .typeAbs (s.subst μ.parameters.liftType)⟩
   | _, .typeApp s a => ⟨_, .typeApp (s.subst μ.parameters.liftType) (μ.parameters.apply a)⟩
-  | _, .proofAbs c s => ⟨_, .proofAbs (c.subst μ.parameters.numbers) (μ.sort s)⟩
-  | _, .proofApp c s h => ⟨_, .proofApp (c.subst μ.parameters.numbers) (μ.sort s) (μ.entails h)⟩
+  | _, .proofAbs c s => ⟨_, .proofAbs (c.subst μ.parameters) (μ.sort s)⟩
+  | _, .proofApp c s h => ⟨_, .proofApp (c.subst μ.parameters) (μ.sort s) (μ.entails h)⟩
   | _, .bit b => ⟨_, .bit b⟩
   | _, .integer i => ⟨_, .integer i⟩
   | _, .unit => ⟨_, .unit⟩

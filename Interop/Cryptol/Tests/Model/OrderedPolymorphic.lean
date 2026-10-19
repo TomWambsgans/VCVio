@@ -52,7 +52,7 @@ theorem stages_distinct : middle.denote emptyAssignment (Env.empty _) ≠
   have he := congrFun (DomainResult.value_inj.mp h) (.finite 0)
   exact DomainResult.value_ne_error _ _ he.symm
 
-private abbrev trivialConstraint : Constraint 0 := .eq (.finite 0) (.finite 0)
+private abbrev trivialConstraint : Constraint 0 0 := .eq (.finite 0) (.finite 0)
 
 private def guarded : Term Scope.empty [] (.guard trivialConstraint (.allNum (.mono .bit))) :=
   Term.proofAbs (w := Scope.empty) trivialConstraint (.error _ (.user "guard"))
@@ -176,8 +176,9 @@ example {Δ : List Scope.empty.ValueSort}
     (θ : signature.Substitution (w := Scope.empty) [.mono .bit] Δ)
     (η : Env emptyAssignment Δ) :
     (mixed.subst θ).denote emptyAssignment η =
-      DomainResult.value (fun _ : Length => DomainResult.value (fun _ : ClosedTy =>
-        fun _ : PLift ((Constraint.eq (.finite 0) (.finite 0)).Holds Fin.elim0) =>
+      DomainResult.value (fun _ : Length => DomainResult.value (fun a : ClosedTy =>
+        fun _ : PLift ((Constraint.eq (.finite 0) (.finite 0)).Holds
+          (fun _ : Fin 1 => .finite 0) (fun _ : Fin 1 => a)) =>
           Term.denote (θ .zero) emptyAssignment η)) := by
   rw [Term.denote_subst]
   rfl

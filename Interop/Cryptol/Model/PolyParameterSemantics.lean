@@ -163,14 +163,14 @@ theorem denoteOp_parameters {w z : Scope} (μ : Scope.Map w z)
   case proofAbs c body =>
     change HEq (fun h => (mapped 0 (ρ.assume h.down)).toFun (Env.assume ρ h.down ζ))
       (fun h => (next 0 ((μ.pull ρ).assume h.down)).toFun (Env.assume (μ.pull ρ) h.down η))
-    apply proof_heq (propext (Constraint.holds_subst c μ.parameters.numbers ρ.val.numbers))
+    apply proof_heq (propext (Constraint.holds_subst c μ.parameters ρ.val))
       (Scheme.domain_subst body μ.parameters ρ.val)
     intro p q
     exact ih 0 (ρ.assume p.down) ((μ.pull ρ).assume q.down) rfl _ _ hsame
   case proofApp c valid =>
     change HEq (((mapped 0 ρ).toFun (Env.same ρ ζ)) ⟨_⟩)
       (((next 0 (μ.pull ρ)).toFun (Env.same (μ.pull ρ) η)) ⟨_⟩)
-    exact proof_apply_heq (propext (Constraint.holds_subst c μ.parameters.numbers ρ.val.numbers))
+    exact proof_apply_heq (propext (Constraint.holds_subst c μ.parameters ρ.val))
       (Scheme.domain_subst s μ.parameters ρ.val)
       (ih 0 ρ (μ.pull ρ) rfl _ _ hsame) _ _
   case lam a b =>

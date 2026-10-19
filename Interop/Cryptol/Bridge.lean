@@ -11,6 +11,9 @@ public import Interop.Cryptol.Bridge.CompressionTotal
 public import Interop.Cryptol.Bridge.Correspondence
 public import Interop.Cryptol.Bridge.Foundation
 public import Interop.Cryptol.Bridge.HashCLI
+public import Interop.Cryptol.Bridge.Imperative
+public import Interop.Cryptol.Bridge.ImperativeBodies
+public import Interop.Cryptol.Bridge.ImperativeSource
 public import Interop.Cryptol.Bridge.ImportedScalar
 public import Interop.Cryptol.Bridge.ImportedScalarSource
 public import Interop.Cryptol.Bridge.ImportedSpecialization

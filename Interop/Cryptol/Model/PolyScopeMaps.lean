@@ -24,7 +24,13 @@ theorem valid_bindNum (w : Scope) (ρ : ParameterAssignment (w.numbers + 1) w.ty
     exact (Constraint.holds_subst d _ _).mpr (h d hd)
 
 theorem valid_bindType (w : Scope) (ρ : ParameterAssignment w.numbers (w.types + 1)) :
-    w.bindType.Valid ρ ↔ w.Valid (ρ.pull (ParameterSubstitution.weakenType _ _)) := Iff.rfl
+    w.bindType.Valid ρ ↔ w.Valid (ρ.pull (ParameterSubstitution.weakenType _ _)) := by
+  constructor
+  · intro h c hc
+    exact (Constraint.holds_subst c _ _).mp (h _ (List.mem_map_of_mem hc))
+  · intro h c hc
+    obtain ⟨d, hd, rfl⟩ := List.mem_map.mp hc
+    exact (Constraint.holds_subst d _ _).mpr (h d hd)
 
 namespace Map
 
@@ -36,10 +42,10 @@ variable {w z u : Scope}
 
 /-- Type weakening preserves all existing assumptions. -/
 @[expose] def weakenType (w : Scope) : Map w w.bindType :=
-  ⟨ParameterSubstitution.weakenType _ _, fun ρ => ρ.property⟩
+  ⟨ParameterSubstitution.weakenType _ _, fun ρ => (valid_bindType w ρ.val).mp ρ.property⟩
 
 /-- Adding an assumption does not change parameter meanings. -/
-@[expose] def weakenProof (w : Scope) (c : Constraint w.numbers) : Map w (w.assume c) :=
+@[expose] def weakenProof (w : Scope) (c : Constraint w.numbers w.types) : Map w (w.assume c) :=
   ⟨ParameterSubstitution.id _ _, by
     intro ρ
     rw [ParameterAssignment.pull_id]
@@ -62,13 +68,13 @@ variable {w z u : Scope}
     exact μ.valid ((weakenType z).pull ρ)⟩
 
 /-- Entailed constraints remain entailed after checked parameter substitution. -/
-theorem entails (μ : Map w z) {c : Constraint w.numbers} (hc : w.Entails c) :
-    z.Entails (c.subst μ.parameters.numbers) :=
+theorem entails (μ : Map w z) {c : Constraint w.numbers w.types} (hc : w.Entails c) :
+    z.Entails (c.subst μ.parameters) :=
   fun ρ => (Constraint.holds_subst c _ _).mpr (hc (μ.pull ρ))
 
 /-- Lift a checked map below an erased proof abstraction. -/
-@[expose] def assume (μ : Map w z) (c : Constraint w.numbers) :
-    Map (w.assume c) (z.assume (c.subst μ.parameters.numbers)) :=
+@[expose] def assume (μ : Map w z) (c : Constraint w.numbers w.types) :
+    Map (w.assume c) (z.assume (c.subst μ.parameters)) :=
   ⟨μ.parameters, by
     intro ρ d hd
     rcases List.mem_cons.mp hd with he | hd
@@ -126,8 +132,8 @@ theorem heq_of_parameters_heq {w z u : Scope} (μ : Map w z) (ν : Map w u)
 
 /-- Lifting composition below a proof binder preserves the checked parameter map. -/
 theorem assume_comp_heq {w z u : Scope} (μ : Map w z) (ν : Map z u)
-    (c : Constraint w.numbers) :
-    HEq ((μ.assume c).comp (ν.assume (c.subst μ.parameters.numbers)))
+    (c : Constraint w.numbers w.types) :
+    HEq ((μ.assume c).comp (ν.assume (c.subst μ.parameters)))
       ((μ.comp ν).assume c) := by
   apply heq_of_parameters_heq
   · exact congrArg (Scope.assume u) (Constraint.subst_subst c _ _)
