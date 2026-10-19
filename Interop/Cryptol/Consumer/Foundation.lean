@@ -17,7 +17,7 @@ import VCVio.Algorithms.CRC
 
 open Interop.Cryptol Interop.Cryptol.Bridge
 
-example : ImperativeSource.bundle.elaborate ImperativeSource.source 1000 =
+example : ImperativeSource.bundle.elaborate ImperativeSource.source.provenance.name 32 =
     .ok Imperative.imported := Imperative.import_accepted
 
 example (initial : Computation .integer) :

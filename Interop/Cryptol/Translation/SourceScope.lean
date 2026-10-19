@@ -8,6 +8,7 @@ module
 
 public import Interop.Cryptol.Translation.SourceBundle
 public import Interop.Cryptol.Model.Reference.Kinds
+public import Interop.Cryptol.Model.Reference.Dependencies
 
 /-!
 # Scope and kind validation of imported declaration graphs
@@ -104,7 +105,7 @@ mutual
           | .primitive => pure ()
           | .expression body => checkExpression nominals fuel bound params body
           | .foreign _ (some body) => checkExpression nominals fuel bound params body
-          | .foreign _ none => throw "foreign declaration has no pure reference body"
+          | .foreign _ none => pure ()
         ).mapError (fun message => s!"{name.origin}: {message}")
 
   private def checkGroups (nominals : List (Reference.Name × List Kind × Kind)) :
@@ -162,20 +163,63 @@ def ModuleDefinition.constructors (module : ModuleDefinition) : List Reference.N
     | .struct name _ => [name]
     | .enumeration cs => cs.map EnumConstructor.name
 
+/-- Check the complete parameter telescope and synonyms of an interface. -/
+def InterfaceDefinition.checkScopes (interface : InterfaceDefinition) (fuel : Nat := 10000) :
+    Except ImportError Unit :=
+  let checked : Except String Unit := do
+    let params := interface.typeParameters.map Prod.snd
+    unless (params.map Parameter.id).Nodup do throw "duplicate interface type parameter"
+    unless ((interface.typeParameters.map Prod.fst ++
+        interface.valueParameters.map Prod.fst ++ interface.synonyms.map TypeSynonym.name).map
+        Reference.Name.id).Nodup do throw "duplicate interface binding identity"
+    let type := TypeExpr.checkKindWith [] fuel
+    for c in interface.constraints do type params .proposition c
+    for (_, scheme) in interface.valueParameters do scheme.checkKindsWith [] fuel params
+    unless interface.typeExports.all (interface.synonyms.map TypeSynonym.name).contains do
+      throw "unresolved interface type synonym"
+    for synonym in interface.synonyms do
+      let localParams := synonym.parameters ++ params
+      unless (localParams.map Parameter.id).Nodup do throw "duplicate synonym parameter"
+      for c in synonym.constraints do type localParams .proposition c
+      let _ ← synonym.body.kindWith? [] fuel localParams
+  checked.mapError (⟨["interface", interface.provenance.name, "scope"], ·⟩)
+
+/-- Bundle-local value identities are unique across declarations and constructors.
+Source spellings and source spans are diagnostic information, not linking keys. -/
+def ModuleBundle.checkIdentities (bundle : ModuleBundle) : Except String Unit := do
+  let modules := bundle.modules.map (fun m => m.provenance.name) ++
+    bundle.interfaces.map (fun i => i.provenance.name)
+  unless modules.Nodup do throw "duplicate module or interface identity"
+  let globals := bundle.modules.flatMap fun m =>
+    (m.groups.flatMap DeclGroup.declarations).map Decl.name ++ m.constructors
+  unless (globals.map Reference.Name.id).Nodup do throw "duplicate global value identity"
+  let types := bundle.modules.flatMap fun m =>
+    m.nominals.map NominalType.name ++ m.synonyms.map TypeSynonym.name
+  unless (types.map Reference.Name.id).Nodup do throw "duplicate global type identity"
+
 /-- Check a whole module under its explicit numeric, type, and value parameters.
 This validates scope and kinds, not expression types or source correspondence. -/
 def ModuleBundle.checkModuleScopes (bundle : ModuleBundle) (module : ModuleDefinition)
     (fuel : Nat := 10000) : Except ImportError Unit :=
   let checked : Except String Unit := do
+    bundle.checkIdentities
+    for interface in bundle.interfaces do
+      (interface.checkScopes fuel).mapError ImportError.message
     checkFallbacks (bundle.modules.flatMap (fun m => m.groups.flatMap DeclGroup.declarations))
       bundle.primitiveFallbacks
     let nominals := bundle.modules.flatMap fun m => m.nominals.map fun n =>
       (n.name, n.parameters.map Parameter.kind, n.kind)
     unless (nominals.map (fun n => n.1.id)).Nodup do throw "duplicate nominal identity"
     let declarations := module.groups.flatMap DeclGroup.declarations
+    unless module.nestedFunctors.isEmpty && module.nestedSignatures.isEmpty do
+      throw "nested functor or signature body is not retained by this bundle format"
     let names := declarations.map Decl.name
     unless names = module.declarations.map DeclarationInfo.name do
       throw "declaration metadata does not match retained groups"
+    for (declaration, info) in declarations.zip module.declarations do
+      let computed ← declaration.dependencies fuel
+      unless computed = info.dependencies do
+        throw s!"{declaration.name.origin}: dependency metadata differs from the retained body"
     unless (names.map Reference.Name.id).Nodup do throw "duplicate declaration identity"
     unless module.exports.all names.contains do throw "unresolved public value"
     unless module.typeExports.all (module.synonyms.map TypeSynonym.name).contains do
@@ -212,6 +256,7 @@ def ModuleBundle.checkModuleScopes (bundle : ModuleBundle) (module : ModuleDefin
       (m.groups.flatMap DeclGroup.declarations).map Decl.name
     let ambient := external.filter (fun n => !names.contains n) ++
       bundle.modules.flatMap ModuleDefinition.constructors ++ module.valueParameters.map Prod.fst
+    unless (ambient.map Reference.Name.id).Nodup do throw "duplicate ambient value identity"
     let _ ← checkGroups nominals fuel ambient params module.groups
     pure ()
   checked.mapError (⟨["module", module.provenance.name, "scope"], ·⟩)
@@ -219,8 +264,12 @@ def ModuleBundle.checkModuleScopes (bundle : ModuleBundle) (module : ModuleDefin
 /-- Every module receives its own result, including modules after an earlier failure. -/
 def ModuleBundle.scopeReport (bundle : ModuleBundle) (fuel : Nat := 10000) :
     List (String × Except ImportError Unit) :=
-  bundle.modules.map fun module =>
-    (module.provenance.name, bundle.checkModuleScopes module fuel)
+  (bundle.modules.map fun module =>
+    (module.provenance.name, bundle.checkModuleScopes module fuel)) ++
+  (bundle.interfaces.map fun interface =>
+    (interface.provenance.name, do
+      bundle.checkIdentities.mapError (⟨["bundle", "identity"], ·⟩)
+      interface.checkScopes fuel))
 
 /-- A module whose retained syntax passed the scope/kind gate. The certificate
 does not imply expression typing, termination, or source-semantic preservation. -/

@@ -2,26 +2,29 @@
   "schema_version": 1,
   "cryptol_revision": "61dd17b0c45ddf8c5c1e952afd5e789c4dc4ec4b",
   "foundation_revision": "7d0528bd998682788f4e23661f2829298f9e47db",
-  "bundle_sha256": "35a6ff3530755cce53d0764f103044edb2e04083cff194463384df99bcc44794",
+  "frontend_patches": [
+    "cffd4082d3347aba60c131d2e7d33f8b8fdfaf6afa4aedd52d8d2fff7bb30a2e"
+  ],
+  "bundle_sha256": "b010c25f298f602fba0e76b5e4dfca07c074600affcd9d866ef4646e68a47e7b",
   "entry_sha256": "caf0e9fae38d70d0cdc915cd45b8be918e0ba9b95b95b0fada22d5c8941c9a40",
-  "exporter_sha256": "ce2bb883ab11c34f0dd453f6d535931f63602c2b09197f19cabc87105e0e5019",
+  "exporter_sha256": "eb56b71a92718b93788775d222168a72b89cc572f7099c7f0cd70246f64b849c",
   "numeric_cases": 2020,
   "class_cases": 345,
   "numeric_sha256": "9c0a5c4df4474003545422686a7fa9ab401d309e097f2dba7eedc403da9ee5c8",
   "class_sha256": "06addcaf599dacc61f7b15fc2cbd3fd26203f0ed958c674dc25ba0942eed45c4",
-  "scalar_bundle_sha256": "38201d157463c9804b82b92a9ecf1c7f21745898331ce04875e6c99f2870c639",
-  "scalar_lean_sha256": "a0f82381e7ea0a1654559b8295d5c0a5e001bc63a69f6f0a4058e5cb0a02c10c",
+  "scalar_bundle_sha256": "f55b811250ecb86f076b1f75206525f8821a9d2410cef3c1727533a98210cc03",
+  "scalar_lean_sha256": "1b5fef67199075dfa7af9789e0dc39ccd8081d8011edd9c710f4da74e16990f0",
   "specialization": {
     "pass": "Cryptol.Transform.Specialize.specializeEWhere",
     "primitive_policy": "retain-explicit-instantiations",
-    "bundle_sha256": "d526282e11cc3671560ba094d5250115d7b4bbb4d5fde7b6e05182561cf60296",
-    "lean_sha256": "d2dcd27e4d26811bb79a6cd32148c9304bdcd4420a3a3ff156afe30552a123da",
+    "bundle_sha256": "4db0badd02ff62f61a25d4cb4b4060486d0cd2ba610573f0d3837c63a51c471d",
+    "lean_sha256": "20e884cc36c50d4704822c6435a3c5f521607c611339c432b6bf02a655c75344",
     "evidence": "Interop.Cryptol.Bridge.ImportedSpecialization.correct"
   },
   "canaries": {
     "roots": 9,
-    "bundle_sha256": "aa0881768682d5261d14016d9a92b85c3a5c6ecc5029ca64a79dcde13edb5b81",
-    "lean_sha256": "f0684670c57fa647d48594383c655e853b1161bc308ea6c5938570d2dab36a32",
+    "bundle_sha256": "3cf88e52d22e449ccbc6541197cc11b52085134fd24e902074e9ddcd6996ddcc",
+    "lean_sha256": "dcef790e9913b079dc3ec674131c1fd87353de601820550f9a7b233e1c96c633",
     "source_sha256": "597d95a499c6f1156fad67431e2f0a5d6cabb7f0768d2313394b0a0980c6f8a4"
   },
   "entries": [

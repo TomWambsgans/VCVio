@@ -210,7 +210,7 @@ open Interop.Cryptol Translation
     source += '/-- The exact exported scalar bundle, retaining its provenance metadata. -/\n'
     source += '@[expose] def bundle : SourceBundle :=\n' + wrap(app(
         'SourceBundle.mk', string(bundle['cryptol_revision']), array(roots), groups,
-        array(modules), '[]')) + '\n\nend Interop.Cryptol.Bridge.ImportedScalarSource\n'
+        array(modules), '[]', array(map(string, bundle.get('frontend_patches', []))))) + '\n\nend Interop.Cryptol.Bridge.ImportedScalarSource\n'
     source = source.replace("ImportedScalarSource", namespace)
     source = source.replace("scalar-bundle.json", artifact)
     source = source.replace("Quoted Foundation scalar source", title)
@@ -286,7 +286,9 @@ open Translation
 
 /-- The dependency-closed module bundle used by the checked open importer. -/
 @[expose] def bundle : ModuleBundle :=
-  ⟨SourceBundle.expectedCryptolRevision, [source], .null, []⟩
+  ⟨SourceBundle.expectedCryptolRevision, [source], [], [],
+    ''' +
+        array(map(string, bundle.get('frontend_patches', []))) + '''⟩
 
 end Interop.Cryptol.Bridge.ImperativeSource
 ''').encode()

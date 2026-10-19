@@ -18,8 +18,10 @@ the canonical architecture, completion criteria and consumer proof obligations.
 The body-retention, scope-checking, representation and obligation-reporting
 infrastructure is implemented. An open-module elaborator now targets the canonical
 scoped polynomial syntax; the complete Imperative module has a kernel-checked
-import and public partial-loop equations. The remaining selected modules still
-fail explicitly at unsupported types. The tracker distinguishes this progress
+import and public partial-loop equations. All 135 files now pass structural checking using the explicitly identified
+compatibility frontend, and all 155 owned module instances are attempted by the
+typed importer. The [compatibility report](docs/compatibility.md) records the
+remaining numeric/type boundaries and explicit primitive requirements. The tracker distinguishes this progress
 from complete language import and source-semantic preservation.
 
 Run commands from the VCVio repository root:
@@ -151,10 +153,12 @@ for reproduction and the distinction between corpus discovery and certificates.
 
 The [whole-module corpus report](artifacts/modules/corpus.json) now retains the
 declaration/dependency queue for every file, including private properties. All
-135 files decode; 134 pass module scope/kind validation. Complete bodies for the
-List/Sort/Enum/Imperative closure and parameterized CRC/Main are retained in
-`artifacts/modules/`. The separate [elaboration report](artifacts/modules/elaboration.json)
-attempts all six selected modules. Imperative's two definitions import together
+135 files decode and pass module/interface scope and kind validation with the
+identified compatibility frontend. The report attempts linking and typed
+elaboration of all 155 owned module instances. Selected complete closures are
+retained in `artifacts/modules/`; the separate
+[elaboration report](artifacts/modules/elaboration.json) keeps the focused
+six-module comparison. Imperative's two definitions import together
 with shared recursive references; generated bodies are checked against the
 retained source, and `Bridge.Imperative` exposes lazy loop equations. Reference,
 List, Sort, Enum and CRC remain rejected at partial numeric or aggregate/nominal

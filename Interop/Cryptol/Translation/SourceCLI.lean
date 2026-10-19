@@ -7,6 +7,7 @@ Authors: Devon Tuma
 module
 
 import Interop.Cryptol.Translation.Materialize
+import Interop.Cryptol.Translation.SourceLink
 import Interop.Cryptol.Translation.ModuleElaboration
 import Interop.Cryptol.Translation.SourceScope
 import Interop.Cryptol.Translation.SourceElaboration
@@ -43,7 +44,7 @@ public def run (args : List String) : IO UInt32 := do
           out.putStrLn (Lean.toJson reports).compress
           return if bundle.scopeReport.all (fun r => r.2 matches .ok _) then 0 else 1
   | [mode, file, moduleName] =>
-      unless mode == "module-elaborate" || mode == "module-code" do
+      unless mode == "module-elaborate" || mode == "module-code" || mode == "module-link" do
         err.putStrLn "Unknown module command"
         return 1
       let text ← IO.FS.readFile file
@@ -53,9 +54,24 @@ public def run (args : List String) : IO UInt32 := do
       match input with
       | .error error => out.putStrLn (errorJson error).compress; return 1
       | .ok bundle =>
+          if mode == "module-link" then
+            match bundle.link moduleName with
+            | .error error => out.putStrLn (errorJson error).compress; return 1
+            | .ok linked =>
+                out.putStrLn (Lean.Json.mkObj [("module", .str moduleName),
+                  ("link", .str "accepted"), ("semantic_import", .str "not-attempted"),
+                  ("groups", Lean.toJson (linked.groups.map fun group => Lean.Json.mkObj
+                    [("recursive", Lean.toJson (group matches .recursive _)),
+                     ("declarations", Lean.toJson
+                       (group.declarations.map fun d => d.name.origin))])),
+                  ("primitive_requirements", Lean.toJson (linked.requirements.map fun r =>
+                    Lean.Json.mkObj [("name", .str r.declaration.name.origin),
+                      ("id", Lean.toJson r.declaration.name.id),
+                      ("schema", .str (reprStr r.declaration.schema))]))]).compress
+                return 0
           let some source := bundle.modules.find? (fun m => m.provenance.name == moduleName)
             | out.putStrLn (errorJson ⟨[moduleName], "unknown module"⟩).compress; return 1
-          match bundle.elaborate source with
+          match bundle.elaborate moduleName with
           | .error error => out.putStrLn (errorJson error).compress; return 1
           | .ok result =>
               let mut exports := #[]
@@ -79,7 +95,16 @@ public def run (args : List String) : IO UInt32 := do
                        ("scheme", .str (reprStr (result.declarations.map Prod.snd)[i])),
                        ("term", .str code)])
               out.putStrLn (Lean.Json.mkObj [("module", .str moduleName),
-                ("expression_typing", .str "accepted"), ("semantic_import", .str "model"),
+                ("expression_typing", .str "accepted"),
+                ("semantic_import", .str (if result.declarations.isEmpty then "no-value-definitions"
+                  else if !result.requirements.isEmpty then "conditional-model"
+                  else if !source.typeParameters.isEmpty || !source.valueParameters.isEmpty then
+                    "parameterized-model" else "model")),
+                ("module_value_parameters", Lean.toJson source.valueParameters.length),
+                ("module_type_parameters", Lean.toJson source.typeParameters.length),
+                ("primitive_requirements", Lean.toJson (result.requirements.map fun r =>
+                  Lean.Json.mkObj [("name", .str r.declaration.name.origin),
+                    ("schema", .str (reprStr r.declaration.schema))])),
                 ("source_correspondence", .str "not-established"),
                 ("shared_declarations", Lean.toJson result.declarations.length),
                 ("exports", .arr exports), ("bodies", .arr bodies)]).compress
@@ -143,7 +168,7 @@ public def run (args : List String) : IO UInt32 := do
   | _ =>
       err.putStrLn "Usage: cryptol-interop source \
         {inspect | elaborate | constraints | modules} FILE.json; \
-        {module-elaborate | module-code} FILE.json MODULE"
+        {module-link | module-elaborate | module-code} FILE.json MODULE"
       return 1
 
 end Interop.Cryptol.Translation.SourceCLI

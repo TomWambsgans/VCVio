@@ -22,4 +22,5 @@ public import Interop.Cryptol.Translation.SemanticCertificate
 public import Interop.Cryptol.Translation.SourceBundle
 public import Interop.Cryptol.Translation.SourceCLI
 public import Interop.Cryptol.Translation.SourceElaboration
+public import Interop.Cryptol.Translation.SourceLink
 public import Interop.Cryptol.Translation.SourceScope

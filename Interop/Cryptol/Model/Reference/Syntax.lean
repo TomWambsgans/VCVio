@@ -188,6 +188,12 @@ end
 @[expose] def Decl.definition : Decl → Definition
   | .mk _ _ definition => definition
 
+/-- Exactly the source forms that require an external implementation. -/
+@[expose] def Decl.requiresImplementation (d : Decl) : Bool :=
+  match d.definition with
+  | .primitive | .foreign _ none => true
+  | .expression _ | .foreign _ (some _) => false
+
 /-- The declarations introduced by a group, in their exported order. -/
 @[expose] def DeclGroup.declarations : DeclGroup → List Decl
   | .nonrecursive declaration => [declaration]

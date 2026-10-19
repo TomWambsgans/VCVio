@@ -6,7 +6,7 @@ Authors: Devon Tuma
 
 module
 
-public import Interop.Cryptol.Translation.SourceScope
+public import Interop.Cryptol.Translation.SourceLink
 public import Interop.Cryptol.Translation.OpenElaboration
 public import Interop.Cryptol.Model.PolyDenotation
 
@@ -32,7 +32,7 @@ structure ElaboratedModule where
   source : ModuleDefinition
   /-- Module numeric/type parameters and their assumptions. -/
   scope : Scope
-  /-- Explicit value parameters, in source order. -/
+  /-- Explicit primitive implementations followed by module value parameters. -/
   parameters : List (Reference.Name × scope.ValueSort)
   /-- Every declaration in the selected transitive closure, once. -/
   declarations : List (Reference.Name × scope.ValueSort)
@@ -40,6 +40,8 @@ structure ElaboratedModule where
   bodies : (i : Fin (declarations.map Prod.snd).length) →
     Term scope (declarations.map Prod.snd ++ parameters.map Prod.snd)
       (declarations.map Prod.snd)[i]
+  /-- Original primitive declarations whose meanings are explicit inputs. -/
+  requirements : List PrimitiveRequirement := []
 
 namespace ElaboratedModule
 
@@ -70,22 +72,6 @@ end ElaboratedModule
 
 namespace ModuleBundle
 
-/-- Include all own definitions and their transitive value dependencies and official fallbacks. -/
-@[expose] def declarationClosure (bundle : ModuleBundle) (root : ModuleDefinition) :
-    List Reference.Decl := Id.run do
-  let all := bundle.modules.flatMap fun m => m.groups.flatMap Reference.DeclGroup.declarations
-  let metadata := bundle.modules.flatMap ModuleDefinition.declarations
-  let mut needed := (root.groups.flatMap Reference.DeclGroup.declarations).map Reference.Decl.name
-  for _ in List.range (all.length + 1) do
-    let previous := needed
-    for info in metadata do
-      if previous.contains info.name then
-        needed := needed ++ info.dependencies.filter (fun n => !needed.contains n)
-    for (original, fallback) in bundle.primitiveFallbacks do
-      if needed.contains original && !needed.contains fallback then needed := needed ++ [fallback]
-    if needed == previous then break
-  return all.filter fun d => needed.contains d.name
-
 /-- Module binders retain their source identities while extending the canonical parameter scope. -/
 @[expose] def parameters : (w : Scope) → OpenTypes.Parameters w.numbers w.types →
     List (Reference.Name × Reference.Parameter) →
@@ -97,12 +83,12 @@ namespace ModuleBundle
       | _ => .error "unsupported module parameter kind"
 
 /-- Elaborate a complete module into one typed shared environment. -/
-@[expose] def elaborate (bundle : ModuleBundle) (root : ModuleDefinition)
+@[expose] def elaborate (bundle : ModuleBundle) (rootName : String)
     (fuel : Nat := 10000) : Except ImportError ElaboratedModule := do
-  let checked := bundle.checkModuleScopes root fuel
-  match checked with
+  let linked ← match bundle.link rootName fuel with
   | .error e => throw e
-  | .ok () => pure PUnit.unit
+  | .ok source => pure (ULift.up source)
+  let root := linked.down.source
   let result : Except String ElaboratedModule := do
     let ⟨⟨w, env⟩⟩ ← OpenElaboration.liftCheck
       (parameters Scope.empty ⟨[], []⟩ root.typeParameters)
@@ -111,21 +97,21 @@ namespace ModuleBundle
     let ⟨ambient⟩ ← OpenElaboration.liftCheck
       (root.valueParameters.mapM fun (name, schema) => do
         return (name, ← OpenTypes.scheme env fuel schema))
-    let selected := bundle.declarationClosure root
+    let ⟨primitiveInputs⟩ ← OpenElaboration.liftCheck
+      (OpenElaboration.signatures (w := scope) env fuel
+        (linked.down.requirements.map PrimitiveRequirement.declaration))
+    let ambient := primitiveInputs ++ ambient
+    let selected := linked.down.groups.flatMap Reference.DeclGroup.declarations
     let ⟨sigs⟩ ← OpenElaboration.liftCheck
       (OpenElaboration.signatures (w := scope) env fuel selected)
     let names := OpenElaboration.Names.extendMany
       (OpenElaboration.Names.ofSignatures (w := scope) ambient) sigs
-    let resolved := selected.map fun d =>
-      match bundle.primitiveFallbacks.find? (fun entry => entry.1 == d.name) with
-      | some (_, target) => Reference.Decl.mk d.name d.schema (.expression (.var target))
-      | none => d
-    let rhs ← OpenElaboration.bodies fuel (w := scope) env names resolved sigs
-    return ⟨root, scope, ambient, sigs, rhs⟩
+    let rhs ← OpenElaboration.bodies fuel (w := scope) env names selected sigs
+    return ⟨root, scope, ambient, sigs, rhs, linked.down.requirements⟩
   result.mapError (⟨[root.provenance.name, "elaboration"], ·⟩)
 
 /-- An exact accepted module elaboration, independent of source-preservation claims. -/
-structure ElaborationCertificate (bundle : ModuleBundle) (source : ModuleDefinition) where
+structure ElaborationCertificate (bundle : ModuleBundle) (source : String) where
   /-- Explicit checking budget. -/
   budget : Nat
   /-- Typed module with real bodies. -/
@@ -134,7 +120,7 @@ structure ElaborationCertificate (bundle : ModuleBundle) (source : ModuleDefinit
   accepted : bundle.elaborate source budget = .ok result
 
 /-- Successful elaboration retains its exact acceptance equation. -/
-@[expose] def certifyElaboration (bundle : ModuleBundle) (source : ModuleDefinition)
+@[expose] def certifyElaboration (bundle : ModuleBundle) (source : String)
     (fuel : Nat := 10000) : Except ImportError (bundle.ElaborationCertificate source) :=
   match h : bundle.elaborate source fuel with
   | .ok result => .ok ⟨fuel, result, h⟩

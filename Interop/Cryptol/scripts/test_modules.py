@@ -25,8 +25,12 @@ def main():
     expected = [d for e in census["entries"] for m in e.get("modules", []) for d in m["exports"]]
     assert len(public) == len(expected)
     assert sum(d["property"] for d in public) == sum(d["property"] for d in expected)
-    assert all(d["stages"] == {s: "not-attempted" for s in STAGES}
-               for e in corpus["entries"] for d in e["graph"]["declarations"])
+    assert all(d["stages"][s] == "not-attempted"
+               for e in corpus["entries"] for d in e["graph"]["declarations"]
+               for s in STAGES if s not in {"expression_typing", "semantic_import"})
+    assert all(e["lean_exit"] == 0 for e in corpus["entries"])
+    assert all(r["link"] == "accepted" for e in corpus["entries"] for r in e["link_reports"])
+    assert all(len(e["semantic_attempts"]) == len(e["own_modules"]) for e in corpus["entries"])
 
     def check(bundle):
         with tempfile.TemporaryDirectory(prefix="cryptol-module-test-") as temporary:
@@ -63,6 +67,8 @@ def main():
             replacement = deepcopy(condition["args"][2])
             condition.clear()
             condition.update(replacement)
+            # The loop's self call disappeared. Metadata must reflect the changed body.
+            next(d for d in module["declarations"] if d["name"]["text"] == "while")["dependencies"] = []
         else:
             # A type parameter cannot be used as Bit; this still passes scope/kind checking.
             condition["args"][0] = deepcopy(condition["args"][2])
@@ -108,6 +114,9 @@ def main():
         (utility, lambda b: b.update(cryptol_revision="untrusted")),
         (utility, lambda b: b["modules"][0]["provenance"].update(path="../escape.cry")),
         (utility, lambda b: b["modules"][0].update(declarations=[])),
+        (utility, lambda b: b.update(frontend_patches=["unreviewed"])),
+        (utility, lambda b: b["modules"][1]["declarations"][0].update(dependencies=[])),
+        (utility, lambda b: b["modules"].append(deepcopy(b["modules"][0]))),
     ]
     for original, mutate in mutations:
         mutant = deepcopy(original)
@@ -115,7 +124,35 @@ def main():
         code, report = check(mutant)
         assert code != 0, report
         if isinstance(report, list):
-            assert len(report) == len(mutant["modules"]), "validation stopped at first failure"
+            assert len(report) == len(mutant["modules"]) + len(mutant["interfaces"]), \
+                "validation stopped at first failure"
+    matrix = json.loads((artifacts / "matrix.json").read_text())
+    assert check(matrix)[0] == 0
+    old = json.loads((ROOT / "artifacts/regressions/case-binder-unpatched.json").read_text())
+    module = next(m for m in matrix["modules"] if m["provenance"] == old["module"])
+    target = old["declaration"]["name"]
+    for group in module["groups"]:
+        ds = group["args"] if group["tag"] == "nonrecursive" else group["args"][0]
+        for index, declaration in enumerate(ds):
+            if declaration["name"] == target:
+                ds[index] = old["declaration"]
+    code, report = check(matrix)
+    assert code != 0 and any("unbound type parameter 5177" in r["scope"].get("message", "")
+                             for r in report), report
+    # Interface contracts are checked even when they are not the selected entry module.
+    matrix = json.loads((artifacts / "matrix.json").read_text())
+    interface = next(i for i in matrix["interfaces"] if i["type_parameters"])
+    interface["type_parameters"] = []
+    assert check(matrix)[0] != 0
+    properties = elaborate_module(lean, artifacts / "properties.json", "shared::common::properties")
+    assert properties["semantic_import"] == "conditional-model"
+    assert properties["shared_declarations"] == 8
+    assert {p["name"] for p in properties["primitive_requirements"]} == {
+        "(Cryptol::==)", "(Cryptol::!=)", "Cryptol::True"}
+    scalar = elaborate_module(lean, artifacts / "field-scalar.json",
+                              "shared::algebra::Field::Operators::Scalar")
+    assert scalar["semantic_import"] == "parameterized-model"
+    assert scalar["shared_declarations"] == 5 and not scalar["primitive_requirements"]
     print(f"Whole modules: utility/CRC retention, 6 typed attempts, complete Imperative import, "
           f"{len(mutations)} scope mutations and 2 typing/meaning mutations")
 

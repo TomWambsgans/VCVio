@@ -1,7 +1,8 @@
 # Pinned Cryptol typed-AST exporter
 
 This executable links Cryptol 3.6.0 at commit
-`61dd17b0c45ddf8c5c1e952afd5e789c4dc4ec4b`. It exports full dependency closures
+`61dd17b0c45ddf8c5c1e952afd5e789c4dc4ec4b`, with an explicitly identified optional
+case-binder compatibility patch. It exports full dependency closures
 from the official typed AST, retaining ordered type/proof binders, schemes,
 recursive declaration groups, guards, comprehension branches, and foreign
 fallback bodies. It also retains the official `Cryptol::Reference` fallback
@@ -29,7 +30,8 @@ python3 Interop/Cryptol/scripts/export_references.py \
 ```
 
 Add `--check` to require byte-identical committed artifacts. The driver checks
-both clean source revisions, all loaded module digests, 2,020 numeric cases
+the Foundation revision and exact frontend revision/patch identity, all loaded module digests,
+2,020 numeric cases
 against `InfNat`, 345 class/literal cases against the official class solver,
 and Lean scope/kind validation. Temporary entry modules do not modify Foundation.
 
@@ -94,7 +96,7 @@ including records, lexical capture, higher-order functions and infinite mapping.
 
 ## Whole-module bundles
 
-`cryptol-lean-export --module-bundle FOUNDATION MODULE` emits version 2 of
+`cryptol-lean-export --module-bundle FOUNDATION MODULE` emits version 3 of
 `cryptol-module-bundle`. It preserves private declarations, simultaneous groups,
 module parameters, type synonyms, nominal definitions and case alternatives.
 Reference fallback definitions are loaded through Cryptol's internal loader
@@ -108,11 +110,37 @@ python3 Interop/Cryptol/scripts/import_modules.py --all \
 ```
 
 This continues after individual failures and writes the full declaration queue
-and separate stage results. Add `--check` for byte-identical regeneration.
-The selected utility and parameterized CRC closures must pass scope validation;
-other failures remain explicit in the corpus report. At this checkpoint all
-135 files decode and 134 pass scope/kind checks. The remaining instantiated
-matrix case-binding annotation is documented in the
-[integration report](../docs/tooling.md#whole-module-retention-and-checking).
-Complete semantic import, generated native interfaces and source preservation
-are still separate unfinished gates.
+and separate stage results, including linking and typed elaboration of every
+owned module instance. Add `--check` for byte-identical regeneration. All 135 files
+pass scope/kind checks with the compatibility frontend, and all 155 owned module
+instances link. Complete semantic import, generated native interfaces and source
+preservation remain separate unfinished gates; see the
+[compatibility report](../docs/compatibility.md).
+
+## Building the identified compatibility frontend
+
+Keep the original pinned checkout available. Create a separate worktree at the
+same revision and apply `patches/case-binder-types.patch` there. In a local Cabal
+project, name that checkout and this exporter as `packages`, retain Cryptol's
+`-ffi -relocatable` flags, and add:
+
+```cabal
+package cryptol-lean-export
+  flags: +case-binder-types
+```
+
+`python3 Interop/Cryptol/scripts/frontend.py /path/to/compatibility/cryptol`
+checks that the tracked diff is exactly the committed patch and prints its
+identity. The digest identifies the canonical Git diff; the stored patch omits
+space prefixes on empty context lines to avoid trailing whitespace (Git accepts
+both representations). The exporter records that digest in `frontend_patches`. The export
+drivers reject a flag/source mismatch or any other source modification. The
+default Cabal project still builds the unmodified pin with an empty patch list;
+that frontend retains the known case-annotation failure. Constructor tags use
+exhaustive explicit matches, independent of upstream `Show` formatting.
+
+This provenance check does not verify Haskell or prove which source produced
+an arbitrary binary. The identified frontend and serializer remain external
+assumptions; Lean checks the exact artifact it receives. The negative fixture
+`artifacts/regressions/case-binder-unpatched.json` is copied from the unmodified
+frontend and is not repaired by the Lean checker.

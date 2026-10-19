@@ -45,6 +45,7 @@ public import Interop.Cryptol.Model.Polymorphic
 public import Interop.Cryptol.Model.Primitives
 public import Interop.Cryptol.Model.Records
 public import Interop.Cryptol.Model.Recurrence
+public import Interop.Cryptol.Model.Reference.Dependencies
 public import Interop.Cryptol.Model.Reference.Kinds
 public import Interop.Cryptol.Model.Reference.Syntax
 public import Interop.Cryptol.Model.Reference.Types

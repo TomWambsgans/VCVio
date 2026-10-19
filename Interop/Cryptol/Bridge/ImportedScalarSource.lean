@@ -271,6 +271,7 @@ open Interop.Cryptol Translation
   "shared::CRC::CRC32_IEEE_802_3_Ethernet" "shared/CRC/CRC32_IEEE_802_3_Ethernet.cry"
   "5e300f97248dd498af0f01a7ea1905ee2042a9b380b3775cf1b552e786b1d68f" []), (SourceModule.mk
   "FoundationReferences" "$entry/FoundationReferences.cry"
-  "caf0e9fae38d70d0cdc915cd45b8be918e0ba9b95b95b0fada22d5c8941c9a40" [])] [])
+  "caf0e9fae38d70d0cdc915cd45b8be918e0ba9b95b95b0fada22d5c8941c9a40" [])] [] [
+  "cffd4082d3347aba60c131d2e7d33f8b8fdfaf6afa4aedd52d8d2fff7bb30a2e" ])
 
 end Interop.Cryptol.Bridge.ImportedScalarSource

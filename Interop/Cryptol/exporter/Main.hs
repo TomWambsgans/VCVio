@@ -1,4 +1,4 @@
-{-# LANGUAGE LambdaCase, OverloadedStrings #-}
+{-# LANGUAGE CPP, LambdaCase, OverloadedStrings #-}
 -- Copyright (c) 2026 Devon Tuma. Apache-2.0.
 -- Serialize Cryptol 3.6.0's typechecked AST without erasing proof applications,
 -- polymorphic binders, recursive groups, guards, or foreign fallback bodies.
@@ -44,6 +44,14 @@ import qualified Cryptol.Transform.Specialize as Specialize
 import Cryptol.Utils.Logger (stderrLogger)
 import Cryptol.ModuleSystem.Fingerprint (fingerprint, fingerprintHexString)
 
+-- This is a build identity, checked against the linked source tree by the driver.
+frontendPatches :: [Text.Text]
+#ifdef CRYPTOL_CASE_BINDER_TYPES
+frontendPatches = ["cffd4082d3347aba60c131d2e7d33f8b8fdfaf6afa4aedd52d8d2fff7bb30a2e"]
+#else
+frontendPatches = []
+#endif
+
 node :: String -> [Value] -> Value
 node tag args = object ["tag" .= tag, "args" .= args]
 
@@ -74,6 +82,56 @@ selector = \case
     [toJSON (unpackIdent f), toJSON (map unpackIdent <$> shape)]
   S.ListSel i shape -> node "list" [toJSON i, toJSON shape]
 
+-- Versioned wire tags are independent of upstream Show instances.
+constructorTag :: T.TCon -> Text.Text
+constructorTag = \case
+  T.TC T.TCInf -> "TC TCInf"
+  T.TC T.TCBit -> "TC TCBit"
+  T.TC T.TCInteger -> "TC TCInteger"
+  T.TC T.TCFloat -> "TC TCFloat"
+  T.TC T.TCIntMod -> "TC TCIntMod"
+  T.TC T.TCRational -> "TC TCRational"
+  T.TC T.TCArray -> "TC TCArray"
+  T.TC T.TCSeq -> "TC TCSeq"
+  T.TC T.TCFun -> "TC TCFun"
+  T.PC T.PEqual -> "PC PEqual"
+  T.PC T.PNeq -> "PC PNeq"
+  T.PC T.PGeq -> "PC PGeq"
+  T.PC T.PFin -> "PC PFin"
+  T.PC T.PPrime -> "PC PPrime"
+  T.PC T.PNotPrime -> "PC PNotPrime"
+  T.PC T.PZero -> "PC PZero"
+  T.PC T.PLogic -> "PC PLogic"
+  T.PC T.PRing -> "PC PRing"
+  T.PC T.PIntegral -> "PC PIntegral"
+  T.PC T.PField -> "PC PField"
+  T.PC T.PRound -> "PC PRound"
+  T.PC T.PEq -> "PC PEq"
+  T.PC T.PCmp -> "PC PCmp"
+  T.PC T.PSignedCmp -> "PC PSignedCmp"
+  T.PC T.PLiteral -> "PC PLiteral"
+  T.PC T.PLiteralLessThan -> "PC PLiteralLessThan"
+  T.PC T.PFLiteral -> "PC PFLiteral"
+  T.PC T.PValidFloat -> "PC PValidFloat"
+  T.PC T.PAnd -> "PC PAnd"
+  T.PC T.PTrue -> "PC PTrue"
+  T.TF T.TCAdd -> "TF TCAdd"
+  T.TF T.TCSub -> "TF TCSub"
+  T.TF T.TCMul -> "TF TCMul"
+  T.TF T.TCDiv -> "TF TCDiv"
+  T.TF T.TCMod -> "TF TCMod"
+  T.TF T.TCExp -> "TF TCExp"
+  T.TF T.TCWidth -> "TF TCWidth"
+  T.TF T.TCMin -> "TF TCMin"
+  T.TF T.TCMax -> "TF TCMax"
+  T.TF T.TCCeilDiv -> "TF TCCeilDiv"
+  T.TF T.TCCeilMod -> "TF TCCeilMod"
+  T.TF T.TCLenFromThenTo -> "TF TCLenFromThenTo"
+  T.TC (T.TCNum _) -> "invalid-numeric-arity"
+  T.TC (T.TCTuple _) -> "invalid-tuple-arity"
+  T.PC (T.PHas _) -> "invalid-selector-arity"
+  T.TError _ -> "unresolved-type-error"
+
 ty :: T.Type -> Value
 ty = \case
   T.TVar (T.TVBound p) -> node "var" [parameter p]
@@ -81,7 +139,7 @@ ty = \case
   T.TCon (T.TC (T.TCNum n)) [] -> node "num" [shown n]
   T.TCon (T.TC (T.TCTuple n)) ts -> node "tuple" [toJSON n, toJSON (map ty ts)]
   T.TCon (T.PC (T.PHas sel)) ts -> node "has" [selector sel, toJSON (map ty ts)]
-  T.TCon con ts -> node "con" [shown con, toJSON (map ty ts)]
+  T.TCon con ts -> node "con" [toJSON (constructorTag con), toJSON (map ty ts)]
   T.TUser n args body -> node "synonym" [name n, toJSON (map ty args), ty body]
   T.TRec fs -> node "record" [fields ty fs]
   T.TNominal nt args -> node "nominal" [name (T.ntName nt), toJSON (map ty args)]
@@ -353,6 +411,7 @@ exportRoots specialize foundation file roots = do
               pure $ object ["format" .= ("cryptol-typed-ast" :: Text.Text),
                 "version" .= (1 :: Int),
                 "cryptol_revision" .= ("61dd17b0c45ddf8c5c1e952afd5e789c4dc4ec4b" :: Text.Text),
+                "frontend_patches" .= frontendPatches,
                 "roots" .= [object ["text" .= t, "expression" .= expr e, "schema" .= schema s]
                              | (t,e,s) <- rs],
                 "groups" .= map group groups, "modules" .= provenance,
@@ -428,13 +487,15 @@ exportModule complete foundation file = do
         "value_parameters" .= [object ["name" .= name (T.mvpName p),
           "schema" .= schema (T.mvpType p)] | p <- Map.elems (T.mpnFuns sig)],
         "constraints" .= map (ty . P.thing) (T.mpnConstraints sig),
-        "type_exports" .= map name (Map.keys (T.mpnTySyn sig))])
+        "type_exports" .= map name (Map.keys (T.mpnTySyn sig)),
+        "type_synonyms" .= map typeSynonym (Map.elems (T.mpnTySyn sig))])
       (M.lmLoadedSignatures (M.meLoadedModules env))
     pure $ object $ ["format" .= (if complete then "cryptol-module-bundle" else
       "cryptol-module-inventory" :: Text.Text),
-      "version" .= (if complete then 2 else 1 :: Int),
+      "version" .= (if complete then 3 else 1 :: Int),
       "modules" .= modules, "interfaces" .= signatures] ++ if complete then
       ["cryptol_revision" .= ("61dd17b0c45ddf8c5c1e952afd5e789c4dc4ec4b" :: Text.Text),
+       "frontend_patches" .= frontendPatches,
        "primitive_fallbacks" .= [(name n, name target) |
          (n,target) <- Map.toAscList (primitiveFallbacks (M.loadedModules env))]] else []
 

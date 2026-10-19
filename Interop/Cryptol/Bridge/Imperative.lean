@@ -8,6 +8,9 @@ module
 
 public import Interop.Cryptol.Bridge.ImperativeBodies
 import all Interop.Cryptol.Translation.SourceScope
+import all Interop.Cryptol.Translation.SourceLink
+import all Interop.Cryptol.Model.Reference.Dependencies
+import all Mathlib.Data.List.Sort
 import all Interop.Cryptol.Translation.OpenTypes
 import all Interop.Cryptol.Translation.OpenElaboration
 import all Interop.Cryptol.Translation.ModuleElaboration
@@ -40,7 +43,8 @@ set_option maxRecDepth 10000
 
 /-- Kernel reduction checks the candidate against the complete retained source. -/
 theorem import_accepted :
-    ImperativeSource.bundle.elaborate ImperativeSource.source 1000 = .ok imported := by
+    ImperativeSource.bundle.elaborate ImperativeSource.source.provenance.name 32 =
+      .ok imported := by
   with_unfolding_all
     change Except.ok _ = Except.ok imported
     congr 3
@@ -54,8 +58,8 @@ theorem import_accepted :
 
 /-- The complete source import, carrying its exact kernel-checked acceptance equation. -/
 @[expose] def certificate :
-    ImperativeSource.bundle.ElaborationCertificate ImperativeSource.source :=
-  ⟨1000, imported, import_accepted⟩
+    ImperativeSource.bundle.ElaborationCertificate ImperativeSource.source.provenance.name :=
+  ⟨32, imported, import_accepted⟩
 
 /-- The finite while export retains the whole shared declaration group. -/
 @[expose] def whileSource : Term Scope.empty [] loopScheme :=

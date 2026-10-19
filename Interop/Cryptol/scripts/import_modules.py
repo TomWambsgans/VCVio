@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Retain whole modules and report each import stage without conflating them.
 
-The official exporter owns parsing, elaboration and free-variable analysis.
-Lean owns decoding and scope/kind validation. This driver records their results
+The official exporter owns parsing and source elaboration. Lean recomputes value
+dependencies and checks decoding, scopes, kinds and linking. This driver records their results
 and a declaration graph; it does not infer semantic acceptance from either.
 """
 
@@ -16,8 +16,13 @@ import tempfile
 
 from quote_reference import quote_imperative, quote_imperative_bodies
 from export_references import CRYPTOL, FOUNDATION, ROOT, canonical, run, verify_checkout
+from frontend import frontend_patches, check_frontend
 
-SELECTED = ("shared/common/utils/List.cry", "shared/CRC/Main.cry")
+SELECTED = {"shared/common/utils/List.cry": "list",
+            "shared/CRC/Main.cry": "crc",
+            "shared/algebra/Field/Zp/Test.cry": "matrix",
+            "shared/common/properties.cry": "properties",
+            "shared/algebra/Field/Operators/Scalar.cry": "field-scalar"}
 STAGES = ("expression_typing", "semantic_import", "native_view", "execution",
           "source_correspondence", "property_proof")
 OPEN_MODULES = [("list", name) for name in ["Cryptol::Reference"] + [
@@ -47,15 +52,17 @@ def declarations(group):
 
 
 def source_id(module, info):
-    """Source identity is independent of bundle-local integer allocation."""
+    """Diagnostic origin including the instantiated module; never a linking key."""
     return {"path": module["provenance"]["path"], "sha256": module["provenance"]["sha256"],
+            "instance": module["provenance"]["name"],
+            "qualified_name": info["name"]["origin"],
             **info["source_key"]}
 
 
 def graph(bundle):
     """Resolve dependency edges in this bundle, preserving simultaneous groups."""
     if (bundle["format"], bundle["version"], bundle["cryptol_revision"]) != \
-            ("cryptol-module-bundle", 2, CRYPTOL):
+            ("cryptol-module-bundle", 3, CRYPTOL):
         raise ValueError("unsupported module bundle")
     nodes, identities, constructors, parameters = [], {}, {}, {}
     for module in bundle["modules"]:
@@ -106,6 +113,7 @@ def inspect(exporter, lean, foundation, cryptol, relative):
             return record | {"frontend": "rejected", "diagnostic": result.stderr.replace(
                 str(foundation), "$foundation").strip()}, None
         bundle = json.loads(result.stdout)
+        check_frontend(bundle, cryptol)
         for module in bundle["modules"] + bundle["interfaces"]:
             provenance = module["provenance"]
             source = provenance["path"]
@@ -138,9 +146,24 @@ def inspect(exporter, lean, foundation, cryptol, relative):
             artifact.write_bytes(canonical(bundle))
             checked = subprocess.run([str(lean), "source", "modules", str(artifact)],
                                      capture_output=True, text=True, timeout=120)
+            linked, attempts = [], []
+            if checked.returncode == 0:
+                for module in sorted(own):
+                    result = subprocess.run([str(lean), "source", "module-link", str(artifact), module],
+                                            capture_output=True, text=True, timeout=120)
+                    linked.append(json.loads(result.stdout))
+                    attempts.append({"module": module,
+                                     "result": elaborate_module(lean, artifact, module)})
         report = json.loads(checked.stdout)
         record.update(frontend="accepted", body_retention="exported", graph=data,
-                      lean_report=report, lean_exit=checked.returncode)
+                      lean_report=report, lean_exit=checked.returncode,
+                      link_reports=linked, semantic_attempts=attempts)
+        for attempt in attempts:
+            if attempt["result"].get("expression_typing") == "accepted":
+                for declaration in data["declarations"]:
+                    if declaration["module"] == attempt["module"]:
+                        declaration["stages"].update(expression_typing="accepted",
+                            semantic_import=attempt["result"]["semantic_import"])
         if isinstance(report, list):
             record["own_modules"] = sorted(own)
             record["body_retention"] = "decoded"
@@ -161,7 +184,7 @@ def main():
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args()
     verify_checkout(args.foundation, FOUNDATION)
-    verify_checkout(args.cryptol_source, CRYPTOL)
+    patches = frontend_patches(args.cryptol_source)
     files = sorted(p for p in run("git", "-C", str(args.foundation), "ls-files").splitlines()
                    if p.endswith(".cry")) if args.all else sorted(SELECTED)
     with ThreadPoolExecutor(max_workers=args.jobs) as pool:
@@ -180,7 +203,7 @@ def main():
 
     for path, (record, bundle) in zip(files, results):
         if path in SELECTED and bundle is not None:
-            write(output / ("list.json" if path.endswith("List.cry") else "crc.json"), bundle)
+            write(output / (SELECTED[path] + ".json"), bundle)
             if path.endswith("List.cry"):
                 quotation = ROOT / "Bridge/ImperativeSource.lean"
                 quoted = quote_imperative(bundle)
@@ -190,6 +213,7 @@ def main():
                 else:
                     quotation.write_bytes(quoted)
     report = {"version": 1, "cryptol_revision": CRYPTOL, "foundation_revision": FOUNDATION,
+              "frontend_patches": patches,
               "exporter_sha256": hashlib.sha256((ROOT / "exporter/Main.hs").read_bytes()).hexdigest(),
               "entries": [r for r, _ in results]}
     write(output / ("corpus.json" if args.all else "selected.json"), report)

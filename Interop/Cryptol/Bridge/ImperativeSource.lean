@@ -81,6 +81,7 @@ open Translation
 
 /-- The dependency-closed module bundle used by the checked open importer. -/
 @[expose] def bundle : ModuleBundle :=
-  ⟨SourceBundle.expectedCryptolRevision, [source], .null, []⟩
+  ⟨SourceBundle.expectedCryptolRevision, [source], [], [],
+    ["cffd4082d3347aba60c131d2e7d33f8b8fdfaf6afa4aedd52d8d2fff7bb30a2e"]⟩
 
 end Interop.Cryptol.Bridge.ImperativeSource

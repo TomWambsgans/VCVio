@@ -70,7 +70,7 @@ cannot pass application/root checking merely because their Lean carriers match.
 ### Whole-module retention and checking
 
 `cryptol-lean-export --module-bundle FOUNDATION MODULE` exports the complete
-loaded module graph in `cryptol-module-bundle` version 2. It explicitly loads
+loaded module graph in `cryptol-module-bundle` version 3. It explicitly loads
 `Cryptol::Reference` without resetting the entry module's environment. The
 bundle retains private declarations, recursive groups, numeric/type/value
 parameters, constraints, synonyms, nominal definitions, enum constructor
@@ -97,44 +97,56 @@ python3 Interop/Cryptol/scripts/import_modules.py --all \
 ```
 
 The corpus report separates frontend acceptance, body retention, scope checking,
-expression typing, semantic import, native views, execution, source
-correspondence and property proofs. It continues after rejected files. All 135
-tracked files decode; 134 pass the module scope/kind gate. The remaining
-diagnostic concerns an unbound type parameter under the instantiated
-`Matrix::inverseIsCorrect` in `shared/algebra/Field/Zp/Test.cry`. The `Ok invM`
-case binding retains numeric parameter 5177, while the surrounding declaration
-binds 1920 and 1613. The pinned frontend's
-[`ModuleBacktickInstance.hs`](https://github.com/GaloisInc/cryptol/blob/61dd17b0c45ddf8c5c1e952afd5e789c4dc4ec4b/src/Cryptol/TypeCheck/ModuleBacktickInstance.hs#L396)
-rewrites the expression in `CaseAlt` but leaves its binding types unchanged;
-ordinary lambda annotations do use `rewType`. This is evidence of a frontend
-annotation-rewriting gap, not a claim that the Foundation source is ill typed.
-Reproduce with `--module-bundle` on that file, then `source modules` on the
-output. No guessed renaming or skipped type check repairs the exported body.
-The complete List/Sort/Enum/Imperative closure and parameterized CRC/Main pass.
-The two retained bundles are in `artifacts/modules/{list,crc}.json`; the corpus
-graph stores declarations once per owning source and records dependency origins
-instead of repeating the entire Prelude for each file. Frontend integer IDs
-are bundle-local; source module, spelling, span and digest identify report rows.
+linking, expression typing, semantic import, native views, execution, source
+correspondence and property proofs. All **135 tracked files** decode and pass
+scope/kind checking with the explicitly identified compatibility frontend.
+All **155 owned module instances** also pass the structural linker. Interfaces
+have decoded parameter contracts and complete type synonyms; their checks are
+reported alongside modules, including interface-only entry files.
 
-The scope-only corpus report deliberately retains `semantic_import: not-attempted`.
-The separate `artifacts/modules/elaboration.json` now attempts expression typing
-and model import for all six selected modules. `OpenTypes`, `OpenElaboration` and
-`ModuleElaboration` lower supported open schemes and expressions into the existing
-`ScopedFamily`; they do not add another evaluator or language carrier.
+The compatibility patch fixes one annotation-rewriting bug in the pinned
+[`ModuleBacktickInstance.hs`](https://github.com/GaloisInc/cryptol/blob/61dd17b0c45ddf8c5c1e952afd5e789c4dc4ec4b/src/Cryptol/TypeCheck/ModuleBacktickInstance.hs#L396):
+`CaseAlt` must apply `rewType` to its bound field types as well as rewrite its
+body. The patch is retained under `exporter/patches/`, and its digest is part of
+the exported frontend identity. The driver rejects any other tracked source
+edits or a disagreement between exporter and source identity. The original
+`Matrix::inverseIsCorrect` annotation retaining unbound parameter 5177 is a
+committed negative fixture and still fails Lean checking. This is an explicit
+frontend variant, not a guessed renaming inside Lean.
 
-| Complete module | Current expression-typing result |
-|---|---|
-| Imperative | Both declarations accepted, with one shared environment and recursive references |
-| Cryptol::Reference | Blocked by partial numeric lengths in `Cryptol::fromTo` |
-| List | Blocked by partial numeric lengths in `Cryptol::fromToLessThan` |
-| Sort | Blocked by aggregate source types in `Cryptol::splitAt` |
-| Enum | Blocked by nominal source types in `Enum::unwrap` |
-| CRC/Main | Blocked by the aggregate result of `CRCUpdate` |
+Lean now recomputes direct dependencies from every retained body and checks them
+against the export metadata. Closure takes all members of a selected recursive
+group; linking schedules original groups and rejects cycles between distinct
+groups. Ordinary definitions and foreign declarations with pure bodies remain
+bodies. Only primitive declarations and bodyless foreign declarations can become
+`PrimitiveRequirement` inputs, carrying their original identities and full
+schemes. Official fallback bodies are linked first. Global resolution uses
+bundle-local IDs; qualified instance names and source spans are reporting data,
+not an unproved cross-bundle name equality.
 
-These are the first blockers, not an exhaustive unsupported-feature list.
-Decoding and scope certificates remain distinct from expression typing. Successful
-typing constructs a meaning in the current Lean model, not a proof that it
-preserves upstream source semantics.
+`artifacts/modules/corpus.json` attempts typed elaboration of all 155 instances.
+The current results are:
+
+| Result | Instances |
+|---|---:|
+| No value definitions (not executable import coverage) | 4 |
+| Parameterized scalar operator modules | 2 |
+| Complete Imperative module, no primitive requirements | 1 |
+| Complete common/properties module, three primitive requirements | 1 |
+| Rejected at an explicit semantic/type boundary | 147 |
+
+The first rejected boundary is partial numeric types/applications in 115 cases,
+constraint entailment in 12, aggregate/nominal types in 8, `Field` in 6,
+`Prime` in 3, expression forms in 2, and scheme equality in 1. These are first
+blockers, not an exhaustive feature census. Whole List/Sort/Enum, CRC and SHA2
+semantic imports remain incomplete.
+
+Selected complete closures for List, CRC, the matrix regression, properties and
+field scalar operators are committed. `elaboration.json` also retains the focused
+six-module comparison for Reference/List/Sort/Imperative/Enum/CRC. Neither scope
+nor linking acceptance is counted as source preservation. See the
+[compatibility implementation contract](compatibility.md) for exact trust
+boundaries, remaining migration work and proof targets.
 
 ### Shared open modules and generated loop interfaces
 
@@ -245,7 +257,7 @@ The implementation checkpoint was validated with the published PolyFun revision
 `3fc600b1cec58a1272d8ac404c064c48eb5e5bef`: optional build/lint/tests/axioms and
 pinned external validation pass, including byte-identical regeneration of the
 31-root export, 135-file census and whole-module corpus. The optional axiom
-sweep covers 4,503 declarations across 124 modules with no admissions or
+sweep covers 4,588 declarations across 126 modules with no admissions or
 nonstandard-axiom taint. The companion PolyFun full suite covers 16,901
 declarations across 447 modules with the same zero-debt result.
 

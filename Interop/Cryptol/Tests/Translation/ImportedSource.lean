@@ -271,6 +271,7 @@ open Interop.Cryptol Translation
   [(SourceModule.mk "Cryptol" "$builtin/Cryptol"
   "8ace6e6308a863e17355e0b8289ea52eb16c12e36b51e76f7ac668bf03a7f59e" []), (SourceModule.mk
   "ImportCanaries" "$entry/ImportCanaries.cry"
-  "597d95a499c6f1156fad67431e2f0a5d6cabb7f0768d2313394b0a0980c6f8a4" [])] [])
+  "597d95a499c6f1156fad67431e2f0a5d6cabb7f0768d2313394b0a0980c6f8a4" [])] [] [
+  "cffd4082d3347aba60c131d2e7d33f8b8fdfaf6afa4aedd52d8d2fff7bb30a2e" ])
 
 end Interop.Cryptol.Bridge.ImportedCanariesSource

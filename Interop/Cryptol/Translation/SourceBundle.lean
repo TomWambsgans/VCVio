@@ -63,6 +63,8 @@ structure SourceBundle where
   modules : List SourceModule
   /-- Official `Cryptol::Reference` bodies used for primitives absent from the Haskell table. -/
   primitiveFallbacks : List (Reference.Name × Reference.Name)
+  /-- Digests of explicitly applied compatibility patches, in application order. -/
+  frontendPatches : List String := []
   deriving Repr
 
 /-- Stable source coordinates, independent of frontend allocation order. -/
@@ -127,21 +129,43 @@ structure ModuleDefinition where
   nestedSignatures : List Reference.Name
   deriving Repr
 
+/-- An interface retains its complete parameter contract and defining synonyms. -/
+structure InterfaceDefinition where
+  /-- Identity and digest of the source interface. -/
+  provenance : SourceModule
+  /-- Abstract numeric and value-type parameters. -/
+  typeParameters : List (Reference.Name × Reference.Parameter)
+  /-- Required values, with ordered polymorphic schemes. -/
+  valueParameters : List (Reference.Name × Reference.Schema)
+  /-- Constraints required of an implementation. -/
+  constraints : List Reference.TypeExpr
+  /-- Exported synonym identities. -/
+  typeExports : List Reference.Name
+  /-- Complete synonym definitions under the interface parameters. -/
+  synonyms : List Reference.TypeSynonym
+  deriving Repr
+
 /-- A versioned whole-module export; decoding alone makes no semantic claim. -/
 structure ModuleBundle where
   /-- Exact Cryptol source revision. -/
   cryptolRevision : String
   /-- Modules loaded by the official frontend, including primitive fallbacks. -/
   modules : List ModuleDefinition
-  /-- Interface metadata retained verbatim pending interface elaboration. -/
-  interfaces : Lean.Json
+  /-- Complete interface contracts, checked separately from executable definitions. -/
+  interfaces : List InterfaceDefinition
   /-- Primitive redirects to the actual `Cryptol::Reference` bodies. -/
   primitiveFallbacks : List (Reference.Name × Reference.Name)
+  /-- Digests of explicitly applied compatibility patches, in application order. -/
+  frontendPatches : List String := []
 
 namespace SourceBundle
 
 /-- The pinned reference frontend understood by this decoder. -/
 def expectedCryptolRevision : String := "61dd17b0c45ddf8c5c1e952afd5e789c4dc4ec4b"
+
+/-- The reviewed patch rewrites case-field type annotations during module instantiation. -/
+def caseBinderPatch : String :=
+  "cffd4082d3347aba60c131d2e7d33f8b8fdfaf6afa4aedd52d8d2fff7bb30a2e"
 
 private abbrev Decode (α : Type) := Except String α
 
@@ -160,6 +184,14 @@ private def optional {α : Type} (f : Lean.Json → Decode α) : Lean.Json → D
 private def named (j : Lean.Json) : Decode Reference.Name := do
   return ⟨← j.getObjValAs? Nat "id", ← j.getObjValAs? String "text",
     ← j.getObjValAs? String "origin"⟩
+
+private def decodeFrontendPatches (j : Lean.Json) : Decode (List String) := do
+  let patches ← match j.getObjVal? "frontend_patches" with
+    | .error _ => pure []
+    | .ok value => Lean.fromJson? value
+  unless patches == [] || patches == [caseBinderPatch] do
+    throw "unsupported Cryptol compatibility patch identity"
+  return patches
 
 private def kindAux : Nat → Lean.Json → Decode Reference.Kind
   | 0, _ => .error "kind nesting budget exhausted"
@@ -356,17 +388,29 @@ private def moduleDefinition (fuel : Nat) (j : Lean.Json) : Decode ModuleDefinit
     ← (← array (← field j "nested_functors")).mapM named,
     ← (← array (← field j "nested_signatures")).mapM named⟩
 
+private def interfaceDefinition (fuel : Nat) (j : Lean.Json) : Decode InterfaceDefinition := do
+  return ⟨← sourceModule (← field j "provenance"),
+    ← (← array (← field j "type_parameters")).mapM (fun p => do
+      return (← named (← field p "name"), ← parameter (← field p "parameter"))),
+    ← (← array (← field j "value_parameters")).mapM (fun p => do
+      return (← named (← field p "name"), ← schema fuel (← field p "schema"))),
+    ← (← array (← field j "constraints")).mapM (typeExpr fuel),
+    ← (← array (← field j "type_exports")).mapM named,
+    ← (← array (← field j "type_synonyms")).mapM (synonym fuel)⟩
+
 /-- Decode the whole-module format without converting unknown semantics to placeholders. -/
 def decodeModuleBundle (j : Lean.Json) (fuel : Nat := 10000) : Except ImportError ModuleBundle :=
   let decoded : Decode ModuleBundle := do
     unless (← j.getObjValAs? String "format") = "cryptol-module-bundle" do
       throw "unknown module-bundle format"
-    unless (← j.getObjValAs? Nat "version") = 2 do throw "unsupported module-bundle version"
+    unless (← j.getObjValAs? Nat "version") = 3 do throw "unsupported module-bundle version"
+    let _ ← field j "frontend_patches"
     unless (← j.getObjValAs? String "cryptol_revision") = expectedCryptolRevision do
       throw "Cryptol frontend revision differs from the supported pin"
     return ⟨expectedCryptolRevision,
-      ← (← array (← field j "modules")).mapM (moduleDefinition fuel), ← field j "interfaces",
-      ← pairs named named (← field j "primitive_fallbacks")⟩
+      ← (← array (← field j "modules")).mapM (moduleDefinition fuel),
+      ← (← array (← field j "interfaces")).mapM (interfaceDefinition fuel),
+      ← pairs named named (← field j "primitive_fallbacks"), ← decodeFrontendPatches j⟩
   decoded.mapError (⟨["module-bundle"], ·⟩)
 
 /-- Decode a bundle with an explicit nesting budget and an exact version/pin check. -/
@@ -381,7 +425,7 @@ def decode (j : Lean.Json) (fuel : Nat := 10000) : Except ImportError SourceBund
     if roots.isEmpty then throw "bundle must contain an entry point"
     return ⟨expectedCryptolRevision, roots, ← (← array (← field j "groups")).mapM (group fuel),
       ← (← array (← field j "modules")).mapM sourceModule,
-      ← pairs named named (← field j "primitive_fallbacks")⟩
+      ← pairs named named (← field j "primitive_fallbacks"), ← decodeFrontendPatches j⟩
   decoded.mapError (⟨["bundle"], ·⟩)
 
 end SourceBundle

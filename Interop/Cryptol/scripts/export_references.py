@@ -15,6 +15,7 @@ from pathlib import Path
 
 from extract_foundation import COMPRESSION, CRYPTOL, FOUNDATION, ROOT
 from quote_reference import quote_bundle
+from frontend import frontend_patches, check_frontend
 
 FAMILIES = {"SHA2", "SHA3", "SHAKE", "Keccak", "AES", "CRC"}
 ARTIFACTS = ROOT / "artifacts" / "references"
@@ -63,7 +64,7 @@ def main():
     parser.add_argument("--check", action="store_true", help="require byte-identical committed artifacts")
     args = parser.parse_args()
     verify_checkout(args.foundation, FOUNDATION)
-    verify_checkout(args.cryptol_source, CRYPTOL)
+    patches = frontend_patches(args.cryptol_source)
     entries = [e for e in json.loads((ROOT / "coverage.json").read_text())["entries"]
                if e["family"] in FAMILIES]
     if len(entries) != 31 or entries[0]["id"] != "sha256-compression":
@@ -81,6 +82,7 @@ def main():
         path = Path(temporary) / "FoundationReferences.cry"
         path.write_text(wrapper)
         bundle = json.loads(run(str(args.exporter), str(args.foundation), str(path), *roots))
+        check_frontend(bundle, args.cryptol_source)
         if bundle["cryptol_revision"] != CRYPTOL:
             raise ValueError("exporter reports an unsupported Cryptol revision")
         if [r["text"] for r in bundle["roots"]] != roots:
@@ -139,6 +141,7 @@ def main():
                 raise ValueError(f"typed import failed: {label}")
     manifest = {
         "schema_version": 1, "cryptol_revision": CRYPTOL, "foundation_revision": FOUNDATION,
+        "frontend_patches": patches,
         "bundle_sha256": digest(data), "entry_sha256": digest(wrapper.encode()),
         "exporter_sha256": digest((ROOT / "exporter/Main.hs").read_bytes()),
         "numeric_cases": len(numeric),
