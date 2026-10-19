@@ -34,8 +34,11 @@ its trace. Zero-probability outcomes need no case split, and the chain rule
 (`outcomeMeasure_bind`) has no division.
 
 **Outputs may depend on the outcome.** `DSubInstrument A ι B` has output system `B i` on outcome
-`i`, which is how programs allocate and discard registers. `SubInstrument` is the constant case,
-and `SubInstrument.equivD` relates the two.
+`i`, which is how programs allocate and discard registers. `SubInstrument A B α` is the constant
+case, defined as an abbreviation of `DSubInstrument A α (fun _ ↦ B)` in the way Mathlib's `FunLike`
+specializes `DFunLike`, so every dependent definition and theorem applies to it directly. Only what
+needs one output system lives on `SubInstrument`: the total map, `ofMap`, and the monad on
+`SubInstrument M M` (`DSubInstrument` is an indexed monad, since `ret` changes the input system).
 
 **Outcomes may be infinite.** Outcome types are arbitrary, and only countably many branches of
 an instrument are nonzero. This is needed before loops can be defined as limits of finite

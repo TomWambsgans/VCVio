@@ -125,9 +125,10 @@ outcome $1$ is `Unit`, which is one-dimensional, not empty: the state there is t
 matrix $\langle 1|\rho|1\rangle = \tfrac12$, which carries only the weight of the branch.
 
 Such families are **dependent subinstruments** (`DSubInstrument A ι B`), with output system `B i`
-on outcome `i`. `SubInstrument.equivD` identifies subinstruments with the case of a constant output
-system, and commutes with every operation. Different outcomes are classical alternatives: there are
-no off-diagonal blocks between them.
+on outcome `i`. A subinstrument is the case of a constant output system: `SubInstrument A B α` is
+an abbreviation of `DSubInstrument A α (fun _ ↦ B)`, so the operations above and their laws are
+the dependent ones, applied to a constant family. Different outcomes are classical alternatives:
+there are no off-diagonal blocks between them.
 
 ## Infinitely many outcomes
 
@@ -143,7 +144,7 @@ outcomes, and the model already has them.
 
 ## Observing once, at the end
 
-`SubInstrument.outcomeMeasure p ρ` is the distribution of the outcome: a Mathlib measure giving
+`p.outcomeMeasure ρ` is the distribution of the outcome: a Mathlib measure giving
 outcome $a$ the weight $\operatorname{tr}p_a(\rho)$. States may be subnormalized (`SubState`: PSD
 with trace at most one), so the measure has total mass at most one, and the missing mass is failure.
 
@@ -168,7 +169,8 @@ theorem says they agree:
 
 | Two descriptions | Agreement |
 |---|---|
-| subinstruments and dependent subinstruments | `SubInstrument.equivD` and the `toD_*` lemmas |
+| trace bound on finite sets of outcomes, and trace nonincrease of every finite sum of branches | `DSubInstrument.isTNI_sum`, `SubInstrument.ofIsTNISum` |
+| losslessness, and the total map being a channel | `DSubInstrument.lossless_iff_isTP_total` |
 
 **They compute the right numbers.** The tests work small examples to exact values: the Born
 probabilities above; a measurement with outcomes in $\mathbb{N}$.
