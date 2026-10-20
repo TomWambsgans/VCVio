@@ -147,9 +147,8 @@ select a different carrier. The lower expectation instance uses `MAlgOrdered.toW
 The handler catalogue consumes core `@[spec]` rules and `vcgen`.
 VCVio's probability/coupling frontend still owns `@[vcspec]`/`@[wpStep]` dispatch.
 
-The upgrade uses published Mathlib v4.35.0 and pins PolyFun to
-`96f0ac8a89e6472617000d23cf13fd7ed1f37450`, the unpublished #314–#326 stack head.
-Publication is pending; repin to the published revision when the stack lands.
+The upgrade uses published Mathlib v4.35.0 and pins PolyFun to main at
+`ef4c157b3c6775fb55864303d96f9b400428d5f0`, which includes the #314–#328 naming stack.
 Mathlib's measurable `map_bind` API replaces the local copy, with explicit measurability premises; measure-product
 proofs use `prod_eq_of_sfinite`. Batteries' `Except` module and PolyFun's interaction
 Open/Execution modules are consumed at their new paths. Lean's source import parser is reused
