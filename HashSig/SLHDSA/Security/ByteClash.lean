@@ -58,6 +58,7 @@ clash has a point `q` that is not route-fixed, an honest `H_msg` or `PRF_msg` qu
 * `isHonestQuery_or_route_eq_some_of_mem_support_romSchemeRun_routeAdv`,
   `eq_and_isHonestKey_of_mem_support_romSchemeRun_routeAdv`: provenance on the support of the
   routed run;
+* `hmsgAtPrfKey_and_prfMsgAt_or_eq_of_shakeRoute_ne_prfMsg`: the `PRF_msg` row;
 * `hmsgAtPrfKey_and_prfMsgAt_or_eq_or_hmsgAtWeakKey_of_clash`: the classification on a cache of
   known provenance;
 * `runPrfKeyClash_or_isWeakKey_of_clash`: the classification on the routed run;
@@ -124,6 +125,43 @@ theorem eq_and_isHonestKey_of_shakeRoute_encode_thash {s : (shakeCore vp).PkSeed
   have := hT.2.2.2
   rwa [adrsKeyOfList_drop_encode_thash] at this
 
+/-- **The `PRF_msg` row of the classification.** In a cache whose points are route-fixed, `H_msg`
+points at `(pkSeed, pkRoot)`, or `PRF_msg` points keyed by `skPrf`, a cached `PRF_msg` point keyed
+by `skPrf` that is not route-fixed and shares its string with another cached point gives an
+`H_msg` point at `skPrf` together with a cached `PRF_msg` point keyed by `skPrf` whose `opt_rand`
+is `pkSeed`, or `skPrf = pkSeed`. -/
+theorem hmsgAtPrfKey_and_prfMsgAt_or_eq_of_shakeRoute_ne_prfMsg
+    {pkRoot : (shakeCore vp).Y} {skPrf : (shakeCore vp).SkPrf}
+    {c : (hashSpec (shakeCore vp)).QueryCache}
+    (hc : ∀ q, (c q).isSome →
+      shakeRoute vp (IsHonestKey vp (shakeCore vp)) pkSeed (encode vp q) = some q ∨
+        (∃ r msg, q = .inl (.hmsg r pkSeed pkRoot msg)) ∨ ∃ o msg, q = .inr ⟨skPrf, o, msg⟩)
+    {o : (shakeCore vp).Y} {msg : List Byte} {q' : (hashSpec (shakeCore vp)).Domain}
+    (hq : (c (.inr ⟨skPrf, o, msg⟩)).isSome) (hq' : (c q').isSome)
+    (hne : .inr ⟨skPrf, o, msg⟩ ≠ q') (he : encode vp (.inr ⟨skPrf, o, msg⟩) = encode vp q')
+    (hfix : shakeRoute vp (IsHonestKey vp (shakeCore vp)) pkSeed
+      (encode vp (.inr ⟨skPrf, o, msg⟩)) ≠ some (.inr ⟨skPrf, o, msg⟩)) :
+    (HmsgAtPrfKey id skPrf c ∧ PrfMsgAt skPrf pkSeed c) ∨ skPrf = pkSeed := by
+  by_cases hT : IsThashString vp (IsHonestKey vp (shakeCore vp)) pkSeed
+      (encode vp (.inr ⟨skPrf, o, msg⟩))
+  · exact Or.inr (Vector.toList_inj.1 (toList_eq_of_isThashString_encode_prfMsg _ hT))
+  have hH : IsHmsgString vp pkSeed (encode vp (.inr ⟨skPrf, o, msg⟩)) := by
+    by_contra hH
+    exact hfix (shakeRoute_encode_prfMsg _ hT hH)
+  obtain rfl : o = pkSeed :=
+    Vector.toList_inj.1 (toList_eq_of_isHmsgString_encode_prfMsg _ hH).1
+  refine Or.inl ⟨?_, msg, hq⟩
+  rcases q' with (⟨s, k, xs⟩ | ⟨r', s', root', msg'⟩) | q'
+  · rcases hc _ hq' with h | ⟨_, _, h⟩ | ⟨_, _, h⟩
+    · exact (hT (he ▸ isThashString_of_shakeRoute_eq_thash h)).elim
+    · cases h
+    · cases h
+  · refine ⟨s', root', msg', ?_⟩
+    have h₁ := take_encode_prfMsg vp ⟨skPrf, o, msg⟩
+    rw [he, take_encode_hmsg] at h₁
+    rwa [show r' = skPrf from Vector.toList_inj.1 h₁] at hq'
+  · exact (hne (congrArg Sum.inr ((encode_prfMsg_inj vp).1 he))).elim
+
 /-- **The classification at one non-route-fixed point.** In a cache whose points are route-fixed,
 `H_msg` points at `(pkSeed, pkRoot)`, or `PRF_msg` points keyed by `skPrf`, a cached point that
 is not route-fixed and shares its string with another cached point gives an `H_msg` point at
@@ -149,25 +187,7 @@ theorem hmsgAtPrfKey_and_prfMsgAt_or_eq_or_hmsgAtWeakKey_of_shakeRoute_ne
     obtain rfl : r = pkSeed :=
       Vector.toList_inj.1 (toList_eq_of_isThashString_encode_hmsg _ hT)
     exact Or.inr ⟨msg, hq, hT⟩
-  · by_cases hT : IsThashString vp (IsHonestKey vp (shakeCore vp)) pkSeed
-        (encode vp (.inr ⟨skPrf, o, msg⟩))
-    · exact Or.inl (Or.inr (Vector.toList_inj.1 (toList_eq_of_isThashString_encode_prfMsg _ hT)))
-    have hH : IsHmsgString vp pkSeed (encode vp (.inr ⟨skPrf, o, msg⟩)) := by
-      by_contra hH
-      exact hfix (shakeRoute_encode_prfMsg _ hT hH)
-    obtain rfl : o = pkSeed :=
-      Vector.toList_inj.1 (toList_eq_of_isHmsgString_encode_prfMsg _ hH).1
-    refine Or.inl (Or.inl ⟨?_, msg, hq⟩)
-    rcases q' with (⟨s, k, xs⟩ | ⟨r', s', root', msg'⟩) | q'
-    · rcases hc _ hq' with h | ⟨_, _, h⟩ | ⟨_, _, h⟩
-      · exact (hT (he ▸ isThashString_of_shakeRoute_eq_thash h)).elim
-      · cases h
-      · cases h
-    · refine ⟨s', root', msg', ?_⟩
-      have h₁ := take_encode_prfMsg vp ⟨skPrf, o, msg⟩
-      rw [he, take_encode_hmsg] at h₁
-      rwa [show r' = skPrf from Vector.toList_inj.1 h₁] at hq'
-    · exact (hne (congrArg Sum.inr ((encode_prfMsg_inj vp).1 he))).elim
+  · exact Or.inl (hmsgAtPrfKey_and_prfMsgAt_or_eq_of_shakeRoute_ne_prfMsg hc hq hq' hne he hfix)
 
 /-- **The classification of a clash in a cache of known provenance.** In a cache whose points are
 route-fixed, `H_msg` points at `(pkSeed, pkRoot)`, or `PRF_msg` points keyed by `skPrf`, a clash
@@ -182,14 +202,9 @@ theorem hmsgAtPrfKey_and_prfMsgAt_or_eq_or_hmsgAtWeakKey_of_clash (hn : vp.param
         (∃ r msg, q = .inl (.hmsg r pkSeed pkRoot msg)) ∨ ∃ o msg, q = .inr ⟨skPrf, o, msg⟩)
     (h : (shakeEncoding vp hn hnm pkSeed).Clash c) :
     ((HmsgAtPrfKey id skPrf c ∧ PrfMsgAt skPrf pkSeed c) ∨ skPrf = pkSeed) ∨
-      HmsgAtWeakKey pkSeed pkRoot c := by
-  obtain ⟨q, q', hne, hq, hq', he⟩ := h
-  replace he : encode vp q = encode vp q' := he
-  by_cases hfix : shakeRoute vp (IsHonestKey vp (shakeCore vp)) pkSeed (encode vp q) = some q
-  · refine hmsgAtPrfKey_and_prfMsgAt_or_eq_or_hmsgAtWeakKey_of_shakeRoute_ne hc hq' hq
-      (Ne.symm hne) he.symm fun hfix' => hne ?_
-    exact Option.some.inj (hfix.symm.trans ((congrArg _ he).trans hfix'))
-  · exact hmsgAtPrfKey_and_prfMsgAt_or_eq_or_hmsgAtWeakKey_of_shakeRoute_ne hc hq hq' hne he hfix
+      HmsgAtWeakKey pkSeed pkRoot c :=
+  let ⟨_, _, hne, hq, hq', he, hfix⟩ := h.exists_route_ne
+  hmsgAtPrfKey_and_prfMsgAt_or_eq_or_hmsgAtWeakKey_of_shakeRoute_ne hc hq hq' hne he hfix
 
 end Route
 
@@ -226,6 +241,23 @@ theorem isHonestQuery_or_route_eq_some_of_mem_support_romSchemeRun_routeAdv
     (fun pk q => (shakeEncoding vp hn hnm pk.pkSeed).route (encode vp q) = some q)
     (allQueriesSatisfy_routeAdv_main hn hnm adv) hz q hq
 
+include hn hnm in
+/-- An honest query of a key pair is route-fixed at its public seed, an `H_msg` point at its
+public key, or a `PRF_msg` point keyed by its `SK.prf`. -/
+theorem shakeRoute_encode_eq_some_or_of_isHonestQuery {pk : PublicKeyCore (shakeCore vp)}
+    {skPrf : (shakeCore vp).SkPrf} {q : (hashSpec (shakeCore vp)).Domain}
+    (h : IsHonestQuery vp pk skPrf q) :
+    shakeRoute vp (IsHonestKey vp (shakeCore vp)) pk.pkSeed (encode vp q) = some q ∨
+      (∃ r msg, q = .inl (.hmsg r pk.pkSeed pk.pkRoot msg)) ∨
+        ∃ o msg, q = .inr ⟨skPrf, o, msg⟩ := by
+  rcases q with (⟨s, k, xs⟩ | ⟨r, s, root, msg⟩) | ⟨skPrf', o, msg⟩
+  · obtain ⟨rfl, hk⟩ := h
+    exact Or.inl (shakeEncoding_route_encode_thash hn hnm _ hk xs)
+  · obtain ⟨rfl, rfl⟩ := h
+    exact Or.inr (Or.inl ⟨r, msg, rfl⟩)
+  · obtain rfl : skPrf' = skPrf := h
+    exact Or.inr (Or.inr ⟨o, msg, rfl⟩)
+
 /-- Every point of the final cache of the routed run is route-fixed at the run's public seed, an
 `H_msg` point at the run's public key, or a `PRF_msg` point keyed by the run's `SK.prf`. -/
 theorem route_eq_some_or_of_mem_support_romSchemeRun_routeAdv
@@ -236,17 +268,9 @@ theorem route_eq_some_or_of_mem_support_romSchemeRun_routeAdv
     (hq : (z.2 q).isSome) :
     shakeRoute vp (IsHonestKey vp (shakeCore vp)) z.1.pk.pkSeed (encode vp q) = some q ∨
       (∃ r msg, q = .inl (.hmsg r z.1.pk.pkSeed z.1.pk.pkRoot msg)) ∨
-        ∃ o msg, q = .inr ⟨z.1.sk.skPrf, o, msg⟩ := by
-  rcases isHonestQuery_or_route_eq_some_of_mem_support_romSchemeRun_routeAdv hn hnm adv hz q hq
-    with h | h
-  · rcases q with (⟨s, k, xs⟩ | ⟨r, s, root, msg⟩) | ⟨skPrf, o, msg⟩
-    · obtain ⟨rfl, hk⟩ := h
-      exact Or.inl (shakeEncoding_route_encode_thash hn hnm _ hk xs)
-    · obtain ⟨rfl, rfl⟩ := h
-      exact Or.inr (Or.inl ⟨r, msg, rfl⟩)
-    · obtain rfl : skPrf = z.1.sk.skPrf := h
-      exact Or.inr (Or.inr ⟨o, msg, rfl⟩)
-  · exact Or.inl h
+        ∃ o msg, q = .inr ⟨z.1.sk.skPrf, o, msg⟩ :=
+  (isHonestQuery_or_route_eq_some_of_mem_support_romSchemeRun_routeAdv hn hnm adv hz q hq).elim
+    (shakeRoute_encode_eq_some_or_of_isHonestQuery hn hnm) Or.inl
 
 /-- **Provenance of the tweakable-hash points.** Every tweakable-hash point of the final cache of
 the routed run, honest or forged, is at the run's public seed and an honest address key. -/
