@@ -177,9 +177,8 @@ stack. See the [program-logic guide](../agents/program-logic.md#core-wp-and-the-
 for these boundaries and the v4.35 tracking links. The source-count survey below
 records the earlier snapshot; its control/WP recommendations are superseded here.
 
-The upgrade uses published Mathlib v4.35.0 and pins PolyFun to
-`96f0ac8a89e6472617000d23cf13fd7ed1f37450`, the unpublished #314–#326 stack head.
-Publication is pending; repin to the published revision when the stack lands.
+The upgrade uses published Mathlib v4.35.0 and pins PolyFun to main at
+`ef4c157b3c6775fb55864303d96f9b400428d5f0`, which includes the #314–#328 naming stack.
 
 **Transparency.** `attribute [implicit_reducible] OracleSpec` (`VCVio/OracleComp/OracleSpec.lean:44`)
 was documented in the survey snapshot as helping instance synthesis, but at the pin
