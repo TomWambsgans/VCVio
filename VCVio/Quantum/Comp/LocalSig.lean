@@ -29,7 +29,8 @@ interpretations, and properties of its tree, such as a count of its operations
   interpretation `Quantum.LocalSig.Interp.instruments` sends it to itself. Programs over this
   signature (`Quantum.QComp`) may apply any subinstrument as one step.
 * A gate set is a signature whose operations are finitely many named gates, interpreted by their
-  channels; the cost of a program in gates is read off its tree.
+  channels; the tree records the cost of these named local operations. Basis equivalences at
+  calls and classical continuation computation are uncharged.
 
 ## Universes
 
@@ -54,9 +55,14 @@ universe u v
 
 namespace Quantum
 
-/-- **Primitive signatures.** For each register `A`, a type of local operations `Op A`; each
-operation `o` has a type of classical outcomes `Outcome o`, and on outcome `b` it leaves the
-register `next o b`. Operations lie in `Type u` and outcomes in `Type v`. -/
+/-- The names of the local operations a quantum program may apply to its own register. For each
+register `A`, `Op A` is a type of operations; an operation `o` reports a classical outcome
+`b : Outcome o` and leaves the register `next o b`, which may depend on `b`.
+
+A signature is syntax: it gives no matrices, probabilities or physicality conditions. An
+interpretation (`LocalSig.Interp`) supplies them. Use named operations for a gate set, or
+`LocalSig.instruments` to allow every dependent subinstrument. Operations and outcomes lie in
+independent universes `u` and `v`. -/
 structure LocalSig where
   /-- The local operations on the register `A`. -/
   Op : QReg → Type u
@@ -73,9 +79,19 @@ variable (L : LocalSig.{u, v})
 abbrev OutcomeAt {A : QReg} (o : L.Op A) (u : QReg) : Type v :=
   {b : L.Outcome o // L.next o b = u}
 
-/-- **Interpretations.** An interpretation of the signature `L` sends each operation
-`o : L.Op A` to a dependent subinstrument from `A` with outcomes in `L.Outcome o`, whose output
-register on outcome `b` is `L.next o b`. -/
+/-- The physical meaning of the local operations in `L`. For each `o : L.Op A`, an
+interpretation gives completely positive branch maps `Φ_b : M_A → M_{L.next o b}`, where
+`M_A = Matrix A A ℂ`. For every positive semidefinite `ρ`,
+`∑' b, tr (Φ_b ρ) ≤ tr ρ`.
+
+The branch operator `Φ_b ρ` is unnormalized. On a normalized input its trace is the probability
+of reporting `b`, and `1 - ∑' b, tr (Φ_b ρ)` is the failure probability. On a substate these
+are weights; the trace deficit is additional lost weight. `Interp.Lossless` requires equality
+in the trace bound for every operation.
+
+Finite outcomes, a fixed output register and no loss give the instruments in Watrous,
+The Theory of Quantum Information, §2.3.2, equations (2.258)–(2.261), printed p. 112
+(PDF p. 120). Matrix and tensor conventions are fixed in `VCVio.Quantum.MatrixMap`. -/
 @[expose]
 def Interp : Type (max 1 u v) :=
   ∀ ⦃A : QReg⦄ (o : L.Op A), DSubInstrument A (L.Outcome o) fun b ↦ L.next o b
