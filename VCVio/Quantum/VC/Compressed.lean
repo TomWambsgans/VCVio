@@ -438,11 +438,39 @@ end commute
 
 /-! ## Simulations between emulated oracles -/
 
+private theorem evalDistMap_eq_of_runtime_simulation
+    {spec : QuantumOracleSpec.{u₁, v₁}} (R₁ R₂ : QuantumRuntime spec)
+    (V : MatrixMap R₁.D R₂.D)
+    (h : ∀ i r, (R₂.step i).branch r ∘ₗ V.amplifyLeft (spec.In i) =
+      V.amplifyLeft (spec.Out i) ∘ₗ (R₁.step i).branch r)
+    (hV : V.IsTP) (hinit : V R₁.init.matrix = R₂.init.matrix)
+    {L : LocalSig.{uL, vL}} (I : L.Interp) {W : QReg → Type w} {A : QReg}
+    (x : QuantumComp L spec W A) (ρ : SubState A) {γ : Type*} [MeasurableSpace γ]
+    (f : (Σ u, W u) → γ) : R₂.evalDistMap I x ρ f = R₁.evalDistMap I x ρ f := by
+  simp only [QuantumRuntime.evalDistMap]
+  refine congrArg Measure.sum (funext fun p ↦ ?_)
+  rw [QuantumRuntime.trace_jointPost_eq_of_simulation I h hV hinit x ρ p]
+
 namespace EmulatedOracle
 
 section intertwine
 
 variable {P : Type u} {In : P → QReg}
+
+/-- An isometry intertwining the ports and initialization preserves every observed law. -/
+theorem outcomeLawWith_eq_of_intertwine (E₁ E₂ : EmulatedOracle P In) (M : Matrix E₂.S E₁.S ℂ)
+    (hM : Mᴴ * M = 1)
+    (hU : ∀ i, E₂.U i * ((1 : Matrix (In i) (In i) ℂ) ⊗ₖ M) =
+      ((1 : Matrix (In i) (In i) ℂ) ⊗ₖ M) * E₁.U i)
+    (hinit : MatrixMap.conj M E₁.init.matrix = E₂.init.matrix) {L : LocalSig.{uL, vL}}
+    (I : L.Interp) {W : QReg → Type w} {A : QReg} (x : QuantumComp L (uSpec P In) W A)
+    (ρ : SubState A) {γ : Type*} [MeasurableSpace γ] (f : (Σ u, W u) → γ) :
+    E₂.toRuntime.evalDistMap I x ρ f = E₁.toRuntime.evalDistMap I x ρ f := by
+  refine evalDistMap_eq_of_runtime_simulation E₁.toRuntime E₂.toRuntime (MatrixMap.conj M)
+    (fun i r ↦ ?_) (MatrixMap.isTP_conj hM) hinit I x ρ f
+  change MatrixMap.conj (E₂.U i) ∘ₗ (MatrixMap.conj M).amplifyLeft (In i) =
+    (MatrixMap.conj M).amplifyLeft (In i) ∘ₗ MatrixMap.conj (E₁.U i)
+  rw [MatrixMap.amplifyLeft_conj, ← MatrixMap.conj_mul, ← MatrixMap.conj_mul, hU i]
 
 /-- Kraus maps whose operators `M ω` resolve the identity (`∑ ω, (M ω)ᴴ M ω = 1`), applied on the
 second factor, preserve the trace in sum. -/
@@ -858,11 +886,8 @@ theorem evalDistMap_eq_of_mixed_intertwine (E F : VCOracle k X Y) (M : Matrix F.
     (x : QuantumComp L (mixedOracleSpec k X Y) W A) (ρ : SubState A)
     {γ : Type*} [MeasurableSpace γ] (f : (Σ u, W u) → γ) :
     F.mixedRuntime.evalDistMap I x ρ f = E.mixedRuntime.evalDistMap I x ρ f := by
-  simp only [QuantumRuntime.evalDistMap]
-  refine congrArg Measure.sum (funext fun p ↦ ?_)
-  rw [QuantumRuntime.trace_jointPost_eq_of_simulation (R₁ := E.mixedRuntime)
-    (R₂ := F.mixedRuntime) (V := MatrixMap.conj M) I
-    (mixed_step_intertwine E F M hU hA) (MatrixMap.isTP_conj hM) hinit x ρ p]
+  exact evalDistMap_eq_of_runtime_simulation E.mixedRuntime F.mixedRuntime (MatrixMap.conj M)
+    (mixed_step_intertwine E F M hU hA) (MatrixMap.isTP_conj hM) hinit I x ρ f
 
 /-- A complete family of mixed intertwiners resolves a runtime law as a mixture. -/
 theorem evalDistMap_eq_sum_of_mixed_intertwine {Ω : Type*} [Fintype Ω] (E : VCOracle k X Y)
