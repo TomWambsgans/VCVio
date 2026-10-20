@@ -76,6 +76,7 @@ scoped notation "𝟙⟦" P "⟧" => propInd P
 the lambda `fun post => wp c post` for partial
 application sites (e.g. `change wp⟦c⟧` or composition with `≤`). -/
 scoped syntax:max (name := wpBracket) "wp⟦" term "⟧" : term
+/-- `wp⟦c⟧ post`, the bracket notation applied to a postcondition. -/
 scoped syntax:max (name := wpBracketApp) "wp⟦" term "⟧" term:max : term
 
 scoped macro_rules

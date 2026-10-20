@@ -124,7 +124,7 @@ pairs `(a, w)`, and the WP transformer defined in
 applying the postcondition. This is why `s` appears only in `Q.1 a (s ++ w)`
 on the right-hand side. -/
 theorem triple_writerT_iff_forall_support {ω α : Type}
-    [EmptyCollection ω] [Append ω] [LawfulAppend ω]
+    [Append ω]
     (mx : WriterT ω (OracleComp spec) α)
     (P : Std.Do.Assertion (.arg ω .pure)) (Q : Std.Do.PostCond α (.arg ω .pure)) :
     Std.Do.Triple mx P Q ↔
