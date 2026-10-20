@@ -79,7 +79,9 @@ into a typed answer and a tail (`RandomOracleEncoding.ofSplit`).
   from a splitting of the single oracle's values.
 - `RandomOracleEncoding.singleImpl`, `RandomOracleEncoding.typedImpl`: the single-oracle and the
   typed world.
-- `RandomOracleEncoding.Clash`: two cached typed points share an encoding.
+- `RandomOracleEncoding.Clash`: two cached typed points share an encoding; a clash has a cached
+  point that `route` does not read back from its encoding
+  (`RandomOracleEncoding.Clash.exists_route_ne`).
 - `RandomOracleEncoding.prEvent_simulateQ_singleImpl_run_le`: the single-oracle world is bounded
   by the typed world or a clash; `RandomOracleEncoding.prEvent_simulateQ_romImpl_encodeImpl_run_le`
   is the same statement for the random oracle model of the single oracle after the encoding.

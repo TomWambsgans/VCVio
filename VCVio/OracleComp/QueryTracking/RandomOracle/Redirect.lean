@@ -26,6 +26,18 @@ is monotone in the cache (`QueryCache.viewBy_mono`). For a redirect of `spec` in
 view agrees with `c` wherever `ρ` passes the query on (`QueryCache.viewBy_apply_of_eq_query`), so
 it extends the restriction `QueryCache.filter p c` of `c` to any set `p` of such points
 (`QueryCache.filter_le_viewBy`).
+
+## Replays on a restriction
+
+A replay whose every query satisfies `p` reads `filter p c` as `c`
+(`QueryCache.simulateQ_toPartialImpl_filter_eq_of_allQueriesSatisfy`). A replay settled on `c`
+that settles on the restriction to `p` of a larger cache settles, with that value, on
+`filter p c` (`QueryCache.simulateQ_toPartialImpl_filter_of_le`). A replay settled on a sub-cache
+`c₀` of `c` that does not settle at that value on `filter p c` has a point of `c₀` outside `p`
+(`QueryCache.exists_isSome_and_not_of_simulateQ_toPartialImpl_filter_ne`). A `spec₁`-only program
+run in the random oracle model over `spec₁ + spec₂`, whose replay settles on the restriction to
+`p` of the `spec₁` part of its final cache, adds to that part only points of `p`
+(`OracleComp.forall_of_simulateQ_toPartialImpl_filter_fst_of_mem_support_run_romImpl`).
 -/
 
 public section
