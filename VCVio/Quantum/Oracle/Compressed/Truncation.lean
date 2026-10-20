@@ -252,34 +252,34 @@ against the compressed runtime. -/
 theorem outcomeLawWith_truncatedRuntime {γ : Type*} [MeasurableSpace γ] (I : L.Interp)
     {x : QuantumComp L (qromSpec X Y) W A} {q t : ℕ} (hx : x.IsQueryBound fun _ ↦ q)
     (hqt : q ≤ t) (ρ : SubState A) (f : (Σ u, W u) → γ) :
-    (truncatedRuntime X Y t).outcomeLawWith I x ρ f =
-      (compressedRuntime X Y).outcomeLawWith I x ρ f := by
-  simp only [QuantumRuntime.outcomeLawWith]
+    (truncatedRuntime X Y t).evalDistMap I x ρ f =
+      (compressedRuntime X Y).evalDistMap I x ρ f := by
+  simp only [QuantumRuntime.evalDistMap]
   refine congrArg Measure.sum (funext fun p ↦ ?_)
   rw [jointPost_truncatedRuntime I hx hqt]
 
 /-- For a program that makes at most `q ≤ t` calls on every path, every observed law against the
 truncated runtime is the law of the quantum random-oracle model. -/
-theorem outcomeLawWith_truncatedRuntime_eq_qromLawWith [SampleableType (X → Y)] {γ : Type*}
+theorem outcomeLawWith_truncatedRuntime_eq_qromLawWith {γ : Type*}
     [MeasurableSpace γ] (I : L.Interp) {x : QuantumComp L (qromSpec X Y) W A} {q t : ℕ}
     (hx : x.IsQueryBound fun _ ↦ q) (hqt : q ≤ t) (ρ : SubState A) (f : (Σ u, W u) → γ) :
-    (truncatedRuntime X Y t).outcomeLawWith I x ρ f = qromLawWith I x ρ fun _ ↦ f := by
+    (truncatedRuntime X Y t).evalDistMap I x ρ f = qromEvalDistMap I x ρ fun _ ↦ f := by
   rw [outcomeLawWith_truncatedRuntime I hx hqt, outcomeLawWith_compressedRuntime]
 
 /-- **Truncation is invisible**, for fixed-register programs. -/
 theorem outcomeLaw₂_truncatedRuntime [MeasurableSpace α] (I : L.Interp)
     {x : QuantumComp₂ L (qromSpec X Y) A B α} {q t : ℕ} (hx : x.IsQueryBound fun _ ↦ q)
     (hqt : q ≤ t) (ρ : SubState A) :
-    (truncatedRuntime X Y t).outcomeLaw₂ I x ρ = (compressedRuntime X Y).outcomeLaw₂ I x ρ := by
-  rw [QuantumRuntime.outcomeLaw₂_eq_outcomeLawWith, QuantumRuntime.outcomeLaw₂_eq_outcomeLawWith]
+    (truncatedRuntime X Y t).evalDist₂ I x ρ = (compressedRuntime X Y).evalDist₂ I x ρ := by
+  rw [QuantumRuntime.evalDist₂_eq_evalDistMap, QuantumRuntime.evalDist₂_eq_evalDistMap]
   exact outcomeLawWith_truncatedRuntime (W := QuantumComp₂.Leaf B α) I hx hqt ρ _
 
 /-- For a fixed-register program that makes at most `q ≤ t` calls on every path, the law of its
 value against the truncated runtime is the law of the quantum random-oracle model. -/
-theorem outcomeLaw₂_truncatedRuntime_eq_qromLaw₂ [SampleableType (X → Y)] [MeasurableSpace α]
+theorem outcomeLaw₂_truncatedRuntime_eq_qromLaw₂ [MeasurableSpace α]
     (I : L.Interp) {x : QuantumComp₂ L (qromSpec X Y) A B α} {q t : ℕ}
     (hx : x.IsQueryBound fun _ ↦ q) (hqt : q ≤ t) (ρ : SubState A) :
-    (truncatedRuntime X Y t).outcomeLaw₂ I x ρ = qromLaw₂ I x ρ := by
+    (truncatedRuntime X Y t).evalDist₂ I x ρ = qromEvalDist₂ I x ρ := by
   rw [outcomeLaw₂_truncatedRuntime I hx hqt, outcomeLaw₂_compressedRuntime]
 
 end truncatedRuntime
