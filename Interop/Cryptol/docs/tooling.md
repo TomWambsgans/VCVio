@@ -133,16 +133,19 @@ The current results are:
 | Parameterized scalar operator modules | 2 |
 | Complete Imperative module, no primitive requirements | 1 |
 | Complete common/properties module, three primitive requirements | 1 |
-| Rejected at an explicit semantic/type boundary | 147 |
+| Complete primitive ring functor, seven primitive requirements | 1 |
+| Complete integer ring test closure, primitive requirements explicit | 1 |
+| Rejected at an explicit semantic/type boundary | 145 |
 
 The first rejected boundary is partial numeric types/applications in 115 cases,
-constraint entailment in 12, aggregate/nominal types in 8, `Field` in 6,
-`Prime` in 3, expression forms in 2, and scheme equality in 1. These are first
+aggregate/nominal types in 7, `Field` in 6, `Prime` in 3, expression forms in 13,
+and scheme equality in 1. All twelve previous entailment-first failures pass that
+boundary; later constraints behind other first blockers remain unexamined. These are first
 blockers, not an exhaustive feature census. Whole List/Sort/Enum, CRC and SHA2
 semantic imports remain incomplete.
 
 Selected complete closures for List, CRC, the matrix regression, properties and
-field scalar operators are committed. `elaboration.json` also retains the focused
+field scalar operators and the primitive ring functor are committed. `elaboration.json` also retains the focused
 six-module comparison for Reference/List/Sort/Imperative/Enum/CRC. Neither scope
 nor linking acceptance is counted as source preservation. See the
 [compatibility implementation contract](compatibility.md) for exact trust
@@ -150,17 +153,17 @@ boundaries, remaining migration work and proof targets.
 
 ### Shared open modules and generated loop interfaces
 
-The open checker first registers every declaration's ordered scheme. References
-are typed positions in that shared context; bodies are checked once, without
+The open checker registers a declaration's scheme in its source group's scope.
+References are typed positions in that context; bodies are checked once, without
 recursive inlining or finite monomorphization. Numeric, type, proof and value
-binders use the existing scoped constructors. Local recursive groups use
-`Term.letRec`; global linking uses PolyFun's `ScopedDomain.Env.fixGroup` before
-specialization. Module numeric/type parameters, assumptions and value parameters
+binders use the existing scoped constructors. Local and module declarations use
+ordered `Term.letE`/`Term.letRec` composition; PolyFun's `ScopedDomain.Env.fixGroup`
+is used once per recursive group, before specialization. Module numeric/type parameters, assumptions and value parameters
 remain explicit. Official primitive fallback edges resolve to actual named source
 declarations, although the complete Reference closure does not yet elaborate.
-Source group boundaries remain in the retained module. The correspondence between
-their ordered binding semantics and the linked simultaneous equation system still
-needs a source-preservation proof; the import acceptance equation does not prove it.
+`Declarations.denote_close` proves agreement between closing a term under these
+groups and interpreting the shared environment. Correspondence with an independent
+source semantics still needs a preservation proof; acceptance does not prove it.
 
 `Constraint n v` now retains both numeric and value-type variables. Structural
 class/literal constraints are admissibility predicates, not runtime dictionaries.
@@ -169,8 +172,10 @@ comparison implementations. The source-to-carrier mapping is defined once in
 `Reference.ValueType`; source shape remains distinct during expression checking.
 Partial numeric comparisons require defined results; two undefined expressions
 do not satisfy equality. Substitution and staged semantic laws cover the expanded
-constraint language. Proof applications currently discharge exact ambient
-assumptions only; general constraint entailment and checked coercions remain work.
+constraint language. Proof applications use `ConstraintEvidence.prove`: ambient
+assumptions, compositional finiteness/definedness and supported numeric/class/literal
+calculations produce Lean proofs. General entailment and checked coercions remain
+work.
 Sequence lengths and numeric instantiations still use the old total `NumExpr`
 fragment: parsing a partial expression does not silently give it a total meaning.
 
@@ -257,9 +262,10 @@ The implementation checkpoint was validated with the published PolyFun revision
 `3fc600b1cec58a1272d8ac404c064c48eb5e5bef`: optional build/lint/tests/axioms and
 pinned external validation pass, including byte-identical regeneration of the
 31-root export, 135-file census and whole-module corpus. The optional axiom
-sweep covers 4,588 declarations across 126 modules with no admissions or
-nonstandard-axiom taint. The companion PolyFun full suite covers 16,901
-declarations across 447 modules with the same zero-debt result.
+sweep covers 4,692 declarations across 129 modules with no admissions or
+nonstandard-axiom taint. The previously validated companion PolyFun full suite
+covered 16,901 declarations across 447 modules with the same zero-debt result;
+its published pin is unchanged by this checkpoint.
 
 `inventory_foundation.py` calls `--module` for every tracked `.cry` file at
 Foundation `7d0528bd998682788f4e23661f2829298f9e47db`. All **135 files** load and
@@ -434,10 +440,9 @@ a substitute for an unsupported source definition. Unknown primitives and
 foreign implementations need explicit parameters and contracts. Do not assert
 an equality contradicted by a known semantic discrepancy and call it proof debt.
 
-The optional Cryptol gate currently rejects all admissions. Before admitting
-proofs, extend its existing validation with a deliberately scoped obligation
-manifest: exact declaration/proposition, source identity, reason, owning workstream
-and transitive affected conclusions. Reject unlisted debt and nonstandard proof
+The optional Cryptol gate rejects all unlisted admissions. Its scoped obligation
+manifest records exact declaration/proposition, source identity, reason, owning
+workstream and transitive affected conclusions. Reject unlisted debt and nonstandard proof
 axioms; keep PolyFun's baseline empty and core VCVio's isolation unchanged.
 Proof debt is allowed in this exploratory consumer, not silently inherited by
 generic infrastructure. No admission policy or baseline changes are made by
@@ -614,3 +619,27 @@ require optional build/lint/test/obligation checks; exporter/artifact changes
 also require pinned regeneration and external observations. A full corpus report
 must survive partial failure and report progress honestly. Tests diagnose
 regressions; semantic preservation and implementation equality are proof claims.
+
+## Ordered module and constraint checkpoint
+
+The typed module environment now follows the linker's declaration groups.
+`Declarations` is an indexed assembly telescope over the existing polynomial
+terms: it records body contexts and names, closes exports with `letE`/`letRec`,
+and has a proved agreement with shared environment interpretation and block
+composition. It does not introduce another expression language or a new
+computation model. PolyFun's existing scoped-domain fixed-point API suffices;
+its pin is unchanged.
+
+Proof search returns entailment evidence. Whole-module materialization now
+records typed contexts and supplies explicit scheme/constraint arguments,
+because Lean cannot generally invert substitution to infer them. Generated
+constraint proofs are replayed in the kernel. The regression compiles every
+body of common/properties and Ring::Primitive::Functor, not just one selected
+export. Internal replay uses same-package `import all` for checker definitions;
+ordinary consumers still use the proved public bridge interface.
+
+Partial type evaluation has substitution and monotonicity proofs and is used
+by the constraint solver. The larger canonical `NumericExpr` migration remains
+open; no undefined numeric operation is given a default value. The [compatibility
+report](compatibility.md) distinguishes this preparation from the outstanding
+open-scheme/domain migration and records the current whole-corpus counts.

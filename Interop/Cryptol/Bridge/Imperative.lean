@@ -14,6 +14,7 @@ import all Mathlib.Data.List.Sort
 import all Interop.Cryptol.Translation.OpenTypes
 import all Interop.Cryptol.Translation.OpenElaboration
 import all Interop.Cryptol.Translation.ModuleElaboration
+import all Interop.Cryptol.Translation.Declarations
 import all Interop.Cryptol.Model.Reference.Kinds
 import all Interop.Cryptol.Model.Reference.Types
 import all Interop.Cryptol.Model.Reference.Syntax
@@ -51,24 +52,20 @@ theorem import_accepted :
     funext i
     cases i using Fin.cases with
     | zero => rfl
-    | succ i =>
-        cases i using Fin.cases with
-        | zero => rfl
-        | succ i => exact Fin.elim0 i
+    | succ i => exact Fin.elim0 i
 
 /-- The complete source import, carrying its exact kernel-checked acceptance equation. -/
 @[expose] def certificate :
     ImperativeSource.bundle.ElaborationCertificate ImperativeSource.source.provenance.name :=
   ⟨32, imported, import_accepted⟩
 
-/-- The finite while export retains the whole shared declaration group. -/
+/-- The finite while export retains the module's ordered declaration groups. -/
 @[expose] def whileSource : Term Scope.empty [] loopScheme :=
-  Term.letRec (w := Scope.empty) (Γ := []) [loopScheme, loopScheme] imported.bodies (.var .zero)
+  imported.code.close (.var (.succ .zero))
 
-/-- The finite do-while export retains the same shared declaration group. -/
+/-- The finite do-while export retains the same ordered declarations. -/
 @[expose] def dowhileSource : Term Scope.empty [] loopScheme :=
-  Term.letRec (w := Scope.empty) (Γ := []) [loopScheme, loopScheme] imported.bodies
-    (.var (.succ .zero))
+  imported.code.close (.var .zero)
 
 /-- The selected while is exactly the public export of the checked module. -/
 theorem export_while : imported.exportTerm "while" = .ok ⟨loopScheme, whileSource⟩ := by
@@ -83,6 +80,43 @@ theorem export_dowhile : imported.exportTerm "dowhile" = .ok ⟨loopScheme, dowh
     (.arrow (.arrow a .bit) (.arrow (.arrow a a) (.arrow a a))) :=
   .type a (.mono _ _)
 
+private def whileBodies : (i : Fin 1) → Term Scope.empty [loopScheme] [loopScheme][i] :=
+  Fin.cases body0 (fun i => nomatch i)
+
+private noncomputable def whileEnvironment : Env emptyAssignment [loopScheme] :=
+  IPFunctor.ScopedDomain.Env.fixGroup (Ξ := [loopScheme]) (Γ := [])
+    (fun s => s.domain emptyAssignment.val)
+    (fun i : Fin 1 => (whileBodies i).denote emptyAssignment)
+    (Env.empty emptyAssignment)
+
+private theorem denote_while :
+    imported.denote emptyAssignment (Env.empty emptyAssignment) loopScheme (.succ .zero) =
+      whileEnvironment loopScheme .zero := by
+  with_unfolding_all rfl
+
+private noncomputable def runLoop {a : ClosedTy} (loop : loopScheme.Meaning emptyAssignment.val)
+    (condition : Computation (.arrow a .bit)) (body : Computation (.arrow a a))
+    (initial : Computation a) : Computation a :=
+  DomainResult.applyContinuous
+    (DomainResult.applyContinuous
+      (DomainResult.applyContinuous ((loopInstance a).run loop) condition) body) initial
+
+private theorem whileEnvironment_unfold :
+    whileEnvironment loopScheme .zero = body0.denote emptyAssignment
+      (Env.append emptyAssignment (whileEnvironment, Env.empty emptyAssignment)) := by
+  exact congrArg (fun η : Env emptyAssignment [loopScheme] => η loopScheme .zero)
+    (IPFunctor.ScopedDomain.Env.fixGroup_unfold (Ξ := [loopScheme]) (Γ := [])
+      (fun s => s.domain emptyAssignment.val)
+      (fun i => (whileBodies i).denote emptyAssignment) (Env.empty emptyAssignment))
+
+private theorem body0_apply {a : ClosedTy} (η : Env emptyAssignment [loopScheme])
+    (condition : Computation (.arrow a .bit)) (body : Computation (.arrow a a))
+    (initial : Computation a) :
+    runLoop (body0.denote emptyAssignment η) condition body initial = Semantics.conditional
+      (runLoop (η loopScheme .zero) condition body (DomainResult.applyContinuous body initial),
+        initial) (DomainResult.applyContinuous condition initial) := by
+  with_unfolding_all rfl
+
 /-- Apply the imported while to lazy functions and a possibly partial initial state. -/
 @[expose] noncomputable def whileLoop {a : ClosedTy}
     (condition : Computation (.arrow a .bit)) (body : Computation (.arrow a a))
@@ -90,8 +124,8 @@ theorem export_dowhile : imported.exportTerm "dowhile" = .ok ⟨loopScheme, dowh
   DomainResult.applyContinuous
     (DomainResult.applyContinuous
       (DomainResult.applyContinuous
-        ((loopInstance a).run (imported.denote emptyAssignment (Env.empty _)
-          loopScheme .zero)) condition) body)
+        ((loopInstance a).run (imported.denote emptyAssignment (Env.empty emptyAssignment)
+          loopScheme (.succ .zero))) condition) body)
     initial
 
 /-- Apply the imported do-while without imposing totality on its callbacks or state. -/
@@ -101,8 +135,8 @@ theorem export_dowhile : imported.exportTerm "dowhile" = .ok ⟨loopScheme, dowh
   DomainResult.applyContinuous
     (DomainResult.applyContinuous
       (DomainResult.applyContinuous
-        ((loopInstance a).run (imported.denote emptyAssignment (Env.empty _)
-          loopScheme (.succ .zero))) condition) body)
+        ((loopInstance a).run (imported.denote emptyAssignment (Env.empty emptyAssignment)
+          loopScheme .zero)) condition) body)
     initial
 
 /-- Applying the exported source term gives the public loop interface. -/
@@ -112,10 +146,11 @@ theorem whileSource_apply {a : ClosedTy}
     DomainResult.applyContinuous
       (DomainResult.applyContinuous
         (DomainResult.applyContinuous
-          (whileSource.observe emptyAssignment (loopInstance a) (Env.empty _)) condition) body)
+          (whileSource.observe emptyAssignment (loopInstance a)
+            (Env.empty emptyAssignment)) condition) body)
       initial = whileLoop condition body initial := by
   simp only [Term.observe, ContinuousHom.comp_apply, whileSource,
-    Term.denote_letRec, Term.denote_var]
+    Declarations.denote_close, Term.denote_var]
   rfl
 
 /-- Applying the exported do-while term gives the same shared-environment interface. -/
@@ -125,10 +160,11 @@ theorem dowhileSource_apply {a : ClosedTy}
     DomainResult.applyContinuous
       (DomainResult.applyContinuous
         (DomainResult.applyContinuous
-          (dowhileSource.observe emptyAssignment (loopInstance a) (Env.empty _)) condition) body)
+          (dowhileSource.observe emptyAssignment (loopInstance a)
+            (Env.empty emptyAssignment)) condition) body)
       initial = doWhileLoop condition body initial := by
   simp only [Term.observe, ContinuousHom.comp_apply, dowhileSource,
-    Term.denote_letRec, Term.denote_var]
+    Declarations.denote_close, Term.denote_var]
   rfl
 
 
@@ -141,12 +177,13 @@ theorem whileLoop_unfold {a : ClosedTy}
     whileLoop condition body initial = Semantics.conditional
       (whileLoop condition body (DomainResult.applyContinuous body initial), initial)
       (DomainResult.applyContinuous condition initial) := by
-  with_unfolding_all
-    let run : Env emptyAssignment [loopScheme, loopScheme] → Computation a := fun η =>
-      DomainResult.applyContinuous (DomainResult.applyContinuous
-        (DomainResult.applyContinuous ((loopInstance a).run (η loopScheme .zero)) condition)
-        body) initial
-    exact congrArg run (imported.denote_unfold emptyAssignment (Env.empty _))
+  change runLoop _ condition body initial = Semantics.conditional
+    (runLoop _ condition body (DomainResult.applyContinuous body initial), initial)
+    (DomainResult.applyContinuous condition initial)
+  rw [denote_while]
+  conv_lhs => rw [whileEnvironment_unfold]
+  rw [body0_apply]
+  rfl
 
 set_option maxHeartbeats 800000 in
 -- Reducing the shared polymorphic body checks the dependent environments and type transports.
@@ -158,12 +195,7 @@ theorem doWhileLoop_unfold {a : ClosedTy}
       (whileLoop condition body (DomainResult.applyContinuous body initial),
         DomainResult.applyContinuous body initial)
       (DomainResult.applyContinuous condition (DomainResult.applyContinuous body initial)) := by
-  with_unfolding_all
-    let run : Env emptyAssignment [loopScheme, loopScheme] → Computation a := fun η =>
-      DomainResult.applyContinuous (DomainResult.applyContinuous
-        (DomainResult.applyContinuous ((loopInstance a).run (η loopScheme (.succ .zero))) condition)
-        body) initial
-    exact congrArg run (imported.denote_unfold emptyAssignment (Env.empty _))
+  with_unfolding_all rfl
 
 
 /-- A false condition returns the suspended state without demanding the body. -/

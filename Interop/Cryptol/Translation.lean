@@ -3,7 +3,9 @@ module  -- shake: keep-all --deprecated_module: ignore
 public import Interop.Cryptol.Translation.CLI
 public import Interop.Cryptol.Translation.Certified
 public import Interop.Cryptol.Translation.CertifiedFamily
+public import Interop.Cryptol.Translation.ConstraintEvidence
 public import Interop.Cryptol.Translation.Contracts
+public import Interop.Cryptol.Translation.Declarations
 public import Interop.Cryptol.Translation.Export
 public import Interop.Cryptol.Translation.Finite
 public import Interop.Cryptol.Translation.Finite.Basic

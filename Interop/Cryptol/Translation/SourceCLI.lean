@@ -85,15 +85,11 @@ public def run (args : List String) : IO UInt32 := do
                       ("scheme", .str (reprStr scheme))])
               let mut bodies := #[]
               if mode == "module-code" then
-                for i in List.finRange (result.declarations.map Prod.snd).length do
-                  match Materialize.term (result.bodies i) with
-                  | .error message =>
-                      out.putStrLn (errorJson ⟨[moduleName, "materialization"], message⟩).compress
-                      return 1
-                  | .ok code => bodies := bodies.push (.mkObj
-                      [("name", .str result.declarations[i].1.origin),
-                       ("scheme", .str (reprStr (result.declarations.map Prod.snd)[i])),
-                       ("term", .str code)])
+                match Materialize.declarations result.code with
+                | .error message =>
+                    out.putStrLn (errorJson ⟨[moduleName, "materialization"], message⟩).compress
+                    return 1
+                | .ok code => bodies := code.toArray
               out.putStrLn (Lean.Json.mkObj [("module", .str moduleName),
                 ("expression_typing", .str "accepted"),
                 ("semantic_import", .str (if result.declarations.isEmpty then "no-value-definitions"

@@ -130,6 +130,20 @@ inductive ValueClass where
       | .infinite => false
   | _ => false
 
+/-- Every integral carrier admits the zero literal, including an empty word. -/
+theorem ClosedTy.literal_zero_of_supports_integral (a : ClosedTy) (exclusive : Bool)
+    (h : a.supports .integral = true) : a.literal exclusive (.finite 0) = true := by
+  cases a with
+  | var i => exact i.elim
+  | integer => cases exclusive <;> rfl
+  | seq n a =>
+      cases n with
+      | infinite => simp [supports] at h
+      | finite n =>
+          cases a <;> simp_all [supports, literal, NumericUnary.eval]
+          cases exclusive <;> simp
+  | bit | unit | prod | arrow => simp [supports] at h
+
 /-- Numeric comparison with infinity as the greatest length. -/
 @[expose] def Length.ge : Length → Length → Bool
   | .infinite, _ => true

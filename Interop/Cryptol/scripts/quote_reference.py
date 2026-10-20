@@ -303,7 +303,10 @@ def quote_imperative_bodies(bundle, checked):
     bodies = checked["bodies"]
     if (checked["expression_typing"] != "accepted" or len(bodies) != 2
             or [b["name"] for b in bodies] != [d["name"]["origin"] for d in ds]
-            or bodies[0]["scheme"] != bodies[1]["scheme"]):
+            or bodies[0]["scheme"] != bodies[1]["scheme"]
+            or any(b["context"] != [ds[0]["name"]["origin"]] for b in bodies)
+            or bodies[0]["recursive_group"] != [ds[0]["name"]["origin"]]
+            or bodies[1]["recursive_group"]):
         raise ValueError("Imperative checked interface changed; update its consumer")
     source = '''/-
 Copyright (c) 2026 Devon Tuma. All rights reserved.
@@ -336,17 +339,20 @@ open Polymorphic Translation
 ''' + wrap(bodies[0]["scheme"]) + '\n\n'
     for i, b in enumerate(bodies):
         source += f'/-- The complete retained body of `{b["name"]}`. -/\n'
-        source += f'@[expose] def body{i} : Term Scope.empty [loopScheme, loopScheme] loopScheme :=\n'
+        source += f'@[expose] def body{i} : Term Scope.empty [loopScheme] loopScheme :=\n'
         source += wrap(b["term"]) + '\n\n'
     source += '''/-- The candidate checked module with explicit, shared finite bodies. -/
 @[expose, reducible] def imported : ElaboratedModule where
   source := ImperativeSource.source
   scope := Scope.empty
   parameters := []
-  declarations :=
-''' + wrap('[' + ', '.join('(' + name(d['name']) + ', loopScheme)' for d in ds) + ']')
+  bindings :=
+''' + wrap('[' + ', '.join('(' + name(d['name']) + ', loopScheme)' for d in reversed(ds)) + ']')
+    source += '\n  code :=\n' + wrap(
+        '.recursive [(' + name(ds[0]['name']) + ', loopScheme)] '
+        '(Fin.cases body0 (fun i => nomatch i)) '
+        '(.nonrecursive ' + name(ds[1]['name']) + ' loopScheme body1 (.nil _))')
     source += '''
-  bodies := Fin.cases body0 (Fin.cases body1 (fun i => nomatch i))
 
 end Interop.Cryptol.Bridge.Imperative
 '''

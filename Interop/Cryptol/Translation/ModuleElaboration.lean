@@ -7,17 +7,16 @@ Authors: Devon Tuma
 module
 
 public import Interop.Cryptol.Translation.SourceLink
-public import Interop.Cryptol.Translation.OpenElaboration
-public import Interop.Cryptol.Model.PolyDenotation
+public import Interop.Cryptol.Translation.Declarations
 
 /-!
 # Shared typed module environments
 
 Each retained declaration has one finite polymorphic body. Global references
-are positions in a typed environment; linking ties one simultaneous least
-fixed point before specialization. Module value parameters remain explicit
-ambient inputs. Acceptance witnesses certify the elaboration result only;
-frontend correctness and source-semantic preservation are separate claims.
+are positions in an ordered typed environment. Only members of a source
+recursive group share a fixed point. Primitive implementations and module
+parameters remain explicit inputs. Acceptance and source preservation are
+separate claims.
 -/
 
 public section
@@ -34,39 +33,43 @@ structure ElaboratedModule where
   scope : Scope
   /-- Explicit primitive implementations followed by module value parameters. -/
   parameters : List (Reference.Name × scope.ValueSort)
-  /-- Every declaration in the selected transitive closure, once. -/
-  declarations : List (Reference.Name × scope.ValueSort)
-  /-- Bodies refer to the shared declaration context and ambient value parameters. -/
-  bodies : (i : Fin (declarations.map Prod.snd).length) →
-    Term scope (declarations.map Prod.snd ++ parameters.map Prod.snd)
-      (declarations.map Prod.snd)[i]
+  /-- Final named environment, with ambient inputs after the new declarations. -/
+  bindings : Signatures scope
+  /-- Each body is checked under its source declaration group's environment. -/
+  code : Declarations scope parameters bindings
   /-- Original primitive declarations whose meanings are explicit inputs. -/
   requirements : List PrimitiveRequirement := []
 
 namespace ElaboratedModule
 
-/-- Link all declarations before choosing any instantiation of their schemes. -/
+/-- Interpret ordered groups before choosing any instantiation of their schemes. -/
 @[expose] noncomputable def denote (m : ElaboratedModule) (ρ : m.scope.Assignment) :
-    Env ρ (m.parameters.map Prod.snd) →𝒄 Env ρ (m.declarations.map Prod.snd) :=
-  IPFunctor.ScopedDomain.Env.fixGroup (fun s => s.domain ρ.val)
-    (fun i => (m.bodies i).denote ρ)
+    Env ρ (m.parameters.map Prod.snd) →𝒄 Env ρ (m.bindings.map Prod.snd) :=
+  m.code.denote ρ
 
-/-- The shared declaration environment satisfies all defining equations simultaneously. -/
-theorem denote_unfold (m : ElaboratedModule) (ρ : m.scope.Assignment)
+/-- Declaration identities in the final environment, excluding ambient inputs. -/
+@[expose] def declarations (m : ElaboratedModule) : Signatures m.scope :=
+  m.code.introduced
+
+/-- The final module context consists of declarations followed by its explicit inputs. -/
+theorem bindings_eq (m : ElaboratedModule) : m.bindings = m.declarations ++ m.parameters :=
+  m.code.bindings_eq
+
+/-- A closed consumer observes the same environment as module interpretation. -/
+theorem denote_close (m : ElaboratedModule) (ρ : m.scope.Assignment)
+    {s : m.scope.ValueSort} (body : Term m.scope (m.bindings.map Prod.snd) s)
     (η : Env ρ (m.parameters.map Prod.snd)) :
-    m.denote ρ η = IPFunctor.ScopedDomain.Env.ofFin (fun s => s.domain ρ.val)
-      (fun i => (m.bodies i).denote ρ (Env.append ρ (m.denote ρ η, η))) :=
-  IPFunctor.ScopedDomain.Env.fixGroup_unfold _ _ _
+    (m.code.close body).denote ρ η = body.denote ρ (m.denote ρ η) :=
+  m.code.denote_close ρ body η
 
 /-- Select a public source name and retain the shared declarations around its reference. -/
 @[expose] def exportTerm (m : ElaboratedModule) (name : String) :
     Except String (OpenElaboration.TypedTerm m.scope (m.parameters.map Prod.snd)) := do
   let exported := m.source.exports.filter (fun n => n.text == name)
   let [identity] := exported | throw "unknown or ambiguous public declaration"
-  let globals := OpenElaboration.Names.extendMany
-    (OpenElaboration.Names.ofSignatures (w := m.scope) m.parameters) m.declarations
+  let globals := OpenElaboration.Names.ofSignatures (w := m.scope) m.bindings
   let ⟨s, body⟩ ← OpenElaboration.lookup globals identity
-  return ⟨s, .letRec (m.declarations.map Prod.snd) m.bodies body⟩
+  return ⟨s, m.code.close body⟩
 
 end ElaboratedModule
 
@@ -101,13 +104,9 @@ namespace ModuleBundle
       (OpenElaboration.signatures (w := scope) env fuel
         (linked.down.requirements.map PrimitiveRequirement.declaration))
     let ambient := primitiveInputs ++ ambient
-    let selected := linked.down.groups.flatMap Reference.DeclGroup.declarations
-    let ⟨sigs⟩ ← OpenElaboration.liftCheck
-      (OpenElaboration.signatures (w := scope) env fuel selected)
-    let names := OpenElaboration.Names.extendMany
-      (OpenElaboration.Names.ofSignatures (w := scope) ambient) sigs
-    let rhs ← OpenElaboration.bodies fuel (w := scope) env names selected sigs
-    return ⟨root, scope, ambient, sigs, rhs, linked.down.requirements⟩
+    let ⟨bindings, code⟩ ← OpenElaboration.declarations fuel (w := scope) env ambient
+      linked.down.groups
+    return ⟨root, scope, ambient, bindings, code, linked.down.requirements⟩
   result.mapError (⟨[root.provenance.name, "elaboration"], ·⟩)
 
 /-- An exact accepted module elaboration, independent of source-preservation claims. -/

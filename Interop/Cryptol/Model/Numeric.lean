@@ -149,6 +149,40 @@ theorem eval?_subst {n m : Nat} (e : NumericExpr n) (σ : Fin n → NumericExpr 
   funext i
   exact valid i
 
+/-- Extending a partial assignment preserves every already defined numeric result. -/
+theorem eval_mono {n : Nat} (e : NumericExpr n) {ρ σ : Fin n → Option Length}
+    (h : ∀ i l, ρ i = some l → σ i = some l) {l : Length}
+    (he : e.eval ρ = some l) : e.eval σ = some l := by
+  induction e generalizing l with
+  | var i => exact h i l he
+  | finite | infinite => exact he
+  | unary op e ih =>
+      cases hv : e.eval ρ with
+      | none => simp [eval, hv] at he
+      | some x => simpa only [eval, hv, ih hv] using he
+  | binary op a b iha ihb =>
+      cases ha : a.eval ρ with
+      | none => simp [eval, ha] at he
+      | some x =>
+          cases hb : b.eval ρ with
+          | none => simp [eval, ha, hb] at he
+          | some y => simpa only [eval, ha, hb, iha ha, ihb hb] using he
+  | rangeLength a b c iha ihb ihc =>
+      cases ha : a.eval ρ with
+      | none => simp [eval, ha] at he
+      | some x =>
+          cases hb : b.eval ρ with
+          | none => simp [eval, ha, hb] at he
+          | some y =>
+              cases hc : c.eval ρ with
+              | none => simp [eval, ha, hb, hc] at he
+              | some z => simpa only [eval, ha, hb, hc, iha ha, ihb hb, ihc hc] using he
+
+/-- Evaluation without any parameter information proves a result for every assignment. -/
+theorem eval?_eq_of_eval_none {n : Nat} (e : NumericExpr n) {l : Length}
+    (h : e.eval (fun _ => none) = some l) (ρ : Fin n → Length) : e.eval? ρ = some l :=
+  e.eval_mono (ρ := fun _ => none) (σ := some ∘ ρ) (fun _ _ h => nomatch h) h
+
 end NumericExpr
 
 end Interop.Cryptol

@@ -7,6 +7,7 @@ Authors: Devon Tuma
 module
 
 public import Interop.Cryptol.Translation.OpenTypes
+public import Interop.Cryptol.Translation.ConstraintEvidence
 public import Interop.Cryptol.Model.PolyConstructors
 
 /-!
@@ -122,9 +123,9 @@ mutual
         | .proofApp function =>
             match ← elaborate fuel params names function with
             | ⟨.guard c s, f⟩ =>
-                if h : c ∈ w.constraints then
-                  return ⟨s, .proofApp f (fun ρ => ρ.property c h)⟩
-                else throw "proof application requires constraint entailment evidence"
+                match ConstraintEvidence.prove w c with
+                | some h => return ⟨s, .proofApp f h.down⟩
+                | none => throw s!"unresolved constraint entailment: {reprStr c}"
             | _ => throw "proof application requires an assumption binder"
         | .abs name type body =>
             let ⟨a⟩ ← liftCheck (OpenTypes.value params fuel type)

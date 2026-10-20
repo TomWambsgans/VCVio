@@ -61,6 +61,7 @@ public import Interop.Cryptol.Model.StructuralLogic
 public import Interop.Cryptol.Model.StructuralRing
 public import Interop.Cryptol.Model.Substitution
 public import Interop.Cryptol.Model.Syntax
+public import Interop.Cryptol.Model.TypeEvaluation
 public import Interop.Cryptol.Model.Types
 public import Interop.Cryptol.Model.WordArithmetic
 public import Interop.Cryptol.Model.WordCompare

@@ -22,7 +22,8 @@ SELECTED = {"shared/common/utils/List.cry": "list",
             "shared/CRC/Main.cry": "crc",
             "shared/algebra/Field/Zp/Test.cry": "matrix",
             "shared/common/properties.cry": "properties",
-            "shared/algebra/Field/Operators/Scalar.cry": "field-scalar"}
+            "shared/algebra/Field/Operators/Scalar.cry": "field-scalar",
+            "shared/algebra/Ring/Primitive/Functor.cry": "ring-primitive"}
 STAGES = ("expression_typing", "semantic_import", "native_view", "execution",
           "source_correspondence", "property_proof")
 OPEN_MODULES = [("list", name) for name in ["Cryptol::Reference"] + [

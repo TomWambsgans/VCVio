@@ -20,7 +20,9 @@ infrastructure is implemented. An open-module elaborator now targets the canonic
 scoped polynomial syntax; the complete Imperative module has a kernel-checked
 import and public partial-loop equations. All 135 files now pass structural checking using the explicitly identified
 compatibility frontend, and all 155 owned module instances are attempted by the
-typed importer. The [compatibility report](docs/compatibility.md) records the
+typed importer. Ordered module semantics and proof-producing constraints now
+support ten typed module instances, including four without value definitions;
+145 still reject explicitly. The [compatibility report](docs/compatibility.md) records the
 remaining numeric/type boundaries and explicit primitive requirements. The tracker distinguishes this progress
 from complete language import and source-semantic preservation.
 
@@ -160,7 +162,9 @@ retained in `artifacts/modules/`; the separate
 [elaboration report](artifacts/modules/elaboration.json) keeps the focused
 six-module comparison. Imperative's two definitions import together
 with shared recursive references; generated bodies are checked against the
-retained source, and `Bridge.Imperative` exposes lazy loop equations. Reference,
+retained source, and `Bridge.Imperative` exposes lazy loop equations. Module
+interpretation follows the source groups; exports close with the canonical
+polynomial `letE`/`letRec`, with a proved agreement to the shared environment. Reference,
 List, Sort, Enum and CRC remain rejected at partial numeric or aggregate/nominal
 types. No imported CRC equivalence or general source-preservation theorem is
 claimed. The implemented partial List

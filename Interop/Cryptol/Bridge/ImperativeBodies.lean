@@ -33,28 +33,41 @@ open Polymorphic Translation
   (Interop.Cryptol.Ty.var 0) (Interop.Cryptol.Ty.var 0)))))
 
 /-- The complete retained body of `shared::common::utils::Imperative::while`. -/
-@[expose] def body0 : Term Scope.empty [loopScheme, loopScheme] loopScheme :=
+@[expose] def body0 : Term Scope.empty [loopScheme] loopScheme :=
   (Term.typeAbs (Term.lam (Term.lam (Term.lam (Term.ite (Term.app (Term.var (.succ (.succ
-  .zero))) (Term.var .zero)) (Term.app (Term.app (Term.app (Term.typeApp (Term.var (.succ (.succ
-  (.succ .zero)))) (Interop.Cryptol.Ty.var 0)) (Term.var (.succ (.succ .zero)))) (Term.var (.succ
-  .zero))) (Term.app (Term.var (.succ .zero)) (Term.var .zero))) (Term.var .zero))))))
+  .zero))) (Term.var .zero)) (Term.app (Term.app (Term.app (Term.typeApp (s :=
+  Interop.Cryptol.Polymorphic.Scheme.mono (Interop.Cryptol.Ty.arrow (Interop.Cryptol.Ty.arrow
+  (Interop.Cryptol.Ty.var 0) (Interop.Cryptol.Ty.bit)) (Interop.Cryptol.Ty.arrow
+  (Interop.Cryptol.Ty.arrow (Interop.Cryptol.Ty.var 0) (Interop.Cryptol.Ty.var 0))
+  (Interop.Cryptol.Ty.arrow (Interop.Cryptol.Ty.var 0) (Interop.Cryptol.Ty.var 0))))) (Term.var
+  (.succ (.succ (.succ .zero)))) (Interop.Cryptol.Ty.var 0)) (Term.var (.succ (.succ .zero))))
+  (Term.var (.succ .zero))) (Term.app (Term.var (.succ .zero)) (Term.var .zero))) (Term.var
+  .zero))))))
 
 /-- The complete retained body of `shared::common::utils::Imperative::dowhile`. -/
-@[expose] def body1 : Term Scope.empty [loopScheme, loopScheme] loopScheme :=
+@[expose] def body1 : Term Scope.empty [loopScheme] loopScheme :=
   (Term.typeAbs (Term.lam (Term.lam (Term.lam (Term.letE (Term.app (Term.var (.succ .zero))
   (Term.var .zero)) (Term.ite (Term.app (Term.var (.succ (.succ (.succ .zero)))) (Term.var
-  .zero)) (Term.app (Term.app (Term.app (Term.typeApp (Term.var (.succ (.succ (.succ (.succ
-  .zero))))) (Interop.Cryptol.Ty.var 0)) (Term.var (.succ (.succ (.succ .zero))))) (Term.var
-  (.succ (.succ .zero)))) (Term.var .zero)) (Term.var .zero)))))))
+  .zero)) (Term.app (Term.app (Term.app (Term.typeApp (s :=
+  Interop.Cryptol.Polymorphic.Scheme.mono (Interop.Cryptol.Ty.arrow (Interop.Cryptol.Ty.arrow
+  (Interop.Cryptol.Ty.var 0) (Interop.Cryptol.Ty.bit)) (Interop.Cryptol.Ty.arrow
+  (Interop.Cryptol.Ty.arrow (Interop.Cryptol.Ty.var 0) (Interop.Cryptol.Ty.var 0))
+  (Interop.Cryptol.Ty.arrow (Interop.Cryptol.Ty.var 0) (Interop.Cryptol.Ty.var 0))))) (Term.var
+  (.succ (.succ (.succ (.succ .zero))))) (Interop.Cryptol.Ty.var 0)) (Term.var (.succ (.succ
+  (.succ .zero))))) (Term.var (.succ (.succ .zero)))) (Term.var .zero)) (Term.var .zero)))))))
 
 /-- The candidate checked module with explicit, shared finite bodies. -/
 @[expose, reducible] def imported : ElaboratedModule where
   source := ImperativeSource.source
   scope := Scope.empty
   parameters := []
-  declarations :=
-  [((Reference.Name.mk 4683 "while" "shared::common::utils::Imperative::while" ), loopScheme),
-  ((Reference.Name.mk 4684 "dowhile" "shared::common::utils::Imperative::dowhile" ), loopScheme)]
-  bodies := Fin.cases body0 (Fin.cases body1 (fun i => nomatch i))
+  bindings :=
+  [((Reference.Name.mk 4684 "dowhile" "shared::common::utils::Imperative::dowhile" ),
+  loopScheme), ((Reference.Name.mk 4683 "while" "shared::common::utils::Imperative::while" ),
+  loopScheme)]
+  code :=
+  .recursive [((Reference.Name.mk 4683 "while" "shared::common::utils::Imperative::while" ),
+  loopScheme)] (Fin.cases body0 (fun i => nomatch i)) (.nonrecursive (Reference.Name.mk 4684
+  "dowhile" "shared::common::utils::Imperative::dowhile" ) loopScheme body1 (.nil _))
 
 end Interop.Cryptol.Bridge.Imperative

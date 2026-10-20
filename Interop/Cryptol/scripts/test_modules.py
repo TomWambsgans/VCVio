@@ -13,6 +13,29 @@ from quote_reference import quote_imperative, quote_imperative_bodies
 from test_source import nodes
 
 
+def check_materialized(checked):
+    """Kernel-check all emitted bodies, including constraint-proof replay."""
+    source = """module
+public import Interop.Cryptol.Translation.ModuleElaboration
+import all Interop.Cryptol.Model.Types
+import all Interop.Cryptol.Model.Numeric
+import all Interop.Cryptol.Model.Length
+import all Interop.Cryptol.Model.Scheme
+public section
+open Interop.Cryptol Interop.Cryptol.Polymorphic Interop.Cryptol.Translation
+"""
+    for index, body in enumerate(checked["bodies"]):
+        source += (f"def body{index} : Term {body['scope']} ({body['context_schemes']}) "
+                   f"({body['scheme']}) := {body['term']}\n")
+    with tempfile.TemporaryDirectory(prefix="cryptol-materialized-") as temporary:
+        path = Path(temporary) / "Materialized.lean"
+        path.write_text(source)
+        result = subprocess.run(["lake", "env", "lean", str(path)], cwd=ROOT.parents[1],
+                                capture_output=True, text=True, timeout=120)
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "warning:" not in result.stdout, result.stdout
+
+
 def main():
     artifacts = ROOT / "artifacts/modules"
     lean = ROOT.parents[1] / ".lake/build/bin/cryptol-interop"
@@ -31,6 +54,10 @@ def main():
     assert all(e["lean_exit"] == 0 for e in corpus["entries"])
     assert all(r["link"] == "accepted" for e in corpus["entries"] for r in e["link_reports"])
     assert all(len(e["semantic_attempts"]) == len(e["own_modules"]) for e in corpus["entries"])
+    accepted = {s["module"] for e in corpus["entries"] for s in e["semantic_attempts"]
+                if s["result"].get("expression_typing") == "accepted"}
+    assert {"shared::algebra::Ring::Primitive::Functor",
+            "shared::algebra::Ring::Integer::Test"} <= accepted
 
     def check(bundle):
         with tempfile.TemporaryDirectory(prefix="cryptol-module-test-") as temporary:
@@ -144,16 +171,24 @@ def main():
     interface = next(i for i in matrix["interfaces"] if i["type_parameters"])
     interface["type_parameters"] = []
     assert check(matrix)[0] != 0
-    properties = elaborate_module(lean, artifacts / "properties.json", "shared::common::properties")
+    properties = elaborate_module(lean, artifacts / "properties.json",
+                                  "shared::common::properties", code=True)
     assert properties["semantic_import"] == "conditional-model"
     assert properties["shared_declarations"] == 8
+    check_materialized(properties)
     assert {p["name"] for p in properties["primitive_requirements"]} == {
         "(Cryptol::==)", "(Cryptol::!=)", "Cryptol::True"}
+    ring = elaborate_module(lean, artifacts / "ring-primitive.json",
+                            "shared::algebra::Ring::Primitive::Functor", code=True)
+    assert ring["semantic_import"] == "conditional-model" and ring["shared_declarations"] == 7
+    assert ring["module_type_parameters"] == 1 and len(ring["primitive_requirements"]) == 7
+    check_materialized(ring)
     scalar = elaborate_module(lean, artifacts / "field-scalar.json",
                               "shared::algebra::Field::Operators::Scalar")
     assert scalar["semantic_import"] == "parameterized-model"
     assert scalar["shared_declarations"] == 5 and not scalar["primitive_requirements"]
     print(f"Whole modules: utility/CRC retention, 6 typed attempts, complete Imperative import, "
+          f"8 property and 7 ring bodies with kernel-replayed constraints, "
           f"{len(mutations)} scope mutations and 2 typing/meaning mutations")
 
 

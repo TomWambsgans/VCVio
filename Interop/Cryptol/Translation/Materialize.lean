@@ -40,15 +40,19 @@ private def op {w : Scope} : {s : w.ValueSort} → (head : Op w s) →
       return app "Term.numAbs" [← children 0]
   | _, .typeAbs _, children => do
       return app "Term.typeAbs" [← children 0]
-  | _, .numApp _ e, children => do
-      return app "Term.numApp" [← children 0, "(" ++ reprStr e ++ ")"]
-  | _, .typeApp _ a, children => do
-      return app "Term.typeApp" [← children 0, "(" ++ reprStr a ++ ")"]
+  | _, .numApp s e, children => do
+      return app "Term.numApp" ["(s := " ++ reprStr s ++ ")", ← children 0,
+        "(" ++ reprStr e ++ ")"]
+  | _, .typeApp s a, children => do
+      return app "Term.typeApp" ["(s := " ++ reprStr s ++ ")", ← children 0,
+        "(" ++ reprStr a ++ ")"]
   | _, .proofAbs c _, children => do
       return app "Term.proofAbs" ["(" ++ reprStr c ++ ")", ← children 0]
-  | _, .proofApp _ _ _, children => do
-      return app "Term.proofApp" [← children 0,
-      "(by intro assignment; exact assignment.property _ (by simp))"]
+  | _, .proofApp c s _, children => do
+      return app "Term.proofApp" ["(c := " ++ reprStr c ++ ")", "(s := " ++ reprStr s ++ ")",
+        ← children 0,
+      "(by with_unfolding_all exact " ++
+        "Interop.Cryptol.Translation.ConstraintEvidence.of_prove (by decide))"]
   | _, .lam _ _, children => do
       return app "Term.lam" [← children 0]
   | _, .app _ _, children => do
@@ -84,5 +88,29 @@ def term {w : Scope} {Γ : List w.ValueSort} {s : w.ValueSort}
   body.fold (P := signature.polynomial) (D := fun _ => Except String String)
     (fun _ x => .ok (app "Term.var" [variableCode x.index]))
     (fun _ head children => op head.code.2 children)
+
+/-- Render each body with its actual lexical context and recursive-group identity. -/
+def declarations {w : Scope} : {Γ Δ : Signatures w} → Declarations w Γ Δ →
+    Except String (List Lean.Json)
+  | _, _, .nil _ => .ok []
+  | Γ, _, .nonrecursive name s value rest => do
+      let code ← term value
+      let tail ← declarations rest
+      return Lean.Json.mkObj [("name", .str name.origin), ("scheme", .str (reprStr s)),
+        ("scope", .str s!"(Scope.mk {w.numbers} {w.types} ({reprStr w.constraints}))"),
+        ("context_schemes", .str (reprStr (Γ.map Prod.snd))),
+        ("context", Lean.toJson (Γ.map fun entry => entry.1.origin)),
+        ("recursive_group", Lean.toJson ([] : List String)), ("term", .str code)] :: tail
+  | Γ, _, .recursive bindings values rest => do
+      let group ← (List.finRange (bindings.map Prod.snd).length).mapM fun i => do
+        let code ← term (values i)
+        return Lean.Json.mkObj [("name", .str bindings[i].1.origin),
+          ("scheme", .str (reprStr (bindings.map Prod.snd)[i])),
+          ("scope", .str s!"(Scope.mk {w.numbers} {w.types} ({reprStr w.constraints}))"),
+          ("context_schemes", .str (reprStr ((bindings ++ Γ).map Prod.snd))),
+          ("context", Lean.toJson ((bindings ++ Γ).map fun entry => entry.1.origin)),
+          ("recursive_group", Lean.toJson (bindings.map fun entry => entry.1.origin)),
+          ("term", .str code)]
+      return group ++ (← declarations rest)
 
 end Interop.Cryptol.Translation.Materialize
