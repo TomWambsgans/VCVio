@@ -15,7 +15,10 @@ What a settled reading of a perfect-tree program settles below it, when the orac
 into `Option`.  A settled subtree root settles the root of every subtree under it
 (`exists_simulateQ_merkleRootM_eq_some_of_div_pow_eq`).  A settled climb from a settled leaf along a
 settled authentication path settles every ancestor of the leaf, the running value of the climb being
-the settled sub-root at each height (`simulateQ_merkleRootM_div_pow_eq_some_of_climbM`).
+the settled sub-root at each height (`simulateQ_merkleRootM_div_pow_eq_some_of_climbM`); conversely,
+a settled ancestor settles the climb to it (`simulateQ_climbM_eq_some_of_merkleRootM`). An
+authentication path settled under one implementation is settled at the same value under another
+that settles its sibling sub-roots alike (`simulateQ_intrinsicAuthPathM_of_merkleRootM`).
 
 ## Scope
 
@@ -27,11 +30,14 @@ the settled sub-root at each height (`simulateQ_merkleRootM_div_pow_eq_some_of_c
 
 ## Labels
 
-Two declarations.
+Four declarations.
 
 *Settled subtrees*: `exists_simulateQ_merkleRootM_eq_some_of_div_pow_eq`.
 
-*Settled climbs*: `simulateQ_merkleRootM_div_pow_eq_some_of_climbM`.
+*Settled climbs*: `simulateQ_merkleRootM_div_pow_eq_some_of_climbM`,
+`simulateQ_climbM_eq_some_of_merkleRootM`.
+
+*Transferred paths*: `simulateQ_intrinsicAuthPathM_of_merkleRootM`.
 -/
 
 public section
@@ -104,5 +110,63 @@ theorem simulateQ_merkleRootM_div_pow_eq_some_of_climbM (idx : ℕ) {y : Y}
         omega
       have hr : 2 * (idx / 2 ^ (z + 1)) + 1 = idx / 2 ^ z := by omega
       exact ⟨sib, w, hl ▸ hsib, hr ▸ hnode, hq⟩
+
+/-- If leaf `idx` is settled at `y`, its authentication path over `z` levels at `path`, and its
+height-`z` ancestor at `v`, then the climb from `y` along `path` is settled at `v`. -/
+theorem simulateQ_climbM_eq_some_of_merkleRootM (idx : ℕ) {y : Y}
+    (hy : simulateQ impl (leaf idx) = some y) {z : ℕ} {path : Vector Y z} {v : Y}
+    (hpath : simulateQ impl (intrinsicAuthPathM leaf nodeHash idx z) = some path)
+    (hroot : simulateQ impl (merkleRootM leaf nodeHash z (idx / 2 ^ z)) = some v) :
+    simulateQ impl (climbM nodeHash idx y path.toList) = some v := by
+  induction z generalizing v with
+  | zero =>
+    simp only [pow_zero, Nat.div_one, merkleRootM] at hroot
+    obtain rfl : y = v := Option.some_inj.1 (hy.symm.trans hroot)
+    simp [Vector.eq_empty (xs := path), climbM_nil]
+  | succ z ih =>
+    obtain ⟨prefix_, sib, hpre, hsib, rfl⟩ :=
+      (simulateQ_intrinsicAuthPathM_succ_eq_some_iff impl leaf nodeHash idx z).mp hpath
+    obtain ⟨l, r, hl, hr, hq⟩ :=
+      (simulateQ_merkleRootM_succ_eq_some_iff impl leaf nodeHash z _).mp hroot
+    rw [Vector.toList_push, simulateQ_climbM_concat_eq_some_iff, Vector.length_toList]
+    have hdiv : idx / 2 ^ (z + 1) = idx / 2 ^ z / 2 := by
+      rw [Nat.pow_succ, Nat.div_div_eq_div_mul]
+    split_ifs with h
+    · have h1 : 2 * (idx / 2 ^ (z + 1)) = idx / 2 ^ z := by omega
+      have h2 : 2 * (idx / 2 ^ (z + 1)) + 1 = sibling (idx / 2 ^ z) := by
+        simp only [sibling, h, ↓reduceIte]
+        omega
+      rw [h1] at hl
+      rw [h2, hsib] at hr
+      obtain rfl := Option.some_inj.1 hr
+      exact ⟨l, ih hpre hl, hq⟩
+    · have h1 : 2 * (idx / 2 ^ (z + 1)) = sibling (idx / 2 ^ z) := by
+        simp only [sibling, h, ↓reduceIte]
+        omega
+      have h2 : 2 * (idx / 2 ^ (z + 1)) + 1 = idx / 2 ^ z := by omega
+      rw [h1, hsib] at hl
+      rw [h2] at hr
+      obtain rfl := Option.some_inj.1 hl
+      exact ⟨r, ih hpre hr, hq⟩
+
+/-! ## Transferred paths -/
+
+/-- If every sibling sub-root of leaf `idx` below height `z` that is settled under `impl` is
+settled at the same value under `impl'`, then an authentication path of `idx` over `z` levels
+settled under `impl` is settled at the same value under `impl'`. -/
+theorem simulateQ_intrinsicAuthPathM_of_merkleRootM (impl' : QueryImpl spec Option) (idx : ℕ) :
+    ∀ {z : ℕ} {path : Vector Y z},
+      (∀ z' < z, ∀ w, simulateQ impl (merkleRootM leaf nodeHash z' (sibling (idx / 2 ^ z'))) =
+        some w → simulateQ impl' (merkleRootM leaf nodeHash z' (sibling (idx / 2 ^ z'))) =
+          some w) →
+      simulateQ impl (intrinsicAuthPathM leaf nodeHash idx z) = some path →
+      simulateQ impl' (intrinsicAuthPathM leaf nodeHash idx z) = some path
+  | 0, path, _, h => by simp [intrinsicAuthPathM, Vector.eq_empty (xs := path)] at h ⊢
+  | z + 1, path, hs, h => by
+    obtain ⟨prefix_, sib, hpre, hsib, rfl⟩ :=
+      (simulateQ_intrinsicAuthPathM_succ_eq_some_iff impl leaf nodeHash idx z).mp h
+    exact (simulateQ_intrinsicAuthPathM_succ_eq_some_iff impl' leaf nodeHash idx z).mpr
+      ⟨prefix_, sib, simulateQ_intrinsicAuthPathM_of_merkleRootM impl' idx
+        (fun z' hz' => hs z' (by omega)) hpre, hs z (by omega) sib hsib, rfl⟩
 
 end PerfectMerkleTree
