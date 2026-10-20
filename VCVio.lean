@@ -494,6 +494,7 @@ public import VCVio.Quantum.VC.CheckedRead
 public import VCVio.Quantum.VC.Compressed
 public import VCVio.Quantum.VC.Conditions
 public import VCVio.Quantum.VC.Emulated
+public import VCVio.Quantum.VC.Merkle.MultiExtractable
 public import VCVio.Quantum.VC.Merkle.Offline
 public import VCVio.Quantum.VC.Merkle.Online
 public import VCVio.Quantum.VC.MultiExtractable
