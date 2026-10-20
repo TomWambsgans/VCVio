@@ -95,14 +95,14 @@ noncomputable def uniform : SubInstrument A A Ω :=
 /-- Each branch of a uniform coin scales the state by `1 / |Ω|`. -/
 theorem branch_uniform_apply (ω : Ω) (ρ : Matrix A A ℂ) :
     (uniform Ω A).branch ω ρ = ((Fintype.card Ω : ℂ)⁻¹) • ρ := by
-  rw [uniform, branch_ofKraus_apply, MatrixMap.conj_apply]
+  rw [uniform, DSubInstrument.branch_ofKraus_apply, MatrixMap.conj_apply]
   simp only [uniformKraus, conjTranspose_smul, conjTranspose_one, Complex.star_def,
     Complex.conj_ofReal, smul_mul, Matrix.one_mul, Matrix.mul_smul, Matrix.mul_one, smul_smul,
     sqrt_inv_card_mul_self]
 
 /-- A uniform coin is lossless. -/
 theorem lossless_uniform : (uniform Ω A).Lossless :=
-  lossless_ofKraus _ _
+  DSubInstrument.lossless_ofKraus _ (sum_conjTranspose_uniformKraus_mul_self Ω A)
 
 end SubInstrument
 
@@ -316,12 +316,13 @@ theorem branch_run₂_callBasis {β : Type} [DecidableEq β] (p : P) (B : QReg) 
       (QComp.callBasis (spec := uSpec P In) p B a read)).branch c =
       ∑ o, if read o () = c then MatrixMap.conj ((1 : Matrix B B ℂ) ⊗ₖ E.block p o a)
         else 0 := by
-  rw [QComp.run₂_callBasis, SubInstrument.branch_bind_unit, SubInstrument.branch_bind_unit,
+  rw [QComp.run₂_callBasis, DSubInstrument.branch_bind_unit, DSubInstrument.branch_bind_unit,
     SubInstrument.bind_pure, E.toRuntime.queryStep_branch_eq_conj (M := E.U p) rfl]
-  simp only [QComp.callBasisPrep, QComp.callBasisMeasure, SubInstrument.branch_bind_unit,
-    SubInstrument.branch_bind_bind_unit_pure, SubInstrument.classical,
-    SubInstrument.branch_map_apply_univ, SubInstrument.branch_frame_apply,
-    SubInstrument.branch_ofKraus_apply, SubInstrument.branch_relabel, ite_true,
+  simp only [QComp.callBasisPrep, QComp.callBasisMeasure, DSubInstrument.branch_bind_unit,
+    DSubInstrument.branch_bind_bind_unit_ret, DSubInstrument.classical,
+    DSubInstrument.branch_map_apply_univ, cast_eq, dite_eq_ite,
+    DSubInstrument.branch_frame_apply,
+    DSubInstrument.branch_ofKraus_apply, SubInstrument.branch_relabel, ite_true,
     Fintype.sum_unique, ← Finset.sum_filter, MatrixMap.amplify_sum, MatrixMap.amplify_comp,
     MatrixMap.amplify_conj, ← MatrixMap.conj_mul]
   refine LinearMap.ext fun ρ ↦ ?_

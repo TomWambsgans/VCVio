@@ -399,8 +399,8 @@ theorem outcomeLawWith_eq_of_intertwine (E₁ E₂ : EmulatedOracle P In) (M : M
     (hinit : MatrixMap.conj M E₁.init.matrix = E₂.init.matrix) {L : LocalSig.{uL, vL}}
     (I : L.Interp) {W : QReg → Type w} {A : QReg} (x : QuantumComp L (uSpec P In) W A)
     (ρ : SubState A) {γ : Type*} [MeasurableSpace γ] (f : (Σ u, W u) → γ) :
-    E₂.toRuntime.outcomeLawWith I x ρ f = E₁.toRuntime.outcomeLawWith I x ρ f := by
-  simp only [QuantumRuntime.outcomeLawWith]
+    E₂.toRuntime.evalDistMap I x ρ f = E₁.toRuntime.evalDistMap I x ρ f := by
+  simp only [QuantumRuntime.evalDistMap]
   refine congrArg Measure.sum (funext fun p ↦ ?_)
   rw [QuantumRuntime.trace_jointPost_eq_of_simulation (R₁ := E₁.toRuntime) (R₂ := E₂.toRuntime)
     (V := MatrixMap.conj M) I (fun i r ↦ ?_) (MatrixMap.isTP_conj hM) hinit x ρ p]
@@ -439,8 +439,8 @@ theorem outcomeLawWith_eq_sum_of_intertwine {Ω : Type*} [Fintype Ω] (E : Emula
     {L : LocalSig.{uL, vL}} (I : L.Interp) {W : QReg → Type w} {A : QReg}
     (x : QuantumComp L (uSpec P In) W A) (ρ : SubState A) {γ : Type*} [MeasurableSpace γ]
     (f : (Σ u, W u) → γ) :
-    E.toRuntime.outcomeLawWith I x ρ f =
-      ∑ ω, (c ω : ℝ≥0∞) • (F ω).toRuntime.outcomeLawWith I x ρ f := by
+    E.toRuntime.evalDistMap I x ρ f =
+      ∑ ω, (c ω : ℝ≥0∞) • (F ω).toRuntime.evalDistMap I x ρ f := by
   have htr (p : Σ u, W u) : (E.toRuntime.jointPost I x ρ p).matrix.trace =
       ∑ ω, ((c ω : ℝ) : ℂ) * ((F ω).toRuntime.jointPost I x ρ p).matrix.trace := by
     rw [← sum_trace_amplifyLeft_conj M hM]
@@ -456,8 +456,8 @@ theorem outcomeLawWith_eq_sum_of_intertwine {Ω : Type*} [Fintype Ω] (E : Emula
     rw [QuantumRuntime.matrix_jointPost, QuantumRuntime.matrix_jointPost, ← h', Matrix.trace_smul,
       smul_eq_mul]
   refine Measure.ext fun s hs ↦ ?_
-  rw [Measure.coe_finsetSum, Finset.sum_apply, QuantumRuntime.outcomeLawWith_apply _ _ _ _ _ hs]
-  simp only [Measure.smul_apply, smul_eq_mul, QuantumRuntime.outcomeLawWith_apply _ _ _ _ _ hs,
+  rw [Measure.coe_finsetSum, Finset.sum_apply, QuantumRuntime.evalDistMap_apply _ _ _ _ _ hs]
+  simp only [Measure.smul_apply, smul_eq_mul, QuantumRuntime.evalDistMap_apply _ _ _ _ _ hs,
     htr, Complex.re_sum, Complex.re_ofReal_mul, ← ENNReal.tsum_mul_left]
   rw [← Summable.tsum_finsetSum fun _ _ ↦ ENNReal.summable]
   refine tsum_congr fun p ↦ ?_
@@ -534,7 +534,7 @@ omit [DecidableEq Ω] in
 /-- The density matrix of the uniform superposition is `|u⟩⟨u|` for the uniform column `u`. -/
 theorem matrix_uniformState [Nonempty Ω] :
     (uniformState Ω).matrix = MatrixMap.conj (uniformColumnOn Ω) (Matrix.single () () 1) := by
-  rw [uniformState, SubInstrument.matrix_post, SubInstrument.branch_ofIsometry_apply,
+  rw [uniformState, DSubInstrument.matrix_post, SubInstrument.branch_ofIsometry_apply,
     SubState.matrix_basis]
 
 omit [DecidableEq Ω] in
@@ -733,8 +733,8 @@ variable {k : ℕ} {X Y : Type} [Fintype X] [DecidableEq X] [Fintype Y] [Decidab
 classical ports, every program has the same observed law. -/
 theorem outcomeLawWith_compressedVCOracle_eq_purifiedVCOracle
     (x : QuantumComp L (uSpec (Fin k) (oIn k X Y)) W A) (ρ : SubState A) (f : (Σ u, W u) → γ) :
-    (compressedVCOracle k X Y).toRuntime.outcomeLawWith I x ρ f =
-      (purifiedVCOracle k X Y).toRuntime.outcomeLawWith I x ρ f :=
+    (compressedVCOracle k X Y).toRuntime.evalDistMap I x ρ f =
+      (purifiedVCOracle k X Y).toRuntime.evalDistMap I x ρ f :=
   EmulatedOracle.outcomeLawWith_eq_of_intertwine _ _ _
     conjTranspose_compressDatabases_mul_basisMatrix_mul_self
     compressedVCOracle_U_mul_one_kronecker conj_compressDatabases_mul_basisMatrix_init I x ρ f
@@ -744,8 +744,8 @@ oracle, every program has the same observed law. -/
 theorem outcomeLawWith_coherent_compressedVCOracle_eq_purifiedVCOracle
     (x : QuantumComp L (EmulatedOracle.cohSpec (oIn k X Y)) W A) (ρ : SubState A)
     (f : (Σ u, W u) → γ) :
-    (compressedVCOracle k X Y).coherent.toRuntime.outcomeLawWith I x ρ f =
-      (purifiedVCOracle k X Y).coherent.toRuntime.outcomeLawWith I x ρ f :=
+    (compressedVCOracle k X Y).coherent.toRuntime.evalDistMap I x ρ f =
+      (purifiedVCOracle k X Y).coherent.toRuntime.evalDistMap I x ρ f :=
   EmulatedOracle.outcomeLawWith_eq_of_intertwine _ _ _
     conjTranspose_compressDatabases_mul_basisMatrix_mul_self
     (fun _ ↦ EmulatedOracle.coherent_U_mul_one_kronecker _ _ _
@@ -763,9 +763,9 @@ theorem coe_inv_card_fun_eq [Nonempty (Fin k → X → Y)] :
 every program is the average over all families `H` of its laws against the random oracles `H`. -/
 theorem outcomeLawWith_purifiedVCOracle
     (x : QuantumComp L (uSpec (Fin k) (oIn k X Y)) W A) (ρ : SubState A) (f : (Σ u, W u) → γ) :
-    (purifiedVCOracle k X Y).toRuntime.outcomeLawWith I x ρ f =
+    (purifiedVCOracle k X Y).toRuntime.evalDistMap I x ρ f =
       ∑ H : Fin k → X → Y, (Fintype.card (Fin k → X → Y) : ℝ≥0∞)⁻¹ •
-        (romVCOracle k X Y H).toRuntime.outcomeLawWith I x ρ f := by
+        (romVCOracle k X Y H).toRuntime.evalDistMap I x ρ f := by
   rw [EmulatedOracle.outcomeLawWith_eq_sum_of_intertwine (purifiedVCOracle k X Y)
     (fun H ↦ romVCOracle k X Y H) (fun H ↦ evalRow H) (fun _ ↦ (Fintype.card _ : ℝ≥0)⁻¹)
     sum_conjTranspose_evalRow_mul_self
@@ -778,9 +778,9 @@ the average over all families `H` of its laws against the coherent random oracle
 theorem outcomeLawWith_coherent_purifiedVCOracle
     (x : QuantumComp L (EmulatedOracle.cohSpec (oIn k X Y)) W A) (ρ : SubState A)
     (f : (Σ u, W u) → γ) :
-    (purifiedVCOracle k X Y).coherent.toRuntime.outcomeLawWith I x ρ f =
+    (purifiedVCOracle k X Y).coherent.toRuntime.evalDistMap I x ρ f =
       ∑ H : Fin k → X → Y, (Fintype.card (Fin k → X → Y) : ℝ≥0∞)⁻¹ •
-        (romVCOracle k X Y H).coherent.toRuntime.outcomeLawWith I x ρ f := by
+        (romVCOracle k X Y H).coherent.toRuntime.evalDistMap I x ρ f := by
   rw [EmulatedOracle.outcomeLawWith_eq_sum_of_intertwine (purifiedVCOracle k X Y).coherent
     (fun H ↦ (romVCOracle k X Y H).coherent) (fun H ↦ evalRow H)
     (fun _ ↦ (Fintype.card _ : ℝ≥0)⁻¹) sum_conjTranspose_evalRow_mul_self
@@ -798,9 +798,9 @@ general: adaptive, with their own local operations and registers, a final regist
 depend on the outcome, and any number of calls on each path. -/
 theorem outcomeLawWith_compressedVCOracle
     (x : QuantumComp L (uSpec (Fin k) (oIn k X Y)) W A) (ρ : SubState A) (f : (Σ u, W u) → γ) :
-    (compressedVCOracle k X Y).toRuntime.outcomeLawWith I x ρ f =
+    (compressedVCOracle k X Y).toRuntime.evalDistMap I x ρ f =
       ∑ H : Fin k → X → Y, (Fintype.card (Fin k → X → Y) : ℝ≥0∞)⁻¹ •
-        (romVCOracle k X Y H).toRuntime.outcomeLawWith I x ρ f := by
+        (romVCOracle k X Y H).toRuntime.evalDistMap I x ρ f := by
   rw [outcomeLawWith_compressedVCOracle_eq_purifiedVCOracle, outcomeLawWith_purifiedVCOracle]
 
 /-- **The coherent k compressed oracles are perfectly indistinguishable from coherent k random
@@ -810,9 +810,9 @@ which `Quantum.Simulates` states property P1 with `κsim = 0`. -/
 theorem outcomeLawWith_coherent_compressedVCOracle
     (x : QuantumComp L (EmulatedOracle.cohSpec (oIn k X Y)) W A) (ρ : SubState A)
     (f : (Σ u, W u) → γ) :
-    (compressedVCOracle k X Y).coherent.toRuntime.outcomeLawWith I x ρ f =
+    (compressedVCOracle k X Y).coherent.toRuntime.evalDistMap I x ρ f =
       ∑ H : Fin k → X → Y, (Fintype.card (Fin k → X → Y) : ℝ≥0∞)⁻¹ •
-        (romVCOracle k X Y H).coherent.toRuntime.outcomeLawWith I x ρ f := by
+        (romVCOracle k X Y H).coherent.toRuntime.evalDistMap I x ρ f := by
   rw [outcomeLawWith_coherent_compressedVCOracle_eq_purifiedVCOracle,
     outcomeLawWith_coherent_purifiedVCOracle]
 
@@ -832,7 +832,7 @@ theorem mixedLawWith_barycenter {spec : QuantumOracleSpec.{u₁, v₁}} {L : Loc
     [MeasurableSpace β] (R : Ω → QuantumRuntime spec) (I : L.Interp)
     (x : QuantumComp L spec W A) (ρ : SubState A) (f : Ω → (Σ u, W u) → β) :
     mixedLawWith (StdSimplex.barycenter : StdSimplex ℝ Ω) R I x ρ f =
-      ∑ ω, (Fintype.card Ω : ℝ≥0∞)⁻¹ • (R ω).outcomeLawWith I x ρ (f ω) := by
+      ∑ ω, (Fintype.card Ω : ℝ≥0∞)⁻¹ • (R ω).evalDistMap I x ρ (f ω) := by
   rw [mixedLawWith, Finsupp.sum_fintype _ _ fun _ ↦ by simp]
   refine Finset.sum_congr rfl fun ω _ ↦ ?_
   rw [StdSimplex.weights_barycenter_apply,
@@ -850,24 +850,24 @@ theorem simulates_compressedVCOracle :
   simp only [Pi.zero_apply, add_zero, le_refl, and_self]
 
 /-- Against a uniformly sampled random oracle, every program has the same law against the
-coherent k compressed oracles as in the random-oracle model (`Quantum.sampledLawWith`). -/
+coherent k compressed oracles as in the random-oracle model (`Quantum.sampledEvalDistMap`). -/
 theorem outcomeLawWith_coherent_compressedVCOracle_eq_sampledLawWith
-    [SampleableType (Fin k → X → Y)] {L : LocalSig.{uL, vL}} (I : L.Interp) {W : QReg → Type w}
+    {L : LocalSig.{uL, vL}} (I : L.Interp) {W : QReg → Type w}
     {A : QReg} {γ : Type*} [MeasurableSpace γ]
     (x : QuantumComp L (EmulatedOracle.cohSpec (oIn k X Y)) W A) (ρ : SubState A)
     (f : (Σ u, W u) → γ) :
-    (compressedVCOracle k X Y).coherent.toRuntime.outcomeLawWith I x ρ f =
-      sampledLawWith (fun H ↦ (romVCOracle k X Y H).coherent.toRuntime) I x ρ fun _ ↦ f := by
-  rw [outcomeLawWith_coherent_compressedVCOracle, sampledLawWith_eq_sum, Finset.smul_sum]
+    (compressedVCOracle k X Y).coherent.toRuntime.evalDistMap I x ρ f =
+      sampledEvalDistMap (fun H ↦ (romVCOracle k X Y H).coherent.toRuntime) I x ρ fun _ ↦ f := by
+  rw [outcomeLawWith_coherent_compressedVCOracle, sampledEvalDistMap_eq_sum, Finset.smul_sum]
 
 /-- The classical-port form of `outcomeLawWith_coherent_compressedVCOracle_eq_sampledLawWith`. -/
-theorem outcomeLawWith_compressedVCOracle_eq_sampledLawWith [SampleableType (Fin k → X → Y)]
+theorem outcomeLawWith_compressedVCOracle_eq_sampledLawWith
     {L : LocalSig.{uL, vL}} (I : L.Interp) {W : QReg → Type w} {A : QReg} {γ : Type*}
     [MeasurableSpace γ] (x : QuantumComp L (uSpec (Fin k) (oIn k X Y)) W A) (ρ : SubState A)
     (f : (Σ u, W u) → γ) :
-    (compressedVCOracle k X Y).toRuntime.outcomeLawWith I x ρ f =
-      sampledLawWith (fun H ↦ (romVCOracle k X Y H).toRuntime) I x ρ fun _ ↦ f := by
-  rw [outcomeLawWith_compressedVCOracle, sampledLawWith_eq_sum, Finset.smul_sum]
+    (compressedVCOracle k X Y).toRuntime.evalDistMap I x ρ f =
+      sampledEvalDistMap (fun H ↦ (romVCOracle k X Y H).toRuntime) I x ρ fun _ ↦ f := by
+  rw [outcomeLawWith_compressedVCOracle, sampledEvalDistMap_eq_sum, Finset.smul_sum]
 
 /-- **P1 for the k compressed oracles with `κsim = 0`, against a sampleable random oracle**: the
 form of `Quantum.simulates_compressedVCOracle` for the uniform distribution

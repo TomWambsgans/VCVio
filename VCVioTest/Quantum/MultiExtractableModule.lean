@@ -56,7 +56,7 @@ example {Ω : Type*} {p : Convexity.StdSimplex ℝ Ω} {Ref : Ω → QuantumRunt
     (x : QuantumComp LocalSig.instruments.{v} (cohSpec (oIn k X Y)) W A)
     (f : (Σ u, W u) → Bool)
     (ρ : SubState A) (hx : x.IsQueryBound fun _ ↦ 0) :
-    E.coherent.toRuntime.outcomeLawWith .instruments x ρ f {true} ≤
+    E.coherent.toRuntime.evalDistMap .instruments x ρ f {true} ≤
       mixedLawWith p Ref .instruments x ρ (fun _ ↦ f) {true} + κ 0 :=
   (h 0 x f ρ hx).1
 
@@ -72,8 +72,8 @@ example {Ω : Type} [SampleableType Ω] {Ref : Ω → QuantumRuntime (cohSpec (o
     (x : QuantumComp LocalSig.instruments.{v} (cohSpec (oIn k X Y)) W A)
     (f : (Σ u, W u) → Bool)
     (ρ : SubState A) (hx : x.IsQueryBound fun _ ↦ 0) :
-    sampledLawWith Ref .instruments x ρ (fun _ ↦ f) {true} ≤
-      E.coherent.toRuntime.outcomeLawWith .instruments x ρ f {true} + κ 0 :=
+    sampledEvalDistMap Ref .instruments x ρ (fun _ ↦ f) {true} ≤
+      E.coherent.toRuntime.evalDistMap .instruments x ρ f {true} + κ 0 :=
   (simulates_uniformWeights_iff.mp h 0 x f ρ hx).2
 
 /-! ## P2 -/
@@ -118,7 +118,7 @@ example {κ : ℕ → ℝ≥0∞ → ℝ≥0∞ → ℕ → ℝ≥0∞} (h : Ext
     {A : QReg} {W : QReg → Type w}
     (x : QuantumComp LocalSig.instruments.{v} (cohSpec (extIn k X Y Cm Z)) W A)
     (claim : ∀ u, W u → ExtractClaim k Cm) (ρ : SubState A) (hx : x.IsQueryBound fun _ ↦ 0) :
-    (E.withExtract ME code).coherent.toRuntime.outcomeLawWith .instruments
+    (E.withExtract ME code).coherent.toRuntime.evalDistMap .instruments
       (experiment x fun u y ↦ extractChallenger VC code hk 0 (claim u y) u) ρ Sigma.snd
         {true} ≤ κ 0 ⊤ ⊤ 0 :=
   h hk 0 0 ⊤ ⊤ x claim ρ (Nat.zero_le _) hx le_top le_top
@@ -135,7 +135,7 @@ example {κ : ℕ → ℝ≥0∞ → ℝ≥0∞ → ℕ → ℝ≥0∞} (h : Off
     (x : QuantumComp LocalSig.instruments.{v} (cohSpec (extIn k X Y Cm Z)) W A)
     (claim : ∀ u, W u → OpeningClaim k Cm Msg ℓ Pf) (ρ : SubState A)
     (hx : x.IsQueryBound fun _ ↦ 0) :
-    (E.withExtract ME code).coherent.toRuntime.outcomeLawWith .instruments
+    (E.withExtract ME code).coherent.toRuntime.evalDistMap .instruments
       (experiment x fun u y ↦ offlineChallenger VC code hk 0 (claim u y) u) ρ Sigma.snd
         {true} ≤ κ 0 ⊤ ⊤ 0 :=
   h hk 0 0 ⊤ ⊤ x claim ρ hx le_top le_top
@@ -153,9 +153,9 @@ example {κ : ℕ → ℝ≥0∞ → ℝ≥0∞ → ℝ≥0∞ → ℝ≥0∞} (
     {A : QReg} {W : QReg → Type w}
     (x : QuantumComp LocalSig.instruments.{v} (cohSpec (recIn k X Y Cm Z Unit)) W A)
     (f : (Σ u, W u) → Bool) (ρ : SubState A) (hx : x.IsQueryBound fun _ ↦ 0) :
-    (E.withRecord ME code () U hU).coherent.toRuntime.outcomeLawWith .instruments x ρ f
+    (E.withRecord ME code () U hU).coherent.toRuntime.evalDistMap .instruments x ρ f
         {true} ^ (2⁻¹ : ℝ) ≤
-      (E.withRecordME ME code () U hU).coherent.toRuntime.outcomeLawWith .instruments x ρ f
+      (E.withRecordME ME code () U hU).coherent.toRuntime.evalDistMap .instruments x ρ f
         {true} ^ (2⁻¹ : ℝ) + κ 0 ⊤ ⊤ ⊤ ^ (2⁻¹ : ℝ) :=
   (h Unit Unit () U hU 0 ⊤ ⊤ ⊤ x f ρ hx le_top le_top le_top).1
 
@@ -201,7 +201,7 @@ example {κ : ℕ → ℝ≥0∞ → ℝ≥0∞ → ℕ → ℝ≥0∞} (h : Ext
       (fun _ ↦ ULift.{1} Bool) A)
     (claim : QReg → ULift.{1} Bool → ExtractClaim k Cm) (ρ : SubState A)
     (hx : x.IsQueryBound fun _ ↦ 0) :
-    (E.withExtract ME code).coherent.toRuntime.outcomeLawWith .instruments
+    (E.withExtract ME code).coherent.toRuntime.evalDistMap .instruments
       (experiment x fun u y ↦ extractChallenger VC code hk 0 (claim u y) u) ρ Sigma.snd
         {true} ≤ κ 0 ⊤ ⊤ 0 :=
   h hk 0 0 ⊤ ⊤ x claim ρ (Nat.zero_le _) hx le_top le_top
