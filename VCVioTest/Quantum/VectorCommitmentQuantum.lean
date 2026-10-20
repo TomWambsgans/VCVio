@@ -96,8 +96,8 @@ noncomputable example {A : QReg} {W : QReg → Type}
 
 /-- The random-oracle model over all functions, as the reference model of P1. -/
 noncomputable def romRef (H : Fin 1 → Fin 2 → Fin 2) :
-    QuantumRuntime (cohSpec (oIn 1 (Fin 2) (Fin 2))) :=
-  (romVCOracle 1 (Fin 2) (Fin 2) H).coherent.toRuntime
+    QuantumRuntime (mixedOracleSpec 1 (Fin 2) (Fin 2)) :=
+  (romVCOracle 1 (Fin 2) (Fin 2) H).mixedRuntime
 
 /-- The five properties elaborate on the toy instance, against adversaries in `Type`. -/
 example (κ : MEErrors) : Prop :=
@@ -323,7 +323,7 @@ theorem basis_kronecker_basis {A B : Type} [Fintype A] [DecidableEq A] [Fintype 
 at once, from a basis state, and on the toy instance the distance is zero. -/
 example (Env : QReg) (a : ComOut 1 (Fin 2) (Fin 2) Unit Z0 Env) :
     comError zeroOracle toyME code0 0
-      (QuantumComp₂.pure () : QuantumComp₂ LocalSig.instruments extSpec
+      (QuantumComp₂.pure () : QuantumComp₂ LocalSig.instruments mixedSpec
         (ComOut 1 (Fin 2) (Fin 2) Unit Z0 Env) (ComOut 1 (Fin 2) (Fin 2) Unit Z0 Env) Unit)
       (SubState.basis a) = 0 := by
   rw [comError_of_pure zeroOracle toyME code0 () 1 (v := Pi.single (a, ()) 1)]
@@ -332,5 +332,23 @@ example (Env : QReg) (a : ComOut 1 (Fin 2) (Fin 2) Unit Z0 Env) :
     rfl
   · exact fun a h ↦ absurd rfl h
   · exact basis_kronecker_basis a ()
+
+/-- Every read consumes one call even when the addresses are distinct. -/
+noncomputable def twoReads : QuantumComp LocalSig.instruments mixedSpec (fun _ ↦ Unit)
+    (QReg.of (Unit × Unit)) :=
+  QuantumComp.queryBind (.inr (0, 0)) (QReg.of Unit) (Equiv.refl _) fun _ ↦
+    QuantumComp.queryBind (.inr (0, 1)) (QReg.of Unit) (Equiv.refl _) fun _ ↦
+      QuantumComp.pure ()
+
+example : ¬ twoReads.IsTotalQueryBound 1 := by
+  change ¬ (0 < 1 ∧ ∀ _ : Option (Fin 2), 0 < 0 ∧ ∀ _ : Option (Fin 2), True)
+  simp
+
+example : twoReads.IsTotalQueryBound 2 := by
+  change 0 < 2 ∧ ∀ _ : Option (Fin 2), 0 < 1 ∧ ∀ _ : Option (Fin 2), True
+  simp
+
+example : ComBound.{0, 0} zeroOracle toyME code0 (fun _ ↦ 4) :=
+  comBound_four zeroOracle toyME code0
 
 end VCVioTest.QuantumVC

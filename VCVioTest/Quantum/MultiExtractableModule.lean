@@ -47,33 +47,34 @@ variable {k : ℕ} {X Y Msg Cm Z : Type} [Fintype X] [DecidableEq X] [Fintype Y]
 
 /-- P1 is introduced against its quantifiers: every model simulates with the error `⊤`. -/
 example {Ω : Type*} (p : Convexity.StdSimplex ℝ Ω)
-    (Ref : Ω → QuantumRuntime (cohSpec (oIn k X Y))) : Simulates.{v, w} p Ref E ⊤ :=
+    (Ref : Ω → QuantumRuntime (mixedOracleSpec k X Y)) : Simulates.{v, w} p Ref E ⊤ :=
   fun _ _ _ _ _ _ _ ↦ ⟨by simp, by simp⟩
 
 /-- P1 is eliminated by application. -/
-example {Ω : Type*} {p : Convexity.StdSimplex ℝ Ω} {Ref : Ω → QuantumRuntime (cohSpec (oIn k X Y))}
+example {Ω : Type*} {p : Convexity.StdSimplex ℝ Ω}
+    {Ref : Ω → QuantumRuntime (mixedOracleSpec k X Y)}
     {κ : ℕ → ℝ≥0∞} (h : Simulates.{v, w} p Ref E κ) {A : QReg} {W : QReg → Type w}
-    (x : QuantumComp LocalSig.instruments.{v} (cohSpec (oIn k X Y)) W A)
+    (x : QuantumComp LocalSig.instruments.{v} (mixedOracleSpec k X Y) W A)
     (f : (Σ u, W u) → Bool)
-    (ρ : SubState A) (hx : x.IsQueryBound fun _ ↦ 0) :
-    E.coherent.toRuntime.evalDistMap .instruments x ρ f {true} ≤
+    (ρ : SubState A) (hx : x.IsTotalQueryBound 0) :
+    E.mixedRuntime.evalDistMap .instruments x ρ f {true} ≤
       mixedLawWith p Ref .instruments x ρ (fun _ ↦ f) {true} + κ 0 :=
   (h 0 x f ρ hx).1
 
 /-- P1 against a uniformly sampled model is introduced from bounds against the sampled law. -/
-example {Ω : Type} [SampleableType Ω] {Ref : Ω → QuantumRuntime (cohSpec (oIn k X Y))} :
+example {Ω : Type} [SampleableType Ω] {Ref : Ω → QuantumRuntime (mixedOracleSpec k X Y)} :
     Simulates.{v, w} (uniformWeights Ω) Ref E ⊤ :=
   Simulates.ofUniform fun _ _ _ _ _ _ _ ↦ ⟨by simp, by simp⟩
 
 /-- P1 against a uniformly sampled model is eliminated to bounds against the sampled law. -/
-example {Ω : Type} [SampleableType Ω] {Ref : Ω → QuantumRuntime (cohSpec (oIn k X Y))}
+example {Ω : Type} [SampleableType Ω] {Ref : Ω → QuantumRuntime (mixedOracleSpec k X Y)}
     {κ : ℕ → ℝ≥0∞} (h : Simulates.{v, w} (uniformWeights Ω) Ref E κ) {A : QReg}
     {W : QReg → Type w}
-    (x : QuantumComp LocalSig.instruments.{v} (cohSpec (oIn k X Y)) W A)
+    (x : QuantumComp LocalSig.instruments.{v} (mixedOracleSpec k X Y) W A)
     (f : (Σ u, W u) → Bool)
-    (ρ : SubState A) (hx : x.IsQueryBound fun _ ↦ 0) :
+    (ρ : SubState A) (hx : x.IsTotalQueryBound 0) :
     sampledEvalDistMap Ref .instruments x ρ (fun _ ↦ f) {true} ≤
-      E.coherent.toRuntime.evalDistMap .instruments x ρ f {true} + κ 0 :=
+      E.mixedRuntime.evalDistMap .instruments x ρ f {true} + κ 0 :=
   (simulates_uniformWeights_iff.mp h 0 x f ρ hx).2
 
 /-! ## P2 -/
@@ -96,14 +97,21 @@ example (h : OraclesCommute E) (i j : Fin k) :
 
 /-- `ComBound` is introduced against its quantifiers. -/
 example : ComBound.{v, w} E ME code ⊤ :=
-  fun _ _ _ _ _ _ _ _ ↦ le_top
+  ⟨fun _ _ _ _ _ _ _ _ ↦ le_top, fun _ _ _ _ _ _ _ _ ↦ le_top⟩
 
 /-- `ComBound` is eliminated by application. -/
 example {κ : ℕ → ℝ≥0∞} (h : ComBound.{v, w} E ME code κ) (i : Fin k) {A Env : QReg}
-    (x : QuantumComp₂ LocalSig.instruments.{v} (cohSpec (extIn k X Y Cm Z)) A
+    (x : QuantumComp₂ LocalSig.instruments.{v} (mixedExtSpec k X Y Cm Z) A
       (ComOut k X Y Cm Z Env) PUnit.{w + 1}) (ρ : SubState A)
-    (hx : x.IsQueryBound fun _ ↦ 0) : comError E ME code i x ρ ≤ κ 0 :=
-  h i 0 x ρ hx
+    (hx : x.IsTotalQueryBound 0) : comError E ME code i x ρ ≤ κ 0 :=
+  h.1 i 0 x ρ hx
+
+/-- P2 bounds a read address selected from the complete final classical outcome. -/
+example {κ : ℕ → ℝ≥0∞} (h : ComBound.{v, w} E ME code κ) {A Env : QReg}
+    {α : Type w} (x : QuantumComp₂ LocalSig.instruments.{v} (mixedExtSpec k X Y Cm Z)
+      A (ReadComOut k Cm Z Env) α) (ρ : SubState A) (c : α → Fin k × X)
+    (hx : x.IsTotalQueryBound 3) : readComError E ME code x ρ c ≤ κ 3 :=
+  h.2 3 x ρ c hx
 
 /-! ## P3 and P4 -/
 
@@ -151,13 +159,56 @@ example : OnlineIndistinguishable.{v, w} E ME code ⊤ := by
 example {κ : ℕ → ℝ≥0∞ → ℝ≥0∞ → ℝ≥0∞ → ℝ≥0∞} (h : OnlineIndistinguishable.{v, w} E ME code κ)
     (U : Matrix (Unit × Unit) (Unit × Unit) ℂ) (hU : U ∈ unitaryGroup (Unit × Unit) ℂ)
     {A : QReg} {W : QReg → Type w}
-    (x : QuantumComp LocalSig.instruments.{v} (cohSpec (recIn k X Y Cm Z Unit)) W A)
-    (f : (Σ u, W u) → Bool) (ρ : SubState A) (hx : x.IsQueryBound fun _ ↦ 0) :
-    (E.withRecord ME code () U hU).coherent.toRuntime.evalDistMap .instruments x ρ f
+    (x : QuantumComp LocalSig.instruments.{v} (mixedRecSpec k X Y Cm Z Unit) W A)
+    (f : (Σ u, W u) → Bool) (ρ : SubState A) (hx : x.IsTotalQueryBound 0) :
+    (E.mixedRecordRuntime ME code () U hU).evalDistMap .instruments x ρ f
         {true} ^ (2⁻¹ : ℝ) ≤
-      (E.withRecordME ME code () U hU).coherent.toRuntime.evalDistMap .instruments x ρ f
+      (E.mixedRecordMERuntime ME code () U hU).evalDistMap .instruments x ρ f
         {true} ^ (2⁻¹ : ℝ) + κ 0 ⊤ ⊤ ⊤ ^ (2⁻¹ : ℝ) :=
   (h Unit Unit () U hU 0 ⊤ ⊤ ⊤ x f ρ hx le_top le_top le_top).1
+
+/-- A trusted wrapper with a real read port is in the quantified P5 program class. -/
+example {κ : ℕ → ℝ≥0∞ → ℝ≥0∞ → ℝ≥0∞ → ℝ≥0∞}
+    (h : OnlineIndistinguishable.{v, 0} E ME code κ) (c : Fin k × X)
+    (U : Matrix (Unit × Unit) (Unit × Unit) ℂ) (hU : U ∈ unitaryGroup (Unit × Unit) ℂ)
+    (ρ : SubState (QReg.of (Unit × Unit))) :
+    let x : QuantumComp LocalSig.instruments.{v} (mixedRecSpec k X Y Cm Z Unit)
+        (fun _ ↦ Bool) (QReg.of (Unit × Unit)) :=
+      QuantumComp.queryBind (.inr c) (QReg.of Unit) (Equiv.refl _) fun a ↦
+        QuantumComp.pure a.isSome
+    (E.mixedRecordRuntime ME code () U hU).evalDistMap .instruments x ρ Sigma.snd
+        {true} ^ (2⁻¹ : ℝ) ≤
+      (E.mixedRecordMERuntime ME code () U hU).evalDistMap .instruments x ρ Sigma.snd
+        {true} ^ (2⁻¹ : ℝ) + κ 1 ⊤ ⊤ ⊤ ^ (2⁻¹ : ℝ) := by
+  dsimp only
+  exact (h Unit Unit () U hU 1 ⊤ ⊤ ⊤
+    (A := QReg.of (Unit × Unit)) (W := fun _ ↦ Bool)
+    (QuantumComp.queryBind (.inr c) (QReg.of Unit) (Equiv.refl _) fun a ↦
+      QuantumComp.pure a.isSome) Sigma.snd ρ
+    (by change 0 < 1 ∧ ∀ _ : Option Y, True; simp) le_top le_top le_top).1
+
+/-- A read wrapper charges its full incoming trace to the source-world oracle mass. -/
+example (c : Fin k × X)
+    (U : Matrix (Unit × Unit) (Unit × Unit) ℂ) (hU : U ∈ unitaryGroup (Unit × Unit) ℂ)
+    (ρ : Matrix ((Unit × Unit) × (E.withRecord ME code () U hU).S)
+      ((Unit × Unit) × (E.withRecord ME code () U hU).S) ℂ) :
+    let x : QuantumComp LocalSig.instruments.{v} (mixedRecSpec k X Y Cm Z Unit)
+        (fun _ ↦ Bool) (QReg.of (Unit × Unit)) :=
+      QuantumComp.queryBind (.inr c) (QReg.of Unit) (Equiv.refl _) fun a ↦
+        QuantumComp.pure a.isSome
+    (E.mixedRecordRuntime ME code () U hU).totalWeight .instruments
+      (E.recordVCWeight ME code () U hU) x ρ = ENNReal.ofReal ρ.trace.re := by
+  dsimp only
+  erw [QuantumRuntime.totalWeight_queryBind]
+  conv_lhs =>
+    rhs
+    arg 1
+    ext r
+    erw [QuantumRuntime.totalWeight_pure]
+  simp only [tsum_zero, add_zero, VCOracle.recordVCWeight,
+    QuantumRuntime.withReadWeight]
+  erw [QuantumRuntime.trace_callInput]
+  rfl
 
 /-! ## The bundle -/
 
@@ -178,14 +229,14 @@ example {κ κ' : MEErrors} (h : κ ≤ κ') : κ.sim ≤ κ'.sim :=
 
 /-- `IsMultiExtractable` is built from a witness. -/
 example {tdBot : ∀ i, Td i} {Ω : Type*} {p : Convexity.StdSimplex ℝ Ω}
-    {Ref : Ω → QuantumRuntime (cohSpec (oIn k X Y))} {κ : MEErrors}
+    {Ref : Ω → QuantumRuntime (mixedOracleSpec k X Y)} {κ : MEErrors}
     (h : IsMultiExtractableWith.{v, w} VC E ME code tdBot p Ref κ) :
     IsMultiExtractable.{v, w} VC tdBot p Ref κ :=
   ⟨E, ME, Z, inferInstance, inferInstance, inferInstance, code, h⟩
 
 /-- `IsMultiExtractable` is destructured into its witness. -/
 example {tdBot : ∀ i, Td i} {Ω : Type*} {p : Convexity.StdSimplex ℝ Ω}
-    {Ref : Ω → QuantumRuntime (cohSpec (oIn k X Y))} {κ : MEErrors}
+    {Ref : Ω → QuantumRuntime (mixedOracleSpec k X Y)} {κ : MEErrors}
     (h : IsMultiExtractable.{v, w} VC tdBot p Ref κ) :
     ∃ E : VCOracle k X Y, OraclesCommute E := by
   obtain ⟨E, _, _, _, _, _, _, hE⟩ := h

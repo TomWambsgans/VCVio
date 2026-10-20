@@ -41,7 +41,7 @@ certificate concerns the base oracle; it asserts no commutation with extraction 
 public section
 
 open Matrix
-open scoped Kronecker
+open scoped Kronecker ENNReal
 
 namespace Quantum
 
@@ -96,6 +96,42 @@ variable {Cm Z : Type} [Fintype Cm] [DecidableEq Cm] [Fintype Z] [DecidableEq Z]
 @[expose, reducible]
 noncomputable def mixedRuntime : QuantumRuntime (mixedOracleSpec k X Y) :=
   E.toEmulatedOracle.withClassicalReads E.classicalRead
+
+/-- Reads at any two classical addresses commute on the shared private register. -/
+theorem read_read_commute (c d : Fin k × X) (a b : Option Y) :
+    E.classicalRead.A c a * E.classicalRead.A d b =
+      E.classicalRead.A d b * E.classicalRead.A c a :=
+  E.classicalRead.commute_cells c a d b
+
+/-- Every ordinary oracle call commutes with the framed read projector. -/
+theorem read_ordinary_commute (i : Fin k) (c : Fin k × X) (a : Option Y) :
+    E.U i * (1 ⊗ₖ E.classicalRead.A c a) = (1 ⊗ₖ E.classicalRead.A c a) * E.U i :=
+  E.classicalRead.commute_ordinary i c a
+
+/-- Repeating a read preserves its answer branch and annihilates every conflicting answer. -/
+theorem read_replay (c : Fin k × X) (a b : Option Y) :
+    E.classicalRead.A c a * E.classicalRead.A c b =
+      if a = b then E.classicalRead.A c a else 0 :=
+  E.classicalRead.orthogonal c a b
+
+/-- Sequential branches of the read instrument retain only consistent repeated answers. -/
+theorem read_instrument_replay (c : Fin k × X) (a b : Option Y) :
+    (E.classicalRead.instrument c).branch a ∘ₗ (E.classicalRead.instrument c).branch b =
+      if a = b then (E.classicalRead.instrument c).branch a else 0 := by
+  rw [ProjectiveClassicalAnswers.instrument_branch, ProjectiveClassicalAnswers.instrument_branch,
+    ← MatrixMap.conj_mul, E.read_replay]
+  split_ifs <;> simp
+
+/-- Framing the read projectors preserves their Kraus completeness. -/
+theorem read_kraus_complete (B : QReg) (c : Fin k × X) :
+    ∑ a, ((1 : Matrix B B ℂ) ⊗ₖ E.classicalRead.A c a)ᴴ *
+      (1 ⊗ₖ E.classicalRead.A c a) = 1 := by
+  classical
+  simp only [conjTranspose_kronecker, conjTranspose_one, ← mul_kronecker_mul, mul_one,
+    E.classicalRead.hermitian, E.classicalRead.orthogonal, ite_true]
+  change ∑ a, (kroneckerBilinear (R := ℂ) (1 : Matrix B B ℂ)) (E.classicalRead.A c a) = 1
+  rw [← map_sum, E.classicalRead.complete]
+  exact one_kronecker_one
 
 /-! ## Extraction -/
 
@@ -193,6 +229,26 @@ noncomputable def mixedRecordRuntime (bot : Cell) (U : Matrix (Yr × Cell) (Yr �
 noncomputable def mixedRecordMERuntime (bot : Cell) (U : Matrix (Yr × Cell) (Yr × Cell) ℂ)
     (hU : U ∈ unitaryGroup (Yr × Cell) ℂ) : QuantumRuntime (mixedRecSpec k X Y Cm Z Yr) :=
   (E.withRecordME ME code bot U hU).coherent.toRuntime.extend E.recordingRead
+
+/-- Ordinary oracle mass plus full read-input trace in the unsplit recording world. -/
+@[expose]
+noncomputable def recordVCWeight (bot : Cell) (U : Matrix (Yr × Cell) (Yr × Cell) ℂ)
+    (hU : U ∈ unitaryGroup (Yr × Cell) ℂ) :
+    ∀ p, Matrix ((mixedRecSpec k X Y Cm Z Yr).In p × (E.withRecord ME code bot U hU).S)
+      ((mixedRecSpec k X Y Cm Z Yr).In p × (E.withRecord ME code bot U hU).S) ℂ → ℝ≥0∞ :=
+  QuantumRuntime.withReadWeight fun _ σ ↦ ∑ i : Fin k,
+    ENNReal.ofReal (MatrixMap.conj
+      ((E.withRecord ME code bot U hU).indexProj (.inl (.inl i))) σ).trace.re
+
+/-- Extraction or recording index mass. Read ports contribute zero to these masses. -/
+@[expose]
+noncomputable def recordIndexWeight (bot : Cell) (U : Matrix (Yr × Cell) (Yr × Cell) ℂ)
+    (hU : U ∈ unitaryGroup (Yr × Cell) ℂ) (i : (Fin k ⊕ Unit) ⊕ Unit) :
+    ∀ p, Matrix ((mixedRecSpec k X Y Cm Z Yr).In p × (E.withRecord ME code bot U hU).S)
+      ((mixedRecSpec k X Y Cm Z Yr).In p × (E.withRecord ME code bot U hU).S) ℂ → ℝ≥0∞
+  | .inl _, σ => ENNReal.ofReal
+      (MatrixMap.conj ((E.withRecord ME code bot U hU).indexProj i) σ).trace.re
+  | .inr _, _ => 0
 
 variable (bot : Cell) (U : Matrix (Yr × Cell) (Yr × Cell) ℂ) (hU : U ∈ unitaryGroup (Yr × Cell) ℂ)
 
