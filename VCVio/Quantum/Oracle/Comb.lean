@@ -10,71 +10,55 @@ public import VCVio.Quantum.Comp.QueryBound
 /-!
 # Quantum combs
 
-A `q`-query comb on a register `M` is an initial substate, `q + 1` lossless steps and a final
-lossless instrument. Run against a query step `Q`, it interleaves the steps with `q` copies of `Q`
-and then applies the final instrument: `step 0, Q, step 1, Q, …, Q, step q, final`. Its steps
-cannot branch on classical outcomes, the number of queries is fixed by the type, and all queries
-go to one port.
+A `q`-query comb on a memory register `M` is the textbook form of a quantum query algorithm: an
+initial substate, `q + 1` lossless steps on `M`, and a final lossless instrument. Run against a
+query step `Q`, it interleaves the steps with `q` copies of `Q` and then applies the final
+instrument:
 
-## Combs are a normal form, not the model
+`step 0, Q, step 1, Q, …, Q, step q, final`.
 
-The model of quantum oracle algorithms is the quantum program (`Quantum.QuantumComp`) run against
-a runtime (`Quantum.QuantumRuntime.run`). Combs are a restricted form of program:
+With normalized input, finite qubit registers, unitary steps
+(`Quantum.SubInstrument.ofIsometry`), XOR queries and the usual final output measurement, this
+has the fixed-query circuit form of Boneh et al., *Random Oracles in a Quantum World*
+(arXiv:1008.0931v2, §2.1, PDF p. 7). No efficient circuit-family condition is imposed here.
+The external sequence and number of query slots are fixed, and all queries go to one port.
+Intermediate channels report no classical result to the syntax, but may measure internally,
+store a record in memory, and act on it later. "Comb" here means this concrete sequential form,
+not the Choi-operator formalism of general quantum combs.
 
-* `Quantum.QuantumComb.toComp` embeds a comb as a straight-line program whose queries go to port
-  `i` through `ℓ : M ≃ In i × E`, and return to `M` through `ℓ' : Out i × E ≃ M`.
-* `Quantum.QuantumComb.run_toComp` (Proposition 1): running the program against a runtime `R`
-  is running the comb, framed by `R.D`, against the query step `R.combQuery i E ℓ ℓ'`. So
-  statements about combs apply to the programs they embed as, against every runtime.
+## Combs embed as programs
 
-A converse holds only under hypotheses on the runtime and the program, and is a follow-up not
-stated here. Suppose the runtime has a single port, with an *idle input* (a state on which a call
-changes nothing, including the private register, and returns a fixed result), and that the port's
-classical result is trivial (`Result = Unit`). Then every lossless program making at most `q`
-calls on every path has a comb with exactly `q` slots, on the memory `M × H × R'` with a classical
-history register `H` and a scratch copy `R'` of the port register, with the same joint law of
-output and private register against the runtime.
+The model of quantum oracle algorithms is the program (`Quantum.QuantumComp`) run against a runtime.
+Combs are a restricted form of program:
 
-Both hypotheses on top of the idle input are needed for combs as defined here. A comb discards
-the classical result of each call (`Quantum.QuantumRuntime.combQuery`): against a port that
-measures a private uniform bit and returns it, a one-query program outputs a bit correlated with
-the private register, and no comb does. The program must be lossless because the steps of a comb
-are. Take a runtime whose private bit `d` starts uniform and whose port, on a control bit `1`,
-adds `d` to a target bit of the port register, and on control `0` does nothing; no call changes
-`d`. Every operation of a comb against it is lossless and preserves the classical label `d`, so
-the marginal of `d`, after summing over all outputs, keeps equal weights on `0` and `1`. A
-program that copies `d` with one call, reads the copy and fails on `1` leaves weight only on
-`d = 0`, and no comb reproduces its joint law. The invariant belongs to this runtime and not to
-combs in general: calls may change the private register. A port that resets the private bit to
-`0` on control `1` and does nothing on control `0` is lossless with an idle input, and a lossless
-one-slot comb that prepares control `1` turns a uniform private bit into a deterministic one.
+* `Quantum.QuantumComb.toComp` embeds a comb as a straight-line program whose queries go to port `i`
+  through `ℓ : M ≃ In i × E` and return to `M` through `ℓ' : Out i × E ≃ M`.
+* `Quantum.QuantumComb.run_toComp`: running that program against a runtime `R` is running the comb,
+  framed by `R.D`, against the query step `R.combQuery i E ℓ ℓ'`, which discards the classical
+  result of each call. So theorems about combs apply to the programs they embed as, against every
+  runtime.
 
-Without an idle input combs are strictly weaker as well: against a runtime that counts its calls,
-a program that calls a different number of times on different paths has a joint law that no comb
-reproduces (see the counting-runtime test in `VCVioTest/Quantum/Oracle.lean`), and with several
-ports a comb fixes the order of its calls in advance.
-
-Combs embed as programs over instruments (`Quantum.QComp`): their steps are subinstruments, and
-their output is a value on the fixed register `M`. The statements below are therefore about this
-fixed-register form.
+The converse, that a program can be put in comb form, is not proved here, and fails without
+hypotheses: a comb makes the same number of calls on every path and ignores call results, while a
+program need not.
 
 ## Main definitions
 
 * `Quantum.interleave Q q s`: the composite `s 0, Q, s 1, …, Q, s q`.
 * `Quantum.QuantumComb M α q`, with `Quantum.QuantumComb.run`.
 * `Quantum.QuantumComb.stateAfterStep`: the substate after step `i`, on which query `i` acts.
-* `Quantum.QuantumComb.ofClassical`: the comb that runs a classical deterministic algorithm on
-  basis states.
+* `Quantum.QuantumComb.ofClassical`: the comb that runs a deterministic classical algorithm on basis
+  states.
 * `Quantum.QuantumComb.toComp`: the program of a comb.
 
 ## Main results
 
-* `Quantum.QuantumComb.outcomeMeasure_run_congr`: two query steps that act in the same way on
-  the substates the comb presents to them give the same outcome measure.
+* `Quantum.QuantumComb.outcomeMeasure_run_congr`: two query steps that act in the same way on the
+  substates the comb presents to them give the same outcome measure.
 * `Quantum.QuantumComb.outcomeMeasure_run_ofClassical`: against a query step that permutes basis
-  states, a classical comb reports the output of the classical run with certainty.
-* `Quantum.QuantumComb.run_toComp` and `Quantum.QuantumComb.outcomeLaw_toComp`: the run and the
-  outcome law of the program of a comb against a runtime.
+  states, a classical comb returns the output of the classical run with certainty.
+* `Quantum.QuantumComb.run_toComp` and `Quantum.QuantumComb.evalDist_toComp`: the run and the
+  distribution of the program of a comb against a runtime.
 -/
 
 public section
@@ -82,7 +66,7 @@ public section
 open MeasureTheory
 open scoped ComplexOrder
 
-universe u₁ v₁
+universe u₁ v₁ w
 
 namespace Quantum
 
@@ -174,16 +158,26 @@ theorem post_interleave (Q : SubInstrument M M Unit) (ρ : SubState M) :
       (interleave Q q s).post ρ () = interleavePost Q ρ s (Fin.last q)
   | 0, _ => rfl
   | q + 1, s => by
-    rw [interleave_succ, SubInstrument.post_bind_unit, SubInstrument.post_bind_unit,
+    rw [interleave_succ, DSubInstrument.post_bind_unit, DSubInstrument.post_bind_unit,
       post_interleave Q ρ (Fin.init s), interleavePost_init, ← Fin.succ_last,
       interleavePost_succ]
 
 /-! ## Combs -/
 
-/-- **Quantum combs.** A `q`-query comb on the register `M` with outputs in `α`: an initial
-substate, `q + 1` lossless steps between which the queries are made, and a final lossless
-instrument reporting the output. The steps are arbitrary channels on the register; unitary gates
-(`Quantum.SubInstrument.ofIsometry`) are a special case. -/
+/-- A fixed-slot query strategy on finite memory `M`, returning a classical value in `α`.
+It consists of an initial substate, channels `step 0, …, step q` on `M`, and a lossless final
+instrument. Against a query subinstrument `Q`, execution is
+`step 0, Q, step 1, …, Q, step q, final`, with exactly `q` query slots.
+
+Intermediate steps report only `Unit`, so the external schedule cannot depend on a reported
+result. Channels may nevertheless measure internally, store a record in `M`, and act on that
+record later. The initial substate may have trace below one, and `Q` may lose trace.
+
+With normalized input, qubit registers, unitary steps and XOR queries, this has the fixed-query
+circuit form in Boneh et al., Random Oracles in a Quantum World, §2.1 (PDF p. 7).
+No efficient circuit-family condition is imposed here. This is a concrete sequential strategy,
+not a Choi-operator representation. `toComp` and `run_toComp` give its program embedding;
+no converse is proved. -/
 structure QuantumComb (M : Type*) [Fintype M] (α : Type*) (q : ℕ) where
   /-- The substate of the register before the first step. -/
   init : SubState M
@@ -239,7 +233,7 @@ step. -/
 theorem outcomeMeasure_run [MeasurableSpace α] :
     (c.run Q).outcomeMeasure c.init =
       c.final.outcomeMeasure (c.stateAfterStep Q (Fin.last q)) := by
-  rw [run, SubInstrument.outcomeMeasure_bind_unit, post_body]
+  rw [run, DSubInstrument.outcomeMeasure_bind_unit, post_body]
 
 variable {Q}
 
@@ -285,7 +279,8 @@ noncomputable def dropLast (c : QuantumComb M α (q + 1)) : QuantumComb M Unit q
   step := Fin.init c.step
   lossless_step i := c.lossless_step i.castSucc
   final := SubInstrument.pure ()
-  lossless_final := SubInstrument.lossless_pure ()
+  lossless_final := by
+    simpa only [SubInstrument.pure] using DSubInstrument.lossless_ret (fun _ : Unit ↦ M) ()
 
 /-- The interaction of a comb with `q + 1` queries: the interaction of the comb
 without its last query, one query, and the last step. -/
@@ -360,10 +355,10 @@ by `f i`, and the final instrument reads the register and reports `g` of it. -/
 noncomputable def ofClassical (m₀ : M) (f : Fin (q + 1) → M → M) (g : M → α) :
     QuantumComb M α q where
   init := SubState.basis m₀
-  step i := SubInstrument.classical (f i) fun _ ↦ ()
-  lossless_step _ := SubInstrument.lossless_classical _ _
-  final := SubInstrument.classical id g
-  lossless_final := SubInstrument.lossless_classical _ _
+  step i := DSubInstrument.classical (B := fun _ ↦ M) (fun _ ↦ ()) (f i)
+  lossless_step _ := DSubInstrument.lossless_classical _ _
+  final := DSubInstrument.classical (B := fun _ ↦ _) g id
+  lossless_final := DSubInstrument.lossless_classical _ _
 
 variable {π : M → M} (hQ : ∀ m, Q.post (SubState.basis m) () = SubState.basis (π m))
 include hQ
@@ -375,10 +370,10 @@ theorem stateAfterStep_ofClassical (m₀ : M) (f : Fin (q + 1) → M → M) (g :
     (i : Fin (q + 1)) :
     (ofClassical m₀ f g).stateAfterStep Q i = SubState.basis (classicalTrajectory π m₀ f i) := by
   induction i using Fin.induction with
-  | zero => exact SubInstrument.post_classical_basis _ _
+  | zero => exact DSubInstrument.post_classical_basis _ _
   | succ i ih =>
     rw [stateAfterStep_succ, ih, hQ, classicalTrajectory_succ]
-    exact SubInstrument.post_classical_basis _ _
+    exact DSubInstrument.post_classical_basis _ _
 
 /-- Against a query step that sends the basis state at `m` to the basis state at `π m`, a
 classical comb reports `g` of the last entry of the classical trajectory with certainty. -/
@@ -386,7 +381,8 @@ theorem outcomeMeasure_run_ofClassical [MeasurableSpace α] (m₀ : M) (f : Fin 
     (g : M → α) :
     ((ofClassical m₀ f g).run Q).outcomeMeasure (SubState.basis m₀) =
       Measure.dirac (g (classicalTrajectory π m₀ f (Fin.last q))) := by
-  rw [← SubInstrument.outcomeMeasure_classical_basis id g, ← stateAfterStep_ofClassical hQ m₀ f g]
+  rw [← DSubInstrument.outcomeMeasure_classical_basis (B := fun _ ↦ M) g id,
+    ← stateAfterStep_ofClassical hQ m₀ f g]
   exact (ofClassical m₀ f g).outcomeMeasure_run Q
 
 end ofClassical
@@ -414,7 +410,7 @@ end QuantumRuntime
 
 section toComp
 
-variable {spec : QuantumOracleSpec.{u₁, v₁}} {M : Type} [Fintype M] [DecidableEq M] {α : Type}
+variable {spec : QuantumOracleSpec.{u₁, v₁}} {M : Type} [Fintype M] [DecidableEq M] {α : Type w}
   {q : ℕ}
 
 /-- The straight-line program `s 0, call, s 1, …, call, s q`: each call goes to port `i` on the
@@ -476,6 +472,89 @@ theorem isQueryBound_interleaveComp [DecidableEq spec.Port] (i : spec.Port) (E :
           (by simp)) fun _ ↦ QComp.isQueryBound_act _ 0).mono (le_of_eq ?_)
     rw [add_zero, Pi.single_add]
 
+/-- Run a one-outcome step using instrument outcomes in universe `w`. -/
+@[expose]
+noncomputable def actUnit {A B : QReg} (p : SubInstrument A B Unit) :
+    QuantumComp₂ LocalSig.instruments.{w} spec A B Unit :=
+  (QComp.act (p.map (ULift.up : Unit → ULift.{w} Unit))).bind fun _ ↦
+    QuantumComp₂.pure ()
+
+/-- Lifting the internal unit outcome preserves the executed subinstrument. -/
+theorem run_actUnit {A B : QReg} (R : QuantumRuntime spec) (p : SubInstrument A B Unit) :
+    R.run₂ .instruments (actUnit.{u₁, v₁, w} p) = p.frame R.D := by
+  rw [actUnit, QuantumRuntime.run₂_bind, QuantumRuntime.run₂_act,
+    SubInstrument.bind_pure, SubInstrument.map_eq_bind_pure, SubInstrument.frame_bind,
+    SubInstrument.bind_assoc]
+  simp only [SubInstrument.frame_pure, SubInstrument.pure_bind, QuantumRuntime.run₂_pure]
+  exact SubInstrument.bind_pure _
+
+/-- A lifted one-outcome step is lossless when its instrument is lossless. -/
+theorem lossless_actUnit {A B : QReg} {p : SubInstrument A B Unit} (hp : p.Lossless) :
+    (actUnit.{u₁, v₁, w} (spec := spec) p).Lossless .instruments :=
+  QuantumComp₂.lossless_bind
+    (QComp.lossless_act (hp.map ULift.up.{w})) fun _ ↦
+    QuantumComp₂.lossless_pure _
+
+/-- Lifting a local outcome introduces no oracle calls. -/
+theorem isQueryBound_actUnit {A B : QReg} (p : SubInstrument A B Unit)
+    (b : spec.Port → ℕ) : (actUnit.{u₁, v₁, w} p).IsQueryBound b := by
+  exact (QuantumComp₂.isQueryBound_bind (b₁ := b) (b₂ := 0)
+    (QComp.isQueryBound_act _ _) fun _ ↦ QuantumComp₂.isQueryBound_pure _ _).mono
+      (add_zero b).le
+
+/-- Interleave comb steps and calls with local outcomes in an arbitrary universe. -/
+@[expose]
+noncomputable def interleaveCompLift (i : spec.Port) (E : QReg)
+    (ℓ : M ≃ spec.In i × E) (ℓ' : spec.Out i × E ≃ M) :
+    (q : ℕ) → (Fin (q + 1) → SubInstrument M M Unit) →
+      QuantumComp₂ LocalSig.instruments.{w} spec (QReg.of M) (QReg.of M) Unit
+  | 0, s => actUnit (s 0)
+  | q + 1, s =>
+    ((interleaveCompLift i E ℓ ℓ' q (Fin.init s)).bind fun _ ↦
+      QuantumComp₂.query i E ℓ).bind fun _ ↦
+        actUnit ((SubInstrument.relabel ℓ').bind fun _ ↦ s (Fin.last _))
+
+/-- Lifting the internal outcomes preserves the interleaved execution. -/
+theorem run_interleaveCompLift (R : QuantumRuntime spec) (i : spec.Port) (E : QReg)
+    (ℓ : M ≃ spec.In i × E) (ℓ' : spec.Out i × E ≃ M) :
+    ∀ (q : ℕ) (s : Fin (q + 1) → SubInstrument M M Unit),
+      R.run₂ .instruments (interleaveCompLift.{u₁, v₁, w} i E ℓ ℓ' q s) =
+        interleave (R.combQuery i E ℓ ℓ') q fun j ↦ (s j).frame R.D
+  | 0, s => by rw [interleaveCompLift, run_actUnit, interleave_zero]
+  | q + 1, s => by
+    rw [interleaveCompLift, QuantumRuntime.run₂_bind, QuantumRuntime.run₂_bind,
+      run_interleaveCompLift R i E ℓ ℓ' q, QuantumRuntime.run₂_query,
+      SubInstrument.bind_pure, run_actUnit, SubInstrument.frame_bind, interleave_succ,
+      QuantumRuntime.combQuery]
+    simp only [SubInstrument.bind_assoc]
+    rfl
+
+/-- Lossless comb steps remain lossless after lifting their internal outcomes. -/
+theorem lossless_interleaveCompLift (i : spec.Port) (E : QReg)
+    (ℓ : M ≃ spec.In i × E) (ℓ' : spec.Out i × E ≃ M) :
+    ∀ {q : ℕ} {s : Fin (q + 1) → SubInstrument M M Unit}, (∀ j, (s j).Lossless) →
+      (interleaveCompLift.{u₁, v₁, w} i E ℓ ℓ' q s).Lossless .instruments
+  | 0, _, hs => lossless_actUnit (hs 0)
+  | _ + 1, _, hs =>
+    QuantumComp₂.lossless_bind (QuantumComp₂.lossless_bind
+      (lossless_interleaveCompLift i E ℓ ℓ' fun j ↦ hs j.castSucc) fun _ ↦
+        QuantumComp₂.lossless_query _ _ _) fun _ ↦
+      lossless_actUnit ((SubInstrument.lossless_relabel _).bind fun _ ↦ hs _)
+
+/-- Lifting internal outcomes preserves the comb's per-port query budget. -/
+theorem isQueryBound_interleaveCompLift [DecidableEq spec.Port] (i : spec.Port) (E : QReg)
+    (ℓ : M ≃ spec.In i × E) (ℓ' : spec.Out i × E ≃ M) :
+    ∀ (q : ℕ) (s : Fin (q + 1) → SubInstrument M M Unit),
+      (interleaveCompLift.{u₁, v₁, w} i E ℓ ℓ' q s).IsQueryBound (Pi.single i q)
+  | 0, s => by rw [Pi.single_zero]; exact isQueryBound_actUnit _ _
+  | q + 1, s => by
+    rw [interleaveCompLift]
+    refine (QuantumComp₂.isQueryBound_bind (QuantumComp₂.isQueryBound_bind
+      (isQueryBound_interleaveCompLift i E ℓ ℓ' q (Fin.init s)) fun _ ↦
+        (QuantumComp₂.isQueryBound_query_iff (A := QReg.of M) i E ℓ (Pi.single i 1)).mpr
+          (by simp)) fun _ ↦ isQueryBound_actUnit _ 0).mono (le_of_eq ?_)
+    rw [add_zero, Pi.single_add]
+
 namespace QuantumComb
 
 /-- **The program of a comb.** Its queries go to port `i` on the factor of `M` exposed by `ℓ`,
@@ -485,40 +564,45 @@ part of the program, which is observed from a substate of its starting register.
 noncomputable def toComp (c : QuantumComb M α q) (i : spec.Port) (E : QReg)
     (ℓ : M ≃ spec.In i × E) (ℓ' : spec.Out i × E ≃ M) :
     QComp spec (QReg.of M) (QReg.of M) α :=
-  (interleaveComp i E ℓ ℓ' q c.step).bind fun _ ↦ QComp.act c.final
+  (interleaveCompLift i E ℓ ℓ' q c.step).bind fun _ ↦ QComp.act c.final
 
-/-- **Proposition 1.** Running the program of a comb against a runtime `R` is running the comb,
-framed by the runtime register, against the query step `R.combQuery i E ℓ ℓ'`. -/
+/-- The program embedding preserves the whole outcome-indexed quantum operation.
+Running `c.toComp i E ℓ ℓ'` against `R` gives the same subinstrument on `M × R.D` as
+interleaving the comb's steps, framed by `R.D`, with `R.combQuery i E ℓ ℓ'`.
+
+Each query's classical result is discarded by this embedding. The equality holds on every
+joint input operator, including entangled inputs; initialization is used only when the
+subinstrument is observed. This is the comb-to-program direction only. -/
 theorem run_toComp (c : QuantumComb M α q) (R : QuantumRuntime spec) (i : spec.Port) (E : QReg)
     (ℓ : M ≃ spec.In i × E) (ℓ' : spec.Out i × E ≃ M) :
     R.run₂ .instruments (c.toComp i E ℓ ℓ') =
       (c.frame R.D R.init).run (R.combQuery i E ℓ ℓ') := by
-  rw [toComp, QuantumRuntime.run₂_bind, run_interleaveComp, QuantumRuntime.run₂_act,
+  rw [toComp, QuantumRuntime.run₂_bind, run_interleaveCompLift, QuantumRuntime.run₂_act,
     SubInstrument.bind_pure]
   rfl
 
-/-- The outcome law of the program of a comb, observed from the comb's initial substate, is the
-outcome measure of the framed comb against the runtime's query step. -/
-theorem outcomeLaw_toComp [MeasurableSpace α] (c : QuantumComb M α q) (R : QuantumRuntime spec)
+/-- The outcome distribution of the program of a comb, observed from the comb's initial substate, is
+the outcome measure of the framed comb against the runtime's query step. -/
+theorem evalDist_toComp [MeasurableSpace α] (c : QuantumComb M α q) (R : QuantumRuntime spec)
     (i : spec.Port) (E : QReg) (ℓ : M ≃ spec.In i × E) (ℓ' : spec.Out i × E ≃ M) :
-    R.outcomeLaw₂ .instruments (c.toComp i E ℓ ℓ') c.init =
+    R.evalDist₂ .instruments (c.toComp i E ℓ ℓ') c.init =
       ((c.frame R.D R.init).run (R.combQuery i E ℓ ℓ')).outcomeMeasure
         (c.frame R.D R.init).init := by
-  rw [QuantumRuntime.outcomeLaw₂, run_toComp]
+  rw [QuantumRuntime.evalDist₂, run_toComp]
   rfl
 
 /-- The program of a comb is lossless. -/
 theorem lossless_toComp (c : QuantumComb M α q) (i : spec.Port) (E : QReg)
     (ℓ : M ≃ spec.In i × E) (ℓ' : spec.Out i × E ≃ M) :
     (c.toComp i E ℓ ℓ').Lossless .instruments :=
-  QuantumComp₂.lossless_bind (lossless_interleaveComp i E ℓ ℓ' c.lossless_step) fun _ ↦
+  QuantumComp₂.lossless_bind (lossless_interleaveCompLift i E ℓ ℓ' c.lossless_step) fun _ ↦
     QComp.lossless_act c.lossless_final
 
 /-- The program of a `q`-query comb makes `q` calls of port `i` and none of any other port. -/
 theorem isQueryBound_toComp [DecidableEq spec.Port] (c : QuantumComb M α q) (i : spec.Port)
     (E : QReg) (ℓ : M ≃ spec.In i × E) (ℓ' : spec.Out i × E ≃ M) :
     (c.toComp i E ℓ ℓ').IsQueryBound (Pi.single i q) :=
-  (QuantumComp₂.isQueryBound_bind (isQueryBound_interleaveComp i E ℓ ℓ' q c.step) fun _ ↦
+  (QuantumComp₂.isQueryBound_bind (isQueryBound_interleaveCompLift i E ℓ ℓ' q c.step) fun _ ↦
     QComp.isQueryBound_act _ 0).mono (add_zero _).le
 
 end QuantumComb
