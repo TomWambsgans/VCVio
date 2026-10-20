@@ -131,12 +131,12 @@ def Algorithm.digestRaw (algorithm : Algorithm) (message : List Byte) : ByteArra
   | .sha2_256 => Sha2.sha256 input
   | .sha2_384 => Sha2.sha384 input
   | .sha2_512 => Sha2.sha512 input
-  | .sha2_512_224 => Sha2.sha512Trunc224 input
-  | .sha2_512_256 => Sha2.sha512Trunc256 input
-  | .sha3_224 => Keccak.sha3Digest224 input
-  | .sha3_256 => Keccak.sha3Digest256 input
-  | .sha3_384 => Keccak.sha3Digest384 input
-  | .sha3_512 => Keccak.sha3Digest512 input
+  | .sha2_512_224 => Sha2.sha512_224 input
+  | .sha2_512_256 => Sha2.sha512_256 input
+  | .sha3_224 => Keccak.sha3_224 input
+  | .sha3_256 => Keccak.sha3_256 input
+  | .sha3_384 => Keccak.sha3_384 input
+  | .sha3_512 => Keccak.sha3_512 input
   | .shake128 => Keccak.squeeze (Keccak.absorb input 168 0x1f) 32
   | .shake256 => Keccak.squeeze (Keccak.absorb input 136 0x1f) 64
 

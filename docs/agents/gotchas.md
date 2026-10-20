@@ -105,7 +105,7 @@ inside the instance-carrying type of an `OracleComp`, and rewriting `(spec + spe
 under a `simulateQ`/`liftM` strands goals in a form the `simulateQ_query` family cannot match
 (typically visible as `simulateQ impl (liftM (query (Sum.inl t)))` refusing to simplify).
 
-Nested sums are a dedicated implicit-transparency boundary. `PFunctor.sum`
+Nested sums are a dedicated implicit-transparency boundary. `PFunctor.add`
 uses the primitive dependent `Sum.rec`, and the OracleSpec `HAdd` instance
 calls that construction directly. Keep the latter at the ordinary
 `instance_reducible` status supplied by the `instance` command: making it
@@ -118,6 +118,11 @@ enable `linter.tacticCheckInstances` on a minimal canary and fix the owning
 combinator rather than adding global reducibility attributes or a transparency
 compatibility option. Use `#guard_msgs` only when the canary documents an
 expected diagnostic, not when it guards successful elaboration.
+
+cslib's `PFunctor.add_eq_add` makes `P + Q` the simp normal form of `P.add Q`.
+If a simp set unfolds `HAdd.hAdd`, exclude `PFunctor.add_eq_add`, for example with
+`simp [HAdd.hAdd, -PFunctor.add_eq_add]`. Otherwise the two rewrites loop between
+the named construction and addition notation.
 
 ### 8. Concrete subtype samplers built with `Fintype.ofFinite` can be whnf-hostile
 

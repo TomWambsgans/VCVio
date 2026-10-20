@@ -32,6 +32,7 @@ variable (m : Type → Type v) [Monad m] [LawfulMonad m]
 
 attribute [local instance] ExpectationWP.Lower.instMAlgOrdered
 
+omit [LawfulMonad m] in
 /-- Subprobability expectations preserve the upper bound one. -/
 theorem μ_one_le {α : Type} (mx : m α) :
     MAlgOrdered.μ (mx >>= fun _ ↦ pure (1 : ENNReal)) ≤ 1 := by

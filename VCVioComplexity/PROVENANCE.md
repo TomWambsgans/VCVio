@@ -78,7 +78,7 @@ patching the blocked upstream `TuringMachine.Internal` module. The file preserve
 attribution; no declaration is copied into the `Complexity` namespace.
 
 The direct identity/composition acceptance test is PolyFun's
-`polynomialQuantitativeStepClass.HasCategory` mixin itself. It has no exported inhabitant. Filling
+`polynomialQuantitativeStepClass.HasComposition` mixin itself. It has no exported inhabitant. Filling
 it requires total exact machines on all words, represented semantic correctness, polynomial run
 certificates, and a proved inequality for connection overhead. The failing upstream modules
 prevent reusing `copyInputToOutputTM` and `compositionTM` at this toolchain; no closure witness
@@ -97,19 +97,20 @@ for second-order quantification, not evidence that the fixed two-bit coin answer
 needs a growing response modulus.
 
 For arbitrary exact `Code` values, the corresponding interface is
-`quantitativeStepClass.HasCategory`; PolyFun's `HasExactCategory` remains the separate, strictly
+`quantitativeStepClass.HasComposition`; PolyFun's `HasExactComposition` remains the separate, strictly
 stronger refinement for exact cost equations. This avoids making exact additive accounting a
 prerequisite for sound polynomial closure.
 
 All compatibility work remains local to VCVio and PolyFun for this phase. No PR or issue is opened
 in complexitylib, CSLib, or Mathlib.
 
-Run `VCVioComplexity/scripts/compatibility-preflight.sh` from this package to reproduce the supported build and
-classify both the four recorded composition failures and the six recorded `Asymptotics.lean`
-failures.
+Run `VCVioComplexity/scripts/compatibility-preflight.sh` from the repository root to reproduce the
+supported build and classify both the four recorded composition failures and the six recorded
+`Asymptotics.lean` failures.
 Its default reporting mode accepts only the recorded source diagnostics;
 `--require-upstream-stack` exits nonzero while either surface remains unavailable. That strict
 mode tests upstream compatibility only: it does not construct VCVio's closure gates or resolve
-the pair-codec mismatch. Run `VCVioComplexity/scripts/test.sh` for the aggregate canaries, guarded axiom reports,
-proof-escape scan, and compatibility report. Both scripts treat an unexpected dependency revision
-or changed failure mode as a preflight error and never modify dependency sources.
+the pair-codec mismatch. Run `VCVioComplexity/scripts/test.sh` from the repository root for the
+aggregate canaries, guarded axiom reports, proof-escape scan, and compatibility report. Both scripts
+treat an unexpected dependency revision or changed failure mode as a preflight error and never
+modify dependency sources.
