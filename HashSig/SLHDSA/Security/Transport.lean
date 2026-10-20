@@ -7,10 +7,13 @@ Authors: Alexander Hicks
 module
 
 public import HashSig.SLHDSA.Security.HiddenUndrawn
+public import HashSig.SLHDSA.Security.HonestTransfer
 public import HashSig.SLHDSA.Security.LabelReaders
 public import HashSig.SLHDSA.Security.LabScheme
 public import HashSig.SLHDSA.Security.RomSchemeUnion
+public import VCVio.CryptoFoundations.SignatureAlg.WithPost
 public import VCVio.OracleComp.QueryTracking.RandomOracle.JointPotential
+public import VCVio.OracleComp.QueryTracking.RandomOracle.Redirect
 public import VCVio.OracleComp.QueryTracking.RandomOracle.Settled
 import HashSig.SLHDSA.Security.CacheDecomposition
 import HashSig.SLHDSA.Security.ComponentTraces
@@ -55,6 +58,18 @@ potential charges them.
   (`simulateQ_toPartialImpl_verifyInternalM_of_mem_support_deferredImpl_labExperiment`). The
   final state of every such run has its hidden cells undrawn
   (`hiddenUndrawn_of_mem_support_deferredImpl_labExperiment`).
+* **A mixed hidden-value hit.** When verification, its queries redirected by `ρ`, settles before
+  the fill, a hidden-value hit whose forger replay is read through `ρ` and whose hashed forger
+  point is one `ρ` passes on is a conflict after the fill (`conflict_of_hiddenHitMixed`), given
+  that `ρ` passes on every `H_msg` point.
+* **A post-verification.** The lab forger of an adversary followed by a lifted public-hash
+  program is the lab forger followed by that program (`labAdversary_withPost`), and on a run of
+  its lab experiment in the deferred game the program settles on the rebuilt cache of every
+  conflict-free extension off the seed hazard
+  (`simulateQ_toPartialImpl_post_of_mem_support_deferredImpl_labExperiment`). So for an adversary
+  followed by a redirected verification of its forgery, a mixed hidden-value hit of the rebuilt
+  transcript is a conflict or a seed hazard of the final public cache
+  (`conflict_or_exists_isSome_of_hiddenHitMixed_withPost`).
 * **The transport.** A target collision or hidden-value hit of the rebuilt transcript, a seed
   hazard of the split state, or a conflict, is a conflict, a target collision at a node key, or a
   seed hazard of the final public cache
@@ -241,15 +256,15 @@ end Replay
 
 /-! ## The forgery's hidden values -/
 
-/-- A WOTS+ chain value that the replay of a forgery on the cache of `st` finds hidden has an
-undrawn cell in a state `st₀ ≤ st` with the same public cache whose hidden cells, for the
-transcript's log, are undrawn. -/
+/-- A WOTS+ chain value that the replay of a forgery, entering a layer on any cache `V`, finds
+hidden on the cache of `st` has an undrawn cell in a state `st₀ ≤ st` with the same public cache
+whose hidden cells, for the transcript's log, are undrawn. -/
 theorem exists_cell_chainChild_eq_none_of_hiddenChainValue (hd : core.KeyDiscipline vp)
     (hle : st₀ ≤ st) (hfst : st.1 = st₀.1)
     {o : RomOutcome vp core} (hpk : o.pk.pkSeed = pkSeed) (hsk : o.sk.skSeed = s.1)
-    (h5 : HiddenUndrawn core o.pk o.log st₀)
+    (h5 : HiddenUndrawn core o.pk o.log st₀) {V : PublicHash.Cache core}
     {j : Fin vp.params.d} {pos : LayerPosition vp} {m : core.Y} {i : Fin vp.params.len}
-    (hFL : ForgerLayer o 𝒞[e, pkSeed, s, st] j pos m)
+    (hFL : ForgerLayer o V j pos m)
     (hHCV : HiddenChainValue (oracleSecret core e o.pk.pkSeed o.sk.skSeed) o 𝒞[e, pkSeed, s, st]
       j pos i.val (chainStepsCore core m i.val))
     (ht : chainStepsCore core m i.val < vp.params.w - 1) :
@@ -317,6 +332,48 @@ theorem conflict_of_hiddenHit [DecidableEq core.Y] (hd : core.KeyDiscipline vp) 
     rw [← BottomPosition.forsAdrs_ofDigestParts]
     exact forsLeafAdrs_mem_constructionAddresses _ i (forsSigLeafIndex_div_pow_a _ _ _)
 
+/-- **A mixed hidden-value hit is a conflict.** Let `st₀ ≤ st` have the same public cache, let the
+hidden cells of `st₀` for a transcript's log be undrawn, and let verification of its forgery, with
+its queries redirected by `ρ`, settle on the cache that `st₀` stands for, where `ρ` passes on
+every point outside `S` and every `H_msg` point. A hidden-value hit of the transcript whose forger
+replay is read on the cache of `st` viewed through `ρ`, whose honest values are read on that
+cache, and whose hashed forger point is outside `S`, makes `st` a conflict. -/
+theorem conflict_of_hiddenHitMixed [DecidableEq core.Y] (hd : core.KeyDiscipline vp)
+    (hle : st₀ ≤ st) (hfst : st.1 = st₀.1) {o : RomOutcome vp core} (hpk : o.pk.pkSeed = pkSeed)
+    (hsk : o.sk.skSeed = s.1) (h5 : HiddenUndrawn core o.pk o.log st₀)
+    {ρ : QueryImpl (publicHashSpec core) (OracleComp (publicHashSpec core))}
+    {S : (publicHashSpec core).Domain → Prop} (hρ : ∀ t, ¬S t → ρ t = query t)
+    (hρm : ∀ r ps pr msg, ρ (.hmsg r ps pr msg) = query (spec := publicHashSpec core)
+      (.hmsg r ps pr msg)) {b : Bool}
+    (hv : simulateQ 𝒞[e, pkSeed, s, st₀].toPartialImpl (simulateQ ρ
+      (GeneralScheme.verifyInternalM (m := OracleComp (publicHashSpec core)) vp core o.msg o.sig
+        o.pk)) = some b)
+    (h : HiddenHitMixed S (oracleSecret core e o.pk.pkSeed o.sk.skSeed) o
+      (𝒞[e, pkSeed, s, st].viewBy ρ) 𝒞[e, pkSeed, s, st]) :
+    (slhGraph core pkSeed).Conflict st := by
+  subst hpk
+  by_contra hc
+  have hle' := QueryCache.viewBy_mono (QueryCache.fst_mono
+    ((secretEncoding core e o.pk.pkSeed).merge_toSplitCache_mono (slhGraph core _) s hle hc)) ρ
+  rw [← QueryCache.simulateQ_viewBy_toPartialImpl] at hv
+  rcases h with ⟨j, pos, m, i, x, hFL, hHCV, ht, hx, hg, hS⟩ | ⟨digest, i, hD, hUC, hx, hS⟩
+  · obtain ⟨c, hcell, h₀⟩ :=
+      exists_cell_chainChild_eq_none_of_hiddenChainValue hd hle hfst rfl hsk h5 hFL hHCV ht
+    rw [hsk] at hx
+    have hq := isSome_thash_of_forgerLayer hle' hv hFL i ht
+    rw [QueryCache.viewBy_apply_of_eq_query (hρ _ hS)] at hq
+    exact hc (conflict_of_chain?_of_cell_eq_none hd hle.1
+      (wotsChainAdrs_setHashAddress_mem_constructionAddresses pos i ht)
+      ((pathCell_wotsInstanceAdrs core pos i.val _).trans hcell) h₀ hq hx hg)
+  · obtain ⟨c, hcell, h₀⟩ := exists_cell_forsSkAdrs_eq_none_of_unopenedCoord hfst h5 hUC
+    rw [hsk] at hx
+    have hq := isSome_thash_of_forgerDigest hle' hv (by
+      simpa only [ForgerDigest, QueryCache.viewBy_apply_of_eq_query (hρm _ _ _ _)] using hD) i
+    rw [QueryCache.viewBy_apply_of_eq_query (hρ _ hS)] at hq
+    refine hc (conflict_of_forsSkAdrs_of_cell_eq_none hd hle.1 ?_ hcell h₀ hq hx)
+    rw [← BottomPosition.forsAdrs_ofDigestParts]
+    exact forsLeafAdrs_mem_constructionAddresses _ i (forsSigLeafIndex_div_pow_a _ _ _)
+
 /-! ## The settled verification -/
 
 section Verify
@@ -367,6 +424,72 @@ theorem simulateQ_toPartialImpl_verifyInternalM_of_mem_support_deferredImpl_labE
       (GeneralScheme.verifyInternalM vp core z.1.msg z.1.sig z.1.pk)
       (by rw [← verifyInternalM_labSpec_eq]; exact hv) hle hc)
 
+omit [SampleableType core.Y] [DecidableEq core.Y] [SampleableType (Bytes vp.params.m)]
+  [DecidableEq core.PkSeed] [DecidableEq core.AdrsKey] [DecidableEq core.SkPrf]
+  [SampleableType core.SkSeed] [SampleableType core.SkPrf] in
+private theorem simulateQ_ofLift_simulateQ_withDerivationsLift_liftPub {α : Type}
+    (P : OracleComp (publicHashSpec core) α) :
+    simulateQ (QueryImpl.ofLift (deriveSpec core) (OracleComp (labSpec core)))
+        (simulateQ ((hashSpec core).withDerivationsLift (DeriveQuery core) core.Y) (liftPub P)) =
+      simulateQ (HasQuery.toQueryImpl (spec := publicHashSpec core)
+        (m := OracleComp (labSpec core))) P := by
+  induction P using OracleComp.inductionOn with
+  | pure x => simp
+  | query_bind t k ih =>
+    simp only [liftPub, simulateQ_bind, simulateQ_spec_query] at ih ⊢
+    congr 1
+    funext u
+    exact ih u
+
+omit [SampleableType (Bytes vp.params.m)] [DecidableEq core.PkSeed] [DecidableEq core.AdrsKey]
+  [DecidableEq core.SkPrf] in
+/-- The lab forger of an adversary followed by a lifted public-hash program is the lab forger of
+the adversary followed by that program over `labSpec`. -/
+theorem labAdversary_withPost (adv : UnforgeableAdversary (romScheme core e optRand pkSeedDist))
+    {β : Type} (post : PublicKeyCore core → List Byte × GeneralScheme.SignatureCore vp core →
+      OracleComp (publicHashSpec core) β) (pkSeed : core.PkSeed) :
+    labAdversary core (adv.withPost fun pk out ↦ liftPub (post pk out)) pkSeed =
+      (labAdversary core adv pkSeed).withPost fun pk out ↦
+        simulateQ (HasQuery.toQueryImpl (spec := publicHashSpec core)
+          (m := OracleComp (labSpec core))) (post pk out) := by
+  refine congrArg UnforgeableAdversary.mk (funext fun pk ↦ ?_)
+  simp only [labAdversary, deriveAdversary, UnforgeableAdversary.mapOracles_main,
+    UnforgeableAdversary.withPost, simulateQ_bind, simulateQ_pure]
+  congr 1
+  funext out
+  congr 1
+  rw [← simulateQ_ofLift_simulateQ_withDerivationsLift_liftPub]
+  simp only [OracleComp.liftComp_def, ← QueryImpl.simulateQ_compose]
+  congr 1
+
+/-- **A lifted post-verification of the deferred run is settled on the rebuilt cache.** On a run of
+the lab experiment of an adversary followed by a lifted public-hash program `post`, in the deferred
+game, `post` at the transcript rebuilt with secret seeds `s` is replayed to some output by the
+cache that any conflict-free state `st` extending the final state stands for at `s`, when the
+public cache of `st` holds no point encoding a derivation under `s`. -/
+theorem simulateQ_toPartialImpl_post_of_mem_support_deferredImpl_labExperiment
+    (hsep : core.KeySeparated) (adv : UnforgeableAdversary (romScheme core e optRand pkSeedDist))
+    {β : Type} (post : PublicKeyCore core → List Byte × GeneralScheme.SignatureCore vp core →
+      OracleComp (publicHashSpec core) β)
+    {s₀ : LabState core × List (DeriveQuery core ⊕ NodeKey core)} {z}
+    (hz : z ∈ support ((simulateQ (slhGraph core pkSeed).deferredImpl
+      (labExperiment core (adv.withPost fun pk out ↦ liftPub (post pk out)) pkSeed)).run s₀))
+    (hle : z.2.1 ≤ st) (hc : ¬(slhGraph core pkSeed).Conflict st) (s : core.SkSeed × core.SkPrf)
+    (hseed : ¬∃ x, (st.1 ((secretEncoding core e pkSeed).enc s x)).isSome) :
+    ∃ b, simulateQ 𝒞[e, pkSeed, s, st].toPartialImpl
+      (post (DeriveOutcome.fill core s z.1).pk
+        ((DeriveOutcome.fill core s z.1).msg, (DeriveOutcome.fill core s z.1).sig)) = some b := by
+  rw [labExperiment, labAdversary_withPost] at hz
+  obtain ⟨t₁, t₂, b, h₂, hb⟩ := exists_mem_support_run_post_of_mem_support_run_withPost Prod.fst _
+    (fun _ _ _ hz ↦ (slhGraph core pkSeed).le_of_mem_support_simulateQ_deferredImpl _ hz) _ _ hz
+  refine ⟨b, ?_⟩
+  simp only [DeriveOutcome.fill, UnforgeableTranscript.mapSk_msg, UnforgeableTranscript.mapSk_sig,
+    UnforgeableTranscript.mapSk_pk]
+  exact QueryCache.simulateQ_toPartialImpl_mono
+    (QueryCache.fst_mono (merge_le_merge_toSplitCache hsep hseed)) _
+    ((slhGraph core pkSeed).simulateQ_toPartialImpl_merge_fst_of_mem_support_deferredImpl
+      (post z.1.pk (z.1.msg, z.1.sig)) hb (h₂.trans hle) hc)
+
 /-! ## The events after the end fill -/
 
 /-- **The event transport.** On the deferred run of the lab experiment, its end fill and a draw
@@ -409,6 +532,48 @@ theorem conflict_or_tcHazard_or_exists_isSome_of_mem_support_deferredFillDraw
   · exact Or.inr (Or.inr
       ((exists_isSome_toSplitCache_fst_secretEncoding_enc_iff hd.keySeparated).1 hseed))
   · exact Or.inl hc
+
+/-- **The transport of a mixed hidden-value hit.** For an adversary followed by the verification
+of its forgery at its public key `pk` with its queries redirected by `ρ pk`, where `ρ pk` passes on
+every point outside `S pk` and every `H_msg` point: on the deferred run of the lab experiment, its
+end fill and a draw of secret seeds, a hidden-value hit of the rebuilt transcript whose forger
+replay is read on the cache that the filled state stands for viewed through `ρ`, whose honest
+values are read on that cache, and whose hashed forger point is outside `S`, is a conflict of the
+filled state or a point of its public cache encoding a derivation under the drawn seeds. -/
+theorem conflict_or_exists_isSome_of_hiddenHitMixed_withPost (hd : core.KeyDiscipline vp)
+    (adv : UnforgeableAdversary (romScheme core e optRand pkSeedDist))
+    {ρ : PublicKeyCore core → QueryImpl (publicHashSpec core) (OracleComp (publicHashSpec core))}
+    {S : PublicKeyCore core → (publicHashSpec core).Domain → Prop}
+    (hρ : ∀ pk t, ¬S pk t → ρ pk t = query t)
+    (hρm : ∀ pk r ps pr msg, ρ pk (.hmsg r ps pr msg) = query (spec := publicHashSpec core)
+      (.hmsg r ps pr msg))
+    {w : (DeriveOutcome core × LabState core × List (DeriveQuery core ⊕ NodeKey core)) ×
+      LabState core × (core.SkSeed × core.SkPrf)}
+    (hw : w ∈ support ((slhGraph core pkSeed).deferredFillDraw ($ᵗ (core.SkSeed × core.SkPrf))
+      (labExperiment core (adv.withPost fun pk out ↦
+        liftPub (simulateQ (ρ pk) (GeneralScheme.verifyInternalM vp core out.1 out.2 pk)))
+        pkSeed)))
+    (h : HiddenHitMixed (S (DeriveOutcome.fill core w.2.2 w.1.1).pk)
+      (oracleSecret core e (DeriveOutcome.fill core w.2.2 w.1.1).pk.pkSeed
+        (DeriveOutcome.fill core w.2.2 w.1.1).sk.skSeed) (DeriveOutcome.fill core w.2.2 w.1.1)
+      (𝒞[e, pkSeed, w.2.2, w.2.1].viewBy (ρ (DeriveOutcome.fill core w.2.2 w.1.1).pk))
+      𝒞[e, pkSeed, w.2.2, w.2.1]) :
+    (slhGraph core pkSeed).Conflict w.2.1 ∨
+      ∃ x, (w.2.1.1 ((secretEncoding core e pkSeed).enc w.2.2 x)).isSome := by
+  obtain ⟨hz, hst, -⟩ := (CanonicalGraph.mem_support_deferredFillDraw_iff _).1 hw
+  obtain ⟨hpk, h5⟩ := hiddenUndrawn_of_mem_support_deferredImpl_labExperiment pkSeed hd _ hz
+  have hle := RelabelState.le_of_mem_support_endFill hst
+  have hfst := RelabelState.fst_eq_of_mem_support_endFill hst
+  by_cases hc : (slhGraph core pkSeed).Conflict w.2.1
+  · exact .inl hc
+  by_cases hseed : ∃ x, (w.2.1.1 ((secretEncoding core e pkSeed).enc w.2.2 x)).isSome
+  · exact .inr hseed
+  obtain ⟨b, hv⟩ := simulateQ_toPartialImpl_post_of_mem_support_deferredImpl_labExperiment
+    hd.keySeparated adv _ hz le_rfl (fun h ↦ hc (CanonicalGraph.Conflict.mono _ hle h)) w.2.2
+    (by rwa [← hfst])
+  exact .inl (conflict_of_hiddenHitMixed hd hle hfst (by simpa [DeriveOutcome.fill] using hpk)
+    (by simp [DeriveOutcome.fill, fillSecretKey]) (by simpa [DeriveOutcome.fill] using h5)
+    (hρ _) (hρm _) hv h)
 
 end Verify
 
