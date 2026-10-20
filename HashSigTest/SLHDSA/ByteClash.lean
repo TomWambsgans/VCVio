@@ -89,20 +89,6 @@ example (set : FipsParameterSet)
     s = z.1.pk.pkSeed ∧ IsHonestKey set.validatedParams (shakeCore set.validatedParams) k :=
   eq_and_isHonestKey_of_mem_support_romSchemeRun_routeAdv set.n_le_32 set.n_le_m adv hz hq
 
-/-- The classification, both signing modes. -/
-example (set : FipsParameterSet)
-    {optRand : PublicKeyCore (shakeCore set.validatedParams) →
-      ProbComp (shakeCore set.validatedParams).Y}
-    (pkSeed : (shakeCore set.validatedParams).PkSeed)
-    (adv : UnforgeableAdversary (shakeRomScheme set.validatedParams optRand (pure pkSeed)))
-    {z : RomOutcome set.validatedParams (shakeCore set.validatedParams) ×
-      (hashSpec (shakeCore set.validatedParams)).QueryCache}
-    (hz : z ∈ support (romSchemeRun (shakeCore set.validatedParams) (Equiv.refl _) optRand
-      (pure pkSeed) (routeAdv _ set.n_le_32 set.n_le_m adv)))
-    (h : (shakeEncoding _ set.n_le_32 set.n_le_m pkSeed).Clash z.2) :
-    RunPrfKeyHit id pkSeed z ∨ IsWeakKey _ z.1.pk :=
-  runPrfKeyHit_or_isWeakKey_of_clash set.n_le_32 set.n_le_m set.sixteen_le_n pkSeed adv hz h
-
 /-- The classification with the `opt_rand` of a `PRF_msg` clash, both signing modes: a clash
 through a cached `H_msg` point at `SK.prf` also caches a `PRF_msg` point keyed by `SK.prf` with
 `opt_rand = PK.seed`. -/
@@ -261,9 +247,9 @@ theorem not_hmsgAtWeakKey : ¬HmsgAtWeakKey seed root cache := by
 
 /-- So the classification concludes Fev: an `H_msg` point at `SK.prf` is cached. -/
 example : HmsgAtPrfKey id skPrf cache :=
-  ((hmsgAtPrfKey_or_eq_or_hmsgAtWeakKey_of_clash (FipsParameterSet.n_le_32 _)
+  (((hmsgAtPrfKey_and_prfMsgAt_or_eq_or_hmsgAtWeakKey_of_clash (FipsParameterSet.n_le_32 _)
     (FipsParameterSet.n_le_m _) cache_provenance clash_cache).resolve_right
-      not_hmsgAtWeakKey).resolve_right skPrf_ne_seed
+      not_hmsgAtWeakKey).resolve_right skPrf_ne_seed).1
 
 /-! ## A concrete weak-key clash at SLH-DSA-SHAKE-128s -/
 
@@ -349,9 +335,9 @@ theorem not_hmsgAtPrfKey_or_eq :
 
 /-- So the classification concludes the weak-key `H_msg` event. -/
 theorem hmsgAtWeakKey_weakCache : HmsgAtWeakKey weakSeed weakRoot weakCache :=
-  (hmsgAtPrfKey_or_eq_or_hmsgAtWeakKey_of_clash (FipsParameterSet.n_le_32 _)
+  (hmsgAtPrfKey_and_prfMsgAt_or_eq_or_hmsgAtWeakKey_of_clash (FipsParameterSet.n_le_32 _)
     (FipsParameterSet.n_le_m _) weakCache_provenance clash_weakCache).resolve_left
-      not_hmsgAtPrfKey_or_eq
+      fun h => not_hmsgAtPrfKey_or_eq (h.imp_left And.left)
 
 /-- And the public key `(weakSeed, weakRoot)` is weak: BK. -/
 example : IsWeakKey vp128s ⟨weakSeed, weakRoot⟩ :=

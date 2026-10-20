@@ -30,9 +30,9 @@ random oracle on byte strings. This file instantiates it at the parameters of FI
 * **Non-vacuity**: at SLH-DSA-SHAKE-128s with `qh = qs = 2^64` the right-hand side of the averaged
   bound is below one (`byteRhs_128s_lt_one`).
 * **Hedged signing** (`opt_rand` uniform): the hedged bounds at a public seed and over the uniform
-  public seed at the parameters of all 12 sets, at SLH-DSA-SHAKE-128s with the weak-key term
-  evaluated, and at the strong type-`7` seed of SLH-DSA-SHAKE-256s; the averaged hedged
-  right-hand side at SLH-DSA-SHAKE-128s with `qh = qs = 2^64` is below one
+  public seed at the parameters of all 12 sets (the six SHAKE sets), at SLH-DSA-SHAKE-128s with
+  the weak-key term evaluated, and at the strong type-`7` seed of SLH-DSA-SHAKE-256s; the
+  averaged hedged right-hand side at SLH-DSA-SHAKE-128s with `qh = qs = 2^64` is below one
   (`hedgedByteRhs_128s_lt_one`), and its honest-signer terms are below those of the bound for
   every `opt_rand` source (`hedged_signerTerms_128s_lt`).
 -/

@@ -58,11 +58,9 @@ clash has a point `q` that is not route-fixed, an honest `H_msg` or `PRF_msg` qu
 * `isHonestQuery_or_route_eq_some_of_mem_support_romSchemeRun_routeAdv`,
   `eq_and_isHonestKey_of_mem_support_romSchemeRun_routeAdv`: provenance on the support of the
   routed run;
-* `hmsgAtPrfKey_and_prfMsgAt_or_eq_or_hmsgAtWeakKey_of_clash`,
-  `hmsgAtPrfKey_or_eq_or_hmsgAtWeakKey_of_clash`: the classification on a cache of known
-  provenance, with and without O;
-* `runPrfKeyClash_or_isWeakKey_of_clash`, `runPrfKeyHit_or_isWeakKey_of_clash`: the
-  classification on the routed run;
+* `hmsgAtPrfKey_and_prfMsgAt_or_eq_or_hmsgAtWeakKey_of_clash`: the classification on a cache of
+  known provenance;
+* `runPrfKeyClash_or_isWeakKey_of_clash`: the classification on the routed run;
 * `shakeAdvantage_pure_le_wins_or_runPrfKeyClash_or_isWeakKey`,
   `shakeAdvantage_pure_le_wins_or_runPrfKeyHit_or_isWeakKey`: the advantage against the
   single-oracle scheme is at most the probability that the routed run wins or fires Fev with O,
@@ -193,20 +191,6 @@ theorem hmsgAtPrfKey_and_prfMsgAt_or_eq_or_hmsgAtWeakKey_of_clash (hn : vp.param
     exact Option.some.inj (hfix.symm.trans ((congrArg _ he).trans hfix'))
   · exact hmsgAtPrfKey_and_prfMsgAt_or_eq_or_hmsgAtWeakKey_of_shakeRoute_ne hc hq hq' hne he hfix
 
-/-- **The classification of a clash in a cache of known provenance**, without the `PRF_msg`
-point: a clash gives an `H_msg` point at `skPrf`, `skPrf = pkSeed`, or the weak-key event. -/
-theorem hmsgAtPrfKey_or_eq_or_hmsgAtWeakKey_of_clash (hn : vp.params.n ≤ 32)
-    (hnm : vp.params.n ≤ vp.params.m)
-    {pkRoot : (shakeCore vp).Y} {skPrf : (shakeCore vp).SkPrf}
-    {c : (hashSpec (shakeCore vp)).QueryCache}
-    (hc : ∀ q, (c q).isSome →
-      shakeRoute vp (IsHonestKey vp (shakeCore vp)) pkSeed (encode vp q) = some q ∨
-        (∃ r msg, q = .inl (.hmsg r pkSeed pkRoot msg)) ∨ ∃ o msg, q = .inr ⟨skPrf, o, msg⟩)
-    (h : (shakeEncoding vp hn hnm pkSeed).Clash c) :
-    (HmsgAtPrfKey id skPrf c ∨ skPrf = pkSeed) ∨ HmsgAtWeakKey pkSeed pkRoot c :=
-  (hmsgAtPrfKey_and_prfMsgAt_or_eq_or_hmsgAtWeakKey_of_clash hn hnm hc h).imp_left
-    (Or.imp_left And.left)
-
 end Route
 
 /-! ## The routed run -/
@@ -303,22 +287,6 @@ theorem runPrfKeyClash_or_isWeakKey_of_clash (hn16 : 16 ≤ vp.params.n)
     fun hw => ?_
   rw [← hpk] at hw
   exact isWeakKey_of_hmsgAtWeakKey hn16 hw
-
-/-- **Clash ⇒ Fev ∨ K1 ∨ BK.** At a fixed public seed `pkSeed` and `16 ≤ n`, on the support of the
-run of the three-oracle scheme against the routed adversary, two distinct cached typed queries with
-the same SHAKE256 string give a hit of the message-`PRF` key (`RunPrfKeyHit id pkSeed`: a cached
-`H_msg` point whose randomizer is `SK.prf` (Fev), or `SK.prf = PK.seed` (K1)) or a weak public key
-(BK, `IsWeakKey`). -/
-theorem runPrfKeyHit_or_isWeakKey_of_clash (hn16 : 16 ≤ vp.params.n)
-    (pkSeed : (shakeCore vp).PkSeed)
-    (adv : UnforgeableAdversary (shakeRomScheme vp optRand (pure pkSeed)))
-    {z : RomOutcome vp (shakeCore vp) × (hashSpec (shakeCore vp)).QueryCache}
-    (hz : z ∈ support (romSchemeRun (shakeCore vp) (Equiv.refl _) optRand (pure pkSeed)
-      (routeAdv vp hn hnm adv)))
-    (h : (shakeEncoding vp hn hnm pkSeed).Clash z.2) :
-    RunPrfKeyHit id pkSeed z ∨ IsWeakKey vp z.1.pk :=
-  (runPrfKeyClash_or_isWeakKey_of_clash hn hnm hn16 pkSeed adv hz h).imp_left
-    (Or.imp_left And.left)
 
 /-- **SLH-DSA over one SHAKE256 oracle: the faithfulness events, with the `opt_rand` of a
 `PRF_msg` clash.** At a fixed public seed and `16 ≤ n`, the forging advantage against

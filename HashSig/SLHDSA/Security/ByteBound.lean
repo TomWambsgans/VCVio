@@ -94,7 +94,6 @@ carriers: the byte laws, the key discipline under the FIPS 205 address widths, a
   with every side condition discharged. They are stated over all twelve FIPS 205 parameter sets,
   a SHA-2 set contributing only its parameters, which are those of its SHAKE twin.
 * `shakeAdvantage_pure_le_securityBound_hedged`, `shakeAdvantage_le_securityBound_hedged`,
-  `shakeAdvantage_pure_le_securityBound_hedged_of_weakKeyMass_eq_zero`,
   `shakeAdvantage_pure_le_securityBound_hedged_of_n_eq_32`,
   `shakeAdvantage_pure_le_securityBound_hedged_validatedParams`,
   `shakeAdvantage_le_securityBound_hedged_validatedParams`: the same forms in hedged signing, with
@@ -314,23 +313,6 @@ theorem shakeAdvantage_le_securityBound_hedged (hb : CanonicalAddressBounds vp.p
     shakeAdvantage_pure_le_securityBound_hedged hb hn16 hn hnm pkSeed _ hadv') adv hadv).trans
       (lintegral_add_weakKeyMass_le hn16 _)
 
-/-- **SLH-DSA over one SHAKE256 oracle with hedged signing, at a seed of weak-key mass zero.** For
-`16 ≤ n ≤ 32`, `n ≤ m` and address fields within their FIPS 205 widths, with `opt_rand` drawn
-uniformly at each signature, an adversary against `shakeRomScheme` at a public seed `pkSeed` of
-weak-key mass zero, making at most `qh` queries of the single oracle and `qs` signing queries,
-forges with probability at most
-`securityBound vp.params (256 ^ n) 2 1 qh qs + 1 / 256 ^ n + qs * (qh + qs + 1) / 256 ^ (2 n)`. -/
-theorem shakeAdvantage_pure_le_securityBound_hedged_of_weakKeyMass_eq_zero
-    (hb : CanonicalAddressBounds vp.params) (hn16 : 16 ≤ vp.params.n) (hn : vp.params.n ≤ 32)
-    (hnm : vp.params.n ≤ vp.params.m) {pkSeed : (shakeCore vp).PkSeed}
-    (hs : weakKeyMass vp pkSeed = 0)
-    (adv : UnforgeableAdversary (shakeRomScheme vp (fun _ ↦ $ᵗ (shakeCore vp).Y) (pure pkSeed)))
-    {qh qs : ℕ} (hadv : adv.RomQueryBound qh qs) :
-    shakeAdvantage vp adv ≤
-      securityBound vp.params (256 ^ vp.params.n) 2 1 qh qs + 1 / (256 ^ vp.params.n : ℕ) +
-        qs * ((qh : ℝ≥0∞) + qs + 1) / ((256 ^ vp.params.n : ℕ) : ℝ≥0∞) ^ 2 := by
-  simpa [hs] using shakeAdvantage_pure_le_securityBound_hedged hb hn16 hn hnm pkSeed adv hadv
-
 /-- **SLH-DSA over one SHAKE256 oracle at `n = 32` with hedged signing, at a strong public seed.**
 At `n = 32`, `n ≤ m` and address fields within their FIPS 205 widths, with `opt_rand` drawn
 uniformly at each signature, an adversary against `shakeRomScheme` at a public seed `pkSeed` that
@@ -347,8 +329,8 @@ theorem shakeAdvantage_pure_le_securityBound_hedged_of_n_eq_32
       securityBound vp.params (256 ^ 32) 2 1 qh qs + 1 / (256 ^ 32 : ℕ) +
         qs * ((qh : ℝ≥0∞) + qs + 1) / ((256 ^ 32 : ℕ) : ℝ≥0∞) ^ 2 := by
   rw [← hn]
-  exact shakeAdvantage_pure_le_securityBound_hedged_of_weakKeyMass_eq_zero hb (by omega) hn.le
-    hnm ((weakKeyMass_eq_zero_iff_of_n_eq_32 hn pkSeed).2 hs) adv hadv
+  simpa [weakKeyMass_eq_zero_of_n_eq_32 hn hs] using
+    shakeAdvantage_pure_le_securityBound_hedged hb (by omega) hn.le hnm pkSeed adv hadv
 
 /-- **SLH-DSA over one SHAKE256 oracle at the FIPS 205 parameter sets with hedged signing, at a
 public seed.** At the parameters of every FIPS 205 parameter set, with `opt_rand` drawn uniformly

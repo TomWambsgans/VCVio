@@ -65,27 +65,19 @@ theorem prEvent_run_add_withLogging_le (outer : QueryImpl spec (StateT σ ProbCo
     rw [allQueriesSatisfy_query_bind_iff] at hoa
     rw [isQueryBoundP_query_bind_iff] at hq
     rw [simulateQ_bind, simulateQ_spec_query, WriterT.run_bind', simulateQ_bind, StateT.run_bind]
-    have hk : ∀ (w : ((spec + sigSpec).Range t × QueryLog sigSpec) × σ) {q' : ℕ},
-        q' ≤ q → IsQueryBoundP (k w.1.1) p q' → ¬bad w.2 →
-        Pr{let z ← (simulateQ outer (match w.1 with
-          | (a, w₁) => (Prod.map id fun x ↦ w₁ ++ x) <$> (simulateQ
-            ((HasQuery.toQueryImpl (spec := spec) (m := OracleComp spec)).liftTarget
-              (WriterT (QueryLog sigSpec) (OracleComp spec)) + sign.withLogging)
-            (k a)).run)).run w.2}[bad z.2] ≤ q' * ε := by
-      rintro ⟨⟨a, w₁⟩, s'⟩ q' - hq' hs'
-      simp only [simulateQ_map, StateT.run_map, prEvent_map]
-      exact ih a (hoa.2 a) hq' hs'
     cases t with
     | inl t =>
       refine prEvent_bind_le_of_forall_le_of_support _ _ _ fun w hw ↦ ?_
-      refine (hk w (q' := if p (.inl t) then q - 1 else q) (by split_ifs <;> omega)
-        (hq.2 _) ?_).trans (by gcongr; split_ifs <;> omega)
-      simp only [QueryImpl.add_apply_inl, QueryImpl.liftTarget_apply, HasQuery.toQueryImpl_apply,
-        HasQuery.instOfMonadLift_query, WriterT.run_monadLift', simulateQ_map, StateT.run_map,
-        support_map, Set.mem_image] at hw
-      obtain ⟨⟨v, s₁⟩, hv, rfl⟩ := hw
-      rw [simulateQ_spec_query] at hv
-      exact hamb t hoa.1 s₀ h₀ _ hv
+      have hs : ¬bad w.2 := by
+        simp only [QueryImpl.add_apply_inl, QueryImpl.liftTarget_apply,
+          HasQuery.toQueryImpl_apply, HasQuery.instOfMonadLift_query, WriterT.run_monadLift',
+          simulateQ_map, StateT.run_map, support_map, Set.mem_image] at hw
+        obtain ⟨⟨v, s₁⟩, hv, rfl⟩ := hw
+        rw [simulateQ_spec_query] at hv
+        exact hamb t hoa.1 s₀ h₀ _ hv
+      obtain ⟨⟨a, w₁⟩, s'⟩ := w
+      simp only [simulateQ_map, StateT.run_map, prEvent_map]
+      exact (ih a (hoa.2 a) (hq.2 a) hs).trans (by gcongr; split_ifs <;> omega)
     | inr t =>
       have hq0 : 0 < q := hq.1.resolve_left (not_not_intro (hp t))
       rw [QueryImpl.add_apply_inr, QueryImpl.run_withLogging_apply, simulateQ_bind,
