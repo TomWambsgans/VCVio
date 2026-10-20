@@ -42,3 +42,34 @@ example (N dmax : ℕ) : (merkleErrors N dmax).Monotone :=
 example (N dmax : ℕ) (wVC wME : ℝ≥0∞) :
     (merkleErrors N dmax).offline 0 wVC wME 0 = 0 := by
   simp [merkleErrors, merkleOfflineError]
+
+/-- The bundle retains both bad-database branches before adding the checker term. -/
+example (N dmax t : ℕ) (wVC wME : ℝ≥0∞) (qs : ℕ) :
+    (merkleErrors N dmax).offline t wVC wME qs =
+      min 1 ((2 * min (24 * (t : ℝ≥0∞) * min wVC t * (t - 1 : ℕ))
+        ((7 * (t : ℝ≥0∞) + 5) * t * min wVC t / 4) +
+        8 * (qs * (dmax + 1) : ℕ)) / N) := rfl
+
+/-- At two queries the collision numerator is `19/2`, below the generic `48`. -/
+example : merkleOfflineError 100 0 2 1 0 = 19 / 100 := by
+  norm_num [merkleOfflineError]
+  apply (ENNReal.toReal_eq_toReal_iff'
+    (ne_top_of_le_ne_top ENNReal.one_ne_top (min_le_left _ _)) (by finiteness)).mp
+  simp (disch := norm_num [ENNReal.div_eq_top, ENNReal.mul_eq_top]) only
+    [ENNReal.toReal_min, ENNReal.toReal_div,
+    ENNReal.toReal_mul, ENNReal.toReal_ofNat, ENNReal.toReal_one]
+  norm_num
+
+/-- Checked reads add their contribution to the collision-sensitive numerator. -/
+example : merkleOfflineError 100 1 2 1 1 = 35 / 100 := by
+  norm_num [merkleOfflineError]
+  apply (ENNReal.toReal_eq_toReal_iff'
+    (ne_top_of_le_ne_top ENNReal.one_ne_top (min_le_left _ _)) (by finiteness)).mp
+  simp (disch := norm_num [ENNReal.div_eq_top, ENNReal.mul_eq_top]) only
+    [ENNReal.toReal_min, ENNReal.toReal_div,
+    ENNReal.toReal_mul, ENNReal.toReal_add, ENNReal.toReal_ofNat, ENNReal.toReal_one]
+  norm_num
+
+/-- At one query the zero generic branch remains the tighter bound. -/
+example : merkleOfflineError 100 0 1 1 0 = 0 := by
+  norm_num [merkleOfflineError]

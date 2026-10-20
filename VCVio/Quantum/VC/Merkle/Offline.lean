@@ -16,6 +16,9 @@ public import VCVio.OracleComp.QueryTracking.Instability.Collision
 
 The collision and instability bounds control the original bad-database weight. Checked
 challenger reads add only the two batch distances, including leaf hashes at depth zero.
+The scalar bundle keeps the minimum of both bad-database bounds: twice that numerator
+plus the checker term, divided by `N` and capped at one. Its collision branch has leading
+term `(7/2) · w · t² / N`, where `w = min wVC t`.
 -/
 
 public section
@@ -37,13 +40,18 @@ noncomputable def merkleOfflineAmplitudeError (N dmax t : ℕ) (wVC : ℝ≥0∞
   min 1 ((merkleOfflineBadError N t wVC ^ (2⁻¹ : ℝ) +
     2 * (((qs * (dmax + 1) : ℕ) : ℝ≥0∞) / N) ^ (2⁻¹ : ℝ)) ^ 2)
 
-/-- A simple monotone bound for the same checked offline game. -/
+/-- A monotone checked offline bound: twice the minimum bad-database numerator plus
+the checker term, over `N`, capped at one. With `w = min wVC t`, the collision branch
+has leading term `(7/2) · w · t² / N`. -/
 @[expose]
 noncomputable def merkleOfflineError (N dmax t : ℕ) (wVC : ℝ≥0∞) (qs : ℕ) : ℝ≥0∞ :=
-  min 1 ((48 * (t : ℝ≥0∞) * min wVC (t : ℝ≥0∞) * (t - 1 : ℕ) +
-    8 * (qs * (dmax + 1) : ℕ)) / N)
+  let w := min wVC (t : ℝ≥0∞)
+  min 1 ((2 * min (24 * (t : ℝ≥0∞) * w * (t - 1 : ℕ))
+    ((7 * (t : ℝ≥0∞) + 5) * t * w / 4) + 8 * (qs * (dmax + 1) : ℕ)) / N)
 
-/-- The finite-query Merkle errors, with the checked offline bound. -/
+/-- The finite-query Merkle errors, with the collision-sensitive checked offline bound.
+Its offline numerator is twice the minimum bad-database numerator plus the checker term;
+the collision branch has leading term `(7/2) · min wVC t · t² / N`. -/
 @[expose]
 noncomputable def merkleErrors (N dmax : ℕ) : MEErrors where
   sim := fun _ ↦ 0
@@ -171,11 +179,16 @@ theorem merkleOfflineAmplitudeError_le {N : ℕ} (hN : 0 < N)
     simpa only [mul_pow, hs, show (2 : ℝ≥0∞) ^ 2 = 4 by norm_num] using h
   apply min_le_min_left 1
   refine hsq.trans ?_
-  have hbad : b ≤ 24 * (t : ℝ≥0∞) * min w t * (t - 1 : ℕ) / N :=
-    (min_le_right _ _).trans (min_le_left _ _)
+  let num := min (24 * (t : ℝ≥0∞) * min w t * (t - 1 : ℕ))
+    ((7 * (t : ℝ≥0∞) + 5) * t * min w t / 4)
+  have hbad : b ≤ num / N := by
+    dsimp [b, merkleOfflineBadError, num]
+    simp only [div_eq_mul_inv]
+    rw [ENNReal.mul_inv (by simp) (by simp), ← mul_assoc, ← min_mul]
+    exact min_le_right _ _
   calc
-    _ ≤ 2 * (24 * (t : ℝ≥0∞) * min w t * (t - 1 : ℕ) / N + 4 * q) := by gcongr
-    _ = _ := by dsimp only [q]; simp only [div_eq_mul_inv]; ring
+    _ ≤ 2 * (num / N + 4 * q) := by gcongr
+    _ = _ := by dsimp only [q, num]; simp only [div_eq_mul_inv]; ring
 
 /-- Offline extractability for salted Merkle commitments at varying bounded depths. -/
 theorem merkle_offline

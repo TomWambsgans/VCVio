@@ -17,6 +17,8 @@ mixed runtimes; no sampling instance for the space of hash functions is required
 These are finite-query statistical bounds for arbitrary tuple codes and depths bounded by
 `dmax`. P4 gives the challenger checked reads and a fresh extraction response; its adversary
 retains ordinary/extraction access. P1, P2 and P5 include the mixed ordinary/read interface.
+The offline scalar bound keeps the minimum of the generic and collision numerators,
+with collision leading term `(7/2) · min wVC t · t² / N`, plus the checker contribution.
 The aggregate asserts neither efficient extraction nor asymptotic security: runtime bounds,
 efficient representations and asymptotic parameter choices are separate obligations.
 
