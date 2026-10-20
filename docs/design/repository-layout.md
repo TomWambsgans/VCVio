@@ -79,8 +79,8 @@ implementation exposes its round state, schedule expansion and feed-forward oper
 functional-correctness proofs. These modules have no oracle, scheme or interop imports.
 
 The former SLH-DSA hash namespaces move to `VCVio.Algorithms.Sha2` and
-`VCVio.Algorithms.Keccak`. Digest names follow the repository naming convention:
-`sha512Trunc224`, `sha512Trunc256`, and `sha3Digest224` through `sha3Digest512`.
+`VCVio.Algorithms.Keccak`. Digest names retain the standards' readable suffixes:
+`sha512_224`, `sha512_256`, and `sha3_224` through `sha3_512`.
 SLH-DSA adapters remain in HashSig and consume these implementations directly.
 
 `lake exe algorithm_tests` runs the pure regressions and checks the pinned shared corpus in

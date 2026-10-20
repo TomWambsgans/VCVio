@@ -127,16 +127,16 @@ A zero rate is outside the sponge domain and returns the empty byte array. -/
 @[expose] def keccak256 (input : ByteArray) : ByteArray := squeeze (absorb input 136 0x01) 32
 
 /-- FIPS 202 `SHA3-256` (rate 136, pad `0x06`), 32-byte digest. -/
-@[expose] def sha3Digest256 (input : ByteArray) : ByteArray := squeeze (absorb input 136 0x06) 32
+@[expose] def sha3_256 (input : ByteArray) : ByteArray := squeeze (absorb input 136 0x06) 32
 
 /-- FIPS 202 `SHA3-224` (rate 144, pad `0x06`), 28-byte digest. -/
-@[expose] def sha3Digest224 (input : ByteArray) : ByteArray := squeeze (absorb input 144 0x06) 28
+@[expose] def sha3_224 (input : ByteArray) : ByteArray := squeeze (absorb input 144 0x06) 28
 
 /-- FIPS 202 `SHA3-384` (rate 104, pad `0x06`), 48-byte digest. -/
-@[expose] def sha3Digest384 (input : ByteArray) : ByteArray := squeeze (absorb input 104 0x06) 48
+@[expose] def sha3_384 (input : ByteArray) : ByteArray := squeeze (absorb input 104 0x06) 48
 
 /-- FIPS 202 `SHA3-512` (rate 72, pad `0x06`), 64-byte digest. -/
-@[expose] def sha3Digest512 (input : ByteArray) : ByteArray := squeeze (absorb input 72 0x06) 64
+@[expose] def sha3_512 (input : ByteArray) : ByteArray := squeeze (absorb input 72 0x06) 64
 
 /-- FIPS 202 SHAKE128 with a whole-byte output length. -/
 @[expose] def shake128 (input : ByteArray) (outLen : ℕ) : ByteArray :=
@@ -155,16 +155,16 @@ from both SHA3's `0x06` and Ethereum Keccak's `0x01`. -/
     (shake256 input outLen).size = outLen := by
   simp [shake256]
 
-@[simp] theorem sha3Digest224_size (input : ByteArray) : (sha3Digest224 input).size = 28 := by
-  simp [sha3Digest224]
+@[simp] theorem sha3_224_size (input : ByteArray) : (sha3_224 input).size = 28 := by
+  simp [sha3_224]
 
-@[simp] theorem sha3Digest256_size (input : ByteArray) : (sha3Digest256 input).size = 32 := by
-  simp [sha3Digest256]
+@[simp] theorem sha3_256_size (input : ByteArray) : (sha3_256 input).size = 32 := by
+  simp [sha3_256]
 
-@[simp] theorem sha3Digest384_size (input : ByteArray) : (sha3Digest384 input).size = 48 := by
-  simp [sha3Digest384]
+@[simp] theorem sha3_384_size (input : ByteArray) : (sha3_384 input).size = 48 := by
+  simp [sha3_384]
 
-@[simp] theorem sha3Digest512_size (input : ByteArray) : (sha3Digest512 input).size = 64 := by
-  simp [sha3Digest512]
+@[simp] theorem sha3_512_size (input : ByteArray) : (sha3_512 input).size = 64 := by
+  simp [sha3_512]
 
 end VCVio.Algorithms.Keccak

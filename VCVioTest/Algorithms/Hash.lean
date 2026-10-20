@@ -33,13 +33,13 @@ example (x width : Nat) : (VCVio.Algorithms.Encoding.natToBytesBE x width).lengt
 /-- One-call simplification covers every shared SHA2 digest size. -/
 example (msg : ByteArray) :
     (sha224 msg).size = 28 ∧ (sha256 msg).size = 32 ∧ (sha384 msg).size = 48 ∧
-    (sha512 msg).size = 64 ∧ (sha512Trunc224 msg).size = 28 ∧ (sha512Trunc256 msg).size = 32 := by
+    (sha512 msg).size = 64 ∧ (sha512_224 msg).size = 28 ∧ (sha512_256 msg).size = 32 := by
   simp
 
 /-- The shared SHA3/SHAKE size equations also work without opening their bodies. -/
 example (msg : ByteArray) (n : Nat) :
-    (sha3Digest224 msg).size = 28 ∧ (sha3Digest256 msg).size = 32 ∧
-    (sha3Digest384 msg).size = 48 ∧ (sha3Digest512 msg).size = 64 ∧
+    (sha3_224 msg).size = 28 ∧ (sha3_256 msg).size = 32 ∧
+    (sha3_384 msg).size = 48 ∧ (sha3_512 msg).size = 64 ∧
     (shake128 msg n).size = n ∧ (shake256 msg n).size = n := by
   simp
 
@@ -148,21 +148,21 @@ def testSha2 : IO Unit := do
     (sha384 (ByteArray.mk (Array.replicate 112 0x61)))
     "187d4e07cb306103c69967bf544d0dfbe9042577599c73c330abc0cb64c61236\
       d5ed565ee19119d8c31779a38f791fcd"
-  checkHex "SHA-512/224 abc" (sha512Trunc224 "abc".toUTF8)
+  checkHex "SHA-512/224 abc" (sha512_224 "abc".toUTF8)
     "4634270f707b6a54daae7530460842e20e37ed265ceee9a43e8924aa"
   checkHex "SHA-512/224 111-byte padding neighbor"
-    (sha512Trunc224 (ByteArray.mk (Array.replicate 111 0x61)))
+    (sha512_224 (ByteArray.mk (Array.replicate 111 0x61)))
     "3ebe1b48e8c66acb9ae014db95b4bec93de7e9572bff41cf566bd7d0"
   checkHex "SHA-512/224 112-byte padding neighbor"
-    (sha512Trunc224 (ByteArray.mk (Array.replicate 112 0x61)))
+    (sha512_224 (ByteArray.mk (Array.replicate 112 0x61)))
     "79b41fef2a0439d2705724a67615f7bcbcd2bf5664a7774b80818eb6"
-  checkHex "SHA-512/256 abc" (sha512Trunc256 "abc".toUTF8)
+  checkHex "SHA-512/256 abc" (sha512_256 "abc".toUTF8)
     "53048e2681941ef99b2e29b76b4c7dabe4c2d0c634fc6d46e0e2f13107e7af23"
   checkHex "SHA-512/256 111-byte padding neighbor"
-    (sha512Trunc256 (ByteArray.mk (Array.replicate 111 0x61)))
+    (sha512_256 (ByteArray.mk (Array.replicate 111 0x61)))
     "0239e429f98d0ed61ee8e2a7c30afe98c1c3a80ce5dff62a107e9c538f7632ce"
   checkHex "SHA-512/256 112-byte padding neighbor"
-    (sha512Trunc256 (ByteArray.mk (Array.replicate 112 0x61)))
+    (sha512_256 (ByteArray.mk (Array.replicate 112 0x61)))
     "9216b5303edb66504570bee90e48ea5beaa5e9fe9f760bbd3e0460559fc005f6"
   ensure "SHA-256 length lower bound" (sha256InputLengthValid (2 ^ 61 - 1))
   ensure "SHA-256 length rejection boundary" (!sha256InputLengthValid (2 ^ 61))
@@ -201,23 +201,23 @@ def testHmacAndMgf : IO Unit := do
       .error (.maskTooLong "MGF1-SHA-512" (mgf1Sha512Maximum + 1) mgf1Sha512Maximum))
 
 def testShake : IO Unit := do
-  checkHex "SHA3-224 abc" (sha3Digest224 "abc".toUTF8)
+  checkHex "SHA3-224 abc" (sha3_224 "abc".toUTF8)
     "e642824c3f8cf24ad09234ee7d3c766fc9a3a5168d0c94ad73b46fdf"
   checkHex "SHA3-224 exact-rate padding"
-    (sha3Digest224 (ByteArray.mk (Array.replicate 144 0x61)))
+    (sha3_224 (ByteArray.mk (Array.replicate 144 0x61)))
     "f9019111996dcf160e284e320fd6d8825cabcd41a5ffdc4c5e9d64b6"
-  checkHex "SHA3-384 abc" (sha3Digest384 "abc".toUTF8)
+  checkHex "SHA3-384 abc" (sha3_384 "abc".toUTF8)
     "ec01498288516fc926459f58e2c6ad8df9b473cb0fc08c2596da7cf0e49be4b\
       298d88cea927ac7f539f1edf228376d25"
   checkHex "SHA3-384 exact-rate padding"
-    (sha3Digest384 (ByteArray.mk (Array.replicate 104 0x61)))
+    (sha3_384 (ByteArray.mk (Array.replicate 104 0x61)))
     "3a4f3b6284e571238884e95655e8c8a60e068e4059a9734abc08823a900d1615\
       92860243f00619ae699a29092ed91a16"
-  checkHex "SHA3-512 abc" (sha3Digest512 "abc".toUTF8)
+  checkHex "SHA3-512 abc" (sha3_512 "abc".toUTF8)
     "b751850b1a57168a5693cd924b6b096e08f621827444f70d884f5d0240d2712e\
       10e116e9192af3c91a7ec57647e3934057340b4cf408d5a56592f8274eec53f0"
   checkHex "SHA3-512 exact-rate padding"
-    (sha3Digest512 (ByteArray.mk (Array.replicate 72 0x61)))
+    (sha3_512 (ByteArray.mk (Array.replicate 72 0x61)))
     "a8ae722a78e10cbbc413886c02eb5b369a03f6560084aff566bd597bb7ad8c1c\
       cd86e81296852359bf2faddb5153c0a7445722987875e74287adac21adebe952"
   checkHex "SHAKE128 abc 32" (shake128 "abc".toUTF8 32)
@@ -261,7 +261,7 @@ def testShake : IO Unit := do
     (shake256 (ByteArray.mk (Array.replicate 137 0x61)) 32)
     shakeA61In137Expected
   ensure "SHAKE domain differs from SHA3"
-    (shake256 ByteArray.empty 32 != sha3Digest256 ByteArray.empty)
+    (shake256 ByteArray.empty 32 != sha3_256 ByteArray.empty)
   ensure "SHAKE domain differs from Ethereum Keccak"
     (shake256 ByteArray.empty 32 != keccak256 ByteArray.empty)
 
