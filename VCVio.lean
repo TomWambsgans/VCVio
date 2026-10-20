@@ -425,6 +425,11 @@ public import VCVio.Quantum.Oracle.Classical
 public import VCVio.Quantum.Oracle.Comb
 public import VCVio.Quantum.Oracle.Model
 public import VCVio.Quantum.Oracle.Unitary
+public import VCVio.Quantum.Pure.Instrument
+public import VCVio.Quantum.Pure.Norm
+public import VCVio.Quantum.Pure.State
+public import VCVio.Quantum.Pure.Tensor
+public import VCVio.Quantum.Pure.Vector
 public import VCVio.Quantum.Register
 public import VCVio.Quantum.Semantics
 public import VCVio.Quantum.SubInstrument
