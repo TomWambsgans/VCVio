@@ -1,5 +1,6 @@
-module  -- shake: keep-all --deprecated_module: ignore
-
+module
+public import VCVioTest.AKE.UAKE.ExperimentFixtures
+public import VCVioTest.AKE.UAKE.TranscriptFixtures
 public import VCVioTest.Asymptotics.Negligible
 public import VCVioTest.Computability
 public import VCVioTest.CryptoFoundations.BR93Measure
@@ -50,6 +51,7 @@ public import VCVioTest.MerkleTreeBatch
 public import VCVioTest.MerkleTreeExtractability
 public import VCVioTest.MerkleTreeHashForest
 public import VCVioTest.MerkleTreeHashing
+public import VCVioTest.MerkleTreeInstability
 public import VCVioTest.MerkleTreeMonadic
 public import VCVioTest.MerkleTreeMultiExtractability
 public import VCVioTest.ModuleAPI.Cache
@@ -86,7 +88,9 @@ public import VCVioTest.Quantum.Basic
 public import VCVioTest.Quantum.Hybrid
 public import VCVioTest.Quantum.Kraus
 public import VCVioTest.Quantum.Oracle
+public import VCVioTest.Quantum.Pure
 public import VCVioTest.QueryBounds
+public import VCVioTest.QueryCacheInstability
 public import VCVioTest.QueryHom
 public import VCVioTest.RandomOracleControls
 public import VCVioTest.RandomOracleFreshQuery
