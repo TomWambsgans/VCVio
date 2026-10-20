@@ -33,9 +33,6 @@ theorem partialCheck_eq_checkProjector (io : List ((Fin k × X) × Y)) :
       (Equiv.curry (Fin k) X (Option Y)).symm := by
   rw [partialCheck, checkProjector, submatrix_diagonal_equiv]
   congr 1
-  funext D
-  simp only [Function.comp_apply, Equiv.curry_symm_apply, Function.uncurry]
-  congr 1
 
 /-- The filled check is the same compressed consistency projector under table flattening. -/
 theorem filledCheck_eq_compressedCheckProjector (io : List ((Fin k × X) × Y)) :
