@@ -379,13 +379,8 @@ theorem sum_ite_checkedReadBlock {M : Type*} [AddCommMonoid M] (x : X) (q : Q)
     {r : Database X Y} (hr : r x = none) (g : (X × Q) × Database X Y → M) :
     ∑ m : (X × Q) × Database X Y,
       (if (m.1, Function.update m.2 m.1.1 none) = ((x, q), r) then g m else 0) =
-      ∑ a, g ((x, q), Function.update r x a) := by
-  rw [Fintype.sum_prod_type, Finset.sum_eq_single (x, q)]
-  · simp only [Prod.mk.injEq, true_and]
-    exact Database.sum_ite_update_none_eq hr _
-  · intro q' _ hq
-    exact Finset.sum_eq_zero fun D _ ↦ by simp [hq]
-  · simp
+      ∑ a, g ((x, q), Function.update r x a) :=
+  sum_ite_cellBlock x q hr g
 
 /-- Filled states whose labels differ from the erased database, below the cutoff. -/
 private def ReadBad (π : Database X Y → ι) (t : ℕ) (m : (X × Q) × Database X Y) : Prop :=
@@ -407,58 +402,15 @@ private theorem readBad_rows_le [OracleSpec.UniformAnswerMeasure (X →ₒ Y)]
     ‖diagonal (fun m ↦ if ReadBad π t m then (1 : ℂ) else 0) * A‖ ≤
       √(c * (Database.instability π t).toReal) := by
   classical
-  have he : ∀ (i j : (X × Q) × Database X Y),
-      (diagonal (fun m ↦ if ReadBad π t m then (1 : ℂ) else 0) * A :
-        Matrix ((X × Q) × Database X Y) ((X × Q) × Database X Y) ℂ) i j =
-      if ReadBad π t i then A i j else 0 := by
-    intro i j
-    rw [diagonal_mul]
-    split_ifs <;> simp_all
-  refine l2_opNorm_le_of_blocks
-    (fun m : (X × Q) × Database X Y ↦ (m.1, Function.update m.2 m.1.1 none))
-    (fun m : (X × Q) × Database X Y ↦ (m.1, Function.update m.2 m.1.1 none))
-    (fun i j h ↦ hA i j fun h0 ↦ h (by rw [he, h0, ite_self]))
-    (Real.sqrt_nonneg _) ?_
-  rintro ⟨⟨x, q⟩, D₀⟩
-  rw [Real.sq_sqrt (mul_nonneg hc ENNReal.toReal_nonneg)]
-  dsimp only
-  let r : Database X Y := Function.update D₀ x none
-  have hr : r x = none := Function.update_self x none D₀
-  have hblk : ∀ a, Function.update (Function.update r x a) x none = r := fun a ↦ by
-    rw [Function.update_idem, Database.update_none_of_eq_none hr]
-  rw [sum_ite_checkedReadBlock x q hr]
-  have hterm : ∀ a, ∑ m, ‖(diagonal (fun m ↦ if ReadBad π t m then (1 : ℂ) else 0) * A :
-      Matrix ((X × Q) × Database X Y) ((X × Q) × Database X Y) ℂ)
-      ((x, q), Function.update r x a) m‖ ^ 2 ≤
-        if r.size < t ∧ π (Function.update r x a) ≠ π r then c / Fintype.card Y else 0 := by
-    intro a
-    simp_rw [he]
-    simp only [ReadBad, hblk]
-    split_ifs with hb
-    · cases a with
-      | none => exact False.elim (hb.2 (by rw [Database.update_none_of_eq_none hr]))
-      | some u => exact hrow x q r hr hb.1 u
-    · simp
-  refine (Finset.sum_le_sum fun a _ ↦ hterm a).trans ?_
-  rw [Fintype.sum_option]
-  simp only [Database.update_none_of_eq_none hr, ne_eq, not_true_eq_false, and_false,
-    ite_false, zero_add]
-  by_cases hs : r.size < t
-  · have heq : ∀ u, (if r.size < t ∧ π (Function.update r x (some u)) ≠ π r then
-        c / (Fintype.card Y : ℝ) else 0) =
-        c / Fintype.card Y * if π (Function.update r x (some u)) ≠ π r then 1 else 0 := by
-      intro u
-      split_ifs <;> simp_all
-    simp only [ne_eq] at heq
-    rw [Finset.sum_congr rfl fun u _ ↦ heq u, ← Finset.mul_sum, Finset.sum_boole]
-    calc c / (Fintype.card Y : ℝ) *
-          ((Finset.univ.filter fun u ↦ ¬π (Function.update r x (some u)) = π r).card : ℝ)
-        = c * (((Finset.univ.filter fun u ↦ π (Function.update r x (some u)) ≠ π r).card : ℝ) /
-            Fintype.card Y) := by ring
-      _ ≤ c * (Database.instability π t).toReal :=
-        mul_le_mul_of_nonneg_left (Database.card_div_le_instability π hs hr) hc
-  · simp only [hs, false_and, ite_false, Finset.sum_const_zero]
-    exact mul_nonneg hc ENNReal.toReal_nonneg
+  convert l2_opNorm_labelChangingRows_le π t (fun _ _ ↦ True) hc hA
+    (fun x q r hr hs _ u ↦ hrow x q r hr hs u) using 1
+  congr 2
+  congr 1
+  funext m
+  simp only [ReadBad, true_and]
+  split_ifs with h
+  · exact ite_eq_left h
+  · exact ite_eq_right h
 
 /-- Symmetric cell blocks have a label-preserving approximation from their residual row bound. -/
 private theorem exists_readApprox [OracleSpec.UniformAnswerMeasure (X →ₒ Y)]
@@ -875,16 +827,18 @@ theorem l2_opNorm_commutator_validity_sq_le_sixteen_mul
 
 open scoped ComplexOrder
 
-private theorem read_trace_conj_le {n : Type*} [Fintype n] [DecidableEq n]
-    (A σ : Matrix n n ℂ) (hσ : σ.PosSemidef) :
+private theorem read_trace_rectangular_le {m n : Type*}
+    [Fintype m] [Fintype n] [DecidableEq n]
+    (A : Matrix m n ℂ) (σ : Matrix n n ℂ) (hσ : σ.PosSemidef) :
     (A * σ * Aᴴ).trace.re ≤ ‖A‖ ^ 2 * σ.trace.re := by
   open scoped MatrixOrder in
-    have h := (Matrix.le_iff.mp
-      (CStarAlgebra.star_mul_le_algebraMap_norm_sq A)).trace_mul_re_nonneg hσ
+    have hh := (posSemidef_conjTranspose_mul_self A).isHermitian
+    have h := (Matrix.le_iff.mp (IsSelfAdjoint.le_algebraMap_norm_self (Aᴴ * A)
+      hh)).trace_mul_re_nonneg hσ
     rw [Matrix.sub_mul, Matrix.trace_sub, Complex.sub_re] at h
     rw [Matrix.trace_mul_cycle]
     simpa [Algebra.algebraMap_eq_smul_one, Matrix.smul_mul, Matrix.trace_smul,
-      ← Complex.ofReal_pow, Matrix.star_eq_conjTranspose] using h
+      l2_opNorm_conjTranspose_mul_self, ← Complex.ofReal_mul, pow_two] using h
 
 private theorem read_sum_trace_diagonal {n α : Type*} [Fintype n] [DecidableEq n]
     [Fintype α] [DecidableEq α] (f : n → α) (B : Matrix n n ℂ) :
@@ -959,7 +913,7 @@ theorem sum_trace_truncatedCheckedReadDefect_le
       (truncatedCheckedReadDefect t (labelControlled (fun i ↦ π i.1.2) W) a)ᴴ).trace.re ≤
       24 * (Database.instability π t).toReal * σ.trace.re := by
   rw [← Complex.re_sum, sum_trace_truncatedCheckedReadDefect_eq]
-  refine (read_trace_conj_le _ _ hσ).trans ?_
+  refine (read_trace_rectangular_le _ _ hσ).trans ?_
   rw [norm_sub_rev]
   exact mul_le_mul_of_nonneg_right
     (l2_opNorm_commutator_checkedRead_sq_le_twentyFour_mul π t hW hU hA) hσ.trace_re_nonneg
@@ -976,19 +930,6 @@ private theorem read_controlled_commutator_apply {n E κ : Type*}
       A i j * (U (π j) e f - U (π i) e f) := by
   simp [Matrix.mul_apply, Fintype.sum_prod_type, labelControlled_apply,
     kroneckerMap_apply, Matrix.one_apply, mul_sub, mul_comm]
-
-private theorem read_trace_rectangular_le {m n : Type*}
-    [Fintype m] [Fintype n] [DecidableEq n]
-    (A : Matrix m n ℂ) (σ : Matrix n n ℂ) (hσ : σ.PosSemidef) :
-    (A * σ * Aᴴ).trace.re ≤ ‖A‖ ^ 2 * σ.trace.re := by
-  open scoped MatrixOrder in
-    have hh := (posSemidef_conjTranspose_mul_self A).isHermitian
-    have h := (Matrix.le_iff.mp (IsSelfAdjoint.le_algebraMap_norm_self (Aᴴ * A)
-      hh)).trace_mul_re_nonneg hσ
-    rw [Matrix.sub_mul, Matrix.trace_sub, Complex.sub_re] at h
-    rw [Matrix.trace_mul_cycle]
-    simpa [Algebra.algebraMap_eq_smul_one, Matrix.smul_mul, Matrix.trace_smul,
-      l2_opNorm_conjTranspose_mul_self, ← Complex.ofReal_mul, pow_two] using h
 
 /-- A checked projector with its query address retained as a classical control. -/
 noncomputable def selectedCheckedReadProjector (a : Option Y) :

@@ -477,6 +477,89 @@ private theorem mul_badProjector_apply (π : Database X Y → ι) (t : ℕ)
 
 end approx
 
+section labelChangingRows
+
+variable {X Y : Type} [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y]
+  {Q : Type*} [Fintype Q] [DecidableEq Q] {ι : Type*} [DecidableEq ι]
+
+/-- Counting label-changing filled rows in each active cell block bounds their operator norm
+by the square root of the row constant times database instability. -/
+theorem l2_opNorm_labelChangingRows_le [OracleSpec.UniformAnswerMeasure (X →ₒ Y)]
+    (π : Database X Y → ι) (t : ℕ) (active : X → Q → Prop)
+    [∀ x q, Decidable (active x q)] {c : ℝ} (hc : 0 ≤ c)
+    {A : Matrix ((X × Q) × Database X Y) ((X × Q) × Database X Y) ℂ}
+    (hA : ∀ i j, A i j ≠ 0 →
+      (i.1, Function.update i.2 i.1.1 none) = (j.1, Function.update j.2 j.1.1 none))
+    (hrow : ∀ x q (r : Database X Y), r x = none → r.size < t → active x q → ∀ u,
+      ∑ m, ‖A ((x, q), Function.update r x (some u)) m‖ ^ 2 ≤ c / Fintype.card Y) :
+    ‖diagonal (fun m ↦ if active m.1.1 m.1.2 ∧
+        Database.size (Function.update m.2 m.1.1 none) < t ∧
+        π m.2 ≠ π (Function.update m.2 m.1.1 none) then (1 : ℂ) else 0) * A‖ ≤
+      √(c * (Database.instability π t).toReal) := by
+  classical
+  let Bad (m : (X × Q) × Database X Y) := active m.1.1 m.1.2 ∧
+    Database.size (Function.update m.2 m.1.1 none) < t ∧
+    π m.2 ≠ π (Function.update m.2 m.1.1 none)
+  have he : ∀ (i j : (X × Q) × Database X Y),
+      (diagonal (fun m ↦ if Bad m then (1 : ℂ) else 0) * A :
+        Matrix ((X × Q) × Database X Y) ((X × Q) × Database X Y) ℂ) i j =
+      if Bad i then A i j else 0 := by
+    intro i j
+    rw [diagonal_mul]
+    split_ifs <;> simp_all
+  refine l2_opNorm_le_of_blocks
+    (fun m : (X × Q) × Database X Y ↦ (m.1, Function.update m.2 m.1.1 none))
+    (fun m : (X × Q) × Database X Y ↦ (m.1, Function.update m.2 m.1.1 none))
+    (fun i j h ↦ hA i j fun h0 ↦ h (by rw [he, h0, ite_self]))
+    (Real.sqrt_nonneg _) ?_
+  rintro ⟨⟨x, q⟩, D₀⟩
+  rw [Real.sq_sqrt (mul_nonneg hc ENNReal.toReal_nonneg)]
+  dsimp only
+  let r : Database X Y := Function.update D₀ x none
+  have hr : r x = none := Function.update_self x none D₀
+  have hblk : ∀ a, Function.update (Function.update r x a) x none = r := fun a ↦ by
+    rw [Function.update_idem, Database.update_none_of_eq_none hr]
+  rw [sum_ite_cellBlock x q hr]
+  have hterm : ∀ a, ∑ m, ‖(diagonal (fun m ↦ if Bad m then (1 : ℂ) else 0) * A :
+      Matrix ((X × Q) × Database X Y) ((X × Q) × Database X Y) ℂ)
+      ((x, q), Function.update r x a) m‖ ^ 2 ≤
+        if active x q ∧ r.size < t ∧ π (Function.update r x a) ≠ π r then
+          c / Fintype.card Y else 0 := by
+    intro a
+    simp_rw [he]
+    simp only [Bad, hblk]
+    split_ifs with hb
+    · cases a with
+      | none => exact False.elim (hb.2.2 (by rw [Database.update_none_of_eq_none hr]))
+      | some u => exact hrow x q r hr hb.2.1 hb.1 u
+    · simp
+  refine (Finset.sum_le_sum fun a _ ↦ hterm a).trans ?_
+  rw [Fintype.sum_option]
+  simp only [Database.update_none_of_eq_none hr, ne_eq, not_true_eq_false, and_false,
+    ite_false, zero_add]
+  by_cases hs : active x q ∧ r.size < t
+  · have heq : ∀ u, (if active x q ∧ r.size < t ∧ π (Function.update r x (some u)) ≠ π r then
+        c / (Fintype.card Y : ℝ) else 0) =
+        c / Fintype.card Y * if π (Function.update r x (some u)) ≠ π r then 1 else 0 := by
+      intro u
+      simp only [hs.1, hs.2, true_and]
+      split_ifs <;> simp_all
+    simp only [ne_eq] at heq
+    rw [Finset.sum_congr rfl fun u _ ↦ heq u, ← Finset.mul_sum, Finset.sum_boole]
+    calc c / (Fintype.card Y : ℝ) *
+          ((Finset.univ.filter fun u ↦ ¬π (Function.update r x (some u)) = π r).card : ℝ)
+        = c * (((Finset.univ.filter fun u ↦ π (Function.update r x (some u)) ≠ π r).card : ℝ) /
+            Fintype.card Y) := by ring
+      _ ≤ c * (Database.instability π t).toReal :=
+        mul_le_mul_of_nonneg_left (Database.card_div_le_instability π hs.2 hr) hc
+  · have hz : ∀ u, ¬(active x q ∧ r.size < t ∧
+        π (Function.update r x (some u)) ≠ π r) := fun _ h ↦ hs ⟨h.1, h.2.1⟩
+    simp only [hz, ite_false, Finset.sum_const_zero]
+    exact mul_nonneg hc ENNReal.toReal_nonneg
+
+
+end labelChangingRows
+
 section approxInstability
 
 variable {X Y : Type} [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y] [AddCommGroup Y]
@@ -495,63 +578,16 @@ private theorem l2_opNorm_badProjector_mul_le [UniformAnswerMeasure (X →ₒ Y)
         ∀ u, ∑ m, ‖A ((x, χ), Function.update r x (some u)) m‖ ^ 2 ≤ 6 / Fintype.card Y) :
     ‖badProjector π t * A‖ ≤ √(6 * (Database.instability π t).toReal) := by
   classical
-  have hI : 0 ≤ (Database.instability π t).toReal := ENNReal.toReal_nonneg
-  have hN : (0 : ℝ) < Fintype.card Y := Nat.cast_pos.mpr Fintype.card_pos
-  refine l2_opNorm_le_of_blocks
-    (fun m : (X × AddChar Y ℂ) × Database X Y ↦ (m.1, Function.update m.2 m.1.1 none))
-    (fun m : (X × AddChar Y ℂ) × Database X Y ↦ (m.1, Function.update m.2 m.1.1 none))
-    (fun i j h ↦ hA i j fun h0 ↦ h (by rw [badProjector_mul_apply, h0, ite_self]))
-    (Real.sqrt_nonneg _) ?_
-  rintro ⟨⟨x, χ⟩, D₀⟩
-  rw [Real.sq_sqrt (by positivity)]
-  dsimp only
-  set r := Function.update D₀ x none with hrdef
-  have hr : r x = none := Function.update_self x none D₀
-  have hblk : ∀ a, Function.update (Function.update r x a) x none = r := fun a ↦ by
-    rw [Function.update_idem, Database.update_none_of_eq_none hr]
-  rw [sum_ite_phaseBlock x χ hr]
-  have hterm : ∀ a, ∑ m, ‖(badProjector π t * A) ((x, χ), Function.update r x a) m‖ ^ 2 ≤
-      if χ ≠ 0 ∧ Database.size r < t ∧ π (Function.update r x a) ≠ π r then
-        (6 / Fintype.card Y : ℝ) else 0 := by
-    intro a
-    simp only [badProjector_mul_apply]
-    by_cases hb : IsBad π t ((x, χ), Function.update r x a)
-    · obtain ⟨hχ, hsize, hπ⟩ := hb
-      simp only [hblk] at hsize hπ
-      simp only [IsBad, hblk, ne_eq] at *
-      rw [ite_eq_left ⟨hχ, hsize, hπ⟩]
-      rcases a with _ | u
-      · rw [Database.update_none_of_eq_none hr] at hπ
-        exact absurd rfl hπ
-      · refine le_of_eq_of_le (Finset.sum_congr rfl fun m _ ↦ ?_) (hrow x χ hχ r hr hsize u)
-        rw [ite_eq_left ⟨hχ, hsize, hπ⟩]
-    · simp only [hb, ite_false, norm_zero, zero_pow two_ne_zero, Finset.sum_const_zero]
-      split_ifs <;> positivity
-  refine (Finset.sum_le_sum fun a _ ↦ hterm a).trans ?_
-  rw [Fintype.sum_option]
-  simp only [Database.update_none_of_eq_none hr, ne_eq, not_true_eq_false, and_false, ite_false,
-    zero_add]
-  by_cases hc : χ ≠ 0 ∧ Database.size r < t
-  · have e : ∀ u, (if χ ≠ 0 ∧ Database.size r < t ∧ π (Function.update r x (some u)) ≠ π r then
-        6 / (Fintype.card Y : ℝ) else 0) =
-        6 / Fintype.card Y * if π (Function.update r x (some u)) ≠ π r then 1 else 0 := by
-      intro u
-      simp only [hc.1, hc.2, ne_eq, not_false_eq_true, true_and]
-      split_ifs <;> simp
-    simp only [ne_eq] at e
-    rw [Finset.sum_congr rfl fun u _ ↦ e u, ← Finset.mul_sum, Finset.sum_boole]
-    have hcard := Database.card_div_le_instability π hc.2 hr
-    calc 6 / (Fintype.card Y : ℝ) *
-          ((Finset.univ.filter fun u ↦ ¬π (Function.update r x (some u)) = π r).card : ℝ)
-        = 6 * (((Finset.univ.filter fun u ↦ π (Function.update r x (some u)) ≠ π r).card : ℝ) /
-            Fintype.card Y) := by ring
-      _ ≤ 6 * (Database.instability π t).toReal := by gcongr
-  · have e : ∀ u, (if χ ≠ 0 ∧ Database.size r < t ∧ π (Function.update r x (some u)) ≠ π r then
-        6 / (Fintype.card Y : ℝ) else 0) = 0 := fun u ↦ by
-      exact ite_eq_right_iff.mpr fun h ↦ absurd ⟨h.1, h.2.1⟩ hc
-    simp only [ne_eq] at e
-    rw [Finset.sum_congr rfl fun u _ ↦ e u, Finset.sum_const_zero]
-    positivity
+  convert l2_opNorm_labelChangingRows_le π t (fun _ χ ↦ χ ≠ 0)
+    (by norm_num : (0 : ℝ) ≤ 6) hA (fun x χ r hr hs hχ u ↦ hrow x χ hχ r hr hs u) using 1
+  congr 2
+  unfold badProjector
+  congr 1
+  funext m
+  simp only [IsBad]
+  split_ifs with h
+  · exact ite_eq_left h
+  · exact ite_eq_right h
 
 /-- **The label-preserving approximation, phase basis.** There is an operator `S` that preserves
 the label `π D` of the database with `‖O_ph^(t) - S‖² ≤ 6 I(π, t)`. -/
