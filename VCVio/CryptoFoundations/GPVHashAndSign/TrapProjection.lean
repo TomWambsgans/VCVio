@@ -195,7 +195,7 @@ lemma freshSig_winnerSlot_deferred_le_embed [DecidableEq Domain] [Inhabited Rang
       ((((∅, 0), fun _ => none), ∅))).symm]
   rw [bind_map_left]
   -- Express the win mass as a `tsum` over the Sig run output and compare termwise.
-  rw [prEvent_bind, OracleComp.prEvent_bind_eq_tsum]
+  rw [OracleComp.prEvent_bind_eq_tsum]
   refine ENNReal.tsum_le_tsum fun w => ?_
   simp only [Prod.map, id_eq]
   -- Compare `Pr{let x ← run}[x = w] · Wf w ≤ Pr{let x ← run}[x = w] · winContinuation w`;
@@ -212,7 +212,7 @@ lemma freshSig_winnerSlot_deferred_le_embed [DecidableEq Domain] [Inhabited Rang
       have hcache : w.2.1.1.1 (w.1.2.1, w.1.1) = some y :=
         embedTrapIdxSigImpl_fresh_idx_cache_eq psf M Salt pk sk j y (adv.main pk) w hsupp
           (w.1.2.1, w.1.1) hidx hfresh
-      rw [ite_eq_left ⟨hfresh, hidx⟩, prEvent_bind, OracleComp.prEvent_bind_eq_tsum]
+      rw [ite_eq_left ⟨hfresh, hidx⟩, OracleComp.prEvent_bind_eq_tsum]
       -- The continuation `pure (decide (dom = x) && decide (cache = some y) && decide (idx = j))`
       -- has both run-only literals `true`; it reduces to matching `dom = x`, so the `tsum` over `x`
       -- collapses to the single diagonal term at `x = dom`.

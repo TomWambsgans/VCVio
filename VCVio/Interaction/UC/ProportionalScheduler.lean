@@ -46,7 +46,8 @@ namespace ProportionalScheduler
 /-! ## Denotational relation -/
 
 /-- Equality in distribution of `ProbComp` computations. This is the denotational equality used
-for scheduler coherence; `outputRel_rel` reads it as pointwise equality of output probabilities. -/
+for scheduler coherence; on countable outputs `outputRel_rel` reads it as pointwise equality of
+output probabilities. -/
 noncomputable def outputRel : MonadRelFamily ProbComp where
   rel := fun left right => left =ᵈ right
   refl _ := .rfl
@@ -59,13 +60,13 @@ noncomputable def outputRel : MonadRelFamily ProbComp where
     intro α β left right f h
     exact EvalDistEq.bind_left h f
 
-/-- `outputRel` holds exactly when the output probabilities agree pointwise: a `ProbComp` has
-finitely many possible outputs, so its point masses determine every event. -/
+/-- On a countable output type, `outputRel` holds exactly when the output probabilities agree
+pointwise. -/
 @[simp]
-theorem outputRel_rel {α : Type} (left right : ProbComp α) :
+theorem outputRel_rel {α : Type} [Countable α] (left right : ProbComp α) :
     outputRel.rel left right ↔
       ∀ output, Pr{let x ← left}[x = output] = Pr{let x ← right}[x = output] :=
-  ⟨fun h output => EvalDistEq.prEvent_eq h (· = output), evalDistEq_of_forall_prEvent_eq_output⟩
+  evalDistEq_iff_forall_prEvent_eq_output
 
 /-- `outputRel` is a congruence for the continuation of `bind`. -/
 instance outputRel_isBindCongr : outputRel.IsBindCongr where
@@ -286,6 +287,12 @@ theorem flip_eq_up_iff (choice : ULift Bool) (b : Bool) :
   obtain ⟨c⟩ := choice
   cases b <;> cases c <;> simp [BinaryScheduler.flip]
 
+/-- The three frontier leaves are countable, so their output laws are pointwise. -/
+local instance leafCountable : Countable Leaf :=
+  ⟨⟨fun | .first => 0 | .second => 1 | .context => 2, by
+    intro a b h
+    cases a <;> cases b <;> simp_all⟩⟩
+
 /-- Proportional scheduling factors every hierarchical three-way draw through
 the same direct distribution. -/
 theorem isFlat : BinaryScheduler.IsFlat outputRel binary flat := by
@@ -302,10 +309,9 @@ theorem isFlat : BinaryScheduler.IsFlat outputRel binary flat := by
     rw [outputRel_rel]
     intro leaf
     obtain ⟨leaf⟩ := leaf
-    rw [prEvent_flat, BinaryScheduler.sourceDraw, prEvent_bind, wp_eq_sum_fintype, sum_ulift_bool]
-    simp only [prEvent_binary, Bool.false_eq_true, ↓reduceIte, prEvent_bind, prEvent_pure]
-    rw [wp_eq_sum_fintype (binary _ _), sum_ulift_bool]
-    simp only [prEvent_binary, Bool.false_eq_true, ↓reduceIte, prEvent_pure]
+    rw [prEvent_flat, BinaryScheduler.sourceDraw, prEvent_bind_eq_sum_fintype, sum_ulift_bool]
+    simp only [prEvent_binary, Bool.false_eq_true, ↓reduceIte, prEvent_bind_eq_sum_fintype,
+      sum_ulift_bool, prEvent_pure]
     cases leaf <;> simp
     · simpa only [Nat.cast_add] using
         nested_ratio first.val (first.val + second.val) context.val
@@ -317,10 +323,9 @@ theorem isFlat : BinaryScheduler.IsFlat outputRel binary flat := by
     rw [outputRel_rel]
     intro leaf
     obtain ⟨leaf⟩ := leaf
-    rw [prEvent_flat, BinaryScheduler.leftDraw, prEvent_bind, wp_eq_sum_fintype, sum_ulift_bool]
-    simp only [prEvent_binary, Bool.false_eq_true, ↓reduceIte, prEvent_bind, prEvent_pure]
-    rw [wp_eq_sum_fintype (binary _ _), sum_ulift_bool]
-    simp only [prEvent_binary, Bool.false_eq_true, ↓reduceIte, prEvent_pure]
+    rw [prEvent_flat, BinaryScheduler.leftDraw, prEvent_bind_eq_sum_fintype, sum_ulift_bool]
+    simp only [prEvent_binary, Bool.false_eq_true, ↓reduceIte, prEvent_bind_eq_sum_fintype,
+      sum_ulift_bool, prEvent_pure]
     cases leaf <;> simp [add_comm, add_assoc]
     · simpa only [Nat.cast_add, add_comm, add_left_comm, add_assoc] using
         nested_ratio second.val (context.val + second.val) first.val
@@ -332,10 +337,9 @@ theorem isFlat : BinaryScheduler.IsFlat outputRel binary flat := by
     rw [outputRel_rel]
     intro leaf
     obtain ⟨leaf⟩ := leaf
-    rw [prEvent_flat, BinaryScheduler.rightDraw, prEvent_bind, wp_eq_sum_fintype, sum_ulift_bool]
-    simp only [prEvent_binary, Bool.false_eq_true, ↓reduceIte, prEvent_bind, prEvent_pure]
-    rw [wp_eq_sum_fintype (binary _ _), sum_ulift_bool]
-    simp only [prEvent_binary, Bool.false_eq_true, ↓reduceIte, prEvent_pure]
+    rw [prEvent_flat, BinaryScheduler.rightDraw, prEvent_bind_eq_sum_fintype, sum_ulift_bool]
+    simp only [prEvent_binary, Bool.false_eq_true, ↓reduceIte, prEvent_bind_eq_sum_fintype,
+      sum_ulift_bool, prEvent_pure]
     cases leaf <;> simp [add_comm, add_left_comm, add_assoc]
     · simpa only [Nat.cast_add, add_comm, add_left_comm, add_assoc] using
         nested_ratio first.val (context.val + first.val) second.val

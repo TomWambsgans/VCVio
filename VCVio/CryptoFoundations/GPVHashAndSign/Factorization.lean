@@ -49,15 +49,9 @@ This file records the per-step ingredients of the `signRunF` presentation:
 * the concrete GPV per-step handlers `gpvStepReal` / `gpvStepProg` together with their
   off-collision agreement `gpvStep_agree`. -/
 
-/-- A forward sampler witnessing the supplied PSF regularity hypothesis. This choice
-specifies its output distribution, without asserting an efficiency bound. -/
-noncomputable def regularityDomainSample (hreg : psf.Regularity) : PK → ProbComp Domain :=
-  Classical.choose hreg
-
 omit [DecidableEq Range] in
 /-- **Regularity branch-agreement bridge.** Under PSF regularity, the real cache-miss
-signing answer and the programmed signing answer using `regularityDomainSample` agree in
-distribution.
+signing answer and the programmed signing answer agree in distribution.
 
 The real answer at a fresh salt — produced by the lazy random oracle on a cache miss — draws a fresh
 uniform target `c ← $ᵗ Range` and then a short preimage `s ← trapdoorSample pk sk c`, returning the
@@ -70,11 +64,12 @@ This is the GPV-concrete witness for the off-collision branch-agreement hypothes
 salt collision
 `r ∉ c j`, the real and programmed per-signing-step answer handlers agree in distribution. -/
 theorem regularity_signAnswer_agree (hreg : psf.Regularity) (pk : PK) (sk : SK) :
-    (do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
-        : ProbComp (Range × Domain)) =ᵈ
-      (do let s ← regularityDomainSample psf hreg pk
-          pure (psf.eval pk s, s) : ProbComp (Range × Domain)) :=
-  (Classical.choose_spec hreg pk sk).symm
+    ∃ domainSample : PK → ProbComp Domain,
+      (do let c ← ($ᵗ Range); let s ← psf.trapdoorSample pk sk c; pure (c, s)
+          : ProbComp (Range × Domain)) =ᵈ
+        (do let s ← domainSample pk; pure (psf.eval pk s, s) : ProbComp (Range × Domain)) := by
+  obtain ⟨domainSample, h⟩ := hreg
+  exact ⟨domainSample, (h pk sk).symm⟩
 
 /-! ## Concrete GPV `signRunF` handlers
 

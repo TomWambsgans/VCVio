@@ -18,7 +18,6 @@ public import ToMathlib.Data.Vector.Induction
 public import ToMathlib.Topology.Algebra.InfiniteSum.Option
 public import ToMathlib.Control.Monad.Fold
 public meta import ToMathlib.Lint.UsesPMF
-public meta import ToMathlib.Lint.SecurityStatements
 
 /-!
 # Shared utilities and semantic normalization
@@ -31,21 +30,8 @@ public section
 
 declare_aesop_rule_sets [UnfoldEvalDist]
 
-/-- Rewrite rules bringing an expectation into the normal form of `𝔼{…}[…]` and `Pr{…}[…]`:
-nested expectations of the draws, with no `bind`, `map`, `pure` or branch left at the head of a
-drawn computation. Two expectations written differently become syntactically equal after
-`simp only [expect_norm]`. -/
-register_simp_attr expect_norm
-
-/-- Equations evaluating an expectation in normal form one step further: the unfolding of a loop
-(`replicate`, `List.mapM`, `List.foldlM`), the value of a query or a uniform draw, the pointwise
-form of a composed observation, and the steps of a simulation (`simulateQ`). Used as
-`simp only [expect_norm, expect_eval]` on an equation between an expectation and its value. -/
-register_simp_attr expect_eval
-
-/-- Linearity of expectation and the algebra of indicators (`wp_add`, `wp_const_mul`,
-`propInd_and`, …), the arithmetic the tactic `expect_arith` normalizes with. -/
-register_simp_attr expect_arith
+/-- Simp set for game-hopping proofs of program and semantic equations. -/
+register_simp_attr game_rule
 
 /-- VCVio-specific extension of PolyFun's `handler_nf` normalization set. -/
 register_simp_attr handler_simp

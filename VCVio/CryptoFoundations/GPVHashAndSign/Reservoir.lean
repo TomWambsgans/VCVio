@@ -91,7 +91,7 @@ lemma reservoir_embed_commute_winner_floorFree [DecidableEq Domain] [Inhabited R
   -- (`OracleComp.prEvent_bind_eq_tsum`). This puts the right side in the *front-loaded* form
   -- `Pr{let x ← y ← $ᵗ Range; …}[x = true]`, matching the trap run's inline `v⋆ ← $ᵗ Range` up to
   -- the adaptive count-`j` position.
-  rw [← OracleComp.prEvent_bind_eq_tsum, ← prEvent_bind]
+  rw [← OracleComp.prEvent_bind_eq_tsum]
   -- **The adaptive count-`j` front-loading, via the front-draw lift.**
   --
   -- The goal is now `LHS_trap ≤ Pr[= true | y ← $ᵗ Range; x ← trapdoorSample pk sk y;
@@ -598,16 +598,13 @@ lemma reservoir_embed_commute [DecidableEq Domain] [Inhabited Range]
       ∑' y : Range, Pr{let x ← ($ᵗ Range : ProbComp Range)}[x = y] * ?_ with wOpt y
   -- Per-target: dropping the conjunct `decide (r.2.1 (r.1.2.1, r.1.1) = some y)` only increases
   -- the winning mass (the event is monotone over the conjoined Bool body).
-  rw [prEvent_bind, prEvent_bind,
-    OracleComp.prEvent_bind_eq_tsum, OracleComp.prEvent_bind_eq_tsum]
+  rw [OracleComp.prEvent_bind_eq_tsum, OracleComp.prEvent_bind_eq_tsum]
   refine ENNReal.tsum_le_tsum fun x => ?_
   gcongr
-  rw [prEvent_bind, prEvent_bind,
-    OracleComp.prEvent_bind_eq_tsum, OracleComp.prEvent_bind_eq_tsum]
+  rw [OracleComp.prEvent_bind_eq_tsum, OracleComp.prEvent_bind_eq_tsum]
   refine ENNReal.tsum_le_tsum fun r => ?_
   gcongr
   rw [prEvent_pure, prEvent_pure]
-  simp only [propInd_eq_ite]
   by_cases hxr : r.1.2.2 = x
   · simp only [hxr, decide_true, Bool.true_and]
     split <;> simp
@@ -718,10 +715,8 @@ lemma gpv_perKey_exactMatch_le_reservoir [DecidableEq Domain] [Inhabited Range]
             ((∅ : (Salt × M →ₒ Range).QueryCache), (0 : ℕ))
           pure (decide (r.1.2.2 = x)) : ProbComp Bool)}[y = true] := by
     intro i
-    rw [prEvent_bind, OracleComp.prEvent_bind_eq_tsum]
-    simp_rw [prEvent_bind (reservoirWinnerIndex (qSign + qHash)),
-      prEvent_bind (psf.trapdoorSample pk sk i),
-      OracleComp.prEvent_bind_eq_tsum (reservoirWinnerIndex (qSign + qHash)),
+    rw [OracleComp.prEvent_bind_eq_tsum]
+    simp_rw [OracleComp.prEvent_bind_eq_tsum (reservoirWinnerIndex (qSign + qHash)),
       OracleComp.prEvent_bind_eq_tsum (psf.trapdoorSample pk sk i), ← ENNReal.tsum_mul_left,
       ← mul_assoc]
     rw [ENNReal.tsum_comm]

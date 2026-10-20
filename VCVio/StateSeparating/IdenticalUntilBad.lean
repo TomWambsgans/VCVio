@@ -32,19 +32,11 @@ def PreservesNoBadInvariant (h : QueryImpl.Stateful unifSpec E (σ × Bool))
     ∀ z ∈ support ((h t).run p), Inv z.2.1
 
 /-- The Boolean distinguishing advantage is at most the total variation between the two runs. -/
-theorem advantage_le_etvDist {σ₀ σ₁ : Type}
-    (h₀ : QueryImpl.Stateful unifSpec E σ₀) (s₀ : σ₀)
-    (h₁ : QueryImpl.Stateful unifSpec E σ₁) (s₁ : σ₁) (A : OracleComp E Bool) :
-    h₀.advantage s₀ h₁ s₁ A ≤ etvDist (h₀.runProb s₀ A) (h₁.runProb s₁ A) :=
-  (measure_absDiff_apply_le_measureETVDist _ _ (measurableSet_singleton true)).trans
-    (measureETVDist_le_etvDist _ _)
-
-/-- The Boolean distinguishing advantage is at most the total variation between the two runs. -/
 theorem advantage_le_measureETVDist {σ₀ σ₁ : Type}
     (h₀ : QueryImpl.Stateful unifSpec E σ₀) (s₀ : σ₀)
     (h₁ : QueryImpl.Stateful unifSpec E σ₁) (s₁ : σ₁) (A : OracleComp E Bool) :
-    h₀.advantage s₀ h₁ s₁ A ≤ measureETVDist (h₀.runProb s₀ A) (h₁.runProb s₁ A) := by
-  simpa only [etvDist_eq_measureETVDist] using advantage_le_etvDist h₀ s₀ h₁ s₁ A
+    h₀.advantage s₀ h₁ s₁ A ≤ measureETVDist (h₀.runProb s₀ A) (h₁.runProb s₁ A) :=
+  measure_absDiff_apply_le_measureETVDist _ _ (measurableSet_singleton true)
 
 /-- State-dependent ε-perturbed identical-until-bad with output bad flag. -/
 theorem advantage_le_expectedQuerySlack_add_prEvent_bad
@@ -53,7 +45,8 @@ theorem advantage_le_expectedQuerySlack_add_prEvent_bad
     (chargedQuery : E.Domain → Prop) [DecidablePred chargedQuery]
     (querySlack : σ → ℝ≥0∞)
     (h_step_charged : ∀ (t : E.Domain), chargedQuery t → ∀ (s : σ),
-      etvDist ((h₀ t).run (s, false)) ((h₁ t).run (s, false)) ≤ querySlack s)
+      letI : MeasurableSpace (E.Range t × σ × Bool) := ⊤
+      measureETVDist ((h₀ t).run (s, false)) ((h₁ t).run (s, false)) ≤ querySlack s)
     (h_step_uncharged : ∀ (t : E.Domain), ¬ chargedQuery t → ∀ (s : σ),
       (h₀ t).run (s, false) = (h₁ t).run (s, false))
     (h_mono₀ : ∀ (t : E.Domain) (p : σ × Bool), p.2 = true →
@@ -63,8 +56,8 @@ theorem advantage_le_expectedQuerySlack_add_prEvent_bad
     h₀.advantage (s_init, false) h₁ (s_init, false) A
       ≤ expectedQuerySlack h₀ chargedQuery querySlack A queryBudget (s_init, false)
         + Pr{let z ← (simulateQ h₀ A).run (s_init, false)}[z.2.2 = true] :=
-  (advantage_le_etvDist h₀ _ h₁ _ A).trans
-    (etvDist_simulateQ_run'_le_expectedQuerySlack_add_prEvent_bad h₀ h₁ chargedQuery
+  (advantage_le_measureETVDist h₀ _ h₁ _ A).trans
+    (measureETVDist_simulateQ_run'_le_expectedQuerySlack_add_prEvent_bad h₀ h₁ chargedQuery
       querySlack h_step_charged h_step_uncharged h_mono₀ A h_bound (s_init, false))
 
 /-- Constant-ε identical-until-bad with output bad flag. -/
@@ -74,7 +67,8 @@ theorem advantage_le_queryBound_mul_slack_add_prEvent_bad
     (chargedQuery : E.Domain → Prop) [DecidablePred chargedQuery]
     (querySlack : ℝ≥0∞)
     (h_step_charged : ∀ (t : E.Domain), chargedQuery t → ∀ (s : σ),
-      etvDist ((h₀ t).run (s, false)) ((h₁ t).run (s, false)) ≤ querySlack)
+      letI : MeasurableSpace (E.Range t × σ × Bool) := ⊤
+      measureETVDist ((h₀ t).run (s, false)) ((h₁ t).run (s, false)) ≤ querySlack)
     (h_step_uncharged : ∀ (t : E.Domain), ¬ chargedQuery t → ∀ (s : σ),
       (h₀ t).run (s, false) = (h₁ t).run (s, false))
     (h_mono₀ : ∀ (t : E.Domain) (p : σ × Bool), p.2 = true →
@@ -105,7 +99,8 @@ theorem advantage_le_expectedQuerySlack_add_prEvent_bad_of_inv
     (chargedQuery : E.Domain → Prop) [DecidablePred chargedQuery]
     (querySlack : σ → ℝ≥0∞)
     (h_step_charged : ∀ (t : E.Domain), chargedQuery t → ∀ (s : σ), Inv s →
-      etvDist ((h₀ t).run (s, false)) ((h₁ t).run (s, false)) ≤ querySlack s)
+      letI : MeasurableSpace (E.Range t × σ × Bool) := ⊤
+      measureETVDist ((h₀ t).run (s, false)) ((h₁ t).run (s, false)) ≤ querySlack s)
     (h_step_uncharged : ∀ (t : E.Domain), ¬ chargedQuery t → ∀ (s : σ),
       (h₀ t).run (s, false) = (h₁ t).run (s, false))
     (h_mono₀ : ∀ (t : E.Domain) (p : σ × Bool), p.2 = true →
@@ -122,8 +117,9 @@ theorem advantage_le_expectedQuerySlack_add_prEvent_bad_of_inv
   intro t hSt s
   by_cases hs : Inv s
   · simpa only [hs, ↓reduceIte] using h_step_charged t hSt s hs
-  · simp only [hs, ↓reduceIte]
-    exact etvDist_le_one _ _
+  · let : MeasurableSpace (E.Range t × σ × Bool) := ⊤
+    simp only [hs, ↓reduceIte]
+    exact measureETVDist_le_one _ _
 
 /-- Invariant-preserving state-dependent ε-perturbed identical-until-bad.
 
@@ -139,7 +135,8 @@ theorem advantage_le_expectedQuerySlack_add_prEvent_bad_of_inv_preserved
     (chargedQuery : E.Domain → Prop) [DecidablePred chargedQuery]
     (querySlack : σ → ℝ≥0∞)
     (h_step_charged : ∀ (t : E.Domain), chargedQuery t → ∀ (s : σ), Inv s →
-      etvDist ((h₀ t).run (s, false)) ((h₁ t).run (s, false)) ≤ querySlack s)
+      letI : MeasurableSpace (E.Range t × σ × Bool) := ⊤
+      measureETVDist ((h₀ t).run (s, false)) ((h₁ t).run (s, false)) ≤ querySlack s)
     (h_step_uncharged : ∀ (t : E.Domain), ¬ chargedQuery t → ∀ (s : σ),
       (h₀ t).run (s, false) = (h₁ t).run (s, false))
     (h_mono₀ : ∀ (t : E.Domain) (p : σ × Bool), p.2 = true →

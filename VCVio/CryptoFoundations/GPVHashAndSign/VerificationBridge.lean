@@ -350,7 +350,6 @@ theorem gpv_advantage_le_progGameVerifyFreshAvg_add_collisionBound
             return !log.wasQueried msg && verified))
       = (fun pksk : PK × SK => realGameVerifyFresh psf hr M Salt adv pksk.1 pksk.2) from
     funext fun pksk => signedSet_eq_wasQueried psf hr M Salt pksk.1 pksk.2 adv]
-  simp only [prEvent_bind hr.gen]
   rw [OracleComp.prEvent_bind_eq_tsum hr.gen, OracleComp.prEvent_bind_eq_tsum hr.gen]
   -- Average the per-key coupling hop over `(pk, sk) ← hr.gen`: weight each per-key bound by its
   -- keygen mass `Pr{let y ← hr.gen}[y = x]`, pull the constant `collisionBound` out using
@@ -586,10 +585,10 @@ lemma reduction_collision_eq_prEvent_combined [DecidableEq Domain]
   rw [← map_run_progGameRunImplCombined_proj_reduction psf M Salt domainSample pk
     (adv.main pk) ((((∅ : (Salt × M →ₒ Range).QueryCache), (∅ : Finset M)), false),
       fun _ => none)]
-  rw [bind_assoc, bind_map_left, prEvent_bind, OracleComp.prEvent_bind_eq_tsum]
+  rw [bind_assoc, bind_map_left, OracleComp.prEvent_bind_eq_tsum]
   conv_rhs => rw [← bind_pure ((simulateQ (progGameRunImplCombined psf M Salt domainSample pk)
     (adv.main pk)).run ((((∅ : (Salt × M →ₒ Range).QueryCache), (∅ : Finset M)), false),
-      fun _ => none)), prEvent_bind, OracleComp.prEvent_bind_eq_tsum]
+      fun _ => none)), OracleComp.prEvent_bind_eq_tsum]
   refine tsum_congr fun w => ?_
   congr 1
   rcases w with ⟨out, st⟩
@@ -830,14 +829,12 @@ lemma gpv_perKey_distinct_le_collision [DecidableEq Domain]
   conv_rhs => rw [← bind_pure ((simulateQ (progGameRunImplCombined psf M Salt domainSample pk)
     (adv.main pk)).run ((((∅ : (Salt × M →ₒ Range).QueryCache), (∅ : Finset M)), false),
       fun _ => none))]
-  rw [prEvent_bind, prEvent_bind]
   refine prEvent_bind_mono_of_forall_le_of_support _ _ _ _ _ fun p hmem => ?_
   obtain ⟨out, st⟩ := p
   obtain ⟨msg, r, s⟩ := out
   rw [run_combined_verifyKont_of_cache_hit psf M Salt domainSample pk msg r s
       ((st.1.1.1 (r, msg)).getD (psf.eval pk s)) st ?_, prEvent_pure, prEvent_pure]
-  · simp only [propInd_eq_ite]
-    by_cases hwin : (decide (msg ∉ st.1.1.2) &&
+  · by_cases hwin : (decide (msg ∉ st.1.1.2) &&
         (decide (psf.eval pk s = (st.1.1.1 (r, msg)).getD (psf.eval pk s)) &&
           psf.isShort s)) = true ∧ st.2 (r, msg) ≠ some s
     · obtain ⟨sHidden, htbl, hcoll⟩ :=
@@ -923,8 +920,8 @@ lemma prEvent_reservoirStep_ne (k : ℕ) (w : Option ℕ) (j : ℕ) (hjk : j ≠
     Pr{let x ← (($ᵗ Fin (k + 1) : ProbComp (Fin (k + 1))) >>= fun b =>
         pure (if b = 0 then some k else w) : ProbComp (Option ℕ))}[x = some j]
       = (if w = some j then ((k : ℝ≥0∞) / ((k : ℝ≥0∞) + 1)) else 0) := by
-  rw [prEvent_bind, OracleComp.prEvent_bind_eq_tsum]
-  simp only [prEvent_pure, propInd_eq_ite]
+  rw [OracleComp.prEvent_bind_eq_tsum]
+  simp only [prEvent_pure]
   have hrw : ∀ x : Fin (k + 1),
       Pr{let y ← ($ᵗ Fin (k + 1) : ProbComp (Fin (k + 1)))}[y = x] *
         (if (if x = 0 then some k else w) = some j then (1 : ℝ≥0∞) else 0)
@@ -947,8 +944,8 @@ lemma prEvent_reservoirStep_eq (k : ℕ) (w : Option ℕ) (hw : w ≠ some k) :
     Pr{let x ← (($ᵗ Fin (k + 1) : ProbComp (Fin (k + 1))) >>= fun b =>
         pure (if b = 0 then some k else w) : ProbComp (Option ℕ))}[x = some k]
       = ((k : ℝ≥0∞) + 1)⁻¹ := by
-  rw [prEvent_bind, OracleComp.prEvent_bind_eq_tsum]
-  simp only [prEvent_pure, propInd_eq_ite]
+  rw [OracleComp.prEvent_bind_eq_tsum]
+  simp only [prEvent_pure]
   have hrw : ∀ x : Fin (k + 1),
       Pr{let y ← ($ᵗ Fin (k + 1) : ProbComp (Fin (k + 1)))}[y = x] *
         (if (if x = 0 then some k else w) = some k then (1 : ℝ≥0∞) else 0)
@@ -1003,7 +1000,7 @@ lemma prEvent_reservoirWinnerIndex_eq :
     ∀ (N j : ℕ), j < N → Pr{let x ← reservoirWinnerIndex N}[x = some j] = (N : ℝ≥0∞)⁻¹
   | 0, j, hj => absurd hj (by omega)
   | k + 1, j, hj => by
-      rw [reservoirWinnerIndex_succ, prEvent_bind, OracleComp.prEvent_bind_eq_tsum]
+      rw [reservoirWinnerIndex_succ, OracleComp.prEvent_bind_eq_tsum]
       by_cases hjk : j = k
       · -- the target is the new entry; every prior winner `w ≠ some j` loses to it
         subst hjk
@@ -1180,7 +1177,6 @@ theorem gpv_progGameVerifyFreshAvg_le_of_perKey [DecidableEq Domain]
   rw [collisionFindingAdvantage_reduction_eq psf hr M Salt adv domainSample,
     programmedPreimageAdvantage_reduction_eq psf hr M Salt adv domainSample qSign qHash,
     bind_map_left]
-  simp only [prEvent_bind hr.gen]
   rw [OracleComp.prEvent_bind_eq_tsum hr.gen, OracleComp.prEvent_bind_eq_tsum hr.gen,
     OracleComp.prEvent_bind_eq_tsum hr.gen]
   rw [← ENNReal.tsum_mul_left, ← ENNReal.tsum_add]
@@ -1212,7 +1208,7 @@ lemma programmedPreimage_perKey_eq_tsum [DecidableEq Domain]
             let x ← psf.trapdoorSample pk sk y
             let x' ← programmedPreimageReduction psf hr M Salt adv domainSample qSign qHash pk y
             pure (decide (x' = x)) : ProbComp Bool)}[z = true] := by
-  rw [prEvent_bind, OracleComp.prEvent_bind_eq_tsum]
+  rw [OracleComp.prEvent_bind_eq_tsum]
 
 open Classical in
 omit [Fintype Salt] in
@@ -1250,7 +1246,6 @@ lemma gpv_perKey_exactMatch_verifyStrip_le
   conv_rhs => rw [← bind_pure ((simulateQ (progGameRunImplCombined psf M Salt domainSample pk)
     (adv.main pk)).run ((((∅ : (Salt × M →ₒ Range).QueryCache), (∅ : Finset M)), false),
       fun _ => none))]
-  rw [prEvent_bind, prEvent_bind]
   refine prEvent_bind_mono_of_forall_le_of_support _ _ _ _ _ fun p hmem => ?_
   obtain ⟨out, st⟩ := p
   obtain ⟨msg, r, s⟩ := out

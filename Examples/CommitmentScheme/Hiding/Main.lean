@@ -7,7 +7,7 @@ Authors: James Waters
 module
 public import Examples.CommitmentScheme.Hiding.LoggingBounds
 public import VCVio.OracleComp.Coercions.SubSpec.Measure
-public import VCVio.EvalDist.EvalDistTV
+public import VCVio.EvalDist.MeasureTVDist.Bind
 
 /-!
 # Hiding for the random-oracle commitment scheme — main theorems
@@ -24,10 +24,10 @@ over `s ← $ᵗ S`.
 `hiding_bound_finite` is the textbook-facing form: sample the salt inside
 the experiment, then compare. `hiding_bound_avg` is the underlying
 technical form, summing the per-salt distance bounds and dividing by `|S|`.
-The packaging step uses `etvDist_bind_bind_le_wp` to push the
+The packaging step uses `measureETVDist_bind_bind_le_lintegral` to push the
 salt sampling through the distance.
 
-The per-salt bound `etvDist (real s) (sim s) ≤ t / |S|` is FALSE: a
+The per-salt bound `measureETVDist (real s) (sim s) ≤ t / |S|` is FALSE: a
 trivial adversary always querying salt `s` makes the bad event certain. The
 averaging over the uniform salt is essential. -/
 
@@ -48,11 +48,11 @@ distance between real and simulated hiding games, taken over uniformly random
 salt `s ← $ᵗ S`, is at most `t / |S|`:
 
 ```
-(∑ s, etvDist (hidingReal A s) (hidingSim A s)) / |S|  ≤  t / |S|.
+(∑ s, measureETVDist (hidingReal A s) (hidingSim A s)) / |S|  ≤  t / |S|.
 ```
 
 Proof: per-salt identical-until-bad
-(`etvDist_hidingReal_hidingSim_le_probBad`) bounds each distance by the
+(`measureETVDist_hidingReal_hidingSim_le_probBad`) bounds each distance by the
 probability of the bad event for that salt. Summing over `s` and applying
 `sum_prEvent_hidingBad_le` (which exchanges the per-salt bad sum for the
 adversary's total query bound) yields the claim.
@@ -65,17 +65,17 @@ general: a trivial adversary always querying salt `s` makes the bad event for
 theorem hiding_bound_avg [Finite M]
     {AUX : Type} {t : ℕ}
     (A : HidingAdversary M S C AUX t) :
-    (∑ s : S, etvDist (hidingReal A s) (hidingSim A s)) / (Fintype.card S : ℝ≥0∞) ≤
+    (∑ s : S, measureETVDist (hidingReal A s) (hidingSim A s)) / (Fintype.card S : ℝ≥0∞) ≤
       t / (Fintype.card S : ℝ≥0∞) :=
   ENNReal.div_le_div_right ((Finset.sum_le_sum fun s _ =>
-    etvDist_hidingReal_hidingSim_le_probBad A s).trans (sum_prEvent_hidingBad_le A)) _
+    measureETVDist_hidingReal_hidingSim_le_probBad A s).trans (sum_prEvent_hidingBad_le A)) _
 
 /-- **Hiding bound (Lemma cm-hiding, packaged textbook form).**
 
 For every `t`-query two-phase hiding adversary `A`,
 
 ```
-etvDist (hidingMixedReal A) (hidingMixedSim A)  ≤  t / |S|,
+measureETVDist (hidingMixedReal A) (hidingMixedSim A)  ≤  t / |S|,
 ```
 
 where `hidingMixedReal` and `hidingMixedSim` sample the salt
@@ -83,20 +83,20 @@ where `hidingMixedReal` and `hidingMixedSim` sample the salt
 oracle) and then run the corresponding per-salt game.
 
 This is the textbook-facing wrapper around `hiding_bound_avg`: it pushes the
-salt sampling through `etvDist_bind_bind_le_wp`, leaving the
+salt sampling through `measureETVDist_bind_bind_le_lintegral`, leaving the
 per-salt sum that `hiding_bound_avg` already controls. -/
 theorem hiding_bound_finite [Finite M]
     {AUX : Type} {t : ℕ}
     (A : HidingAdversary M S C AUX t) :
-    etvDist (hidingMixedReal (M := M) (S := S) (C := C) A)
+    measureETVDist (hidingMixedReal (M := M) (S := S) (C := C) A)
       (hidingMixedSim (M := M) (S := S) (C := C) A) ≤
       t / (Fintype.card S : ℝ≥0∞) := by
   let : MeasurableSpace S := ⊤
-  refine (etvDist_bind_bind_le_wp _ _ _ (fun s => etvDist (hidingReal A s) (hidingSim A s))
-    fun s => ?_).trans ?_
-  · exact le_of_eq (((evalDistEq_liftComp_uniform (hidingReal A s)).etvDist_congr_left _).trans
-      ((evalDistEq_liftComp_uniform (hidingSim A s)).etvDist_congr_right _))
-  · rw [ExpectationWP.wp_eq_lintegral _ _ Measurable.of_discrete, lintegral_fintype]
+  refine (measureETVDist_bind_bind_le_lintegral _ _ _ Measurable.of_discrete
+    Measurable.of_discrete (fun s => measureETVDist (hidingReal A s) (hidingSim A s))
+    (ae_of_all _ fun s => ?_)).trans ?_
+  · simp only [measureETVDist, evalDist_liftComp_uniform, le_refl]
+  · rw [lintegral_fintype]
     simp only [evalDist_liftM_query_uniform (spec := HidingAvgSpec M S C) (Sum.inl ())]
     dsimp only [OracleSpec.add_apply_inl]
     simp only [ProbabilityTheory.uniformOn_univ_apply_singleton]
