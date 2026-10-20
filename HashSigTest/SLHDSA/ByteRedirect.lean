@@ -17,9 +17,15 @@ is also that of an `H_msg` query. This file checks it.
 
 * **At SLH-DSA-SHAKE-256s** (`n = 32`) a concrete point is linked, and the redirect is not the
   identity there: the view, through the redirect, of the cache holding only that point has no entry
-  at it. The string laying it out is linked and is issued as its `H_msg` query.
+  at it. The string laying it out is linked and is issued as its `H_msg` query. A point at the
+  seed's address with first block other than `PK.root` is not linked and is passed on. The linked
+  string with one more byte has the linked shape but is not linked, and the router reads it, at
+  every key predicate, as the `H_msg` query a linked string is issued as.
+* **At SLH-DSA-SHAKE-256f** (`n = 32`) a concrete point is linked and the redirect is not the
+  identity there.
 * **At SLH-DSA-SHAKE-128s** (`n = 16`) the redirect is the identity, every cache is its own view
-  through it, no string is linked, and the forger-side redirect is the plain lift of raw queries.
+  through it, no string is linked, the forger-side redirect is the plain lift of raw queries, and
+  the routed adversary with linked strings is `routeAdv`.
 * **At all 12 FIPS 205 parameter sets**: invisibility over the single oracle, the verification
   identity, and the budget of the verifying adversary.
 -/
@@ -35,21 +41,37 @@ open Concrete Security
 /-- SLH-DSA-SHAKE-256s. -/
 abbrev vp256s : ValidatedParams := FipsParameterSet.validatedParams .SLHDSA_SHAKE_256s
 
+/-- SLH-DSA-SHAKE-256f. -/
+abbrev vp256f : ValidatedParams := FipsParameterSet.validatedParams .SLHDSA_SHAKE_256f
+
 /-- SLH-DSA-SHAKE-128s. -/
 abbrev vp128s : ValidatedParams := FipsParameterSet.validatedParams .SLHDSA_SHAKE_128s
 
 /-! ## A linked point at SLH-DSA-SHAKE-256s -/
 
-/-- A public key: seed of bytes `0, 1, …, 31`, root of bytes `7`. -/
-def pk : PublicKeyCore (shakeCore vp256s) :=
-  ⟨(Vector.ofFn fun i => (i.val.toUInt8 : Byte) : Bytes 32), (Vector.replicate 32 7 : Bytes 32)⟩
+/-- The bytes `0, 1, …, 31`. -/
+def seedBytes : Bytes 32 :=
+  ⟨#[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25,
+    26, 27, 28, 29, 30, 31], rfl⟩
+
+/-- The bytes `7, …, 7`. -/
+def rootBytes : Bytes 32 :=
+  ⟨#[7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+    7], rfl⟩
+
+/-- The bytes `9, …, 9`. -/
+def nodeBytes : Bytes 32 :=
+  ⟨#[9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
+    9], rfl⟩
+
+/-- A public key: seed `seedBytes`, root `rootBytes`. -/
+def pk : PublicKeyCore (shakeCore vp256s) := ⟨seedBytes, rootBytes⟩
 
 /-- The address key with the bytes of the public seed. -/
-def seedKey : (shakeCore vp256s).AdrsKey :=
-  (Vector.ofFn fun i => (i.val.toUInt8 : Byte) : Bytes 32)
+def seedKey : (shakeCore vp256s).AdrsKey := seedBytes
 
 /-- A node. -/
-def node : (shakeCore vp256s).Y := (Vector.replicate 32 9 : Bytes 32)
+def node : (shakeCore vp256s).Y := nodeBytes
 
 /-- The tweakable-hash query `T(PK.seed, PK.seed, [PK.root, node])`. -/
 abbrev linkedPoint : (publicHashSpec (shakeCore vp256s)).Domain :=
@@ -95,6 +117,75 @@ example : linkedRawImpl vp256s pk (.inr (encode vp256s (.inl linkedPoint))) =
   simp only [linkedRawImpl, isLinkedString_encode, ↓reduceIte]
   rfl
 
+/-- A tweakable-hash query at `PK.seed` with the seed's bytes as address but a first block other
+than `PK.root`. -/
+abbrev offPoint : (publicHashSpec (shakeCore vp256s)).Domain :=
+  .thash pk.pkSeed seedKey [node, pk.pkRoot]
+
+/-- It is not linked, and the redirect passes it on. -/
+example : ¬IsLinked vp256s pk offPoint ∧ linkedRedirect vp256s pk offPoint = query offPoint :=
+  have h : ¬IsLinked vp256s pk offPoint := fun h =>
+    absurd (congrArg Vector.toList h.2.2) (by decide)
+  ⟨h, linkedRedirect_of_not_isLinked h⟩
+
+/-- The linked string with one more byte: of the linked shape, its tail not a whole number of
+blocks. -/
+abbrev longString : List Byte := encode vp256s (.inl linkedPoint) ++ [0]
+
+/-- It has the linked shape. -/
+theorem isDaShaped_longString : IsDaShaped vp256s pk longString := by
+  obtain ⟨hl, h0, hs, hr⟩ := isDaShaped_of_isLinkedString isLinkedString_encode
+  refine ⟨by rw [List.length_append]; omega, ?_, ?_, ?_⟩
+  · rwa [List.take_append_of_le_length (by omega)]
+  · rwa [List.drop_append_of_le_length (by omega),
+      List.take_append_of_le_length (by rw [List.length_drop]; omega)]
+  · rwa [List.drop_append_of_le_length (by omega),
+      List.take_append_of_le_length (by rw [List.length_drop]; omega)]
+
+/-- It is not linked: no tweakable-hash string has `129` bytes. -/
+theorem not_isLinkedString_longString : ¬IsLinkedString vp256s pk longString := by
+  rintro ⟨⟨s, k, xs⟩ | _, h, he⟩
+  · have hl := length_encode_thash vp256s s k xs
+    have hn : vp256s.params.n = 32 := by decide
+    have h128 : (encode vp256s (.inl linkedPoint)).length = 128 := by
+      rw [length_encode_thash, hn]
+      rfl
+    rw [he, List.length_append, h128, hn] at hl
+    simp only [List.length_singleton] at hl
+    omega
+  · exact h
+
+/-- So the forger-side redirect leaves it raw, and the router reads it, at every key predicate, as
+the `H_msg` query the forger-side redirect issues for a linked string. -/
+example (A : (shakeCore vp256s).AdrsKey → Prop) [DecidablePred A] :
+    shakeRoute vp256s A pk.pkSeed longString =
+      some (.inl (.hmsg pk.pkSeed pk.pkSeed pk.pkRoot (longString.drop 96))) :=
+  shakeRoute_of_isDaShaped_of_not_isLinkedString rfl A isDaShaped_longString
+    not_isLinkedString_longString
+
+/-! ## A linked point at SLH-DSA-SHAKE-256f -/
+
+/-- A public key at SLH-DSA-SHAKE-256f: seed `seedBytes`, root `rootBytes`. -/
+def pk256f : PublicKeyCore (shakeCore vp256f) := ⟨seedBytes, rootBytes⟩
+
+/-- The tweakable-hash query `T(PK.seed, PK.seed, [PK.root])` at SLH-DSA-SHAKE-256f. -/
+abbrev linkedPoint256f : (publicHashSpec (shakeCore vp256f)).Domain :=
+  .thash pk256f.pkSeed seedBytes [pk256f.pkRoot]
+
+/-- It is linked. -/
+theorem isLinked_linkedPoint256f : IsLinked vp256f pk256f linkedPoint256f := ⟨rfl, rfl, rfl⟩
+
+/-- The redirect is not the identity at SLH-DSA-SHAKE-256f: on the cache holding only the linked
+point, the view has no entry there. -/
+example : linkedRedirect vp256f pk256f linkedPoint256f ≠ query linkedPoint256f := fun h => by
+  let c := (∅ : (publicHashSpec (shakeCore vp256f)).QueryCache).cacheQuery linkedPoint256f
+    pk256f.pkRoot
+  have hv := viewBy_linkedRedirect_of_isLinked c isLinked_linkedPoint256f
+  rw [QueryCache.viewBy_apply_of_eq_query h] at hv
+  change c linkedPoint256f = (Option.map (prefixBytes 32)
+    (c (linkedHmsg vp256f pk256f.pkSeed pk256f.pkRoot [])) : Option (Bytes 32)) at hv
+  simp [c, QueryCache.cacheQuery_of_ne] at hv
+
 /-! ## The identity at SLH-DSA-SHAKE-128s -/
 
 /-- The redirect passes every query on. -/
@@ -117,6 +208,14 @@ example (pk : PublicKeyCore (shakeCore vp128s)) (x : List Byte) : ¬IsLinkedStri
 example (pk : PublicKeyCore (shakeCore vp128s)) :
     linkedRawImpl vp128s pk = liftRawImpl (hs := hashSpec (shakeCore vp128s)) :=
   linkedRawImpl_eq_liftRawImpl_of_ne (by decide)
+
+/-- The routed adversary with linked strings is `routeAdv`. -/
+example {optRand : PublicKeyCore (shakeCore vp128s) → ProbComp (shakeCore vp128s).Y}
+    {pkSeedDist : ProbComp (shakeCore vp128s).PkSeed}
+    (adv : UnforgeableAdversary (shakeRomScheme vp128s optRand pkSeedDist)) :
+    linkedRouteAdv vp128s (by decide) (by decide) adv =
+      routeAdv vp128s (by decide) (by decide) adv :=
+  linkedRouteAdv_eq_routeAdv_of_ne (by decide) _ _ adv
 
 /-! ## At all 12 FIPS 205 parameter sets -/
 
