@@ -402,10 +402,10 @@ theorem UnforgeableAdversary.RomQueryBound.route
     · exact (ht trivial).elim
 
 /-- **The typed queries of the routed adversary, by raw query.** If every run of the router at the
-public key `pk` on a raw query satisfying `Raw pk` queries the typed oracles only at points satisfying
-`P pk`, and the adversary on the common interface queries the typed oracles only at such points
-and the raw oracles only at raw queries satisfying `Raw pk`, then the adversary that holds the
-router queries the typed oracles only at points satisfying `P pk`. -/
+public key `pk` on a raw query satisfying `Raw pk` queries the typed oracles only at points
+satisfying `P pk`, and the adversary on the common interface queries the typed oracles only at such
+points and the raw oracles only at raw queries satisfying `Raw pk`, then the adversary that holds
+the router queries the typed oracles only at points satisfying `P pk`. -/
 theorem UnforgeableAdversary.allQueriesSatisfy_route_of_raw
     {sigAlg' : SignatureAlg (OracleComp (unifSpec + (hs + ext))) M PK SK' S}
     {sigAlg : SignatureAlg (OracleComp (unifSpec + hs)) M PK SK S}
