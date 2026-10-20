@@ -161,6 +161,16 @@ seeds `s`: its secret key carries `s` and the public part of the transcript's ke
     RomOutcome vp core :=
   z.mapSk (fillSecretKey core s)
 
+omit [SampleableType core.Y] in
+@[simp] theorem DeriveOutcome.fill_pk (s : core.SkSeed × core.SkPrf) (z : DeriveOutcome core) :
+    (DeriveOutcome.fill core s z).pk = z.pk :=
+  UnforgeableTranscript.mapSk_pk _ _
+
+omit [SampleableType core.Y] in
+@[simp] theorem DeriveOutcome.fill_sk_skSeed (s : core.SkSeed × core.SkPrf)
+    (z : DeriveOutcome core) : (DeriveOutcome.fill core s z).sk.skSeed = s.1 := by
+  simp only [DeriveOutcome.fill, UnforgeableTranscript.mapSk_sk, fillSecretKey]
+
 variable [DecidableEq core.Y]
 
 /-- SLH-DSA at public seed `pkSeed` with no secret: key generation computes the root with every

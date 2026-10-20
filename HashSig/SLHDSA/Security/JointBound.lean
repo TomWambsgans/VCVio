@@ -77,8 +77,9 @@ The joint bound and the advantage bound in the ideal-game form both take a furth
 ideal game that transports to a hazard of a further charge (`DeferredCharge`): a hazard of
 relabelled states charged inside the joint potential (`CanonicalGraph.IsCharged`), and a hazard
 of the drawn seeds and the filled state charged alongside the seed charge, under one widened
-pathwise budget. Charges combine (`DeferredCharge.add`), and a hazard of the drawn seeds and the
-final public cache alone is one (`DeferredCharge.ofSeed`); that case is
+pathwise budget. Charges combine (`DeferredCharge.add`); a hazard of the drawn seeds and the
+final public cache alone is one (`DeferredCharge.ofSeed`), and so is a charged hazard of
+relabelled states alone (`DeferredCharge.ofCharged`). The first case is
 `prEvent_idealDraw_runTargetCollision_or_runHiddenHit_or_le_of_budget`.
 `prEvent_romSchemeRun_wins_or_le_add_idealDraw` bounds a forgery or a further event `P` of the run
 by such an ideal-game bound plus the coverage term.
@@ -238,6 +239,22 @@ hazard of relabelled states. -/
   H s st := H s st.1
   c := c
   prEvent_le st := hH st.1
+
+/-- A hazard of relabelled states charged to a potential bounded by `U` of the public cache, as a
+further charge with no hazard of the seeds. -/
+@[expose] def ofCharged (P : LabState core → Prop) (Φ : LabState core → ℝ≥0∞)
+    (hP : (slhGraph core pkSeed).IsCharged P Φ) (hP₀ : ¬P (∅, ∅))
+    (U : (hashSpec core).QueryCache → ℝ≥0∞) (hU : ∀ st, Φ st ≤ U st.1) :
+    DeferredCharge core pkSeed where
+  P := P
+  Φ := Φ
+  isCharged := hP
+  not_empty := hP₀
+  U := U
+  le_U := hU
+  H _ _ := False
+  c := 0
+  prEvent_le _ := by simp
 
 /-- Two further charges: the disjunctions of their hazards, charged to the sums. -/
 @[expose] def add (χ₁ χ₂ : DeferredCharge core pkSeed) : DeferredCharge core pkSeed where

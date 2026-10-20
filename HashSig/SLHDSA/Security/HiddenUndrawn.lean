@@ -36,6 +36,11 @@ The invariant `HiddenUndrawn pk log st` is carried through the three stages of t
   below (`cell_eq_of_mem_support_xmssPkFromSigWith`). Every cell signing draws is therefore
   visible for the signed digests with `d` added (`hiddenKept_of_mem_support_labSignFromPosition`).
 
+The same experiment leaves the cell of the top-layer root, `rootNode core`, holding `PK.root`
+(`cell_rootNode_of_mem_support_deferredImpl_labExperiment`): key generation reads that cell and
+returns it, and no later step changes a drawn cell. Under the key discipline the root is no node's
+child (`inr_rootNode_not_mem_ch`).
+
 ## References
 
 - NIST FIPS 205, Algorithms 18–20 (internal key generation, signing and verification)
@@ -93,6 +98,74 @@ theorem allQueriesSatisfy_labAdversary_main [SampleableType core.Y] [DecidableEq
   exact allQueriesSatisfy_mapOracles _ adv (fun _ ↦ by
     simp only [QueryImpl.apply_compose, OracleSpec.withDerivationsLift]
     exact (allQueriesSatisfy_query_iff _ _).2 trivial) pk
+
+/-! ## The root is no node's child -/
+
+variable (vp) in
+/-- The address of the top-layer root, node `(h', 0)` of the XMSS tree at layer `d - 1`. -/
+abbrev rootAdrs : Adrs :=
+  xmssNodeAdrs (GeneralHypertree.layerAdrs (vp.params.d - 1) 0) vp.params.hp 0
+
+/-- The top-layer root is an address of the union ledger. -/
+theorem rootAdrs_mem_constructionAddresses : rootAdrs vp ∈ constructionAddresses vp := by
+  rw [rootAdrs, ← LayerTreeCoord.top_toAdrs_layerAdrs]
+  exact xmssNodeAdrs_mem_constructionAddresses _ vp.valid.hp_pos le_rfl (by simp)
+
+variable (core) in
+/-- The node of the top-layer root. -/
+def rootNode : NodeKey core :=
+  ⟨core.adrsToKey (rootAdrs vp), rootAdrs vp, rootAdrs_mem_constructionAddresses, rfl⟩
+
+/-- The top-layer root is no node child of an address of the union ledger: the node children of a
+ledger address are `WOTS_HASH`, `WOTS_PK` or `FORS_TREE` addresses, or XMSS nodes below height
+`h'`. -/
+theorem inr_rootAdrs_not_mem_childAdrs {a : Adrs} (ha : a ∈ constructionAddresses vp) :
+    .inr (rootAdrs vp) ∉ childAdrs vp a := by
+  intro hb
+  have hroot : rootAdrs vp = ⟨vp.params.d - 1, 0, 2, 0, vp.params.hp, 0⟩ := rfl
+  rcases (mem_constructionAddresses_iff a).1 ha with h | h | h | h | h | h
+  · obtain ⟨_, -, rfl⟩ := List.mem_map.1 h
+    simp [childAdrs_forsNodeAdrs_zero] at hb
+  · obtain ⟨⟨⟨pos, tree⟩, z, j⟩, hmem, rfl⟩ := List.mem_map.1 h
+    rw [childAdrs_forsNodeAdrs vp (mem_perfectInternalCoords.1 (List.mem_product.1 hmem).2).1]
+      at hb
+    simp [hroot, forsNodeAdrs_eq] at hb
+  · obtain ⟨_, -, rfl⟩ := List.mem_map.1 h
+    simp [childAdrs_forsPkAdrs, hroot, forsNodeAdrs_eq] at hb
+  · obtain ⟨⟨_, ⟨t, _⟩⟩, -, rfl⟩ := List.mem_map.1 h
+    simp only [wotsStepAdrs] at hb
+    rcases t with _ | t
+    · simp [childAdrs_wotsChainAdrs_setHashAddress_zero] at hb
+    · rw [childAdrs_wotsChainAdrs_setHashAddress_succ] at hb
+      simp [hroot, wotsChainAdrs_setHashAddress_eq] at hb
+  · obtain ⟨_, -, rfl⟩ := List.mem_map.1 h
+    simp [childAdrs_wotsPkAdrs, hroot, wotsChainAdrs_setHashAddress_eq] at hb
+  · obtain ⟨⟨_, z, j⟩, hmem, rfl⟩ := List.mem_map.1 h
+    obtain ⟨hz, hzh, -⟩ := mem_perfectInternalCoords.1 (List.mem_product.1 hmem).2
+    rcases (by omega : z = 1 ∨ 1 < z) with rfl | hz1
+    · simp [childAdrs_xmssNodeAdrs_one, hroot, wotsPkAdrs_eq] at hb
+    · rw [childAdrs_xmssNodeAdrs vp hz1] at hb
+      simp only [hroot, xmssNodeAdrs_eq, List.mem_cons, Sum.inr.injEq, Adrs.mk.injEq,
+        List.not_mem_nil, or_false] at hb
+      omega
+
+
+/-- **The root is no node's child**, under the key discipline. -/
+theorem inr_rootNode_not_mem_ch (hd : core.KeyDiscipline vp) (pkSeed : core.PkSeed)
+    (κ : NodeKey core) :
+    (.inr (rootNode core) : DeriveQuery core ⊕ NodeKey core) ∉ (slhGraph core pkSeed).ch κ := by
+  intro h
+  rw [slhGraph_ch, List.mem_filterMap] at h
+  obtain ⟨(b | b), hb, hcb⟩ := h
+  · obtain ⟨_, -, -, h⟩ := (childCell_inl_eq_some_iff core).1 hcb
+    cases h
+  · obtain ⟨_, hmem, hkey, h⟩ := (childCell_inr_eq_some_iff core).1 hcb
+    cases h
+    obtain rfl := hd.keyInjective
+      (addressFacts_of_mem_constructionAddresses hd.canonicalAddressBounds hmem)
+      (addressFacts_of_mem_constructionAddresses hd.canonicalAddressBounds
+        rootAdrs_mem_constructionAddresses) hkey
+    exact inr_rootAdrs_not_mem_childAdrs (nodeAdrs_mem_constructionAddresses core κ) hb
 
 variable [SampleableType core.Y] [DecidableEq core.Y] [SampleableType (Bytes vp.params.m)]
   [DecidableEq core.PkSeed] [DecidableEq core.AdrsKey] [DecidableEq core.SkPrf]
@@ -317,5 +390,60 @@ theorem hiddenUndrawn_of_mem_support_deferredImpl_labExperiment [SampleableType 
     · exact ⟨hsk, hpk, hiddenUndrawn_of_mem_support_deferredImpl hd pkSeed hs hw'⟩
     · exact ht.elim
     · exact ht.elim
+
+/-! ## The root cell -/
+
+/-- A lab XMSS node above the leaves leaves its own cell drawn at its value. -/
+theorem cell_of_mem_support_labXmssNode {pkSeed : core.PkSeed} (base : Adrs) (z t : ℕ)
+    (hmem : xmssNodeAdrs base (z + 1) t ∈ constructionAddresses vp)
+    {s : LabState core × List (DeriveQuery core ⊕ NodeKey core)} {w}
+    (hw : w ∈ support ((simulateQ (slhGraph core pkSeed).deferredImpl
+      (labXmssNode core base (z + 1) t)).run s)) :
+    w.2.1.2 (.inr ⟨_, _, hmem, rfl⟩) = some w.1 := by
+  simp only [labXmssNode, PerfectMerkleTree.merkleRootM, xmssNodeHashWith, labH,
+    labNode_of_mem core hmem, readCell, simulateQ_bind, StateT.run_bind, mem_support_bind_iff]
+    at hw
+  obtain ⟨_, -, _, -, hw⟩ := hw
+  rw [simulateQ_HasQuery_query, CanonicalGraph.deferredImpl_run_read, support_map] at hw
+  obtain ⟨y, hy, rfl⟩ := hw
+  exact (RelabelState.le_and_cell_eq_of_mem_support_drawCell hy).2
+
+/-- **The root cell holds `PK.root`** at the end of every deferred run of the lab experiment. -/
+theorem cell_rootNode_of_mem_support_deferredImpl_labExperiment [SampleableType core.SkSeed]
+    [SampleableType core.SkPrf] {pkSeed : core.PkSeed}
+    {e : core.SkSeed ≃ core.Y} {optRand : PublicKeyCore core → ProbComp core.Y}
+    {pkSeedDist : ProbComp core.PkSeed}
+    (adv : UnforgeableAdversary (romScheme core e optRand pkSeedDist)) {z}
+    (hz : z ∈ support ((simulateQ (slhGraph core pkSeed).deferredImpl
+      (labExperiment core adv pkSeed)).run ((∅, ∅), []))) :
+    z.2.1.2 (.inr (rootNode core)) = some z.1.pk.pkRoot := by
+  have hmono : ∀ {α : Type} (oa : OracleComp (labSpec core) α) (pk : PublicKeyCore core) s,
+      s.1.2 (.inr (rootNode core)) = some pk.pkRoot →
+        ∀ w ∈ support ((simulateQ (slhGraph core pkSeed).deferredImpl oa).run s),
+          w.2.1.2 (.inr (rootNode core)) = some pk.pkRoot :=
+    fun oa _ s h w hw ↦ ((slhGraph core pkSeed).le_of_mem_support_simulateQ_deferredImpl oa hw).2 h
+  refine holds_of_mem_support_run_unforgeableTranscriptExperiment
+    (slhGraph core pkSeed).deferredImpl
+    (I := fun pk _ _ s ↦ s.1.2 (.inr (rootNode core)) = some pk.pkRoot)
+    (allowed := IsAmbientLabQuery core) ?_ ?_ ?_ ?_ (labAdversary core adv pkSeed)
+    (allQueriesSatisfy_labAdversary_main adv) hz
+  · intro w hw
+    simp only [labScheme, simulateQ_bind, StateT.run_bind, mem_support_bind_iff, simulateQ_pure,
+      StateT.run_pure, support_pure, Set.mem_singleton_iff] at hw
+    obtain ⟨w', hw', rfl⟩ := hw
+    obtain ⟨hp', hhp⟩ : ∃ hp', vp.params.hp = hp' + 1 :=
+      ⟨_, (Nat.succ_pred_eq_of_pos vp.valid.hp_pos).symm⟩
+    have hmem : xmssNodeAdrs (GeneralHypertree.layerAdrs (vp.params.d - 1) 0) (hp' + 1) 0 ∈
+        constructionAddresses vp := hhp ▸ rootAdrs_mem_constructionAddresses
+    have hκ : rootNode core = ⟨_, _, hmem, rfl⟩ := Subtype.ext (by simp [rootNode, rootAdrs, hhp])
+    rw [labKeygen, hhp] at hw'
+    rw [hκ]
+    exact cell_of_mem_support_labXmssNode _ _ _ hmem hw'
+  · intro t _ pk _ _ s h w hw
+    exact ((slhGraph core pkSeed).le_of_mem_support_deferredImpl hw).2 h
+  · intro pk _ msg _ s h w hw
+    exact hmono _ pk s h w hw
+  · intro pk _ _ msg sig s h w hw
+    exact hmono _ pk s h w hw
 
 end SLHDSA.Security

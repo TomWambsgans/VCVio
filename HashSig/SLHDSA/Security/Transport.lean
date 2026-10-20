@@ -125,8 +125,7 @@ theorem tcHazard_of_runTargetCollision_fill (hd : core.KeyDiscipline vp) {z : De
       (secretEncoding core e pkSeed).merge s ((slhGraph core pkSeed).toSplitCache st))) :
     (slhNodeKeys core pkSeed).TCHazard st := by
   have h := h.1
-  simp only [DeriveOutcome.fill, UnforgeableTranscript.mapSk_pk, UnforgeableTranscript.mapSk_sk,
-    fillSecretKey, hpk] at h
+  simp only [DeriveOutcome.fill_pk, DeriveOutcome.fill_sk_skSeed, hpk] at h
   exact tcHazard_of_targetCollision hd h
 
 /-! ## Completed public misses -/

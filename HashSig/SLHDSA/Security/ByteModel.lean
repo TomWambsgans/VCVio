@@ -8,6 +8,7 @@ module
 
 public import HashSig.SLHDSA.Security.Target
 public import HashSig.SLHDSA.Concrete.FIPS
+import VCVio.OracleComp.Constructions.SampleableType.Measure
 
 /-!
 # SLH-DSA over a single SHAKE256 random oracle
@@ -134,6 +135,27 @@ theorem bytesOfList_append_of_length_eq {k : ℕ} {l : List Byte} (h : l.length 
 theorem toList_prefixBytes_of_le {n m : ℕ} (h : n ≤ m) (v : Bytes m) :
     (prefixBytes n v).toList = v.toList.take n :=
   toList_bytesOfList_of_le (by simpa using h)
+
+/-- For `n ≤ m`, an `m`-byte vector is its first `n` bytes and the remaining `m - n`. -/
+@[expose] def prefixDropEquiv {n m : ℕ} (hnm : n ≤ m) : Bytes m ≃ Bytes n × Bytes (m - n) where
+  toFun u := (prefixBytes n u, bytesOfList (m - n) (u.toList.drop n))
+  invFun ab := bytesOfList m (ab.1.toList ++ ab.2.toList)
+  left_inv u := by
+    have hl : (u.toList.drop n).length = m - n := by simp
+    simp only [toList_prefixBytes_of_le hnm, toList_bytesOfList_of_le hl.ge,
+      List.take_of_length_le hl.le, List.take_append_drop, bytesOfList_toList]
+  right_inv := fun ⟨a, b⟩ ↦ by
+    have hl : (a.toList ++ b.toList).length = m := by simp; omega
+    simp only [prefixBytes, toList_bytesOfList_of_le hl.ge, List.take_of_length_le hl.le]
+    rw [bytesOfList_append_of_length_eq (by simp), List.drop_left' (by simp), bytesOfList_toList,
+      bytesOfList_toList]
+
+/-- **The first `n` bytes of a uniform `m`-byte vector are uniform**, for `n ≤ m`. -/
+theorem prEvent_uniformSample_prefixBytes_eq {n m : ℕ} (hnm : n ≤ m) (ℓ : Bytes n) :
+    Pr{let u ← $ᵗ (Bytes m)}[prefixBytes n u = ℓ] = (Nat.card (Bytes n) : ℝ≥0∞)⁻¹ :=
+  (SampleableType.prEvent_uniformSample_equiv (prefixDropEquiv hnm) (·.1 = ℓ)).trans <|
+    (SampleableType.prEvent_uniformSample_fst (· = ℓ)).trans
+      (SampleableType.prEvent_uniformSample_eq_singleton_natCard ℓ)
 
 /-- The first `k` blocks of `n` bytes of a byte string, each padded with zeros when the string runs
 short. -/
