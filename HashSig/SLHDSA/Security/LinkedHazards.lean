@@ -123,6 +123,7 @@ variable (vp) in
 abbrev rootAdrs : Adrs :=
   xmssNodeAdrs (GeneralHypertree.layerAdrs (vp.params.d - 1) 0) vp.params.hp 0
 
+/-- The top-layer root is an address of the union ledger. -/
 theorem rootAdrs_mem_constructionAddresses : rootAdrs vp ∈ constructionAddresses vp := by
   rw [rootAdrs, ← LayerTreeCoord.top_toAdrs_layerAdrs]
   exact xmssNodeAdrs_mem_constructionAddresses _ vp.valid.hp_pos le_rfl (by simp)
@@ -572,6 +573,31 @@ private theorem encard_le_of_mem_support {A : UnforgeableAdversary
     (p := IsPublicLabQuery (shakeCore vp)) (fun _ _ ↦ trivial)
     (isQueryBoundP_labExperiment_public pkSeed hA) hz
 
+/-- The joint budget with the linked charge, the root charged `1 / |Y|`: twice the public entries
+at node keys, the projected entries, the cached derivable public points and one, over `|Y|`, plus
+the further charge `c₀`. -/
+private theorem budget_linkedCharge_le (hd : (shakeCore vp).KeyDiscipline vp)
+    (hnm : vp.params.n ≤ vp.params.m) (c₀ : (hashSpec (shakeCore vp)).QueryCache → ℝ≥0∞)
+    (C : (hashSpec (shakeCore vp)).QueryCache) :
+    2 * (((slhNodeKeys (shakeCore vp) pkSeed).keyEntries C).encard : ℝ≥0∞) /
+          Nat.card (shakeCore vp).Y + (linkedCharge pkSeed hd hnm).U C +
+        (seedCharge (shakeCore vp) pkSeed C + (c₀ C + (linkedCharge pkSeed hd hnm).c C)) ≤
+      (2 * (((slhNodeKeys (shakeCore vp) pkSeed).keyEntries C).encard : ℝ≥0∞) +
+          ((linkedProjKeys hnm pkSeed).keyEntries C).encard +
+          {t | (C t).isSome ∧ IsDerivablePublicQuery (shakeCore vp) pkSeed (.inl (.inr t))}.encard +
+          1) / Nat.card (shakeCore vp).Y + c₀ C := by
+  have hc := rootCharge_U_add_c_le (pkSeed := pkSeed) hd C
+  simp only [linkedCharge, DeferredCharge.add, DeferredCharge.ofCharged, Pi.add_apply, zero_add,
+    seedCharge, ENNReal.div_eq_inv_mul]
+  calc _ = (Nat.card (shakeCore vp).Y : ℝ≥0∞)⁻¹ *
+          (2 * (((slhNodeKeys (shakeCore vp) pkSeed).keyEntries C).encard : ℝ≥0∞) +
+            ((linkedProjKeys hnm pkSeed).keyEntries C).encard +
+            {t | (C t).isSome ∧
+              IsDerivablePublicQuery (shakeCore vp) pkSeed (.inl (.inr t))}.encard) + c₀ C +
+        ((rootCharge pkSeed hd).U C + (rootCharge pkSeed hd).c C) := by ring
+    _ ≤ _ + (Nat.card (shakeCore vp).Y : ℝ≥0∞)⁻¹ := by gcongr
+    _ = _ := by ring
+
 /-- **The budget of the linked charge with the `H_msg` charge.** Under key separation, for an
 adversary with hash budget `qh` and signing budget `qs`, on every deferred run of the lab
 experiment, the joint budget with the linked charge and the charge of the message-`PRF` key is at
@@ -586,49 +612,26 @@ theorem withinBudget_linkedCharge_of_romQueryBound (hd : (shakeCore vp).KeyDisci
         Nat.card (shakeCore vp).Y) := fun z hz ↦ by
   obtain ⟨-, h2⟩ := encard_le_of_mem_support hd.keySeparated hA hz
   have hL := encard_keyEntries_linkedProjKeys_le hnm pkSeed z.2.1.1
-  have hR := ENat.toENNReal_le.2 <| show 2 * ((slhNodeKeys (shakeCore vp) pkSeed).keyEntries
-      z.2.1.1).encard + ((linkedProjKeys hnm pkSeed).keyEntries z.2.1.1).encard +
-      {t | (z.2.1.1 t).isSome ∧ IsDerivablePublicQuery (shakeCore vp) pkSeed
-        (.inl (.inr t))}.encard +
-      {t | (z.2.1.1 t).isSome ∧ IsHmsgPoint (core := shakeCore vp) t}.encard ≤
-      2 * (qh + qs + GeneralScheme.verifyInternalQueryBound vp.params) by
-    calc _ ≤ 2 * ((slhNodeKeys (shakeCore vp) pkSeed).keyEntries z.2.1.1).encard +
-          {t | (z.2.1.1 t).isSome ∧ IsHmsgPoint (core := shakeCore vp) t}.encard +
-          {t | (z.2.1.1 t).isSome ∧ IsDerivablePublicQuery (shakeCore vp) pkSeed
-            (.inl (.inr t))}.encard +
-          {t | (z.2.1.1 t).isSome ∧ IsHmsgPoint (core := shakeCore vp) t}.encard := by gcongr
-      _ ≤ _ + {t | (z.2.1.1 t).isSome ∧ IsDerivablePublicQuery (shakeCore vp) pkSeed
-            (.inl (.inr t))}.encard := le_self_add
-      _ = 2 * (((slhNodeKeys (shakeCore vp) pkSeed).keyEntries z.2.1.1).encard +
-          {t | (z.2.1.1 t).isSome ∧ IsDerivablePublicQuery (shakeCore vp) pkSeed
-            (.inl (.inr t))}.encard +
-          {t | (z.2.1.1 t).isSome ∧ IsHmsgPoint (core := shakeCore vp) t}.encard) := by ring
+  refine (budget_linkedCharge_le (pkSeed := pkSeed) hd hnm
+    (fun C ↦ hmsgCharge (shakeCore vp) C + (Nat.card (shakeCore vp).Y : ℝ≥0∞)⁻¹) z.2.1.1).trans ?_
+  rw [hmsgCharge, inv_eq_one_div, ENNReal.div_add_div_same, ENNReal.div_add_div_same]
+  gcongr ?_ / _
+  set a := ((slhNodeKeys (shakeCore vp) pkSeed).keyEntries z.2.1.1).encard
+  set b := {t | (z.2.1.1 t).isSome ∧
+    IsDerivablePublicQuery (shakeCore vp) pkSeed (.inl (.inr t))}.encard
+  set h := {t | (z.2.1.1 t).isSome ∧ IsHmsgPoint (core := shakeCore vp) t}.encard
+  have hR := ENat.toENNReal_le.2 <| show
+      2 * a + ((linkedProjKeys hnm pkSeed).keyEntries z.2.1.1).encard + b + h ≤
+        2 * (qh + qs + GeneralScheme.verifyInternalQueryBound vp.params) from
+    calc _ ≤ 2 * a + h + b + h := by gcongr
+      _ ≤ 2 * a + h + b + h + b := le_self_add
+      _ = 2 * (a + b + h) := by ring
       _ ≤ _ := by gcongr
   push_cast at hR
-  have hc := rootCharge_U_add_c_le (pkSeed := pkSeed) hd z.2.1.1
-  simp only [linkedCharge, DeferredCharge.add, DeferredCharge.ofCharged, Pi.add_apply, zero_add]
-  calc _ = 2 * (((slhNodeKeys (shakeCore vp) pkSeed).keyEntries z.2.1.1).encard : ℝ≥0∞) /
-          Nat.card (shakeCore vp).Y +
-        (((linkedProjKeys hnm pkSeed).keyEntries z.2.1.1).encard : ℝ≥0∞) /
-          Nat.card (shakeCore vp).Y +
-        (seedCharge (shakeCore vp) pkSeed z.2.1.1 +
-          (hmsgCharge (shakeCore vp) z.2.1.1 + (Nat.card (shakeCore vp).Y : ℝ≥0∞)⁻¹)) +
-        ((rootCharge pkSeed hd).U z.2.1.1 + (rootCharge pkSeed hd).c z.2.1.1) := by ring
-    _ ≤ _ + (Nat.card (shakeCore vp).Y : ℝ≥0∞)⁻¹ := by gcongr
-    _ ≤ _ := by
-      rw [seedCharge, hmsgCharge]
-      simp only [ENNReal.div_eq_inv_mul]
-      calc _ = (Nat.card (shakeCore vp).Y : ℝ≥0∞)⁻¹ *
-            (2 * (((slhNodeKeys (shakeCore vp) pkSeed).keyEntries z.2.1.1).encard : ℝ≥0∞) +
-              ((linkedProjKeys hnm pkSeed).keyEntries z.2.1.1).encard +
-              {t | (z.2.1.1 t).isSome ∧ IsDerivablePublicQuery (shakeCore vp) pkSeed
-                (.inl (.inr t))}.encard +
-              {t | (z.2.1.1 t).isSome ∧ IsHmsgPoint (core := shakeCore vp) t}.encard + 2) := by
-            ring
-        _ ≤ _ := by
-          gcongr _ * ?_
-          refine (add_le_add_left hR 2).trans (le_of_eq ?_)
-          ring
+  calc _ = 2 * (a : ℝ≥0∞) + ((linkedProjKeys hnm pkSeed).keyEntries z.2.1.1).encard + b + h +
+        2 := by ring
+    _ ≤ _ := add_le_add_left hR 2
+    _ = _ := by ring
 
 /-- **The budget of the linked charge with the fixed-key charge.** Under key separation, for an
 adversary with hash budget `qh` and signing budget `qs`, on every deferred run of the lab
@@ -644,49 +647,27 @@ theorem withinBudget_linkedCharge_of_romQueryBound_hedged (hd : (shakeCore vp).K
         Nat.card (shakeCore vp).Y) := fun z hz ↦ by
   obtain ⟨h1, h2⟩ := encard_le_of_mem_support hd.keySeparated hA hz
   have hL := encard_keyEntries_linkedProjKeys_le hnm pkSeed z.2.1.1
-  have hR := ENat.toENNReal_le.2 <| show 2 * ((slhNodeKeys (shakeCore vp) pkSeed).keyEntries
-      z.2.1.1).encard + ((linkedProjKeys hnm pkSeed).keyEntries z.2.1.1).encard +
-      {t | (z.2.1.1 t).isSome ∧ IsDerivablePublicQuery (shakeCore vp) pkSeed
-        (.inl (.inr t))}.encard ≤
-      (qh + GeneralScheme.verifyInternalQueryBound vp.params) +
-        (qh + qs + GeneralScheme.verifyInternalQueryBound vp.params) by
-    calc _ ≤ 2 * ((slhNodeKeys (shakeCore vp) pkSeed).keyEntries z.2.1.1).encard +
-          {t | (z.2.1.1 t).isSome ∧ IsHmsgPoint (core := shakeCore vp) t}.encard +
-          {t | (z.2.1.1 t).isSome ∧ IsDerivablePublicQuery (shakeCore vp) pkSeed
-            (.inl (.inr t))}.encard := by gcongr
-      _ ≤ _ + {t | (z.2.1.1 t).isSome ∧ IsDerivablePublicQuery (shakeCore vp) pkSeed
-            (.inl (.inr t))}.encard := le_self_add
-      _ = (((slhNodeKeys (shakeCore vp) pkSeed).keyEntries z.2.1.1).encard +
-          {t | (z.2.1.1 t).isSome ∧ IsDerivablePublicQuery (shakeCore vp) pkSeed
-            (.inl (.inr t))}.encard) +
-          (((slhNodeKeys (shakeCore vp) pkSeed).keyEntries z.2.1.1).encard +
-          {t | (z.2.1.1 t).isSome ∧ IsDerivablePublicQuery (shakeCore vp) pkSeed
-            (.inl (.inr t))}.encard +
-          {t | (z.2.1.1 t).isSome ∧ IsHmsgPoint (core := shakeCore vp) t}.encard) := by ring
+  refine (budget_linkedCharge_le (pkSeed := pkSeed) hd hnm
+    (fun _ ↦ (Nat.card (shakeCore vp).Y : ℝ≥0∞)⁻¹) z.2.1.1).trans ?_
+  rw [inv_eq_one_div, ENNReal.div_add_div_same]
+  gcongr ?_ / _
+  set a := ((slhNodeKeys (shakeCore vp) pkSeed).keyEntries z.2.1.1).encard
+  set b := {t | (z.2.1.1 t).isSome ∧
+    IsDerivablePublicQuery (shakeCore vp) pkSeed (.inl (.inr t))}.encard
+  set h := {t | (z.2.1.1 t).isSome ∧ IsHmsgPoint (core := shakeCore vp) t}.encard
+  have hR := ENat.toENNReal_le.2 <| show
+      2 * a + ((linkedProjKeys hnm pkSeed).keyEntries z.2.1.1).encard + b ≤
+        (qh + GeneralScheme.verifyInternalQueryBound vp.params) +
+          (qh + qs + GeneralScheme.verifyInternalQueryBound vp.params) from
+    calc _ ≤ 2 * a + h + b := by gcongr
+      _ ≤ 2 * a + h + b + b := le_self_add
+      _ = (a + b) + (a + b + h) := by ring
       _ ≤ _ := add_le_add h1 h2
   push_cast at hR
-  have hc := rootCharge_U_add_c_le (pkSeed := pkSeed) hd z.2.1.1
-  simp only [linkedCharge, DeferredCharge.add, DeferredCharge.ofCharged, Pi.add_apply, zero_add]
-  calc _ = 2 * (((slhNodeKeys (shakeCore vp) pkSeed).keyEntries z.2.1.1).encard : ℝ≥0∞) /
-          Nat.card (shakeCore vp).Y +
-        (((linkedProjKeys hnm pkSeed).keyEntries z.2.1.1).encard : ℝ≥0∞) /
-          Nat.card (shakeCore vp).Y +
-        (seedCharge (shakeCore vp) pkSeed z.2.1.1 + (Nat.card (shakeCore vp).Y : ℝ≥0∞)⁻¹) +
-        ((rootCharge pkSeed hd).U z.2.1.1 + (rootCharge pkSeed hd).c z.2.1.1) := by ring
-    _ ≤ _ + (Nat.card (shakeCore vp).Y : ℝ≥0∞)⁻¹ := by gcongr
-    _ ≤ _ := by
-      rw [seedCharge]
-      simp only [ENNReal.div_eq_inv_mul]
-      calc _ = (Nat.card (shakeCore vp).Y : ℝ≥0∞)⁻¹ *
-            (2 * (((slhNodeKeys (shakeCore vp) pkSeed).keyEntries z.2.1.1).encard : ℝ≥0∞) +
-              ((linkedProjKeys hnm pkSeed).keyEntries z.2.1.1).encard +
-              {t | (z.2.1.1 t).isSome ∧ IsDerivablePublicQuery (shakeCore vp) pkSeed
-                (.inl (.inr t))}.encard + 2) := by
-            ring
-        _ ≤ _ := by
-          gcongr _ * ?_
-          refine (add_le_add_left hR 2).trans (le_of_eq ?_)
-          ring
+  calc _ = 2 * (a : ℝ≥0∞) + ((linkedProjKeys hnm pkSeed).keyEntries z.2.1.1).encard + b +
+        2 := by ring
+    _ ≤ _ := add_le_add_left hR 2
+    _ = _ := by ring
 
 /-- **The budget of the linked charge for the verifying adversary**, with the `H_msg` charge:
 the joint budget of the message-`PRF` key at budget `(qh + V, qs)` plus `(qs + 1) / |Y|`. -/
