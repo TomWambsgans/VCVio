@@ -142,11 +142,15 @@ and core exception stacks through PolyFun's `MAlgOrdered.toWPMonad`. PolyFun's `
 provides equality laws for pure, bind and map; its parallel ordered-algebra WP/triple API is
 removed. VCVio's expectation, necessary and probability-bounded interpretations remain scoped.
 The measure scopes also provide direct `WP` instances so that concrete-monad instances do not
-select a different carrier. The handler catalogue consumes core `@[spec]` rules and `vcgen`.
+select a different carrier. The lower expectation instance uses `MAlgOrdered.toWP` without
+`LawfulMonad`; only its `WPMonad` instance and mapped-integral equation require that assumption.
+The handler catalogue consumes core `@[spec]` rules and `vcgen`.
 VCVio's probability/coupling frontend still owns `@[vcspec]`/`@[wpStep]` dispatch.
 
-The upgrade uses published Mathlib v4.35.0 and PolyFun v4.35.0-patch1. Mathlib's measurable
-`map_bind` API replaces the local copy, with explicit measurability premises; measure-product
+The upgrade uses published Mathlib v4.35.0 and pins PolyFun to
+`96f0ac8a89e6472617000d23cf13fd7ed1f37450`, the unpublished #314–#326 stack head.
+Publication is pending; repin to the published revision when the stack lands.
+Mathlib's measurable `map_bind` API replaces the local copy, with explicit measurability premises; measure-product
 proofs use `prod_eq_of_sfinite`. Batteries' `Except` module and PolyFun's interaction
 Open/Execution modules are consumed at their new paths. Lean's source import parser is reused
 for the repository's coarse isolation checks. The probability notation redesign is separate
@@ -201,7 +205,7 @@ four presentations; `AddWriterT` (`WriterCost.lean`) is canonical and
 
 **`OracleSpec` operations vs PolyFun** (PolyFun `corrections.md` item 4): `OracleSpec`'s
 `+`/`×`/`Σ`/`Π` are re-declared for `ι → Type` indexing but are `rfl`-bridged to
-`PFunctor.sum/sigma/pi` (`toPFunctor_add/sigma/mul/pi` in `OracleSpec.lean`); the theory is
+`PFunctor.add/sigma/pi` (`toPFunctor_add/sigma/mul/pi` in `OracleSpec.lean`); the theory is
 not re-proved. `QueryImpl`/`ProbHandler` vs PolyFun `Sampler`/`Decoration` (item 3) remains
 two vocabularies for one concept; reconcile when the Kleisli–Mealy wiring lands.
 
