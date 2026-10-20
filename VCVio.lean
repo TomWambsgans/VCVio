@@ -432,6 +432,7 @@ public import VCVio.Quantum.Comp.QueryMass
 public import VCVio.Quantum.Comp.Runtime
 public import VCVio.Quantum.Comp.Simulation
 public import VCVio.Quantum.Comp.Subsystem
+public import VCVio.Quantum.Comp.TotalQueryBound
 public import VCVio.Quantum.DSubInstrument
 public import VCVio.Quantum.MatrixMap
 public import VCVio.Quantum.MatrixMap.BlockNorm
@@ -444,6 +445,7 @@ public import VCVio.Quantum.Observe
 public import VCVio.Quantum.Oracle.Basis
 public import VCVio.Quantum.Oracle.Classical
 public import VCVio.Quantum.Oracle.ClassicalCalls
+public import VCVio.Quantum.Oracle.ClassicalRead
 public import VCVio.Quantum.Oracle.Comb
 public import VCVio.Quantum.Oracle.Compressed.Action
 public import VCVio.Quantum.Oracle.Compressed.Basic
