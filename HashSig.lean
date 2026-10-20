@@ -47,6 +47,7 @@ public import HashSig.SLHDSA.Security.AddressKeys
 public import HashSig.SLHDSA.Security.ByteBound
 public import HashSig.SLHDSA.Security.ByteClash
 public import HashSig.SLHDSA.Security.ByteConformance
+public import HashSig.SLHDSA.Security.ByteLinkedBound
 public import HashSig.SLHDSA.Security.ByteLinkedRun
 public import HashSig.SLHDSA.Security.ByteLinkedView
 public import HashSig.SLHDSA.Security.ByteModel
