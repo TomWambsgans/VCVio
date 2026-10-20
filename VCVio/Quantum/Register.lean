@@ -37,6 +37,7 @@ structure QReg : Type 1 where
 
 namespace QReg
 
+/-- A quantum register coerces to its basis carrier. -/
 instance : CoeSort QReg Type := ⟨QReg.carrier⟩
 
 attribute [instance] QReg.fintype QReg.decEq

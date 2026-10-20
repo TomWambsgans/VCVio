@@ -55,7 +55,8 @@ measure forward along the map. -/
 theorem outcomeMeasure_map_eq_map [MeasurableSpace α] [MeasurableSpace β] {f : α → β}
     (hf : Measurable f) (p : SubInstrument A B α) (ρ : SubState A) :
     (p.map f).outcomeMeasure ρ = (p.outcomeMeasure ρ).map f := by
-  rw [outcomeMeasure_map, outcomeMeasure_eq_sum, Measure.map_sum hf.aemeasurable]
+  rw [DSubInstrument.outcomeMeasure_map, DSubInstrument.outcomeMeasure_eq_sum,
+    Measure.map_sum hf.aemeasurable]
   refine congrArg Measure.sum (funext fun a ↦ ?_)
   rw [Measure.map_smul, Measure.map_dirac' hf]
   exact hf.aemeasurable
@@ -78,9 +79,10 @@ theorem map_fst_outcomeMeasure_bind_map_prodMk [MeasurableSpace α] [MeasurableS
     (ρ : SubState A) :
     ((p.bind fun a ↦ (k a).map (Prod.mk a)).outcomeMeasure ρ).map Prod.fst =
       p.outcomeMeasure ρ := by
-  rw [outcomeMeasure_bind, Measure.map_sum measurable_fst.aemeasurable, outcomeMeasure_eq_sum]
+  rw [DSubInstrument.outcomeMeasure_bind, Measure.map_sum measurable_fst.aemeasurable,
+    DSubInstrument.outcomeMeasure_eq_sum]
   refine congrArg Measure.sum (funext fun a ↦ ?_)
-  rw [map_fst_outcomeMeasure_map_prodMk (hk a), matrix_post]
+  rw [map_fst_outcomeMeasure_map_prodMk (hk a), DSubInstrument.matrix_post]
 
 end SubInstrument
 
@@ -122,7 +124,7 @@ theorem branch_measureDatabase_apply (D : Database X Y) :
   rfl
 
 theorem lossless_measureDatabase : (measureDatabase M X Y).Lossless :=
-  SubInstrument.lossless_ofKraus _ _
+  DSubInstrument.lossless_ofKraus _ (sum_one_kronecker_single_conjTranspose_mul_self M X Y)
 
 end measureDatabase
 
@@ -149,17 +151,17 @@ noncomputable def compressedJointLawWith {γ : Type*} [MeasurableSpace γ] (I : 
 theorem map_fst_compressedJointLawWith {γ : Type*} [MeasurableSpace γ] (I : L.Interp)
     (x : QuantumComp L (qromSpec X Y) W A) (ρ : SubState A) (f : (Σ u, W u) → γ) :
     (compressedJointLawWith I x ρ f).map Prod.fst =
-      (compressedRuntime X Y).outcomeLawWith I x ρ f := by
+      (compressedRuntime X Y).evalDistMap I x ρ f := by
   rw [compressedJointLawWith, Measure.map_sum measurable_fst.aemeasurable]
   refine congrArg Measure.sum (funext fun p ↦ ?_)
   exact SubInstrument.map_fst_outcomeMeasure_map_prodMk (lossless_measureDatabase _ X Y) _ _
 
 /-- **The recorded queries do not disturb the law.** The observed leaf, marginal of the joint law
 of the leaf and the measured database, has the law of the quantum random-oracle model. -/
-theorem map_fst_compressedJointLawWith_eq_qromLawWith [SampleableType (X → Y)] {γ : Type*}
+theorem map_fst_compressedJointLawWith_eq_qromLawWith {γ : Type*}
     [MeasurableSpace γ] (I : L.Interp) (x : QuantumComp L (qromSpec X Y) W A) (ρ : SubState A)
     (f : (Σ u, W u) → γ) :
-    (compressedJointLawWith I x ρ f).map Prod.fst = qromLawWith I x ρ fun _ ↦ f := by
+    (compressedJointLawWith I x ρ f).map Prod.fst = qromEvalDistMap I x ρ fun _ ↦ f := by
   rw [map_fst_compressedJointLawWith, outcomeLawWith_compressedRuntime]
 
 /-- The run of a fixed-register program `x` against the compressed runtime, followed by the
@@ -185,7 +187,7 @@ theorem compressedJointLaw_eq_compressedJointLawWith [MeasurableSpace α] (I : L
     (x : QuantumComp₂ L (qromSpec X Y) A B α) (ρ : SubState A) :
     compressedJointLaw I x ρ =
       compressedJointLawWith I x ρ (QuantumComp₂.leafEquiv B α).symm := by
-  rw [compressedJointLaw, compressedRunWithDatabase, SubInstrument.outcomeMeasure_bind]
+  rw [compressedJointLaw, compressedRunWithDatabase, DSubInstrument.outcomeMeasure_bind]
   exact Measure.sum_comp_equiv (QuantumComp₂.leafEquiv B α) fun p ↦
     ((measureDatabase p.1 X Y).map (Prod.mk ((QuantumComp₂.leafEquiv B α).symm p))).outcomeMeasure
       ((compressedRuntime X Y).jointPost I x ρ p)
@@ -193,15 +195,15 @@ theorem compressedJointLaw_eq_compressedJointLawWith [MeasurableSpace α] (I : L
 /-- Measuring the database after the run does not change the law of the value. -/
 theorem map_fst_compressedJointLaw [MeasurableSpace α] (I : L.Interp)
     (x : QuantumComp₂ L (qromSpec X Y) A B α) (ρ : SubState A) :
-    (compressedJointLaw I x ρ).map Prod.fst = (compressedRuntime X Y).outcomeLaw₂ I x ρ :=
+    (compressedJointLaw I x ρ).map Prod.fst = (compressedRuntime X Y).evalDist₂ I x ρ :=
   SubInstrument.map_fst_outcomeMeasure_bind_map_prodMk _
     (fun _ ↦ lossless_measureDatabase _ X Y) _
 
 /-- The value marginal of the joint law of the value and the measured database is the law of the
 quantum random-oracle model. -/
-theorem map_fst_compressedJointLaw_eq_qromLaw [MeasurableSpace α] [SampleableType (X → Y)]
+theorem map_fst_compressedJointLaw_eq_qromLaw [MeasurableSpace α]
     (I : L.Interp) (x : QuantumComp₂ L (qromSpec X Y) A B α) (ρ : SubState A) :
-    (compressedJointLaw I x ρ).map Prod.fst = qromLaw₂ I x ρ := by
+    (compressedJointLaw I x ρ).map Prod.fst = qromEvalDist₂ I x ρ := by
   rw [map_fst_compressedJointLaw, outcomeLaw₂_compressedRuntime]
 
 end jointLaw
