@@ -74,8 +74,8 @@ example (x : Fin 2) :
 /-- Deutsch's algorithm, as a program, has the same law against the compressed runtime as in the
 quantum random-oracle model. -/
 example :
-    (compressedRuntime (Fin 2) (Fin 2)).outcomeLaw₂ .instruments deutschComp deutsch.init =
-      qromLaw₂ .instruments deutschComp deutsch.init :=
+    (compressedRuntime (Fin 2) (Fin 2)).evalDist₂ .instruments deutschComp deutsch.init =
+      qromEvalDist₂ .instruments deutschComp deutsch.init :=
   outcomeLaw₂_compressedRuntime _ _ _
 
 /-! ## An adaptive program -/
@@ -101,7 +101,7 @@ theorem isQueryBound_callReg : callReg.IsQueryBound fun _ ↦ 1 :=
 
 /-- Measure the response bit. -/
 noncomputable def measureBit : QComp qrom32 (QReg.of Reg3) (QReg.of Reg3) (Fin 2) :=
-  QComp.act (SubInstrument.classical id fun m : Reg3 ↦ m.2)
+  QComp.act (DSubInstrument.classical (B := fun _ ↦ Reg3) (fun m : Reg3 ↦ m.2) id)
 
 /-- Call the oracle and measure the response bit; on `1`, call the oracle again and return the
 response bit measured after the second call, otherwise return `0`. The second call depends on the
@@ -126,8 +126,8 @@ theorem isQueryBound_queryMeasureQuery : queryMeasureQuery.IsQueryBound fun _ �
 /-- Against the compressed runtime, the adaptive program has the law of the quantum random-oracle
 model. -/
 example (ρ : SubState (QReg.of Reg3)) :
-    (compressedRuntime (Fin 3) (Fin 2)).outcomeLaw₂ .instruments queryMeasureQuery ρ =
-      qromLaw₂ .instruments queryMeasureQuery ρ :=
+    (compressedRuntime (Fin 3) (Fin 2)).evalDist₂ .instruments queryMeasureQuery ρ =
+      qromEvalDist₂ .instruments queryMeasureQuery ρ :=
   outcomeLaw₂_compressedRuntime _ _ _
 
 /-- The adaptive program ends with at most two nonempty cells, out of three. -/
@@ -140,14 +140,14 @@ example (ρ : SubState (QReg.of Reg3)) (b : Fin 2) :
 /-- Truncating the database at two of the three cells does not change the law of the adaptive
 program (ePrint 2025/2166, §4.3). -/
 example (ρ : SubState (QReg.of Reg3)) :
-    (truncatedRuntime (Fin 3) (Fin 2) 2).outcomeLaw₂ .instruments queryMeasureQuery ρ =
-      qromLaw₂ .instruments queryMeasureQuery ρ :=
+    (truncatedRuntime (Fin 3) (Fin 2) 2).evalDist₂ .instruments queryMeasureQuery ρ =
+      qromEvalDist₂ .instruments queryMeasureQuery ρ :=
   outcomeLaw₂_truncatedRuntime_eq_qromLaw₂ _ isQueryBound_queryMeasureQuery le_rfl _
 
 /-- Measuring the database after the adaptive program leaves the law of its value unchanged. -/
 example [MeasurableSpace (Database (Fin 3) (Fin 2))] (ρ : SubState (QReg.of Reg3)) :
     (compressedJointLaw .instruments queryMeasureQuery ρ).map Prod.fst =
-      qromLaw₂ .instruments queryMeasureQuery ρ :=
+      qromEvalDist₂ .instruments queryMeasureQuery ρ :=
   map_fst_compressedJointLaw_eq_qromLaw _ _ _
 
 /-! ## A final register that depends on an outcome -/
@@ -157,8 +157,8 @@ ancilla on `0` and discards it on `1`, so that its two leaves sit on different r
 the compressed runtime it has the law of the quantum random-oracle model. -/
 example [MeasurableSpace (Σ u, {b : Fin 2 // ancReg b = u})]
     (ρ : SubState (QReg.of (Reg × Fin 2))) :
-    (compressedRuntime (Fin 2) (Fin 2)).outcomeLaw .instruments queryKeepOrDiscard ρ =
-      qromLaw .instruments queryKeepOrDiscard ρ :=
+    (compressedRuntime (Fin 2) (Fin 2)).evalDist .instruments queryKeepOrDiscard ρ =
+      qromEvalDist .instruments queryKeepOrDiscard ρ :=
   outcomeLaw_compressedRuntime _ _ _
 
 /-- At both of its leaves, on different registers, the keep-or-discard program ends with at most

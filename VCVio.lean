@@ -1,5 +1,9 @@
 module  -- shake: keep-all --deprecated_module: ignore
 
+public import VCVio.CryptoFoundations.AKE.UAKE.Defs
+public import VCVio.CryptoFoundations.AKE.UAKE.Party
+public import VCVio.CryptoFoundations.AKE.UAKE.Runtime
+public import VCVio.CryptoFoundations.AKE.UAKE.Transcript
 public import VCVio.CryptoFoundations.AsymmEncAlg.Defs
 public import VCVio.CryptoFoundations.AsymmEncAlg.INDCCA
 public import VCVio.CryptoFoundations.AsymmEncAlg.INDCPA
@@ -56,6 +60,23 @@ public import VCVio.CryptoFoundations.FujisakiOkamoto.Defs
 public import VCVio.CryptoFoundations.FujisakiOkamoto.TTransform
 public import VCVio.CryptoFoundations.FujisakiOkamoto.UTransform
 public import VCVio.CryptoFoundations.GPVHashAndSign
+public import VCVio.CryptoFoundations.GPVHashAndSign.AppendQuery
+public import VCVio.CryptoFoundations.GPVHashAndSign.Basic
+public import VCVio.CryptoFoundations.GPVHashAndSign.CollisionTelescope
+public import VCVio.CryptoFoundations.GPVHashAndSign.CombinedHandler
+public import VCVio.CryptoFoundations.GPVHashAndSign.EmbedIndex
+public import VCVio.CryptoFoundations.GPVHashAndSign.Factorization
+public import VCVio.CryptoFoundations.GPVHashAndSign.FlagHandlers
+public import VCVio.CryptoFoundations.GPVHashAndSign.GameIdentification
+public import VCVio.CryptoFoundations.GPVHashAndSign.GameRuns
+public import VCVio.CryptoFoundations.GPVHashAndSign.MinEntropy
+public import VCVio.CryptoFoundations.GPVHashAndSign.Reservoir
+public import VCVio.CryptoFoundations.GPVHashAndSign.SamplerTransport
+public import VCVio.CryptoFoundations.GPVHashAndSign.Security
+public import VCVio.CryptoFoundations.GPVHashAndSign.TapeFactorization
+public import VCVio.CryptoFoundations.GPVHashAndSign.TrapCount
+public import VCVio.CryptoFoundations.GPVHashAndSign.TrapProjection
+public import VCVio.CryptoFoundations.GPVHashAndSign.VerificationBridge
 public import VCVio.CryptoFoundations.HardnessAssumptions.CollisionResistance
 public import VCVio.CryptoFoundations.HardnessAssumptions.DiffieHellman
 public import VCVio.CryptoFoundations.HardnessAssumptions.EntropySmoothing
@@ -402,6 +423,7 @@ public import VCVio.Quantum.Comp.Simulation
 public import VCVio.Quantum.DSubInstrument
 public import VCVio.Quantum.MatrixMap
 public import VCVio.Quantum.MatrixMap.Family
+public import VCVio.Quantum.MatrixMap.Kraus
 public import VCVio.Quantum.MatrixMap.OpNorm
 public import VCVio.Quantum.MatrixMap.Pinching
 public import VCVio.Quantum.Observe
@@ -420,6 +442,11 @@ public import VCVio.Quantum.Oracle.Compressed.Size
 public import VCVio.Quantum.Oracle.Compressed.Truncation
 public import VCVio.Quantum.Oracle.Model
 public import VCVio.Quantum.Oracle.Unitary
+public import VCVio.Quantum.Pure.Instrument
+public import VCVio.Quantum.Pure.Norm
+public import VCVio.Quantum.Pure.State
+public import VCVio.Quantum.Pure.Tensor
+public import VCVio.Quantum.Pure.Vector
 public import VCVio.Quantum.Register
 public import VCVio.Quantum.Semantics
 public import VCVio.Quantum.SubInstrument
