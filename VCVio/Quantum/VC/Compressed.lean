@@ -9,61 +9,12 @@ public import VCVio.Quantum.VC.MultiExtractable
 public import VCVio.Quantum.Oracle.Compressed.Equivalence
 
 /-!
-# k compressed oracles
+# Compressed vector-commitment oracles
 
-The emulated oracle of Lemma 9.2 of Chiesa, Di, Hu and Zheng (ePrint 2025/2166, p. 58):
-`k` compressed standard oracles `COstd` (Section 4.3, p. 29), one database `D_i` per
-oracle, all started empty. Port `i` applies the compressed standard oracle to the query register
-and to `D_i` and leaves the other databases alone. This file proves the two facts about it that
-Definition 7.3 asks of an emulated oracle and that hold for every multi-extractor: P1 with
-`κsim = 0` and the first half of P2, the commutation of the ports (Lemma 9.2, first equation,
-p. 58).
-
-## Main definitions
-
-* `Quantum.compressDatabases k X Y`: the compression unitary on every database, `C^{⊗k}`.
-* `Quantum.compressedVCOracle k X Y`: the k compressed oracles, a `Quantum.VCOracle k X Y`.
-* `Quantum.purifiedVCOracle k X Y`: the purified random oracle, which holds the uniform
-  superposition of the families `H : Fin k → X → Y` and answers port `i` from `H i`.
-
-## Main results
-
-* `Quantum.compressedVCOracle_U_mem_unitaryGroup`: every port is unitary.
-* `Quantum.compressedVCOracle_U_eq_conj`: port `i` is the table oracle reading `D_i`, conjugated by
-  `1 ⊗ C^{⊗k}`.
-* `Quantum.compressedVCOracle_commute`, `Quantum.oraclesCommute_compressedVCOracle`: the ports
-  commute, in the form `Quantum.OraclesCommute` of Definition 7.3 (p. 50).
-* `Quantum.outcomeLawWith_coherent_compressedVCOracle`: every program, with any local operations,
-  leaves and outcome map, has the same law against the coherent k compressed oracles as the
-  average of its laws against the random oracles `Quantum.romVCOracle k X Y H`. The classical-port
-  form is `Quantum.outcomeLawWith_compressedVCOracle`.
-* `Quantum.simulates_compressedVCOracle`: P1 with `κsim = 0` against the uniform weights
-  `StdSimplex.barycenter`, and `Quantum.simulates_uniformWeights_compressedVCOracle` against
-  `Quantum.uniformWeights` of a sampleable type of families (Lemma 4.4 for `k` oracles, p. 29).
-
-## Proof
-
-The equality of laws is proved at the level of matrices, without a hybrid argument. Port `i` is
-`(1 ⊗ C^{⊗k}) T_i (1 ⊗ C^{⊗k})`, where `T_i` is the table oracle reading `D_i`. The isometry
-`V = C^{⊗k} B`, where `B` embeds a family of functions as a tuple of total databases, intertwines
-the ports of the purified oracle with those of the k compressed oracles and carries the initial
-state of the purified oracle, the uniform superposition, to the empty databases
-(`Quantum.EmulatedOracle.outcomeLawWith_eq_of_intertwine`). The rows `⟨H|` resolve the identity,
-intertwine the ports of the purified oracle with those of the random oracle `H`, and read the
-uniform superposition with weight `|Y|^{-k|X|}`
-(`Quantum.EmulatedOracle.outcomeLawWith_eq_sum_of_intertwine`). Both steps hold for any emulated
-oracles and pass to the coherent oracles (`Quantum.EmulatedOracle.coherent_U_mul_one_kronecker`).
-
-## Departures from the paper
-
-* Answers lie in any finite additive group `Y`, as in `Quantum.romVCOracle`; the paper's
-  bitstrings with XOR are one instance. The statements about the oracles carry no nonemptiness
-  hypothesis: the zero of `Y` already makes `Y` and `Fin k → X → Y` nonempty. Only the
-  algebra-free helpers on compression and on the uniform superposition
-  (`Quantum.compressDatabases_mul_self`, `Quantum.compressDatabases_mul_self_of_nonempty`,
-  `Quantum.uniformState`) assume nonemptiness.
-* `Quantum.compressedVCOracle_commute` is stated on the register `Fin k → Database X Y`;
-  `Quantum.oraclesCommute_compressedVCOracle` is the form of Definition 7.3.
+The ordinary ports are the compressed standard oracles of Chiesa, Di, Hu and Zheng,
+ePrint 2025/2166, Lemma 9.2. Classical reads project onto optional cell labels after decompression.
+Both capabilities intertwine the complete-table random-oracle model, giving exact equality of
+observed laws for arbitrary adaptive mixed programs. Ordinary-only laws follow by restriction.
 -/
 
 public section
@@ -192,41 +143,6 @@ theorem compressDatabases_mul_self [Nonempty Y] :
 
 variable [AddCommGroup Y]
 
-/-- **k compressed oracles** (ePrint 2025/2166, Lemma 9.2, p. 58): the emulated oracle whose
-private register holds `k` databases `(D_i)_{i ∈ [k]}`, all started empty (`COInit`, p. 58), and
-whose port `i` applies the compressed oracle `Quantum.compressedOracle X Y` to the query register
-and the database `D_i`, and the identity to the other databases. -/
-@[expose]
-noncomputable def compressedVCOracle : VCOracle k X Y where
-  S := QReg.of (Fin k → Database X Y)
-  init := SubState.basis fun _ ↦ Database.empty
-  U i := onFactor (splitAt (X × Y) (Database X Y) i) (compressedOracle X Y)
-  unitary _ := onFactor_mem_unitaryGroup _ compressedOracle_mem_unitaryGroup
-
-/-- The private register of the k compressed oracles holds `k` databases. -/
-theorem compressedVCOracle_S :
-    (compressedVCOracle k X Y).S = QReg.of (Fin k → Database X Y) :=
-  rfl
-
-/-- The k compressed oracles start with every database empty. -/
-theorem compressedVCOracle_init :
-    (compressedVCOracle k X Y).init = SubState.basis fun _ ↦ Database.empty :=
-  rfl
-
-/-- The port `i` of the k compressed oracles is the compressed oracle on the query register and
-the database `D_i`, with the identity on the other databases. -/
-theorem compressedVCOracle_U (i : Fin k) :
-    (compressedVCOracle k X Y).U i =
-      onFactor (splitAt (X × Y) (Database X Y) i) (compressedOracle X Y) :=
-  rfl
-
-/-- **The ports of the k compressed oracles are unitary.** -/
-theorem compressedVCOracle_U_mem_unitaryGroup (i : Fin k) :
-    (compressedVCOracle k X Y).U i ∈ unitaryGroup ((X × Y) × (Fin k → Database X Y)) ℂ :=
-  (compressedVCOracle k X Y).unitary i
-
-variable {k X Y}
-
 omit [Fintype Y] in
 /-- The standard oracle on the query register and the database `D_i`. -/
 theorem onFactor_splitAt_standardOracle (i : Fin k) :
@@ -245,8 +161,8 @@ theorem onFactor_splitAt_standardOracle (i : Fin k) :
 reads the database `D_i` (`Quantum.tableOracle`), conjugated by the compression of every cell of
 every database: compressing the databases other than `D_i` commutes with that oracle and squares
 to the identity. -/
-theorem compressedVCOracle_U_eq_conj (i : Fin k) :
-    (compressedVCOracle k X Y).U i =
+private theorem compressedPort_eq_conj (i : Fin k) :
+    onFactor (splitAt (X × Y) (Database X Y) i) (compressedOracle X Y) =
       ((1 : Matrix (X × Y) (X × Y) ℂ) ⊗ₖ compressDatabases k X Y) *
         tableOracle (fun D : Fin k → Database X Y ↦ (D i).lookup) *
         ((1 : Matrix (X × Y) (X × Y) ℂ) ⊗ₖ compressDatabases k X Y) := by
@@ -285,7 +201,7 @@ theorem compressedVCOracle_U_eq_conj (i : Fin k) :
     refine hDD' (Finset.prod_eq_zero (Finset.mem_univ i) ?_)
     have hi : D i ≠ D' i := fun h ↦ hne (by rw [h])
     simp [hi]
-  rw [compressedVCOracle_U, compressedOracle, onFactor_mul, onFactor_mul,
+  rw [compressedOracle, onFactor_mul, onFactor_mul,
     onFactor_splitAt_standardOracle, onFactor_splitAt_one_kronecker]
   set T := tableOracle fun D : Fin k → Database X Y ↦ (D i).lookup
   set I := (1 : Matrix (X × Y) (X × Y) ℂ)
@@ -299,6 +215,144 @@ theorem compressedVCOracle_U_eq_conj (i : Fin k) :
         simp only [Matrix.mul_assoc]
         rfl
     _ = _ := by rw [← hCR, ← hRC]
+
+
+/-- A classical read distinguishes every stored label, including the empty label. -/
+@[expose]
+noncomputable def compressedReadProjector (c : Fin k × X) (a : Option Y) :
+    Matrix (Fin k → Database X Y) (Fin k → Database X Y) ℂ :=
+  compressDatabases k X Y *
+    diagonal (fun D ↦ if D c.1 c.2 = a then 1 else 0) * compressDatabases k X Y
+
+/-- Multiplying conjugates cancels the interior copies of an involution. -/
+theorem compressed_conjugate_mul {M : Type*} [Monoid M] (C : M) (hC : C * C = 1) (P Q : M) :
+    (C * P * C) * (C * Q * C) = C * (P * Q) * C := by
+  calc
+    _ = C * P * (C * C) * Q * C := by simp only [mul_assoc]
+    _ = _ := by rw [hC, mul_one]; simp only [mul_assoc]
+
+omit [AddCommGroup Y] in
+/-- Compressed cell outcomes are Hermitian. -/
+theorem compressedReadProjector_hermitian (c : Fin k × X) (a : Option Y) :
+    (compressedReadProjector k X Y c a)ᴴ = compressedReadProjector k X Y c a := by
+  have h : (diagonal (fun D : Fin k → Database X Y ↦
+      if D c.1 c.2 = a then (1 : ℂ) else 0))ᴴ =
+      diagonal (fun D ↦ if D c.1 c.2 = a then (1 : ℂ) else 0) := by
+    ext D D'
+    by_cases he : D = D' <;> by_cases ha : D c.1 c.2 = a <;>
+      simp_all [conjTranspose_apply, eq_comm]
+  simp only [compressedReadProjector, conjTranspose_mul, conjTranspose_compressDatabases,
+    h, Matrix.mul_assoc]
+
+/-- Compressed cell outcomes are orthogonal, including the missing outcome. -/
+theorem compressedReadProjector_orthogonal (c : Fin k × X) (a b : Option Y) :
+    compressedReadProjector k X Y c a * compressedReadProjector k X Y c b =
+      if a = b then compressedReadProjector k X Y c a else 0 := by
+  have h : (diagonal (fun D : Fin k → Database X Y ↦
+      if D c.1 c.2 = a then (1 : ℂ) else 0)) *
+      diagonal (fun D ↦ if D c.1 c.2 = b then (1 : ℂ) else 0) =
+      if a = b then diagonal (fun D ↦ if D c.1 c.2 = a then (1 : ℂ) else 0) else 0 := by
+    rw [diagonal_mul_diagonal]
+    ext D D'
+    by_cases hab : a = b <;> by_cases he : D = D' <;>
+      by_cases ha : D c.1 c.2 = a <;> by_cases hb : D c.1 c.2 = b <;> simp_all
+  simp only [compressedReadProjector,
+    compressed_conjugate_mul _ (compressDatabases_mul_self k X Y), h]
+  split_ifs <;> simp
+
+/-- Every cell has exactly one optional label before compression. -/
+theorem compressedReadProjector_complete (c : Fin k × X) :
+    ∑ a, compressedReadProjector k X Y c a = 1 := by
+  simp only [compressedReadProjector, ← Finset.sum_mul, ← Finset.mul_sum]
+  have h : (∑ a : Option Y, diagonal (fun D : Fin k → Database X Y ↦
+      if D c.1 c.2 = a then (1 : ℂ) else 0)) = 1 := by
+    ext D D'
+    by_cases he : D = D'
+    · subst D'; simp [Matrix.sum_apply]
+    · simp [Matrix.sum_apply, one_apply, he]
+  rw [h, Matrix.mul_one, compressDatabases_mul_self]
+
+/-- Reads commute across cells, including cells in different databases. -/
+theorem compressedReadProjector_commute (c d : Fin k × X) (a b : Option Y) :
+    compressedReadProjector k X Y c a * compressedReadProjector k X Y d b =
+      compressedReadProjector k X Y d b * compressedReadProjector k X Y c a := by
+  simp only [compressedReadProjector,
+    compressed_conjugate_mul _ (compressDatabases_mul_self k X Y), diagonal_mul_diagonal, mul_comm]
+
+/-- The ordinary port commutes with the framed read projector. -/
+theorem compressedReadProjector_commute_ordinary (i : Fin k) (c : Fin k × X) (a : Option Y) :
+    onFactor (splitAt (X × Y) (Database X Y) i) (compressedOracle X Y) *
+        (1 ⊗ₖ compressedReadProjector k X Y c a) =
+      (1 ⊗ₖ compressedReadProjector k X Y c a) *
+        onFactor (splitAt (X × Y) (Database X Y) i) (compressedOracle X Y) := by
+  let P : Matrix (Fin k → Database X Y) (Fin k → Database X Y) ℂ :=
+    diagonal fun D ↦ if D c.1 c.2 = a then 1 else 0
+  have hP := tableOracle_mul_one_kronecker_comm (fun D : Fin k → Database X Y ↦ (D i).lookup)
+    (K := P) (fun D D' h ↦ by
+      have he : D = D' := by
+        by_contra hn
+        exact h (by simp [P, hn])
+      rw [he])
+  rw [compressedPort_eq_conj, compressedReadProjector]
+  simp only [← one_kronecker_mul_one_kronecker]
+  have hC : ((1 : Matrix (X × Y) (X × Y) ℂ) ⊗ₖ compressDatabases k X Y) *
+      (1 ⊗ₖ compressDatabases k X Y) = 1 := by
+    rw [one_kronecker_mul_one_kronecker, compressDatabases_mul_self, one_kronecker_one]
+  rw [compressed_conjugate_mul _ hC, compressed_conjugate_mul _ hC, hP]
+
+/-- **k compressed oracles** (Chiesa, Di, Hu and Zheng, ePrint 2025/2166, Lemma 9.2, p. 58):
+the emulated oracle whose
+private register holds `k` databases `(D_i)_{i ∈ [k]}`, all started empty (`COInit`, p. 58), and
+whose port `i` applies the compressed oracle `Quantum.compressedOracle X Y` to the query register
+and the database `D_i`, and the identity to the other databases. -/
+@[expose]
+noncomputable def compressedVCOracle : VCOracle k X Y where
+  S := QReg.of (Fin k → Database X Y)
+  init := SubState.basis fun _ ↦ Database.empty
+  U i := onFactor (splitAt (X × Y) (Database X Y) i) (compressedOracle X Y)
+  unitary _ := onFactor_mem_unitaryGroup _ compressedOracle_mem_unitaryGroup
+  classicalRead := {
+    A := compressedReadProjector k X Y
+    hermitian := compressedReadProjector_hermitian k X Y
+    orthogonal := compressedReadProjector_orthogonal k X Y
+    complete := compressedReadProjector_complete k X Y
+    commute_cells := fun c a d b ↦ compressedReadProjector_commute k X Y c d a b
+    commute_ordinary := compressedReadProjector_commute_ordinary k X Y }
+
+/-- The private register of the k compressed oracles holds `k` databases. -/
+theorem compressedVCOracle_S :
+    (compressedVCOracle k X Y).S = QReg.of (Fin k → Database X Y) :=
+  rfl
+
+/-- The k compressed oracles start with every database empty. -/
+theorem compressedVCOracle_init :
+    (compressedVCOracle k X Y).init = SubState.basis fun _ ↦ Database.empty :=
+  rfl
+
+/-- The port `i` of the k compressed oracles is the compressed oracle on the query register and
+the database `D_i`, with the identity on the other databases. -/
+theorem compressedVCOracle_U (i : Fin k) :
+    (compressedVCOracle k X Y).U i =
+      onFactor (splitAt (X × Y) (Database X Y) i) (compressedOracle X Y) :=
+  rfl
+
+/-- **The ports of the k compressed oracles are unitary.** -/
+theorem compressedVCOracle_U_mem_unitaryGroup (i : Fin k) :
+    (compressedVCOracle k X Y).U i ∈ unitaryGroup ((X × Y) × (Fin k → Database X Y)) ℂ :=
+  (compressedVCOracle k X Y).unitary i
+
+variable {k X Y}
+
+/-- **The k compressed oracles are conjugates of standard oracles.** Port `i` is the oracle that
+reads the database `D_i` (`Quantum.tableOracle`), conjugated by the compression of every cell of
+every database: compressing the databases other than `D_i` commutes with that oracle and squares
+to the identity. -/
+theorem compressedVCOracle_U_eq_conj (i : Fin k) :
+    (compressedVCOracle k X Y).U i =
+      ((1 : Matrix (X × Y) (X × Y) ℂ) ⊗ₖ compressDatabases k X Y) *
+        tableOracle (fun D : Fin k → Database X Y ↦ (D i).lookup) *
+        ((1 : Matrix (X × Y) (X × Y) ℂ) ⊗ₖ compressDatabases k X Y) :=
+  compressedPort_eq_conj k X Y i
 
 end oracle
 
@@ -333,7 +387,8 @@ theorem onFactor_slotSnd_one_kronecker (K : Matrix S S ℂ) :
 
 variable {X Y : Type*} [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y] [AddCommGroup Y]
 
-/-- **Table oracles on two query registers commute** (the step of ePrint 2025/2166, Lemma 9.2
+/-- **Table oracles on two query registers commute** (the step of Chiesa, Di, Hu and Zheng,
+ePrint 2025/2166, Lemma 9.2
 proof, p. 58, after the compression has been factored out): the oracle that reads the
 function `read t` into the second query register commutes with the oracle that reads the function
 `read' t` into the first query register, for any two reading maps on a shared register. -/
@@ -360,7 +415,8 @@ theorem conj_mul_conj_comm {M : Type*} [Monoid M] {P A B : M} (hP : P * P = 1)
 variable {k : ℕ} {X Y : Type} [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y]
   [AddCommGroup Y]
 
-/-- **The k compressed oracles commute** (ePrint 2025/2166, Lemma 9.2 first equation, p. 58):
+/-- **The k compressed oracles commute** (Chiesa, Di, Hu and Zheng, ePrint 2025/2166,
+Lemma 9.2 first equation, p. 58):
 for all `i j : Fin k`, port `i` acting on the second query register and the databases commutes
 with port `j` acting on the first query register and the databases. The case `i = j` is the
 statement for one database queried through two registers. This is the equation of
@@ -388,26 +444,6 @@ section intertwine
 
 variable {P : Type u} {In : P → QReg}
 
-/-- **Indistinguishability of emulated oracles through an isometry.** If an isometry `M` from the
-private register of `E₁` to that of `E₂` intertwines every port (`U₂ᵢ (1 ⊗ M) = (1 ⊗ M) U₁ᵢ`)
-and sends the initial substate of `E₁` to that of `E₂`, then every program, observed through any
-function of its leaf, has the same law against the two runtimes. -/
-theorem outcomeLawWith_eq_of_intertwine (E₁ E₂ : EmulatedOracle P In) (M : Matrix E₂.S E₁.S ℂ)
-    (hM : Mᴴ * M = 1)
-    (hU : ∀ i, E₂.U i * ((1 : Matrix (In i) (In i) ℂ) ⊗ₖ M) =
-      ((1 : Matrix (In i) (In i) ℂ) ⊗ₖ M) * E₁.U i)
-    (hinit : MatrixMap.conj M E₁.init.matrix = E₂.init.matrix) {L : LocalSig.{uL, vL}}
-    (I : L.Interp) {W : QReg → Type w} {A : QReg} (x : QuantumComp L (uSpec P In) W A)
-    (ρ : SubState A) {γ : Type*} [MeasurableSpace γ] (f : (Σ u, W u) → γ) :
-    E₂.toRuntime.evalDistMap I x ρ f = E₁.toRuntime.evalDistMap I x ρ f := by
-  simp only [QuantumRuntime.evalDistMap]
-  refine congrArg Measure.sum (funext fun p ↦ ?_)
-  rw [QuantumRuntime.trace_jointPost_eq_of_simulation (R₁ := E₁.toRuntime) (R₂ := E₂.toRuntime)
-    (V := MatrixMap.conj M) I (fun i r ↦ ?_) (MatrixMap.isTP_conj hM) hinit x ρ p]
-  change MatrixMap.conj (E₂.U i) ∘ₗ (MatrixMap.conj M).amplifyLeft (In i) =
-    (MatrixMap.conj M).amplifyLeft (In i) ∘ₗ MatrixMap.conj (E₁.U i)
-  rw [MatrixMap.amplifyLeft_conj, ← MatrixMap.conj_mul, ← MatrixMap.conj_mul, hU i]
-
 /-- Kraus maps whose operators `M ω` resolve the identity (`∑ ω, (M ω)ᴴ M ω = 1`), applied on the
 second factor, preserve the trace in sum. -/
 theorem sum_trace_amplifyLeft_conj {Ω S B : Type*} {S' : Ω → Type*} [Fintype Ω] [Fintype S]
@@ -426,45 +462,6 @@ theorem sum_trace_amplifyLeft_conj {Ω S B : Type*} {S' : Ω → Type*} [Fintype
     simp [Matrix.sum_apply, Finset.mul_sum]
   simp only [h, ← Matrix.trace_sum, ← Finset.sum_mul, hsum, hM, one_kronecker_one, Matrix.one_mul]
 
-/-- **Purification of a mixture of emulated oracles.** If row maps `M ω` from the private
-register of `E` to the private registers of `F ω` resolve the identity, intertwine every port,
-and read the initial substate of `E` as `c ω` times that of `F ω`, then the law of every program
-against `E` is the mixture with weights `c ω` of its laws against the `F ω`. -/
-theorem outcomeLawWith_eq_sum_of_intertwine {Ω : Type*} [Fintype Ω] (E : EmulatedOracle P In)
-    (F : Ω → EmulatedOracle P In) (M : ∀ ω, Matrix (F ω).S E.S ℂ) (c : Ω → ℝ≥0)
-    (hM : ∑ ω, (M ω)ᴴ * M ω = 1)
-    (hU : ∀ ω i, (F ω).U i * ((1 : Matrix (In i) (In i) ℂ) ⊗ₖ M ω) =
-      ((1 : Matrix (In i) (In i) ℂ) ⊗ₖ M ω) * E.U i)
-    (hinit : ∀ ω, MatrixMap.conj (M ω) E.init.matrix = ((c ω : ℝ) : ℂ) • (F ω).init.matrix)
-    {L : LocalSig.{uL, vL}} (I : L.Interp) {W : QReg → Type w} {A : QReg}
-    (x : QuantumComp L (uSpec P In) W A) (ρ : SubState A) {γ : Type*} [MeasurableSpace γ]
-    (f : (Σ u, W u) → γ) :
-    E.toRuntime.evalDistMap I x ρ f =
-      ∑ ω, (c ω : ℝ≥0∞) • (F ω).toRuntime.evalDistMap I x ρ f := by
-  have htr (p : Σ u, W u) : (E.toRuntime.jointPost I x ρ p).matrix.trace =
-      ∑ ω, ((c ω : ℝ) : ℂ) * ((F ω).toRuntime.jointPost I x ρ p).matrix.trace := by
-    rw [← sum_trace_amplifyLeft_conj M hM]
-    refine Finset.sum_congr rfl fun ω _ ↦ ?_
-    have hsim := QuantumRuntime.simulation (R₁ := E.toRuntime) (R₂ := (F ω).toRuntime)
-      (V := MatrixMap.conj (M ω)) I (fun i r ↦ by
-        change MatrixMap.conj ((F ω).U i) ∘ₗ (MatrixMap.conj (M ω)).amplifyLeft (In i) =
-          (MatrixMap.conj (M ω)).amplifyLeft (In i) ∘ₗ MatrixMap.conj (E.U i)
-        rw [MatrixMap.amplifyLeft_conj, ← MatrixMap.conj_mul, ← MatrixMap.conj_mul, hU ω i]) x p
-    have h' := LinearMap.congr_fun hsim (ρ.matrix ⊗ₖ E.init.matrix)
-    rw [LinearMap.comp_apply, LinearMap.comp_apply, MatrixMap.amplifyLeft_kronecker, hinit,
-      kronecker_smul, map_smul] at h'
-    rw [QuantumRuntime.matrix_jointPost, QuantumRuntime.matrix_jointPost, ← h', Matrix.trace_smul,
-      smul_eq_mul]
-  refine Measure.ext fun s hs ↦ ?_
-  rw [Measure.coe_finsetSum, Finset.sum_apply, QuantumRuntime.evalDistMap_apply _ _ _ _ _ hs]
-  simp only [Measure.smul_apply, smul_eq_mul, QuantumRuntime.evalDistMap_apply _ _ _ _ _ hs,
-    htr, Complex.re_sum, Complex.re_ofReal_mul, ← ENNReal.tsum_mul_left]
-  rw [← Summable.tsum_finsetSum fun _ _ ↦ ENNReal.summable]
-  refine tsum_congr fun p ↦ ?_
-  rw [ENNReal.ofReal_sum_of_nonneg, Finset.sum_mul]
-  · refine Finset.sum_congr rfl fun ω _ ↦ ?_
-    rw [ENNReal.ofReal_mul (c ω).coe_nonneg, ENNReal.ofReal_coe_nnreal, mul_assoc]
-  · exact fun ω _ ↦ mul_nonneg (c ω).coe_nonneg (SubState.trace_re_nonneg _)
 
 end intertwine
 
@@ -627,6 +624,33 @@ noncomputable def purifiedVCOracle : VCOracle k X Y where
   unitary _ := by
     rw [Matrix.mem_unitaryGroup_iff', Matrix.star_eq_conjTranspose]
     exact conjTranspose_tableOracle_mul_self _
+  classicalRead := {
+    A := fun c a ↦ diagonal fun H ↦ if some (H c.1 c.2) = a then 1 else 0
+    hermitian := by
+      intro c a
+      ext H H'
+      by_cases h : H = H' <;> by_cases ha : some (H c.1 c.2) = a <;>
+        simp_all [conjTranspose_apply, eq_comm]
+    orthogonal := by
+      intro c a b
+      rw [diagonal_mul_diagonal]
+      ext H H'
+      by_cases hab : a = b <;> by_cases h : H = H' <;>
+        by_cases ha : some (H c.1 c.2) = a <;> by_cases hb : some (H c.1 c.2) = b <;>
+        simp_all
+    complete := by
+      intro c
+      ext H H'
+      by_cases h : H = H' <;> simp [Matrix.sum_apply, one_apply, h]
+    commute_cells := by intros; simp only [diagonal_mul_diagonal, mul_comm]
+    commute_ordinary := by
+      intro i c a
+      apply tableOracle_mul_one_kronecker_comm
+      intro H H' h
+      have he : H = H' := by
+        by_contra hn
+        exact h (by simp [hn])
+      rw [he] }
 
 variable {k X Y}
 
@@ -719,7 +743,143 @@ theorem conj_evalRow_purifiedVCOracle_init (H : Fin k → X → Y) :
   change _ = _ * Matrix.single () () (1 : ℂ) () ()
   rw [Matrix.single_apply_same, mul_one]
 
+/-- A read on a tabulated complete function selects exactly its optional value. -/
+theorem compressedReadProjector_mul_tabulate (c : Fin k × X) (a : Option Y) :
+    compressedReadProjector k X Y c a *
+        (compressDatabases k X Y * basisMatrix (ofFunDatabases k X Y)) =
+      (compressDatabases k X Y * basisMatrix (ofFunDatabases k X Y)) *
+        diagonal (fun H ↦ if some (H c.1 c.2) = a then (1 : ℂ) else 0) := by
+  have h : (diagonal (fun D : Fin k → Database X Y ↦
+      if D c.1 c.2 = a then (1 : ℂ) else 0)) * basisMatrix (ofFunDatabases k X Y) =
+      basisMatrix (ofFunDatabases k X Y) *
+        diagonal (fun H ↦ if some (H c.1 c.2) = a then (1 : ℂ) else 0) := by
+    ext D H
+    simp only [diagonal_mul, mul_diagonal, basisMatrix_apply]
+    by_cases he : D = ofFunDatabases k X Y H
+    · subst D; exact mul_comm _ _
+    · simp [he]
+  calc
+    _ = compressDatabases k X Y *
+        ((diagonal fun D : Fin k → Database X Y ↦ if D c.1 c.2 = a then (1 : ℂ) else 0) *
+          basisMatrix (ofFunDatabases k X Y)) := by
+      rw [compressedReadProjector, Matrix.mul_assoc,
+        ← Matrix.mul_assoc (compressDatabases k X Y) (compressDatabases k X Y),
+        compressDatabases_mul_self, Matrix.one_mul, Matrix.mul_assoc]
+    _ = _ := by rw [h, Matrix.mul_assoc]
+
+/-- The missing outcome annihilates the complete-table subspace. -/
+theorem compressedReadProjector_none_mul_tabulate (c : Fin k × X) :
+    compressedReadProjector k X Y c none *
+      (compressDatabases k X Y * basisMatrix (ofFunDatabases k X Y)) = 0 := by
+  rw [compressedReadProjector_mul_tabulate]
+  simp
+
+omit [AddCommGroup Y] in
+/-- Evaluating a complete table intertwines each optional read with the real read. -/
+theorem rom_read_mul_evalRow (H : Fin k → X → Y) (c : Fin k × X) (a : Option Y) :
+    (if a = some (H c.1 c.2) then (1 : Matrix Unit Unit ℂ) else 0) * evalRow H =
+      evalRow H * diagonal (fun H' ↦ if some (H' c.1 c.2) = a then (1 : ℂ) else 0) := by
+  ext u H'
+  by_cases ha : a = some (H c.1 c.2) <;> by_cases hh : H = H' <;>
+    simp_all [evalRow, mul_diagonal, eq_comm]
+
 end purified
+
+private theorem runtimeLaw_eq_sum {spec : QuantumOracleSpec.{u₁, v₁}}
+    {Ω : Type*} [Fintype Ω] (E : QuantumRuntime spec)
+    (F : Ω → QuantumRuntime spec) (M : ∀ ω, Matrix (F ω).D E.D ℂ) (c : Ω → ℝ≥0)
+    (hM : ∑ ω, (M ω)ᴴ * M ω = 1)
+    (hstep : ∀ ω i r, ((F ω).step i).branch r ∘ₗ
+        (MatrixMap.conj (M ω)).amplifyLeft (spec.In i) =
+      (MatrixMap.conj (M ω)).amplifyLeft (spec.Out i) ∘ₗ (E.step i).branch r)
+    (hinit : ∀ ω, MatrixMap.conj (M ω) E.init.matrix = ((c ω : ℝ) : ℂ) • (F ω).init.matrix)
+    {L : LocalSig.{uL, vL}} (I : L.Interp) {W : QReg → Type w} {A : QReg}
+    (x : QuantumComp L spec W A) (ρ : SubState A) {γ : Type*} [MeasurableSpace γ]
+    (f : (Σ u, W u) → γ) :
+    E.evalDistMap I x ρ f =
+      ∑ ω, (c ω : ℝ≥0∞) • (F ω).evalDistMap I x ρ f := by
+  have htr (p : Σ u, W u) : (E.jointPost I x ρ p).matrix.trace =
+      ∑ ω, ((c ω : ℝ) : ℂ) * ((F ω).jointPost I x ρ p).matrix.trace := by
+    rw [← EmulatedOracle.sum_trace_amplifyLeft_conj M hM]
+    refine Finset.sum_congr rfl fun ω _ ↦ ?_
+    have hsim := QuantumRuntime.simulation (R₁ := E) (R₂ := (F ω))
+      (V := MatrixMap.conj (M ω)) I (hstep ω) x p
+    have h' := LinearMap.congr_fun hsim (ρ.matrix ⊗ₖ E.init.matrix)
+    rw [LinearMap.comp_apply, LinearMap.comp_apply, MatrixMap.amplifyLeft_kronecker, hinit,
+      kronecker_smul, map_smul] at h'
+    rw [QuantumRuntime.matrix_jointPost, QuantumRuntime.matrix_jointPost, ← h', Matrix.trace_smul,
+      smul_eq_mul]
+  refine Measure.ext fun s hs ↦ ?_
+  rw [Measure.coe_finsetSum, Finset.sum_apply, QuantumRuntime.evalDistMap_apply _ _ _ _ _ hs]
+  simp only [Measure.smul_apply, smul_eq_mul, QuantumRuntime.evalDistMap_apply _ _ _ _ _ hs,
+    htr, Complex.re_sum, Complex.re_ofReal_mul, ← ENNReal.tsum_mul_left]
+  rw [← Summable.tsum_finsetSum fun _ _ ↦ ENNReal.summable]
+  refine tsum_congr fun p ↦ ?_
+  rw [ENNReal.ofReal_sum_of_nonneg, Finset.sum_mul]
+  · refine Finset.sum_congr rfl fun ω _ ↦ ?_
+    rw [ENNReal.ofReal_mul (c ω).coe_nonneg, ENNReal.ofReal_coe_nnreal, mul_assoc]
+  · exact fun ω _ ↦ mul_nonneg (c ω).coe_nonneg (SubState.trace_re_nonneg _)
+
+
+namespace VCOracle
+
+variable {k : ℕ} {X Y : Type} [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y]
+
+/-- Ordinary and read intertwiners together intertwine every mixed runtime branch. -/
+theorem mixed_step_intertwine (E F : VCOracle k X Y) (M : Matrix F.S E.S ℂ)
+    (hU : ∀ i, F.U i * (1 ⊗ₖ M) = (1 ⊗ₖ M) * E.U i)
+    (hA : ∀ c a, F.classicalRead.A c a * M = M * E.classicalRead.A c a)
+    (p : (mixedOracleSpec k X Y).Port) (r : (mixedOracleSpec k X Y).Result p) :
+    (F.mixedRuntime.step p).branch r ∘ₗ
+        (MatrixMap.conj M).amplifyLeft ((mixedOracleSpec k X Y).In p) =
+      (MatrixMap.conj M).amplifyLeft ((mixedOracleSpec k X Y).Out p) ∘ₗ
+        (E.mixedRuntime.step p).branch r := by
+  cases p with
+  | inl p =>
+    change MatrixMap.conj (F.coherent.U p) ∘ₗ (MatrixMap.conj M).amplifyLeft _ =
+      (MatrixMap.conj M).amplifyLeft _ ∘ₗ MatrixMap.conj (E.coherent.U p)
+    rw [MatrixMap.amplifyLeft_conj, ← MatrixMap.conj_mul, ← MatrixMap.conj_mul,
+      EmulatedOracle.coherent_U_mul_one_kronecker E.toEmulatedOracle F.toEmulatedOracle M hU]
+  | inr c =>
+    change Option Y at r
+    change (F.classicalRead.step c).branch r ∘ₗ (MatrixMap.conj M).amplifyLeft Unit =
+      (MatrixMap.conj M).amplifyLeft Unit ∘ₗ (E.classicalRead.step c).branch r
+    rw [ProjectiveClassicalAnswers.step_branch, ProjectiveClassicalAnswers.step_branch,
+      MatrixMap.amplifyLeft_conj, ← MatrixMap.conj_mul, ← MatrixMap.conj_mul,
+      one_kronecker_mul_one_kronecker, one_kronecker_mul_one_kronecker, hA]
+
+/-- An isometry intertwining both capabilities preserves every observed law. -/
+theorem evalDistMap_eq_of_mixed_intertwine (E F : VCOracle k X Y) (M : Matrix F.S E.S ℂ)
+    (hM : Mᴴ * M = 1)
+    (hU : ∀ i, F.U i * (1 ⊗ₖ M) = (1 ⊗ₖ M) * E.U i)
+    (hA : ∀ c a, F.classicalRead.A c a * M = M * E.classicalRead.A c a)
+    (hinit : MatrixMap.conj M E.init.matrix = F.init.matrix) {L : LocalSig.{uL, vL}}
+    (I : L.Interp) {W : QReg → Type w} {A : QReg}
+    (x : QuantumComp L (mixedOracleSpec k X Y) W A) (ρ : SubState A)
+    {γ : Type*} [MeasurableSpace γ] (f : (Σ u, W u) → γ) :
+    F.mixedRuntime.evalDistMap I x ρ f = E.mixedRuntime.evalDistMap I x ρ f := by
+  simp only [QuantumRuntime.evalDistMap]
+  refine congrArg Measure.sum (funext fun p ↦ ?_)
+  rw [QuantumRuntime.trace_jointPost_eq_of_simulation (R₁ := E.mixedRuntime)
+    (R₂ := F.mixedRuntime) (V := MatrixMap.conj M) I
+    (mixed_step_intertwine E F M hU hA) (MatrixMap.isTP_conj hM) hinit x ρ p]
+
+/-- A complete family of mixed intertwiners resolves a runtime law as a mixture. -/
+theorem evalDistMap_eq_sum_of_mixed_intertwine {Ω : Type*} [Fintype Ω] (E : VCOracle k X Y)
+    (F : Ω → VCOracle k X Y) (M : ∀ ω, Matrix (F ω).S E.S ℂ) (c : Ω → ℝ≥0)
+    (hM : ∑ ω, (M ω)ᴴ * M ω = 1)
+    (hU : ∀ ω i, (F ω).U i * (1 ⊗ₖ M ω) = (1 ⊗ₖ M ω) * E.U i)
+    (hA : ∀ ω d a, (F ω).classicalRead.A d a * M ω = M ω * E.classicalRead.A d a)
+    (hinit : ∀ ω, MatrixMap.conj (M ω) E.init.matrix = ((c ω : ℝ) : ℂ) • (F ω).init.matrix)
+    {L : LocalSig.{uL, vL}} (I : L.Interp) {W : QReg → Type w} {A : QReg}
+    (x : QuantumComp L (mixedOracleSpec k X Y) W A) (ρ : SubState A)
+    {γ : Type*} [MeasurableSpace γ] (f : (Σ u, W u) → γ) :
+    E.mixedRuntime.evalDistMap I x ρ f =
+      ∑ ω, (c ω : ℝ≥0∞) • (F ω).mixedRuntime.evalDistMap I x ρ f :=
+  runtimeLaw_eq_sum E.mixedRuntime (fun ω ↦ (F ω).mixedRuntime) M c hM
+    (fun ω ↦ mixed_step_intertwine E (F ω) (M ω) (hU ω) (hA ω)) hinit I x ρ f
+
+end VCOracle
 
 /-! ## Perfect simulation of k random oracles (Lemma 4.4 for k oracles) -/
 
@@ -729,28 +889,25 @@ variable {k : ℕ} {X Y : Type} [Fintype X] [DecidableEq X] [Fintype Y] [Decidab
   [AddCommGroup Y] {L : LocalSig.{uL, vL}} (I : L.Interp)
   {W : QReg → Type w} {A : QReg} {γ : Type*} [MeasurableSpace γ]
 
-/-- Against the k compressed oracles and the purified k-fold random oracle, called through their
-classical ports, every program has the same observed law. -/
-theorem outcomeLawWith_compressedVCOracle_eq_purifiedVCOracle
-    (x : QuantumComp L (uSpec (Fin k) (oIn k X Y)) W A) (ρ : SubState A) (f : (Σ u, W u) → γ) :
-    (compressedVCOracle k X Y).toRuntime.evalDistMap I x ρ f =
-      (purifiedVCOracle k X Y).toRuntime.evalDistMap I x ρ f :=
-  EmulatedOracle.outcomeLawWith_eq_of_intertwine _ _ _
-    conjTranspose_compressDatabases_mul_basisMatrix_mul_self
-    compressedVCOracle_U_mul_one_kronecker conj_compressDatabases_mul_basisMatrix_init I x ρ f
-
-/-- Against the coherent forms of the k compressed oracles and of the purified k-fold random
-oracle, every program has the same observed law. -/
-theorem outcomeLawWith_coherent_compressedVCOracle_eq_purifiedVCOracle
-    (x : QuantumComp L (EmulatedOracle.cohSpec (oIn k X Y)) W A) (ρ : SubState A)
+/-- Every adaptive mixed program has exactly the uniform random-oracle observed law. -/
+theorem evalDistMap_mixed_compressedVCOracle
+    (x : QuantumComp L (mixedOracleSpec k X Y) W A) (ρ : SubState A)
     (f : (Σ u, W u) → γ) :
-    (compressedVCOracle k X Y).coherent.toRuntime.evalDistMap I x ρ f =
-      (purifiedVCOracle k X Y).coherent.toRuntime.evalDistMap I x ρ f :=
-  EmulatedOracle.outcomeLawWith_eq_of_intertwine _ _ _
+    (compressedVCOracle k X Y).mixedRuntime.evalDistMap I x ρ f =
+      ∑ H : Fin k → X → Y, (Fintype.card (Fin k → X → Y) : ℝ≥0∞)⁻¹ •
+        (romVCOracle k X Y H).mixedRuntime.evalDistMap I x ρ f := by
+  rw [VCOracle.evalDistMap_eq_of_mixed_intertwine
+    (purifiedVCOracle k X Y) (compressedVCOracle k X Y)
+    (compressDatabases k X Y * basisMatrix (ofFunDatabases k X Y))
     conjTranspose_compressDatabases_mul_basisMatrix_mul_self
-    (fun _ ↦ EmulatedOracle.coherent_U_mul_one_kronecker _ _ _
-      compressedVCOracle_U_mul_one_kronecker)
-    conj_compressDatabases_mul_basisMatrix_init I x ρ f
+    compressedVCOracle_U_mul_one_kronecker compressedReadProjector_mul_tabulate
+    conj_compressDatabases_mul_basisMatrix_init I x ρ f,
+    VCOracle.evalDistMap_eq_sum_of_mixed_intertwine (purifiedVCOracle k X Y)
+      (fun H ↦ romVCOracle k X Y H) (fun H ↦ evalRow H)
+      (fun _ ↦ (Fintype.card _ : ℝ≥0)⁻¹) sum_conjTranspose_evalRow_mul_self
+      oracleUnitary_kronecker_one_mul_one_kronecker_evalRow_apply rom_read_mul_evalRow
+      conj_evalRow_purifiedVCOracle_init I x ρ f]
+  simp [ENNReal.coe_inv]
 
 omit [DecidableEq Y] [AddCommGroup Y] in
 /-- The weight `|Fin k → X → Y|⁻¹` of each family of functions, as an extended real. -/
@@ -759,38 +916,54 @@ theorem coe_inv_card_fun_eq [Nonempty (Fin k → X → Y)] :
       (Fintype.card (Fin k → X → Y) : ℝ≥0∞)⁻¹ := by
   rw [ENNReal.coe_inv (Nat.cast_ne_zero.mpr Fintype.card_ne_zero), ENNReal.coe_natCast]
 
-/-- Against the purified k-fold random oracle, called through its classical ports, the law of
-every program is the average over all families `H` of its laws against the random oracles `H`. -/
-theorem outcomeLawWith_purifiedVCOracle
-    (x : QuantumComp L (uSpec (Fin k) (oIn k X Y)) W A) (ρ : SubState A) (f : (Σ u, W u) → γ) :
-    (purifiedVCOracle k X Y).toRuntime.evalDistMap I x ρ f =
-      ∑ H : Fin k → X → Y, (Fintype.card (Fin k → X → Y) : ℝ≥0∞)⁻¹ •
-        (romVCOracle k X Y H).toRuntime.evalDistMap I x ρ f := by
-  rw [EmulatedOracle.outcomeLawWith_eq_sum_of_intertwine (purifiedVCOracle k X Y)
-    (fun H ↦ romVCOracle k X Y H) (fun H ↦ evalRow H) (fun _ ↦ (Fintype.card _ : ℝ≥0)⁻¹)
-    sum_conjTranspose_evalRow_mul_self
-    (fun H i ↦ oracleUnitary_kronecker_one_mul_one_kronecker_evalRow_apply H i)
-    conj_evalRow_purifiedVCOracle_init I x ρ f]
-  simp only [coe_inv_card_fun_eq]
-
-/-- Against the coherent form of the purified k-fold random oracle, the law of every program is
-the average over all families `H` of its laws against the coherent random oracles `H`. -/
-theorem outcomeLawWith_coherent_purifiedVCOracle
+/-- Ordinary coherent programs have the same observed law as the uniform random oracle,
+by restricting the exact mixed-runtime law to the ordinary ports. -/
+theorem outcomeLawWith_coherent_compressedVCOracle
     (x : QuantumComp L (EmulatedOracle.cohSpec (oIn k X Y)) W A) (ρ : SubState A)
     (f : (Σ u, W u) → γ) :
-    (purifiedVCOracle k X Y).coherent.toRuntime.evalDistMap I x ρ f =
+    (compressedVCOracle k X Y).coherent.toRuntime.evalDistMap I x ρ f =
       ∑ H : Fin k → X → Y, (Fintype.card (Fin k → X → Y) : ℝ≥0∞)⁻¹ •
         (romVCOracle k X Y H).coherent.toRuntime.evalDistMap I x ρ f := by
-  rw [EmulatedOracle.outcomeLawWith_eq_sum_of_intertwine (purifiedVCOracle k X Y).coherent
-    (fun H ↦ (romVCOracle k X Y H).coherent) (fun H ↦ evalRow H)
-    (fun _ ↦ (Fintype.card _ : ℝ≥0)⁻¹) sum_conjTranspose_evalRow_mul_self
-    (fun H _ ↦ EmulatedOracle.coherent_U_mul_one_kronecker _ _ _
-      fun i ↦ oracleUnitary_kronecker_one_mul_one_kronecker_evalRow_apply H i)
-    conj_evalRow_purifiedVCOracle_init I x ρ f]
-  simp only [coe_inv_card_fun_eq]
+  have h := evalDistMap_mixed_compressedVCOracle I x.liftOrdinary ρ f
+  have hl (E : VCOracle k X Y) :
+      E.mixedRuntime.evalDistMap I x.liftOrdinary ρ f =
+        E.coherent.toRuntime.evalDistMap I x ρ f := by
+    simp only [QuantumRuntime.evalDistMap, QuantumRuntime.matrix_jointPost,
+      VCOracle.mixedRuntime, EmulatedOracle.withClassicalReads,
+      QuantumRuntime.run_liftOrdinary]
+    rfl
+  simpa only [hl] using h
+
+private def reifyLocal {spec : QuantumOracleSpec.{u₁, v₁}} :
+    {A : QReg} → QuantumComp L spec W A →
+      QuantumComp LocalSig.instruments.{vL} spec W A
+  | _, .pure a => .pure a
+  | _, .liftBind (.prim o) cont =>
+      QuantumComp.primBind ⟨L.Outcome o, L.next o, I o⟩ fun b ↦ reifyLocal (cont (ULift.up b))
+  | _, .liftBind (.query i B e) cont =>
+      QuantumComp.queryBind i B e fun r ↦ reifyLocal (cont (ULift.up r))
+
+private theorem run_reifyLocal {spec : QuantumOracleSpec.{u₁, v₁}} (R : QuantumRuntime spec)
+    (x : QuantumComp L spec W A) : R.run .instruments (reifyLocal I x) = R.run I x := by
+  induction x using QuantumComp.inductionOn with
+  | pure _ a => rfl
+  | primBind _ o cont ih => exact congrArg (((I o).frame R.D).bind) (funext ih)
+  | queryBind _ i B e cont ih =>
+    change (DSubInstrument.bind (R.queryStep i B e) fun r ↦
+      R.run .instruments (reifyLocal I (cont r))) =
+      (DSubInstrument.bind (R.queryStep i B e) fun r ↦ R.run I (cont r))
+    congr 1
+    funext r
+    exact ih r
+
+private theorem law_reifyLocal {spec : QuantumOracleSpec.{u₁, v₁}} (R : QuantumRuntime spec)
+    (x : QuantumComp L spec W A) (ρ : SubState A) (f : (Σ u, W u) → γ) :
+    R.evalDistMap .instruments (reifyLocal I x) ρ f = R.evalDistMap I x ρ f := by
+  simp only [QuantumRuntime.evalDistMap, QuantumRuntime.matrix_jointPost, run_reifyLocal]
 
 /-- **The k compressed oracles are perfectly indistinguishable from k random oracles**
-(ePrint 2025/2166, Lemma 4.4, p. 29, for `k` oracles, as used in Lemma 9.2, p. 58), for programs
+(Chiesa, Di, Hu and Zheng, ePrint 2025/2166, Lemma 4.4, p. 29, for `k` oracles,
+as used in Lemma 9.2, p. 58), for programs
 calling the oracles through their classical ports: every program, observed through any function
 of its leaf, has the same law against `Quantum.compressedVCOracle k X Y` as on average over
 uniformly random families `H : Fin k → X → Y` against `Quantum.romVCOracle k X Y H`. Programs are
@@ -801,20 +974,9 @@ theorem outcomeLawWith_compressedVCOracle
     (compressedVCOracle k X Y).toRuntime.evalDistMap I x ρ f =
       ∑ H : Fin k → X → Y, (Fintype.card (Fin k → X → Y) : ℝ≥0∞)⁻¹ •
         (romVCOracle k X Y H).toRuntime.evalDistMap I x ρ f := by
-  rw [outcomeLawWith_compressedVCOracle_eq_purifiedVCOracle, outcomeLawWith_purifiedVCOracle]
-
-/-- **The coherent k compressed oracles are perfectly indistinguishable from coherent k random
-oracles** (ePrint 2025/2166, Lemma 4.4 for `k` oracles, p. 29): the form of
-`Quantum.outcomeLawWith_compressedVCOracle` for programs against the coherent oracle, the form in
-which `Quantum.Simulates` states property P1 with `κsim = 0`. -/
-theorem outcomeLawWith_coherent_compressedVCOracle
-    (x : QuantumComp L (EmulatedOracle.cohSpec (oIn k X Y)) W A) (ρ : SubState A)
-    (f : (Σ u, W u) → γ) :
-    (compressedVCOracle k X Y).coherent.toRuntime.evalDistMap I x ρ f =
-      ∑ H : Fin k → X → Y, (Fintype.card (Fin k → X → Y) : ℝ≥0∞)⁻¹ •
-        (romVCOracle k X Y H).coherent.toRuntime.evalDistMap I x ρ f := by
-  rw [outcomeLawWith_coherent_compressedVCOracle_eq_purifiedVCOracle,
-    outcomeLawWith_coherent_purifiedVCOracle]
+  have h := outcomeLawWith_coherent_compressedVCOracle .instruments
+    (reifyLocal I x).toCoherent ρ f
+  simpa only [EmulatedOracle.outcomeLawWith_toCoherent, law_reifyLocal] using h
 
 end main
 
@@ -838,15 +1000,16 @@ theorem mixedLawWith_barycenter {spec : QuantumOracleSpec.{u₁, v₁}} {L : Loc
   rw [StdSimplex.weights_barycenter_apply,
     ENNReal.ofReal_inv_of_pos (Nat.cast_pos.mpr Fintype.card_pos), ENNReal.ofReal_natCast]
 
-/-- **P1 for the k compressed oracles with `κsim = 0`** (ePrint 2025/2166, Lemma 4.4, p. 29, for
-`k` oracles, as used in Lemma 9.2, p. 58): the coherent k compressed oracles simulate the
+/-- **P1 for the k compressed oracles with `κsim = 0`** (Chiesa, Di, Hu and Zheng,
+ePrint 2025/2166, Lemma 4.4, p. 29, for
+`k` oracles, as used in Lemma 9.2, p. 58): the mixed k compressed oracles simulate the
 random-oracle model, the uniform distribution over the families `H : Fin k → X → Y` of
 `Quantum.romVCOracle k X Y H`, with no error. -/
 theorem simulates_compressedVCOracle :
     Simulates (StdSimplex.barycenter : StdSimplex ℝ (Fin k → X → Y))
-      (fun H ↦ (romVCOracle k X Y H).coherent.toRuntime) (compressedVCOracle k X Y) 0 := by
+      (fun H ↦ (romVCOracle k X Y H).mixedRuntime) (compressedVCOracle k X Y) 0 := by
   intro t A W x f ρ _
-  rw [mixedLawWith_barycenter, outcomeLawWith_coherent_compressedVCOracle]
+  rw [mixedLawWith_barycenter, evalDistMap_mixed_compressedVCOracle]
   simp only [Pi.zero_apply, add_zero, le_refl, and_self]
 
 /-- Against a uniformly sampled random oracle, every program has the same law against the
@@ -874,12 +1037,13 @@ form of `Quantum.simulates_compressedVCOracle` for the uniform distribution
 `Quantum.uniformWeights` of a sampleable type of families. -/
 theorem simulates_uniformWeights_compressedVCOracle [SampleableType (Fin k → X → Y)] :
     Simulates (uniformWeights (Fin k → X → Y))
-      (fun H ↦ (romVCOracle k X Y H).coherent.toRuntime) (compressedVCOracle k X Y) 0 :=
+      (fun H ↦ (romVCOracle k X Y H).mixedRuntime) (compressedVCOracle k X Y) 0 :=
   Simulates.ofUniform fun t A W x f ρ _ ↦ by
-    rw [outcomeLawWith_coherent_compressedVCOracle_eq_sampledLawWith]
+    rw [evalDistMap_mixed_compressedVCOracle, sampledEvalDistMap_eq_sum, Finset.smul_sum]
     simp only [Pi.zero_apply, add_zero, le_refl, and_self]
 
-/-- **The k compressed oracles commute** (ePrint 2025/2166, Lemma 9.2 first equation,
+/-- **The k compressed oracles commute** (Chiesa, Di, Hu and Zheng, ePrint 2025/2166,
+Lemma 9.2 first equation,
 p. 58), in the form of the first half of property P2 (Definition 7.3, p. 50). -/
 theorem oraclesCommute_compressedVCOracle : OraclesCommute (compressedVCOracle k X Y) :=
   fun i j ↦ compressedVCOracle_commute i j

@@ -469,6 +469,7 @@ public import VCVio.Quantum.Pure.Vector
 public import VCVio.Quantum.Register
 public import VCVio.Quantum.Semantics
 public import VCVio.Quantum.SubInstrument
+public import VCVio.Quantum.VC.CheckedRead
 public import VCVio.Quantum.VC.Compressed
 public import VCVio.Quantum.VC.Conditions
 public import VCVio.Quantum.VC.Emulated

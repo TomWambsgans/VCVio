@@ -111,7 +111,8 @@ example (ρ : SubState Reg) (f : (Σ u, (fun u ↦ PSigma fun _ : u =
         (Convexity.StdSimplex.barycenter : Convexity.StdSimplex ℝ (Fin 2 → Bool → ZMod 2))
         (fun H ↦ (romVCOracle 2 Bool (ZMod 2) H).coherent.toRuntime) .instruments oneQuery ρ
         (fun _ ↦ f) {true} + 0 :=
-  (simulates_compressedVCOracle 1 oneQuery f ρ isQueryBound_oneQuery).1
+  (simulates_compressedVCOracle.restrictOrdinary 1 oneQuery f ρ
+    ((QuantumComp.isTotalQueryBound_iff_isQueryBound oneQuery 1).mpr isQueryBound_oneQuery)).1
 
 /-! ## The measured answer of a classical call is uniform -/
 
