@@ -499,6 +499,7 @@ public import VCVio.Quantum.VC.MultiExtractor
 public import VCVio.Quantum.VC.Proof.CheckerDistance
 public import VCVio.Quantum.VC.Proof.Commutativity
 public import VCVio.Quantum.VC.Proof.Extraction
+public import VCVio.Quantum.VC.Proof.GoodEvent
 public import VCVio.Quantum.VC.Proof.Offline
 public import VCVio.Quantum.VC.Proof.Online
 public import VCVio.Quantum.VC.Proof.OnlineSecurity

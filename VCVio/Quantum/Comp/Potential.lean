@@ -596,6 +596,41 @@ theorem krausWeight_sub_pinch (i : spec.Port) (σ : Matrix (spec.In i × D) (spe
   rw [MatrixMap.trace_conj_apply, MatrixMap.trace_conj_apply, conjTranspose_sub_pinch_mul
     (one_kronecker_proj hQ hQQ).1 (one_kronecker_proj hQ hQQ).1 (one_kronecker_proj hQ hQQ).2]
 
+omit [Fintype Z] in
+include hU hQ hQQ in
+/-- From zero initial event weight, the final event amplitude is bounded by the sum of
+commutator amplitudes at the actual query inputs. Local operations and all outcomes
+are retained in these query weights. -/
+theorem rpow_inv_two_eventWeight_le_commutators (x : QuantumComp L spec X A)
+    {ρ : Matrix (A × D) (A × D) ℂ} (hρ : ρ.PosSemidef)
+    (hρQ : MatrixMap.conj ((1 : Matrix A A ℂ) ⊗ₖ Q) ρ = 0) :
+    (QuantumRuntime.mk D σ₀ s).eventWeight I Q x ρ ^ (2⁻¹ : ℝ) ≤
+      ∑' j, (QuantumRuntime.mk D σ₀ s).queryWeight I
+        (krausWeight fun i r ↦ (1 ⊗ₖ Q) * U i r - U i r * (1 ⊗ₖ Q)) x ρ j ^
+          (2⁻¹ : ℝ) := by
+  have hO : ∀ p : Σ u, X u, (1 - ((1 : Matrix p.1 p.1 ℂ) ⊗ₖ Q)ᴴ *
+      ((1 : Matrix p.1 p.1 ℂ) ⊗ₖ Q)).PosSemidef := fun p ↦ by
+    obtain ⟨h1, h2⟩ := one_kronecker_proj (n := p.1) hQ hQQ
+    have : 1 - ((1 : Matrix p.1 p.1 ℂ) ⊗ₖ Q)ᴴ * ((1 : Matrix p.1 p.1 ℂ) ⊗ₖ Q) =
+        (1 - (1 : Matrix p.1 p.1 ℂ) ⊗ₖ Q)ᴴ * (1 - (1 : Matrix p.1 p.1 ℂ) ⊗ₖ Q) := by
+      rw [conjTranspose_sub, conjTranspose_one, h1, Matrix.sub_mul, Matrix.mul_sub,
+        Matrix.mul_sub, h2]
+      simp
+    rw [this]
+    exact posSemidef_conjTranspose_mul_self _
+  have hhyb := rpow_inv_two_tsum_trace_conj_run_le I σ₀ σ₀ hU
+    (fun i r ↦ (rfl : (pinchStep hU hQ hQQ i).branch r = _)) x
+    (fun p ↦ (1 : Matrix p.1 p.1 ℂ) ⊗ₖ Q) hO hρ
+  have hzero := eventWeight_pinch_eq_zero I hU hQ hQQ σ₀ x hρQ
+  rw [eventWeight] at hzero
+  rw [hzero, ENNReal.zero_rpow_of_pos (by norm_num), zero_add] at hhyb
+  have hw : krausWeight (fun i r ↦ U i r - pinch (1 ⊗ₖ Q) (1 ⊗ₖ Q) (U i r)) =
+      krausWeight (fun i r ↦ (1 ⊗ₖ Q) * U i r - U i r * (1 ⊗ₖ Q)) := by
+    funext i σ
+    exact krausWeight_sub_pinch hQ hQQ i σ
+  rw [hw] at hhyb
+  exact hhyb
+
 /-! ## The certificate -/
 
 include hU hQ hQQ in
@@ -636,44 +671,26 @@ theorem rpow_inv_two_eventWeight_le_of_potential (x : QuantumComp L spec X A)
   set R := QuantumRuntime.mk D σ₀ s
   set m : ℕ → ℝ≥0∞ := fun n ↦ R.queryWeight I (δ n) x ρ n
   set E : ℕ → ℝ≥0∞ := fun n ↦ R.queryWeight I (e n) x ρ n
-  have hP := one_kronecker_proj (n := A) hQ hQQ
-  -- The square-root hybrid bound against the pinched runtime.
-  have hO : ∀ p : Σ u, X u, (1 - ((1 : Matrix p.1 p.1 ℂ) ⊗ₖ Q)ᴴ *
-      ((1 : Matrix p.1 p.1 ℂ) ⊗ₖ Q)).PosSemidef := fun p ↦ by
-    obtain ⟨h1, h2⟩ := one_kronecker_proj (n := p.1) hQ hQQ
-    have : 1 - ((1 : Matrix p.1 p.1 ℂ) ⊗ₖ Q)ᴴ * ((1 : Matrix p.1 p.1 ℂ) ⊗ₖ Q) =
-        (1 - (1 : Matrix p.1 p.1 ℂ) ⊗ₖ Q)ᴴ * (1 - (1 : Matrix p.1 p.1 ℂ) ⊗ₖ Q) := by
-      rw [conjTranspose_sub, conjTranspose_one, h1, Matrix.sub_mul, Matrix.mul_sub,
-        Matrix.mul_sub, h2]
-      simp
-    rw [this]
-    exact posSemidef_conjTranspose_mul_self _
-  have hhyb := rpow_inv_two_tsum_trace_conj_run_le I σ₀ σ₀ hU
-    (fun i r ↦ (rfl : (pinchStep hU hQ hQQ i).branch r = _)) x
-    (fun p ↦ (1 : Matrix p.1 p.1 ℂ) ⊗ₖ Q) hO hρ
-  have hzero := eventWeight_pinch_eq_zero I hU hQ hQQ σ₀ x hρQ
-  rw [eventWeight] at hzero
-  rw [hzero, ENNReal.zero_rpow_of_pos (by norm_num), zero_add] at hhyb
+  have hhyb := rpow_inv_two_eventWeight_le_commutators I hU hQ hQQ σ₀ x hρ hρQ
   refine hhyb.trans ?_
   -- Only the first `N` calls count.
   have hz : ∀ j ∉ Finset.range N, R.queryWeight I
-      (krausWeight fun i r ↦ U i r - pinch (1 ⊗ₖ Q) (1 ⊗ₖ Q) (U i r)) x ρ j ^ (2⁻¹ : ℝ) = 0 :=
+      (krausWeight fun i r ↦ (1 ⊗ₖ Q) * U i r - U i r * (1 ⊗ₖ Q)) x ρ j ^ (2⁻¹ : ℝ) = 0 :=
     fun j hj ↦ by
       rw [R.queryWeight_eq_zero_of_isQueryBound I hx t ht
         (hN.trans (by simpa using hj)) ρ, ENNReal.zero_rpow_of_pos (by norm_num)]
   rw [tsum_eq_sum hz]
   -- Each call: optimize the leak condition.
   have hcall : ∀ n ∈ Finset.range N, R.queryWeight I
-      (krausWeight fun i r ↦ U i r - pinch (1 ⊗ₖ Q) (1 ⊗ₖ Q) (U i r)) x ρ n ^ (2⁻¹ : ℝ) ≤
+      (krausWeight fun i r ↦ (1 ⊗ₖ Q) * U i r - U i r * (1 ⊗ₖ Q)) x ρ n ^ (2⁻¹ : ℝ) ≤
         lam n ^ (2⁻¹ : ℝ) * m n ^ (2⁻¹ : ℝ) + E n ^ (2⁻¹ : ℝ) := fun n hn ↦ by
     rw [← ENNReal.mul_rpow_of_nonneg _ _ (by norm_num)]
     refine ENNReal.rpow_inv_two_le_add_of_forall fun ε hε ↦ ?_
     calc R.queryWeight I
-          (krausWeight fun i r ↦ U i r - pinch (1 ⊗ₖ Q) (1 ⊗ₖ Q) (U i r)) x ρ n
+          (krausWeight fun i r ↦ (1 ⊗ₖ Q) * U i r - U i r * (1 ⊗ₖ Q)) x ρ n
         ≤ R.queryWeight I (fun i σ ↦ ENNReal.ofReal (1 + ε) * (lam n * δ n i σ) +
             ENNReal.ofReal (1 + ε⁻¹) * e n i σ) x ρ n :=
           R.queryWeight_mono I (fun i σ hσ ↦ by
-            rw [krausWeight_sub_pinch hQ hQQ]
             exact hleak n (Finset.mem_range.mp hn) i σ hσ ε hε) x hρ n
       _ = ENNReal.ofReal (1 + ε) * (lam n * m n) + ENNReal.ofReal (1 + ε⁻¹) * E n := by
           rw [queryWeight_add]
