@@ -239,7 +239,7 @@ private theorem familyCollisionMatrix_diagonal :
 
 omit [DecidableEq X] in
 /-- Recording registers are spectators to the canonical family collision event. -/
-theorem familyCollisionMatrix_eq_kronecker :
+theorem familyCollisionMatrix_eq_kronecker {R : Type} [DecidableEq R] :
     familyCollisionMatrix (k := k) (X := X) (Y := Y) (R := R) =
       familyCollisionProjector (k := k) (X := X) (Y := Y) ⊗ₖ (1 : Matrix R R ℂ) := rfl
 
@@ -518,9 +518,9 @@ end family
 
 section extractionAlgebra
 
-variable {k : ℕ} {X Y Cm Z : Type} [Fintype X] [DecidableEq X]
+variable {k : ℕ} {X Y Cm Z : Type} [Fintype X] {Dm : Fin k → Type} [DecidableEq X]
   [Fintype Y] [DecidableEq Y] [Fintype Cm] [DecidableEq Cm]
-  [Fintype Z] [DecidableEq Z] [AddGroup Z] {Dm : Fin k → Type}
+  [Fintype Z] [DecidableEq Z] [AddGroup Z]
   (ME : MultiExtractor k Cm Dm (Fin k → Database X Y)) (code : TpDCode k Dm Z)
 
 /-- Extraction preserves every event determined by the compressed databases. -/

@@ -27,6 +27,26 @@ open scoped ComplexOrder ENNReal Kronecker
 
 namespace VCVioTest.QuantumVCOffline
 
+/-- The identity-register equality accepts its original fully explicit argument order. -/
+example : familyCollisionMatrix (k := 1) (X := Unit) (Y := Bool) (R := Unit) =
+    familyCollisionProjector (k := 1) (X := Unit) (Y := Bool) ⊗ₖ (1 : Matrix Unit Unit ℂ) :=
+  @Quantum.familyCollisionMatrix_eq_kronecker 1 Unit Bool inferInstance inferInstance
+    Unit inferInstance
+
+/-- Extraction commutation accepts its original fully explicit argument order. -/
+example {k : ℕ} {X Y Cm Z : Type} [Fintype X] {Dm : Fin k → Type}
+    [DecidableEq X] [Fintype Y] [DecidableEq Y] [Fintype Cm] [DecidableEq Cm]
+    [Fintype Z] [DecidableEq Z] [AddGroup Z]
+    (ME : MultiExtractor k Cm Dm (Fin k → Database X Y)) (code : TpDCode k Dm Z)
+    (f : (Fin k → Database X Y) → ℂ) :
+    ((1 : Matrix (TpIC k Cm × Z) (TpIC k Cm × Z) ℂ) ⊗ₖ diagonal f) *
+        extractUnitary ME code =
+      extractUnitary ME code * ((1 : Matrix (TpIC k Cm × Z) (TpIC k Cm × Z) ℂ) ⊗ₖ
+        diagonal f) :=
+  @Quantum.extractUnitary_commute_diagonal k X Y Cm Z inferInstance Dm inferInstance
+    inferInstance inferInstance inferInstance inferInstance inferInstance inferInstance
+    inferInstance ME code f
+
 /-- A singleton answer flip among 64 answers satisfies the cell bound with coefficients
 `3` and `15/2`. -/
 example (χ : AddChar (ZMod 64) ℂ) :
