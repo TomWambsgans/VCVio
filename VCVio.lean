@@ -425,11 +425,13 @@ public import VCVio.Quantum.Comp.Hybrid
 public import VCVio.Quantum.Comp.HybridIndex
 public import VCVio.Quantum.Comp.HybridMeasure
 public import VCVio.Quantum.Comp.HybridProjected
+public import VCVio.Quantum.Comp.Lift
 public import VCVio.Quantum.Comp.LocalSig
 public import VCVio.Quantum.Comp.QueryBound
 public import VCVio.Quantum.Comp.QueryMass
 public import VCVio.Quantum.Comp.Runtime
 public import VCVio.Quantum.Comp.Simulation
+public import VCVio.Quantum.Comp.Subsystem
 public import VCVio.Quantum.DSubInstrument
 public import VCVio.Quantum.MatrixMap
 public import VCVio.Quantum.MatrixMap.BlockNorm
