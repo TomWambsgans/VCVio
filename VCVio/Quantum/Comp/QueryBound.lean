@@ -18,7 +18,9 @@ over paths is bounded.
 A cost function `c` on the local operations of a signature (for a gate set, `c o = 1` for every
 gate) bounds the cost of a program in the same way: `x.IsCostBound c n` says that along every
 path, the costs of the local operations add up to at most `n`. Costs are read off the tree and do
-not depend on an interpretation.
+not depend on an interpretation. This counts named local operations in the tree. It does not
+charge the classical computation of continuations or the basis equivalences given to calls, so it
+is not a bound on running time.
 
 Paths include branches that are reached with weight zero, so both bounds are syntactic, and they
 hold against every interpretation and every runtime.
@@ -49,8 +51,8 @@ Counting one port at a time needs no decidable equality on ports.
 * `IsCostBound.mono` and `IsCostBound.bind` (costs add under sequencing).
 * `Quantum.QuantumRuntime.run_congr_of_isQueryBound`: two runtimes on the same register whose
   steps agree on every port with a nonzero budget run a program within that budget to the same
-  dependent subinstrument; `outcomeLaw_congr_of_isQueryBound`: from the same initial substate,
-  the outcome laws agree.
+  dependent subinstrument; `evalDist_congr_of_isQueryBound`: from the same initial substate,
+  the outcome distributions agree.
 -/
 
 public section
@@ -224,9 +226,13 @@ def isCostBoundAux (c : ∀ ⦃A : QReg⦄, L.Op A → ℕ) :
   | _, .liftBind (.prim o) k, n => c o ≤ n ∧ ∀ b, isCostBoundAux c (k (ULift.up b)) (n - c o)
   | _, .liftBind (.query _ _ _) k, n => ∀ r, isCostBoundAux c (k (ULift.up r)) n
 
-/-- **Cost bound.** Along every path of `x`, including paths reached with weight zero, the costs
-`c o` of the local operations add up to at most `n`. With `c o = 1` for every operation of a
-gate set, this bounds the number of gates. -/
+/-- Along every path of `x`, including branches reached with weight zero, the costs `c o`
+of the named local operations sum to at most `n`. With unit cost this bounds the number of
+local-operation nodes on each path.
+
+Oracle calls, their basis equivalences, and the classical computation of continuations
+are uncharged. This predicate is a syntactic local-operation budget, not an overall
+circuit-size or running-time bound. -/
 @[expose]
 def IsCostBound (c : ∀ ⦃A : QReg⦄, L.Op A → ℕ) (x : QuantumComp L spec X A) (n : ℕ) : Prop :=
   isCostBoundAux c x n
@@ -392,28 +398,27 @@ theorem run₂_congr_of_isQueryBound {D : QReg} {σ₁ σ₂ : SubState D}
     {s₁ s₂ : ∀ i, SubInstrument (spec.In i × D) (spec.Out i × D) (spec.Result i)}
     {x : QuantumComp₂ L spec A B α} {b : spec.Port → ℕ} (hx : x.IsQueryBound b)
     (hs : ∀ i, b i ≠ 0 → s₁ i = s₂ i) :
-    (QuantumRuntime.mk D σ₁ s₁).run₂ I x = (QuantumRuntime.mk D σ₂ s₂).run₂ I x :=
-  SubInstrument.toD_injective <| by
-    rw [toD_run₂, toD_run₂, run_congr_of_isQueryBound I hx hs]
+    (QuantumRuntime.mk D σ₁ s₁).run₂ I x = (QuantumRuntime.mk D σ₂ s₂).run₂ I x := by
+  rw [run₂_eq_comap, run₂_eq_comap, run_congr_of_isQueryBound I hx hs]
 
 /-- Two runtimes with the same initial substate whose steps agree on every port with a nonzero
-budget give every program within that budget the same outcome law. -/
-theorem outcomeLaw_congr_of_isQueryBound [MeasurableSpace (Σ u, X u)] {D : QReg}
+budget give every program within that budget the same outcome distribution. -/
+theorem evalDist_congr_of_isQueryBound [MeasurableSpace (Σ u, X u)] {D : QReg}
     {σ : SubState D} {s₁ s₂ : ∀ i, SubInstrument (spec.In i × D) (spec.Out i × D) (spec.Result i)}
     {x : QuantumComp L spec X A} {b : spec.Port → ℕ} (hx : x.IsQueryBound b)
     (hs : ∀ i, b i ≠ 0 → s₁ i = s₂ i) (ρ : SubState A) :
-    (QuantumRuntime.mk D σ s₁).outcomeLaw I x ρ = (QuantumRuntime.mk D σ s₂).outcomeLaw I x ρ :=
+    (QuantumRuntime.mk D σ s₁).evalDist I x ρ = (QuantumRuntime.mk D σ s₂).evalDist I x ρ :=
   congrArg (fun p ↦ DSubInstrument.outcomeMeasure p (ρ.prod σ))
     (run_congr_of_isQueryBound (σ₁ := σ) (σ₂ := σ) I hx hs)
 
 /-- Two runtimes with the same initial substate whose steps agree on every port with a nonzero
-budget give every fixed-register program within that budget the same outcome law. -/
-theorem outcomeLaw₂_congr_of_isQueryBound [MeasurableSpace α] {D : QReg} {σ : SubState D}
+budget give every fixed-register program within that budget the same outcome distribution. -/
+theorem evalDist₂_congr_of_isQueryBound [MeasurableSpace α] {D : QReg} {σ : SubState D}
     {s₁ s₂ : ∀ i, SubInstrument (spec.In i × D) (spec.Out i × D) (spec.Result i)}
     {x : QuantumComp₂ L spec A B α} {b : spec.Port → ℕ} (hx : x.IsQueryBound b)
     (hs : ∀ i, b i ≠ 0 → s₁ i = s₂ i) (ρ : SubState A) :
-    (QuantumRuntime.mk D σ s₁).outcomeLaw₂ I x ρ = (QuantumRuntime.mk D σ s₂).outcomeLaw₂ I x ρ :=
-  congrArg (fun p ↦ SubInstrument.outcomeMeasure p (ρ.prod σ))
+    (QuantumRuntime.mk D σ s₁).evalDist₂ I x ρ = (QuantumRuntime.mk D σ s₂).evalDist₂ I x ρ :=
+  congrArg (fun p ↦ DSubInstrument.outcomeMeasure p (ρ.prod σ))
     (run₂_congr_of_isQueryBound (σ₁ := σ) (σ₂ := σ) I hx hs)
 
 end QuantumRuntime

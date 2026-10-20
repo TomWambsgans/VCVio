@@ -204,10 +204,9 @@ theorem _root_.Quantum.SubInstrument.posSemidef_one_sub_sum_of_branch_eq_conj {A
 noncomputable def ctrlStep {α : Type*} (K₀ K₁ : α → Matrix (O × D) (J × D) ℂ)
     (h₀ : ∀ s : Finset α, (1 - ∑ r ∈ s, (K₀ r)ᴴ * K₀ r).PosSemidef)
     (h₁ : ∀ s : Finset α, (1 - ∑ r ∈ s, (K₁ r)ᴴ * K₁ r).PosSemidef) :
-    SubInstrument (J × (D × Bool)) (O × (D × Bool)) α where
-  branch r := MatrixMap.conj (ctrl (K₀ r) (K₁ r))
-  isCP_branch _ := MatrixMap.isCP_conj _
-  isTNI_sum s := by
+    SubInstrument (J × (D × Bool)) (O × (D × Bool)) α :=
+  SubInstrument.ofIsTNISum (fun r ↦ MatrixMap.conj (ctrl (K₀ r) (K₁ r)))
+    (fun _ ↦ MatrixMap.isCP_conj _) fun s ↦ by
     rw [← Finset.sum_coe_sort s]
     refine MatrixMap.isTNI_sum_conj_iff.mpr ?_
     rw [Finset.sum_coe_sort s (fun r ↦ (ctrl (K₀ r) (K₁ r))ᴴ * ctrl (K₀ r) (K₁ r))]
@@ -504,7 +503,7 @@ theorem tsum_dist_queryStep_le (i : spec.Port) (E : QReg) (ℓ : A ≃ spec.In i
     intro r
     rw [MatrixMap.mul_kronecker_one, MatrixMap.conj_mul, LinearMap.comp_apply,
       ← MatrixMap.amplify_conj (seld (spec.In i)), ← MatrixMap.amplify_conj (W i r),
-      branch_frame_apply, hW, hΓm]
+      DSubInstrument.branch_frame_apply, hW, hΓm]
     simp only [conj_seld, hdin]
   rw [add_comm]
   refine (rpow_inv_two_tsum_le_of_le_add (t := fun r ↦ branchDist
@@ -565,7 +564,7 @@ theorem rpow_inv_two_tsum_dist_run_le (x : QuantumComp L spec X A)
             (((ctrlRuntime σ hU hW).queryStep i E ℓ).branch r Γ)) := fun p ↦ by
       rw [run_queryBind, DSubInstrument.branch_bind_apply]
       exact branchDist_tsum
-        (((SubInstrument.toD ((ctrlRuntime σ hU hW).queryStep i E ℓ)).isCPTNIFamily.comp_eval
+        ((((ctrlRuntime σ hU hW).queryStep i E ℓ).isCPTNIFamily.comp_eval
         (fun r ↦ ((ctrlRuntime σ hU hW).run I (k r)).isCPTNIFamily) p).summable_apply Γ)
         fun r ↦ ((ctrlRuntime σ hU hW).run I (k r)).posSemidef_branch_apply p (hΓr r)
     have hsel : ∀ r, MatrixMap.conj (sel (QReg.of (spec.Out i × E)) false)
@@ -726,12 +725,12 @@ weights of `U - W` on the inputs of the calls of the run against the first runti
 theorem rpow_inv_two_outcomeLawWith_le {γ : Type*} [MeasurableSpace γ]
     (x : QuantumComp L spec X A) (ρ : SubState A) (f : (Σ u, X u) → γ) {s : Set γ}
     (hs : MeasurableSet s) :
-    (QuantumRuntime.mk D σ₀ s₀).outcomeLawWith I x ρ f s ^ (2⁻¹ : ℝ) ≤
-      (QuantumRuntime.mk D σ₀ s₁).outcomeLawWith I x ρ f s ^ (2⁻¹ : ℝ) +
+    (QuantumRuntime.mk D σ₀ s₀).evalDistMap I x ρ f s ^ (2⁻¹ : ℝ) ≤
+      (QuantumRuntime.mk D σ₀ s₁).evalDistMap I x ρ f s ^ (2⁻¹ : ℝ) +
         ∑' j, (QuantumRuntime.mk D σ₀ s₀).queryWeight I (krausWeight fun i r ↦ U i r - W i r) x
           (ρ.matrix ⊗ₖ σ₀.matrix) j ^ (2⁻¹ : ℝ) := by
   classical
-  rw [outcomeLawWith_apply _ _ _ _ _ hs, outcomeLawWith_apply _ _ _ _ _ hs]
+  rw [evalDistMap_apply _ _ _ _ _ hs, evalDistMap_apply _ _ _ _ _ hs]
   simp only [matrix_jointPost, ofReal_trace_mul_indicator f s]
   exact rpow_inv_two_tsum_trace_conj_run_le I σ₀ σ₀ hU hW x _
     (posSemidef_one_sub_indicator f s) (ρ.prod σ₀).posSemidef
@@ -740,12 +739,12 @@ theorem rpow_inv_two_outcomeLawWith_le {γ : Type*} [MeasurableSpace γ]
 theorem rpow_inv_two_outcomeLawWith_le' {γ : Type*} [MeasurableSpace γ]
     (x : QuantumComp L spec X A) (ρ : SubState A) (f : (Σ u, X u) → γ) {s : Set γ}
     (hs : MeasurableSet s) :
-    (QuantumRuntime.mk D σ₀ s₁).outcomeLawWith I x ρ f s ^ (2⁻¹ : ℝ) ≤
-      (QuantumRuntime.mk D σ₀ s₀).outcomeLawWith I x ρ f s ^ (2⁻¹ : ℝ) +
+    (QuantumRuntime.mk D σ₀ s₁).evalDistMap I x ρ f s ^ (2⁻¹ : ℝ) ≤
+      (QuantumRuntime.mk D σ₀ s₀).evalDistMap I x ρ f s ^ (2⁻¹ : ℝ) +
         ∑' j, (QuantumRuntime.mk D σ₀ s₀).queryWeight I (krausWeight fun i r ↦ U i r - W i r) x
           (ρ.matrix ⊗ₖ σ₀.matrix) j ^ (2⁻¹ : ℝ) := by
   classical
-  rw [outcomeLawWith_apply _ _ _ _ _ hs, outcomeLawWith_apply _ _ _ _ _ hs]
+  rw [evalDistMap_apply _ _ _ _ _ hs, evalDistMap_apply _ _ _ _ _ hs]
   simp only [matrix_jointPost, ofReal_trace_mul_indicator f s]
   exact rpow_inv_two_tsum_trace_conj_run_le' I σ₀ σ₀ hU hW x _
     (posSemidef_one_sub_indicator f s) (ρ.prod σ₀).posSemidef
@@ -758,8 +757,8 @@ theorem rpow_inv_two_outcomeLawWith_le_of_isQueryBound {γ : Type*} [MeasurableS
     {x : QuantumComp L spec X A} {b : spec.Port → ℕ} (hx : x.IsQueryBound b)
     (t : Finset spec.Port) (ht : ∀ i ∉ t, b i = 0) (ρ : SubState A) (f : (Σ u, X u) → γ)
     {s : Set γ} (hs : MeasurableSet s) :
-    (QuantumRuntime.mk D σ₀ s₀).outcomeLawWith I x ρ f s ^ (2⁻¹ : ℝ) ≤
-      (QuantumRuntime.mk D σ₀ s₁).outcomeLawWith I x ρ f s ^ (2⁻¹ : ℝ) +
+    (QuantumRuntime.mk D σ₀ s₀).evalDistMap I x ρ f s ^ (2⁻¹ : ℝ) ≤
+      (QuantumRuntime.mk D σ₀ s₁).evalDistMap I x ρ f s ^ (2⁻¹ : ℝ) +
         (((∑ i ∈ t, b i : ℕ) : ℝ≥0∞) * ∑' i, (∑' r, ENNReal.ofReal (‖U i r - W i r‖ ^ 2)) *
           (QuantumRuntime.mk D σ₀ s₀).queryMass I x (ρ.matrix ⊗ₖ σ₀.matrix) i) ^ (2⁻¹ : ℝ) := by
   refine (rpow_inv_two_outcomeLawWith_le I σ₀ hU hW x ρ f hs).trans (add_le_add le_rfl ?_)

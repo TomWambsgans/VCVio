@@ -1,5 +1,9 @@
 module  -- shake: keep-all --deprecated_module: ignore
 
+public import VCVio.CryptoFoundations.AKE.UAKE.Defs
+public import VCVio.CryptoFoundations.AKE.UAKE.Party
+public import VCVio.CryptoFoundations.AKE.UAKE.Runtime
+public import VCVio.CryptoFoundations.AKE.UAKE.Transcript
 public import VCVio.CryptoFoundations.AsymmEncAlg.Defs
 public import VCVio.CryptoFoundations.AsymmEncAlg.INDCCA
 public import VCVio.CryptoFoundations.AsymmEncAlg.INDCPA
@@ -56,6 +60,23 @@ public import VCVio.CryptoFoundations.FujisakiOkamoto.Defs
 public import VCVio.CryptoFoundations.FujisakiOkamoto.TTransform
 public import VCVio.CryptoFoundations.FujisakiOkamoto.UTransform
 public import VCVio.CryptoFoundations.GPVHashAndSign
+public import VCVio.CryptoFoundations.GPVHashAndSign.AppendQuery
+public import VCVio.CryptoFoundations.GPVHashAndSign.Basic
+public import VCVio.CryptoFoundations.GPVHashAndSign.CollisionTelescope
+public import VCVio.CryptoFoundations.GPVHashAndSign.CombinedHandler
+public import VCVio.CryptoFoundations.GPVHashAndSign.EmbedIndex
+public import VCVio.CryptoFoundations.GPVHashAndSign.Factorization
+public import VCVio.CryptoFoundations.GPVHashAndSign.FlagHandlers
+public import VCVio.CryptoFoundations.GPVHashAndSign.GameIdentification
+public import VCVio.CryptoFoundations.GPVHashAndSign.GameRuns
+public import VCVio.CryptoFoundations.GPVHashAndSign.MinEntropy
+public import VCVio.CryptoFoundations.GPVHashAndSign.Reservoir
+public import VCVio.CryptoFoundations.GPVHashAndSign.SamplerTransport
+public import VCVio.CryptoFoundations.GPVHashAndSign.Security
+public import VCVio.CryptoFoundations.GPVHashAndSign.TapeFactorization
+public import VCVio.CryptoFoundations.GPVHashAndSign.TrapCount
+public import VCVio.CryptoFoundations.GPVHashAndSign.TrapProjection
+public import VCVio.CryptoFoundations.GPVHashAndSign.VerificationBridge
 public import VCVio.CryptoFoundations.HardnessAssumptions.CollisionResistance
 public import VCVio.CryptoFoundations.HardnessAssumptions.DiffieHellman
 public import VCVio.CryptoFoundations.HardnessAssumptions.EntropySmoothing
@@ -121,6 +142,7 @@ public import VCVio.CryptoFoundations.MerkleTree.Inductive.Extractability
 public import VCVio.CryptoFoundations.MerkleTree.Inductive.Extractor
 public import VCVio.CryptoFoundations.MerkleTree.Inductive.QueryBound
 public import VCVio.CryptoFoundations.MerkleTree.Inductive.Uniqueness
+public import VCVio.CryptoFoundations.MerkleTree.Instability
 public import VCVio.CryptoFoundations.MerkleTree.MultiExtractability.DelayedObservation
 public import VCVio.CryptoFoundations.MerkleTree.MultiExtractability.Endgame
 public import VCVio.CryptoFoundations.MerkleTree.MultiExtractability.Evolution
@@ -274,6 +296,8 @@ public import VCVio.OracleComp.QueryTracking.CountingOracle.Core
 public import VCVio.OracleComp.QueryTracking.Enforcement
 public import VCVio.OracleComp.QueryTracking.ExpectedQueryCount
 public import VCVio.OracleComp.QueryTracking.HandlerSimp
+public import VCVio.OracleComp.QueryTracking.Instability.Basic
+public import VCVio.OracleComp.QueryTracking.Instability.Collision
 public import VCVio.OracleComp.QueryTracking.Iter
 public import VCVio.OracleComp.QueryTracking.ListCache
 public import VCVio.OracleComp.QueryTracking.LoggingOracle.Core
@@ -416,6 +440,11 @@ public import VCVio.Quantum.Oracle.Emulated
 public import VCVio.Quantum.Oracle.EmulatedTensor
 public import VCVio.Quantum.Oracle.Model
 public import VCVio.Quantum.Oracle.Unitary
+public import VCVio.Quantum.Pure.Instrument
+public import VCVio.Quantum.Pure.Norm
+public import VCVio.Quantum.Pure.State
+public import VCVio.Quantum.Pure.Tensor
+public import VCVio.Quantum.Pure.Vector
 public import VCVio.Quantum.Register
 public import VCVio.Quantum.Semantics
 public import VCVio.Quantum.SubInstrument
