@@ -104,6 +104,22 @@ end DeferredFillDraw
 
 /-! ## Charged hazards -/
 
+/-- Two charged draws out of one state: the disjunction is charged to the sum of the
+potentials. -/
+private theorem exists_charge_or {α : Type} [SampleableType α]
+    {P₁ P₂ : RelabelState pub X K R → Prop} {Φ₁ Φ₂ : RelabelState pub X K R → ℝ≥0∞}
+    {st : RelabelState pub X K R} (f : α → RelabelState pub X K R)
+    (h₁ : ∃ w : ℝ≥0∞, Pr{let u ← $ᵗ α}[P₁ (f u)] ≤ w ∧ ∀ u, w + Φ₁ st ≤ Φ₁ (f u))
+    (h₂ : ∃ w : ℝ≥0∞, Pr{let u ← $ᵗ α}[P₂ (f u)] ≤ w ∧ ∀ u, w + Φ₂ st ≤ Φ₂ (f u)) :
+    ∃ w : ℝ≥0∞, Pr{let u ← $ᵗ α}[P₁ (f u) ∨ P₂ (f u)] ≤ w ∧
+      ∀ u, w + (Φ₁ + Φ₂) st ≤ (Φ₁ + Φ₂) (f u) := by
+  obtain ⟨w₁, hw₁, hp₁⟩ := h₁
+  obtain ⟨w₂, hw₂, hp₂⟩ := h₂
+  refine ⟨w₁ + w₂, (prEvent_or_le _ _ _).trans (add_le_add hw₁ hw₂), fun u ↦ ?_⟩
+  calc w₁ + w₂ + (Φ₁ + Φ₂) st = (w₁ + Φ₁ st) + (w₂ + Φ₂ st) := by
+        simp only [Pi.add_apply]; ring
+    _ ≤ _ := add_le_add (hp₁ u) (hp₂ u)
+
 section Charged
 
 variable (G : CanonicalGraph pub X K R) [DecidableEq ι] [DecidableEq X] [DecidableEq K]
@@ -140,20 +156,10 @@ theorem IsCharged.or_add {P₁ P₂ : RelabelState pub X K R → Prop}
     {Φ₁ Φ₂ : RelabelState pub X K R → ℝ≥0∞} (h₁ : G.IsCharged P₁ Φ₁) (h₂ : G.IsCharged P₂ Φ₂) :
     G.IsCharged (fun st ↦ P₁ st ∨ P₂ st) (Φ₁ + Φ₂) where
   mono := h₁.mono.add h₂.mono
-  cell st c hst hc := by
-    obtain ⟨w₁, hw₁, hp₁⟩ := h₁.cell st c (fun h ↦ hst (.inl h)) hc
-    obtain ⟨w₂, hw₂, hp₂⟩ := h₂.cell st c (fun h ↦ hst (.inr h)) hc
-    refine ⟨w₁ + w₂, (prEvent_or_le _ _ _).trans (add_le_add hw₁ hw₂), fun u ↦ ?_⟩
-    calc w₁ + w₂ + (Φ₁ + Φ₂) st = (w₁ + Φ₁ st) + (w₂ + Φ₂ st) := by
-          simp only [Pi.add_apply]; ring
-      _ ≤ _ := add_le_add (hp₁ u) (hp₂ u)
-  pub st t hst ht hn := by
-    obtain ⟨w₁, hw₁, hp₁⟩ := h₁.pub st t (fun h ↦ hst (.inl h)) ht hn
-    obtain ⟨w₂, hw₂, hp₂⟩ := h₂.pub st t (fun h ↦ hst (.inr h)) ht hn
-    refine ⟨w₁ + w₂, (prEvent_or_le _ _ _).trans (add_le_add hw₁ hw₂), fun u ↦ ?_⟩
-    calc w₁ + w₂ + (Φ₁ + Φ₂) st = (w₁ + Φ₁ st) + (w₂ + Φ₂ st) := by
-          simp only [Pi.add_apply]; ring
-      _ ≤ _ := add_le_add (hp₁ u) (hp₂ u)
+  cell st c hst hc := exists_charge_or (fun u ↦ (st.1, st.2.cacheQuery c u))
+    (h₁.cell st c (fun h ↦ hst (.inl h)) hc) (h₂.cell st c (fun h ↦ hst (.inr h)) hc)
+  pub st t hst ht hn := exists_charge_or (fun u ↦ (st.1.cacheQuery t u, st.2))
+    (h₁.pub st t (fun h ↦ hst (.inl h)) ht hn) (h₂.pub st t (fun h ↦ hst (.inr h)) ht hn)
 
 variable {P : RelabelState pub X K R → Prop} {Φ : RelabelState pub X K R → ℝ≥0∞}
 
@@ -564,34 +570,19 @@ private theorem exists_pub_charge [∀ t, SampleableType (pub.Range t)]
 
 end PublicMiss
 
-/-! ## The deferred game and the cell oracle charge the potential -/
+/-! ## The joint potential charges conflicts and target collisions -/
 
 section Steps
 
-variable (nk : G.NodeKeys) [DecidableEq X] [DecidableEq K] [SampleableType R]
+variable (nk : G.NodeKeys) [DecidableEq ι] [DecidableEq X] [DecidableEq K] [SampleableType R]
   [∀ t, SampleableType (pub.Range t)]
 
 /-- Conflicts and target collisions at node keys are charged to the joint potential. -/
-theorem isCharged [DecidableEq ι] :
+theorem isCharged :
     G.IsCharged (fun st ↦ G.Conflict st ∨ nk.TCHazard st) nk.potential where
   mono := potential_mono
   cell _ _ hst hc := exists_cell_charge hst hc
   pub _ _ hst ht hn := exists_pub_charge hst ht hn
-
-/-- The cell oracle charges conflicts and target collisions at node keys to the joint
-potential. -/
-theorem isPotentialStep_cellImpl :
-    IsPotentialStep (RelabelState.cellImpl (pub := pub) (X := X) (K := K) (R := R))
-      (fun st ↦ G.Conflict st ∨ nk.TCHazard st) nk.potential := by
-  classical
-  exact nk.isCharged.isPotentialStep_cellImpl
-
-/-- The deferred game charges conflicts and target collisions at node keys to the joint
-potential. -/
-theorem isPotentialStep_deferredImpl [DecidableEq ι] :
-    IsPotentialStep G.deferredImpl (fun s ↦ G.Conflict s.1 ∨ nk.TCHazard s.1)
-      (fun s ↦ nk.potential s.1) :=
-  nk.isCharged.isPotentialStep_deferredImpl
 
 end Steps
 
