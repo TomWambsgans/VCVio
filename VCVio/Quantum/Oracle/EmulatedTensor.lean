@@ -391,8 +391,8 @@ theorem run_tensorToCoherent (x : QuantumComp LocalSig.instruments.{v} (tensSpec
 theorem outcomeLawWith_tensorToCoherent
     (x : QuantumComp LocalSig.instruments.{v} (tensSpec In) W A) {γ : Type*} [MeasurableSpace γ]
     (ρ : SubState A) (f : (Σ u, W u) → γ) :
-    E.coherent.toRuntime.outcomeLawWith .instruments x.tensorToCoherent ρ f =
-      E.tensor.toRuntime.outcomeLawWith .instruments x ρ f :=
+    E.coherent.toRuntime.evalDistMap .instruments x.tensorToCoherent ρ f =
+      E.tensor.toRuntime.evalDistMap .instruments x ρ f :=
   E.tensor.outcomeLawWith_embedCalls (tensorEmbedding In) (E.coherent.unitary ())
     E.coherent_compress_tensorEmbedding x ρ f
 
@@ -500,8 +500,8 @@ theorem run_coherentToTensor (x : QuantumComp LocalSig.instruments.{v} (cohSpec 
 theorem outcomeLawWith_coherentToTensor
     (x : QuantumComp LocalSig.instruments.{v} (cohSpec In) W A) {γ : Type*} [MeasurableSpace γ]
     (ρ : SubState A) (f : (Σ u, W u) → γ) :
-    E.tensor.toRuntime.outcomeLawWith .instruments x.coherentToTensor ρ f =
-      E.coherent.toRuntime.outcomeLawWith .instruments x ρ f :=
+    E.tensor.toRuntime.evalDistMap .instruments x.coherentToTensor ρ f =
+      E.coherent.toRuntime.evalDistMap .instruments x ρ f :=
   E.coherent.outcomeLawWith_embedCalls (coherentEmbedding In) (E.tensor.unitary ())
     E.tensor_compress_coherentEmbedding x ρ f
 
