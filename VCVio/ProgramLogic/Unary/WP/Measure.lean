@@ -63,20 +63,19 @@ noncomputable scoped instance (priority := 1100) instWP [LawfulMonad m] :
   MAlgOrdered.toWPMonad
 
 /-- Select the expectation interpretation before core's direct concrete-monad instances. -/
-noncomputable scoped instance (priority := 1100) wpInst [LawfulMonad m] {α : Type} :
+noncomputable scoped instance (priority := 1100) wpInst {α : Type} :
     WP (m α) α ENNReal EStack⟨⟩ :=
-  (instWP m).toWP α
+  MAlgOrdered.toWP α
 
-variable {m} [LawfulMonad m] {α : Type}
+variable {m} {α : Type}
 
-omit [LawfulMonad m] in
 /-- The quantitative algebra integrates its actual nonnegative output. -/
 @[simp]
 theorem μ_eq_lintegral (mx : m ENNReal) :
     MAlgOrdered.μ mx = ∫⁻ x, x ∂𝒟[mx] := rfl
 
 /-- An ordered expectation WP integrates its assertion-valued observation. -/
-theorem wp_eq_lintegral_map (mx : m α) (post : α → ENNReal) :
+theorem wp_eq_lintegral_map [LawfulMonad m] (mx : m α) (post : α → ENNReal) :
     wp mx post Lean.Order.bot = ∫⁻ y, y ∂𝒟[post <$> mx] := by
   change MAlgOrdered.μ (mx >>= fun a => pure (post a)) = _
   rw [bind_pure_comp]
