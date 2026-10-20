@@ -275,7 +275,7 @@ theorem prEvent_saltSeq_le (c : ℕ → Finset Salt) (n : ℕ) :
   induction n with
   | zero => simp [saltSeq]
   | succ n ih =>
-      rw [saltSeq, Finset.sum_range_succ, add_comm]
+      rw [saltSeq, prEvent_bind, Finset.sum_range_succ, add_comm]
       refine le_trans (prEvent_bind_le_prEvent_add_of_support (m := ProbComp) _ _ (· ∈ c n)
         (· = true) (ε := ∑ j ∈ Finset.range n, ((c j).card : ℝ≥0∞) / (Fintype.card Salt : ℝ≥0∞))
         ?_) ?_
@@ -360,7 +360,7 @@ theorem prEvent_saltSeq_succ (c : ℕ → Finset Salt) (n : ℕ) :
   set q : ℝ≥0∞ := Pr{let x ← saltSeq (Salt := Salt) c n}[x = true] with hq
   -- Expand the head draw.
   conv_lhs => rw [saltSeq]
-  rw [OracleComp.prEvent_bind_eq_tsum]
+  rw [prEvent_bind, OracleComp.prEvent_bind_eq_tsum]
   -- Per-`r` inner probability: `1` if `r ∈ c n`, else `q`.
   have hinner : ∀ r : Salt,
       Pr{let x ← (saltSeq (Salt := Salt) c n >>=
