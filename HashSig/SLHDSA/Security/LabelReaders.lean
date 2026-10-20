@@ -261,19 +261,6 @@ theorem childVals_eq_some_of_chain? (hd : core.KeyDiscipline vp) {adrs : Adrs} {
 
 /-! ## XMSS -/
 
-/-- The address of the XMSS node at height `z` and index `t` of the tree at `adrs`; at height `0`
-it is the WOTS+ public-key compression of leaf `t`. -/
-private def xmssCellAdrs (adrs : Adrs) : ℕ → ℕ → Adrs
-  | 0, t => wotsPkAdrs (wotsLeafAdrs adrs t)
-  | z + 1, t => xmssNodeAdrs adrs (z + 1) t
-
-private theorem childAdrs_xmssNodeAdrs_succ (adrs : Adrs) (z t : ℕ) :
-    childAdrs vp (xmssCellAdrs adrs (z + 1) t) =
-      [.inr (xmssCellAdrs adrs z (2 * t)), .inr (xmssCellAdrs adrs z (2 * t + 1))] := by
-  cases z with
-  | zero => exact childAdrs_xmssNodeAdrs_one vp adrs t
-  | succ z => exact childAdrs_xmssNodeAdrs vp (by omega) adrs t
-
 private theorem cellValue_of_xmssNodeWithSecret? (hd : core.KeyDiscipline vp) {adrs : Adrs} :
     ∀ {z t : ℕ} {v : core.Y}, xmssCellAdrs adrs z t ∈ constructionAddresses vp →
       xmssNodeWithSecret? core 𝒞[e, pkSeed, s, st] 𝒫[e, pkSeed, s] pkSeed adrs z t = some v →
@@ -290,7 +277,7 @@ private theorem cellValue_of_xmssNodeWithSecret? (hd : core.KeyDiscipline vp) {a
       (PerfectMerkleTree.simulateQ_merkleRootM_succ_eq_some_iff _ _ _ z t).1 h
     rw [xmssNodeHashWith, simulateQ_toPartialImpl_h] at hv
     exact (merge_fst_thash_of_forall₂ hd hmem (forall₂_childAdrs_succ
-      (childAdrs_xmssNodeAdrs_succ adrs z t) (cellValue_of_xmssNodeWithSecret? hd) hmem hl
+      (childAdrs_xmssCellAdrs_succ vp adrs z t) (cellValue_of_xmssNodeWithSecret? hd) hmem hl
       hr)).symm.trans hv
 
 /-- **XMSS root.** If the honest XMSS root at `adrs` reads `v`, `v` is the drawn label of the
@@ -383,7 +370,7 @@ theorem exists_childVals_eq_some_of_honestEntry (hd : core.KeyDiscipline vp)
       (slhGraph core pkSeed).pt κ vs = .inl t := by
   refine match h with
   | .xmssNode adrs (z + 1) i l r _ hmem hl hr => ⟨_, _, childVals_of_forall₂ hd hmem
-      (forall₂_childAdrs_succ (cell := xmssCellAdrs adrs) (childAdrs_xmssNodeAdrs_succ adrs z i)
+      (forall₂_childAdrs_succ (cell := xmssCellAdrs adrs) (childAdrs_xmssCellAdrs_succ vp adrs z i)
         (cellValue_of_xmssNodeWithSecret? hd) hmem hl hr), rfl⟩
   | .wotsPk adrs tops hmem htops =>
       ⟨_, _, childVals_of_forall₂ hd hmem (forall₂_childAdrs_wotsPkAdrs hd hmem htops), rfl⟩

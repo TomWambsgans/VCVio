@@ -140,6 +140,21 @@ theorem childAdrs_xmssNodeAdrs {h : ℕ} (hh : 1 < h) (b : Adrs) (i : ℕ) :
       [.inr (xmssNodeAdrs b (h - 1) (2 * i)), .inr (xmssNodeAdrs b (h - 1) (2 * i + 1))] := by
   simp only [childAdrs, xmssNodeAdrs_eq, hh.ne', ↓reduceIte]
 
+/-- The address of node `(h, i)` of the XMSS tree at `b`: the WOTS+ public-key compression of
+leaf `i` at height `0`, and the tree node above. -/
+@[expose] def xmssCellAdrs (b : Adrs) : ℕ → ℕ → Adrs
+  | 0, i => wotsPkAdrs (wotsLeafAdrs b i)
+  | h + 1, i => xmssNodeAdrs b (h + 1) i
+
+/-- The children of XMSS node `(h + 1, i)` are the addresses of nodes `(h, 2 i)` and
+`(h, 2 i + 1)`. -/
+theorem childAdrs_xmssCellAdrs_succ (b : Adrs) (h i : ℕ) :
+    childAdrs vp (xmssCellAdrs b (h + 1) i) =
+      [.inr (xmssCellAdrs b h (2 * i)), .inr (xmssCellAdrs b h (2 * i + 1))] := by
+  rcases h with _ | h
+  · exact childAdrs_xmssNodeAdrs_one vp b i
+  · exact childAdrs_xmssNodeAdrs vp (by omega) b i
+
 /-- A FORS leaf has its secret as its child. -/
 theorem childAdrs_forsNodeAdrs_zero (b : Adrs) (t : ℕ) :
     childAdrs vp (forsNodeAdrs b 0 t) = [.inl (forsSkAdrs b t)] := by

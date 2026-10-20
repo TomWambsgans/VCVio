@@ -42,23 +42,13 @@ variable {vp : ValidatedParams} (core : CorePrimitives vp.params)
 
 /-! ## Cells of the trees -/
 
-/-- The address whose cell holds node `(h, i)` of the XMSS tree at `adrs`: the WOTS+ public key
-of leaf `i` at height `0`, and the tree node above. -/
-@[expose] def xmssCellAdrs (adrs : Adrs) : ℕ → ℕ → Adrs
-  | 0, i => wotsPkAdrs (wotsLeafAdrs adrs i)
-  | h + 1, i => xmssNodeAdrs adrs (h + 1) i
-
 /-- The structural children of XMSS node `(h + 1, i)` are the cells of nodes `(h, 2 i)` and
 `(h, 2 i + 1)`. -/
 theorem map_childCell_childAdrs_xmssNodeAdrs (adrs : Adrs) (h i : ℕ) :
     (childAdrs vp (xmssNodeAdrs adrs (h + 1) i)).map (childCell core) =
       [childCell core (.inr (xmssCellAdrs adrs h (2 * i))),
-        childCell core (.inr (xmssCellAdrs adrs h (2 * i + 1)))] := by
-  rcases h with _ | h
-  · rw [childAdrs_xmssNodeAdrs_one]
-    rfl
-  · rw [childAdrs_xmssNodeAdrs vp (by omega)]
-    rfl
+        childCell core (.inr (xmssCellAdrs adrs h (2 * i + 1)))] :=
+  congrArg (List.map _) (childAdrs_xmssCellAdrs_succ vp adrs h i)
 
 /-- The structural children of FORS node `(h + 1, i)` are the cells of nodes `(h, 2 i)` and
 `(h, 2 i + 1)`. -/
