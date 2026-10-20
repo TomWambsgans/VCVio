@@ -139,6 +139,65 @@ open Matrix
 open OracleSpec
 open scoped Matrix.Norms.L2Operator Kronecker ComplexConjugate
 
+namespace Matrix
+
+/-- Complete the rows and columns that change a label, then localize the completion to
+invariant blocks. The resulting approximation preserves the labels. -/
+theorem exists_pinch_eq_sub_sq_le_of_completion
+    {n κ Λ : Type*} [Fintype n] [DecidableEq n] [DecidableEq κ]
+    (β : n → κ) (γ : n → Λ) (bad : n → Prop) [DecidablePred bad]
+    (A : Matrix n n ℂ) (d : n → ℂ) {c : ℝ} (hc : 0 ≤ c)
+    (hrow : ‖diagonal (fun i ↦ if bad i then (1 : ℂ) else 0) * (A - diagonal d)‖ ≤ √c)
+    (hcol : ‖(A - diagonal d) * diagonal (fun i ↦ if bad i then (1 : ℂ) else 0)‖ ≤ √c)
+    (hblock : ∀ i j, A i j ≠ 0 → i ≠ j → γ i = γ j)
+    (hgood : ∀ i j, γ i = γ j → i ≠ j → ¬bad i → ¬bad j → β i = β j) :
+    ∃ S, pinch β S = S ∧ ‖A - S‖ ^ 2 ≤ c := by
+  classical
+  let P : Matrix n n ℂ := diagonal (fun i ↦ if bad i then 1 else 0)
+  have hP : IsStarProjection P := by
+    refine ⟨?_, ?_⟩
+    · dsimp [P]
+      rw [IsIdempotentElem, diagonal_mul_diagonal]
+      congr 1
+      funext i
+      split_ifs <;> simp
+    · dsimp only [P]
+      rw [IsSelfAdjoint, star_eq_conjTranspose, diagonal_conjTranspose]
+      congr 1
+      funext i
+      split_ifs <;> simp_all
+  obtain ⟨T, hPT, hTP, hT⟩ := exists_completion hP hrow hcol
+  have hr : ∀ i j, bad i → T i j = (A - diagonal d) i j := by
+    intro i j hi
+    have h := congrFun (congrFun hPT i) j
+    simpa [P, diagonal_mul, hi] using h
+  have hl : ∀ i j, bad j → T i j = (A - diagonal d) i j := by
+    intro i j hj
+    have h := congrFun (congrFun hTP i) j
+    simpa [P, mul_diagonal, hj] using h
+  refine ⟨A - pinch γ T, ?_, ?_⟩
+  · rw [pinch_eq_self_iff]
+    intro i j hij
+    by_cases he : i = j
+    · simp [he]
+    rw [Matrix.sub_apply, pinch_apply] at hij
+    by_cases hg : γ i = γ j
+    · rw [ite_eq_left hg] at hij
+      have hi : ¬bad i := by
+        intro hi
+        simp [hr i j hi, Matrix.sub_apply, diagonal_apply_ne _ he] at hij
+      have hj : ¬bad j := by
+        intro hj
+        simp [hl i j hj, Matrix.sub_apply, diagonal_apply_ne _ he] at hij
+      exact hgood i j hg he hi hj
+    · rw [ite_eq_right hg, sub_zero] at hij
+      exact False.elim (hg (hblock i j hij he))
+  · rw [sub_sub_cancel]
+    exact (pow_le_pow_left₀ (norm_nonneg _) ((l2_opNorm_pinch_le γ T).trans hT) 2).trans_eq
+      (Real.sq_sqrt hc)
+
+end Matrix
+
 namespace Quantum
 
 /-! ## The row identity -/
@@ -520,29 +579,12 @@ theorem exists_pinch_eq_truncatedPhaseOracle_sub_sq_le [UniformAnswerMeasure (X 
     · rwa [conjTranspose_apply, star_ne_zero] at h
     · simpa only [conjTranspose_apply, norm_star] using
         (sum_norm_truncatedPhaseOracle_sub_phaseDiagonal_sq_le hχ hr hs u).2
-  -- complete, then pinch to the blocks of the active states
-  obtain ⟨T, hPT, hTP, hT⟩ := exists_completion hP hrow hcol
   obtain ⟨γ, hγ⟩ : ∃ γ : (X × AddChar Y ℂ) × Database X Y →
       ((X × AddChar Y ℂ) × Database X Y) ⊕ ((X × AddChar Y ℂ) × Database X Y),
       γ = fun m : (X × AddChar Y ℂ) × Database X Y ↦
         if m.1.2 ≠ 0 ∧ Database.size (Function.update m.2 m.1.1 none) < t then
           Sum.inl (m.1, Function.update m.2 m.1.1 none)
         else Sum.inr m := ⟨_, rfl⟩
-  refine ⟨truncatedPhaseOracle X Y t - pinch γ T, ?_, ?_⟩
-  swap
-  · rw [sub_sub_cancel]
-    have h := (l2_opNorm_pinch_le γ T).trans hT
-    calc ‖pinch γ T‖ ^ 2 ≤ √(6 * (Database.instability π t).toReal) ^ 2 :=
-          pow_le_pow_left₀ (norm_nonneg _) h 2
-      _ = 6 * (Database.instability π t).toReal := Real.sq_sqrt (by positivity)
-  have hTrow : ∀ i j, IsBad π t i → T i j = (truncatedPhaseOracle X Y t - phaseDiagonal X Y) i j :=
-    fun i j hb ↦ by
-      have h := congrFun (congrFun hPT i) j
-      rwa [badProjector_mul_apply, badProjector_mul_apply, ite_eq_left hb, ite_eq_left hb] at h
-  have hTcol : ∀ i j, IsBad π t j → T i j = (truncatedPhaseOracle X Y t - phaseDiagonal X Y) i j :=
-    fun i j hb ↦ by
-      have h := congrFun (congrFun hTP i) j
-      rwa [mul_badProjector_apply, mul_badProjector_apply, ite_eq_left hb, ite_eq_left hb] at h
   have hγeq : ∀ i j, γ i = γ j → i ≠ j →
       (i.1.2 ≠ 0 ∧ Database.size (Function.update i.2 i.1.1 none) < t) ∧
       (j.1.2 ≠ 0 ∧ Database.size (Function.update j.2 j.1.1 none) < t) ∧
@@ -553,21 +595,22 @@ theorem exists_pinch_eq_truncatedPhaseOracle_sub_sq_le [UniformAnswerMeasure (X 
     split_ifs at h with hi hj
     · exact ⟨hi, hj, Sum.inl_injective h⟩
     · exact absurd (Sum.inr_injective h) hne
-  rw [pinch_eq_self_iff]
-  intro i j hS
-  by_cases hij : i = j
-  · rw [hij]
-  rw [Matrix.sub_apply, pinch_apply] at hS
-  by_cases hg : γ i = γ j
-  · obtain ⟨hai, haj, hk⟩ := hγeq i j hg hij
-    rw [ite_eq_left hg] at hS
-    have hZ : phaseDiagonal X Y i j = 0 := by rw [phaseDiagonal, diagonal_apply_ne _ hij]
-    by_cases hbi : IsBad π t i
-    · rw [hTrow i j hbi, Matrix.sub_apply, sub_sub_cancel, hZ] at hS
-      exact absurd rfl hS
-    by_cases hbj : IsBad π t j
-    · rw [hTcol i j hbj, Matrix.sub_apply, sub_sub_cancel, hZ] at hS
-      exact absurd rfl hS
+  refine exists_pinch_eq_sub_sq_le_of_completion
+    (fun m ↦ π m.2) γ (IsBad π t) (truncatedPhaseOracle X Y t)
+    (fun m ↦ m.1.2 (m.2.lookup m.1.1)) (by positivity) hrow hcol ?_ ?_
+  · intro i j hS hij
+    have hk := phaseBlock_eq_of_truncatedPhaseOracle_ne_zero hS
+    by_cases haj : j.1.2 ≠ 0 ∧ Database.size (Function.update j.2 j.1.1 none) < t
+    · have hai : i.1.2 ≠ 0 ∧ Database.size (Function.update i.2 i.1.1 none) < t := by
+        obtain ⟨h₁, h₂⟩ := Prod.mk.inj hk
+        rw [h₂, h₁]
+        exact haj
+      rw [hγ]
+      dsimp only
+      rw [ite_eq_left hai, ite_eq_left haj, hk]
+    · exact False.elim (hij (eq_of_truncatedPhaseOracle_ne_zero hS haj))
+  · intro i j hg hij hbi hbj
+    obtain ⟨hai, haj, hk⟩ := hγeq i j hg hij
     have h₁ : π i.2 = π (Function.update i.2 i.1.1 none) := by
       by_contra h
       exact hbi ⟨hai.1, hai.2, h⟩
@@ -576,19 +619,6 @@ theorem exists_pinch_eq_truncatedPhaseOracle_sub_sq_le [UniformAnswerMeasure (X 
       exact hbj ⟨haj.1, haj.2, h⟩
     rw [h₁, h₂]
     exact congrArg (fun p ↦ π p.2) hk
-  · rw [ite_eq_right hg, sub_zero] at hS
-    exfalso
-    have hk := phaseBlock_eq_of_truncatedPhaseOracle_ne_zero hS
-    by_cases haj : j.1.2 ≠ 0 ∧ Database.size (Function.update j.2 j.1.1 none) < t
-    · have hai : i.1.2 ≠ 0 ∧ Database.size (Function.update i.2 i.1.1 none) < t := by
-        obtain ⟨h₁, h₂⟩ := Prod.mk.inj hk
-        rw [h₂, h₁]
-        exact haj
-      refine hg ?_
-      rw [hγ]
-      dsimp only
-      rw [ite_eq_left hai, ite_eq_left haj, hk]
-    · exact hij (eq_of_truncatedPhaseOracle_ne_zero hS haj)
 
 /-- **The label-preserving approximation.** There is an operator `S` on the joint register that
 preserves the label `π D` of the database with `‖O^(t) - S‖² ≤ 6 I(π, t)`. For the pinching of
