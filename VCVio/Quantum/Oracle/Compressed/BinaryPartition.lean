@@ -43,8 +43,6 @@ a separate theorem. For the commutator of [CDHZ, Theorem 5.4], the bound
 in `VCVio.Quantum.Oracle.Compressed.CommutatorSharp`) holds for every labelling, so no separate
 two-label statement is given here.
 
-[CDHZ]: A. Chiesa, Z. Di, Z. Hu and Y. Zheng, ePrint 2025/2166.
-
 ## Proof
 
 In the phase basis the cross block `P^(i) O_ph^(t) P^(j)` keeps the blocks of
@@ -57,6 +55,11 @@ norm of the block is at most `6 I`. For two labels, both `O^(t) - pinch O^(t)` a
 `[P^(i), O^(t)]` are sums of two cross blocks with orthogonal domains and orthogonal ranges, so
 their norms are at most the larger cross block (`Matrix.l2_opNorm_sub_pinch_le_max_bool`,
 `Matrix.l2_opNorm_labelProjector_commutator_le_max_bool`).
+
+## References
+
+* [CDHZ] A. Chiesa, Z. Di, Z. Hu and Y. Zheng, *How to Prove Post-Quantum Security for Succinct
+  Non-Interactive Reductions*, ePrint 2025/2166.
 -/
 
 public section
