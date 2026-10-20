@@ -66,6 +66,35 @@ class IsolationTests(unittest.TestCase):
                              "Extern/X.lean": "import Extern.Y\n"}, extern=True)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
+    def test_nested_lakefile_and_umbrella_chain(self):
+        for extern, target in ((False, "Interop.Hidden"), (True, "Extern.Hidden")):
+            for chained in (False, True):
+                with self.subTest(extern=extern, chained=chained):
+                    files = {"VCVio/lakefile.lean": f"module\npublic import {target}\n"}
+                    if chained:
+                        files["VCVio.lean"] = "module\npublic import VCVio.lakefile\n"
+                        files[target.replace(".", "/") + ".lean"] = "module\n"
+                    result = self.check(files, extern=extern)
+                    self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+                    self.assertIn(f"VCVio/lakefile.lean: forbidden import {target}",
+                                  result.stderr)
+
+    def test_algorithms_umbrella_forbidden_import(self):
+        result = self.check({
+            "VCVio/Algorithms.lean": "module\npublic import VCVio.OracleComp.OracleComp\n",
+            "VCVio/Algorithms/User.lean": "module\npublic import VCVio.Algorithms\n",
+        })
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("VCVio/Algorithms.lean: forbidden import VCVio.OracleComp.OracleComp",
+                      result.stderr)
+
+    def test_algorithms_umbrella_allowed_imports(self):
+        result = self.check({
+            "VCVio/Algorithms.lean": "module\npublic import VCVio.Algorithms.X\nimport Mathlib\n",
+            "VCVio/Algorithms/X.lean": "import ToMathlib\n",
+        })
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()
