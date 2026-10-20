@@ -452,6 +452,8 @@ public import VCVio.Quantum.Oracle.Comb
 public import VCVio.Quantum.Oracle.Compressed.Action
 public import VCVio.Quantum.Oracle.Compressed.Basic
 public import VCVio.Quantum.Oracle.Compressed.BinaryPartition
+public import VCVio.Quantum.Oracle.Compressed.CheckedRead
+public import VCVio.Quantum.Oracle.Compressed.CheckedReadBound
 public import VCVio.Quantum.Oracle.Compressed.CommutatorBound
 public import VCVio.Quantum.Oracle.Compressed.CommutatorSharp
 public import VCVio.Quantum.Oracle.Compressed.Consistency
