@@ -116,6 +116,7 @@ theorem encard_keyEntries_linkedProjKeys_le (hnm : vp.params.n ≤ vp.params.m)
   · simp [linkedProjKeys, linkedNode] at hk
   · trivial
   · simp [linkedProjKeys, linkedNode] at hk
+
 variable {pkSeed : (shakeCore vp).PkSeed} {s : (shakeCore vp).SkSeed × (shakeCore vp).SkPrf}
   {st : LabState (shakeCore vp)} {o : DeriveOutcome (shakeCore vp)}
 

@@ -67,38 +67,6 @@ theorem HiddenKept.trans {U : Bytes vp.params.m → Prop}
     HiddenKept core U st st₂ :=
   fun c hc ↦ (h₂ c hc).trans (h₁ c (hiddenCells_anti (fun _ h ↦ h) hle hc))
 
-/-! ## The queries of the forger and of verification -/
-
-variable (core) in
-/-- The sampling and public queries of the lab specification. -/
-@[expose] def IsAmbientLabQuery : (labSpec core).Domain → Prop
-  | .inl (.inl _) => True
-  | _ => False
-
-/-- Verification in the lab makes only sampling and public queries. -/
-theorem allQueriesSatisfy_labScheme_verify [SampleableType core.Y] [DecidableEq core.Y]
-    {pkSeed : core.PkSeed} (optRand : PublicKeyCore core → ProbComp core.Y)
-    (pk : PublicKeyCore core) (msg : List Byte) (sig : GeneralScheme.SignatureCore vp core) :
-    AllQueriesSatisfy ((labScheme core optRand pkSeed).verify pk msg sig)
-      (IsAmbientLabQuery core) :=
-  GeneralScheme.verifyInternalM_pred (AllQueriesSatisfy · (IsAmbientLabQuery core))
-    (fun _ ↦ allQueriesSatisfy_pure _ _) (fun _ _ ↦ allQueriesSatisfy_bind) core msg sig pk
-    (fun _ _ _ ↦ (allQueriesSatisfy_query_iff _ _).2 trivial)
-    ((allQueriesSatisfy_query_iff _ _).2 trivial)
-
-/-- The lab forger makes only sampling and public queries, besides its signing queries. -/
-theorem allQueriesSatisfy_labAdversary_main [SampleableType core.Y] [DecidableEq core.Y]
-    [SampleableType core.SkSeed] [SampleableType core.SkPrf] {pkSeed : core.PkSeed}
-    {e : core.SkSeed ≃ core.Y}
-    {optRand : PublicKeyCore core → ProbComp core.Y} {pkSeedDist : ProbComp core.PkSeed}
-    (adv : UnforgeableAdversary (romScheme core e optRand pkSeedDist)) (pk : PublicKeyCore core) :
-    AllQueriesSatisfy ((labAdversary core adv pkSeed).main pk)
-      (Sum.elim (IsAmbientLabQuery core) fun _ ↦ True) := by
-  rw [labAdversary, deriveAdversary, UnforgeableAdversary.mapOracles_mapOracles]
-  exact allQueriesSatisfy_mapOracles _ adv (fun _ ↦ by
-    simp only [QueryImpl.apply_compose, OracleSpec.withDerivationsLift]
-    exact (allQueriesSatisfy_query_iff _ _).2 trivial) pk
-
 /-! ## The root is no node's child -/
 
 variable (vp) in
@@ -149,7 +117,6 @@ theorem inr_rootAdrs_not_mem_childAdrs {a : Adrs} (ha : a ∈ constructionAddres
         List.not_mem_nil, or_false] at hb
       omega
 
-
 /-- **The root is no node's child**, under the key discipline. -/
 theorem inr_rootNode_not_mem_ch (hd : core.KeyDiscipline vp) (pkSeed : core.PkSeed)
     (κ : NodeKey core) :
@@ -166,6 +133,38 @@ theorem inr_rootNode_not_mem_ch (hd : core.KeyDiscipline vp) (pkSeed : core.PkSe
       (addressFacts_of_mem_constructionAddresses hd.canonicalAddressBounds
         rootAdrs_mem_constructionAddresses) hkey
     exact inr_rootAdrs_not_mem_childAdrs (nodeAdrs_mem_constructionAddresses core κ) hb
+
+/-! ## The queries of the forger and of verification -/
+
+variable (core) in
+/-- The sampling and public queries of the lab specification. -/
+@[expose] def IsAmbientLabQuery : (labSpec core).Domain → Prop
+  | .inl (.inl _) => True
+  | _ => False
+
+/-- Verification in the lab makes only sampling and public queries. -/
+theorem allQueriesSatisfy_labScheme_verify [SampleableType core.Y] [DecidableEq core.Y]
+    {pkSeed : core.PkSeed} (optRand : PublicKeyCore core → ProbComp core.Y)
+    (pk : PublicKeyCore core) (msg : List Byte) (sig : GeneralScheme.SignatureCore vp core) :
+    AllQueriesSatisfy ((labScheme core optRand pkSeed).verify pk msg sig)
+      (IsAmbientLabQuery core) :=
+  GeneralScheme.verifyInternalM_pred (AllQueriesSatisfy · (IsAmbientLabQuery core))
+    (fun _ ↦ allQueriesSatisfy_pure _ _) (fun _ _ ↦ allQueriesSatisfy_bind) core msg sig pk
+    (fun _ _ _ ↦ (allQueriesSatisfy_query_iff _ _).2 trivial)
+    ((allQueriesSatisfy_query_iff _ _).2 trivial)
+
+/-- The lab forger makes only sampling and public queries, besides its signing queries. -/
+theorem allQueriesSatisfy_labAdversary_main [SampleableType core.Y] [DecidableEq core.Y]
+    [SampleableType core.SkSeed] [SampleableType core.SkPrf] {pkSeed : core.PkSeed}
+    {e : core.SkSeed ≃ core.Y}
+    {optRand : PublicKeyCore core → ProbComp core.Y} {pkSeedDist : ProbComp core.PkSeed}
+    (adv : UnforgeableAdversary (romScheme core e optRand pkSeedDist)) (pk : PublicKeyCore core) :
+    AllQueriesSatisfy ((labAdversary core adv pkSeed).main pk)
+      (Sum.elim (IsAmbientLabQuery core) fun _ ↦ True) := by
+  rw [labAdversary, deriveAdversary, UnforgeableAdversary.mapOracles_mapOracles]
+  exact allQueriesSatisfy_mapOracles _ adv (fun _ ↦ by
+    simp only [QueryImpl.apply_compose, OracleSpec.withDerivationsLift]
+    exact (allQueriesSatisfy_query_iff _ _).2 trivial) pk
 
 variable [SampleableType core.Y] [DecidableEq core.Y] [SampleableType (Bytes vp.params.m)]
   [DecidableEq core.PkSeed] [DecidableEq core.AdrsKey] [DecidableEq core.SkPrf]

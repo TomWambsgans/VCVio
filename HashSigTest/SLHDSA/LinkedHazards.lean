@@ -9,6 +9,7 @@ module
 public import HashSig.SLHDSA.Security.LinkedHazards
 public import HashSigTest.SLHDSA.Target
 public import HashSigTest.SLHDSA.WeakKeyBound
+import all VCVio.OracleComp.QueryTracking.RandomOracle.ProjectedHazards
 
 /-!
 # The virtual hit and the honest input at a linked point, charged, checked

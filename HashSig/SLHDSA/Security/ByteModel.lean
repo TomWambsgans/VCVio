@@ -137,7 +137,7 @@ theorem toList_prefixBytes_of_le {n m : ℕ} (h : n ≤ m) (v : Bytes m) :
   toList_bytesOfList_of_le (by simpa using h)
 
 /-- For `n ≤ m`, an `m`-byte vector is its first `n` bytes and the remaining `m - n`. -/
-@[expose] def prefixDropEquiv {n m : ℕ} (hnm : n ≤ m) : Bytes m ≃ Bytes n × Bytes (m - n) where
+def prefixDropEquiv {n m : ℕ} (hnm : n ≤ m) : Bytes m ≃ Bytes n × Bytes (m - n) where
   toFun u := (prefixBytes n u, bytesOfList (m - n) (u.toList.drop n))
   invFun ab := bytesOfList m (ab.1.toList ++ ab.2.toList)
   left_inv u := by

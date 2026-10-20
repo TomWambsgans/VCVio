@@ -71,7 +71,7 @@ whose reading is the drawn label of `k`. -/
   ∃ t k ℓ v, pk.node t = some k ∧ st.2 (.inr k) = some ℓ ∧ st.1 t = some v ∧ pk.proj t v = ℓ
 
 /-- The public entries at the key of a node whose label is drawn. -/
-@[expose] def labelledEntries (st : RelabelState pub X K R) : Set ι :=
+def labelledEntries (st : RelabelState pub X K R) : Set ι :=
   {t | (st.1 t).isSome ∧ ∃ k, pk.node t = some k ∧ (st.2 (.inr k)).isSome}
 
 /-- The public entries at the key of some node. -/
@@ -80,7 +80,7 @@ whose reading is the drawn label of `k`. -/
 
 /-- The projected potential: the public entries at the key of a node whose label is drawn, over
 `|R|`. -/
-@[expose] noncomputable def potential (st : RelabelState pub X K R) : ℝ≥0∞ :=
+noncomputable def potential (st : RelabelState pub X K R) : ℝ≥0∞ :=
   ((pk.labelledEntries st).encard : ℝ≥0∞) / Nat.card R
 
 variable {pk}
@@ -214,7 +214,7 @@ variable (X K R) in
 
 open Classical in
 /-- The pair potential: `1 / |R|` once both cells are drawn, `0` before. -/
-@[expose] noncomputable def pairPotential (c₁ c₂ : X ⊕ K) (st : RelabelState pub X K R) : ℝ≥0∞ :=
+noncomputable def pairPotential (c₁ c₂ : X ⊕ K) (st : RelabelState pub X K R) : ℝ≥0∞ :=
   if (st.2 c₁).isSome ∧ (st.2 c₂).isSome then (Nat.card R : ℝ≥0∞)⁻¹ else 0
 
 variable {c₁ c₂ : X ⊕ K}
