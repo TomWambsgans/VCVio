@@ -118,8 +118,8 @@ theorem outcomeMeasure_run₂_checks_le_extended [∀ i, DecidableEq (DmOf ℓ M
         ρ {true} ≤
       ENNReal.ofReal (1 - (1 - (Fintype.card Y : ℝ)⁻¹) ^ (2 * n * q2 io)) *
         ENNReal.ofReal ρ.matrix.trace.re := by
-  rw [QuantumRuntime.run₂_bind, SubInstrument.outcomeMeasure_apply_singleton,
-    SubInstrument.branch_bind_apply_univ, Fintype.sum_bool]
+  rw [QuantumRuntime.run₂_bind, DSubInstrument.outcomeMeasure_apply_singleton,
+    DSubInstrument.branch_bind_apply_univ, Fintype.sum_bool]
   simp only [QuantumRuntime.run₂_pure, Bool.not_true, Bool.false_and, Bool.not_false,
     Bool.true_and]
   rw [SubInstrument.branch_pure_of_ne (by decide : true ≠ false), LinearMap.zero_comp, zero_add]
@@ -216,11 +216,11 @@ theorem outcomeMeasure_run₂_openings_le_extended [∀ i, DecidableEq (DmOf ℓ
     (fun i b ↦ exists_branch_run₂_toQuantumAt_coinImpl_eq_smul _ _ b) pf
   by_cases hs : ∃ i, pf i ∉ support ((VC i).opening (tdm i).1.dom (tdm i).2)
   · rw [SubInstrument.outcomeMeasure_eq_zero_of_matrix_eq_zero _ (by
-      rw [SubInstrument.matrix_post, hc₀, hz hs, zero_smul, LinearMap.zero_apply])]
+      rw [DSubInstrument.matrix_post, hc₀, hz hs, zero_smul, LinearMap.zero_apply])]
     exact zero_le
   · refine outcomeMeasure_run₂_checks_le_extended io U hU ME code hC hk n c tdm pf
       (fun i ↦ Classical.byContradiction fun h ↦ hs ⟨i, h⟩) _ ?_
-    rw [SubInstrument.matrix_post, hc₀, LinearMap.smul_apply, LinearMap.id_apply]
+    rw [DSubInstrument.matrix_post, hc₀, LinearMap.smul_apply, LinearMap.id_apply]
     exact (LinearMap.map_smul _ c₀ φ.matrix).trans (congrArg (c₀ • ·) hφ)
 
 
@@ -237,11 +237,11 @@ theorem outcomeMeasure_run₂_extractChallenger_le_extended (hC : Conditions VC 
   refine SubInstrument.outcomeMeasure_bind_le _ _ _ (measurableSet_singleton _) fun o ↦ ?_
   cases o with
   | none =>
-    rw [QuantumRuntime.run₂_pure, SubInstrument.outcomeMeasure_pure]
+    rw [QuantumRuntime.run₂_pure, DSubInstrument.outcomeMeasure_ret]
     simp
   | some tdm =>
     refine outcomeMeasure_run₂_openings_le_extended io U hU ME code hC hk n c tdm _ ?_
-    rw [SubInstrument.matrix_post,
+    rw [DSubInstrument.matrix_post,
       run₂_extractQuery_branch (extendedVCOracle k X Y U hU) ME code B]
     have hK := (mul_kronecker_mul (1 : Matrix B B ℂ) (1 : Matrix B B ℂ)
       (extractProj ME (TpIC.full hk c.idx c.cm) tdm)

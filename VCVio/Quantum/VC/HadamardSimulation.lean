@@ -97,8 +97,8 @@ witness and the purified uniform random oracle. This does not expose the extract
 theorem outcomeLawWith_coherent_extendedVCOracle_eq_purifiedVCOracle
     (x : QuantumComp L (EmulatedOracle.cohSpec (oIn k X Y)) V A) (ρ : SubState A)
     (f : (Σ u, V u) → γ) :
-    (extendedVCOracle k X Y W hW).coherent.toRuntime.outcomeLawWith I x ρ f =
-      (purifiedVCOracle k X Y).coherent.toRuntime.outcomeLawWith I x ρ f :=
+    (extendedVCOracle k X Y W hW).coherent.toRuntime.evalDistMap I x ρ f =
+      (purifiedVCOracle k X Y).coherent.toRuntime.evalDistMap I x ρ f :=
   EmulatedOracle.outcomeLawWith_eq_of_intertwine _ _ _
     conjTranspose_compressDatabases_mul_basisMatrix_mul_self
     (fun _ ↦ EmulatedOracle.coherent_U_mul_one_kronecker _ _ _
@@ -109,9 +109,9 @@ theorem outcomeLawWith_coherent_extendedVCOracle_eq_purifiedVCOracle
 theorem outcomeLawWith_coherent_extendedVCOracle
     (x : QuantumComp L (EmulatedOracle.cohSpec (oIn k X Y)) V A) (ρ : SubState A)
     (f : (Σ u, V u) → γ) :
-    (extendedVCOracle k X Y W hW).coherent.toRuntime.outcomeLawWith I x ρ f =
+    (extendedVCOracle k X Y W hW).coherent.toRuntime.evalDistMap I x ρ f =
       ∑ H : Fin k → X → Y, (Fintype.card (Fin k → X → Y) : ℝ≥0∞)⁻¹ •
-        (romVCOracle k X Y H).coherent.toRuntime.outcomeLawWith I x ρ f := by
+        (romVCOracle k X Y H).coherent.toRuntime.evalDistMap I x ρ f := by
   rw [outcomeLawWith_coherent_extendedVCOracle_eq_purifiedVCOracle,
     outcomeLawWith_coherent_purifiedVCOracle]
 

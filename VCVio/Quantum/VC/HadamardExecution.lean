@@ -74,7 +74,7 @@ theorem branch_run₂_foldlM_acceptWeight
       rw [List.foldlM_cons, checkIOStep, bind_assoc]
       simp only [pure_bind]
       exact toQuantumAt_query_bind call p.1 _
-    rw [hprog, QuantumRuntime.run₂_bind, SubInstrument.branch_bind_apply_univ,
+    rw [hprog, QuantumRuntime.run₂_bind, DSubInstrument.branch_bind_apply_univ,
       Finset.sum_eq_single p.2]
     · rw [ih, hcall]
       simp only [decide_true, Bool.and_true]
@@ -139,7 +139,7 @@ theorem branch_run₂_allIn_amplitudes (W : Finset (Fin k))
       rw [List.foldlM_cons]
       by_cases hi : i ∈ W
       · simp only [hi, ↓reduceIte, bind_map_left]
-        rw [QuantumComp₂.bind_eq, QuantumRuntime.run₂_bind, SubInstrument.branch_bind_apply_univ,
+        rw [QuantumComp₂.bind_eq, QuantumRuntime.run₂_bind, DSubInstrument.branch_bind_apply_univ,
           Fintype.sum_bool, ih, ih]
         cases acc
         · simp
