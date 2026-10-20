@@ -330,7 +330,7 @@ theorem population_queryStep
     (hρ : QuerySupportedOn (fun a : A × E.S ↦ population a.2) (Set.Iic t) ρ) :
     QuerySupportedOn (fun a : ((Σ i, In i) × F) × E.S ↦ population a.2)
       (Set.Iic (t + 1)) ((E.coherent.toRuntime.queryStep () F ℓ).branch r ρ) := by
-  rw [QuantumRuntime.queryStep_branch_apply, SubInstrument.branch_frame_apply,
+  rw [QuantumRuntime.queryStep_branch_apply, DSubInstrument.branch_frame_apply,
     E.coherent.toRuntime_step_branch]
   have h₁ := (hρ.branch_relabel (QuantumRuntime.queryEquivIn ℓ E.S)).imp
     (q' := fun a : (((Σ i, In i) × E.S) × F) ↦ population a.1.2)
@@ -377,7 +377,6 @@ theorem population_run (h : ∀ i a b, E.U i a b ≠ 0 → population a.2 ≤ po
     rw [hb] at hk
     rw [QuantumRuntime.run_queryBind, DSubInstrument.branch_bind_apply]
     refine QuerySupportedOn.tsum fun r ↦ ?_
-    rw [SubInstrument.branch_toD_apply]
     cases i
     have hh := ih r (hk r) (E.population_queryStep population h F ℓ r hρ)
     rwa [Nat.add_assoc, Nat.add_sub_cancel' hq] at hh
@@ -434,7 +433,7 @@ theorem run_potential_rpow_le (K : Matrix Z E.S ℂ)
           ((E.coherent.toRuntime.queryStep i F ℓ).branch r ρ)) := fun p ↦ by
       rw [run_queryBind, DSubInstrument.branch_bind_apply]
       exact potential_tsum K
-        (((SubInstrument.toD (E.coherent.toRuntime.queryStep i F ℓ)).isCPTNIFamily.comp_eval
+        (((E.coherent.toRuntime.queryStep i F ℓ).isCPTNIFamily.comp_eval
           (fun r ↦ (E.coherent.toRuntime.run I (k r)).isCPTNIFamily) p).summable_apply ρ)
         fun r ↦ (E.coherent.toRuntime.run I (k r)).posSemidef_branch_apply p (hr r)
     simp only [he]

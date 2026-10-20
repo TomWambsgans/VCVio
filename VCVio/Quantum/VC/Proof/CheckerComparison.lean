@@ -67,7 +67,7 @@ theorem actual_fold_accept (B : QReg) (io : List (X × Y)) (acc : Bool) :
       rw [List.foldlM_cons, checkIOStep, bind_assoc]
       simp only [pure_bind]
       exact toQuantumAt_query_bind (H.classicalCall B) p.1 _
-    rw [hp, QuantumRuntime.run₂_bind, SubInstrument.branch_bind_apply_univ,
+    rw [hp, QuantumRuntime.run₂_bind, DSubInstrument.branch_bind_apply_univ,
       Finset.sum_eq_single p.2]
     · rw [ih]
       simp only [decide_true, Bool.and_true]
@@ -1217,8 +1217,8 @@ theorem run₂_bind_record (f : QuantumComp₂ L spec A B α)
       (R.run₂ I (g a)).branch b ∘ₗ (R.run₂ I f).branch a := by
   classical
   ext ρ : 1
-  rw [run₂_bind, SubInstrument.branch_bind_apply]
-  simp only [run₂_map, SubInstrument.map_eq_bind_pure, SubInstrument.branch_bind_apply]
+  rw [run₂_bind, DSubInstrument.branch_bind_apply]
+  simp only [run₂_map, SubInstrument.map_eq_bind_pure, DSubInstrument.branch_bind_apply]
   rw [tsum_eq_single a]
   · rw [tsum_eq_single b]
     · simp

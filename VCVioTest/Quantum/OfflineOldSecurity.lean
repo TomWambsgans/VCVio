@@ -31,7 +31,7 @@ example (code : TpDCode k (DmOf (fun _ ↦ 2 ^ d) Msg (fun _ ↦ Td Y Salt d)) Z
     (claim : ∀ B, W B → OpeningClaim k Y Msg (fun _ ↦ 2 ^ d) (fun _ ↦ Pf Y Salt d))
     (ρ : SubState A) (hx : x.IsQueryBound fun _ ↦ 0) :
     ((compressedVCOracle k X Y).withExtract
-      (multiExtract enc (fun _ ↦ d)) code).coherent.toRuntime.outcomeLawWith .instruments
+      (multiExtract enc (fun _ ↦ d)) code).coherent.toRuntime.evalDistMap .instruments
         (experiment x fun B y ↦ offlineChallenger
           (fun _ : Fin k ↦ (scheme enc d).toVectorCommitment) code hk 0 (claim B y) B)
         ρ Sigma.snd {true} = 0 := by

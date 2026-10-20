@@ -35,9 +35,9 @@ theorem QuantumRuntime.outcomeLawWith_le_one {spec : QuantumOracleSpec.{u, v}}
     (R : QuantumRuntime spec) {L : LocalSig.{uL, vL}} (I : L.Interp)
     {A : QReg} {W : QReg → Type w} (x : QuantumComp L spec W A) (ρ : SubState A)
     {γ : Type*} [MeasurableSpace γ] (f : (Σ B, W B) → γ) (s : Set γ) :
-    R.outcomeLawWith I x ρ f s ≤ 1 := by
+    R.evalDistMap I x ρ f s ≤ 1 := by
   apply (measure_mono (Set.subset_univ s)).trans
-  rw [R.outcomeLawWith_apply_univ I x ρ f, ← R.tsum_jointPost_trace I x ρ]
+  rw [R.evalDistMap_apply_univ I x ρ f, ← R.tsum_jointPost_trace I x ρ]
   exact R.tsum_jointPost_trace_le_one I x ρ
 
 /-- A trace-weighted constant has total weight at most that constant. -/
@@ -146,7 +146,7 @@ theorem merkle_offline_old_fix
       .instruments x (ρ.matrix ⊗ₖ (compressedVCOracle k X Y).init.matrix)
         (.inr ()) ≤ wME) :
     ((compressedVCOracle k X Y).withExtract
-      (multiExtract enc (fun _ ↦ d)) code).coherent.toRuntime.outcomeLawWith
+      (multiExtract enc (fun _ ↦ d)) code).coherent.toRuntime.evalDistMap
       .instruments
         (experiment x fun B y ↦ offlineChallenger
           (fun _ : Fin k ↦ (scheme enc d).toVectorCommitment) code hk qs (claim B y) B)

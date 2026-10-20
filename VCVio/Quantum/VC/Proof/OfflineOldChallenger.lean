@@ -46,11 +46,11 @@ theorem run₂_offlineFinish_reject
   | some tdm =>
     have hb : a = false ∨ b = false := by cases a <;> cases b <;> simp_all
     ext ρ : 1
-    rw [offlineFinish, QuantumRuntime.run₂_bind, SubInstrument.branch_bind_apply]
+    rw [offlineFinish, QuantumRuntime.run₂_bind, DSubInstrument.branch_bind_apply]
     simp only [LinearMap.zero_apply]
     refine (tsum_congr fun pf ↦ ?_).trans tsum_zero
     rcases hb with rfl | rfl <;>
-      simp [QuantumRuntime.run₂_pure, SubInstrument.branch_pure_of_ne]
+      simp [QuantumRuntime.run₂_pure]
 
 /-- The finishing mismatch branch vanishes when the claim exceeds its opening budget. -/
 theorem run₂_offlineFinish_over_budget
@@ -66,10 +66,10 @@ theorem run₂_offlineFinish_over_budget
       SubInstrument.branch_pure_of_ne (by decide : true ≠ false)]
   | some tdm =>
     ext ρ : 1
-    rw [offlineFinish, QuantumRuntime.run₂_bind, SubInstrument.branch_bind_apply]
+    rw [offlineFinish, QuantumRuntime.run₂_bind, DSubInstrument.branch_bind_apply]
     simp only [LinearMap.zero_apply]
     refine (tsum_congr fun pf ↦ ?_).trans tsum_zero
-    simp [hq, QuantumRuntime.run₂_pure, SubInstrument.branch_pure_of_ne]
+    simp [hq, QuantumRuntime.run₂_pure]
 
 variable [AddCommGroup Y] [AddGroup Z] [∀ i, DecidableEq (DmOf ℓ Msg Td i)]
 
@@ -93,9 +93,9 @@ theorem offlineChallenger_weight_eq_retained
   change ((R.run₂ .instruments (offlineChecks (VC := VC) code hk c B)).bind
     (fun r ↦ R.run₂ .instruments (offlineFinish (VC := VC) (Z := Z) hk qs c B r))).outcomeMeasure
       ρ {true} = _
-  erw [SubInstrument.outcomeMeasure_bind,
+  erw [DSubInstrument.outcomeMeasure_bind,
     Measure.sum_apply _ (measurableSet_singleton true)]
-  simp only [SubInstrument.outcomeMeasure_apply_singleton]
+  simp only [DSubInstrument.outcomeMeasure_apply_singleton]
   let f := fun r ↦ ENNReal.ofReal (((R.run₂ .instruments
     (offlineFinish (VC := VC) (Z := Z) hk qs c B r)).branch true)
       (((R.run₂ .instruments (offlineChecks (VC := VC) code hk c B)).branch r)

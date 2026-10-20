@@ -85,7 +85,7 @@ theorem run₂_offlineFinish_partial_good_zero (hC : Conditions VC io ME tdBot P
   dsimp only
   ext ρ : 1
   simp only [LinearMap.comp_apply, LinearMap.zero_apply]
-  rw [offlineFinish, QuantumRuntime.run₂_bind, SubInstrument.branch_bind_apply]
+  rw [offlineFinish, QuantumRuntime.run₂_bind, DSubInstrument.branch_bind_apply]
   refine (tsum_congr fun pf' ↦ ?_).trans tsum_zero
   obtain ⟨c₀, hc₀, hz⟩ := exists_branch_run₂_pi_eq_smul R
     (fun i ↦ openAt VC B i (c.ans i).dom (tdm i).2)
@@ -137,17 +137,17 @@ theorem outcomeLawWith_experiment_true_eq_tsum {spec : QuantumOracleSpec.{u₁, 
     {W : QReg → Type w} (R : QuantumRuntime spec)
     (x : QuantumComp LocalSig.instruments.{v} spec W A)
     (chal : ∀ u, W u → QComp.{u₁, v₁, 0} spec u u Bool) (ρ : SubState A) :
-    R.outcomeLawWith .instruments (experiment x chal) ρ Sigma.snd {true} =
+    R.evalDistMap .instruments (experiment x chal) ρ Sigma.snd {true} =
       ∑' p : Σ u, W u, (R.run₂ .instruments (chal p.1 p.2)).outcomeMeasure
         (R.jointPost .instruments x ρ p) {true} := by
   let _ : MeasurableSpace (Σ _ : QReg, Bool) := ⊤
   let _ : MeasurableSpace (Σ u, W u) := ⊤
   have hS : MeasurableSet (Sigma.snd ⁻¹' {true} : Set (Σ _ : QReg, Bool)) :=
     MeasurableSpace.measurableSet_top
-  have h₁ : R.outcomeLawWith .instruments (experiment x chal) ρ Sigma.snd {true} =
+  have h₁ : R.evalDistMap .instruments (experiment x chal) ρ Sigma.snd {true} =
       (R.run .instruments (experiment x chal)).outcomeMeasure (ρ.prod R.init)
         (Sigma.snd ⁻¹' {true}) := by
-    rw [QuantumRuntime.outcomeLawWith_apply _ _ _ _ _ (measurableSet_singleton true),
+    rw [QuantumRuntime.evalDistMap_apply _ _ _ _ _ (measurableSet_singleton true),
       DSubInstrument.outcomeMeasure_apply _ _ hS]
     rfl
   rw [h₁, run_experiment, DSubInstrument.outcomeMeasure_bind, Measure.sum_apply _ hS]
@@ -165,7 +165,7 @@ theorem outcomeLawWith_experiment_le_four_amplitudes
     (h : ∀ p, ((R.run₂ .instruments (chal p.1 p.2)).outcomeMeasure
       (R.jointPost .instruments x ρ p) {true}) ^ (2⁻¹ : ℝ) ≤
         a p ^ (2⁻¹ : ℝ) + b p ^ (2⁻¹ : ℝ) + c p ^ (2⁻¹ : ℝ) + d p ^ (2⁻¹ : ℝ)) :
-    R.outcomeLawWith .instruments (experiment x chal) ρ Sigma.snd {true} ≤
+    R.evalDistMap .instruments (experiment x chal) ρ Sigma.snd {true} ≤
       ((∑' p, a p) ^ (2⁻¹ : ℝ) + (∑' p, b p) ^ (2⁻¹ : ℝ) +
         (∑' p, c p) ^ (2⁻¹ : ℝ) + (∑' p, d p) ^ (2⁻¹ : ℝ)) ^ (2 : ℝ) := by
   rw [outcomeLawWith_experiment_true_eq_tsum]
