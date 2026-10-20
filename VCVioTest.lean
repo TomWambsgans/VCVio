@@ -2,6 +2,7 @@ module  -- shake: keep-all --deprecated_module: ignore
 
 public import VCVioTest.AKE.UAKE.ExperimentFixtures
 public import VCVioTest.AKE.UAKE.TranscriptFixtures
+public import VCVioTest.Algorithms.Hash
 public import VCVioTest.Asymptotics.Negligible
 public import VCVioTest.Computability
 public import VCVioTest.CryptoFoundations.BR93Measure
@@ -10,7 +11,6 @@ public import VCVioTest.CryptoFoundations.ComplexityTactics
 public import VCVioTest.CryptoFoundations.ComputationalComplexitySoundness
 public import VCVioTest.CryptoFoundations.CslibPPolyUniverses
 public import VCVioTest.CryptoFoundations.FiatShamirStateSteps
-public import VCVioTest.CryptoFoundations.KEMDEMMeasure
 public import VCVioTest.CryptoFoundations.OracleClosure
 public import VCVioTest.CryptoFoundations.PRFTableMeasure
 public import VCVioTest.CryptoFoundations.SignatureAlg
@@ -130,9 +130,10 @@ public import VCVioTest.SMDTUD
 public import VCVioTest.SMDTUDFinalValidity
 public import VCVioTest.SaltedMerkle
 public import VCVioTest.SampleableType
-public import VCVioTest.SchnorrTransforms
+public import VCVioTest.Schemes.KEMDEM
+public import VCVioTest.Schemes.Schnorr.ChallengeRestriction
+public import VCVioTest.Schemes.Schnorr.Transforms
 public import VCVioTest.SeparatedOTP
-public import VCVioTest.SigmaChallengeRestriction
 public import VCVioTest.Smoke
 public import VCVioTest.StateSeparating.Measure
 public import VCVioTest.StateTLift
