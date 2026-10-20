@@ -6,6 +6,7 @@ Authors: Quang Dao
 
 module
 public import VCVio.Quantum.Oracle.Classical
+public import VCVio.Quantum.Oracle.ClassicalRead
 public import VCVio.Quantum.Oracle.Emulated
 public import VCVio.Quantum.Oracle.EmulatedTensor
 
@@ -513,5 +514,93 @@ example (ρ : Matrix (TProgReg × swapOracle.S) (TProgReg × swapOracle.S) ℂ) 
       swapOracle.tensor.toRuntime.indexMass .instruments
         (fun _ ↦ EmulatedOracle.tensIndexProj fun _ : Fin 2 ↦ Qubit) oneTensorCall ρ ⟨(), i⟩ :=
   swapOracle.tensorMass_eq_indexMass _ _ _ _
+
+/-! ## Projective reads and total calls -/
+
+/-- An identity service with a private qubit. -/
+@[expose, reducible]
+noncomputable def readOracle : EmulatedOracle Unit (fun _ ↦ Qubit) where
+  S := Qubit
+  init := SubState.basis 0
+  U _ := 1
+  unitary _ := one_mem _
+
+/-- Both addresses read the same private qubit in the computational basis. -/
+noncomputable def qubitAnswers : ProjectiveClassicalAnswers readOracle Bool (Fin 2) where
+  A _ a := Matrix.diagonal fun d ↦ if d = a then 1 else 0
+  hermitian _ a := by
+    ext i j
+    fin_cases a <;> fin_cases i <;> fin_cases j <;> simp [Matrix.conjTranspose_apply]
+  orthogonal _ a b := by
+    rw [Matrix.diagonal_mul_diagonal]
+    ext i j
+    fin_cases a <;> fin_cases b <;> fin_cases i <;> fin_cases j <;> simp
+  complete _ := by
+    ext i j
+    fin_cases i <;> fin_cases j <;> simp
+  commute_cells _ a _ b := by
+    rw [Matrix.diagonal_mul_diagonal, Matrix.diagonal_mul_diagonal]
+    congr 1
+    funext i
+    exact mul_comm _ _
+  commute_ordinary _ _ _ := by simp
+
+/-- A runtime read collapses both halves of an entangled pair, with weight one half. -/
+theorem branch_read_bell (a : Fin 2) :
+    (readOracle.read qubitAnswers false Qubit).branch a bell = (1 / 2 : ℂ) • ket a a := by
+  rw [EmulatedOracle.read_branch]
+  change MatrixMap.conj ((1 : Matrix (Fin 2) (Fin 2) ℂ) ⊗ₖ
+    Matrix.diagonal (fun d ↦ if d = a then 1 else 0)) bell = _
+  ext ⟨b, d⟩ ⟨b', d'⟩
+  fin_cases a <;> fin_cases b <;> fin_cases d <;> fin_cases b' <;> fin_cases d' <;>
+    simp [MatrixMap.conj_apply, ket, bell, Matrix.mul_apply, Fintype.sum_prod_type,
+      Fin.sum_univ_two]
+
+/-- The read's two branches exhaust the Bell state's mass. -/
+example : (∑ a, (readOracle.read qubitAnswers false Qubit).branch a bell).trace = 1 := by
+  calc
+    _ = (∑ a : Fin 2, (1 / 2 : ℂ) • ket a a).trace :=
+      congrArg Matrix.trace (Finset.sum_congr rfl fun a _ ↦ branch_read_bell a)
+    _ = 1 := by norm_num [ket, Fin.sum_univ_two, Matrix.trace, Fintype.sum_prod_type]
+
+/-- Both ordinary and read steps are lossless in the concrete mixed runtime. -/
+example (p : (withReadSpec (EmulatedOracle.cohSpec (fun _ : Unit ↦ Qubit)) Bool (Fin 2)).Port) :
+    ((readOracle.withClassicalReads qubitAnswers).step p).Lossless :=
+  readOracle.lossless_withClassicalReads_step qubitAnswers p
+
+/-- Two distinct classical addresses consume two calls. -/
+def twoReads : QuantumComp LocalSig.instruments
+    (withReadSpec (EmulatedOracle.cohSpec (fun _ : Unit ↦ Qubit)) Bool (Fin 2))
+    (fun _ ↦ Unit) (QReg.of (Unit × Unit)) :=
+  QuantumComp.queryBind (.inr false) (QReg.of Unit) (Equiv.refl _) fun _ ↦
+    QuantumComp.queryBind (.inr true) (QReg.of Unit) (Equiv.refl _) fun _ ↦
+      QuantumComp.pure ()
+
+/-- A per-port budget of one permits the two reads. -/
+example : twoReads.IsQueryBound (fun _ ↦ 1) := by
+  intro p
+  rcases p with p | p
+  · cases p
+    simp [twoReads, QuantumComp.IsQueryBoundAt, QuantumComp.isQueryBoundAtAux,
+      QuantumComp.queryBind, QuantumComp.onDown, QuantumComp.pure]
+  · cases p <;> simp [twoReads, QuantumComp.IsQueryBoundAt, QuantumComp.isQueryBoundAtAux,
+      QuantumComp.queryBind, QuantumComp.onDown, QuantumComp.pure]
+
+/-- The total budget rejects those two reads at budget one. -/
+example : ¬ twoReads.IsTotalQueryBound 1 := by
+  intro h
+  exact (h.2 (0 : Fin 2)).1.false
+
+/-- The exact total budget accepts them at budget two. -/
+example : twoReads.IsTotalQueryBound 2 :=
+  ⟨by decide, fun _ ↦ ⟨by decide, fun _ ↦ trivial⟩⟩
+
+/-- Left injection preserves execution of any ordinary program in the concrete mixed runtime. -/
+example {X : QReg → Type} {A : QReg}
+    (x : QuantumComp LocalSig.instruments (EmulatedOracle.cohSpec (fun _ : Unit ↦ Qubit)) X A) :
+    (readOracle.withClassicalReads qubitAnswers).run .instruments x.liftOrdinary =
+      readOracle.coherent.toRuntime.run .instruments x :=
+  readOracle.coherent.toRuntime.run_liftOrdinary
+    (t := classicalReadSpec Bool (Fin 2)) .instruments qubitAnswers.step x
 
 end VCVioTest.QuantumEmulated
