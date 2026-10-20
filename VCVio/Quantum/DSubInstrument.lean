@@ -6,6 +6,7 @@ Authors: Quang Dao
 
 module
 public import VCVio.Quantum.MatrixMap.Family
+public import VCVio.Quantum.MatrixMap.Kraus
 
 /-!
 # Dependent subinstruments
@@ -35,6 +36,14 @@ subinstrument is not an arbitrary map into the full matrix algebra on the disjoi
 Sequencing is Kleisli composition of branch families (`Quantum.MatrixMap.familyBind`), with unit
 the single identity branch `Quantum.DSubInstrument.ret`. The unit and associativity laws are
 equalities of structures.
+
+Every branch has a finite Kraus representation (`Quantum.DSubInstrument.exists_kraus_branch`),
+even when the outcome type is infinite. For finitely many outcomes,
+`Quantum.DSubInstrument.exists_kraus_of_fintype` gives a joint completeness inequality, and
+`Quantum.DSubInstrument.Lossless.exists_kraus` gives equality, with operators indexed by
+`B i × A` on outcome `i`. For two stages with finitely many intermediate outcomes,
+`Quantum.DSubInstrument.branch_bind_eq_sum_conj_mul` expresses each final branch as a sum of
+Kraus maps along paths, with the later operator multiplying on the left.
 
 ## The constant-codomain case
 
@@ -476,6 +485,59 @@ theorem lossless_ofKraus [Fintype ι] [DecidableEq A] (K : (i : ι) → Matrix (
   rw [MatrixMap.familyTrace_apply_univ]
   simp_rw [branch_ofKraus_apply, MatrixMap.trace_conj_apply]
   rw [← Matrix.trace_sum, ← Finset.sum_mul, hK, Matrix.one_mul]
+
+/-- Each branch of a dependent subinstrument has Kraus operators from `ℂ^A` to `ℂ^(B i)`, indexed
+by `B i × A`. The output system may depend on the outcome, and the outcome type need not be finite
+or countable. -/
+theorem exists_kraus_branch (p : DSubInstrument A ι B) (i : ι) :
+    ∃ K : B i × A → Matrix (B i) A ℂ, p.branch i = ∑ k, MatrixMap.conj (K k) :=
+  p.isCPTNIFamily.exists_kraus i
+
+/-- Finitely many dependent branches have joint Kraus operators, with the sum of their
+squared operators bounded by the identity in the positive semidefinite order. -/
+theorem exists_kraus_of_fintype [Fintype ι] [DecidableEq A] (p : DSubInstrument A ι B) :
+    ∃ K : (i : ι) → B i × A → Matrix (B i) A ℂ,
+      (∀ i, p.branch i = ∑ k, MatrixMap.conj (K i k)) ∧
+      (1 - ∑ i, ∑ k, (K i k)ᴴ * K i k).PosSemidef :=
+  p.isCPTNIFamily.exists_kraus_of_fintype
+
+/-- A lossless dependent subinstrument with finitely many outcomes has joint Kraus operators
+whose squared operators sum to the identity. -/
+theorem Lossless.exists_kraus [Fintype ι] [DecidableEq A] {p : DSubInstrument A ι B}
+    (hp : p.Lossless) :
+    ∃ K : (i : ι) → B i × A → Matrix (B i) A ℂ,
+      (∀ i, p.branch i = ∑ k, MatrixMap.conj (K i k)) ∧
+      ∑ i, ∑ k, (K i k)ᴴ * K i k = 1 := by
+  classical
+  choose K hK using p.exists_kraus_branch
+  refine ⟨K, hK, ?_⟩
+  have ht (ρ : Matrix A A ℂ) :
+      ((∑ i, ∑ k, (K i k)ᴴ * K i k) * ρ).trace = ρ.trace := by
+    have h := hp.tsum_trace_eq ρ
+    simpa only [tsum_fintype, hK, MatrixMap.trace_sum_conj_apply,
+      Finset.sum_mul, Matrix.trace_sum] using h
+  ext a a'
+  have h := ht (single a' a 1)
+  rw [Matrix.trace_mul_single] at h
+  by_cases ha : a = a'
+  · subst ha
+    simpa [Matrix.trace_single_eq_same] using h
+  · simpa [Matrix.trace_single_eq_of_ne _ _ _ (Ne.symm ha), Matrix.one_apply_ne ha] using h
+
+/-- Kraus operators of dependent sequencing are path products, with the later operator on
+the left. Intermediate outcomes are finite; final outcomes need not be finite. Paths are
+classical alternatives, so their output matrices add. -/
+theorem branch_bind_eq_sum_conj_mul [Fintype ι] {ν ξ : Type*} [Fintype ν] [Fintype ξ]
+    (p : DSubInstrument A ι B) (k : (i : ι) → DSubInstrument (B i) κ C)
+    {K : (i : ι) → ν → Matrix (B i) A ℂ}
+    {L : (i : ι) → (c : κ) → ξ → Matrix (C c) (B i) ℂ}
+    (hK : ∀ i, p.branch i = ∑ j, MatrixMap.conj (K i j))
+    (hL : ∀ i c, (k i).branch c = ∑ j, MatrixMap.conj (L i c j)) (c : κ) :
+    (p.bind k).branch c = ∑ x : ι × ν × ξ,
+      MatrixMap.conj (L x.1 c x.2.2 * K x.1 x.2.1) := by
+  simp only [branch_bind_apply_univ, Fintype.sum_prod_type, MatrixMap.conj_mul, hK, hL]
+  refine Finset.sum_congr rfl fun i _ ↦ LinearMap.ext fun ρ ↦ ?_
+  simp only [LinearMap.comp_apply, LinearMap.sum_apply, map_sum]
 
 /-! ### Restricting the outcomes -/
 

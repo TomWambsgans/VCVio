@@ -1,5 +1,9 @@
 module  -- shake: keep-all --deprecated_module: ignore
 
+public import VCVio.CryptoFoundations.AKE.UAKE.Defs
+public import VCVio.CryptoFoundations.AKE.UAKE.Party
+public import VCVio.CryptoFoundations.AKE.UAKE.Runtime
+public import VCVio.CryptoFoundations.AKE.UAKE.Transcript
 public import VCVio.CryptoFoundations.AsymmEncAlg.Defs
 public import VCVio.CryptoFoundations.AsymmEncAlg.INDCCA
 public import VCVio.CryptoFoundations.AsymmEncAlg.INDCPA
@@ -421,12 +425,18 @@ public import VCVio.Quantum.Comp.Subsystem
 public import VCVio.Quantum.DSubInstrument
 public import VCVio.Quantum.MatrixMap
 public import VCVio.Quantum.MatrixMap.Family
+public import VCVio.Quantum.MatrixMap.Kraus
 public import VCVio.Quantum.Observe
 public import VCVio.Quantum.Oracle.Basis
 public import VCVio.Quantum.Oracle.Classical
 public import VCVio.Quantum.Oracle.Comb
 public import VCVio.Quantum.Oracle.Model
 public import VCVio.Quantum.Oracle.Unitary
+public import VCVio.Quantum.Pure.Instrument
+public import VCVio.Quantum.Pure.Norm
+public import VCVio.Quantum.Pure.State
+public import VCVio.Quantum.Pure.Tensor
+public import VCVio.Quantum.Pure.Vector
 public import VCVio.Quantum.Register
 public import VCVio.Quantum.Semantics
 public import VCVio.Quantum.SubInstrument

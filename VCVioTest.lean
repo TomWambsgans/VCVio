@@ -1,5 +1,7 @@
 module  -- shake: keep-all --deprecated_module: ignore
 
+public import VCVioTest.AKE.UAKE.ExperimentFixtures
+public import VCVioTest.AKE.UAKE.TranscriptFixtures
 public import VCVioTest.Asymptotics.Negligible
 public import VCVioTest.Computability
 public import VCVioTest.CryptoFoundations.BR93Measure
@@ -84,7 +86,9 @@ public import VCVioTest.ProgramLogic.MeasureWP
 public import VCVioTest.ProgramLogic.OracleWP
 public import VCVioTest.ProgramLogic.UntilBad
 public import VCVioTest.Quantum.Basic
+public import VCVioTest.Quantum.Kraus
 public import VCVioTest.Quantum.Oracle
+public import VCVioTest.Quantum.Pure
 public import VCVioTest.Quantum.Subsystem
 public import VCVioTest.QueryBounds
 public import VCVioTest.QueryCacheInstability
