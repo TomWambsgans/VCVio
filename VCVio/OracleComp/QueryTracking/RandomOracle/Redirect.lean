@@ -65,6 +65,54 @@ theorem le_filter {c₀ c : spec.QueryCache} (h : c₀ ≤ c) {p : spec.Domain �
 
 end Filter
 
+section FilterReplay
+
+variable {ι : Type} {spec : OracleSpec ι} {α : Type} {p : spec.Domain → Prop} [DecidablePred p]
+
+/-- A replay whose every query satisfies `p` reads the restriction of a cache to `p` as the cache
+itself. -/
+theorem simulateQ_toPartialImpl_filter_eq_of_allQueriesSatisfy (c : spec.QueryCache)
+    {oa : OracleComp spec α} (h : oa.AllQueriesSatisfy p) :
+    simulateQ (filter p c).toPartialImpl oa = simulateQ c.toPartialImpl oa := by
+  induction oa using OracleComp.inductionOn with
+  | pure x => rfl
+  | query_bind t k ih =>
+    rw [allQueriesSatisfy_query_bind_iff] at h
+    simp only [simulateQ_bind, simulateQ_spec_query, toPartialImpl_apply, filter_apply, h.1,
+      ↓reduceIte]
+    exact congrArg _ (funext fun u => ih u (h.2 u))
+
+/-- A replay settled on `c` and settled on the restriction to `p` of a larger cache is settled,
+with the latter value, on the restriction of `c` to `p`. -/
+theorem simulateQ_toPartialImpl_filter_of_le {c c' : spec.QueryCache} (h : c ≤ c')
+    {oa : OracleComp spec α} {a b : α} (ha : simulateQ c.toPartialImpl oa = some a)
+    (hb : simulateQ (filter p c').toPartialImpl oa = some b) :
+    simulateQ (filter p c).toPartialImpl oa = some b := by
+  induction oa using OracleComp.inductionOn with
+  | pure x => exact hb
+  | query_bind t k ih =>
+    rw [simulateQ_bind, simulateQ_spec_query] at ha hb ⊢
+    obtain ⟨u, hu, ha⟩ := Option.bind_eq_some_iff.mp ha
+    obtain ⟨u', hu', hb⟩ := Option.bind_eq_some_iff.mp hb
+    rw [toPartialImpl_apply, filter_apply] at hu'
+    split_ifs at hu' with hp
+    obtain rfl : u' = u := Option.some.inj (hu'.symm.trans (h hu))
+    rw [toPartialImpl_apply] at hu
+    simp only [toPartialImpl_apply, filter_apply, hp, ↓reduceIte, hu]
+    exact ih u' ha hb
+
+/-- **A replay that fails on a restriction reads a point outside it.** If a replay settles at `a`
+on a cache `c₀ ≤ c` but not on the restriction of `c` to `p`, then `c₀` has an entry at a point
+outside `p`. -/
+theorem exists_isSome_and_not_of_simulateQ_toPartialImpl_filter_ne {c₀ c : spec.QueryCache}
+    (h : c₀ ≤ c) {oa : OracleComp spec α} {a : α} (ha : simulateQ c₀.toPartialImpl oa = some a)
+    (hp : simulateQ (filter p c).toPartialImpl oa ≠ some a) : ∃ t, (c₀ t).isSome ∧ ¬p t := by
+  by_contra hn
+  exact hp (simulateQ_toPartialImpl_mono (le_filter h fun t ht =>
+    Classical.byContradiction fun hpt => hn ⟨t, ht, hpt⟩) oa ha)
+
+end FilterReplay
+
 section ViewBy
 
 variable {ι ι' : Type u} {spec : OracleSpec.{u, u} ι} {spec' : OracleSpec.{u, u} ι'}
@@ -110,3 +158,57 @@ theorem filter_le_viewBy (c : spec.QueryCache) {ρ : QueryImpl spec (OracleComp 
 end ViewBy
 
 end OracleSpec.QueryCache
+
+namespace OracleComp
+
+variable {ι₁ ι₂ : Type} [DecidableEq ι₁] [DecidableEq ι₂] {spec₁ : OracleSpec ι₁}
+  {spec₂ : OracleSpec ι₂} [∀ t, SampleableType ((spec₁ + spec₂).Range t)] {α : Type}
+
+/-- **A run whose replay settles on a restriction adds only points of it.** A `spec₁`-only program
+issued through its query capability and run in the random oracle model over `spec₁ + spec₂`, whose
+replay settles on the restriction to `p` of the `spec₁` part of its final cache, adds to the
+`spec₁` part of the cache only points satisfying `p`. -/
+theorem forall_of_simulateQ_toPartialImpl_filter_fst_of_mem_support_run_romImpl
+    (oa : OracleComp spec₁ α) {p : ι₁ → Prop} [DecidablePred p]
+    {cache : (spec₁ + spec₂).QueryCache} {z : α × (spec₁ + spec₂).QueryCache}
+    (hz : z ∈ support ((simulateQ (spec₁ + spec₂).romImpl (simulateQ (HasQuery.toQueryImpl
+      (spec := spec₁) (m := OracleComp (unifSpec + (spec₁ + spec₂)))) oa)).run cache))
+    {b : α} (hb : simulateQ (QueryCache.filter p z.2.fst).toPartialImpl oa = some b) :
+    ∀ t, cache (.inl t) = none → (z.2 (.inl t)).isSome → p t := by
+  induction oa using OracleComp.inductionOn generalizing cache with
+  | pure x =>
+    rw [simulateQ_pure, simulateQ_pure, StateT.run_pure, support_pure, Set.mem_singleton_iff] at hz
+    subst hz
+    intro t h h'
+    simp [h] at h'
+  | query_bind t k ih =>
+    rw [simulateQ_bind, simulateQ_spec_query, simulateQ_bind, StateT.run_bind,
+      mem_support_bind_iff] at hz
+    obtain ⟨⟨u, c₁⟩, h₁, h₂⟩ := hz
+    rw [show (HasQuery.toQueryImpl (spec := spec₁)
+        (m := OracleComp (unifSpec + (spec₁ + spec₂))) t) =
+        liftM ((unifSpec + (spec₁ + spec₂)).query (.inr (.inl t))) from rfl,
+      simulateQ_spec_query] at h₁
+    have hc₁ : c₁ (.inl t) = some u :=
+      QueryImpl.withCaching_run_caches (uniformSampleImpl (spec := spec₁ + spec₂)) (.inl t)
+        cache (u, c₁) h₁
+    have hle := le_snd_of_mem_support_run_unifFwdImpl_add_withCaching uniformSampleImpl _ h₂
+    rw [simulateQ_bind, simulateQ_spec_query] at hb
+    obtain ⟨u', hu', hb⟩ := Option.bind_eq_some_iff.mp hb
+    rw [QueryCache.toPartialImpl_apply, QueryCache.filter_apply] at hu'
+    split_ifs at hu' with hp
+    rw [QueryCache.fst_apply, hle hc₁] at hu'
+    obtain rfl : u' = u := (Option.some.inj hu').symm
+    intro t' ht' hz'
+    by_cases ht : t' = t
+    · exact ht ▸ hp
+    · refine ih _ h₂ hb t' ?_ hz'
+      have hiff := QueryImpl.withCaching_run_isSome_apply_iff
+        (uniformSampleImpl (spec := spec₁ + spec₂)) h₁ (.inl t')
+      cases hc : c₁ (.inl t') with
+      | none => rfl
+      | some v =>
+        have := hiff.1 (by simp [hc])
+        simp [ht', ht] at this
+
+end OracleComp
