@@ -329,7 +329,8 @@ variable {spec : QuantumOracleSpec.{u₁, v₁}} {β : Type w}
 noncomputable def callBasisPrep (p : spec.Port) (B : QReg) (a : spec.In p) :
     SubInstrument B (spec.In p × B) PUnit.{w + 1} :=
   (SubInstrument.relabel (Equiv.uniqueProd B Unit).symm).bind fun _ ↦
-    (SubInstrument.classical (fun _ : Unit ↦ a) fun _ ↦ PUnit.unit).frame B
+    (DSubInstrument.classical (B := fun _ ↦ spec.In p)
+      (fun _ : Unit ↦ PUnit.unit) (fun _ ↦ a)).frame B
 
 /-- The read-out of a basis call with result `r`: measure the port register in the computational
 basis, report `read o r` on reading `o`, and discard the port register. -/
@@ -337,7 +338,8 @@ basis, report `read o r` on reading `o`, and discard the port register. -/
 noncomputable def callBasisMeasure (p : spec.Port) (B : QReg)
     (read : spec.Out p → spec.Result p → β) (r : spec.Result p) :
     SubInstrument (spec.Out p × B) B β :=
-  ((SubInstrument.classical (fun _ : spec.Out p ↦ ()) fun o ↦ read o r).frame B).bind fun c ↦
+  ((DSubInstrument.classical (B := fun _ ↦ Unit)
+    (fun o : spec.Out p ↦ read o r) (fun _ ↦ ())).frame B).bind fun c ↦
     (SubInstrument.relabel (Equiv.uniqueProd B Unit)).bind fun _ ↦ SubInstrument.pure c
 
 /-- **A classical call beside a held register.** Prepare the basis input `a` of port `p` beside
@@ -356,14 +358,14 @@ noncomputable def callBasis (p : spec.Port) (B : QReg) (a : spec.In p)
 theorem lossless_callBasisPrep (p : spec.Port) (B : QReg) (a : spec.In p) :
     (callBasisPrep.{u₁, v₁, w} p B a).Lossless :=
   (SubInstrument.lossless_relabel _).bind fun _ ↦
-    (SubInstrument.lossless_classical _ _).frame B
+    (DSubInstrument.lossless_classical _ _).frame B
 
 /-- The read-out of a basis call is lossless. -/
 theorem lossless_callBasisMeasure (p : spec.Port) (B : QReg)
     (read : spec.Out p → spec.Result p → β) (r : spec.Result p) :
     (callBasisMeasure p B read r).Lossless :=
-  ((SubInstrument.lossless_classical _ _).frame B).bind fun _ ↦
-    (SubInstrument.lossless_relabel _).bind fun _ ↦ SubInstrument.lossless_pure _
+  ((DSubInstrument.lossless_classical _ _).frame B).bind fun _ ↦
+    (SubInstrument.lossless_relabel _).bind fun _ ↦ DSubInstrument.lossless_ret _ _
 
 /-- A basis call is a lossless program. -/
 theorem lossless_callBasis (p : spec.Port) (B : QReg) (a : spec.In p)
@@ -538,10 +540,10 @@ program with its register forgotten is observing `f ⟨u, a⟩` on the leaves `�
 program. -/
 theorem outcomeLawWith_forgetReg {γ : Type*} [MeasurableSpace γ] (x : QuantumComp₂ L spec A B α)
     (ρ : SubState A) (f : (Σ _ : QReg, α) → γ) :
-    R.outcomeLawWith I x.forgetReg ρ f = R.outcomeLawWith I x ρ fun p ↦ f ⟨p.1, p.2.2⟩ := by
+    R.evalDistMap I x.forgetReg ρ f = R.evalDistMap I x ρ fun p ↦ f ⟨p.1, p.2.2⟩ := by
   ext s hs
-  refine (outcomeLawWith_apply R I _ ρ f hs).trans
-    (Eq.trans ?_ (outcomeLawWith_apply R I x ρ (fun p ↦ f ⟨p.1, p.2.2⟩) hs).symm)
+  refine (evalDistMap_apply R I _ ρ f hs).trans
+    (Eq.trans ?_ (evalDistMap_apply R I x ρ (fun p ↦ f ⟨p.1, p.2.2⟩) hs).symm)
   have hg : Function.Injective fun p : Σ u, QuantumComp₂.Leaf B α u ↦
       (⟨p.1, p.2.2⟩ : Σ _ : QReg, α) := by
     rintro ⟨u, h, a⟩ ⟨u', h', a'⟩ he
