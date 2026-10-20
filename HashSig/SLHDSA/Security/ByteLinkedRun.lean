@@ -40,17 +40,10 @@ clash is classified on the linked run, where only the honest algorithms cache li
 
 ## The root event
 
-On the support of a run, where the honest replays settle on the public-hash cache,
-`¬HonestOffLinked` means that an honest replay reads a linked point
-(`OracleSpec.QueryCache.exists_isSome_and_not_of_simulateQ_toPartialImpl_filter_ne`); it never
-holds at a public seed whose bytes are not an honest address key
-(`honestOffLinked_of_mem_support_romSchemeRun`). `HonestOffLinked` makes the honest replays settle
-below both the cache and its view through `linkedRedirect`
-(`OracleSpec.QueryCache.filter_le_viewBy`). It does not exclude an honest entry (`HonestEntry`) at
-a linked point that no replay reads, since honest entries range over every ledger address whose
-honest inputs are settled. A target collision on the view at such an entry is a separate event;
-where the honest replays settle on the restriction of the cache to its honest entries,
-`¬HonestOffLinked` implies it.
+`¬HonestOffLinked` never holds on the support of a run at a public seed whose bytes are not an
+honest address key (`honestOffLinked_of_mem_support_romSchemeRun`). `HonestOffLinked` makes the
+honest replays settle below both the cache and its view through `linkedRedirect`
+(`OracleSpec.QueryCache.filter_le_viewBy`).
 -/
 
 public section

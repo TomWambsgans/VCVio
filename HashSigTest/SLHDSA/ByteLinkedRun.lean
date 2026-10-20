@@ -24,7 +24,7 @@ oracle at `n = 32` by an event of the run against the verifying adversary. This 
   at that key and its `H_msg` reading, the two points the non-redirected and the redirected
   verification query, has a clash that is not the message-`PRF` key hit: `SK.prf ≠ PK.seed`, and
   no `H_msg` point has randomizer `SK.prf`. The classification of the linked run reads it as a
-  cached linked point, whose honest replays the headline charges to `¬HonestOffLinked`.
+  cached linked point.
 -/
 
 public section
