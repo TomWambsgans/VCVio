@@ -379,7 +379,8 @@ placeholders `GPVHashAndSign.reduction` and `FiatShamirWithAbort.cmaToNmaAdv`, e
 `scripts/axiom_baseline.json` until it is constructed.
 
 Two environment linters in `ToMathlib/Lint/SecurityStatements.lean` guard the statements of
-the security libraries (`VCVio.CryptoFoundations`, `LatticeCrypto`, `HashSig`, `Examples`):
+the security libraries by defining-module prefix (`VCVio.CryptoFoundations`, `VCVio.Schemes`,
+`LatticeCrypto`, `HashSig`, `Examples`):
 `existentialReduction` reports a theorem whose conclusion existentially quantifies a function
 into an oracle computation, and `unconstrainedRealParameter` reports a theorem with a parameter
 in `ℝ` that reaches the conclusion through `ENNReal.ofReal` or `Real.toNNReal` and is bounded by
