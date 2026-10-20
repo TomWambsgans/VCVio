@@ -69,6 +69,15 @@ produce such families.
 * `Quantum.DSubInstrument.ofKraus`: the measurement with Kraus operators `K a`, one per outcome of a
   finite type, satisfying `∑ a, (K a)† * K a = 1`.
 
+Every branch has a finite Kraus representation (`Quantum.DSubInstrument.exists_kraus_branch`),
+even when the outcome type is infinite. For finitely many outcomes,
+`Quantum.DSubInstrument.exists_kraus_of_fintype` gives a joint completeness inequality, and
+`Quantum.DSubInstrument.Lossless.exists_kraus` gives equality, with operators indexed by
+`B × A` on each outcome in the constant-codomain case. For two stages with finitely many
+intermediate outcomes,
+`Quantum.DSubInstrument.branch_bind_eq_sum_conj_mul` expresses each final branch as a sum of
+Kraus maps along paths, with the later operator multiplying on the left.
+
 ## Outcome-dependent output systems
 
 `SubInstrument A B α` is an abbreviation for `DSubInstrument A α (fun _ ↦ B)`.
