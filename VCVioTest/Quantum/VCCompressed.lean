@@ -38,6 +38,27 @@ namespace VCVioTest.QuantumVCCompressed
 
 open EmulatedOracle (cohSpec cohIn)
 
+/-! ## Generic emulated-oracle intertwining -/
+
+section
+
+universe u uL vL w
+
+variable {P : Type u} {In : P → QReg}
+
+/-- The isometry law is available for arbitrary emulated oracles through ordinary imports. -/
+example (E₁ E₂ : EmulatedOracle P In) (M : Matrix E₂.S E₁.S ℂ)
+    (hM : Mᴴ * M = 1)
+    (hU : ∀ i, E₂.U i * ((1 : Matrix (In i) (In i) ℂ) ⊗ₖ M) =
+      ((1 : Matrix (In i) (In i) ℂ) ⊗ₖ M) * E₁.U i)
+    (hinit : MatrixMap.conj M E₁.init.matrix = E₂.init.matrix) {L : LocalSig.{uL, vL}}
+    (I : L.Interp) {W : QReg → Type w} {A : QReg} (x : QuantumComp L (uSpec P In) W A)
+    (ρ : SubState A) {γ : Type*} [MeasurableSpace γ] (f : (Σ u, W u) → γ) :
+    E₂.toRuntime.evalDistMap I x ρ f = E₁.toRuntime.evalDistMap I x ρ f :=
+  EmulatedOracle.outcomeLawWith_eq_of_intertwine E₁ E₂ M hM hU hinit I x ρ f
+
+end
+
 /-! ## Unitarity and commutation on a small instance -/
 
 /-- Two compressed oracles on `Bool → ZMod 2`. -/
@@ -111,7 +132,8 @@ example (ρ : SubState Reg) (f : (Σ u, (fun u ↦ PSigma fun _ : u =
         (Convexity.StdSimplex.barycenter : Convexity.StdSimplex ℝ (Fin 2 → Bool → ZMod 2))
         (fun H ↦ (romVCOracle 2 Bool (ZMod 2) H).coherent.toRuntime) .instruments oneQuery ρ
         (fun _ ↦ f) {true} + 0 :=
-  (simulates_compressedVCOracle 1 oneQuery f ρ isQueryBound_oneQuery).1
+  (simulates_compressedVCOracle.restrictOrdinary 1 oneQuery f ρ
+    ((QuantumComp.isTotalQueryBound_iff_isQueryBound oneQuery 1).mpr isQueryBound_oneQuery)).1
 
 /-! ## The measured answer of a classical call is uniform -/
 

@@ -139,6 +139,65 @@ open Matrix
 open OracleSpec
 open scoped Matrix.Norms.L2Operator Kronecker ComplexConjugate
 
+namespace Matrix
+
+/-- Complete the rows and columns that change a label, then localize the completion to
+invariant blocks. The resulting approximation preserves the labels. -/
+theorem exists_pinch_eq_sub_sq_le_of_completion
+    {n κ Λ : Type*} [Fintype n] [DecidableEq n] [DecidableEq κ]
+    (β : n → κ) (γ : n → Λ) (bad : n → Prop) [DecidablePred bad]
+    (A : Matrix n n ℂ) (d : n → ℂ) {c : ℝ} (hc : 0 ≤ c)
+    (hrow : ‖diagonal (fun i ↦ if bad i then (1 : ℂ) else 0) * (A - diagonal d)‖ ≤ √c)
+    (hcol : ‖(A - diagonal d) * diagonal (fun i ↦ if bad i then (1 : ℂ) else 0)‖ ≤ √c)
+    (hblock : ∀ i j, A i j ≠ 0 → i ≠ j → γ i = γ j)
+    (hgood : ∀ i j, γ i = γ j → i ≠ j → ¬bad i → ¬bad j → β i = β j) :
+    ∃ S, pinch β S = S ∧ ‖A - S‖ ^ 2 ≤ c := by
+  classical
+  let P : Matrix n n ℂ := diagonal (fun i ↦ if bad i then 1 else 0)
+  have hP : IsStarProjection P := by
+    refine ⟨?_, ?_⟩
+    · dsimp [P]
+      rw [IsIdempotentElem, diagonal_mul_diagonal]
+      congr 1
+      funext i
+      split_ifs <;> simp
+    · dsimp only [P]
+      rw [IsSelfAdjoint, star_eq_conjTranspose, diagonal_conjTranspose]
+      congr 1
+      funext i
+      split_ifs <;> simp_all
+  obtain ⟨T, hPT, hTP, hT⟩ := exists_completion hP hrow hcol
+  have hr : ∀ i j, bad i → T i j = (A - diagonal d) i j := by
+    intro i j hi
+    have h := congrFun (congrFun hPT i) j
+    simpa [P, diagonal_mul, hi] using h
+  have hl : ∀ i j, bad j → T i j = (A - diagonal d) i j := by
+    intro i j hj
+    have h := congrFun (congrFun hTP i) j
+    simpa [P, mul_diagonal, hj] using h
+  refine ⟨A - pinch γ T, ?_, ?_⟩
+  · rw [pinch_eq_self_iff]
+    intro i j hij
+    by_cases he : i = j
+    · simp [he]
+    rw [Matrix.sub_apply, pinch_apply] at hij
+    by_cases hg : γ i = γ j
+    · rw [ite_eq_left hg] at hij
+      have hi : ¬bad i := by
+        intro hi
+        simp [hr i j hi, Matrix.sub_apply, diagonal_apply_ne _ he] at hij
+      have hj : ¬bad j := by
+        intro hj
+        simp [hl i j hj, Matrix.sub_apply, diagonal_apply_ne _ he] at hij
+      exact hgood i j hg he hi hj
+    · rw [ite_eq_right hg, sub_zero] at hij
+      exact False.elim (hg (hblock i j hij he))
+  · rw [sub_sub_cancel]
+    exact (pow_le_pow_left₀ (norm_nonneg _) ((l2_opNorm_pinch_le γ T).trans hT) 2).trans_eq
+      (Real.sq_sqrt hc)
+
+end Matrix
+
 namespace Quantum
 
 /-! ## The row identity -/
@@ -418,6 +477,89 @@ private theorem mul_badProjector_apply (π : Database X Y → ι) (t : ℕ)
 
 end approx
 
+section labelChangingRows
+
+variable {X Y : Type} [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y]
+  {Q : Type*} [Fintype Q] [DecidableEq Q] {ι : Type*} [DecidableEq ι]
+
+/-- Counting label-changing filled rows in each active cell block bounds their operator norm
+by the square root of the row constant times database instability. -/
+theorem l2_opNorm_labelChangingRows_le [OracleSpec.UniformAnswerMeasure (X →ₒ Y)]
+    (π : Database X Y → ι) (t : ℕ) (active : X → Q → Prop)
+    [∀ x q, Decidable (active x q)] {c : ℝ} (hc : 0 ≤ c)
+    {A : Matrix ((X × Q) × Database X Y) ((X × Q) × Database X Y) ℂ}
+    (hA : ∀ i j, A i j ≠ 0 →
+      (i.1, Function.update i.2 i.1.1 none) = (j.1, Function.update j.2 j.1.1 none))
+    (hrow : ∀ x q (r : Database X Y), r x = none → r.size < t → active x q → ∀ u,
+      ∑ m, ‖A ((x, q), Function.update r x (some u)) m‖ ^ 2 ≤ c / Fintype.card Y) :
+    ‖diagonal (fun m ↦ if active m.1.1 m.1.2 ∧
+        Database.size (Function.update m.2 m.1.1 none) < t ∧
+        π m.2 ≠ π (Function.update m.2 m.1.1 none) then (1 : ℂ) else 0) * A‖ ≤
+      √(c * (Database.instability π t).toReal) := by
+  classical
+  let Bad (m : (X × Q) × Database X Y) := active m.1.1 m.1.2 ∧
+    Database.size (Function.update m.2 m.1.1 none) < t ∧
+    π m.2 ≠ π (Function.update m.2 m.1.1 none)
+  have he : ∀ (i j : (X × Q) × Database X Y),
+      (diagonal (fun m ↦ if Bad m then (1 : ℂ) else 0) * A :
+        Matrix ((X × Q) × Database X Y) ((X × Q) × Database X Y) ℂ) i j =
+      if Bad i then A i j else 0 := by
+    intro i j
+    rw [diagonal_mul]
+    split_ifs <;> simp_all
+  refine l2_opNorm_le_of_blocks
+    (fun m : (X × Q) × Database X Y ↦ (m.1, Function.update m.2 m.1.1 none))
+    (fun m : (X × Q) × Database X Y ↦ (m.1, Function.update m.2 m.1.1 none))
+    (fun i j h ↦ hA i j fun h0 ↦ h (by rw [he, h0, ite_self]))
+    (Real.sqrt_nonneg _) ?_
+  rintro ⟨⟨x, q⟩, D₀⟩
+  rw [Real.sq_sqrt (mul_nonneg hc ENNReal.toReal_nonneg)]
+  dsimp only
+  let r : Database X Y := Function.update D₀ x none
+  have hr : r x = none := Function.update_self x none D₀
+  have hblk : ∀ a, Function.update (Function.update r x a) x none = r := fun a ↦ by
+    rw [Function.update_idem, Database.update_none_of_eq_none hr]
+  rw [sum_ite_cellBlock x q hr]
+  have hterm : ∀ a, ∑ m, ‖(diagonal (fun m ↦ if Bad m then (1 : ℂ) else 0) * A :
+      Matrix ((X × Q) × Database X Y) ((X × Q) × Database X Y) ℂ)
+      ((x, q), Function.update r x a) m‖ ^ 2 ≤
+        if active x q ∧ r.size < t ∧ π (Function.update r x a) ≠ π r then
+          c / Fintype.card Y else 0 := by
+    intro a
+    simp_rw [he]
+    simp only [Bad, hblk]
+    split_ifs with hb
+    · cases a with
+      | none => exact False.elim (hb.2.2 (by rw [Database.update_none_of_eq_none hr]))
+      | some u => exact hrow x q r hr hb.2.1 hb.1 u
+    · simp
+  refine (Finset.sum_le_sum fun a _ ↦ hterm a).trans ?_
+  rw [Fintype.sum_option]
+  simp only [Database.update_none_of_eq_none hr, ne_eq, not_true_eq_false, and_false,
+    ite_false, zero_add]
+  by_cases hs : active x q ∧ r.size < t
+  · have heq : ∀ u, (if active x q ∧ r.size < t ∧ π (Function.update r x (some u)) ≠ π r then
+        c / (Fintype.card Y : ℝ) else 0) =
+        c / Fintype.card Y * if π (Function.update r x (some u)) ≠ π r then 1 else 0 := by
+      intro u
+      simp only [hs.1, hs.2, true_and]
+      split_ifs <;> simp_all
+    simp only [ne_eq] at heq
+    rw [Finset.sum_congr rfl fun u _ ↦ heq u, ← Finset.mul_sum, Finset.sum_boole]
+    calc c / (Fintype.card Y : ℝ) *
+          ((Finset.univ.filter fun u ↦ ¬π (Function.update r x (some u)) = π r).card : ℝ)
+        = c * (((Finset.univ.filter fun u ↦ π (Function.update r x (some u)) ≠ π r).card : ℝ) /
+            Fintype.card Y) := by ring
+      _ ≤ c * (Database.instability π t).toReal :=
+        mul_le_mul_of_nonneg_left (Database.card_div_le_instability π hs.2 hr) hc
+  · have hz : ∀ u, ¬(active x q ∧ r.size < t ∧
+        π (Function.update r x (some u)) ≠ π r) := fun _ h ↦ hs ⟨h.1, h.2.1⟩
+    simp only [hz, ite_false, Finset.sum_const_zero]
+    exact mul_nonneg hc ENNReal.toReal_nonneg
+
+
+end labelChangingRows
+
 section approxInstability
 
 variable {X Y : Type} [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y] [AddCommGroup Y]
@@ -436,63 +578,16 @@ private theorem l2_opNorm_badProjector_mul_le [UniformAnswerMeasure (X →ₒ Y)
         ∀ u, ∑ m, ‖A ((x, χ), Function.update r x (some u)) m‖ ^ 2 ≤ 6 / Fintype.card Y) :
     ‖badProjector π t * A‖ ≤ √(6 * (Database.instability π t).toReal) := by
   classical
-  have hI : 0 ≤ (Database.instability π t).toReal := ENNReal.toReal_nonneg
-  have hN : (0 : ℝ) < Fintype.card Y := Nat.cast_pos.mpr Fintype.card_pos
-  refine l2_opNorm_le_of_blocks
-    (fun m : (X × AddChar Y ℂ) × Database X Y ↦ (m.1, Function.update m.2 m.1.1 none))
-    (fun m : (X × AddChar Y ℂ) × Database X Y ↦ (m.1, Function.update m.2 m.1.1 none))
-    (fun i j h ↦ hA i j fun h0 ↦ h (by rw [badProjector_mul_apply, h0, ite_self]))
-    (Real.sqrt_nonneg _) ?_
-  rintro ⟨⟨x, χ⟩, D₀⟩
-  rw [Real.sq_sqrt (by positivity)]
-  dsimp only
-  set r := Function.update D₀ x none with hrdef
-  have hr : r x = none := Function.update_self x none D₀
-  have hblk : ∀ a, Function.update (Function.update r x a) x none = r := fun a ↦ by
-    rw [Function.update_idem, Database.update_none_of_eq_none hr]
-  rw [sum_ite_phaseBlock x χ hr]
-  have hterm : ∀ a, ∑ m, ‖(badProjector π t * A) ((x, χ), Function.update r x a) m‖ ^ 2 ≤
-      if χ ≠ 0 ∧ Database.size r < t ∧ π (Function.update r x a) ≠ π r then
-        (6 / Fintype.card Y : ℝ) else 0 := by
-    intro a
-    simp only [badProjector_mul_apply]
-    by_cases hb : IsBad π t ((x, χ), Function.update r x a)
-    · obtain ⟨hχ, hsize, hπ⟩ := hb
-      simp only [hblk] at hsize hπ
-      simp only [IsBad, hblk, ne_eq] at *
-      rw [ite_eq_left ⟨hχ, hsize, hπ⟩]
-      rcases a with _ | u
-      · rw [Database.update_none_of_eq_none hr] at hπ
-        exact absurd rfl hπ
-      · refine le_of_eq_of_le (Finset.sum_congr rfl fun m _ ↦ ?_) (hrow x χ hχ r hr hsize u)
-        rw [ite_eq_left ⟨hχ, hsize, hπ⟩]
-    · simp only [hb, ite_false, norm_zero, zero_pow two_ne_zero, Finset.sum_const_zero]
-      split_ifs <;> positivity
-  refine (Finset.sum_le_sum fun a _ ↦ hterm a).trans ?_
-  rw [Fintype.sum_option]
-  simp only [Database.update_none_of_eq_none hr, ne_eq, not_true_eq_false, and_false, ite_false,
-    zero_add]
-  by_cases hc : χ ≠ 0 ∧ Database.size r < t
-  · have e : ∀ u, (if χ ≠ 0 ∧ Database.size r < t ∧ π (Function.update r x (some u)) ≠ π r then
-        6 / (Fintype.card Y : ℝ) else 0) =
-        6 / Fintype.card Y * if π (Function.update r x (some u)) ≠ π r then 1 else 0 := by
-      intro u
-      simp only [hc.1, hc.2, ne_eq, not_false_eq_true, true_and]
-      split_ifs <;> simp
-    simp only [ne_eq] at e
-    rw [Finset.sum_congr rfl fun u _ ↦ e u, ← Finset.mul_sum, Finset.sum_boole]
-    have hcard := Database.card_div_le_instability π hc.2 hr
-    calc 6 / (Fintype.card Y : ℝ) *
-          ((Finset.univ.filter fun u ↦ ¬π (Function.update r x (some u)) = π r).card : ℝ)
-        = 6 * (((Finset.univ.filter fun u ↦ π (Function.update r x (some u)) ≠ π r).card : ℝ) /
-            Fintype.card Y) := by ring
-      _ ≤ 6 * (Database.instability π t).toReal := by gcongr
-  · have e : ∀ u, (if χ ≠ 0 ∧ Database.size r < t ∧ π (Function.update r x (some u)) ≠ π r then
-        6 / (Fintype.card Y : ℝ) else 0) = 0 := fun u ↦ by
-      exact ite_eq_right_iff.mpr fun h ↦ absurd ⟨h.1, h.2.1⟩ hc
-    simp only [ne_eq] at e
-    rw [Finset.sum_congr rfl fun u _ ↦ e u, Finset.sum_const_zero]
-    positivity
+  convert l2_opNorm_labelChangingRows_le π t (fun _ χ ↦ χ ≠ 0)
+    (by norm_num : (0 : ℝ) ≤ 6) hA (fun x χ r hr hs hχ u ↦ hrow x χ hχ r hr hs u) using 1
+  congr 2
+  unfold badProjector
+  congr 1
+  funext m
+  simp only [IsBad]
+  split_ifs with h
+  · exact ite_eq_left h
+  · exact ite_eq_right h
 
 /-- **The label-preserving approximation, phase basis.** There is an operator `S` that preserves
 the label `π D` of the database with `‖O_ph^(t) - S‖² ≤ 6 I(π, t)`. -/
@@ -520,29 +615,12 @@ theorem exists_pinch_eq_truncatedPhaseOracle_sub_sq_le [UniformAnswerMeasure (X 
     · rwa [conjTranspose_apply, star_ne_zero] at h
     · simpa only [conjTranspose_apply, norm_star] using
         (sum_norm_truncatedPhaseOracle_sub_phaseDiagonal_sq_le hχ hr hs u).2
-  -- complete, then pinch to the blocks of the active states
-  obtain ⟨T, hPT, hTP, hT⟩ := exists_completion hP hrow hcol
   obtain ⟨γ, hγ⟩ : ∃ γ : (X × AddChar Y ℂ) × Database X Y →
       ((X × AddChar Y ℂ) × Database X Y) ⊕ ((X × AddChar Y ℂ) × Database X Y),
       γ = fun m : (X × AddChar Y ℂ) × Database X Y ↦
         if m.1.2 ≠ 0 ∧ Database.size (Function.update m.2 m.1.1 none) < t then
           Sum.inl (m.1, Function.update m.2 m.1.1 none)
         else Sum.inr m := ⟨_, rfl⟩
-  refine ⟨truncatedPhaseOracle X Y t - pinch γ T, ?_, ?_⟩
-  swap
-  · rw [sub_sub_cancel]
-    have h := (l2_opNorm_pinch_le γ T).trans hT
-    calc ‖pinch γ T‖ ^ 2 ≤ √(6 * (Database.instability π t).toReal) ^ 2 :=
-          pow_le_pow_left₀ (norm_nonneg _) h 2
-      _ = 6 * (Database.instability π t).toReal := Real.sq_sqrt (by positivity)
-  have hTrow : ∀ i j, IsBad π t i → T i j = (truncatedPhaseOracle X Y t - phaseDiagonal X Y) i j :=
-    fun i j hb ↦ by
-      have h := congrFun (congrFun hPT i) j
-      rwa [badProjector_mul_apply, badProjector_mul_apply, ite_eq_left hb, ite_eq_left hb] at h
-  have hTcol : ∀ i j, IsBad π t j → T i j = (truncatedPhaseOracle X Y t - phaseDiagonal X Y) i j :=
-    fun i j hb ↦ by
-      have h := congrFun (congrFun hTP i) j
-      rwa [mul_badProjector_apply, mul_badProjector_apply, ite_eq_left hb, ite_eq_left hb] at h
   have hγeq : ∀ i j, γ i = γ j → i ≠ j →
       (i.1.2 ≠ 0 ∧ Database.size (Function.update i.2 i.1.1 none) < t) ∧
       (j.1.2 ≠ 0 ∧ Database.size (Function.update j.2 j.1.1 none) < t) ∧
@@ -553,21 +631,22 @@ theorem exists_pinch_eq_truncatedPhaseOracle_sub_sq_le [UniformAnswerMeasure (X 
     split_ifs at h with hi hj
     · exact ⟨hi, hj, Sum.inl_injective h⟩
     · exact absurd (Sum.inr_injective h) hne
-  rw [pinch_eq_self_iff]
-  intro i j hS
-  by_cases hij : i = j
-  · rw [hij]
-  rw [Matrix.sub_apply, pinch_apply] at hS
-  by_cases hg : γ i = γ j
-  · obtain ⟨hai, haj, hk⟩ := hγeq i j hg hij
-    rw [ite_eq_left hg] at hS
-    have hZ : phaseDiagonal X Y i j = 0 := by rw [phaseDiagonal, diagonal_apply_ne _ hij]
-    by_cases hbi : IsBad π t i
-    · rw [hTrow i j hbi, Matrix.sub_apply, sub_sub_cancel, hZ] at hS
-      exact absurd rfl hS
-    by_cases hbj : IsBad π t j
-    · rw [hTcol i j hbj, Matrix.sub_apply, sub_sub_cancel, hZ] at hS
-      exact absurd rfl hS
+  refine exists_pinch_eq_sub_sq_le_of_completion
+    (fun m ↦ π m.2) γ (IsBad π t) (truncatedPhaseOracle X Y t)
+    (fun m ↦ m.1.2 (m.2.lookup m.1.1)) (by positivity) hrow hcol ?_ ?_
+  · intro i j hS hij
+    have hk := phaseBlock_eq_of_truncatedPhaseOracle_ne_zero hS
+    by_cases haj : j.1.2 ≠ 0 ∧ Database.size (Function.update j.2 j.1.1 none) < t
+    · have hai : i.1.2 ≠ 0 ∧ Database.size (Function.update i.2 i.1.1 none) < t := by
+        obtain ⟨h₁, h₂⟩ := Prod.mk.inj hk
+        rw [h₂, h₁]
+        exact haj
+      rw [hγ]
+      dsimp only
+      rw [ite_eq_left hai, ite_eq_left haj, hk]
+    · exact False.elim (hij (eq_of_truncatedPhaseOracle_ne_zero hS haj))
+  · intro i j hg hij hbi hbj
+    obtain ⟨hai, haj, hk⟩ := hγeq i j hg hij
     have h₁ : π i.2 = π (Function.update i.2 i.1.1 none) := by
       by_contra h
       exact hbi ⟨hai.1, hai.2, h⟩
@@ -576,19 +655,6 @@ theorem exists_pinch_eq_truncatedPhaseOracle_sub_sq_le [UniformAnswerMeasure (X 
       exact hbj ⟨haj.1, haj.2, h⟩
     rw [h₁, h₂]
     exact congrArg (fun p ↦ π p.2) hk
-  · rw [ite_eq_right hg, sub_zero] at hS
-    exfalso
-    have hk := phaseBlock_eq_of_truncatedPhaseOracle_ne_zero hS
-    by_cases haj : j.1.2 ≠ 0 ∧ Database.size (Function.update j.2 j.1.1 none) < t
-    · have hai : i.1.2 ≠ 0 ∧ Database.size (Function.update i.2 i.1.1 none) < t := by
-        obtain ⟨h₁, h₂⟩ := Prod.mk.inj hk
-        rw [h₂, h₁]
-        exact haj
-      refine hg ?_
-      rw [hγ]
-      dsimp only
-      rw [ite_eq_left hai, ite_eq_left haj, hk]
-    · exact hij (eq_of_truncatedPhaseOracle_ne_zero hS haj)
 
 /-- **The label-preserving approximation.** There is an operator `S` on the joint register that
 preserves the label `π D` of the database with `‖O^(t) - S‖² ≤ 6 I(π, t)`. For the pinching of

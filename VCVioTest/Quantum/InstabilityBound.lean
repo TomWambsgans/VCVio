@@ -6,6 +6,7 @@ Authors: Quang Dao
 
 module
 
+public import VCVio.Quantum.Oracle.Compressed.CheckedReadBound
 public import VCVio.Quantum.Oracle.Compressed.CommutatorSharp
 public import VCVio.Quantum.Oracle.Compressed.ProjectorEvent
 
@@ -411,5 +412,26 @@ example {ι E : Type 1} [DecidableEq ι] [Fintype E] [DecidableEq E] (π : Datab
   l2_opNorm_commutator_truncatedOracle_le_pinch π t hW hU hA
 
 end universes
+
+
+/-! ## Checked-read public import contracts -/
+
+#check @l2_opNorm_commutator_checkedRead_sq_le_twentyFour_mul
+#check @l2_opNorm_commutator_validity_sq_le_sixteen_mul
+#check @l2_opNorm_checkedReadDefectStack_sq_le
+
+open scoped ComplexOrder in
+/-- The instrument estimate accepts an arbitrary mixed state with a retained adaptive address. -/
+example {X Y E ι : Type} [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y]
+    [AddCommGroup Y] [Fintype E] [DecidableEq E]
+    [OracleSpec.UniformAnswerMeasure (X →ₒ Y)]
+    (π : Database X Y → ι) (U : ι → Matrix E E ℂ)
+    (hU : ∀ k, U k ∈ unitaryGroup E ℂ) (p : ℕ)
+    (σ : Matrix ((X × Database X Y) × E) ((X × Database X Y) × E) ℂ)
+    (hσ : σ.PosSemidef)
+    (hp : QuerySupportedOn (fun i : (X × Database X Y) × E ↦ i.1.2.size) (Set.Iic p) σ) :
+    ∑ a, (checkedReadDefect π U a * σ * (checkedReadDefect π U a)ᴴ).trace.re ≤
+      24 * (Database.instability π (p + 1)).toReal * σ.trace.re :=
+  sum_trace_checkedReadDefect_le π U hU p σ hσ hp
 
 end VCVioTest.InstabilityBound
