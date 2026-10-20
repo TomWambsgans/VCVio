@@ -237,13 +237,6 @@ theorem checkPassProjector_eq_zero_of_malformed (W : Finset (Fin k))
 
 variable [AddCommGroup Y]
 
-/-- The filled-cell comparison projector of a batch. -/
-@[expose]
-noncomputable def filledBatch (W : Finset (Fin k)) (c : OpeningClaim k Cm Msg ℓ Pf) :
-    Matrix (Fin k → Database X Y) (Fin k → Database X Y) ℂ :=
-  compressDatabases k X Y * checkPassProjector io W c.idx c.cm c.ans c.pf *
-    compressDatabases k X Y
-
 omit [AddCommGroup Y] in
 /-- The partial-database batch is a contraction, including malformed claims. -/
 theorem norm_checkPassProjector_le_one (W : Finset (Fin k))
@@ -275,19 +268,7 @@ theorem filledBatch_partial_distance (W : Finset (Fin k)) (c : OpeningClaim k Cm
       rw [filledBatch, checkPassProjector_eq_partialCheck io W c hf]
       rfl
     rw [he, checkPassProjector_eq_partialCheck io W c hf]
-    apply (CompressedReplay.filled_partial_distance _).trans
-    apply Real.sqrt_le_sqrt
-    have hN : (Fintype.card Y : ℝ)⁻¹ ≤ 1 :=
-      inv_le_one_of_one_le₀ (by exact_mod_cast Fintype.card_pos)
-    have hb := one_add_mul_le_pow (a := -(Fintype.card Y : ℝ)⁻¹)
-      (by linarith : (-2 : ℝ) ≤ -(Fintype.card Y : ℝ)⁻¹)
-      (2 * (ioCells (batchIO io W c)).card)
-    have hc : ((ioCells (batchIO io W c)).card : ℝ) ≤ (batchIO io W c).length :=
-      Nat.cast_le.mpr (card_ioCells_le_length _)
-    simp only [Nat.cast_mul, Nat.cast_ofNat, ← sub_eq_add_neg] at hb
-    have hn : 0 ≤ (Fintype.card Y : ℝ)⁻¹ := by positivity
-    rw [div_eq_mul_inv]
-    nlinarith
+    exact CompressedReplay.filled_partial_distance_le_sqrt _
   · obtain ⟨i, hn⟩ := not_forall.mp hf
     obtain ⟨hi, hn⟩ := not_imp.mp hn
     have hz : (io i).outputIO (c.cm i) (c.ans i) (c.pf i) = none := by

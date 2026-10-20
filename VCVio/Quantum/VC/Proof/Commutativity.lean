@@ -670,7 +670,7 @@ variable {k : ℕ} {X Y Cm Z : Type} [DecidableEq X] {Dm : Fin k → Type}
   (ME : MultiExtractor k Cm Dm (Fin k → Database X Y)) (code : TpDCode k Dm Z)
   [AnswerMeasure (X →ₒ Y)]
 
-/-- **The error of Lemma 9.2 with the constant `24`** (ePrint 2025/2166, pp. 58–59): `24` times
+/-- The commutation error is `24` times
 the largest instability, at query bound `t + 1`, of the online partition of one extraction with
 all databases but one fixed. -/
 @[expose]
@@ -679,7 +679,7 @@ noncomputable def comBoundError (t : ℕ) : ℝ≥0∞ :=
     Database.instability (onlineLabel ME ![tic] Dfix j') (t + 1)
 
 /-- The label of the extraction on the block of `comSplit i` at `(tic, (D_j)_{j ≠ i})`, as a
-function of `D_i`, coarsens an online partition of Theorem 8.4 (ePrint 2025/2166, p. 54), so
+function of `D_i`, coarsens an online partition, so
 its instability is at most the largest instability of those. -/
 theorem instability_extractLabel_le (i : Fin k) (c : TpIC k Cm × ({j // j ≠ i} → Database X Y))
     (s : ℕ) :
@@ -1084,7 +1084,7 @@ theorem comBound_compressedVCOracle [UniformAnswerMeasure (X →ₒ Y)] :
         exact QuantumRuntime.tsum_jointPost₂_trace_le_one _ _ x ρ
       _ = comBoundError ME t := mul_one _
 
-/-- **Lemma 9.2 of ePrint 2025/2166 with the paper's constant `80`** (pp. 58–59): a corollary of
+/-- The commutation bound with constant `80`, a corollary of
 `Quantum.comBound_compressedVCOracle`. -/
 theorem comBound_compressedVCOracle_eighty [UniformAnswerMeasure (X →ₒ Y)] :
     ComBound.{v, w} (compressedVCOracle k X Y) ME code fun t ↦

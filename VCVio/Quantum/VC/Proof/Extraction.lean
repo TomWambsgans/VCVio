@@ -471,19 +471,8 @@ theorem outcomeLawWith_experiment_true_le {spec : QuantumOracleSpec.{u₁, v₁}
       (R.run₂ .instruments (chal u y)).outcomeMeasure σ {true} ≤
         ε * ENNReal.ofReal σ.matrix.trace.re) :
     R.evalDistMap .instruments (experiment x chal) ρ Sigma.snd {true} ≤ ε := by
-  let _ : MeasurableSpace (Σ _ : QReg, Bool) := ⊤
   let _ : MeasurableSpace (Σ u, W u) := ⊤
-  have hS : MeasurableSet (Sigma.snd ⁻¹' {true} : Set (Σ _ : QReg, Bool)) :=
-    MeasurableSpace.measurableSet_top
-  have h₁ : R.evalDistMap .instruments (experiment x chal) ρ Sigma.snd {true} =
-      (R.run .instruments (experiment x chal)).outcomeMeasure (ρ.prod R.init)
-        (Sigma.snd ⁻¹' {true}) := by
-    rw [QuantumRuntime.evalDistMap_apply _ _ _ _ _ (measurableSet_singleton true),
-      DSubInstrument.outcomeMeasure_apply _ _ hS]
-    rfl
-  rw [h₁, run_experiment, DSubInstrument.outcomeMeasure_bind, Measure.sum_apply _ hS]
-  simp only [QuantumRuntime.outcomeMeasure_run_forgetReg R _ _ _ (measurableSet_singleton true)
-    hS]
+  rw [evalDistMap_experiment_true_eq_tsum]
   calc ∑' p, (R.run₂ .instruments (chal p.1 p.2)).outcomeMeasure
           ((R.run .instruments x).post (ρ.prod R.init) p) {true}
       ≤ ∑' p : Σ u, W u, ε * ENNReal.ofReal
@@ -541,10 +530,8 @@ variable {k : ℕ} {X Y Msg Cm : Type} [Fintype X] [DecidableEq X] [Fintype Y] [
   [AddCommGroup Y] {ℓ : Fin k → ℕ} {Td Pf : Fin k → Type}
   {VC : ∀ i, VectorCommitment X Y Msg Cm (Td i) (Pf i) (ℓ i)} (io : ∀ i, (VC i).CheckIOForm)
 
-/-- **The pass projector of the checks on `W`** (ePrint 2025/2166, p. 61): the diagonal
-projector onto the tuples of databases `D` on which every check `VC_i.Check^{D_{idx i}}` with
-`i ∈ W` passes, read on the partial tables themselves (`checkOn`). It is the projector `P` of the
-pair `(P, C P C)` of eq. (27), item 2, of the notes. -/
+/-- The diagonal projector onto database tuples on which every check in `W` passes on the
+partial tables. Conjugating by database compression gives the checked accepting projector. -/
 @[expose]
 noncomputable def checkPassProjector (W : Finset (Fin k)) (idx : Fin k → Fin k) (cm : Fin k → Cm)
     (ans : ∀ i, PartialVec (ℓ i) Msg) (pf : ∀ i, Pf i) :
@@ -640,7 +627,7 @@ theorem exists_le_checkPassProjector_conj_of_length_le (n : ℕ) (W : Finset (Fi
 /-- The pass projector against its compressed conjugate. For `|W| ≤ n`, `P (C P C) P = a P` with
 `a ≥ (1 - 1/N)^{2 n q2}`, where `C` compresses every database. When every check on `W` parses,
 `P` is the product of the consistency projectors of the prescriptions on each database, and `a`
-is `(1 - 1/N)^{2d}` for the number `d ≤ n q2` of prescribed cells (eq. (26)); otherwise `P = 0`. -/
+is `(1 - 1/N)^{2d}` for the number `d ≤ n q2` of prescribed cells; otherwise `P = 0`. -/
 theorem exists_le_checkPassProjector_conj (n : ℕ) (W : Finset (Fin k)) (hW : W.card ≤ n)
     (idx : Fin k → Fin k) (cm : Fin k → Cm) (ans : ∀ i, PartialVec (ℓ i) Msg) (pf : ∀ i, Pf i) :
     ∃ a : ℝ, (1 - (Fintype.card Y : ℝ)⁻¹) ^ (2 * n * q2 io) ≤ a ∧
@@ -655,6 +642,21 @@ theorem exists_le_checkPassProjector_conj (n : ℕ) (W : Finset (Fin k)) (hW : W
   | some L => exact ((io i).length_le _ _ _ _ h).trans (qVC_card_dom_le_q2 io i (ans i))
 
 end passProjector
+
+section filledBatch
+
+variable {k : ℕ} {X Y Msg Cm : Type} [DecidableEq Y] {ℓ : Fin k → ℕ} {Td Pf : Fin k → Type}
+  {VC : ∀ i, VectorCommitment X Y Msg Cm (Td i) (Pf i) (ℓ i)}
+  (io : ∀ i, (VC i).CheckIOForm) [Fintype X] [DecidableEq X] [Fintype Y] [AddCommGroup Y]
+
+/-- The accepting projector of the batch of checked reads. -/
+@[expose]
+noncomputable def filledBatch (W : Finset (Fin k)) (c : OpeningClaim k Cm Msg ℓ Pf) :
+    Matrix (Fin k → Database X Y) (Fin k → Database X Y) ℂ :=
+  compressDatabases k X Y * checkPassProjector io W c.idx c.cm c.ans c.pf *
+    compressDatabases k X Y
+
+end filledBatch
 
 /-- The extraction projector `Π_tdm` is idempotent. -/
 theorem extractProj_mul_self {k : ℕ} {Cm : Type} {S : Type*} [Fintype S] [DecidableEq S]
@@ -671,9 +673,8 @@ variable {k : ℕ} {X Y Msg Cm : Type} [Fintype Y] [DecidableEq Y] {ℓ : Fin k 
   {Td Pf : Fin k → Type} {VC : ∀ i, VectorCommitment X Y Msg Cm (Td i) (Pf i) (ℓ i)}
   (io : ∀ i, (VC i).CheckIOForm)
 
-/-- **The error of Lemma 9.3, exact form**: `1 - (1 - 1/N)^{2 n q2}` (eq. (39) of the notes on
-ePrint 2025/2166), with `N = |Y|`. It is at most `2 n q2 / N`
-(`Quantum.extractError_le_two_mul`); the paper has `8 n q2 / N` (p. 59). -/
+/-- The exact extraction error `1 - (1 - 1/N)^{2 n q2}`, with `N = |Y|`.
+It is at most `2 n q2 / N` by `Quantum.extractError_le_two_mul`. -/
 @[expose]
 noncomputable def extractError (n : ℕ) : ℝ≥0∞ :=
   ENNReal.ofReal (1 - (1 - (Fintype.card Y : ℝ)⁻¹) ^ (2 * n * q2 io))
@@ -707,6 +708,21 @@ variable {k : ℕ} {X Y Msg Cm Z : Type} [Fintype X] [DecidableEq X] [Fintype Y]
   {VC : ∀ i, VectorCommitment X Y Msg Cm (Td i) (Pf i) (ℓ i)} (io : ∀ i, (VC i).CheckIOForm)
   (ME : MultiExtractor k Cm (DmOf ℓ Msg Td) (compressedVCOracle k X Y).S)
   (code : TpDCode k (DmOf ℓ Msg Td) Z) {tdBot : ∀ i, Td i} {Pgood : Set (Database X Y)}
+
+/-- A batch of checked reads accepts exactly by conjugation with its filled batch projector,
+including malformed claims and conflicting prescriptions. -/
+theorem branch_run₂_filledBatch_compressedVCOracle (B : QReg) (W : Finset (Fin k))
+    (c : OpeningClaim k Cm Msg ℓ Pf) :
+    (((compressedVCOracle k X Y).mixedExtractRuntime ME code).run₂ .instruments
+      (QComp.allIn W fun i ↦ checkAt VC B i (c.idx i) (c.cm i) (c.ans i) (c.pf i))).branch true =
+      MatrixMap.conj ((1 : Matrix B B ℂ) ⊗ₖ filledBatch io W c) := by
+  exact branch_run₂_allIn ((compressedVCOracle k X Y).mixedExtractRuntime ME code) W
+    (fun i ↦ checkAt VC B i (c.idx i) (c.cm i) (c.ans i) (c.pf i))
+    (compressDatabases_mul_self k X Y)
+    (fun i (D : Fin k → Database X Y) ↦
+      (io i).checkOn (D (c.idx i)) (c.cm i) (c.ans i) (c.pf i) = true)
+    (fun i _ ↦ branch_run₂_checkAt_compressedVCOracle VC ME code io B i (c.idx i) (c.cm i)
+      (c.ans i) (c.pf i))
 
 /-- The checks after extraction with an opening-specific cell budget. -/
 theorem outcomeMeasure_run₂_checks_le_of_openingQueryBound [∀ i, DecidableEq (DmOf ℓ Msg Td i)]
@@ -772,12 +788,8 @@ theorem outcomeMeasure_run₂_checks_le_of_openingQueryBound [∀ i, DecidableEq
         ((((compressedVCOracle k X Y).mixedExtractRuntime ME code).run₂ .instruments
           (QComp.allIn c.W fun i ↦ checkAt (Z := Z) VC B i (c.idx i) (c.cm i) (tdm i).1
             (pf i))).branch true ρ.matrix).trace.re := by
-      rw [branch_run₂_allIn ((compressedVCOracle k X Y).mixedExtractRuntime ME code) c.W
-        (fun i ↦ checkAt (Z := Z) VC B i (c.idx i) (c.cm i) (tdm i).1 (pf i)) hCC
-        (fun i (D : Fin k → Database X Y) ↦
-        (io i).checkOn (D (c.idx i)) (c.cm i) (tdm i).1 (pf i) = true)
-        (fun i _ ↦ branch_run₂_checkAt_compressedVCOracle VC ME code io B i (c.idx i) (c.cm i)
-          (tdm i).1 (pf i))]
+      rw [branch_run₂_filledBatch_compressedVCOracle io ME code B c.W
+        ⟨c.idx, c.cm, (fun i ↦ (tdm i).1), pf, c.W⟩]
       exact le_of_eq (trace_re_conj_one_kronecker_eq_of_conj
         (conjTranspose_compressDatabases k X Y) hCC
         (conjTranspose_diagonal_ite _) (diagonal_ite_mul_self _) ha hPQ ρ.posSemidef hρ)
@@ -792,8 +804,7 @@ theorem outcomeMeasure_run₂_checks_le_of_openingQueryBound [∀ i, DecidableEq
       LinearMap.zero_apply, Matrix.trace_zero, Complex.zero_re, ENNReal.ofReal_zero]
     exact zero_le
 
-/-- **The checks after extraction** (ePrint 2025/2166, p. 61; eqs. (38)–(39) of the
-notes). On a substate supported on the extraction outcome `tdm`, and for openings `pf` in the
+/-- On a substate supported on the extraction outcome `tdm`, and for openings `pf` in the
 support of `VC_i.Open(Dom(m_i), td_i)`, the checks on `W` fail with the event's other conditions
 holding with weight at most `1 - (1 - 1/N)^{2 n q2}` times the trace. By condition 3 the substate
 lies under the pass projector `P` of the checks on the partial tables, while the checks run
@@ -904,11 +915,9 @@ theorem outcomeMeasure_run₂_extractChallenger_le_of_openingQueryBound
     exact (LinearMap.congr_fun (MatrixMap.conj_mul _ _) σ.matrix).symm.trans
       (congrArg (fun M ↦ MatrixMap.conj M σ.matrix) hK)
 
-/-- **The P3 challenger against the compressed oracles, leaf by leaf** (ePrint 2025/2166,
-pp. 59–61). From every joint substate of the adversary's register and the databases, the P3
-challenger reports its event with weight at most `1 - (1 - 1/N)^{2 n q2}` times the trace.
-Extraction is the measurement of `MultiExtract(tic, ·)` (game G0, p. 59), so each extraction
-outcome leaves a substate supported on it. -/
+/-- From every joint substate of the adversary's register and the databases, the P3 challenger
+reports its event with weight at most `1 - (1 - 1/N)^{2 n q2}` times the trace. Extraction
+measures `MultiExtract(tic, ·)`, so each outcome leaves a substate supported on that outcome. -/
 theorem outcomeMeasure_run₂_extractChallenger_le (hC : Conditions VC io ME tdBot Pgood)
     (hk : 1 ≤ k) (n : ℕ) (c : ExtractClaim k Cm) {B : QReg}
     (σ : SubState (B × ((compressedVCOracle k X Y).mixedExtractRuntime ME code).D)) :
@@ -932,26 +941,23 @@ theorem extractionCorrect_compressedVCOracle_of_openingQueryBound
     outcomeMeasure_run₂_extractChallenger_le_of_openingQueryBound
       io ME code q hq hC hk n (claim u y) σ
 
-/-- **Lemma 9.3 of ePrint 2025/2166, exact form** (pp. 59–61): `EO^(Ext)` for the `k`
-compressed oracles is multi-extraction correct (P3, `Quantum.ExtractionCorrect`) under the
-algebraic conditions of Theorem 8.4 (`Quantum.Conditions`), with error
-`1 - (1 - 1/N)^{2 n q2}`, independent of the query bound and of the oracle and extraction masses.
+/-- Extraction correctness with error `1 - (1 - 1/N)^{2 n q2}`, independent of the query bound
+and the oracle and extraction masses, under `Quantum.Conditions`.
 
-Proof (eqs. (38)–(39) of the notes): extraction is the measurement of `MultiExtract(tic, ·)`
-(game G0, p. 59), and the openings use only coins, so it suffices to bound the event from a
-substate supported on one extraction outcome `tdm` with openings `pf` in the support of `Open`.
-By condition 3 (p. 54) the substate lies under the pass projector `P` of the checks on the
-partial tables, so the ideal failure probability is zero. Against the compressed oracles the
-checks accept exactly on `C P C`, and `P (C P C) P = a P` with `a ≥ (1 - 1/N)^{2 n q2}`
-(eq. (27), item 2, from eq. (26) with at most `n q2` prescribed cells), so the checks fail with
-weight at most `1 - a` times the trace. -/
+Extraction measures `MultiExtract(tic, ·)`. For every supported opening, condition 3 places
+the resulting substate under the partial-table pass projector `P`. The checked batch accepts
+exactly on `C P C`, and the overlap identity `P (C P C) P = a P` gives accepting weight `a`
+times the substate's trace. At most `n q2` prescribed cells give
+`a ≥ (1 - 1/N)^{2 n q2}`, hence failure weight at most `1 - a` times the trace.
+
+See Chiesa, Di, Hu and Zheng, ePrint 2025/2166, Lemma 9.3. -/
 theorem extractionCorrect_compressedVCOracle (hC : Conditions VC io ME tdBot Pgood) :
     ExtractionCorrect.{v, w} VC (compressedVCOracle k X Y) ME code
       fun _ _ _ n ↦ extractError io n :=
   extractionCorrect_compressedVCOracle_of_openingQueryBound io ME code (q2 io)
     (openingQueryBound_q2 io) hC
 
-/-- **Lemma 9.3 of ePrint 2025/2166, leading order**: P3 with error `2 n q2 / N`, a corollary of
+/-- P3 with error `2 n q2 / N`, a corollary of
 `Quantum.extractionCorrect_compressedVCOracle`. -/
 theorem extractionCorrect_compressedVCOracle_two_mul (hC : Conditions VC io ME tdBot Pgood) :
     ExtractionCorrect.{v, w} VC (compressedVCOracle k X Y) ME code
@@ -959,7 +965,7 @@ theorem extractionCorrect_compressedVCOracle_two_mul (hC : Conditions VC io ME t
   (extractionCorrect_compressedVCOracle io ME code hC).mono fun _ _ _ n ↦
     extractError_le_two_mul io n
 
-/-- **Lemma 9.3 of ePrint 2025/2166 with the paper's error `8 n q2 / N`** (p. 59): a corollary of
+/-- P3 with error `8 n q2 / N`, a corollary of
 `Quantum.extractionCorrect_compressedVCOracle`. -/
 theorem extractionCorrect_compressedVCOracle_eight_mul (hC : Conditions VC io ME tdBot Pgood) :
     ExtractionCorrect.{v, w} VC (compressedVCOracle k X Y) ME code

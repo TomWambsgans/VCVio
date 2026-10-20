@@ -12,8 +12,7 @@ public import VCVio.Quantum.VC.Proof.Extraction
 /-!
 # Tests for the consistency projectors and the proofs of Lemmas 9.2 and 9.3
 
-Checks of the public interface of `VCVio.Quantum.Oracle.Compressed.Consistency` (eq. (26) of the
-notes on ePrint 2025/2166, sharpening Lemma 9.5):
+Checks of the public interface of `VCVio.Quantum.Oracle.Compressed.Consistency`:
 
 * the exact discrepancy `‖P̂ - P‖² = 1 - (1 - 1/N)^2` for one prescribed cell, with `N = 3`;
 * an inconsistent prescription has both projectors zero;
