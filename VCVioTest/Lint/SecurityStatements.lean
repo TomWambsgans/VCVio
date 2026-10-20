@@ -10,12 +10,16 @@ public import ToMathlib.Lint.SecurityStatements
 public import Batteries.Tactic.Lint.Frontend
 public import VCVio.OracleComp.ProbComp.Basic
 public import Mathlib.Basic.Real.Basic
+import VCVio.Schemes.Schnorr.SigmaProtocol
+import VCVio.Schemes.Pedersen
 
 /-!
 # Fixtures for the security-statement linters
 
 One flagged and one accepted case per linter, linted in this file under
 `linter.securityStatements.everywhere`, since the linters are scoped to the security libraries.
+Default-scope checks use the defining modules of Schnorr and Pedersen theorems and an unrelated
+theorem, and check that the flagged fixtures are ignored without the option.
 -/
 
 public section
@@ -94,3 +98,25 @@ run_cmd liftTermElabM do
     unless bundledResult.isNone do throwError "the existential heuristic recognized a bundle"
 
 end VCVioTest.Lint.SecurityStatements
+
+open Lean Elab Command in
+run_cmd liftTermElabM do
+  if linter.securityStatements.everywhere.get (← getOptions) then
+    throwError "the scope regression requires the default linter options"
+  let env ← getEnv
+  for (declName, expected) in
+      [(``Schnorr.sigma_hvzk, true), (``pedersenCommit.binding_le_dlog, true),
+        (``Nat.add_comm, false)] do
+    let some idx := env.getModuleIdxFor? declName
+      | throwError "no defining module for {declName}"
+    let moduleName := env.header.moduleNames[idx.toNat]!
+    unless ToMathlib.Lint.isSecurityModule moduleName == expected do
+      throwError "unexpected default security-statement scope for {declName} in {moduleName}"
+  let existentialResult ← ToMathlib.Lint.existentialReduction.test
+    ``VCVioTest.Lint.SecurityStatements.existentialReduction_flagged
+  unless existentialResult.isNone do
+    throwError "the existential linter included an unrelated module by default"
+  let realResult ← ToMathlib.Lint.unconstrainedRealParameter.test
+    ``VCVioTest.Lint.SecurityStatements.unconstrainedRealParameter_flagged
+  unless realResult.isNone do
+    throwError "the real-parameter linter included an unrelated module by default"

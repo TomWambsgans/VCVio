@@ -446,6 +446,12 @@ public import VCVio.Quantum.Pure.Vector
 public import VCVio.Quantum.Register
 public import VCVio.Quantum.Semantics
 public import VCVio.Quantum.SubInstrument
+public import VCVio.Schemes.Pedersen
+public import VCVio.Schemes.Schnorr.BoundedChallenges
+public import VCVio.Schemes.Schnorr.ChallengeRestriction
+public import VCVio.Schemes.Schnorr.SigmaProtocol
+public import VCVio.Schemes.Schnorr.Signature
+public import VCVio.Schemes.Schnorr.Transforms
 public import VCVio.StateSeparating.Advantage.Measure
 public import VCVio.StateSeparating.CellRef
 public import VCVio.StateSeparating.DistEquiv
