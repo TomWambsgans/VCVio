@@ -179,6 +179,7 @@ public import VCVio.CryptoFoundations.SignatureAlg.SigningHazard
 public import VCVio.CryptoFoundations.SignatureAlg.Tagged
 public import VCVio.CryptoFoundations.SignatureAlg.Transcript
 public import VCVio.CryptoFoundations.SignatureAlg.TranscriptCongr
+public import VCVio.CryptoFoundations.SignatureAlg.WithPost
 public import VCVio.CryptoFoundations.SymmEncAlg
 public import VCVio.CryptoFoundations.SymmEncAlg.Defs
 public import VCVio.CryptoFoundations.SymmEncAlg.Deterministic
