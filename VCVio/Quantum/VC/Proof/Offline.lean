@@ -54,6 +54,82 @@ theorem liftBlocks_const (e : J ≃ M × B) (A : Matrix M M ℂ) :
   ext j j'
   simp only [liftBlocks, submatrix_apply, blockDiagonal_apply, onFactor_apply]
 
+
+variable [Fintype J] [Fintype M] [Finite B]
+
+private theorem liftBlocks_certificate (e : J ≃ M × B) (U P P' Q : Matrix M M ℂ)
+    (θ r : ℝ)
+    (h : (chargedDrop U P P' θ).PosSemidef ∧
+      (r • chargedDrop U P P' θ - (Q * U - U * Q)ᴴ * (Q * U - U * Q)).PosSemidef) :
+    let F := fun A : Matrix M M ℂ ↦ liftBlocks e (fun _ ↦ A)
+    (chargedDrop (F U) (F P) (F P') θ).PosSemidef ∧
+      (r • chargedDrop (F U) (F P) (F P') θ -
+        (F Q * F U - F U * F Q)ᴴ * (F Q * F U - F U * F Q)).PosSemidef := by
+  let u := fun _ : B ↦ U
+  let p := fun _ : B ↦ P
+  let p' := fun _ : B ↦ P'
+  let q := fun _ : B ↦ Q
+  have hd : (liftBlocks e (p + θ • 1 - (fun b ↦ (u b)ᴴ) * p' * u)).PosSemidef :=
+    posSemidef_liftBlocks e (fun _ ↦ h.1)
+  have hl : (liftBlocks e (r • (p + θ • 1 - (fun b ↦ (u b)ᴴ) * p' * u) -
+      (fun b ↦ ((q * u - u * q) b)ᴴ) * (q * u - u * q))).PosSemidef :=
+    posSemidef_liftBlocks e (fun _ ↦ h.2)
+  simp only [liftBlocks_sub, liftBlocks_add, liftBlocks_smul, liftBlocks_one,
+    liftBlocks_mul] at hd hl
+  rw [liftBlocks_adjoint e u] at hd hl
+  rw [liftBlocks_adjoint e (q * u - u * q)] at hl
+  simp only [liftBlocks_sub, liftBlocks_mul] at hl
+  exact ⟨hd, hl⟩
+
+private theorem frame_database {A D R : Type*} [DecidableEq A] [DecidableEq R]
+    (P : Matrix D D ℂ) :
+    liftBlocks (Equiv.prodAssoc A D R).symm (fun _ ↦ (1 : Matrix A A ℂ) ⊗ₖ P) =
+      (1 : Matrix A A ℂ) ⊗ₖ (P ⊗ₖ (1 : Matrix R R ℂ)) := by
+  ext ⟨a, d, r⟩ ⟨a', d', r'⟩
+  simp only [liftBlocks, submatrix_apply, blockDiagonal_apply, kroneckerMap_apply,
+    Equiv.prodAssoc_symm_apply, one_apply]
+  split_ifs <;> simp_all
+
+private theorem diagonalIdle_bounds {A S : Type*} [Fintype A] [Fintype S]
+    [DecidableEq A] [DecidableEq S] (U : Matrix (A × S) (A × S) ℂ)
+    (hunit : Uᴴ * U = 1) (f g : S → ℝ) (q : S → ℂ)
+    (hfg : ∀ s, g s ≤ f s)
+    (hp : (1 ⊗ₖ diagonal (fun s ↦ (g s : ℂ))) * U =
+      U * (1 ⊗ₖ diagonal (fun s ↦ (g s : ℂ))))
+    (hq : (1 ⊗ₖ diagonal q) * U = U * (1 ⊗ₖ diagonal q)) :
+    (chargedDrop U (1 ⊗ₖ diagonal (fun s ↦ (f s : ℂ)))
+      (1 ⊗ₖ diagonal (fun s ↦ (g s : ℂ))) 0).PosSemidef ∧
+      (1 ⊗ₖ diagonal q) * U - U * (1 ⊗ₖ diagonal q) = 0 := by
+  refine ⟨?_, sub_eq_zero.mpr hq⟩
+  rw [chargedDrop, zero_smul, add_zero, conjTranspose_mul_mul_eq_of_commute hunit hp]
+  simp only [← diagonal_one, diagonal_kronecker_diagonal, diagonal_sub, one_mul]
+  apply PosSemidef.diagonal
+  intro a
+  simpa only [Pi.zero_apply, ← Complex.ofReal_sub, Complex.zero_le_real] using
+    sub_nonneg.mpr (hfg a.2)
+
+private theorem diagonal_basis_zero {S : Type*} [Fintype S] [DecidableEq S]
+    (s : S) (f : S → ℂ) (hf : f s = 0) :
+    diagonal f * (SubState.basis s).matrix = 0 := by
+  rw [SubState.matrix_basis]
+  ext a b
+  rw [diagonal_mul, Matrix.single_apply]
+  split_ifs with h
+  · rw [← h.1, hf, zero_mul]
+    rfl
+  · simp
+
+private theorem initial_zero_of_gram {S A : Type*} [Fintype S] [DecidableEq S]
+    [Fintype A] [DecidableEq A] (K Q P : Matrix S S ℂ) (hgram : Kᴴ * K = P)
+    (s : S) (hq : Q * (SubState.basis s).matrix = 0)
+    (hp : P * (SubState.basis s).matrix = 0) (ρ : Matrix A A ℂ) :
+    MatrixMap.conj ((1 : Matrix A A ℂ) ⊗ₖ Q) (ρ ⊗ₖ (SubState.basis s).matrix) = 0 ∧
+      QuantumRuntime.potential K (ρ ⊗ₖ (SubState.basis s).matrix) = 0 := by
+  constructor
+  · rw [MatrixMap.conj_apply, ← mul_kronecker_mul, hq, kronecker_zero, Matrix.zero_mul]
+  · rw [QuantumRuntime.potential_eq, hgram, ← mul_kronecker_mul, hp,
+      kronecker_zero, Matrix.trace_zero, Complex.zero_re, ENNReal.ofReal_zero]
+
 end algebra
 
 section family
@@ -85,6 +161,45 @@ theorem familyPopulation_split (t n : ℕ) (i : Fin k) (d : Database X Y)
   congr 1
   exact Finset.sum_congr rfl fun j _ ↦ by simp [j.property]
 
+section baseOperators
+
+variable [DecidableEq Y]
+
+/-- The family collision event on the ordinary/extraction private register. -/
+@[expose]
+noncomputable def familyCollisionProjector :
+    Matrix (Fin k → Database X Y) (Fin k → Database X Y) ℂ :=
+  labelProjector Database.allCollisionLabel true
+
+/-- The charged family population schedule on the ordinary/extraction private register. -/
+@[expose]
+noncomputable def extractPopulationMatrix (t n : ℕ) :
+    Matrix (Fin k → Database X Y) (Fin k → Database X Y) ℂ :=
+  diagonal (fun D ↦ (familyPopulation t n D : ℂ))
+
+/-- Square root of the charged population schedule without a recording register. -/
+@[expose]
+noncomputable def extractPotentialFactor (t n : ℕ) :
+    Matrix (Fin k → Database X Y) (Fin k → Database X Y) ℂ :=
+  diagonal (fun D ↦ (Real.sqrt (familyPopulation t n D) : ℂ))
+
+variable [DecidableEq X] [Fintype Y]
+
+/-- The square-root schedule has the prescribed population Gram matrix. -/
+private theorem extractPotentialFactor_gram (t n : ℕ) :
+    (extractPotentialFactor (k := k) (X := X) (Y := Y) t n)ᴴ * extractPotentialFactor t n =
+      extractPopulationMatrix t n := by
+  rw [extractPotentialFactor, diagonal_conjTranspose, diagonal_mul_diagonal,
+    extractPopulationMatrix]
+  congr 1
+  funext D
+  change star (Real.sqrt (familyPopulation t n D) : ℂ) *
+    (Real.sqrt (familyPopulation t n D) : ℂ) = (familyPopulation t n D : ℂ)
+  rw [Complex.star_def, Complex.conj_ofReal, ← Complex.ofReal_mul,
+    Real.mul_self_sqrt (familyPopulation_nonneg t n D)]
+
+end baseOperators
+
 variable {R : Type} [DecidableEq X] [DecidableEq Y] [DecidableEq R]
 
 /-- Split an ordinary query, one database, and all the spectator registers. -/
@@ -100,13 +215,33 @@ def recordSplit (i : Fin k) :
 @[expose]
 noncomputable def familyPopulationMatrix (t n : ℕ) :
     Matrix ((Fin k → Database X Y) × R) ((Fin k → Database X Y) × R) ℂ :=
-  diagonal fun d ↦ (familyPopulation t n d.1 : ℂ)
+  extractPopulationMatrix (k := k) (X := X) (Y := Y) t n ⊗ₖ (1 : Matrix R R ℂ)
 
 /-- The event that some database has a collision, ignoring the recording registers. -/
 @[expose]
 noncomputable def familyCollisionMatrix :
     Matrix ((Fin k → Database X Y) × R) ((Fin k → Database X Y) × R) ℂ :=
-  labelProjector (fun d ↦ Database.allCollisionLabel d.1) true
+  familyCollisionProjector (k := k) (X := X) (Y := Y) ⊗ₖ (1 : Matrix R R ℂ)
+
+omit [DecidableEq X] in
+private theorem familyPopulationMatrix_diagonal (t n : ℕ) :
+    familyPopulationMatrix (k := k) (X := X) (Y := Y) (R := R) t n =
+      diagonal (fun d ↦ (familyPopulation t n d.1 : ℂ)) := by
+  simp only [familyPopulationMatrix, extractPopulationMatrix, ← diagonal_one,
+    diagonal_kronecker_diagonal, mul_one]
+
+omit [DecidableEq X] in
+private theorem familyCollisionMatrix_diagonal :
+    familyCollisionMatrix (k := k) (X := X) (Y := Y) (R := R) =
+      labelProjector (fun d ↦ Database.allCollisionLabel d.1) true := by
+  simp only [familyCollisionMatrix, familyCollisionProjector, labelProjector, ← diagonal_one,
+    diagonal_kronecker_diagonal, mul_one]
+
+omit [DecidableEq X] in
+/-- Recording registers are spectators to the canonical family collision event. -/
+theorem familyCollisionMatrix_eq_kronecker :
+    familyCollisionMatrix (k := k) (X := X) (Y := Y) (R := R) =
+      familyCollisionProjector (k := k) (X := X) (Y := Y) ⊗ₖ (1 : Matrix R R ℂ) := rfl
 
 /-- The blocks of the family potential are a database potential plus an idle scalar. -/
 theorem familyPopulationMatrix_blocks (t n : ℕ) (i : Fin k) :
@@ -115,7 +250,7 @@ theorem familyPopulationMatrix_blocks (t n : ℕ) (i : Fin k) :
       liftBlocks (recordSplit i) (fun r ↦
         (1 : Matrix (X × Y) (X × Y) ℂ) ⊗ₖ populationMatrix t n 0 +
         (∑ j, collisionPotential t n (r.1 j).size) • 1) := by
-  rw [familyPopulationMatrix, ← diagonal_one, diagonal_kronecker_diagonal]
+  rw [familyPopulationMatrix_diagonal, ← diagonal_one, diagonal_kronecker_diagonal]
   simp only [one_mul]
   rw [← liftBlocks_diagonal (recordSplit i)]
   congr 1
@@ -135,7 +270,7 @@ theorem familyCollisionMatrix_blocks (i : Fin k) :
       liftBlocks (recordSplit i) (fun r ↦ (1 : Matrix (X × Y) (X × Y) ℂ) ⊗ₖ
         labelProjector (fun d ↦ Database.allCollisionLabel
           ((Equiv.funSplitAt i (Database X Y)).symm (d, r.1))) true) := by
-  rw [familyCollisionMatrix, labelProjector, ← diagonal_one, diagonal_kronecker_diagonal]
+  rw [familyCollisionMatrix_diagonal, labelProjector, ← diagonal_one, diagonal_kronecker_diagonal]
   simp only [one_mul]
   rw [← liftBlocks_diagonal (recordSplit i)]
   congr 1
@@ -204,25 +339,115 @@ private theorem familyOrdinaryBlock_bounds {t n : ℕ} (hn : n < t) (i : Fin k)
   · exact posSemidef_compressedPopulationDrop hn 0
   · exact posSemidef_compressedPopulationLeak hn 0 _ (familyCollision_block_count i r.1)
 
+omit [DecidableEq R] [Fintype R] in
+private theorem baseOrdinary_bounds {t n : ℕ} (hn : n < t) (i : Fin k) :
+    let U : Matrix ((X × Y) × (Fin k → Database X Y))
+      ((X × Y) × (Fin k → Database X Y)) ℂ := (compressedVCOracle k X Y).U i
+    let P := fun j ↦ (1 : Matrix (X × Y) (X × Y) ℂ) ⊗ₖ
+      extractPopulationMatrix (k := k) (X := X) (Y := Y) t j
+    let Q := (1 : Matrix (X × Y) (X × Y) ℂ) ⊗ₖ familyCollisionProjector (k := k) (X := X) (Y := Y)
+    let Δ := chargedDrop U (P n) (P (n + 1)) ((t : ℝ) / 2)
+    Δ.PosSemidef ∧ (collisionRate t n (Fintype.card Y) • Δ -
+      (Q * U - U * Q)ᴴ * (Q * U - U * Q)).PosSemidef := by
+  classical
+  let e := splitAt (X × Y) (Database X Y) i
+  let P (j : ℕ) (r : {l // l ≠ i} → Database X Y) :=
+    (1 : Matrix (X × Y) (X × Y) ℂ) ⊗ₖ
+      populationMatrix (X := X) (Y := Y) t j 0 +
+        (∑ l, collisionPotential t j (r l).size) • 1
+  let U (_ : {l // l ≠ i} → Database X Y) := compressedOracle X Y
+  let Q (r : {l // l ≠ i} → Database X Y) :=
+    (1 : Matrix (X × Y) (X × Y) ℂ) ⊗ₖ labelProjector
+      (fun d ↦ Database.allCollisionLabel
+        ((Equiv.funSplitAt i (Database X Y)).symm (d, r))) true
+  have hp (j : ℕ) : (1 : Matrix (X × Y) (X × Y) ℂ) ⊗ₖ
+      extractPopulationMatrix (k := k) (X := X) (Y := Y) t j = liftBlocks e (P j) := by
+    rw [extractPopulationMatrix, ← diagonal_one, diagonal_kronecker_diagonal]
+    simp only [one_mul]
+    rw [← liftBlocks_diagonal e]
+    congr 1
+    funext r
+    simp only [P, populationMatrix, ← diagonal_one, diagonal_kronecker_diagonal,
+      ← diagonal_smul, diagonal_add]
+    congr 1
+    funext a
+    change (familyPopulation t j
+        ((Equiv.funSplitAt i (Database X Y)).symm (a.2, r)) : ℂ) =
+      1 * (collisionPotential t j (0 + a.2.size) : ℂ) +
+        (∑ l, collisionPotential t j (r l).size) • (1 : ℂ)
+    rw [familyPopulation_split]
+    simp only [one_mul, zero_add, Complex.ofReal_add, Complex.real_smul, mul_one]
+  have hq : (1 : Matrix (X × Y) (X × Y) ℂ) ⊗ₖ
+      familyCollisionProjector (k := k) (X := X) (Y := Y) = liftBlocks e Q := by
+    change (1 : Matrix (X × Y) (X × Y) ℂ) ⊗ₖ
+      labelProjector Database.allCollisionLabel true = _
+    rw [labelProjector, ← diagonal_one,
+      diagonal_kronecker_diagonal]
+    simp only [one_mul]
+    rw [← liftBlocks_diagonal e]
+    congr 1
+    funext r
+    simp only [Q, labelProjector, ← diagonal_one, diagonal_kronecker_diagonal, one_mul]
+    rfl
+  have hu : (compressedVCOracle k X Y).U i =
+      liftBlocks e U := by
+    rw [liftBlocks_const]
+    rfl
+  have hb (r : {l // l ≠ i} → Database X Y) :=
+    familyOrdinaryBlock_bounds (R := Unit) hn i (r, ())
+  have hd : (liftBlocks e (P n + ((t : ℝ) / 2) • 1 -
+      (fun r ↦ (U r)ᴴ) * P (n + 1) * U)).PosSemidef :=
+    posSemidef_liftBlocks e (fun r ↦ (hb r).1)
+  have hl : (liftBlocks e (collisionRate t n (Fintype.card Y) •
+      (P n + ((t : ℝ) / 2) • 1 - (fun r ↦ (U r)ᴴ) * P (n + 1) * U) -
+        (fun r ↦ ((Q * U - U * Q) r)ᴴ) * (Q * U - U * Q))).PosSemidef :=
+    posSemidef_liftBlocks e (fun r ↦ (hb r).2)
+  simp only [liftBlocks_sub, liftBlocks_add, liftBlocks_smul, liftBlocks_one,
+    liftBlocks_mul] at hd hl
+  rw [liftBlocks_adjoint e U] at hd hl
+  rw [liftBlocks_adjoint e (Q * U - U * Q)] at hl
+  simp only [liftBlocks_sub, liftBlocks_mul] at hl
+  dsimp only
+  rw [hu]
+  rw [← hp, ← hp] at hd hl
+  rw [← hq] at hl
+  exact ⟨hd, hl⟩
+
+private theorem recordedOrdinary_bounds {t n : ℕ} (hn : n < t) (i : Fin k) :
+    let U := liftBlocks (recordSplit (X := X) (Y := Y) (R := R) i)
+      (fun _ ↦ compressedOracle X Y)
+    let P := fun j ↦ (1 : Matrix (X × Y) (X × Y) ℂ) ⊗ₖ
+      familyPopulationMatrix (k := k) (X := X) (Y := Y) (R := R) t j
+    let Q := (1 : Matrix (X × Y) (X × Y) ℂ) ⊗ₖ familyCollisionMatrix
+    let Δ := chargedDrop U (P n) (P (n + 1)) ((t : ℝ) / 2)
+    Δ.PosSemidef ∧ (collisionRate t n (Fintype.card Y) • Δ -
+      (Q * U - U * Q)ᴴ * (Q * U - U * Q)).PosSemidef := by
+  have h := liftBlocks_certificate (Equiv.prodAssoc (X × Y) (Fin k → Database X Y) R).symm
+    _ _ _ _ ((t : ℝ) / 2) (collisionRate t n (Fintype.card Y)) (baseOrdinary_bounds hn i)
+  dsimp only at h
+  rw [frame_database, frame_database, frame_database] at h
+  have hu : liftBlocks (Equiv.prodAssoc (X × Y) (Fin k → Database X Y) R).symm
+      (fun _ ↦ (compressedVCOracle k X Y).U i) =
+      liftBlocks (recordSplit i) (fun _ ↦ compressedOracle X Y) := by
+    calc
+      _ = Matrix.reindex (Equiv.prodAssoc (X × Y) (Fin k → Database X Y) R)
+          (Equiv.prodAssoc (X × Y) (Fin k → Database X Y) R)
+          ((compressedVCOracle k X Y).U i ⊗ₖ (1 : Matrix R R ℂ)) := by
+        ext ⟨a, d, r⟩ ⟨a', d', r'⟩
+        change (if r = r' then (compressedVCOracle k X Y).U i (a, d) (a', d') else 0) =
+          (compressedVCOracle k X Y).U i (a, d) (a', d') * (if r = r' then 1 else 0)
+        split_ifs <;> simp
+      _ = _ := ordinaryRecordUnitary_blocks (X := X) (Y := Y) (R := R) i
+  rw [hu] at h
+  exact h
+
 /-- The charged drop on the family of databases is nonnegative for every ordinary selector. -/
 theorem posSemidef_familyOrdinaryDrop {t n : ℕ} (hn : n < t) (i : Fin k) :
     (chargedDrop (liftBlocks (recordSplit (X := X) (Y := Y) (R := R) i)
       (fun _ ↦ compressedOracle X Y))
       (1 ⊗ₖ familyPopulationMatrix t n) (1 ⊗ₖ familyPopulationMatrix t (n + 1))
       ((t : ℝ) / 2)).PosSemidef := by
-  let B := ({j // j ≠ i} → Database X Y) × R
-  let P (j : ℕ) (r : B) := (1 : Matrix (X × Y) (X × Y) ℂ) ⊗ₖ
-    populationMatrix (X := X) (Y := Y) t j 0 +
-    (∑ l, collisionPotential t j (r.1 l).size) • 1
-  let U (_ : B) := compressedOracle X Y
-  let e := recordSplit (X := X) (Y := Y) (R := R) i
-  have hb : (liftBlocks e (P n + ((t : ℝ) / 2) • 1 -
-      (fun b ↦ (U b)ᴴ) * P (n + 1) * U)).PosSemidef :=
-    posSemidef_liftBlocks e (fun b ↦ (familyOrdinaryBlock_bounds hn i b).1)
-  rw [liftBlocks_sub, liftBlocks_add, liftBlocks_smul, liftBlocks_one,
-    liftBlocks_mul, liftBlocks_mul, liftBlocks_adjoint] at hb
-  rw [chargedDrop, familyPopulationMatrix_blocks, familyPopulationMatrix_blocks]
-  exact hb
+  exact (recordedOrdinary_bounds (R := R) hn i).1
 
 /-- The family collision leak is dominated by the charged drop on an ordinary selector. -/
 theorem posSemidef_familyOrdinaryLeak {t n : ℕ} (hn : n < t) (i : Fin k) :
@@ -232,27 +457,7 @@ theorem posSemidef_familyOrdinaryLeak {t n : ℕ} (hn : n < t) (i : Fin k) :
     (collisionRate t n (Fintype.card Y) • chargedDrop U
       (1 ⊗ₖ familyPopulationMatrix t n) (1 ⊗ₖ familyPopulationMatrix t (n + 1))
       ((t : ℝ) / 2) - (Q * U - U * Q)ᴴ * (Q * U - U * Q)).PosSemidef := by
-  let B := ({j // j ≠ i} → Database X Y) × R
-  let P (j : ℕ) (r : B) := (1 : Matrix (X × Y) (X × Y) ℂ) ⊗ₖ
-    populationMatrix (X := X) (Y := Y) t j 0 +
-    (∑ l, collisionPotential t j (r.1 l).size) • 1
-  let U (_ : B) := compressedOracle X Y
-  let Q (r : B) := (1 : Matrix (X × Y) (X × Y) ℂ) ⊗ₖ labelProjector
-    (fun d ↦ Database.allCollisionLabel
-      ((Equiv.funSplitAt i (Database X Y)).symm (d, r.1))) true
-  let e := recordSplit (X := X) (Y := Y) (R := R) i
-  have hb : (liftBlocks e (collisionRate t n (Fintype.card Y) •
-      (P n + ((t : ℝ) / 2) • 1 - (fun b ↦ (U b)ᴴ) * P (n + 1) * U) -
-      (fun b ↦ ((Q * U - U * Q) b)ᴴ) * (Q * U - U * Q))).PosSemidef :=
-    posSemidef_liftBlocks e (fun b ↦ (familyOrdinaryBlock_bounds hn i b).2)
-  simp only [liftBlocks_sub, liftBlocks_add, liftBlocks_smul, liftBlocks_one,
-    liftBlocks_mul] at hb
-  rw [liftBlocks_adjoint e U, liftBlocks_adjoint e (Q * U - U * Q)] at hb
-  simp only [liftBlocks_sub, liftBlocks_mul] at hb
-  dsimp only
-  rw [chargedDrop, familyPopulationMatrix_blocks, familyPopulationMatrix_blocks,
-    familyCollisionMatrix_blocks]
-  exact hb
+  exact (recordedOrdinary_bounds (R := R) hn i).2
 
 omit [AddCommGroup Y] in
 /-- Any interface preserving the databases commutes with database-diagonal operators. -/
@@ -279,40 +484,29 @@ theorem familyIdle_bounds {A : Type*} [Fintype A] [DecidableEq A]
     (chargedDrop U (1 ⊗ₖ familyPopulationMatrix t n)
       (1 ⊗ₖ familyPopulationMatrix t (n + 1)) 0).PosSemidef ∧
     (1 ⊗ₖ familyCollisionMatrix) * U - U * (1 ⊗ₖ familyCollisionMatrix) = 0 := by
-  have hp := commute_familyDiagonal U hU (fun d ↦ (familyPopulation t (n + 1) d : ℂ))
-  change (1 ⊗ₖ familyPopulationMatrix t (n + 1)) * U =
-    U * (1 ⊗ₖ familyPopulationMatrix t (n + 1)) at hp
-  have hq := commute_familyDiagonal U hU
-    (fun d ↦ if Database.allCollisionLabel d = true then (1 : ℂ) else 0)
-  refine ⟨?_, sub_eq_zero.mpr hq⟩
-  rw [chargedDrop, zero_smul, add_zero,
-    conjTranspose_mul_mul_eq_of_commute hunit hp]
-  rw [familyPopulationMatrix, familyPopulationMatrix, ← diagonal_one,
-    diagonal_kronecker_diagonal, diagonal_kronecker_diagonal, diagonal_sub]
-  apply PosSemidef.diagonal
-  intro a
-  simp only [Pi.zero_apply, one_mul, ← Complex.ofReal_sub, Complex.zero_le_real]
-  exact sub_nonneg.mpr (familyPopulation_idle hn a.2.1)
+  rw [familyPopulationMatrix_diagonal, familyPopulationMatrix_diagonal,
+    familyCollisionMatrix_diagonal]
+  exact diagonalIdle_bounds U hunit
+    (fun d ↦ familyPopulation t n d.1) (fun d ↦ familyPopulation t (n + 1) d.1)
+    (fun d ↦ if Database.allCollisionLabel d.1 = true then 1 else 0)
+    (fun d ↦ familyPopulation_idle hn d.1)
+    (commute_familyDiagonal U hU (fun d ↦ (familyPopulation t (n + 1) d : ℂ)))
+    (commute_familyDiagonal U hU (fun d ↦ if Database.allCollisionLabel d = true then 1 else 0))
 
 /-- The diagonal square root factors the family population operator. -/
 @[expose]
 noncomputable def familyPotentialFactor (t n : ℕ) :
     Matrix ((Fin k → Database X Y) × R) ((Fin k → Database X Y) × R) ℂ :=
-  diagonal (fun s ↦ (Real.sqrt (familyPopulation t n s.1) : ℂ))
+  extractPotentialFactor (k := k) (X := X) (Y := Y) t n ⊗ₖ (1 : Matrix R R ℂ)
 
 omit [AddCommGroup Y] in
 /-- The Gram matrix of the population factor is the population operator. -/
 theorem familyPotentialFactor_gram (t n : ℕ) :
     (familyPotentialFactor (k := k) (X := X) (Y := Y) (R := R) t n)ᴴ *
       familyPotentialFactor t n = familyPopulationMatrix t n := by
-  rw [familyPotentialFactor, diagonal_conjTranspose, diagonal_mul_diagonal]
-  change diagonal _ = diagonal _
-  congr 1
-  funext s
-  change star (Real.sqrt (familyPopulation t n s.1) : ℂ) *
-    (Real.sqrt (familyPopulation t n s.1) : ℂ) = (familyPopulation t n s.1 : ℂ)
-  rw [Complex.star_def, Complex.conj_ofReal, ← Complex.ofReal_mul,
-    Real.mul_self_sqrt (familyPopulation_nonneg t n s.1)]
+  rw [familyPotentialFactor, conjTranspose_kronecker, ← mul_kronecker_mul,
+    extractPotentialFactor_gram, conjTranspose_one, Matrix.one_mul]
+  rfl
 
 omit [DecidableEq X] [DecidableEq Y] [Fintype Y] [AddCommGroup Y] in
 /-- The empty family has zero initial potential. -/
@@ -321,6 +515,34 @@ theorem familyPopulation_empty (t : ℕ) :
   simp [familyPopulation, collisionPotential]
 
 end family
+
+section extractionAlgebra
+
+variable {k : ℕ} {X Y Cm Z : Type} [Fintype X] [DecidableEq X]
+  [Fintype Y] [DecidableEq Y] [Fintype Cm] [DecidableEq Cm]
+  [Fintype Z] [DecidableEq Z] [AddGroup Z] {Dm : Fin k → Type}
+  (ME : MultiExtractor k Cm Dm (Fin k → Database X Y)) (code : TpDCode k Dm Z)
+
+/-- Extraction preserves every event determined by the compressed databases. -/
+theorem extractUnitary_commute_diagonal (f : (Fin k → Database X Y) → ℂ) :
+    ((1 : Matrix (TpIC k Cm × Z) (TpIC k Cm × Z) ℂ) ⊗ₖ diagonal f) *
+        extractUnitary ME code =
+      extractUnitary ME code * ((1 : Matrix (TpIC k Cm × Z) (TpIC k Cm × Z) ℂ) ⊗ₖ
+        diagonal f) := by
+  rw [← diagonal_one, diagonal_kronecker_diagonal]
+  ext a b
+  rw [diagonal_mul, mul_diagonal]
+  by_cases h : extractUnitary ME code a b = 0
+  · simp [h]
+  · have hD : a.2 = b.2 := by
+      rw [extractUnitary_apply] at h
+      split_ifs at h with he
+      · exact he.2.2
+      · exact False.elim (h rfl)
+    simp only [one_mul, hD]
+    ring
+
+end extractionAlgebra
 
 section interfaces
 
@@ -410,15 +632,7 @@ theorem withRecord_port_bounds {t n : ℕ} (hn : n < t) (p : (Fin k ⊕ Unit) �
         (onFactor (splitAt (X × Y) (Database X Y) i) (compressedOracle X Y) ⊗ₖ
           (1 : Matrix (RecReg k Cm Dm Cell) (RecReg k Cm Dm Cell) ℂ)) =
         liftBlocks (recordSplit i) (fun _ ↦ compressedOracle X Y) := by
-      rw [liftBlocks_const]
-      ext ⟨xy', d', r'⟩ ⟨xy, d, r⟩
-      change onFactor (splitAt (X × Y) (Database X Y) i) (compressedOracle X Y)
-          (xy', d') (xy, d) * (1 : Matrix (RecReg k Cm Dm Cell)
-            (RecReg k Cm Dm Cell) ℂ) r' r =
-        onFactor (recordSplit i) (compressedOracle X Y) (xy', (d', r')) (xy, (d, r))
-      rw [onFactor_apply, onFactor_apply, one_apply]
-      simp only [splitAt_apply, recordSplit_apply, Prod.mk.injEq]
-      split_ifs <;> simp_all
+      exact ordinaryRecordUnitary_blocks (X := X) (Y := Y) (R := RecReg k Cm Dm Cell) i
     rw [hu']
     exact ⟨posSemidef_familyOrdinaryDrop hn i, posSemidef_familyOrdinaryLeak hn i⟩
   · cases u
@@ -460,37 +674,16 @@ theorem compressedWithRecord_initial_zero (t : ℕ) {A : QReg} (ρ : SubState A)
   classical
   let d : (Fin k → Database X Y) × RecReg k Cm Dm Cell :=
     ((fun _ ↦ Database.empty), RecReg.const bot)
-  have hz (f : ((Fin k → Database X Y) × RecReg k Cm Dm Cell) → ℂ) (hf : f d = 0) :
-      diagonal f * (SubState.basis d).matrix = 0 := by
-    rw [SubState.matrix_basis]
-    ext a b
-    rw [diagonal_mul, Matrix.single_apply]
-    split_ifs with h
-    · rw [← h.1, hf, zero_mul]
-      rfl
-    · simp
+  have hz := diagonal_basis_zero d
   have hq := hz (fun s ↦ if Database.allCollisionLabel s.1 = true then 1 else 0) (by
     simp [d, Database.allCollisionLabel, Database.allCollisionFree_empty])
   have hp := hz (fun s ↦ (familyPopulation t 0 s.1 : ℂ)) (by
     rw [familyPopulation_empty]; rfl)
-  have he := compressedWithRecord_init ME code bot V hV
   dsimp only
-  rw [he]
-  constructor
-  · change MatrixMap.conj ((1 : Matrix A A ℂ) ⊗ₖ
-      diagonal (fun s : (Fin k → Database X Y) × RecReg k Cm Dm Cell ↦
-        if Database.allCollisionLabel s.1 = true then (1 : ℂ) else 0))
-        (ρ.matrix ⊗ₖ (SubState.basis d).matrix) = 0
-    rw [MatrixMap.conj_apply, ← mul_kronecker_mul, hq, kronecker_zero, Matrix.zero_mul]
-  · change QuantumRuntime.potential
-      (familyPotentialFactor (k := k) (X := X) (Y := Y) (R := RecReg k Cm Dm Cell) t 0)
-      (ρ.matrix ⊗ₖ (SubState.basis d).matrix) = 0
-    rw [QuantumRuntime.potential_eq, familyPotentialFactor_gram, ← mul_kronecker_mul]
-    change ENNReal.ofReal ((((1 : Matrix A A ℂ) * ρ.matrix) ⊗ₖ
-      (diagonal (fun s : (Fin k → Database X Y) × RecReg k Cm Dm Cell ↦
-        (familyPopulation t 0 s.1 : ℂ)) *
-        (SubState.basis d).matrix)).trace.re) = 0
-    rw [hp, kronecker_zero, Matrix.trace_zero, Complex.zero_re, ENNReal.ofReal_zero]
+  rw [compressedWithRecord_init ME code bot V hV]
+  apply initial_zero_of_gram _ _ _ (familyPotentialFactor_gram t 0) d
+  · simpa only [familyCollisionMatrix_diagonal, labelProjector] using hq
+  · simpa only [familyPopulationMatrix_diagonal] using hp
 
 /-- The family collision event has weight at most `(7t+5)t min(w,t)/(4|Y|)` for
 ordinary, extraction, and recording programs. The mass `w` counts only the ordinary ports,
@@ -513,6 +706,7 @@ theorem collisionEvent_compressedVCOracle_le {L : LocalSig} (I : L.Interp)
   have hQ := isStarProjection_labelProjector (α := ℂ)
     (fun s : (Fin k → Database X Y) × RecReg k Cm Dm Cell ↦
       Database.allCollisionLabel s.1) true
+  rw [← familyCollisionMatrix_diagonal] at hQ
   have hi := compressedWithRecord_initial_zero ME code bot V hV t ρ
   refine (E.eventWeight_le_collision_of_port_bounds I ordinaryPort Q hQ.isSelfAdjoint
     hQ.isIdempotentElem K (Fintype.card Y) (by positivity) ?_ x hx
@@ -531,35 +725,12 @@ end interfaces
 
 section extractionCollision
 
-section projector
 
-variable {k : ℕ} {X Y : Type} [Fintype X] [DecidableEq Y]
-
-/-- The family collision event on the ordinary/extraction private register. -/
-@[expose]
-noncomputable def familyCollisionProjector :
-    Matrix (Fin k → Database X Y) (Fin k → Database X Y) ℂ :=
-  labelProjector Database.allCollisionLabel true
-
-/-- Recording registers are spectators to the canonical family collision event. -/
-theorem familyCollisionMatrix_eq_kronecker {R : Type} [DecidableEq R] :
-    familyCollisionMatrix (k := k) (X := X) (Y := Y) (R := R) =
-      familyCollisionProjector (k := k) (X := X) (Y := Y) ⊗ₖ (1 : Matrix R R ℂ) := by
-  rw [familyCollisionMatrix, familyCollisionProjector, labelProjector, labelProjector,
-    ← diagonal_one, diagonal_kronecker_diagonal]
-  simp only [mul_one]
-
-end projector
 
 variable {k : ℕ} {X Y Cm Z : Type} [Fintype X] [DecidableEq X]
   [Fintype Y] [DecidableEq Y] [AddCommGroup Y] [Fintype Cm] [DecidableEq Cm]
   [Fintype Z] [DecidableEq Z] [AddGroup Z] {Dm : Fin k → Type}
   (ME : MultiExtractor k Cm Dm (Fin k → Database X Y)) (code : TpDCode k Dm Z)
-
-/-- The charged family population schedule on the ordinary/extraction private register. -/
-private noncomputable def extractPopulationMatrix (t n : ℕ) :
-    Matrix (Fin k → Database X Y) (Fin k → Database X Y) ℂ :=
-  diagonal (fun D ↦ (familyPopulation t n D : ℂ))
 
 /-- The ordinary/extraction ports obey the collision inequalities used by the recorded runtime,
 with ordinary ports alone charged. The proof uses the same per-database blocks. -/
@@ -577,130 +748,26 @@ private theorem withExtract_collision_port_bounds {t n : ℕ} (hn : n < t) (p : 
       (Q * U - U * Q)ᴴ * (Q * U - U * Q)).PosSemidef := by
   classical
   rcases p with i | u
-  · let e := splitAt (X × Y) (Database X Y) i
-    let P (j : ℕ) (r : {l // l ≠ i} → Database X Y) :=
-      (1 : Matrix (X × Y) (X × Y) ℂ) ⊗ₖ
-        populationMatrix (X := X) (Y := Y) t j 0 +
-          (∑ l, collisionPotential t j (r l).size) • 1
-    let U (_ : {l // l ≠ i} → Database X Y) := compressedOracle X Y
-    let Q (r : {l // l ≠ i} → Database X Y) :=
-      (1 : Matrix (X × Y) (X × Y) ℂ) ⊗ₖ labelProjector
-        (fun d ↦ Database.allCollisionLabel
-          ((Equiv.funSplitAt i (Database X Y)).symm (d, r))) true
-    have hp (j : ℕ) : (1 : Matrix (X × Y) (X × Y) ℂ) ⊗ₖ
-        extractPopulationMatrix (k := k) (X := X) (Y := Y) t j = liftBlocks e (P j) := by
-      rw [extractPopulationMatrix, ← diagonal_one, diagonal_kronecker_diagonal]
-      simp only [one_mul]
-      rw [← liftBlocks_diagonal e]
-      congr 1
-      funext r
-      simp only [P, populationMatrix, ← diagonal_one, diagonal_kronecker_diagonal,
-        ← diagonal_smul, diagonal_add]
-      congr 1
-      funext a
-      change (familyPopulation t j
-          ((Equiv.funSplitAt i (Database X Y)).symm (a.2, r)) : ℂ) =
-        1 * (collisionPotential t j (0 + a.2.size) : ℂ) +
-          (∑ l, collisionPotential t j (r l).size) • (1 : ℂ)
-      rw [familyPopulation_split]
-      simp only [one_mul, zero_add, Complex.ofReal_add, Complex.real_smul, mul_one]
-    have hq : (1 : Matrix (X × Y) (X × Y) ℂ) ⊗ₖ
-        familyCollisionProjector (k := k) (X := X) (Y := Y) = liftBlocks e Q := by
-      change (1 : Matrix (X × Y) (X × Y) ℂ) ⊗ₖ
-        labelProjector Database.allCollisionLabel true = _
-      rw [labelProjector, ← diagonal_one,
-        diagonal_kronecker_diagonal]
-      simp only [one_mul]
-      rw [← liftBlocks_diagonal e]
-      congr 1
-      funext r
-      simp only [Q, labelProjector, ← diagonal_one, diagonal_kronecker_diagonal, one_mul]
-      rfl
-    have hu : ((compressedVCOracle k X Y).withExtract ME code).U (.inl i) =
-        liftBlocks e U := by
-      rw [liftBlocks_const]
-      rfl
-    have hb (r : {l // l ≠ i} → Database X Y) :=
-      familyOrdinaryBlock_bounds (R := Unit) hn i (r, ())
-    have hd : (liftBlocks e (P n + ((t : ℝ) / 2) • 1 -
-        (fun r ↦ (U r)ᴴ) * P (n + 1) * U)).PosSemidef :=
-      posSemidef_liftBlocks e (fun r ↦ (hb r).1)
-    have hl : (liftBlocks e (collisionRate t n (Fintype.card Y) •
-        (P n + ((t : ℝ) / 2) • 1 - (fun r ↦ (U r)ᴴ) * P (n + 1) * U) -
-          (fun r ↦ ((Q * U - U * Q) r)ᴴ) * (Q * U - U * Q))).PosSemidef :=
-      posSemidef_liftBlocks e (fun r ↦ (hb r).2)
-    simp only [liftBlocks_sub, liftBlocks_add, liftBlocks_smul, liftBlocks_one,
-      liftBlocks_mul] at hd hl
-    rw [liftBlocks_adjoint e U] at hd hl
-    rw [liftBlocks_adjoint e (Q * U - U * Q)] at hl
-    simp only [liftBlocks_sub, liftBlocks_mul] at hl
-    dsimp only
-    simp only [Sum.isLeft_inl, ite_true, hu]
-    rw [← hp, ← hp] at hd hl
-    rw [← hq] at hl
-    exact ⟨hd, hl⟩
+  · exact baseOrdinary_bounds hn i
   · cases u
     let U := extractUnitary ME code
     let P := fun j ↦ (1 : Matrix (TpIC k Cm × Z) (TpIC k Cm × Z) ℂ) ⊗ₖ
       extractPopulationMatrix (k := k) (X := X) (Y := Y) t j
     let Q := (1 : Matrix (TpIC k Cm × Z) (TpIC k Cm × Z) ℂ) ⊗ₖ
       familyCollisionProjector (k := k) (X := X) (Y := Y)
-    have hc (f : (Fin k → Database X Y) → ℂ) :
-        ((1 : Matrix (TpIC k Cm × Z) (TpIC k Cm × Z) ℂ) ⊗ₖ diagonal f) * U =
-          U * ((1 : Matrix (TpIC k Cm × Z) (TpIC k Cm × Z) ℂ) ⊗ₖ diagonal f) := by
-      rw [← diagonal_one, diagonal_kronecker_diagonal]
-      ext a b
-      rw [diagonal_mul, mul_diagonal]
-      by_cases h : U a b = 0
-      · simp [h]
-      · have hD : a.2 = b.2 := by
-          unfold U at h
-          rw [extractUnitary_apply] at h
-          split_ifs at h with he
-          · exact he.2.2
-          · exact False.elim (h rfl)
-        simp only [one_mul, hD]
-        ring
-    have hp : Uᴴ * P (n + 1) * U = P (n + 1) := by
-      dsimp only [P, extractPopulationMatrix]
-      rw [Matrix.mul_assoc, hc, ← Matrix.mul_assoc,
-        ← star_eq_conjTranspose,
-        mem_unitaryGroup_iff'.mp (extractUnitary_mem_unitaryGroup ME code), Matrix.one_mul]
-    have hq : Q * U - U * Q = 0 := sub_eq_zero.mpr (hc _)
-    have hd : (P n - P (n + 1)).PosSemidef := by
-      simp only [P, extractPopulationMatrix, ← diagonal_one,
-        diagonal_kronecker_diagonal, diagonal_sub, one_mul]
-      apply PosSemidef.diagonal
-      intro a
-      change (0 : ℂ) ≤ (familyPopulation t n a.2 : ℂ) -
-        (familyPopulation t (n + 1) a.2 : ℂ)
-      rw [← Complex.ofReal_sub, Complex.zero_le_real]
-      exact sub_nonneg.mpr (familyPopulation_idle hn a.2)
+    have hc (f : (Fin k → Database X Y) → ℂ) :=
+      extractUnitary_commute_diagonal ME code f
+    have hi := diagonalIdle_bounds U
+      (mem_unitaryGroup_iff'.mp (extractUnitary_mem_unitaryGroup ME code))
+      (familyPopulation t n) (familyPopulation t (n + 1))
+      (fun d ↦ if Database.allCollisionLabel d = true then 1 else 0)
+      (familyPopulation_idle hn) (hc _) (hc _)
     dsimp only
     change (chargedDrop U (P n) (P (n + 1)) 0).PosSemidef ∧
       (collisionRate t n (Fintype.card Y) • chargedDrop U (P n) (P (n + 1)) 0 -
         (Q * U - U * Q)ᴴ * (Q * U - U * Q)).PosSemidef
-    rw [chargedDrop, zero_smul, add_zero, hp, hq, conjTranspose_zero, Matrix.zero_mul, sub_zero]
-    exact ⟨hd, hd.smul (collisionRate_nonneg t n (by positivity))⟩
-
-/-- Square root of the charged population schedule without a recording register. -/
-private noncomputable def extractPotentialFactor (t n : ℕ) :
-    Matrix (Fin k → Database X Y) (Fin k → Database X Y) ℂ :=
-  diagonal (fun D ↦ (Real.sqrt (familyPopulation t n D) : ℂ))
-
-omit [AddCommGroup Y] in
-/-- The square-root schedule has the prescribed population Gram matrix. -/
-private theorem extractPotentialFactor_gram (t n : ℕ) :
-    (extractPotentialFactor (k := k) (X := X) (Y := Y) t n)ᴴ * extractPotentialFactor t n =
-      extractPopulationMatrix t n := by
-  rw [extractPotentialFactor, diagonal_conjTranspose, diagonal_mul_diagonal,
-    extractPopulationMatrix]
-  congr 1
-  funext D
-  change star (Real.sqrt (familyPopulation t n D) : ℂ) *
-    (Real.sqrt (familyPopulation t n D) : ℂ) = (familyPopulation t n D : ℂ)
-  rw [Complex.star_def, Complex.conj_ofReal, ← Complex.ofReal_mul,
-    Real.mul_self_sqrt (familyPopulation_nonneg t n D)]
+    rw [show Q * U - U * Q = 0 from hi.2, conjTranspose_zero, Matrix.zero_mul, sub_zero]
+    exact ⟨hi.1, hi.1.smul (collisionRate_nonneg t n (by positivity))⟩
 
 /-- Empty databases have zero collision weight and zero initial charged population. -/
 private theorem compressedWithExtract_initial_zero (t : ℕ) {A : QReg} (ρ : SubState A) :
@@ -711,15 +778,7 @@ private theorem compressedWithExtract_initial_zero (t : ℕ) {A : QReg} (ρ : Su
       QuantumRuntime.potential K (ρ.matrix ⊗ₖ E.init.matrix) = 0 := by
   classical
   let D : Fin k → Database X Y := fun _ ↦ Database.empty
-  have hz (f : (Fin k → Database X Y) → ℂ) (hf : f D = 0) :
-      diagonal f * (SubState.basis D).matrix = 0 := by
-    rw [SubState.matrix_basis]
-    ext a b
-    rw [diagonal_mul, Matrix.single_apply]
-    split_ifs with h
-    · rw [← h.1, hf, zero_mul]
-      rfl
-    · simp
+  have hz := diagonal_basis_zero D
   have hq := hz (fun D ↦ if Database.allCollisionLabel D = true then 1 else 0)
     (by simp [D, Database.allCollisionLabel, Database.allCollisionFree_empty])
   have hp := hz (fun D ↦ (familyPopulation t 0 D : ℂ))
@@ -729,17 +788,7 @@ private theorem compressedWithExtract_initial_zero (t : ℕ) {A : QReg} (ρ : Su
       (ρ.matrix ⊗ₖ (SubState.basis D).matrix) = 0 ∧
     QuantumRuntime.potential (extractPotentialFactor t 0)
       (ρ.matrix ⊗ₖ (SubState.basis D).matrix) = 0
-  constructor
-  · rw [MatrixMap.conj_apply, ← mul_kronecker_mul]
-    change ((1 * ρ.matrix) ⊗ₖ
-      ((diagonal fun D ↦ if Database.allCollisionLabel D = true then 1 else 0) *
-        (SubState.basis D).matrix)) * _ = 0
-    rw [hq, kronecker_zero, Matrix.zero_mul]
-  · rw [QuantumRuntime.potential_eq, extractPotentialFactor_gram, ← mul_kronecker_mul]
-    change ENNReal.ofReal (((1 * ρ.matrix) ⊗ₖ
-      (diagonal (fun D ↦ (familyPopulation t 0 D : ℂ)) *
-        (SubState.basis D).matrix)).trace.re) = 0
-    rw [hp, kronecker_zero, Matrix.trace_zero, Complex.zero_re, ENNReal.ofReal_zero]
+  exact initial_zero_of_gram _ _ _ (extractPotentialFactor_gram t 0) D hq hp ρ.matrix
 
 /-- The collision event on ordinary/extraction prefixes has weight at most
 `(7t+5)t min(w,t)/(4|Y|)`. All calls count towards `t`, including extraction, while `w`

@@ -7,6 +7,8 @@ Authors: Quang Dao
 module
 
 public import VCVio.Quantum.VC.Proof.Offline
+import VCVio.Quantum.Oracle.Compressed.BinaryPartition
+import VCVio.Quantum.Oracle.Compressed.ProjectorEvent
 
 /-!
 # Good database events before verification
@@ -81,35 +83,8 @@ private theorem label_commutator_bound (π : Database X Y → Bool) (n : ℕ) :
     let Q := labelProjector (fun m : (X × Y) × Database X Y ↦ π m.2) false
     ‖Q * truncatedOracle X Y n - truncatedOracle X Y n * Q‖ ^ 2 ≤
       24 * (Database.instability π n).toReal := by
-  dsimp only
-  obtain ⟨S, hS, hdist⟩ := exists_pinch_eq_truncatedOracle_sub_sq_le π n
-  let Q := labelProjector (fun m : (X × Y) × Database X Y ↦ π m.2) false (α := ℂ)
-  have hc : Q * S = S * Q := by
-    ext a b
-    simp only [Q, labelProjector, diagonal_mul, mul_diagonal]
-    have hs := congrFun (congrFun hS a) b
-    simp only [pinch_apply] at hs
-    by_cases h : π a.2 = π b.2
-    · simp [h]
-    · have hz : S a b = 0 := by simpa [h] using hs.symm
-      simp [hz]
-  have hq := isStarProjection_labelProjector (α := ℂ) (fun m : (X × Y) × Database X Y ↦ π m.2) false
-  have hn : ‖Q‖ ≤ 1 := MatrixMap.l2_opNorm_le_one_of_proj hq.isSelfAdjoint hq.isIdempotentElem
-  have he : Q * truncatedOracle X Y n - truncatedOracle X Y n * Q =
-      Q * (truncatedOracle X Y n - S) - (truncatedOracle X Y n - S) * Q := by
-    rw [Matrix.mul_sub, Matrix.sub_mul, hc]
-    abel
-  change ‖Q * truncatedOracle X Y n - truncatedOracle X Y n * Q‖ ^ 2 ≤ _
-  rw [he]
-  have hb : ‖Q * (truncatedOracle X Y n - S) - (truncatedOracle X Y n - S) * Q‖ ≤
-      2 * ‖truncatedOracle X Y n - S‖ := by
-    calc
-      _ ≤ ‖Q * (truncatedOracle X Y n - S)‖ + ‖(truncatedOracle X Y n - S) * Q‖ := norm_sub_le _ _
-      _ ≤ ‖Q‖ * ‖truncatedOracle X Y n - S‖ + ‖truncatedOracle X Y n - S‖ * ‖Q‖ :=
-        add_le_add (l2_opNorm_mul _ _) (l2_opNorm_mul _ _)
-      _ ≤ 2 * ‖truncatedOracle X Y n - S‖ := by nlinarith [norm_nonneg (truncatedOracle X Y n - S)]
-  have hh := pow_le_pow_left₀ (norm_nonneg _) hb 2
-  nlinarith
+  exact (l2_opNorm_labelProjector_commutator_truncatedOracle_sq_le_six_mul π n false).trans
+    (mul_le_mul_of_nonneg_right (by norm_num) ENNReal.toReal_nonneg)
 
 private theorem label_source_bound (π : Database X Y → Bool) (n : ℕ) :
     let Q := labelProjector (fun m : (X × Y) × Database X Y ↦ π m.2) false
@@ -129,11 +104,7 @@ private theorem label_source_bound (π : Database X Y → Bool) (n : ℕ) :
       · have ha := (size_le_of_compressedOracle_apply_ne_zero hz).trans (Nat.add_le_add_right hb 1)
         simp [hb, ha, Nat.le_succ_of_le hb]
     · simp [hb]
-  have hp : ‖sizeProjector X Y n‖ ≤ 1 := by
-    rw [sizeProjector, l2_opNorm_diagonal]
-    apply (pi_norm_le_iff_of_nonneg zero_le_one).mpr
-    intro a
-    split_ifs <;> norm_num
+  have hp := l2_opNorm_sizeProjector_le_one (X := X) (Y := Y) n
   rw [he]
   exact (pow_le_pow_left₀ (norm_nonneg _)
     ((l2_opNorm_mul _ _).trans (mul_le_of_le_one_right (norm_nonneg _) hp)) 2).trans
@@ -333,29 +304,8 @@ private theorem eventWeight_le_of_graded_commutators
     E.coherent.toRuntime.eventWeight I Q x ρ ≤
       t * ENNReal.ofReal r * min (E.selectedTotalMass I selected x ρ) t := by
   classical
-  have hO : ∀ p : Σ u, W u, (1 - ((1 : Matrix p.1 p.1 ℂ) ⊗ₖ Q)ᴴ *
-      ((1 : Matrix p.1 p.1 ℂ) ⊗ₖ Q)).PosSemidef := fun p ↦ by
-    have h1 : ((1 : Matrix p.1 p.1 ℂ) ⊗ₖ Q)ᴴ = (1 : Matrix p.1 p.1 ℂ) ⊗ₖ Q := by
-      rw [conjTranspose_kronecker, conjTranspose_one, hQ]
-    have h2 : ((1 : Matrix p.1 p.1 ℂ) ⊗ₖ Q) * ((1 : Matrix p.1 p.1 ℂ) ⊗ₖ Q) =
-        (1 : Matrix p.1 p.1 ℂ) ⊗ₖ Q := by
-      rw [← mul_kronecker_mul, Matrix.one_mul, hQQ]
-    have he : 1 - ((1 : Matrix p.1 p.1 ℂ) ⊗ₖ Q)ᴴ * ((1 : Matrix p.1 p.1 ℂ) ⊗ₖ Q) =
-        (1 - (1 : Matrix p.1 p.1 ℂ) ⊗ₖ Q)ᴴ * (1 - (1 : Matrix p.1 p.1 ℂ) ⊗ₖ Q) := by
-      rw [conjTranspose_sub, conjTranspose_one, h1, Matrix.sub_mul, Matrix.mul_sub,
-        Matrix.mul_sub, h2]
-      simp
-    rw [he]
-    exact posSemidef_conjTranspose_mul_self _
-  have hhyb := QuantumRuntime.rpow_inv_two_tsum_trace_conj_run_le I E.init E.init
-    E.coherent.toRuntime_step_branch
-    (fun i r ↦ (rfl :
-      (QuantumRuntime.pinchStep E.coherent.toRuntime_step_branch hQ hQQ i).branch r = _))
-    x (fun p ↦ (1 : Matrix p.1 p.1 ℂ) ⊗ₖ Q) hO hρ
-  have hz := QuantumRuntime.eventWeight_pinch_eq_zero I E.coherent.toRuntime_step_branch
-    hQ hQQ E.init x hρQ
-  rw [QuantumRuntime.eventWeight] at hz
-  rw [hz, ENNReal.zero_rpow_of_pos (by norm_num), zero_add] at hhyb
+  have hhyb := QuantumRuntime.rpow_inv_two_eventWeight_le_commutators I
+    E.coherent.toRuntime_step_branch hQ hQQ E.init x hρ hρQ
   let C := fun p ↦ ((1 : Matrix (In p) (In p) ℂ) ⊗ₖ Q) * E.U p -
     E.U p * ((1 : Matrix (In p) (In p) ℂ) ⊗ₖ Q)
   have hc : coherentBlocks C = ((1 : Matrix (cohIn In) (cohIn In) ℂ) ⊗ₖ Q) * E.coherent.U () -
@@ -364,11 +314,10 @@ private theorem eventWeight_le_of_graded_commutators
     rw [coherentBlocks_sub, coherentBlocks_mul, coherentBlocks_mul,
       coherentBlocks_database, coherentBlocks_unitary]
   have hw : QuantumRuntime.krausWeight (spec := cohSpec In) (D := E.S)
-      (fun i (_ : Unit) ↦ E.coherent.U i -
-      Hybrid.pinch (1 ⊗ₖ Q) (1 ⊗ₖ Q) (E.coherent.U i)) =
+      (fun i (_ : Unit) ↦ (1 ⊗ₖ Q) * E.coherent.U i - E.coherent.U i * (1 ⊗ₖ Q)) =
       (fun (_ : Unit) σ ↦ ENNReal.ofReal (MatrixMap.conj (coherentBlocks C) σ).trace.re) := by
     funext i σ
-    rw [QuantumRuntime.krausWeight_sub_pinch hQ hQQ]
+    rw [QuantumRuntime.krausWeight]
     cases i
     simp only [tsum_fintype, Fintype.sum_unique, hc]
   rw [hw] at hhyb
@@ -416,25 +365,6 @@ private theorem gram_bound {A : Type*} [Fintype A] [DecidableEq A]
 variable [DecidableEq X] [Fintype Y] [DecidableEq Y] [Fintype Cm] [DecidableEq Cm]
   [Fintype Z] [DecidableEq Z] [AddGroup Z]
   (ME : MultiExtractor k Cm Dm (Fin k → Database X Y)) (code : TpDCode k Dm Z)
-
-/-- Extraction preserves every event determined by the compressed databases. -/
-theorem extractUnitary_commute_diagonal (f : (Fin k → Database X Y) → ℂ) :
-    ((1 : Matrix (TpIC k Cm × Z) (TpIC k Cm × Z) ℂ) ⊗ₖ diagonal f) *
-        extractUnitary ME code =
-      extractUnitary ME code * ((1 : Matrix (TpIC k Cm × Z) (TpIC k Cm × Z) ℂ) ⊗ₖ
-        diagonal f) := by
-  rw [← diagonal_one, diagonal_kronecker_diagonal]
-  ext a b
-  rw [diagonal_mul, mul_diagonal]
-  by_cases h : extractUnitary ME code a b = 0
-  · simp [h]
-  · have hD : a.2 = b.2 := by
-      rw [extractUnitary_apply] at h
-      split_ifs at h with he
-      · exact he.2.2
-      · exact False.elim (h rfl)
-    simp only [one_mul, hD]
-    ring
 
 variable [AddCommGroup Y] (Pgood : Set (Database X Y)) [DecidablePred (· ∈ Pgood)]
   [UniformAnswerMeasure (X →ₒ Y)]
