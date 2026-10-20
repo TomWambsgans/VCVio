@@ -35,7 +35,7 @@ open OracleComp OracleSpec SignatureAlg
 
 namespace SLHDSA.ByteLinkedViewTest
 
-open Concrete Security ByteLinkedRunTest
+open Concrete Security WeakKeyBoundTest
 
 /-! ## The headline at SLH-DSA-SHAKE-256s -/
 
@@ -62,21 +62,21 @@ example {optRand : PublicKeyCore (shakeCore vp256s) → ProbComp (shakeCore vp25
 `typeSevenSeed`, no run point has a virtual hit or an honest input at a linked point. -/
 example {optRand : PublicKeyCore (shakeCore vp256s) → ProbComp (shakeCore vp256s).Y}
     (adv : UnforgeableAdversary
-      (shakeRomScheme vp256s optRand (pure WeakKeyBoundTest.typeSevenSeed)))
+      (shakeRomScheme vp256s optRand (pure typeSevenSeed)))
     {z : RomOutcome vp256s (shakeCore vp256s) × (hashSpec (shakeCore vp256s)).QueryCache}
     (hz : z ∈ support (romSchemeRun (shakeCore vp256s) (Equiv.refl _) optRand
-      (pure WeakKeyBoundTest.typeSevenSeed) (verifyingAdv vp256s (by decide) (by decide) adv))) :
+      (pure typeSevenSeed) (verifyingAdv vp256s (by decide) (by decide) adv))) :
     ¬VirtualHit vp256s z ∧ ¬LinkedHonestInput vp256s z := by
-  have hseed : z.1.pk.pkSeed = WeakKeyBoundTest.typeSevenSeed := by
+  have hseed : z.1.pk.pkSeed = typeSevenSeed := by
     simpa using pkSeed_mem_support_of_mem_support_romSchemeRun _ optRand _ hz
   exact not_virtualHit_and_not_linkedHonestInput z
-    (hseed ▸ WeakKeyBoundTest.not_isHonestKey_typeSevenSeed)
+    (hseed ▸ not_isHonestKey_typeSevenSeed)
 
 /-! ## A cached linked point is not an honest input -/
 
 /-- Every honest entry of a cache at the oracle-backed provider rests on a settled secret, so the
 cache holds a one-input tweakable-hash point. -/
-private theorem exists_secret_of_honestEntry {c : PublicHash.Cache (shakeCore vp256s)}
+theorem exists_secret_of_honestEntry {c : PublicHash.Cache (shakeCore vp256s)}
     {s : (shakeCore vp256s).PkSeed} {sk : (shakeCore vp256s).SkSeed}
     {t : (publicHashSpec (shakeCore vp256s)).Domain}
     (h : HonestEntry (oracleSecret (shakeCore vp256s) (Equiv.refl _) s sk) s c t) :
@@ -114,6 +114,7 @@ private theorem exists_secret_of_honestEntry {c : PublicHash.Cache (shakeCore vp
   | forsNode _ _ _ _ _ _ _ hl => exact hfors hl
   | forsRoots _ _ _ ht => exact hfors (ht ⟨0, by decide⟩)
 
+open ByteLinkedRunTest (pk cache cache_apply_of_ne weakKey node) in
 /-- **The negative control.** For every run point at the public key `pk`, with secret seed other
 than `PK.root` and final cache `cache`: the cache holds a linked point, and there is neither a
 virtual hit nor an honest input at a linked point. -/
