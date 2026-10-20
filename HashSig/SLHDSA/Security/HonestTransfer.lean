@@ -134,7 +134,9 @@ a ledger address is queried. -/
 /-- The caches `A` and `B` agree at every point outside `L`, and `B` has no honest input in `L`
 for the oracle-backed provider at seeds `pk`, `sk`. -/
 structure HonestTransfer (A B : PublicHash.Cache core) : Prop where
+  /-- The caches agree at every point outside `L`. -/
   eqOn : ∀ t, ¬L t → A t = B t
+  /-- `B` has no honest input in `L`. -/
   not_honestInputIn : ¬HonestInputIn e pk sk L B
 
 namespace HonestTransfer
@@ -150,7 +152,8 @@ theorem apply_eq_some {t : (publicHashSpec core).Domain} {v : (publicHashSpec co
   · exact absurd (hL hLt) h.not_honestInputIn
   · rwa [← h.eqOn t hLt]
 
-/-- The secret of a secret-key child of a ledger address. -/
+/-- The secret of a secret-key child of a ledger address settled on `A` is settled at the same value
+on `B`. -/
 theorem secret {a b : Adrs} (ha : a ∈ constructionAddresses vp)
     (hab : .inl b ∈ childAdrs vp a) {x : core.Y}
     (hx : simulateQ A.toPartialImpl (oracleSecret core e (m := OracleComp (publicHashSpec core))
@@ -160,7 +163,8 @@ theorem secret {a b : Adrs} (ha : a ∈ constructionAddresses vp)
   rw [simulateQ_toPartialImpl_oracleSecret] at hx ⊢
   exact h.apply_eq_some hx fun hL => .inr ⟨a, b, ha, hab, hL⟩
 
-/-- A WOTS+ chain from a secret settled on `B`, every step of which is a ledger address. -/
+/-- A WOTS+ chain whose every step is a ledger address, from a secret settled on `B`, settled on
+`A` is settled at the same value on `B`. -/
 theorem chain {adrs : Adrs} {i : ℕ} {x : core.Y}
     (hx : simulateQ B.toPartialImpl (oracleSecret core e (m := OracleComp (publicHashSpec core))
       pk sk (wotsSkAdrs adrs i)) = some x) :
@@ -178,7 +182,8 @@ theorem chain {adrs : Adrs} {i : ℕ} {x : core.Y}
     exact h.apply_eq_some hv fun hL =>
       .inl ⟨_, hL, .wotsChain adrs i t x y (hmem t (by omega)) hx hy'⟩
 
-/-- A WOTS+ chain whose last step is a ledger address. -/
+/-- A WOTS+ chain and its secret, settled on `A`, are settled at the same values on `B` when the
+step after the chain is a ledger address. -/
 theorem chain_of_mem {adrs : Adrs} {i t : ℕ} {x v : core.Y}
     (hmem : (wotsChainAdrs adrs i).setHashAddress t ∈ constructionAddresses vp)
     (hx : simulateQ A.toPartialImpl (oracleSecret core e (m := OracleComp (publicHashSpec core))
@@ -192,7 +197,8 @@ theorem chain_of_mem {adrs : Adrs} {i t : ℕ} {x v : core.Y}
   exact ⟨hx', h.chain hx' (fun s hs =>
     wotsChainAdrs_setHashAddress_mem_constructionAddresses_of_le hs.le hmem) hc⟩
 
-/-- The chain tops of a ledger WOTS+ public key. -/
+/-- The chain tops of a WOTS+ public key at a ledger address, settled on `A`, are settled at the
+same values on `B`. -/
 theorem wotsTops {adrs : Adrs} {tops : Vector core.Y vp.params.len}
     (hmem : wotsPkAdrs adrs ∈ constructionAddresses vp)
     (ht : wotsPkGenTopsWithSecret? core A (oracleSecret core e pk sk) pk adrs = some tops) :
@@ -211,7 +217,7 @@ theorem wotsTops {adrs : Adrs} {tops : Vector core.Y vp.params.len}
   rw [Nat.zero_add] at hv ⊢
   exact h.apply_eq_some hv fun hL => .inl ⟨_, hL, .wotsChain adrs i _ x y hmem' hx' hy'⟩
 
-/-- An XMSS node at a ledger address. -/
+/-- An XMSS node at a ledger address settled on `A` is settled at the same value on `B`. -/
 theorem xmssNode {adrs : Adrs} :
     ∀ {z t : ℕ} {v : core.Y}, xmssCellAdrs adrs z t ∈ constructionAddresses vp →
       xmssNodeWithSecret? core A (oracleSecret core e pk sk) pk adrs z t = some v →
@@ -235,7 +241,7 @@ theorem xmssNode {adrs : Adrs} :
     exact h.apply_eq_some hv fun hL =>
       .inl ⟨_, hL, .xmssNode adrs (z + 1) t l r (Nat.succ_pos z) hmem hl' hr'⟩
 
-/-- A FORS node at a ledger address. -/
+/-- A FORS node at a ledger address settled on `A` is settled at the same value on `B`. -/
 theorem forsNode {adrs : Adrs} :
     ∀ {z t : ℕ} {v : core.Y}, forsNodeAdrs adrs z t ∈ constructionAddresses vp →
       forsNodeWithSecret? core A (oracleSecret core e pk sk) pk adrs z t = some v →
@@ -289,7 +295,8 @@ theorem honestEntry {t : (publicHashSpec core).Domain}
     rw [childAdrs_forsPkAdrs]
     exact List.mem_map.2 ⟨i, List.mem_range.2 i.2, rfl⟩
 
-/-- The root of an XMSS tree whose root address is a ledger address. -/
+/-- The root of an XMSS tree at a ledger root address settled on `A` is settled at the same value on
+`B`. -/
 theorem xmssRoot {adrs : Adrs} {v : core.Y}
     (hmem : xmssNodeAdrs adrs vp.params.hp 0 ∈ constructionAddresses vp)
     (hr : xmssRootWithSecret? core A (oracleSecret core e pk sk) pk adrs = some v) :
@@ -300,7 +307,8 @@ theorem xmssRoot {adrs : Adrs} {v : core.Y}
   obtain ⟨z, rfl⟩ := Nat.exists_eq_add_one_of_ne_zero hp.ne'
   exact h.xmssNode (z := z + 1) hmem hr
 
-/-- The FORS public key of an instance whose root compression is a ledger address. -/
+/-- The FORS public key of an instance at a ledger roots address settled on `A` is settled at the
+same value on `B`. -/
 theorem forsPk {adrs : Adrs} {v : core.Y} (hmem : forsPkAdrs adrs ∈ constructionAddresses vp)
     (hv : forsPkGenWithSecret? core A (oracleSecret core e pk sk) pk adrs = some v) :
     forsPkGenWithSecret? core B (oracleSecret core e pk sk) pk adrs = some v := by
@@ -312,7 +320,8 @@ theorem forsPk {adrs : Adrs} {v : core.Y} (hmem : forsPkAdrs adrs ∈ constructi
   exact (forsPkGenWithSecret?_eq_some_iff core _ _ pk adrs).2 ⟨roots, hroots',
     h.apply_eq_some hv fun hL => .inl ⟨_, hL, .forsRoots adrs roots hmem hroots'⟩⟩
 
-/-- The honest message signed at a layer position. -/
+/-- The honest message signed at a layer position settled on `A` is settled at the same value on
+`B`. -/
 theorem honestMessage (pos : LayerPosition vp) {m : core.Y}
     (hm : honestMessage? A (oracleSecret core e pk sk) pk pos = some m) :
     honestMessage? B (oracleSecret core e pk sk) pk pos = some m := by
@@ -322,7 +331,7 @@ theorem honestMessage (pos : LayerPosition vp) {m : core.Y}
   · exact h.xmssRoot
       (xmssNodeAdrs_childTreeAdrs_mem_constructionAddresses pos (Nat.pos_of_ne_zero h0)) hm
 
-/-- Key generation. -/
+/-- Key generation settled on `A` is settled at the same value on `B`. -/
 theorem keygen {r : core.Y}
     (hr : simulateQ A.toPartialImpl
       (GeneralScheme.keygenInternalWithSecretM core (oracleSecret core e pk sk) pk) = some r) :
@@ -332,7 +341,8 @@ theorem keygen {r : core.Y}
   rw [← LayerTreeCoord.top_toAdrs_layerAdrs]
   exact xmssNodeAdrs_mem_constructionAddresses _ vp.valid.hp_pos le_rfl (by simp)
 
-/-- FORS signing of a digest at a reachable instance. -/
+/-- FORS signing of a digest at a reachable instance settled on `A` is settled at the same value on
+`B`. -/
 theorem forsSign (pos : BottomPosition vp) (md : List Byte) {sig : ForsSigCore vp.params core}
     (hs : simulateQ A.toPartialImpl
       (forsSignWithSecretM core (oracleSecret core e pk sk) md pk pos.forsAdrs) = some sig) :
@@ -347,7 +357,8 @@ theorem forsSign (pos : BottomPosition vp) (md : List Byte) {sig : ForsSigCore v
     h.secret (forsLeafAdrs_mem_constructionAddresses pos i hidx)
       (inl_forsSkAdrs_mem_childAdrs _ _) hx, hsig⟩
 
-/-- The FORS public key recovered from an honest FORS signature at a reachable instance. -/
+/-- Recovery of the FORS public key from an honest FORS signature at a reachable instance,
+settled on `A`, is settled at the same value on `B`. -/
 theorem forsPkFromSig (pos : BottomPosition vp) (md : List Byte)
     {sig : ForsSigCore vp.params core} {fpk : core.Y}
     (hs : simulateQ A.toPartialImpl
@@ -378,7 +389,7 @@ theorem forsPkFromSig (pos : BottomPosition vp) (md : List Byte)
   rw [← hsig]
   exact ⟨y, hpt, simulateQ_climbM_eq_some_of_merkleRootM _ _ _ _ hy hpath hroot⟩
 
-/-- XMSS signing at a layer position. -/
+/-- XMSS signing at a layer position settled on `A` is settled at the same value on `B`. -/
 theorem xmssSign (pos : LayerPosition vp) (msg : core.Y) {sig : XmssSig vp.params core}
     (hs : simulateQ A.toPartialImpl (xmssSignWithSecret core (PublicHash.f core pk)
       (PublicHash.tl core pk) (PublicHash.h core pk) (oracleSecret core e pk sk) msg pos.toAdrs
@@ -402,7 +413,8 @@ theorem xmssSign (pos : LayerPosition vp) (msg : core.Y) {sig : XmssSig vp.param
     (t := 0) (by omega)) (inl_wotsSkAdrs_mem_childAdrs _ _) hx
   exact ⟨x, hx', h.chain hx' hmem hc⟩
 
-/-- The XMSS root recovered from an honest XMSS signature at a layer position. -/
+/-- Recovery of the XMSS root from an honest XMSS signature at a layer position, settled on `A`,
+is settled at the same value on `B`. -/
 theorem xmssPkFromSig (pos : LayerPosition vp) (msg : core.Y) {sig : XmssSig vp.params core}
     {root : core.Y}
     (hs : simulateQ A.toPartialImpl (xmssSignWithSecret core (PublicHash.f core pk)
@@ -447,7 +459,8 @@ theorem xmssPkFromSig (pos : LayerPosition vp) (msg : core.Y) {sig : XmssSig vp.
   obtain rfl : w = sig.wots[i] := Option.some_inj.1 (hw.symm.trans hc')
   rwa [Nat.zero_add] at hc
 
-/-- Hypertree signing from a layer position, through `layers` layers. -/
+/-- Hypertree signing from a layer position through `layers` layers settled on `A` is settled at the
+same value on `B`. -/
 theorem signFromPosition (rf : Bool) :
     ∀ (pos : LayerPosition vp) (layers : ℕ) (hl : pos.layer.val + layers = vp.params.d)
       (msg : core.Y) {sigs : Vector (XmssSig vp.params core) layers},
@@ -478,7 +491,8 @@ theorem signFromPosition (rf : Bool) :
       pos layers hl msg).2 ⟨sig, root, rest, h.xmssSign pos msg hs,
         h.xmssPkFromSig pos msg hs hr, signFromPosition false _ _ _ root hrest, rfl⟩
 
-/-- Internal signing at a randomizer, when `L` has no `H_msg` point. -/
+/-- Internal signing at a randomizer settled on `A` is settled at the same value on `B`, when `L`
+has no `H_msg` point. -/
 theorem sign (hm : ∀ r s root msg, ¬L (.hmsg r s root msg)) (msg : List Byte) (pkRoot R : core.Y)
     {σ : GeneralScheme.SignatureCore vp core}
     (hs : simulateQ A.toPartialImpl (GeneralScheme.signInternalWithSecretRandomizerM core
