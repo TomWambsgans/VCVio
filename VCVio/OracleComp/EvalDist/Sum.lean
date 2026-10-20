@@ -16,9 +16,7 @@ An oracle computation with finite answer types reaches finitely many outputs, so
 measure is the sum of its singleton masses. The integral of a functional is then the sum
 `∑' x, Pr{let y ← oa}[y = x] * f x` over the whole output type, with no countability assumption on
 that type. This module states that identity and the sum forms of the bind, `pure`, map and total
-variation laws, for arguments that are clearest as weighted sums over outputs. An event of a
-prefix bounds an event after the bind when each of its reachable occurrences leads only into the
-latter (`prEvent_le_prEvent_bind_of_support`).
+variation laws, for arguments that are clearest as weighted sums over outputs.
 
 The integral forms (`∫⁻ x, f x ∂𝒟[oa]`, `lintegral_evalDist_bind`, `wp`) remain the primary API;
 these sums are equal to them.
@@ -109,22 +107,6 @@ theorem prEvent_le_tsum_prEvent_mul_cost (oa : OracleComp spec α) (p : α → P
   refine ENNReal.tsum_le_tsum fun x ↦ ?_
   split_ifs with hx
   · exact le_mul_of_one_le_right' (hc x hx)
-  · exact zero_le
-
-/-- **An event of a prefix bounds after any extension.** An event `p` of `oa` each of whose
-reachable occurrences leads only to outputs satisfying `q` of the continuation `g` has probability
-at most that of `q` after the bind. -/
-theorem prEvent_le_prEvent_bind_of_support (oa : OracleComp spec α) (g : α → OracleComp spec β)
-    (p : α → Prop) (q : β → Prop) (h : ∀ x ∈ support oa, p x → ∀ y ∈ support (g x), q y) :
-    Pr{let x ← oa}[p x] ≤ Pr{let y ← oa >>= g}[q y] := by
-  classical
-  rw [prEvent_eq_tsum_ite, prEvent_bind_eq_tsum]
-  refine ENNReal.tsum_le_tsum fun x ↦ ?_
-  split_ifs with hx
-  · by_cases hs : x ∈ support oa
-    · rw [prEvent_eq_one_of_forall_mem_support _ _ (h x hs hx), mul_one]
-    · rw [prEvent_eq_zero_of_forall_mem_support oa (· = x) fun y hy hyx ↦ hs (hyx ▸ hy),
-        zero_mul]
   · exact zero_le
 
 /-- A weighted sum over the outputs of a bind is the weighted sum over the prefix's outputs of the

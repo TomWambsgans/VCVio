@@ -436,6 +436,20 @@ theorem prEvent_bind_mono_of_forall_le_of_support {γ : Type} (mx : m α) (f : �
   rw [bind_eq_attach_bind mx f, bind_eq_attach_bind mx g]
   exact prEvent_bind_mono_of_forall_le _ _ _ p q fun a ↦ h a.1 a.2
 
+/-- **An event of a draw bounds an event after its continuation.** An event `p` of `mx`, each of
+whose reachable occurrences leads almost surely to the event `q` of the continuation, has
+probability at most that of `q` after the bind. -/
+theorem prEvent_le_prEvent_bind_of_support (mx : m α) (f : α → m β) (p : α → Prop)
+    (q : β → Prop) (h : ∀ a ∈ support mx, p a → Pr{let y ← f a}[q y] = 1) :
+    Pr{let a ← mx}[p a] ≤ Pr{let y ← mx >>= f}[q y] := by
+  classical
+  conv_lhs => rw [← bind_pure mx]
+  refine prEvent_bind_mono_of_forall_le_of_support mx pure f p q fun a ha => ?_
+  rw [prEvent_pure]
+  split_ifs with hp
+  · exact (h a ha hp).ge
+  · exact zero_le
+
 /-- A lower bound on the event of every reachable continuation bounds the event after a lossless
 draw. -/
 theorem le_prEvent_bind_of_forall_le_of_support (mx : m α) (hmx : Pr{let _ ← mx}[True] = 1)

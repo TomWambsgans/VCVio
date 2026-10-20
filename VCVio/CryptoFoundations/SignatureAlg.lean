@@ -26,6 +26,7 @@ and signature space `S`.
 ## Main definitions
 
 * `SignatureAlg`: a signature scheme as a `keygen`/`sign`/`verify` triple in a monad `m`.
+* `SignatureAlg.withVerify`: a scheme with its verification replaced.
 * `SignatureAlg.runWithSigningOracle`: runs an adversary with its ambient oracles forwarded and a
   logged signing oracle.
 * `SignatureAlg.Complete`: completeness up to an error `δ`, with `PerfectlyComplete` the `δ = 0`
@@ -128,6 +129,25 @@ lemma map_correctnessGame (F : m →ᵐ n) (sigAlg : SignatureAlg m M PK SK S) (
   simp
 
 end map
+
+section withVerify
+
+variable {m : Type → Type v} [Monad m] {M PK SK S : Type}
+
+/-- The scheme `sigAlg` with its verification replaced by `ver`. -/
+def withVerify (sigAlg : SignatureAlg m M PK SK S) (ver : PK → M → S → m Bool) :
+    SignatureAlg m M PK SK S :=
+  { sigAlg with verify := ver }
+
+variable (sigAlg : SignatureAlg m M PK SK S) (ver : PK → M → S → m Bool)
+
+@[simp] lemma withVerify_keygen : (sigAlg.withVerify ver).keygen = sigAlg.keygen := rfl
+
+@[simp] lemma withVerify_sign : (sigAlg.withVerify ver).sign = sigAlg.sign := rfl
+
+@[simp] lemma withVerify_verify : (sigAlg.withVerify ver).verify = ver := rfl
+
+end withVerify
 
 section correctness
 

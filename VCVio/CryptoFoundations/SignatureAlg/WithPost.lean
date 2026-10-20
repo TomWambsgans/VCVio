@@ -7,7 +7,6 @@ Authors: Alexander Hicks
 module
 
 public import VCVio.CryptoFoundations.SignatureAlg.RomQueryCount
-public import VCVio.OracleComp.EvalDist.Sum
 import VCVio.OracleComp.QueryTracking.SubSpec
 
 /-!
@@ -19,12 +18,11 @@ queries to the ambient oracles, the program `post pk out` on its public key `pk`
 adversary perform computations, a verification of its own forgery for instance, whose queries the
 experiment then records like any other query of the adversary.
 
-`SignatureAlg.withVerify sigAlg ver` is the scheme `sigAlg` with its verification replaced by
-`ver`. The experiment against `adv.withPost post` is the experiment of the scheme verifying by
-`post` against `adv`, followed by the scheme's own verification of the forgery
-(`SignatureAlg.unforgeableTranscriptExperiment_withPost`). Under a stateful handler, an event of
-the former has probability at most that of any event of the latter satisfied by all of its
-extensions (`SignatureAlg.prEvent_run_withVerify_le_prEvent_run_withPost`).
+The experiment against `adv.withPost post` is the experiment of the scheme verifying by `post`
+(`SignatureAlg.withVerify`) against `adv`, followed by the scheme's own verification of the
+forgery (`SignatureAlg.unforgeableTranscriptExperiment_withPost`). Under a stateful handler, an
+event of the former has probability at most that of any event of the latter satisfied by all of
+its extensions (`SignatureAlg.prEvent_run_withVerify_le_prEvent_run_withPost`).
 
 * `SignatureAlg.UnforgeableAdversary.RomQueryBound.withPost`: in the random oracle model the
   budget adds up. If `adv` makes at most `qh` hash and `qs` signing queries and every
@@ -65,24 +63,6 @@ its output `out`, as its own queries to the ambient oracles; its output is that 
     let out ← adv.main pk
     let _ ← liftComp (post pk out) (spec + (M →ₒ S))
     pure out
-
-/-- The scheme `sigAlg` with its verification replaced by `ver`. -/
-@[expose] def withVerify {m : Type → Type*} [Monad m] (sigAlg : SignatureAlg m M PK SK S)
-    (ver : PK → M → S → m Bool) : SignatureAlg m M PK SK S :=
-  { sigAlg with verify := ver }
-
-section withVerify
-
-variable {m : Type → Type*} [Monad m] (sigAlg : SignatureAlg m M PK SK S)
-  (ver : PK → M → S → m Bool)
-
-@[simp] theorem withVerify_keygen : (sigAlg.withVerify ver).keygen = sigAlg.keygen := rfl
-
-@[simp] theorem withVerify_sign : (sigAlg.withVerify ver).sign = sigAlg.sign := rfl
-
-@[simp] theorem withVerify_verify : (sigAlg.withVerify ver).verify = ver := rfl
-
-end withVerify
 
 /-- Running an adversary followed by `post` with the signing oracle is running the adversary with
 the signing oracle, then `post` on its output; `post` adds nothing to the log. -/
@@ -146,7 +126,8 @@ theorem prEvent_run_withVerify_le_prEvent_run_withPost {spec : OracleSpec ι} {�
       Pr{let z ← (simulateQ so (unforgeableTranscriptExperiment (adv.withPost post))).run s}[
         Q z] := by
   rw [run_simulateQ_unforgeableTranscriptExperiment_withPost]
-  refine prEvent_le_prEvent_bind_of_support _ _ _ _ fun z hz hP b hb => ?_
+  refine prEvent_le_prEvent_bind_of_support _ _ _ _ fun z hz hP =>
+    prEvent_eq_one_of_forall_mem_support _ _ fun b hb => ?_
   rw [support_map] at hb
   obtain ⟨r, hr, rfl⟩ := hb
   exact hPQ z hz hP r hr
