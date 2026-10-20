@@ -102,6 +102,27 @@ example {Z : Type} [Fintype Z] [DecidableEq Z] [AddGroup Z]
       (SaltedMerkle.comErrorBound (Y := ZMod 3)) :=
   SaltedMerkle.comBound (k := 2) (Z := Z) enc3 (fun _ ↦ 1) code
 
+/-- The two P2 clauses share a total mixed-prefix budget, including adaptive read addresses. -/
+example {Z : Type} [Fintype Z] [DecidableEq Z] [AddGroup Z]
+    (code : TpDCode 2 (DmOf (fun i ↦ 2 ^ (![0, 2] i)) Bool
+      fun i ↦ Td (ZMod 3) Bool (![0, 2] i)) Z)
+    (s : ℕ) {A Env : QReg} {α : Type}
+    (x : QuantumComp₂ LocalSig.instruments.{0}
+      (mixedExtSpec 2 ((ZMod 3 × ZMod 3) ⊕ (Bool × Bool)) (ZMod 3) (ZMod 3) Z) A
+      (ComOut 2 ((ZMod 3 × ZMod 3) ⊕ (Bool × Bool)) (ZMod 3) (ZMod 3) Z Env) α)
+    (r : QuantumComp₂ LocalSig.instruments.{0}
+      (mixedExtSpec 2 ((ZMod 3 × ZMod 3) ⊕ (Bool × Bool)) (ZMod 3) (ZMod 3) Z) A
+      (ReadComOut 2 (ZMod 3) Z Env) α)
+    (ρ : SubState A) (i : Fin 2)
+    (c : α → Fin 2 × ((ZMod 3 × ZMod 3) ⊕ (Bool × Bool)))
+    (hx : x.IsTotalQueryBound s) (hr : r.IsTotalQueryBound s) :
+    comError (compressedVCOracle 2 _ _) (multiExtract enc3 ![0, 2]) code i x ρ ≤
+        SaltedMerkle.comErrorBound (Y := ZMod 3) s ∧
+      readComError (compressedVCOracle 2 _ _) (multiExtract enc3 ![0, 2]) code r ρ c ≤
+        SaltedMerkle.comErrorBound (Y := ZMod 3) s :=
+  ⟨(SaltedMerkle.comBound enc3 ![0, 2] code).1 i s x ρ hx,
+    SaltedMerkle.readComError_le enc3 ![0, 2] code s r ρ c hr⟩
+
 /-- The universal cap is active for three possible hash outputs. -/
 example : SaltedMerkle.comErrorBound (Y := ZMod 3) 0 = 4 := by
   norm_num [SaltedMerkle.comErrorBound, ZMod.card]
@@ -114,6 +135,15 @@ example : SaltedMerkle.comErrorBound (Y := ZMod 97) 0 = 24 / 97 := by
   norm_num [ENNReal.div_le_iff]
 
 /-! ## Sharp P3 -/
+
+/-- At depth zero, checked P3 still charges the single leaf cell per opening. -/
+example {Z : Type} [Fintype Z] [DecidableEq Z] [AddGroup Z]
+    (code : TpDCode 2 (DmOf (fun _ ↦ 2 ^ 0) Bool fun _ ↦ Td (ZMod 3) Bool 0) Z) :
+    ExtractionCorrect.{0, 0} (fun _ : Fin 2 ↦ (scheme enc3 0).toVectorCommitment)
+      (compressedVCOracle 2 ((ZMod 3 × ZMod 3) ⊕ (Bool × Bool)) (ZMod 3))
+      (multiExtract enc3 (fun _ ↦ 0)) code
+      (fun _ _ _ n ↦ ENNReal.ofReal (1 - (1 - (3 : ℝ)⁻¹) ^ (2 * n * 1))) :=
+  extractionCorrect_uniformDepth enc3 0 code
 
 /-- P3 for two depth-two trees uses seven cells per opening, with exponent `14n`. -/
 example {Z : Type} [Fintype Z] [DecidableEq Z] [AddGroup Z]
