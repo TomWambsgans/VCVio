@@ -7,6 +7,7 @@ Authors: Alexander Hicks
 module
 
 public import HashSig.SLHDSA.Security.ByteRouter
+public import VCVio.CryptoFoundations.SignatureAlg.WithPost
 public import VCVio.OracleComp.QueryTracking.RandomOracle.Redirect
 
 /-!
@@ -34,6 +35,28 @@ the query itself (`encImpl_linkedHashRedirect`), so a program and its redirected
 program of the single oracle (`simulateQ_encImpl_simulateQ_linkedHashRedirect`). In particular
 the verification of `shakeRomScheme` is the redirected verification of the three-oracle scheme,
 `redirectedVerify`, encoded (`shakeRomScheme_verify_eq`).
+
+## The forger's linked strings
+
+`linkedRawImpl vp pk` reads the queries of an adversary over the single oracle on the common
+interface `unifSpec + (hashSpec + shakeSpec)`: a byte string laying out a linked point
+(`IsLinkedString`) becomes the `H_msg` query it lays out, and every other string stays a raw
+query. Encoding the common interface undoes it
+(`encodeImpl_shakeEncoding_compose_linkedRawImpl`), and for `n ≠ 32` it is the plain lift of raw
+queries (`linkedRawImpl_eq_liftRawImpl_of_ne`).
+
+## The adversaries
+
+* `linkedAdv vp adv`: an adversary against `shakeRomScheme` on the common interface, its linked
+  strings issued as `H_msg` queries.
+* `linkedRouteAdv vp hn hnm adv`: that adversary holding the router of
+  `shakeEncoding vp hn hnm pk.pkSeed` at its public key `pk`, an adversary against `romScheme`.
+* `verifyingAdv vp hn hnm adv`: `linkedRouteAdv` followed by the redirected verification of its
+  own forgery, as its own queries (`SignatureAlg.UnforgeableAdversary.withPost`).
+
+`romQueryBound_verifyingAdv`: for an adversary with hash budget `qh` and signing budget `qs`, the
+last makes at most `qh + V` hash queries and `qs` signing queries, `V` the verifier's query bound
+`GeneralScheme.verifyInternalQueryBound`.
 
 ## References
 
@@ -281,5 +304,185 @@ theorem shakeRomScheme_verify_eq
     simulateQ_encImpl_simulateQ_linkedHashRedirect,
     ← romScheme_verify_eq_liftPub optRand pkSeedDist]
   rfl
+
+/-! ## The forger's linked strings -/
+
+variable (vp pk)
+
+/-- A byte string laying out a linked point at the public key `pk`. -/
+@[expose] def IsLinkedString (x : List Byte) : Prop :=
+  ∃ t, IsLinked vp pk t ∧ encode vp (.inl t) = x
+
+/-- Linked strings are decided classically; the predicate is never enumerated. -/
+noncomputable instance : DecidablePred (IsLinkedString vp pk) := Classical.decPred _
+
+/-- **The linked strings of an adversary as `H_msg` queries.** The queries of an adversary over
+the single oracle on the common interface `unifSpec + (hashSpec + shakeSpec)`: a string laying
+out a linked point is issued as the `H_msg` query `H_msg(PK.seed, PK.seed, PK.root, M)` it lays
+out, `M` the string after its first `3n` bytes; every other string stays a raw query, and uniform
+draws pass through. -/
+@[expose] noncomputable def linkedRawImpl : QueryImpl (unifSpec + shakeSpec vp)
+    (OracleComp (unifSpec + (hashSpec (shakeCore vp) + shakeSpec vp)))
+  | .inl n => (query (spec := unifSpec + (hashSpec (shakeCore vp) + shakeSpec vp)) (.inl n) :
+      OracleComp _ (Fin (n + 1)))
+  | .inr x =>
+      if IsLinkedString vp pk x then
+        (query (spec := unifSpec + (hashSpec (shakeCore vp) + shakeSpec vp))
+          (.inr (.inl (.inl (.hmsg pk.pkSeed pk.pkSeed pk.pkRoot
+            (x.drop (3 * vp.params.n)))))) : OracleComp _ (Bytes vp.params.m))
+      else (query (spec := unifSpec + (hashSpec (shakeCore vp) + shakeSpec vp)) (.inr (.inr x)) :
+        OracleComp _ (Bytes vp.params.m))
+
+variable {vp pk}
+
+/-- A linked string is the layout of the `H_msg` query that `linkedRawImpl` issues for it. -/
+theorem encode_hmsg_drop_of_isLinkedString {x : List Byte} (h : IsLinkedString vp pk x) :
+    encode vp (.inl (.hmsg pk.pkSeed pk.pkSeed pk.pkRoot (x.drop (3 * vp.params.n)))) = x := by
+  obtain ⟨⟨s, k, _ | ⟨r, rest⟩⟩ | _, ht, rfl⟩ := h
+  · exact ht.elim
+  · obtain ⟨rfl, hk, rfl⟩ := ht
+    rw [← encode_linkedHmsg rest hk]
+    congr 3
+    exact drop_three_mul_encode_hmsg ..
+  · exact ht.elim
+
+/-- No string is linked when `n ≠ 32`. -/
+theorem not_isLinkedString_of_ne (hn : vp.params.n ≠ 32) (x : List Byte) :
+    ¬IsLinkedString vp pk x :=
+  fun ⟨t, ht, _⟩ => not_isLinked_of_ne hn t ht
+
+/-- **The forger-side redirect is invisible over the single oracle.** Encoding the common
+interface, with the router at any public seed, undoes `linkedRawImpl`. -/
+theorem encodeImpl_shakeEncoding_compose_linkedRawImpl (hn : vp.params.n ≤ 32)
+    (hnm : vp.params.n ≤ vp.params.m) (pkSeed : (shakeCore vp).PkSeed) :
+    (shakeEncoding vp hn hnm pkSeed).encodeImpl ∘ₛ linkedRawImpl vp pk =
+      QueryImpl.id' (unifSpec + shakeSpec vp) := by
+  funext u
+  rcases u with n | x
+  · rfl
+  · by_cases h : IsLinkedString vp pk x
+    · simp only [QueryImpl.apply_compose, linkedRawImpl, h, ↓reduceIte,
+        simulateQ_HasQuery_query]
+      have he := encode_hmsg_drop_of_isLinkedString h
+      set t : (hashSpec (shakeCore vp)).Domain :=
+        .inl (.hmsg pk.pkSeed pk.pkSeed pk.pkRoot (x.drop (3 * vp.params.n)))
+      change (shakeEncoding vp hn hnm pkSeed).trunc t <$>
+        (query (spec := unifSpec + shakeSpec vp)
+          (.inr ((shakeEncoding vp hn hnm pkSeed).encode t)) :
+            OracleComp (unifSpec + shakeSpec vp) (Bytes vp.params.m)) = _
+      rw [shakeEncoding_encode, he]
+      exact id_map _
+    · simp only [QueryImpl.apply_compose, linkedRawImpl, h, ↓reduceIte,
+        simulateQ_HasQuery_query]
+      rfl
+
+/-- For `n ≠ 32`, `linkedRawImpl` is the plain lift of raw queries. -/
+theorem linkedRawImpl_eq_liftRawImpl_of_ne (hn : vp.params.n ≠ 32) :
+    linkedRawImpl vp pk = liftRawImpl (hs := hashSpec (shakeCore vp)) := by
+  funext u
+  rcases u with n | x
+  · rfl
+  · simp only [linkedRawImpl, not_isLinkedString_of_ne hn x, ↓reduceIte]
+    rfl
+
+/-- `linkedRawImpl` answers a raw string by exactly one hash query. -/
+theorem isQueryBoundP_linkedRawImpl_inr (x : List Byte) :
+    IsQueryBoundP (linkedRawImpl vp pk (.inr x)) (fun t => t.isRight) 1 := by
+  simp only [linkedRawImpl]
+  split_ifs <;> exact (isQueryBoundP_query_iff _ _ _).2 fun _ => Nat.one_pos
+
+/-! ## The adversaries -/
+
+section Adversaries
+
+variable {optRand : PublicKeyCore (shakeCore vp) → ProbComp (shakeCore vp).Y}
+  {pkSeedDist : ProbComp (shakeCore vp).PkSeed}
+
+variable (vp) in
+/-- **An adversary against `shakeRomScheme` on the common interface, its linked strings issued as
+`H_msg` queries**: at its public key `pk` it runs with every query read by `linkedRawImpl vp pk`
+and its signing queries passed on. -/
+@[expose] noncomputable def linkedAdv
+    (adv : UnforgeableAdversary (shakeRomScheme vp optRand pkSeedDist)) :
+    UnforgeableAdversary ((romScheme (shakeCore vp) (Equiv.refl _) optRand pkSeedDist).map
+      (simulateQ' (liftTypedImpl (ext := shakeSpec vp)))) where
+  main pk := (adv.mapOracles (linkedRawImpl vp pk) (sigAlg' := (romScheme (shakeCore vp)
+    (Equiv.refl _) optRand pkSeedDist).map (simulateQ' (liftTypedImpl (ext := shakeSpec vp))))).main
+      pk
+
+variable (vp) in
+/-- **The routed adversary with linked strings.** An adversary against `shakeRomScheme` as an
+adversary against `romScheme`: at its public key `pk` it issues each linked string as its
+`H_msg` query (`linkedRawImpl`) and reads every other string by the router of
+`shakeEncoding vp hn hnm pk.pkSeed`, from an empty table of private values. -/
+@[expose] noncomputable def linkedRouteAdv (hn : vp.params.n ≤ 32)
+    (hnm : vp.params.n ≤ vp.params.m)
+    (adv : UnforgeableAdversary (shakeRomScheme vp optRand pkSeedDist)) :
+    UnforgeableAdversary (romScheme (shakeCore vp) (Equiv.refl _) optRand pkSeedDist) :=
+  (linkedAdv vp adv).route (fun pk => (shakeEncoding vp hn hnm pk.pkSeed).tableRouter) ∅
+
+variable (vp) in
+/-- **The verifying adversary.** `linkedRouteAdv` followed, as its own queries, by the redirected
+verification `redirectedVerify` of its forgery at its public key. -/
+@[expose] noncomputable def verifyingAdv (hn : vp.params.n ≤ 32)
+    (hnm : vp.params.n ≤ vp.params.m)
+    (adv : UnforgeableAdversary (shakeRomScheme vp optRand pkSeedDist)) :
+    UnforgeableAdversary (romScheme (shakeCore vp) (Equiv.refl _) optRand pkSeedDist) :=
+  (linkedRouteAdv vp hn hnm adv).withPost fun pk out =>
+    liftPub vp (redirectedVerify vp pk out.1 out.2)
+
+variable {adv : UnforgeableAdversary (shakeRomScheme vp optRand pkSeedDist)} {qh qs : ℕ}
+
+/-- The adversary on the common interface keeps the budget: each query of the single oracle is
+one hash query, typed or raw. -/
+theorem romQueryBound_linkedAdv (hadv : adv.RomQueryBound qh qs) :
+    (linkedAdv vp adv).RomQueryBound qh qs := by
+  intro pk
+  obtain ⟨hh, hsq⟩ := hadv pk
+  change IsQueryBoundP ((adv.mapOracles _).main pk) _ _ ∧
+    IsQueryBoundP ((adv.mapOracles _).main pk) _ _
+  rw [UnforgeableAdversary.mapOracles_main]
+  refine ⟨hh.simulateQ_of_step ?_ ?_, hsq.simulateQ_of_step ?_ ?_⟩
+  · rintro ((n | x) | m) ht <;> simp only [IsHashQuery] at ht
+    simp only [QueryImpl.addLift_def, QueryImpl.add_apply_inl, QueryImpl.liftTarget_apply,
+      linkedRawImpl]
+    split_ifs <;> exact (isQueryBoundP_query_iff _ _ _).2 fun _ => Nat.one_pos
+  · rintro ((n | x) | m) ht
+    · exact (isQueryBoundP_query_iff _ _ _).2 fun h => h.elim
+    · exact (ht trivial).elim
+    · exact (isQueryBoundP_query_iff _ _ _).2 fun h => h.elim
+  · rintro ((n | x) | m) ht <;> simp only [IsSignQuery] at ht
+    exact (isQueryBoundP_query_iff _ _ _).2 fun _ => Nat.one_pos
+  · rintro ((n | x) | m) ht
+    · exact (isQueryBoundP_query_iff _ _ _).2 fun h => h.elim
+    · simp only [QueryImpl.addLift_def, QueryImpl.add_apply_inl, QueryImpl.liftTarget_apply,
+        linkedRawImpl]
+      split_ifs <;> exact (isQueryBoundP_query_iff _ _ _).2 fun h => h.elim
+    · exact (ht trivial).elim
+
+/-- The routed adversary with linked strings keeps the budget. -/
+theorem romQueryBound_linkedRouteAdv (hn : vp.params.n ≤ 32) (hnm : vp.params.n ≤ vp.params.m)
+    (hadv : adv.RomQueryBound qh qs) : (linkedRouteAdv vp hn hnm adv).RomQueryBound qh qs :=
+  (romQueryBound_linkedAdv hadv).route
+    (fun _ x s => RandomOracleEncoding.isQueryBoundP_run_tableRouter x s) ∅
+
+/-- **The budget of the verifying adversary**: at most `qh + V` hash queries and `qs` signing
+queries for an adversary with hash budget `qh` and signing budget `qs`, `V` the verifier's query
+bound. -/
+theorem romQueryBound_verifyingAdv (hn : vp.params.n ≤ 32) (hnm : vp.params.n ≤ vp.params.m)
+    (hadv : adv.RomQueryBound qh qs) :
+    (verifyingAdv vp hn hnm adv).RomQueryBound
+      (qh + GeneralScheme.verifyInternalQueryBound vp.params) qs :=
+  (romQueryBound_linkedRouteAdv hn hnm hadv).withPost fun pk out => by
+    have h := IsQueryBoundP.simulateQ_of_step_le_total
+      (q := fun t : (unifSpec + hashSpec (shakeCore vp)).Domain => t.isRight)
+      (impl := HasQuery.toQueryImpl (spec := publicHashSpec (shakeCore vp))
+        (m := OracleComp (unifSpec + hashSpec (shakeCore vp))))
+      (isTotalQueryBound_redirectedVerify (pk := pk) out.1 out.2) fun t =>
+        show IsQueryBoundP (query (spec := unifSpec + hashSpec (shakeCore vp)) (.inr (.inl t))) _ 1
+          from (isQueryBoundP_query_iff _ _ _).2 fun _ => Nat.one_pos
+    rwa [Nat.mul_one] at h
+
+end Adversaries
 
 end SLHDSA.Security
