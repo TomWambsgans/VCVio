@@ -440,6 +440,13 @@ public import VCVio.Quantum.Oracle.Basis
 public import VCVio.Quantum.Oracle.Classical
 public import VCVio.Quantum.Oracle.ClassicalRead
 public import VCVio.Quantum.Oracle.Comb
+public import VCVio.Quantum.Oracle.Compressed.Action
+public import VCVio.Quantum.Oracle.Compressed.Basic
+public import VCVio.Quantum.Oracle.Compressed.Equivalence
+public import VCVio.Quantum.Oracle.Compressed.Measurement
+public import VCVio.Quantum.Oracle.Compressed.Oracle
+public import VCVio.Quantum.Oracle.Compressed.Size
+public import VCVio.Quantum.Oracle.Compressed.Truncation
 public import VCVio.Quantum.Oracle.Emulated
 public import VCVio.Quantum.Oracle.EmulatedTensor
 public import VCVio.Quantum.Oracle.Model
