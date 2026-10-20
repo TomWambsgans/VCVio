@@ -7,6 +7,7 @@ Authors: Quang Dao
 module
 public import VCVio.Quantum.Comp.QueryMass
 public import VCVio.Quantum.Comp.Simulation
+public import VCVio.Quantum.Comp.Subsystem
 public import VCVio.Quantum.MatrixMap.Kraus
 public import VCVio.Quantum.MatrixMap.Norm
 
@@ -259,18 +260,6 @@ theorem mul_kronecker_one {C : Type*} [Fintype C] [DecidableEq R] (X : Matrix B 
   rw [← mul_kronecker_mul, Matrix.one_mul]
 
 end MatrixMap
-
-namespace SubInstrument
-
-/-- A relabelling gate preserves the trace. -/
-theorem trace_relabel_branch_apply {A B : Type*} [Fintype A] [Fintype B] [DecidableEq A]
-    [DecidableEq B] (e : A ≃ B) (u : Unit) (ρ : Matrix A A ℂ) :
-    ((relabel e).branch u ρ).trace = ρ.trace := by
-  rw [relabel_branch_apply]
-  simp only [Matrix.trace, Matrix.diag_apply, Matrix.submatrix_apply]
-  exact e.symm.sum_comp fun a ↦ ρ a a
-
-end SubInstrument
 
 namespace Hybrid
 
