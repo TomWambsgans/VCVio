@@ -19,13 +19,13 @@ is also that of an `H_msg` query. This file checks it.
   identity there: the view, through the redirect, of the cache holding only that point has no entry
   at it. The string laying it out is linked and is issued as its `H_msg` query. A point at the
   seed's address with first block other than `PK.root` is not linked and is passed on. The linked
-  string with one more byte has the linked shape but is not linked, and the router reads it, at
-  every key predicate, as the `H_msg` query a linked string is issued as.
+  string with one more byte is not linked, so the forger-side redirect leaves it raw, and the
+  router reads it by its `H_msg` rule.
 * **At SLH-DSA-SHAKE-256f** (`n = 32`) a concrete point is linked and the redirect is not the
   identity there.
 * **At SLH-DSA-SHAKE-128s** (`n = 16`) the redirect is the identity, every cache is its own view
-  through it, no string is linked, the forger-side redirect is the plain lift of raw queries, and
-  the routed adversary with linked strings is `routeAdv`.
+  through it, no string is linked, and the forger-side redirect is the plain lift of raw
+  queries.
 * **At all 12 FIPS 205 parameter sets**: invisibility over the single oracle, the verification
   identity, and the budget of the verifying adversary.
 -/
@@ -132,36 +132,42 @@ example : ¬IsLinked vp256s pk offPoint ∧ linkedRedirect vp256s pk offPoint = 
 blocks. -/
 abbrev longString : List Byte := encode vp256s (.inl linkedPoint) ++ [0]
 
-/-- It has the linked shape. -/
-theorem isDaShaped_longString : IsDaShaped vp256s pk longString := by
-  obtain ⟨hl, h0, hs, hr⟩ := isDaShaped_of_isLinkedString isLinkedString_encode
-  refine ⟨by rw [List.length_append]; omega, ?_, ?_, ?_⟩
-  · rwa [List.take_append_of_le_length (by omega)]
-  · rwa [List.drop_append_of_le_length (by omega),
-      List.take_append_of_le_length (by rw [List.length_drop]; omega)]
-  · rwa [List.drop_append_of_le_length (by omega),
-      List.take_append_of_le_length (by rw [List.length_drop]; omega)]
+/-- It has `129` bytes. -/
+theorem length_longString : longString.length = 129 := by
+  rw [List.length_append, length_encode_thash]
+  rfl
 
 /-- It is not linked: no tweakable-hash string has `129` bytes. -/
 theorem not_isLinkedString_longString : ¬IsLinkedString vp256s pk longString := by
   rintro ⟨⟨s, k, xs⟩ | _, h, he⟩
   · have hl := length_encode_thash vp256s s k xs
-    have hn : vp256s.params.n = 32 := by decide
-    have h128 : (encode vp256s (.inl linkedPoint)).length = 128 := by
-      rw [length_encode_thash, hn]
-      rfl
-    rw [he, List.length_append, h128, hn] at hl
-    simp only [List.length_singleton] at hl
+    rw [he, length_longString, show vp256s.params.n = 32 by decide] at hl
     omega
   · exact h
 
-/-- So the forger-side redirect leaves it raw, and the router reads it, at every key predicate, as
-the `H_msg` query the forger-side redirect issues for a linked string. -/
-example (A : (shakeCore vp256s).AdrsKey → Prop) [DecidablePred A] :
-    shakeRoute vp256s A pk.pkSeed longString =
-      some (.inl (.hmsg pk.pkSeed pk.pkSeed pk.pkRoot (longString.drop 96))) :=
-  shakeRoute_of_isDaShaped_of_not_isLinkedString rfl A isDaShaped_longString
-    not_isLinkedString_longString
+/-- So the forger-side redirect leaves it raw. -/
+example : linkedRawImpl vp256s pk (.inr longString) =
+    (query (spec := unifSpec + (hashSpec (shakeCore vp256s) + shakeSpec vp256s))
+      (.inr (.inr longString)) :
+      OracleComp (unifSpec + (hashSpec (shakeCore vp256s) + shakeSpec vp256s))
+        (Bytes vp256s.params.m)) := by
+  simp only [linkedRawImpl, not_isLinkedString_longString, ↓reduceIte]
+
+/-- The router, every key admitted, reads it by its `H_msg` rule: its tail after the address is
+not a whole number of blocks, and its second block is the public seed. -/
+example : shakeRoute vp256s (fun _ => True) pk.pkSeed longString =
+    some (.inl (.hmsg (nodeOfList vp256s longString) pk.pkSeed
+      (nodeOfList vp256s (longString.drop 64)) (longString.drop 96))) := by
+  refine shakeRoute_of_isHmsgString (fun h => ?_) ⟨?_, ?_⟩
+  · have h2 := h.2.1
+    rw [length_longString, show vp256s.params.n = 32 by decide] at h2
+    exact absurd h2 (by decide)
+  · rw [length_longString]
+    decide
+  · change ((encode vp256s (.inl linkedPoint) ++ [0]).drop 32).take 32 = Vector.toList seedBytes
+    rw [List.drop_append_of_le_length (by rw [length_encode_thash]; decide),
+      List.take_append_of_le_length (by rw [List.length_drop, length_encode_thash]; decide)]
+    exact take_drop_encode_thash vp256s pk.pkSeed seedKey [pk.pkRoot, node]
 
 /-! ## A linked point at SLH-DSA-SHAKE-256f -/
 
@@ -208,14 +214,6 @@ example (pk : PublicKeyCore (shakeCore vp128s)) (x : List Byte) : ¬IsLinkedStri
 example (pk : PublicKeyCore (shakeCore vp128s)) :
     linkedRawImpl vp128s pk = liftRawImpl (hs := hashSpec (shakeCore vp128s)) :=
   linkedRawImpl_eq_liftRawImpl_of_ne (by decide)
-
-/-- The routed adversary with linked strings is `routeAdv`. -/
-example {optRand : PublicKeyCore (shakeCore vp128s) → ProbComp (shakeCore vp128s).Y}
-    {pkSeedDist : ProbComp (shakeCore vp128s).PkSeed}
-    (adv : UnforgeableAdversary (shakeRomScheme vp128s optRand pkSeedDist)) :
-    linkedRouteAdv vp128s (by decide) (by decide) adv =
-      routeAdv vp128s (by decide) (by decide) adv :=
-  linkedRouteAdv_eq_routeAdv_of_ne (by decide) _ _ adv
 
 /-! ## At all 12 FIPS 205 parameter sets -/
 

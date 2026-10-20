@@ -49,12 +49,6 @@ query. Encoding the common interface undoes it
 (`encodeImpl_shakeEncoding_compose_linkedRawImpl`), and for `n ≠ 32` it is the plain lift of raw
 queries (`linkedRawImpl_eq_liftRawImpl_of_ne`).
 
-At `n = 32` every string of the shape `PK.seed ‖ PK.seed ‖ PK.root ‖ M` (`IsDaShaped`) ends up as
-the query `H_msg(PK.seed, PK.seed, PK.root, M)`: a linked string through `linkedRawImpl`, and any
-other one through the router, which reads it by its `H_msg` rule at every key predicate
-(`shakeRoute_of_isDaShaped_of_not_isLinkedString`), since its tweakable-hash rule fires on such a
-string only when the string is linked (`isLinkedString_of_isThashString`).
-
 ## The adversaries
 
 * `linkedAdv vp adv`: an adversary against `shakeRomScheme` on the common interface, its linked
@@ -68,12 +62,8 @@ string only when the string is linked (`isLinkedString_of_isThashString`).
 last makes at most `qh + V` hash queries and `qs` signing queries, `V` the verifier's query bound
 `GeneralScheme.verifyInternalQueryBound`.
 
-`verifyingAdv` is the adversary holding the router on `linkedAdv` followed by the redirected
-verification as typed queries (`verifyingAdv_eq_route`). Encoding the common interface turns
-`linkedAdv` back into `adv` (`mapOracles_encodeImpl_linkedAdv`), and `linkedAdv` followed by the
-redirected verification into `adv` followed by the single-SHAKE256 verification of its forgery
-(`mapOracles_encodeImpl_linkedAdv_withPost`). For `n ≠ 32`, `linkedRouteAdv` is `routeAdv`
-(`linkedRouteAdv_eq_routeAdv_of_ne`).
+Encoding the common interface, with the router at any public seed, turns `linkedAdv vp adv` back
+into `adv` (`mapOracles_encodeImpl_linkedAdv`).
 
 ## References
 
@@ -132,8 +122,9 @@ theorem encode_linkedHmsg {s : (shakeCore vp).PkSeed} {k : (shakeCore vp).AdrsKe
     encode vp (.inl (linkedHmsg vp s r rest)) = encode vp (.inl (.thash s k (r :: rest))) := by
   simp only [encode, hk, List.map_cons, List.flatten_cons, List.append_assoc]
 
-/-- **Linked points are all the `D_a` points (n = 32).** A tweakable-hash query at `PK.seed` whose
-string is that of an `H_msg` query `H_msg(R, PK.seed, PK.root, M)` is linked. -/
+/-- **Every tweakable-hash query with an `H_msg` reading at the public key is linked (n = 32).** A
+tweakable-hash query at `PK.seed` whose string is that of an `H_msg` query
+`H_msg(R, PK.seed, PK.root, M)`, for any `R` and `M`, is linked. -/
 theorem isLinked_of_encode_eq_encode_hmsg (hn : vp.params.n = 32) {k : (shakeCore vp).AdrsKey}
     {xs : List (shakeCore vp).Y} {R : (shakeCore vp).Y} {M : List Byte}
     (h : encode vp (.inl (.thash pk.pkSeed k xs)) =
@@ -433,73 +424,6 @@ theorem isQueryBoundP_linkedRawImpl_inr (x : List Byte) :
   simp only [linkedRawImpl]
   split_ifs <;> exact (isQueryBoundP_query_iff _ _ _).2 fun _ => Nat.one_pos
 
-/-! ## Strings of the linked shape -/
-
-variable (vp pk) in
-/-- A byte string of the shape `PK.seed ‖ PK.seed ‖ PK.root ‖ M`, read off its bytes. -/
-@[expose] def IsDaShaped (x : List Byte) : Prop :=
-  3 * vp.params.n ≤ x.length ∧
-    x.take vp.params.n = Vector.toList (pk.pkSeed : Bytes vp.params.n) ∧
-    (x.drop vp.params.n).take vp.params.n = Vector.toList (pk.pkSeed : Bytes vp.params.n) ∧
-    (x.drop (2 * vp.params.n)).take vp.params.n = Vector.toList (pk.pkRoot : Bytes vp.params.n)
-
-/-- A linked string has the linked shape. -/
-theorem isDaShaped_of_isLinkedString {x : List Byte} (h : IsLinkedString vp pk x) :
-    IsDaShaped vp pk x := by
-  have he := encode_hmsg_drop_of_isLinkedString h
-  have hl := length_encode_hmsg vp pk.pkSeed pk.pkSeed pk.pkRoot (x.drop (3 * vp.params.n))
-  rw [he] at hl
-  refine ⟨by omega, ?_, ?_, ?_⟩ <;> rw [← he]
-  · exact take_encode_hmsg ..
-  · exact take_drop_encode_hmsg ..
-  · exact take_drop_two_mul_encode_hmsg ..
-
-/-- **Rule 1 on a string of the linked shape (n = 32).** If the router at `PK.seed` reads a string
-of the linked shape as a tweakable-hash string, at any key predicate, the string is linked. -/
-theorem isLinkedString_of_isThashString (hn : vp.params.n = 32)
-    {A : (shakeCore vp).AdrsKey → Prop} {x : List Byte}
-    (hx : IsDaShaped vp pk x) (h1 : IsThashString vp A pk.pkSeed x) : IsLinkedString vp pk x := by
-  classical
-  obtain ⟨hl, -, hs, hr⟩ := hx
-  have henc := encode_eq_of_shakeRoute_eq_some (shakeRoute_of_isThashString h1)
-  set k := adrsKeyOfList vp (x.drop vp.params.n)
-  set xs := nodesOfList vp ((x.length - (vp.params.n + 32)) / vp.params.n)
-    (x.drop (vp.params.n + 32))
-  have hk : Vector.toList (k : Bytes 32) = Vector.toList (pk.pkSeed : Bytes vp.params.n) := by
-    rw [← take_drop_encode_thash vp pk.pkSeed k xs, henc, ← hs, hn]
-  cases hxs : xs with
-  | nil =>
-    have := length_encode_thash vp pk.pkSeed k xs
-    rw [henc, hxs] at this
-    simp at this
-    omega
-  | cons r rest =>
-    refine ⟨.thash pk.pkSeed k (r :: rest), ⟨rfl, hk, ?_⟩, hxs ▸ henc⟩
-    have hdr := drop_add_encode_thash vp pk.pkSeed k xs
-    rw [henc, hxs, List.map_cons, List.flatten_cons] at hdr
-    have : (x.drop (2 * vp.params.n)).take vp.params.n = Vector.toList (r : Bytes vp.params.n) := by
-      rw [show 2 * vp.params.n = vp.params.n + 32 by omega, hdr]
-      exact List.take_left' (Vector.length_toList (xs := (r : Bytes vp.params.n)))
-    exact Vector.toList_inj.mp (this.symm.trans hr)
-
-/-- **Strings of the linked shape left raw (n = 32).** A string of the linked shape that is not
-linked, so that `linkedRawImpl` leaves it raw (one whose tail is not a whole number of blocks,
-say), is read by the router at `PK.seed`, at any key predicate, as the `H_msg` query
-`linkedRawImpl` issues for a linked string: `H_msg(PK.seed, PK.seed, PK.root, M)`, `M` the string
-after its first `3n` bytes. -/
-theorem shakeRoute_of_isDaShaped_of_not_isLinkedString (hn : vp.params.n = 32)
-    (A : (shakeCore vp).AdrsKey → Prop) [DecidablePred A] {x : List Byte}
-    (hx : IsDaShaped vp pk x) (hnl : ¬IsLinkedString vp pk x) :
-    shakeRoute vp A pk.pkSeed x =
-      some (.inl (.hmsg pk.pkSeed pk.pkSeed pk.pkRoot (x.drop (3 * vp.params.n)))) := by
-  have h1 : ¬IsThashString vp A pk.pkSeed x := fun h =>
-    hnl (isLinkedString_of_isThashString hn hx h)
-  obtain ⟨hl, h0, hs, hr⟩ := hx
-  rw [shakeRoute_of_isHmsgString h1 ⟨hl, hs⟩]
-  congr 4
-  · exact Vector.toList_inj.mp ((toList_nodeOfList (by omega)).trans h0)
-  · exact Vector.toList_inj.mp ((toList_nodeOfList (by simp; omega)).trans hr)
-
 /-! ## The adversaries -/
 
 section Adversaries
@@ -555,40 +479,6 @@ theorem mapOracles_encodeImpl_linkedAdv (hn : vp.params.n ≤ 32)
   rw [← UnforgeableAdversary.mapOracles_main (sigAlg' := shakeRomScheme vp optRand pkSeedDist),
     UnforgeableAdversary.mapOracles_mapOracles,
     encodeImpl_shakeEncoding_compose_linkedRawImpl, UnforgeableAdversary.mapOracles_id']
-
-/-- **The verifying adversary as a routed adversary.** `verifyingAdv` holds the router of
-`shakeEncoding` on `linkedAdv` followed by the redirected verification as typed queries. -/
-theorem verifyingAdv_eq_route (hn : vp.params.n ≤ 32) (hnm : vp.params.n ≤ vp.params.m)
-    (adv : UnforgeableAdversary (shakeRomScheme vp optRand pkSeedDist)) :
-    verifyingAdv vp hn hnm adv =
-      ((linkedAdv vp adv).withPost fun pk out => simulateQ (liftTypedImpl (ext := shakeSpec vp))
-          (liftPub vp (redirectedVerify vp pk out.1 out.2))).route
-        (fun pk => (shakeEncoding vp hn hnm pk.pkSeed).tableRouter) ∅ :=
-  (UnforgeableAdversary.route_withPost _ _ _ _).symm
-
-/-- **Encoding the verifying adversary's common-interface form.** Encoding `linkedAdv` followed by
-the redirected verification, with the router at any public seed, gives `adv` followed by the
-single-SHAKE256 verification of its own forgery. -/
-theorem mapOracles_encodeImpl_linkedAdv_withPost (hn : vp.params.n ≤ 32)
-    (hnm : vp.params.n ≤ vp.params.m) (pkSeed : (shakeCore vp).PkSeed)
-    (adv : UnforgeableAdversary (shakeRomScheme vp optRand pkSeedDist)) :
-    ((linkedAdv vp adv).withPost fun pk out => simulateQ (liftTypedImpl (ext := shakeSpec vp))
-        (liftPub vp (redirectedVerify vp pk out.1 out.2))).mapOracles
-        (shakeEncoding vp hn hnm pkSeed).encodeImpl
-        (sigAlg' := shakeRomScheme vp optRand pkSeedDist) =
-      adv.withPost fun pk out => (shakeRomScheme vp optRand pkSeedDist).verify pk out.1 out.2 := by
-  rw [UnforgeableAdversary.mapOracles_withPost, mapOracles_encodeImpl_linkedAdv]
-  congr 1
-  funext pk out
-  rw [shakeRomScheme_verify_eq, ← QueryImpl.simulateQ_compose,
-    encodeImpl_shakeEncoding_compose_liftTypedImpl]
-
-/-- For `n ≠ 32` the routed adversary with linked strings is the routed adversary `routeAdv`. -/
-theorem linkedRouteAdv_eq_routeAdv_of_ne (hn' : vp.params.n ≠ 32) (hn : vp.params.n ≤ 32)
-    (hnm : vp.params.n ≤ vp.params.m)
-    (adv : UnforgeableAdversary (shakeRomScheme vp optRand pkSeedDist)) :
-    linkedRouteAdv vp hn hnm adv = routeAdv vp hn hnm adv := by
-  simp only [linkedRouteAdv, routeAdv, linkedAdv, linkedRawImpl_eq_liftRawImpl_of_ne hn']
 
 variable {adv : UnforgeableAdversary (shakeRomScheme vp optRand pkSeedDist)} {qh qs : ℕ}
 

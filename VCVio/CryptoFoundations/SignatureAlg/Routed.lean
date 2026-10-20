@@ -332,8 +332,8 @@ theorem map_run_simulateQ_handlerRouterImpl_unforgeableTranscriptExperiment_eval
 /-! ## The budget of the routed adversary -/
 
 /-- **The budget of an adversary with its oracles read by a handler.** If the handler `G` answers
-each raw query of `unifSpec + ext` with at most one hash query of `unifSpec + hs` and each uniform
-draw with none, an adversary over `unifSpec + ext` read through `G` keeps its budget. -/
+each raw query of `unifSpec + ext` with at most one hash query of `unifSpec + hs'` and each
+uniform draw with none, an adversary over `unifSpec + ext` read through `G` keeps its budget. -/
 theorem UnforgeableAdversary.RomQueryBound.mapOracles_of_step {ιh : Type} {hs' : OracleSpec ιh}
     {sigAlg' : SignatureAlg (OracleComp (unifSpec + ext)) M PK SK' S}
     {sigAlg : SignatureAlg (OracleComp (unifSpec + hs')) M PK SK S}
@@ -344,26 +344,20 @@ theorem UnforgeableAdversary.RomQueryBound.mapOracles_of_step {ιh : Type} {hs' 
     (adv.mapOracles G (sigAlg' := sigAlg)).RomQueryBound qh qs := by
   intro pk
   obtain ⟨hh, hsq⟩ := hadv pk
-  rw [UnforgeableAdversary.mapOracles_main]
   have hhash : ∀ t : (unifSpec + hs').Domain,
       t.isRight ↔ IsHashQuery (hs := hs') (M := M) (S := S) (.inl t) := by
     rintro (n | t) <;> simp [IsHashQuery]
-  have hsign : ∀ t : (unifSpec + hs').Domain,
-      False ↔ IsSignQuery (hs := hs') (M := M) (S := S) (.inl t) := by
-    rintro (n | t) <;> simp [IsSignQuery]
-  refine ⟨hh.simulateQ_of_step ?_ ?_, hsq.simulateQ_of_step ?_ ?_⟩
-  · rintro ((n | x) | m) ht <;> simp only [IsHashQuery] at ht
-    exact (hraw x).liftComp_subSpec hhash
-  · rintro ((n | x) | m) ht
-    · exact (hunif n).liftComp_subSpec hhash
-    · exact (ht trivial).elim
-    · exact (isQueryBoundP_query_iff _ _ _).2 fun h => h.elim
-  · rintro ((n | x) | m) ht <;> simp only [IsSignQuery] at ht
-    exact (isQueryBoundP_query_iff _ _ _).2 fun _ => Nat.one_pos
-  · rintro ((n | x) | m) ht
-    · exact (isQueryBoundP_false _ 0).liftComp_subSpec hsign
-    · exact (isQueryBoundP_false _ 0).liftComp_subSpec hsign
-    · exact (ht trivial).elim
+  refine ⟨?_, (isQueryBoundP_mapOracles_main_isRight G adv (p := IsSignQuery) (fun _ => trivial)
+    pk hsq).of_imp fun t ht => ?_⟩
+  · rw [UnforgeableAdversary.mapOracles_main]
+    refine hh.simulateQ_of_step ?_ ?_
+    · rintro ((n | x) | m) ht <;> simp only [IsHashQuery] at ht
+      exact (hraw x).liftComp_subSpec hhash
+    · rintro ((n | x) | m) ht
+      · exact (hunif n).liftComp_subSpec hhash
+      · exact (ht trivial).elim
+      · exact (isQueryBoundP_query_iff _ _ _).2 fun h => h.elim
+  · rcases t with (n | t) | m <;> simp_all [IsSignQuery]
 
 /-- An adversary over `unifSpec + ext`, read on the common interface, keeps its budget: its raw
 queries are the hash queries of the common interface. -/
