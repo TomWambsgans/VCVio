@@ -17,4 +17,3 @@ grandfatheredNativeTrust # constant of scripts/AxiomSweep.lean, outside the proo
 hss_nf # retired argument name of the Fiat–Shamir extraction bounds
 merge_action # GitHub merge-queue event
 merge_queue # GitHub merge-queue event
-query_bind # case name of OracleComp.inductionOn
