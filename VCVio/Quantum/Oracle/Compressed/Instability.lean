@@ -183,7 +183,7 @@ theorem instability_eq_iSup (π : Database X Y → ι) (t : ℕ) :
   refine iSup_congr_Prop (by simp) fun _ ↦ ?_
   refine iSup_congr_Prop (by rw [encard_toSet_equivQueryCache]; exact Nat.cast_lt) fun _ ↦ ?_
   refine iSup_congr fun x ↦ iSup_congr_Prop Iff.rfl fun _ ↦ ?_
-  rw [QueryCache.extendProb_eq_card_div]
+  rw [QueryCache.updateProb_eq_card_div]
   refine congrArg (· / _) (congrArg Nat.cast (congrArg Finset.card (Finset.ext fun u ↦ ?_)))
   simp
 
