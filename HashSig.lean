@@ -48,6 +48,7 @@ public import HashSig.SLHDSA.Security.ByteBound
 public import HashSig.SLHDSA.Security.ByteClash
 public import HashSig.SLHDSA.Security.ByteConformance
 public import HashSig.SLHDSA.Security.ByteModel
+public import HashSig.SLHDSA.Security.ByteRedirect
 public import HashSig.SLHDSA.Security.ByteRouter
 public import HashSig.SLHDSA.Security.CacheDecomposition
 public import HashSig.SLHDSA.Security.CacheReaders
