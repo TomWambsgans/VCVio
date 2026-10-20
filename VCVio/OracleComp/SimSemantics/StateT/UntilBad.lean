@@ -74,11 +74,8 @@ patched on the steps that raise `bad` and from bad states, where it follows `imp
 - `QueryImpl.IntertwinesOn.prEvent_simulateQ_run_le_or_bad`: an intertwining followed by
   agreement until `bad` bounds an event of the intertwined run by the event or `bad`.
 
-The same idea, for handlers into `OracleComp spec` and with the output-marginal total-variation
-distance, is `OracleComp.ProgramLogic.Relational.identical_until_bad_with_flag`
-(`VCVio/ProgramLogic/Relational/SimulateQ/Basic.lean`); a state-separating-package form is in
-`VCVio/StateSeparating/IdenticalUntilBad.lean`. Both are stated in the discrete `Pr[…]`
-compatibility API.
+A state-separating-package form of the same idea is in
+`VCVio/StateSeparating/IdenticalUntilBad.lean`.
 -/
 
 public section
