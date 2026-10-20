@@ -81,6 +81,7 @@ public import HashSig.SLHDSA.Security.LabReadSet
 public import HashSig.SLHDSA.Security.LabScheme
 public import HashSig.SLHDSA.Security.LabelReaders
 public import HashSig.SLHDSA.Security.LimitedProfile
+public import HashSig.SLHDSA.Security.LinkedHazards
 public import HashSig.SLHDSA.Security.NodeGraph
 public import HashSig.SLHDSA.Security.PrfKeyBound
 public import HashSig.SLHDSA.Security.ReachableTargets
