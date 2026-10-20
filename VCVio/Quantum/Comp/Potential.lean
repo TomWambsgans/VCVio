@@ -352,7 +352,7 @@ theorem potential_queryStep (K : Matrix Z R.D ℂ) (i : spec.Port) (E : QReg)
     (spec.Out i) E ()) (((R.step i).frame E).branch r ((relabel (queryEquivIn ℓ R.D)).branch () ρ))
   simp only [LinearMap.comp_apply] at h
   rw [potential, potential, queryStep_branch_apply, ← h, trace_relabel_branch_apply,
-    branch_frame_apply, ← MatrixMap.trace_traceRight, ← LinearMap.comp_apply
+    DSubInstrument.branch_frame_apply, ← MatrixMap.trace_traceRight, ← LinearMap.comp_apply
       (MatrixMap.traceRight _ E), MatrixMap.traceRight_comp_amplify, LinearMap.comp_apply,
     ← LinearMap.comp_apply (MatrixMap.traceRight _ E), MatrixMap.traceRight_comp_amplify,
     LinearMap.comp_apply, callInput, LinearMap.comp_apply]
@@ -549,10 +549,9 @@ private theorem one_kronecker_proj {n : Type*} [Fintype n] [DecidableEq n] (hQ :
 @[expose]
 noncomputable def pinchStep (hU : ∀ i r, (s i).branch r = MatrixMap.conj (U i r))
     (hQ : Qᴴ = Q) (hQQ : Q * Q = Q) (i : spec.Port) :
-    SubInstrument (spec.In i × D) (spec.Out i × D) (spec.Result i) where
-  branch r := MatrixMap.conj (pinch (1 ⊗ₖ Q) (1 ⊗ₖ Q) (U i r))
-  isCP_branch _ := MatrixMap.isCP_conj _
-  isTNI_sum t := by
+    SubInstrument (spec.In i × D) (spec.Out i × D) (spec.Result i) :=
+  SubInstrument.ofIsTNISum (fun r ↦ MatrixMap.conj (pinch (1 ⊗ₖ Q) (1 ⊗ₖ Q) (U i r)))
+    (fun _ ↦ MatrixMap.isCP_conj _) fun t ↦ by
     rw [← Finset.sum_coe_sort t]
     refine MatrixMap.isTNI_sum_conj_iff.mpr ?_
     rw [Finset.sum_coe_sort t
