@@ -260,7 +260,6 @@ theorem DatabaseSupportedOn.run_compressedRuntime (I : L.Interp)
     rw [hb] at hk
     rw [QuantumRuntime.run_queryBind, DSubInstrument.branch_bind_apply]
     refine QuerySupportedOn.tsum fun r ↦ ?_
-    rw [SubInstrument.branch_toD_apply]
     cases i
     have h := ih r (hk r) (hρ.queryStep_compressedRuntime E ℓ r)
     rwa [Nat.add_assoc, Nat.add_sub_cancel' hq] at h

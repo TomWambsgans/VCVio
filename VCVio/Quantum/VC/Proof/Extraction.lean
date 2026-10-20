@@ -278,7 +278,7 @@ theorem branch_run₂_toQuantumAt_foldlM_checkIOStep [Finite Y]
       rw [List.foldlM_cons, checkIOStep, bind_assoc]
       simp only [pure_bind]
       exact toQuantumAt_query_bind call p.1 _
-    rw [hprog, QuantumRuntime.run₂_bind, SubInstrument.branch_bind_apply_univ,
+    rw [hprog, QuantumRuntime.run₂_bind, DSubInstrument.branch_bind_apply_univ,
       Finset.sum_eq_single p.2]
     · rw [ih, hcall]
       simp only [decide_true, Bool.and_true]
@@ -328,7 +328,7 @@ theorem branch_run₂_allIn {k : ℕ} (W : Finset (Fin k)) (f : Fin k → QComp 
       rw [List.foldlM_cons]
       by_cases hi : i ∈ W
       · simp only [hi, ↓reduceIte, bind_map_left]
-        rw [QuantumComp₂.bind_eq, QuantumRuntime.run₂_bind, SubInstrument.branch_bind_apply_univ,
+        rw [QuantumComp₂.bind_eq, QuantumRuntime.run₂_bind, DSubInstrument.branch_bind_apply_univ,
           Fintype.sum_bool, ih, ih]
         cases acc
         · simp
@@ -370,11 +370,11 @@ theorem exists_branch_run₂_toQuantumAt_coinImpl_eq_smul {α : Type} (oa : Prob
         (R.run₂ .instruments (QComp.coinImpl spec B t)).branch y =
           ((Fintype.card (Fin (t + 1)) : ℂ)⁻¹) • LinearMap.id := by
       rw [QComp.coinImpl, QuantumRuntime.run₂_act, SubInstrument.bind_pure,
-        SubInstrument.branch_frame_apply]
+        DSubInstrument.branch_frame_apply]
       refine LinearMap.ext fun ρ ↦ ?_
       ext x x'
       simp [SubInstrument.branch_uniform_apply]
-    rw [toQuantumAt_query_bind, QuantumRuntime.run₂_bind, SubInstrument.branch_bind_apply_univ]
+    rw [toQuantumAt_query_bind, QuantumRuntime.run₂_bind, DSubInstrument.branch_bind_apply_univ]
     refine ⟨∑ y, c y * (Fintype.card (Fin (t + 1)) : ℂ)⁻¹, ?_, fun ha ↦ ?_⟩
     · refine LinearMap.ext fun ρ ↦ ?_
       simp only [LinearMap.sum_apply, LinearMap.comp_apply, hc, hcoin, LinearMap.smul_apply,
@@ -402,9 +402,9 @@ theorem exists_branch_run₂_pi_eq_smul : {k : ℕ} → {β : Fin k → Type w} 
       (fun i ↦ S i.succ) (fun i b ↦ hf i.succ b) (Fin.tail v)
     refine ⟨c₁ * c₀, ?_, fun ⟨i, hi⟩ ↦ ?_⟩
     · refine LinearMap.ext fun ρ ↦ ?_
-      rw [QComp.pi, QuantumRuntime.run₂_bind, SubInstrument.branch_bind_apply,
+      rw [QComp.pi, QuantumRuntime.run₂_bind, DSubInstrument.branch_bind_apply,
         tsum_eq_single (v 0)]
-      · rw [QuantumRuntime.run₂_bind, SubInstrument.branch_bind_apply, tsum_eq_single (Fin.tail v)]
+      · rw [QuantumRuntime.run₂_bind, DSubInstrument.branch_bind_apply, tsum_eq_single (Fin.tail v)]
         · rw [QuantumRuntime.run₂_pure, Fin.cons_self_tail, SubInstrument.branch_pure_self,
             LinearMap.id_apply, hc₁, hc₀]
           simp only [LinearMap.smul_apply, LinearMap.id_apply, smul_smul]
@@ -413,7 +413,7 @@ theorem exists_branch_run₂_pi_eq_smul : {k : ℕ} → {β : Fin k → Type w} 
           intro h
           exact hbs (by rw [h, Fin.tail_cons])
       · intro b hb
-        rw [QuantumRuntime.run₂_bind, SubInstrument.branch_bind_apply]
+        rw [QuantumRuntime.run₂_bind, DSubInstrument.branch_bind_apply]
         refine (tsum_congr fun bs ↦ ?_).trans tsum_zero
         rw [QuantumRuntime.run₂_pure, SubInstrument.branch_pure_of_ne, LinearMap.zero_apply]
         intro h
@@ -543,7 +543,7 @@ theorem QuantumRuntime.outcomeMeasure_run_forgetReg {L : LocalSig.{u, v}}
   let _ : MeasurableSpace (Σ u, QuantumComp₂.Leaf B α u) := ⊤
   rw [QuantumRuntime.run_forgetReg, DSubInstrument.map_eq_bind_ret,
     DSubInstrument.outcomeMeasure_bind, Measure.sum_apply _ hs',
-    SubInstrument.outcomeMeasure_apply _ _ hs]
+    DSubInstrument.outcomeMeasure_apply _ _ hs]
   simp only [DSubInstrument.outcomeMeasure_ret, Measure.smul_apply, Measure.dirac_apply' _ hs',
     smul_eq_mul, DSubInstrument.matrix_post]
   refine ((QuantumComp₂.leafEquiv B α).tsum_eq _).symm.trans (tsum_congr fun a ↦ ?_)
@@ -560,15 +560,15 @@ theorem outcomeLawWith_experiment_true_le {spec : QuantumOracleSpec.{u₁, v₁}
     (h : ∀ u (y : W u) (σ : SubState (u × R.D)),
       (R.run₂ .instruments (chal u y)).outcomeMeasure σ {true} ≤
         ε * ENNReal.ofReal σ.matrix.trace.re) :
-    R.outcomeLawWith .instruments (experiment x chal) ρ Sigma.snd {true} ≤ ε := by
+    R.evalDistMap .instruments (experiment x chal) ρ Sigma.snd {true} ≤ ε := by
   let _ : MeasurableSpace (Σ _ : QReg, Bool) := ⊤
   let _ : MeasurableSpace (Σ u, W u) := ⊤
   have hS : MeasurableSet (Sigma.snd ⁻¹' {true} : Set (Σ _ : QReg, Bool)) :=
     MeasurableSpace.measurableSet_top
-  have h₁ : R.outcomeLawWith .instruments (experiment x chal) ρ Sigma.snd {true} =
+  have h₁ : R.evalDistMap .instruments (experiment x chal) ρ Sigma.snd {true} =
       (R.run .instruments (experiment x chal)).outcomeMeasure (ρ.prod R.init)
         (Sigma.snd ⁻¹' {true}) := by
-    rw [QuantumRuntime.outcomeLawWith_apply _ _ _ _ _ (measurableSet_singleton true),
+    rw [QuantumRuntime.evalDistMap_apply _ _ _ _ _ (measurableSet_singleton true),
       DSubInstrument.outcomeMeasure_apply _ _ hS]
     rfl
   rw [h₁, run_experiment, DSubInstrument.outcomeMeasure_bind, Measure.sum_apply _ hS]
@@ -596,11 +596,11 @@ theorem SubInstrument.outcomeMeasure_bind_le {A B C : Type*} [Fintype A] [Fintyp
       ε * ENNReal.ofReal (p.branch a ρ.matrix).trace.re) :
     (p.bind k).outcomeMeasure ρ s ≤ ε * ENNReal.ofReal ρ.matrix.trace.re := by
   let _ : MeasurableSpace α := ⊤
-  rw [SubInstrument.outcomeMeasure_bind, Measure.sum_apply _ hs]
+  rw [DSubInstrument.outcomeMeasure_bind, Measure.sum_apply _ hs]
   calc ∑' a, (k a).outcomeMeasure (p.post ρ a) s
       ≤ ∑' a, ε * ENNReal.ofReal (p.branch a ρ.matrix).trace.re := ENNReal.tsum_le_tsum h
     _ = ε * p.outcomeMeasure ρ Set.univ := by
-        rw [ENNReal.tsum_mul_left, SubInstrument.outcomeMeasure_apply _ _ MeasurableSet.univ]
+        rw [ENNReal.tsum_mul_left, DSubInstrument.outcomeMeasure_apply _ _ MeasurableSet.univ]
         simp
     _ ≤ ε * ENNReal.ofReal ρ.matrix.trace.re := by
         rw [SubInstrument.outcomeMeasure_apply_univ]
@@ -611,7 +611,7 @@ theorem SubInstrument.outcomeMeasure_bind_le {A B C : Type*} [Fintype A] [Fintyp
 theorem SubInstrument.outcomeMeasure_eq_zero_of_matrix_eq_zero {A B : Type*} [Fintype A]
     [Fintype B] {α : Type*} [MeasurableSpace α] (p : SubInstrument A B α) {ρ : SubState A}
     (hρ : ρ.matrix = 0) : p.outcomeMeasure ρ = 0 := by
-  rw [SubInstrument.outcomeMeasure_eq_sum, hρ]
+  rw [DSubInstrument.outcomeMeasure_eq_sum, hρ]
   simp
 
 /-- For a lossless subinstrument with two outcomes, the traces of the two branches add up to the
@@ -619,7 +619,7 @@ trace of the input. -/
 theorem SubInstrument.trace_re_branch_add_of_lossless {A B : Type*} [Fintype A] [Fintype B]
     {p : SubInstrument A B Bool} (hp : p.Lossless) (ρ : Matrix A A ℂ) :
     (p.branch true ρ).trace.re + (p.branch false ρ).trace.re = ρ.trace.re := by
-  rw [← hp ρ, SubInstrument.trace_re_total_apply, tsum_fintype, Fintype.sum_bool]
+  rw [← hp ρ, MatrixMap.familyTrace_apply_univ, Fintype.sum_bool, Complex.add_re]
 
 end experiment
 
@@ -895,8 +895,8 @@ theorem outcomeMeasure_run₂_checks_le_of_openingQueryBound [∀ i, DecidableEq
         ρ {true} ≤
       ENNReal.ofReal (1 - (1 - (Fintype.card Y : ℝ)⁻¹) ^ (2 * n * q)) *
         ENNReal.ofReal ρ.matrix.trace.re := by
-  rw [QuantumRuntime.run₂_bind, SubInstrument.outcomeMeasure_apply_singleton,
-    SubInstrument.branch_bind_apply_univ, Fintype.sum_bool]
+  rw [QuantumRuntime.run₂_bind, DSubInstrument.outcomeMeasure_apply_singleton,
+    DSubInstrument.branch_bind_apply_univ, Fintype.sum_bool]
   simp only [QuantumRuntime.run₂_pure, Bool.not_true, Bool.false_and, Bool.not_false,
     Bool.true_and]
   rw [SubInstrument.branch_pure_of_ne (by decide : true ≠ false), LinearMap.zero_comp, zero_add]

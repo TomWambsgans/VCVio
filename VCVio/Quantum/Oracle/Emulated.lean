@@ -224,7 +224,6 @@ theorem totalWeight_bind (hΦ : ∀ i, (Φ i).IsCP) (x : QuantumComp L spec X A)
     have hrun : ∀ p, (R.run I (QuantumComp.queryBind i' E ℓ k')).branch p ρ =
         ∑' r, (R.run I (k' r)).branch p ((R.queryStep i' E ℓ).branch r ρ) := fun p ↦ by
       rw [run_queryBind, DSubInstrument.branch_bind_apply]
-      rfl
     have htail : ∑' p, R.totalWeight I (fun i σ ↦ ENNReal.ofReal (Φ i σ).trace.re) (k p.1 p.2)
           ((R.run I (QuantumComp.queryBind i' E ℓ k')).branch p ρ) =
         ∑' r, ∑' p, R.totalWeight I (fun i σ ↦ ENNReal.ofReal (Φ i σ).trace.re) (k p.1 p.2)
@@ -233,7 +232,7 @@ theorem totalWeight_bind (hΦ : ∀ i, (Φ i).IsCP) (x : QuantumComp L spec X A)
       refine tsum_congr fun p ↦ ?_
       rw [hrun p]
       exact R.totalWeight_tsum_state I hΦ _
-        (((SubInstrument.toD (R.queryStep i' E ℓ)).isCPTNIFamily.comp_eval
+        ((((R.queryStep i' E ℓ)).isCPTNIFamily.comp_eval
           (fun r ↦ (R.run I (k' r)).isCPTNIFamily) p).summable_apply ρ)
         (fun r ↦ (R.run I (k' r)).posSemidef_branch_apply p (hb r))
     rw [QuantumComp.queryBind_bind, htail, totalWeight_queryBind, totalWeight_queryBind, add_assoc,
@@ -475,7 +474,7 @@ noncomputable def addRegister (G : QReg) (σ : SubState G) : EmulatedOracle P In
 runtime of `E` with the register `G` added by `Quantum.QuantumRuntime.addRegister`. -/
 theorem toRuntime_addRegister (G : QReg) (σ : SubState G) :
     (E.addRegister G σ).toRuntime = E.toRuntime.addRegister G σ := by
-  refine congrArg (QuantumRuntime.mk _ _) (funext fun i ↦ SubInstrument.ext <| funext fun r ↦
+  refine congrArg (QuantumRuntime.mk _ _) (funext fun i ↦ DSubInstrument.ext <| funext fun r ↦
     LinearMap.ext fun ρ ↦ ?_)
   exact (conj_reindex_prodAssoc_kronecker_one (E.U i) ρ).trans
     (QuantumRuntime.addRegister_step_branch_apply E.toRuntime G σ i r ρ).symm
@@ -669,7 +668,7 @@ theorem QuantumRuntime.queryStep_branch_eq_conj {spec : QuantumOracleSpec.{u₁,
       MatrixMap.conj (basisMatrix (QuantumRuntime.queryEquivOut (spec.Out i) R.D F) *
         (M ⊗ₖ (1 : Matrix F F ℂ)) * basisMatrix (QuantumRuntime.queryEquivIn ℓ R.D)) := by
   refine LinearMap.ext fun ρ ↦ ?_
-  rw [QuantumRuntime.queryStep_branch_apply, SubInstrument.branch_frame_apply, hM,
+  rw [QuantumRuntime.queryStep_branch_apply, DSubInstrument.branch_frame_apply, hM,
     MatrixMap.amplify_conj, SubInstrument.branch_relabel, SubInstrument.branch_relabel,
     MatrixMap.conj_mul, MatrixMap.conj_mul]
   rfl
@@ -769,11 +768,11 @@ noncomputable def embedCallsAux (ι : PortEmbedding J T) : {A : QReg} →
   | _, .liftBind (.prim o) k => QuantumComp.primBind o fun b ↦ embedCallsAux ι (k (ULift.up b))
   | _, .liftBind (.query q F ℓ) k =>
       QuantumComp.primBind (L := LocalSig.instruments.{v})
-        ⟨PUnit, fun _ ↦ QReg.of (T × QReg.of (ι.G q × F)), SubInstrument.toD (ι.embed q F ℓ)⟩
+        ⟨PUnit, fun _ ↦ QReg.of (T × QReg.of (ι.G q × F)), (ι.embed q F ℓ)⟩
         fun _ ↦ QuantumComp.queryBind (A := QReg.of (T × QReg.of (ι.G q × F))) ()
           (QReg.of (ι.G q × F)) (Equiv.refl _) fun _ ↦
           QuantumComp.primBind (L := LocalSig.instruments.{v})
-            ⟨PUnit, fun _ ↦ QReg.of (J q × F), SubInstrument.toD (ι.project q F)⟩ fun _ ↦
+            ⟨PUnit, fun _ ↦ QReg.of (J q × F), (ι.project q F)⟩ fun _ ↦
             embedCallsAux ι (k (ULift.up ()))
 
 /-- **Calls through a basis embedding.** A call of the port `q` on `J q × F` becomes a call of the
@@ -809,11 +808,11 @@ theorem embedCalls_queryBind {A : QReg} (q : Q) (F : QReg) (ℓ : A ≃ J q × F
     (k : Unit → QuantumComp LocalSig.instruments.{v} (uSpec Q J) W (QReg.of (J q × F))) :
     (QuantumComp.queryBind (spec := uSpec Q J) q F ℓ k).embedCalls ι =
       QuantumComp.primBind (L := LocalSig.instruments.{v})
-        ⟨PUnit, fun _ ↦ QReg.of (T × QReg.of (ι.G q × F)), SubInstrument.toD (ι.embed q F ℓ)⟩
+        ⟨PUnit, fun _ ↦ QReg.of (T × QReg.of (ι.G q × F)), (ι.embed q F ℓ)⟩
         fun _ ↦ QuantumComp.queryBind (A := QReg.of (T × QReg.of (ι.G q × F))) ()
           (QReg.of (ι.G q × F)) (Equiv.refl _) fun _ ↦
           QuantumComp.primBind (L := LocalSig.instruments.{v})
-            ⟨PUnit, fun _ ↦ QReg.of (J q × F), SubInstrument.toD (ι.project q F)⟩ fun _ ↦
+            ⟨PUnit, fun _ ↦ QReg.of (J q × F), (ι.project q F)⟩ fun _ ↦
             (k ()).embedCalls ι :=
   rfl
 
@@ -921,8 +920,8 @@ theorem branch_project_comp_queryStep_comp_embed
         ((ι.embed.{u, v} q F ℓ).frame E.S).branch PUnit.unit) =
       (E.toRuntime.queryStep q F ℓ).branch () := by
   rw [(E.onePort U hU).toRuntime.queryStep_branch_eq_conj (M := U) rfl,
-    E.toRuntime.queryStep_branch_eq_conj (M := E.U q) rfl, SubInstrument.branch_frame_apply,
-    SubInstrument.branch_frame_apply]
+    E.toRuntime.queryStep_branch_eq_conj (M := E.U q) rfl, DSubInstrument.branch_frame_apply,
+    DSubInstrument.branch_frame_apply]
   change LinearMap.comp ((MatrixMap.conj _).amplify E.S)
     (LinearMap.comp _ ((MatrixMap.conj _).amplify E.S)) = _
   rw [MatrixMap.amplify_conj, MatrixMap.amplify_conj, ← MatrixMap.conj_mul, ← MatrixMap.conj_mul]
@@ -942,13 +941,9 @@ theorem run_embedCalls
   | primBind _ o k ih =>
     exact congrArg (((LocalSig.Interp.instruments o).frame E.S).bind) (funext ih)
   | queryBind _ q F ℓ k ih =>
+    simp only [QuantumComp.embedCalls_queryBind, QuantumRuntime.run_primBind,
+      QuantumRuntime.run_queryBind]
     refine DSubInstrument.ext (funext fun p ↦ ?_)
-    change ((((ι.embed.{u, v} q F ℓ).toD).frame E.S).bind fun _ ↦
-        (((E.onePort U hU).toRuntime.queryStep (A := QReg.of (T × QReg.of (ι.G q × F))) ()
-          (QReg.of (ι.G q × F)) (Equiv.refl _)).toD).bind fun _ ↦
-          (((ι.project.{u, v} q F).toD).frame E.S).bind fun _ ↦
-            (E.onePort U hU).toRuntime.run .instruments ((k ()).embedCalls ι)).branch p =
-      ((E.toRuntime.queryStep q F ℓ).toD.bind fun r ↦ E.toRuntime.run .instruments (k r)).branch p
     simp only [ih, DSubInstrument.branch_bind_apply_univ, Fintype.sum_unique, LinearMap.comp_assoc]
     exact congrArg (LinearMap.comp _)
       (branch_project_comp_queryStep_comp_embed.{u, v} E ι hU hcomp q F ℓ)
@@ -959,9 +954,9 @@ theorem outcomeLawWith_embedCalls
       (ι.withPrivate q E.S) = E.U q)
     {A : QReg} (x : QuantumComp LocalSig.instruments.{v} (uSpec Q J) W A) {γ : Type*}
     [MeasurableSpace γ] (ρ : SubState A) (f : (Σ u, W u) → γ) :
-    (E.onePort U hU).toRuntime.outcomeLawWith .instruments (x.embedCalls ι) ρ f =
-      E.toRuntime.outcomeLawWith .instruments x ρ f := by
-  simp only [QuantumRuntime.outcomeLawWith, QuantumRuntime.jointPost,
+    (E.onePort U hU).toRuntime.evalDistMap .instruments (x.embedCalls ι) ρ f =
+      E.toRuntime.evalDistMap .instruments x ρ f := by
+  simp only [QuantumRuntime.evalDistMap, QuantumRuntime.jointPost,
     E.run_embedCalls ι hU hcomp x]
 
 /-- **Calls through an embedding run losslessly** when the original program is lossless. The
@@ -992,7 +987,7 @@ theorem _root_.Quantum.PortEmbedding.sum_ite_callInput_embed (c : T → Prop) [D
     ((ι.call_injective q F).comp ℓ.injective).prodMap Function.injective_id
   have h2 : ((ι.embed.{u, v} q F ℓ).frame D).branch PUnit.unit ρ =
       MatrixMap.conj (basisMatrix g) ρ := by
-    rw [SubInstrument.branch_frame_apply]
+    rw [DSubInstrument.branch_frame_apply]
     change (MatrixMap.conj _).amplify D ρ = _
     rw [MatrixMap.amplify_conj, basisMatrix_kronecker_one]
   set w : (T × QReg.of (ι.G q × F)) × D → ℂ := fun b ↦ if c b.1.1 then 1 else 0
@@ -1179,8 +1174,8 @@ theorem run_toCoherent {A : QReg} (x : QuantumComp LocalSig.instruments.{v} (uSp
 theorem outcomeLawWith_toCoherent {A : QReg}
     (x : QuantumComp LocalSig.instruments.{v} (uSpec P In) W A) {γ : Type*} [MeasurableSpace γ]
     (ρ : SubState A) (f : (Σ u, W u) → γ) :
-    E.coherent.toRuntime.outcomeLawWith .instruments x.toCoherent ρ f =
-      E.toRuntime.outcomeLawWith .instruments x ρ f :=
+    E.coherent.toRuntime.evalDistMap .instruments x.toCoherent ρ f =
+      E.toRuntime.evalDistMap .instruments x ρ f :=
   E.outcomeLawWith_embedCalls (sigmaEmbedding In) (E.coherent.unitary ())
     E.coherent_compress_sigmaEmbedding x ρ f
 

@@ -9,97 +9,111 @@ public import Mathlib.Analysis.Matrix.Hermitian
 public import VCVio.Quantum.MatrixMap.Family
 
 /-!
-# Choi matrices and Kraus decompositions
+# Choi matrices, Kraus decompositions and Stinespring form
 
-Every completely positive map between matrix algebras is a finite sum of Kraus maps
-`ρ ↦ K * ρ * Kᴴ` (Choi's theorem), and the trace conditions on the map are matrix inequalities on
-its Kraus operators. Stacking the Kraus operators into one column gives a Stinespring operator: the
-map becomes conjugation by one operator into an enlarged system, followed by a partial trace.
+This file proves the finite-dimensional representation theorems for completely positive maps
+`Φ : M_A → M_B`, where `M_A = Matrix A A ℂ` for a finite basis `A`. They are three descriptions of
+the same map, each useful in a different argument:
 
-The Choi matrix of `Φ : MatrixMap A B` is indexed by `B × A`; its block at input indices
-`(a, a')` is `Φ (single a a' 1)`. It is `Φ ⊗ id_A` applied to the unnormalized maximally entangled
-matrix, so it is positive semidefinite when `Φ` is completely positive. A factorization
-`choi Φ = Yᴴ * Y` with `Y : Matrix ι (B × A) ℂ` gives Kraus operators indexed by `ι`, one per row
-of `Y`. A positive semidefinite matrix has such a factorization with `ι = B × A`.
+* **Choi matrix.** One matrix `choi Φ` on `B × A` that determines `Φ`. The map `Φ` is completely
+  positive exactly when `choi Φ` is positive semidefinite, so complete positivity reduces to one
+  matrix condition.
+* **Kraus operators.** Operators `K i : Matrix B A ℂ`, finitely many, with
+  `Φ ρ = ∑ i, K i * ρ * (K i)†`. `Φ` is trace preserving exactly when `∑ i, (K i)† * K i = 1`,
+  and trace nonincreasing exactly when `∑ i, (K i)† * K i ≤ 1`.
+* **Stinespring operator.** One operator `S` into a larger system `B × ι`, with `Φ ρ` the partial
+  trace of `S ρ S†` over the environment `ι`. `S` is an isometry for a channel and a contraction for
+  a trace-nonincreasing map.
+
+## Conventions
+
+Vectors are columns, so `K : Matrix B A ℂ` maps `ℂ^A` to `ℂ^B`, and `K†` is its conjugate transpose.
+The basis `B × A` represents `ℂ^B ⊗ ℂ^A`, in that order. With `E a a' = single a a' 1`, the Choi
+matrix is output first and unnormalized:
+
+`choi Φ = ∑ a a', Φ (E a a') ⊗ E a a'`, equivalently `choi Φ = (Φ ⊗ id_A) (|Ω⟩⟨Ω|)`,
+
+where `|Ω⟩ = ∑ a, |a⟩ ⊗ |a⟩` is not divided by `√|A|`. This is the operator `J(Φ)` of Watrous,
+equations (2.64)–(2.65), printed p. 78 / full-book PDF p. 86 (see References below). The
+Stinespring operator puts the environment on the right: `S ψ = ∑ i, (K i ψ) ⊗ |i⟩`.
+
+## How the proofs go
+
+Complete positivity gives positivity of `(Φ ⊗ id_A) (|Ω⟩⟨Ω|)`, which is the Choi matrix
+(`choi_eq_amplify`). A positive semidefinite matrix factors as `Y† * Y` (Mathlib's C⋆-algebra
+factorization, with no eigenvalue decomposition), and each row of `Y` gives a Kraus operator
+(`krausOfFactor`). The trace identity is `tr (Φ ρ) = tr ((∑ i, (K i)† * K i) ρ)`.
+Trace preservation is tested on matrix units; trace nonincrease is tested on all positive `ρ`,
+using self-duality of the positive semidefinite cone. Stacking the Kraus operators gives `S`, with
+`S† S = ∑ i, (K i)† * K i`.
+
+## Why programs need this
+
+A subinstrument branch is a completely positive map on density matrices. Pure-state hybrid
+arguments instead use operators on vectors. A Kraus representation connects these descriptions:
+on input `|ψ⟩⟨ψ|`, the branch outputs `∑ i, |K i ψ⟩⟨K i ψ|`. Retaining the index `i` describes
+each component by the unnormalized vector `K i ψ`; forgetting it adds the output matrices.
+
+For two successive subinstruments with fixed output systems and finitely many intermediate
+outcomes, `Quantum.DSubInstrument.branch_bind_eq_sum_conj_mul` gives path operators
+`L a b j * K a i`. The rightmost operator acts first. Different paths contribute matrices, not
+amplitudes, so their vectors are not added coherently. This is a two-stage identity; this file
+does not construct a whole-program Kraus refinement or prove its coarse-graining law.
 
 ## Main definitions
 
-* `Quantum.MatrixMap.choi Φ`: the Choi matrix, and `Quantum.MatrixMap.ofChoi C` the matrix map
-  with Choi matrix `C`; together they form the linear equivalence `Quantum.MatrixMap.choiEquiv`.
+* `Quantum.MatrixMap.choi Φ`, and `Quantum.MatrixMap.ofChoi C`, the map with Choi matrix `C`;
+  together the linear equivalence `Quantum.MatrixMap.choiEquiv`.
 * `Quantum.MatrixMap.krausOfFactor Y`: the Kraus operators read off the rows of a factor `Y` of the
   Choi matrix.
 * `Quantum.MatrixMap.krausOps Φ hΦ`: a chosen family of Kraus operators of a completely positive
   map, indexed by `B × A`.
-* `Quantum.MatrixMap.stinespring K`: the Kraus operators `K i` stacked into one operator from `A`
-  to `B × ι`.
+* `Quantum.MatrixMap.stinespring K`: the Kraus operators stacked into one operator from `A` to
+  `B × ι`.
 
 ## Main results
 
-* `Quantum.MatrixMap.ofChoi_choi`, `Quantum.MatrixMap.apply_eq_sum_choi`: a matrix map is
-  recovered from its Choi matrix.
-* `Quantum.MatrixMap.IsCP.posSemidef_choi`: the Choi matrix of a completely positive map is
-  positive semidefinite.
-* `Quantum.MatrixMap.IsCP.exists_kraus`, `Quantum.MatrixMap.isCP_iff_exists_kraus`: Choi's
-  theorem.
-* `Quantum.MatrixMap.isTNI_sum_conj_iff`, `Quantum.MatrixMap.isTP_sum_conj_iff`: a sum of Kraus
-  maps is trace nonincreasing iff `1 - ∑ i, (K i)ᴴ * K i` is positive semidefinite, and trace
-  preserving iff `∑ i, (K i)ᴴ * K i = 1`.
+* `Quantum.MatrixMap.ofChoi_choi`, `Quantum.MatrixMap.apply_eq_sum_choi`: a map is recovered from
+  its Choi matrix.
+* `Quantum.MatrixMap.isCP_iff_posSemidef_choi`: complete positivity is positivity of the Choi
+  matrix.
+* `Quantum.MatrixMap.isCP_iff_exists_kraus`: complete positivity is having Kraus operators
+  (Choi's theorem); `Quantum.MatrixMap.IsCP.exists_kraus` gives at most `|A| * |B|` of them.
+* `Quantum.MatrixMap.isTP_sum_conj_iff`, `Quantum.MatrixMap.isTNI_sum_conj_iff`: the trace
+  conditions in terms of Kraus operators.
 * `Quantum.MatrixMap.sum_conj_eq_traceRight_comp_conj`,
-  `Quantum.MatrixMap.IsCP.exists_stinespring_of_isTNI`: Stinespring form. A completely positive
-  trace-nonincreasing map is conjugation by a contraction into `B × (B × A)` followed by the
-  partial trace; the contraction is an isometry when the map is trace preserving.
-* `Quantum.MatrixMap.IsCPTNIFamily.exists_kraus_of_fintype`: a finite completely positive family
-  with trace-nonincreasing sum has Kraus operators for all members at once, with joint
-  completeness inequality.
+  `Quantum.MatrixMap.IsCP.exists_stinespring_of_isTNI`,
+  `Quantum.MatrixMap.IsCP.exists_stinespring_of_isTP`: Stinespring form, with a contraction or an
+  isometry into `B × (B × A)`.
+* `Quantum.MatrixMap.IsCPTNIFamily.exists_kraus_of_fintype`: finitely many branches have Kraus
+  operators jointly, with one completeness inequality.
 
 ## Not covered
 
-For a family with infinitely many members, such as the branches of an instrument with countably
-many outcomes, each member still has Kraus operators
-(`Quantum.MatrixMap.IsCPTNIFamily.exists_kraus`). A joint Stinespring operator for the whole
-family is not built here. It would map into the infinite-dimensional space
-`ℓ²(outcomes) ⊗ B ⊗ (B × A)`: it needs the convergence of `∑ i, ∑ k, (K i k)ᴴ * K i k` over the
-countable support of the family, and a contraction into a Hilbert space rather than a matrix,
-which is an isometry when the family is lossless.
+* **Minimality.** The environment `B × A` and the `|A| * |B|` Kraus operators are sufficient,
+  possibly nonminimal; the Kraus rank is not defined.
+* **Infinitely many outcomes.** Each branch of an instrument with infinitely many outcomes has Kraus
+  operators (`Quantum.MatrixMap.IsCPTNIFamily.exists_kraus`), but one Stinespring operator for all
+  branches would map into the infinite-dimensional space `ℂ^B ⊗ ℓ²(outcomes × (B × A))`, and is
+  not built here.
 
 ## References
 
-* M.-D. Choi, *Completely positive linear maps on complex matrices*, Linear Algebra Appl. 10
-  (1975), 285–290.
-* K. Kraus, *States, Effects, and Operations*, Lecture Notes in Physics 190, Springer, 1983.
-* W. F. Stinespring, *Positive functions on C⋆-algebras*, Proc. Amer. Math. Soc. 6 (1955),
-  211–216.
+* J. Watrous, *The Theory of Quantum Information*, Cambridge University Press, 2018,
+  [full-book PDF](https://cs.uwaterloo.ca/~watrous/TQI/TQI.pdf#page=86). PDF locators below are
+  one-based pages in this full-book PDF, not the separate chapter PDF: Choi representation,
+  equations (2.64)–(2.65), printed p. 78 / PDF p. 86; Stinespring representation, equation (2.71),
+  printed p. 79 / PDF p. 87; Theorem 2.22 (complete positivity, Choi positivity, Kraus and
+  Stinespring forms), printed p. 82 / PDF p. 90; Theorem 2.26 (trace preservation),
+  printed p. 87 / PDF p. 95; Corollary 2.27 (isometric Stinespring form of a channel),
+  printed p. 89 / PDF p. 97. Theorem 2.22 assumes a nonzero map; the results here also cover the
+  zero map and do not assert the theorem's rank-minimal clauses.
 -/
 
 public section
 
 open scoped ComplexOrder
 open Matrix
-
-/-! ## Positivity through the trace pairing -/
-
-namespace Matrix
-
-variable {n : Type*} [Fintype n]
-
-/-- A Hermitian complex matrix whose trace pairing with every positive semidefinite matrix has
-nonnegative real part is positive semidefinite. -/
-theorem IsHermitian.posSemidef_of_trace_mul_re_nonneg {N : Matrix n n ℂ} (hN : N.IsHermitian)
-    (h : ∀ ρ : Matrix n n ℂ, ρ.PosSemidef → 0 ≤ (N * ρ).trace.re) : N.PosSemidef := by
-  refine PosSemidef.of_dotProduct_mulVec_nonneg hN fun v ↦ ?_
-  have h1 := h _ (posSemidef_vecMulVec_self_star v)
-  rw [mul_vecMulVec, trace_vecMulVec, dotProduct_comm] at h1
-  refine Complex.nonneg_iff.mpr ⟨h1, ?_⟩
-  simpa using (hN.im_star_dotProduct_mulVec_self v).symm
-
-/-- A complex matrix is positive semidefinite iff it is Hermitian and its trace pairing with every
-positive semidefinite matrix has nonnegative real part. -/
-theorem posSemidef_iff_forall_trace_mul_re_nonneg {N : Matrix n n ℂ} :
-    N.PosSemidef ↔ N.IsHermitian ∧ ∀ ρ : Matrix n n ℂ, ρ.PosSemidef → 0 ≤ (N * ρ).trace.re :=
-  ⟨fun hN ↦ ⟨hN.isHermitian, fun _ hρ ↦ hN.trace_mul_re_nonneg hρ⟩,
-    fun h ↦ h.1.posSemidef_of_trace_mul_re_nonneg h.2⟩
-
-end Matrix
 
 namespace Quantum
 
@@ -111,8 +125,11 @@ variable {A B ι : Type*}
 
 section Choi
 
-/-- The Choi matrix of a matrix map: its entry at `((b, a), (b', a'))` is the entry at `(b, b')`
-of the map applied to the matrix unit `single a a' 1`. -/
+/-- The Choi matrix of `Φ : M_A → M_B`, on `B × A` (output first):
+`choi Φ (b, a) (b', a') = Φ (single a a' 1) b b'`. For finite `A` this is
+`∑ a a', Φ (single a a' 1) ⊗ single a a' 1`, which is `(Φ ⊗ id_A) (|Ω⟩⟨Ω|)` for the unnormalized
+`|Ω⟩ = ∑ a, |a⟩ ⊗ |a⟩` (Watrous, equation (2.65), printed p. 78 / full-book PDF p. 86;
+see the module references). -/
 @[expose]
 def choi [DecidableEq A] (Φ : MatrixMap A B) : Matrix (B × A) (B × A) ℂ :=
   Matrix.of fun x y ↦ Φ (single x.2 y.2 1) x.1 y.1
@@ -124,8 +141,10 @@ theorem choi_apply [DecidableEq A] (Φ : MatrixMap A B) (x y : B × A) :
     choi Φ x y = Φ (single x.2 y.2 1) x.1 y.1 :=
   rfl
 
-/-- The matrix map with Choi matrix `C`: it sends `ρ` to the matrix whose entry at `(b, b')` is
-`∑ a, ∑ a', ρ a a' * C (b, a) (b', a')`. -/
+/-- The linear map with Choi matrix `C`, for any `C` on `B × A`:
+`ofChoi C ρ b b' = ∑ a a', ρ a a' * C (b, a) (b', a')`. It inverts `choi` (`choi_ofChoi`,
+`ofChoi_choi`). Nothing is assumed of `C`; the map is completely positive exactly when `C` is
+positive semidefinite (`isCP_iff_posSemidef_choi`). -/
 @[expose]
 def ofChoi [Fintype A] (C : Matrix (B × A) (B × A) ℂ) : MatrixMap A B where
   toFun ρ := Matrix.of fun b b' ↦ ∑ a, ∑ a', ρ a a' * C (b, a) (b', a')
@@ -287,8 +306,25 @@ theorem isCP_sum_conj [Fintype A] [Finite B] [Fintype ι] (K : ι → Matrix B A
     IsCP (∑ i, conj (K i)) :=
   IsCP.sum _ fun i _ ↦ isCP_conj (K i)
 
-/-- **Choi's theorem**: a matrix map is completely positive iff it is a finite sum of Kraus maps.
-The index type of the Kraus operators may live in any universe. -/
+/-- A map is completely positive if and only if its Choi matrix is positive semidefinite
+(Watrous, Theorem 2.22, printed p. 82 / full-book PDF p. 90; see the module references).
+Complete positivity quantifies over every reference system; the Choi matrix is a single test,
+with the reference system `A`. -/
+theorem isCP_iff_posSemidef_choi [Finite A] [Finite B] [DecidableEq A]
+    {Φ : MatrixMap A B} : Φ.IsCP ↔ (choi Φ).PosSemidef := by
+  refine ⟨IsCP.posSemidef_choi, fun h ↦ ?_⟩
+  classical
+  cases nonempty_fintype A
+  cases nonempty_fintype B
+  open scoped MatrixOrder in
+  obtain ⟨Y, hY⟩ := CStarAlgebra.nonneg_iff_eq_star_mul_self.mp h.nonneg
+  rw [eq_sum_conj_krausOfFactor (Φ := Φ) (Y := Y) (by rw [hY, star_eq_conjTranspose])]
+  exact isCP_sum_conj _
+
+/-- **Choi's theorem.** A map `Φ : M_A → M_B` is completely positive if and only if
+`Φ ρ = ∑ i, K i * ρ * (K i)†` for finitely many operators `K i : Matrix B A ℂ` (Watrous,
+Theorem 2.22, printed p. 82 / full-book PDF p. 90; see the module references). The index type
+may lie in any universe; `IsCP.exists_kraus` gives operators indexed by `B × A`. -/
 theorem isCP_iff_exists_kraus [Fintype A] [Finite B] {Φ : MatrixMap A B} :
     Φ.IsCP ↔ ∃ (κ : Type*) (_ : Fintype κ) (K : κ → Matrix B A ℂ), Φ = ∑ i, conj (K i) := by
   refine ⟨fun hΦ ↦ ?_, fun ⟨κ, _, K, hK⟩ ↦ hK ▸ isCP_sum_conj K⟩
@@ -298,7 +334,8 @@ theorem isCP_iff_exists_kraus [Fintype A] [Finite B] {Φ : MatrixMap A B} :
   exact ⟨ULift (Fin (Fintype.card (B × A))), inferInstance, K ∘ e,
     hK.trans (Fintype.sum_equiv e _ _ fun _ ↦ rfl).symm⟩
 
-/-- A chosen family of Kraus operators of a completely positive map, indexed by `B × A`. -/
+/-- A noncanonical, chosen family of Kraus operators of a completely positive map, indexed by
+`B × A`. -/
 noncomputable def krausOps [Fintype A] [Fintype B] (Φ : MatrixMap A B) (hΦ : Φ.IsCP) :
     B × A → Matrix B A ℂ :=
   Classical.choose hΦ.exists_kraus
@@ -330,8 +367,9 @@ theorem posSemidef_sum_conjTranspose_mul_self [Finite A] (K : ι → Matrix B A 
 
 variable [DecidableEq A]
 
-/-- A sum of Kraus maps is trace preserving iff its Kraus operators satisfy the completeness
-relation `∑ i, (K i)ᴴ * K i = 1`. -/
+/-- The map `ρ ↦ ∑ i, K i * ρ * (K i)†` is trace preserving if and only if
+`∑ i, (K i)† * K i = 1`, the completeness relation; it is then a quantum channel (Watrous,
+Theorem 2.26, printed p. 87 / full-book PDF p. 95; see the module references). -/
 theorem isTP_sum_conj_iff {K : ι → Matrix B A ℂ} :
     IsTP (∑ i, conj (K i)) ↔ ∑ i, (K i)ᴴ * K i = 1 := by
   refine ⟨fun h ↦ ?_, isTP_sum_conj⟩
@@ -343,8 +381,12 @@ theorem isTP_sum_conj_iff {K : ι → Matrix B A ℂ} :
     simpa [Matrix.trace_single_eq_same] using h1
   · simpa [Matrix.trace_single_eq_of_ne _ _ _ (Ne.symm ha), Matrix.one_apply_ne ha] using h1
 
-/-- A sum of Kraus maps is trace nonincreasing iff `1 - ∑ i, (K i)ᴴ * K i` is positive
-semidefinite. -/
+/-- The finite Kraus map `Φ ρ = ∑ i, K i * ρ * (K i)†` is trace nonincreasing on positive
+semidefinite inputs iff `∑ i, (K i)† * K i ≤ 1` in the Loewner order, expressed here as
+positive semidefiniteness of the difference. When these conditions hold, `Φ` is a quantum
+operation. On a positive semidefinite input with trace one, its failure probability is
+`1 - Re tr (Φ ρ) = Re tr ((1 - ∑ i, (K i)† * K i) * ρ)`.
+This is the inequality counterpart of the completeness relation in `isTP_sum_conj_iff`. -/
 theorem isTNI_sum_conj_iff {K : ι → Matrix B A ℂ} :
     IsTNI (∑ i, conj (K i)) ↔ (1 - ∑ i, (K i)ᴴ * K i).PosSemidef := by
   constructor
@@ -391,8 +433,11 @@ theorem IsCP.exists_kraus_of_isTP [Fintype A] [Fintype B] [DecidableEq A] {Φ : 
 
 section Stinespring
 
-/-- The Stinespring operator of a family of Kraus operators: the operators `K i` stacked into one
-operator from `A` to `B × ι`, with entry `K i b a` at `((b, i), a)`. -/
+/-- The Kraus operators `K i : Matrix B A ℂ` stacked into one operator from `A` to `B × ι`, which
+records the Kraus index in an environment on the right: `stinespring K (b, i) a = K i b a`, so
+`S ψ = ∑ i, (K i ψ) ⊗ |i⟩`. Discarding the environment after `ρ ↦ S ρ S†` gives back
+`∑ i, K i * ρ * (K i)†` (`sum_conj_eq_traceRight_comp_conj`). No completeness is assumed; `S† S`
+is `∑ i, (K i)† * K i` (`conjTranspose_stinespring_mul_stinespring`). -/
 @[expose]
 def stinespring (K : ι → Matrix B A ℂ) : Matrix (B × ι) A ℂ :=
   Matrix.of fun x a ↦ K x.2 x.1 a
@@ -439,8 +484,10 @@ theorem isTNI_sum_conj_iff_stinespring {K : ι → Matrix B A ℂ} :
 
 end Stinespring
 
-/-- **Stinespring dilation** of a completely positive trace-nonincreasing map: conjugation by a
-contraction `S` into `B × (B × A)`, followed by the partial trace over `B × A`. -/
+/-- **Stinespring form of a quantum operation.** A completely positive trace-nonincreasing map
+`Φ : M_A → M_B` is `ρ ↦ tr_E (S ρ S†)` for a contraction `S : ℂ^A → ℂ^B ⊗ ℂ^E` (`S† S ≤ 1`), with
+environment basis `E = B × A` on the right: a sufficient, possibly nonminimal environment. The
+trace-preserving case is `exists_stinespring_of_isTP`. -/
 theorem IsCP.exists_stinespring_of_isTNI [Fintype A] [Fintype B] [DecidableEq A]
     {Φ : MatrixMap A B} (hΦ : Φ.IsCP) (htni : Φ.IsTNI) :
     ∃ S : Matrix (B × (B × A)) A ℂ,
@@ -449,8 +496,11 @@ theorem IsCP.exists_stinespring_of_isTNI [Fintype A] [Fintype B] [DecidableEq A]
   exact ⟨stinespring K, sum_conj_eq_traceRight_comp_conj K,
     isTNI_sum_conj_iff_stinespring.mp htni⟩
 
-/-- **Stinespring dilation** of a completely positive trace-preserving map: conjugation by an
-isometry `S` into `B × (B × A)`, followed by the partial trace over `B × A`. -/
+/-- **Stinespring form of a quantum channel.** A completely positive trace-preserving map
+`Φ : M_A → M_B` is `ρ ↦ tr_E (S ρ S†)` for an isometry `S : ℂ^A → ℂ^B ⊗ ℂ^E` (`S† S = 1`), with
+environment basis `E = B × A` on the right (Watrous, Corollary 2.27,
+printed p. 89 / full-book PDF p. 97; see the module references). This is a sufficient, possibly
+nonminimal environment. -/
 theorem IsCP.exists_stinespring_of_isTP [Fintype A] [Fintype B] [DecidableEq A]
     {Φ : MatrixMap A B} (hΦ : Φ.IsCP) (htp : Φ.IsTP) :
     ∃ S : Matrix (B × (B × A)) A ℂ, Φ = traceRight B (B × A) ∘ₗ conj S ∧ Sᴴ * S = 1 := by
@@ -462,26 +512,30 @@ theorem IsCP.exists_stinespring_of_isTP [Fintype A] [Fintype B] [DecidableEq A]
 
 namespace IsCPTNIFamily
 
-/-- Every member of a completely positive trace-nonincreasing family is a sum of Kraus maps. -/
+/-- For each fixed member `i` of a completely positive trace-nonincreasing family, `Φ i` is a
+sum of Kraus maps. -/
 theorem exists_kraus [Fintype A] {B : ι → Type*} [∀ i, Fintype (B i)]
     {Φ : (i : ι) → MatrixMap A (B i)} (h : IsCPTNIFamily Φ) (i : ι) :
     ∃ K : B i × A → Matrix (B i) A ℂ, Φ i = ∑ k, conj (K k) :=
   (h.isCP i).exists_kraus
 
-/-- A finite completely positive trace-nonincreasing family with a common codomain has Kraus
-operators for all members at once, with `1 - ∑ i, ∑ k, (K i k)ᴴ * K i k` positive semidefinite. -/
-theorem exists_kraus_of_fintype [Fintype A] [Fintype B] [DecidableEq A] [Fintype ι]
-    {Φ : ι → MatrixMap A B} (h : IsCPTNIFamily Φ) :
-    ∃ K : ι → B × A → Matrix B A ℂ, (∀ i, Φ i = ∑ k, conj (K i k)) ∧
+/-- A finite completely positive trace-nonincreasing family has joint Kraus operators,
+with `1 - ∑ i, ∑ k, (K i k)ᴴ * K i k` positive semidefinite, even for dependent outputs. -/
+theorem exists_kraus_of_fintype [Fintype A] {B : ι → Type*} [∀ i, Fintype (B i)]
+    [DecidableEq A] [Fintype ι] {Φ : (i : ι) → MatrixMap A (B i)} (h : IsCPTNIFamily Φ) :
+    ∃ K : (i : ι) → B i × A → Matrix (B i) A ℂ,
+      (∀ i, Φ i = ∑ k, conj (K i k)) ∧
       (1 - ∑ i, ∑ k, (K i k)ᴴ * K i k).PosSemidef := by
-  let K i := krausOps (Φ i) (h.isCP i)
-  have hK : ∀ i, Φ i = ∑ k, conj (K i k) := fun i ↦ (sum_conj_krausOps _ _).symm
+  classical
+  choose K hK using h.exists_kraus
   refine ⟨K, hK, ?_⟩
-  have htni := h.isTNI_sum Finset.univ
-  rw [Finset.sum_congr rfl fun i _ ↦ hK i,
-    ← Fintype.sum_prod_type' (f := fun i k ↦ conj (K i k))] at htni
-  rw [← Fintype.sum_prod_type' (f := fun i k ↦ (K i k)ᴴ * K i k)]
-  exact isTNI_sum_conj_iff.mp htni
+  refine (isHermitian_one.sub (Matrix.posSemidef_sum _ fun i _ ↦
+    posSemidef_sum_conjTranspose_mul_self (K i)).isHermitian
+    ).posSemidef_of_trace_mul_re_nonneg fun ρ hρ ↦ ?_
+  have ht := h.sum_trace_re_le Finset.univ ρ hρ
+  simp only [hK, trace_sum_conj_apply] at ht
+  rw [Matrix.sub_mul, Matrix.one_mul, Matrix.trace_sub, Complex.sub_re]
+  simpa only [Finset.sum_mul, Matrix.trace_sum, Complex.re_sum] using sub_nonneg.mpr ht
 
 end IsCPTNIFamily
 

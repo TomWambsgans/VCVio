@@ -252,12 +252,13 @@ theorem branch_run₂_callBasis {β : Type} [DecidableEq β] (p : P) (B : QReg) 
       (QComp.callBasis (spec := uSpec P In) p B a read)).branch c =
       ∑ o, if read o () = c then MatrixMap.conj ((1 : Matrix B B ℂ) ⊗ₖ block E p o a)
         else 0 := by
-  rw [QComp.run₂_callBasis, SubInstrument.branch_bind_unit, SubInstrument.branch_bind_unit,
+  rw [QComp.run₂_callBasis, DSubInstrument.branch_bind_unit, DSubInstrument.branch_bind_unit,
     SubInstrument.bind_pure, E.toRuntime.queryStep_branch_eq_conj (M := E.U p) rfl]
-  simp only [QComp.callBasisPrep, QComp.callBasisMeasure, SubInstrument.branch_bind_unit,
-    SubInstrument.branch_bind_bind_unit_pure, SubInstrument.classical,
-    SubInstrument.branch_map_apply_univ, SubInstrument.branch_frame_apply,
-    SubInstrument.branch_ofKraus_apply, SubInstrument.branch_relabel, ite_true,
+  simp only [QComp.callBasisPrep, QComp.callBasisMeasure, DSubInstrument.branch_bind_unit,
+    DSubInstrument.branch_bind_bind_unit_ret, DSubInstrument.classical,
+    DSubInstrument.branch_map_apply_univ, cast_eq, dite_eq_ite,
+    DSubInstrument.branch_frame_apply,
+    DSubInstrument.branch_ofKraus_apply, SubInstrument.branch_relabel, ite_true,
     Fintype.sum_unique, ← Finset.sum_filter, MatrixMap.amplify_sum, MatrixMap.amplify_comp,
     MatrixMap.amplify_conj, ← MatrixMap.conj_mul]
   refine LinearMap.ext fun ρ ↦ ?_
@@ -412,8 +413,8 @@ theorem branch_failThenWrite :
     List.map_cons, Fin.succ_zero_eq_one, List.foldlM_cons, Bool.true_and, cons_val_zero,
     cons_val_one, cons_val_fin_one, List.foldlM_nil, QuantumComp₂.pure_eq, QuantumComp₂.bind_eq,
     QuantumComp₂.bind_pure, QuantumRuntime.run₂_bind, QuantumRuntime.run₂_map]
-  rw [SubInstrument.branch_bind_apply_univ, Fintype.sum_bool]
-  simp only [SubInstrument.branch_map_apply_univ, branch_check0]
+  rw [DSubInstrument.branch_bind_apply_univ, Fintype.sum_bool]
+  simp only [DSubInstrument.branch_map_apply_univ, cast_eq, dite_eq_ite, branch_check0]
   simp only [Fintype.univ_bool, Bool.true_and, Finset.sum_ite_eq', Finset.mem_insert,
     Bool.false_eq_true, Finset.mem_singleton, or_true, ↓reduceIte, Bool.true_eq_false, or_false,
     LinearMap.comp_zero, Bool.false_and, not_false_eq_true, Finset.sum_insert,

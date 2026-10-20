@@ -12,57 +12,92 @@ public import VCVio.OracleComp.EvalDist.Measure
 /-!
 # Instability of database properties
 
-A *database* is a partial oracle table, here a `QueryCache`. A *database property* is a set of
-databases. This file defines the classical quantities that measure how likely one fresh oracle
-answer is to move a database from one property into another, and proves their closure rules.
+A *database* is a partial oracle table `D : QueryCache spec`, and a *database property* is a set
+of databases. Extend `D` at a fresh input `x` (one with `D x = none`) by an answer `u` drawn from
+the answer measure `μₓ`, giving `D[x ↦ u]`. This file defines the worst-case probability that such
+an extension moves a database from one property into another, and proves the rules for combining
+these bounds. Nothing in this file is quantum.
 
-Compressed-oracle arguments in the quantum random-oracle model bound the effect of one quantum
-query by these quantities, so each application reduces to a statement about extending a partial
-table at one fresh point with one sampled answer. Nothing in this file is quantum.
+## Why these quantities
+
+In the finite bitstring random-oracle model, sample a uniformly random function `H` once.
+A quantum algorithm queries it through `|x,y⟩ ↦ |x,y ⊕ H(x)⟩`, where `⊕` is bitwise XOR;
+linearity specifies the action on superpositions.
+The compressed standard oracle of Zhandry (ePrint 2018/276, Section 3, "Oracle Variations")
+represents `H` by a private quantum register with database basis states `|D⟩`, in which a query
+adds, changes or removes one entry. This register is not a record of queries obtained by measuring
+the algorithm. A database property `P` gives the projector `Π_P` onto the databases in `P`.
+
+The classical instability `I(P,t)` bounds amplitude transfer in the finite uniform oracle model.
+Let `C_t = Π_{≤t} C Π_{≤t}`, where `C` is one compressed-oracle query and `Π_{≤t}` keeps databases
+with at most `t` entries. The property projector `Π_P` keeps database basis states in `P` and acts
+as the identity on the algorithm's other registers. Here `‖·‖` is the operator norm.
+Chiesa–Manohar–Spooner, Lemma 5.10 (ePrint 2019/834, PDF p. 24), proves
+`‖Π_P C_t Π_{Pᶜ}‖² ≤ 6 I(P,t)`. Thus one query transfers at most `√(6 I(P,t))` amplitude from
+the complement subspace into `P` for a unit input vector. The classical definition uses `< t`;
+the quantum cutoff uses `≤ t`.
+
+For a partition with projectors `Π_i`, Chiesa–Di–Hu–Zheng, Theorem 5.4 (ePrint 2025/2166,
+PDF p. 31), proves `‖[V,C_t]‖² ≤ 80 I(P,t)`, where `[A,B] = AB - BA` and
+`V = Σ_i Π_i ⊗ V_i`. Each `V_i` is a unitary on the other registers whose extension commutes
+with `C_t`, as required in that theorem.
+
+These are paper statements motivating the API. This file proves the classical calculus for
+arbitrary chosen answer probability measures. It does not construct the compressed oracle,
+prove either quantum norm bound, or iterate them over an adversary.
 
 ## Main definitions
 
-* `OracleSpec.QueryCache.extendProb D x T`: the probability that `D` extended at `x` by a sampled
-  answer lies in `T`.
-* `OracleSpec.QueryCache.flip S T t`: the supremum of `extendProb D x T` over databases `D ∈ S`
-  with fewer than `t` entries and points `x` not in `D`. It is `0` when no such pair exists.
+* `OracleSpec.QueryCache.updateProb D x T`: the probability `μₓ {u | D[x ↦ u] ∈ T}`.
+* `OracleSpec.QueryCache.flip S T t`: the supremum of `updateProb D x T` over databases `D ∈ S`
+  with fewer than `t` entries and fresh inputs `x`; `0` when there is no such pair.
 * `OracleSpec.QueryCache.instability P t`: the larger of `flip Pᶜ P t` and `flip P Pᶜ t`.
 * `OracleSpec.QueryCache.condFlip P Q t` and `OracleSpec.QueryCache.condInstability P Q t`: the
-  same two quantities with source and target restricted to `Q`.
+  same two quantities with source and target both restricted to `Q`.
 * `OracleSpec.QueryCache.partitionInstability P t`: for an indexed family `P`, the supremum over
   `i` of the flip probability from `P i` to the union of the other members.
 
 ## Main statements
 
+* `updateProb_eq_prEvent`: for `Type` answers, the update measure equals the event probability of
+  one classical oracle query.
 * `flip_mono`, `flip_union_left`, `flip_iUnion_left`, `flip_union_right_le`, `flip_empty_left`:
   the closure rules of the flip probability.
-* `condInstability_le_instability` and `instability_union_le`: conditioning lowers instability,
-  and `instability (P ∪ Q) t ≤ condInstability P Qᶜ t + instability Q t`.
+* `condInstability_le_instability` and `instability_union_le`: restricting to `Q` lowers
+  instability, and `instability (P ∪ Q) t ≤ condInstability P Qᶜ t + instability Q t`.
 * `partitionInstability_eq_iSup_flip_compl` and `partitionInstability_cond`: on a partition the
   target of each flip is the complement of its source, and the two-class partition `{P, Pᶜ}`
   has partition instability `instability P t`.
 
-## Implementation notes
+## Conventions
 
-The number of entries of a database `D` is `D.toSet.encard`, and a query bound is a natural
-number `t`, so "fewer than `t` entries" is `D.toSet.encard < t`. The answer at the fresh point is
-drawn from the answer measure of the specification. The definitions and closure rules therefore
-hold for any `[AnswerMeasure spec]`; the cited papers take uniform answers, which is
-`[UniformAnswerMeasure spec]`, and `extendProb_eq_card_div` gives the counting form in that case.
-
-Answer types live in `Type`: `extendProb` is stated with `Pr{…}[…]`, whose computations return
-values in `Type`. The index type of the specification may live in any universe.
-
-`partitionInstability` accepts any indexed family. A statement that uses it as the instability of
-a partition must assume pairwise disjointness and covering, as
-`partitionInstability_eq_iSup_flip_compl` does.
+* A cache is a dependent partial function `x ↦ Option (spec.Range x)`, without the chronology or
+  multiplicity of a log. Its size `D.toSet.encard` counts graph entries, equivalently populated
+  keys. A cache may be infinite; then it fails every finite bound `D.toSet.encard < t`.
+  The strict bound follows Chiesa–Manohar–Spooner, Definition 5.4; `t` does not itself certify an
+  adversary's number of oracle calls.
+* The answer at the fresh input is drawn from `[AnswerMeasure spec]`. The cited papers take
+  uniform answers, which is `[UniformAnswerMeasure spec]`, and `updateProb_eq_card_div` gives the
+  counting form in that case. Answer measures are normalized probability measures on the discrete
+  sigma algebra; they may be nonuniform and query-dependent. No measurable space on caches is
+  required. A cached oracle call at an occupied input reuses its answer; `updateProb` resamples it.
+* Index and answer types may live in any universes.
+* `partitionInstability` accepts any indexed family. A statement that reads it as the instability
+  of a partition must assume that the members are pairwise disjoint and cover all databases, as
+  `partitionInstability_eq_iSup_flip_compl` does.
 
 ## References
 
-* Alessandro Chiesa, Peter Manohar, Nicholas Spooner, *Succinct Arguments in the Quantum Random
-  Oracle Model*, TCC 2019: Definitions 5.4, 5.6 and 5.11, Propositions 5.5 and 5.12.
-* Alessandro Chiesa, Zijing Di, Zihan Hu, Yuxi Zheng, *How to Prove Post-Quantum Security for
-  Succinct Non-Interactive Reductions*, 2026: Definitions 5.2 and 5.3.
+* M. Zhandry, *How to Record Quantum Queries, and Applications to Quantum Indifferentiability*,
+  CRYPTO 2019, [ePrint 2018/276](https://eprint.iacr.org/2018/276), March 1, 2019 revision:
+  Section 3, "Compressed Standard Oracles" (PDF pp. 12–14); Lemma 4 (PDF p. 15) proves
+  equivalence with the standard oracle.
+* A. Chiesa, P. Manohar, N. Spooner, *Succinct Arguments in the Quantum Random Oracle Model*,
+  TCC 2019, ePrint 2019/834: Definition 5.4 (PDF p. 23), Proposition 5.5, Definition 5.6
+  (PDF p. 24), Lemma 5.10 (PDF p. 24), Definition 5.11 and Proposition 5.12 (PDF p. 26).
+* A. Chiesa, Z. Di, Z. Hu, Y. Zheng, *How to Prove Post-Quantum Security for Succinct
+  Non-Interactive Reductions*, ePrint 2025/2166: Definitions 5.2 and 5.3 and Theorem 5.4
+  (PDF p. 31).
 -/
 
 public section
@@ -86,72 +121,94 @@ lemma exists_finset_card_lt_of_encard_lt {ι : Type u} {spec : OracleSpec.{u, v}
   · obtain ⟨u, hu⟩ := Option.ne_none_iff_exists'.mp hx
     exact Finset.mem_image.mpr ⟨⟨x, u⟩, hfin.mem_toFinset.mpr hu, rfl⟩
 
-variable {ι : Type u} {spec : OracleSpec.{u, 0} ι} [DecidableEq ι] [AnswerMeasure spec]
+variable {ι : Type u} {spec : OracleSpec.{u, v} ι} [DecidableEq ι] [AnswerMeasure spec]
   {S S' T T' P Q : Set (QueryCache spec)} {D : QueryCache spec} {x : spec.Domain} {t t' : ℕ}
 
-/-! ## One-step extension probability -/
+/-! ## One-step update probability -/
 
-/-- The probability that the database `D`, extended at the point `x` by an answer drawn from the
-answer measure of `x`, lies in the property `T`. -/
-@[expose] noncomputable def extendProb (D : QueryCache spec) (x : spec.Domain)
+/-- The probability `μₓ {u | D[x ↦ u] ∈ T}` that updating `D` at `x` with an answer drawn from
+the answer measure `μₓ` of `x` gives a database in `T`. No uniformity is assumed.
+
+The update overwrites any answer already stored at `x`. When `D x = none` it is a fresh
+one-entry extension, which is the case `flip` uses. -/
+@[expose] noncomputable def updateProb (D : QueryCache spec) (x : spec.Domain)
     (T : Set (QueryCache spec)) : ℝ≥0∞ :=
-  Pr{let u ← (query x : OracleComp spec (spec.Range x))}[D.cacheQuery x u ∈ T]
+  AnswerMeasure.toMeasure x {u | D.cacheQuery x u ∈ T}
 
-/-- The extension probability is monotone in the target property. -/
-lemma extendProb_mono (D : QueryCache spec) (x : spec.Domain) (h : T ⊆ T') :
-    D.extendProb x T ≤ D.extendProb x T' :=
-  prEvent_mono _ _ _ fun _ hu => h hu
+/-- For answers in `Type`, the update measure equals the event probability of a single query. -/
+lemma updateProb_eq_prEvent {ι : Type u} {spec : OracleSpec.{u, 0} ι} [DecidableEq ι]
+    [AnswerMeasure spec] (D : QueryCache spec) (x : spec.Domain)
+    (T : Set (QueryCache spec)) :
+    D.updateProb x T =
+      Pr{let u ← (query x : OracleComp spec (spec.Range x))}[D.cacheQuery x u ∈ T] := by
+  let : MeasurableSpace (spec.Range x) := ⊤
+  rw [prEvent_eq_evalDist_of_discrete, evalDist_query,
+    MeasureTheory.trim_measurableSet_eq _ MeasurableSpace.measurableSet_top]
+  rfl
 
-/-- Union bound for the extension probability. -/
-lemma extendProb_union_le (D : QueryCache spec) (x : spec.Domain) (T T' : Set (QueryCache spec)) :
-    D.extendProb x (T ∪ T') ≤ D.extendProb x T + D.extendProb x T' :=
-  prEvent_or_le _ _ _
+/-- The update probability is monotone in the target property. -/
+lemma updateProb_mono (D : QueryCache spec) (x : spec.Domain) (h : T ⊆ T') :
+    D.updateProb x T ≤ D.updateProb x T' :=
+  MeasureTheory.measure_mono fun _ hu => h hu
 
+/-- Union bound for the update probability. -/
+lemma updateProb_union_le (D : QueryCache spec) (x : spec.Domain) (T T' : Set (QueryCache spec)) :
+    D.updateProb x (T ∪ T') ≤ D.updateProb x T + D.updateProb x T' :=
+  MeasureTheory.measure_union_le _ _
+
+/-- Updating a database lands in the empty property with probability zero. -/
 @[simp]
-lemma extendProb_empty (D : QueryCache spec) (x : spec.Domain) : D.extendProb x ∅ = 0 :=
-  prEvent_eq_zero_of_forall_not _ _ fun _ h => h
+lemma updateProb_empty (D : QueryCache spec) (x : spec.Domain) : D.updateProb x ∅ = 0 :=
+  MeasureTheory.measure_empty
 
-lemma extendProb_le_one (D : QueryCache spec) (x : spec.Domain) (T : Set (QueryCache spec)) :
-    D.extendProb x T ≤ 1 :=
-  prEvent_le_one _
+/-- The probability of an update landing in any property is at most one. -/
+lemma updateProb_le_one (D : QueryCache spec) (x : spec.Domain) (T : Set (QueryCache spec)) :
+    D.updateProb x T ≤ 1 :=
+  MeasureTheory.prob_le_one
 
-/-- Under uniform answers, the extension probability is the proportion of answers that land in
+/-- Under uniform answers, the update probability is the proportion of answers that land in
 the target property. -/
-lemma extendProb_eq_card_div {ι : Type u} {spec : OracleSpec.{u, 0} ι} [DecidableEq ι]
+lemma updateProb_eq_card_div {ι : Type u} {spec : OracleSpec.{u, v} ι} [DecidableEq ι]
     [UniformAnswerMeasure spec] (D : QueryCache spec) (x : spec.Domain)
     [Fintype (spec.Range x)] (T : Set (QueryCache spec))
     [DecidablePred fun u : spec.Range x => D.cacheQuery x u ∈ T] :
-    D.extendProb x T =
+    D.updateProb x T =
       ((Finset.univ.filter fun u : spec.Range x => D.cacheQuery x u ∈ T).card : ℝ≥0∞) /
-        Fintype.card (spec.Range x) :=
-  prEvent_query_eq_card_div x _
+        Fintype.card (spec.Range x) := by
+  let : MeasurableSpace (spec.Range x) := ⊤
+  rw [updateProb, AnswerMeasure.toMeasure_eq_uniformOn,
+    ProbabilityTheory.uniformOn_univ_apply_setOf]
 
 /-! ## Flip probability -/
 
-/-- The flip probability from the property `S` to the property `T` with query bound `t`: the
-supremum, over databases `D ∈ S` with fewer than `t` entries and points `x` not in `D`, of the
-probability that `D` extended at `x` by a sampled answer lies in `T`. It is `0` when there is no
-such pair `(D, x)`. -/
+/-- The flip probability from `S` to `T` with query bound `t`:
+`flip S T t = sup {μₓ {u | D[x ↦ u] ∈ T} | D ∈ S, |D| < t, D x = none}`,
+where `|D| = D.toSet.encard` and `μₓ` is the answer measure of `x`. It is `0` when there is no
+such pair, in particular when `t = 0`. The supremum need not be attained.
+
+"Flip" is the literature's name for this directed quantity; `S` and `T` need not be disjoint.
+For uniform answers this is Chiesa–Manohar–Spooner, Definition 5.4 (ePrint 2019/834, PDF p. 23),
+and Chiesa–Di–Hu–Zheng, Definition 5.2 (ePrint 2025/2166, PDF p. 31). -/
 @[expose] noncomputable def flip (S T : Set (QueryCache spec)) (t : ℕ) : ℝ≥0∞ :=
   ⨆ (D : QueryCache spec) (_ : D ∈ S) (_ : D.toSet.encard < t) (x : spec.Domain)
-    (_ : D x = none), D.extendProb x T
+    (_ : D x = none), D.updateProb x T
 
 /-- A bound on the flip probability is a bound on every admissible one-step extension. -/
 lemma flip_le_iff {c : ℝ≥0∞} :
     flip S T t ≤ c ↔
-      ∀ D ∈ S, D.toSet.encard < t → ∀ x, D x = none → D.extendProb x T ≤ c := by
+      ∀ D ∈ S, D.toSet.encard < t → ∀ x, D x = none → D.updateProb x T ≤ c := by
   simp only [flip, iSup_le_iff]
 
 /-- Every admissible one-step extension is bounded by the flip probability. -/
-lemma extendProb_le_flip (hD : D ∈ S) (ht : D.toSet.encard < t) (hx : D x = none) :
-    D.extendProb x T ≤ flip S T t :=
+lemma updateProb_le_flip (hD : D ∈ S) (ht : D.toSet.encard < t) (hx : D x = none) :
+    D.updateProb x T ≤ flip S T t :=
   flip_le_iff.mp le_rfl D hD ht x hx
 
 /-- The flip probability is monotone in the source property, the target property and the query
 bound. -/
 theorem flip_mono (hS : S ⊆ S') (hT : T ⊆ T') (ht : t ≤ t') : flip S T t ≤ flip S' T' t' :=
-  flip_le_iff.mpr fun D hD hlt x hx => (extendProb_mono D x hT).trans
-    (extendProb_le_flip (hS hD) (hlt.trans_le (by exact_mod_cast ht)) hx)
+  flip_le_iff.mpr fun D hD hlt x hx => (updateProb_mono D x hT).trans
+    (updateProb_le_flip (hS hD) (hlt.trans_le (by exact_mod_cast ht)) hx)
 
 /-- The flip probability out of a union of an indexed family is the supremum of the flip
 probabilities out of its members. -/
@@ -160,7 +217,7 @@ theorem flip_iUnion_left {κ : Sort*} (S : κ → Set (QueryCache spec)) (T : Se
   refine le_antisymm (flip_le_iff.mpr fun D hD hlt x hx => ?_)
     (iSup_le fun i => flip_mono (subset_iUnion S i) le_rfl le_rfl)
   obtain ⟨i, hi⟩ := mem_iUnion.mp hD
-  exact (extendProb_le_flip hi hlt hx).trans (le_iSup (fun i => flip (S i) T t) i)
+  exact (updateProb_le_flip hi hlt hx).trans (le_iSup (fun i => flip (S i) T t) i)
 
 /-- The flip probability out of a union is the larger of the two flip probabilities. -/
 theorem flip_union_left (S S' T : Set (QueryCache spec)) (t : ℕ) :
@@ -169,35 +226,43 @@ theorem flip_union_left (S S' T : Set (QueryCache spec)) (t : ℕ) :
     (max_le (flip_mono subset_union_left le_rfl le_rfl)
       (flip_mono subset_union_right le_rfl le_rfl))
   rintro D (hD | hD) hlt x hx
-  · exact (extendProb_le_flip hD hlt hx).trans (le_max_left _ _)
-  · exact (extendProb_le_flip hD hlt hx).trans (le_max_right _ _)
+  · exact (updateProb_le_flip hD hlt hx).trans (le_max_left _ _)
+  · exact (updateProb_le_flip hD hlt hx).trans (le_max_right _ _)
 
 /-- Union bound for the flip probability into a union. -/
 theorem flip_union_right_le (S T T' : Set (QueryCache spec)) (t : ℕ) :
     flip S (T ∪ T') t ≤ flip S T t + flip S T' t :=
-  flip_le_iff.mpr fun D hD hlt x hx => (extendProb_union_le D x T T').trans
-    (add_le_add (extendProb_le_flip hD hlt hx) (extendProb_le_flip hD hlt hx))
+  flip_le_iff.mpr fun D hD hlt x hx => (updateProb_union_le D x T T').trans
+    (add_le_add (updateProb_le_flip hD hlt hx) (updateProb_le_flip hD hlt hx))
 
+/-- There is no transition out of the empty source property. -/
 @[simp]
 theorem flip_empty_left (T : Set (QueryCache spec)) (t : ℕ) : flip ∅ T t = 0 :=
   nonpos_iff_eq_zero.mp (flip_le_iff.mpr fun _ hD => (notMem_empty _ hD).elim)
 
+/-- The flip probability into the empty target property is zero. -/
 @[simp]
 theorem flip_empty_right (S : Set (QueryCache spec)) (t : ℕ) : flip S ∅ t = 0 :=
-  nonpos_iff_eq_zero.mp (flip_le_iff.mpr fun D _ _ x _ => (extendProb_empty D x).le)
+  nonpos_iff_eq_zero.mp (flip_le_iff.mpr fun D _ _ x _ => (updateProb_empty D x).le)
 
 /-- With query bound `0` there is no admissible database, so the flip probability is `0`. -/
 @[simp]
 theorem flip_zero (S T : Set (QueryCache spec)) : flip S T 0 = 0 :=
   nonpos_iff_eq_zero.mp (flip_le_iff.mpr fun _ _ hlt => by simp at hlt)
 
+/-- Every flip probability is at most one. -/
 theorem flip_le_one (S T : Set (QueryCache spec)) (t : ℕ) : flip S T t ≤ 1 :=
-  flip_le_iff.mpr fun D _ _ x _ => extendProb_le_one D x T
+  flip_le_iff.mpr fun D _ _ x _ => updateProb_le_one D x T
 
 /-! ## Instability -/
 
-/-- The instability of the property `P` with query bound `t`: the largest probability that one
-fresh answer changes whether a database with fewer than `t` entries has the property. -/
+/-- The instability of `P` with query bound `t`: the worst-case probability that one fresh
+answer changes whether a database with fewer than `t` entries lies in `P`,
+`I(P, t) = max (flip Pᶜ P t) (flip P Pᶜ t)`. It is `0` at `t = 0`.
+
+This is Chiesa–Manohar–Spooner, Definition 5.6 (ePrint 2019/834, PDF p. 24), for an arbitrary
+answer measure in place of uniform answers. It is a classical quantity; its use in quantum proofs
+is through their Lemma 5.10. -/
 @[expose] noncomputable def instability (P : Set (QueryCache spec)) (t : ℕ) : ℝ≥0∞ :=
   max (flip Pᶜ P t) (flip P Pᶜ t)
 
@@ -212,54 +277,66 @@ theorem instability_mono_query (P : Set (QueryCache spec)) (h : t ≤ t') :
     instability P t ≤ instability P t' :=
   max_le_max (flip_mono le_rfl le_rfl h) (flip_mono le_rfl le_rfl h)
 
+/-- A zero query bound gives zero instability. -/
 @[simp]
 theorem instability_zero (P : Set (QueryCache spec)) : instability P 0 = 0 := by
   simp [instability]
 
+/-- The empty database property has zero instability. -/
 @[simp]
 theorem instability_empty (t : ℕ) : instability (∅ : Set (QueryCache spec)) t = 0 := by
   simp [instability]
 
+/-- The property of all databases has zero instability. -/
 @[simp]
 theorem instability_univ (t : ℕ) : instability (univ : Set (QueryCache spec)) t = 0 := by
   simp [instability]
 
+/-- The instability of any database property is at most one. -/
 theorem instability_le_one (P : Set (QueryCache spec)) (t : ℕ) : instability P t ≤ 1 :=
   max_le (flip_le_one _ _ t) (flip_le_one _ _ t)
 
 /-! ## Conditional instability -/
 
-/-- The flip probability into `P` conditioned on `Q`: source and target are both restricted to
-databases in `Q`. -/
+/-- The flip probability into `P` within `Q`: `flip (Pᶜ ∩ Q) (P ∩ Q) t`. Both the database before
+the extension and the one after it must lie in `Q`.
+
+This restricts the transitions counted, without renormalizing: it is not the conditional
+probability `Pr[D' ∈ P | D' ∈ Q]`. It is Chiesa–Manohar–Spooner's conditional flip probability,
+Definition 5.11 (ePrint 2019/834, PDF p. 26). -/
 @[expose] noncomputable def condFlip (P Q : Set (QueryCache spec)) (t : ℕ) : ℝ≥0∞ :=
   flip (Pᶜ ∩ Q) (P ∩ Q) t
 
-/-- The instability of `P` conditioned on `Q`. -/
+/-- The instability of `P` within `Q`: `max (condFlip P Q t) (condFlip Pᶜ Q t)`, the worst-case
+probability that one fresh answer changes membership in `P` while staying in `Q`. As in
+`condFlip`, "conditional" means restricting the transitions, not dividing by a probability
+(Chiesa–Manohar–Spooner, Definition 5.11, ePrint 2019/834, PDF p. 26). -/
 @[expose] noncomputable def condInstability (P Q : Set (QueryCache spec)) (t : ℕ) : ℝ≥0∞ :=
   max (condFlip P Q t) (condFlip Pᶜ Q t)
 
-/-- Conditioning lowers the flip probability. -/
+/-- Restricting both endpoints to `Q` cannot increase the entering flip probability. -/
 theorem condFlip_le_flip (P Q : Set (QueryCache spec)) (t : ℕ) :
     condFlip P Q t ≤ flip Pᶜ P t :=
   flip_mono inter_subset_left inter_subset_left le_rfl
 
-/-- Conditioning lowers instability. -/
+/-- Restricting both endpoints to `Q` cannot increase instability. -/
 theorem condInstability_le_instability (P Q : Set (QueryCache spec)) (t : ℕ) :
     condInstability P Q t ≤ instability P t :=
   max_le_max (condFlip_le_flip P Q t) (by simpa using condFlip_le_flip Pᶜ Q t)
 
+/-- Restricting both endpoints to all databases leaves the entering flip unchanged. -/
 @[simp]
 theorem condFlip_univ (P : Set (QueryCache spec)) (t : ℕ) :
     condFlip P univ t = flip Pᶜ P t := by
   simp [condFlip]
 
-/-- Conditioning on the property of all databases gives back the instability. -/
+/-- Restricting both endpoints to all databases leaves instability unchanged. -/
 @[simp]
 theorem condInstability_univ (P : Set (QueryCache spec)) (t : ℕ) :
     condInstability P univ t = instability P t := by
   simp [condInstability, instability]
 
-/-- Conditional instability is symmetric under complement of the conditioned property. -/
+/-- Complementing `P` with the endpoint restriction `Q` held fixed leaves instability unchanged. -/
 @[simp]
 theorem condInstability_compl (P Q : Set (QueryCache spec)) (t : ℕ) :
     condInstability Pᶜ Q t = condInstability P Q t := by
@@ -291,10 +368,13 @@ theorem instability_union_le (P Q : Set (QueryCache spec)) (t : ℕ) :
 
 /-! ## Instability of an indexed family -/
 
-/-- The instability of an indexed family of properties with query bound `t`: the largest
-probability that one fresh answer moves a database with fewer than `t` entries from one member
-of the family into another. The family is a partition in the intended use;
-`partitionInstability_eq_iSup_flip_compl` gives the form the definition takes there. -/
+/-- The instability of an indexed family of properties: `sup_i flip (P i) (⋃ j ≠ i, P j) t`, the
+worst-case probability that one fresh answer moves a database from one member into another.
+
+When the members are pairwise disjoint and cover all databases, this is the probability of
+changing class (Chiesa–Di–Hu–Zheng, Definition 5.3, ePrint 2025/2166, PDF p. 31), and
+`partitionInstability_eq_iSup_flip_compl` rewrites it with complements. For overlapping members
+the target may contain the source database, and the quantity is not a change of class. -/
 @[expose] noncomputable def partitionInstability {κ : Type*} (P : κ → Set (QueryCache spec))
     (t : ℕ) : ℝ≥0∞ :=
   ⨆ i, flip (P i) (⋃ j, ⋃ (_ : j ≠ i), P j) t
@@ -304,12 +384,13 @@ theorem partitionInstability_mono_query {κ : Type*} (P : κ → Set (QueryCache
     (h : t ≤ t') : partitionInstability P t ≤ partitionInstability P t' :=
   iSup_mono fun _ => flip_mono le_rfl le_rfl h
 
+/-- The instability of any indexed family of properties is at most one. -/
 theorem partitionInstability_le_one {κ : Type*} (P : κ → Set (QueryCache spec)) (t : ℕ) :
     partitionInstability P t ≤ 1 :=
   iSup_le fun _ => flip_le_one _ _ t
 
 /-- In a partition, the other members together are the complement of a member, so the partition
-instability is the largest flip probability from a member to its complement. -/
+instability is the supremum of the flip probabilities from members to their complements. -/
 theorem partitionInstability_eq_iSup_flip_compl {κ : Type*} {P : κ → Set (QueryCache spec)}
     (hdisj : Pairwise (Function.onFun Disjoint P)) (hcover : ⋃ i, P i = univ) (t : ℕ) :
     partitionInstability P t = ⨆ i, flip (P i) (P i)ᶜ t := by
@@ -322,7 +403,7 @@ theorem partitionInstability_eq_iSup_flip_compl {κ : Type*} {P : κ → Set (Qu
     exact ⟨j, fun hji => hi (hji ▸ hj), hj⟩
   simp only [partitionInstability, hothers]
 
-/-- The two-class partition `{P, Pᶜ}` has partition instability `instability P t`. -/
+/-- The two-class partition `{P, Pᶜ}` defined by `Bool.cond` has instability `instability P t`. -/
 theorem partitionInstability_cond (P : Set (QueryCache spec)) (t : ℕ) :
     partitionInstability (fun b : Bool => cond b P Pᶜ) t = instability P t := by
   rw [partitionInstability_eq_iSup_flip_compl _
