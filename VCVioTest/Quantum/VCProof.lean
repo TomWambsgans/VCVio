@@ -12,8 +12,8 @@ public import VCVio.Quantum.VC.Proof.Extraction
 /-!
 # Tests for the consistency projectors and the proofs of Lemmas 9.2 and 9.3
 
-Checks of the public interface of `VCVio.Quantum.Oracle.Compressed.Consistency` (eq. (26) of the
-notes on ePrint 2025/2166, sharpening Lemma 9.5):
+Checks of the public interface of `VCVio.Quantum.Oracle.Compressed.Consistency`, sharpening
+Lemma 9.5 of ePrint 2025/2166:
 
 * the exact discrepancy `‖P̂ - P‖² = 1 - (1 - 1/N)^2` for one prescribed cell, with `N = 3`;
 * an inconsistent prescription has both projectors zero;
@@ -84,7 +84,57 @@ example : ComBound.{0, 0} (compressedVCOracle 2 Bool (ZMod 3)) ME code fun t ↦
       Database.instability (onlineLabel ME ![tic] Dfix j') (t + 1) :=
   comBound_compressedVCOracle_eighty ME code
 
+/-- An extraction followed by a checked read is a two-call mixed prefix. -/
+noncomputable def extractionReadPrefix (Env : QReg) (tic : TpIC 2 Bool) :
+    QComp (mixedExtSpec 2 Bool (ZMod 3) Bool (ZMod 2))
+      (ReadComOut 2 Bool (ZMod 2) Env) (ReadComOut 2 Bool (ZMod 2) Env) (Option (ZMod 3)) :=
+  QuantumComp₂.bind
+    (QuantumComp.liftOrdinary (extractQuery code (ReadComOut 2 Bool (ZMod 2) Env) tic))
+    fun _ ↦ checkedRead (ReadComOut 2 Bool (ZMod 2) Env) 0 true
+
+/-- Both calls count, and the retained answer can choose the final read address. -/
+example (Env : QReg) (tic : TpIC 2 Bool) (ρ : SubState (ReadComOut 2 Bool (ZMod 2) Env)) :
+    readComError (compressedVCOracle 2 Bool (ZMod 3)) ME code
+      (extractionReadPrefix code Env tic) ρ (fun a ↦ (1, a.isSome)) ≤ comBoundError ME 2 := by
+  apply (comBound_compressedVCOracle ME code).2
+  simp [extractionReadPrefix, extractQuery, QComp.callBasis, checkedRead,
+    QComp.act, QuantumComp₂.bind, QuantumComp₂.primBind, QuantumComp₂.query,
+    QuantumComp.bind, QuantumComp.bindAux, QuantumComp.primBind, QuantumComp.query,
+    QuantumComp.queryBind, QuantumComp.liftOrdinary, QuantumComp.onDown,
+    QuantumComp₂.pure, QuantumComp.pure,
+    QuantumComp.IsTotalQueryBound, QuantumComp.isTotalQueryBoundAux]
+
 end lemma92
+
+section missingRead
+
+local notation "Q" => compressedReadProjector 2 Bool (ZMod 2)
+local notation "Cell" => Fin 2 × Bool
+local notation "DB" => Fin 2 → Database Bool (ZMod 2)
+
+/-- The missing-answer branch is a nonzero channel on the full private space. -/
+example (c : Cell) : MatrixMap.conj (Q c none) ≠ 0 := by
+  have hn : Q c none ≠ 0 := by
+    intro hz
+    let C := compressDatabases 2 Bool (ZMod 2)
+    have he : C * Q c none * C =
+        diagonal (fun D : DB ↦ if D c.1 c.2 = none then (1 : ℂ) else 0) := by
+      change C * (C * _ * C) * C = _
+      calc
+        _ = (C * C) * (diagonal fun D : DB ↦
+              if D c.1 c.2 = none then (1 : ℂ) else 0) * (C * C) := by
+          simp only [Matrix.mul_assoc]
+        _ = _ := by simp [C, compressDatabases_mul_self]
+    rw [hz, Matrix.mul_zero, Matrix.zero_mul] at he
+    have hh := congrArg (fun M ↦ M (fun _ ↦ Database.empty) (fun _ ↦ Database.empty)) he
+    simp [Database.empty] at hh
+  intro hz
+  have hh := LinearMap.congr_fun hz (1 : Matrix DB DB ℂ)
+  simp only [MatrixMap.conj_apply, Matrix.mul_one, compressedReadProjector_hermitian,
+    compressedReadProjector_orthogonal, ite_true, LinearMap.zero_apply] at hh
+  exact hn hh
+
+end missingRead
 
 section lemma93
 
@@ -100,6 +150,12 @@ example (hC : Conditions VC io ME tdBot Pgood) :
     ExtractionCorrect.{0, 0} VC (compressedVCOracle 2 Bool (ZMod 3)) ME code
       fun _ _ _ n ↦ ENNReal.ofReal (1 - (1 - (3 : ℝ)⁻¹) ^ (2 * n * q2 io)) :=
   extractionCorrect_compressedVCOracle io ME code hC
+
+/-- The opening-specific budget gives the same exact acceptance error. -/
+example (h : ℕ) (hh : OpeningQueryBound io h) (hC : Conditions VC io ME tdBot Pgood) :
+    ExtractionCorrect.{0, 0} VC (compressedVCOracle 2 Bool (ZMod 3)) ME code
+      fun _ _ _ n ↦ ENNReal.ofReal (1 - (1 - (3 : ℝ)⁻¹) ^ (2 * n * h)) :=
+  extractionCorrect_compressedVCOracle_of_openingQueryBound io ME code h hh hC
 
 /-- Lemma 9.3 with the leading-order error `2 n q2 / 3`. -/
 example (hC : Conditions VC io ME tdBot Pgood) :
