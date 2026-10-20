@@ -221,12 +221,12 @@ digest bytes. This is the common FIPS 180-4 engine for SHA-224 and SHA-256. -/
     0x67332667ffc00b31, 0x8eb44a8768581511, 0xdb0c2e0d64f98fa7, 0x47b5481dbefa4fa4]
 
 /-- The eight SHA-512/224 initial hash values. -/
-@[expose] def iv512224 : Array UInt64 :=
+@[expose] def iv512Trunc224 : Array UInt64 :=
   #[0x8c3d37c819544da2, 0x73e1996689dcd4d6, 0x1dfab7ae32ff9c82, 0x679dd514582f9fcf,
     0x0f6d2b697bd44da8, 0x77e36f7304c48942, 0x3f9d85a86a1d36c8, 0x1112e6ad91d692a1]
 
 /-- The eight SHA-512/256 initial hash values. -/
-@[expose] def iv512256 : Array UInt64 :=
+@[expose] def iv512Trunc256 : Array UInt64 :=
   #[0x22312194fc2bf72c, 0x9f555fa3c84c64c2, 0x2393b86b6f53b151, 0x963877195940eabd,
     0x96283ee2a88effe3, 0xbe5e1e2553863992, 0x2b0199fc2c85b8aa, 0x0eb72ddc81c52ca2]
 
@@ -263,16 +263,16 @@ digest bytes. This is the common FIPS 180-4 engine for SHA-224 and SHA-256. -/
 @[expose] def maj64 (x y z : UInt64) : UInt64 := (x &&& y) ^^^ (x &&& z) ^^^ (y &&& z)
 
 /-- SHA-512 `Σ₀`. -/
-@[expose] def bsig064 (x : UInt64) : UInt64 := rotr64 x 28 ^^^ rotr64 x 34 ^^^ rotr64 x 39
+@[expose] def bsig0Sha512 (x : UInt64) : UInt64 := rotr64 x 28 ^^^ rotr64 x 34 ^^^ rotr64 x 39
 
 /-- SHA-512 `Σ₁`. -/
-@[expose] def bsig164 (x : UInt64) : UInt64 := rotr64 x 14 ^^^ rotr64 x 18 ^^^ rotr64 x 41
+@[expose] def bsig1Sha512 (x : UInt64) : UInt64 := rotr64 x 14 ^^^ rotr64 x 18 ^^^ rotr64 x 41
 
 /-- SHA-512 `σ₀`. -/
-@[expose] def ssig064 (x : UInt64) : UInt64 := rotr64 x 1 ^^^ rotr64 x 8 ^^^ (x >>> 7)
+@[expose] def ssig0Sha512 (x : UInt64) : UInt64 := rotr64 x 1 ^^^ rotr64 x 8 ^^^ (x >>> 7)
 
 /-- SHA-512 `σ₁`. -/
-@[expose] def ssig164 (x : UInt64) : UInt64 := rotr64 x 19 ^^^ rotr64 x 61 ^^^ (x >>> 6)
+@[expose] def ssig1Sha512 (x : UInt64) : UInt64 := rotr64 x 19 ^^^ rotr64 x 61 ^^^ (x >>> 6)
 
 /-- SHA-512 padding: `1`, zeroes, and a 128-bit big-endian bit length. -/
 @[expose] def pad512 (msg : ByteArray) : ByteArray := Id.run do
@@ -296,7 +296,7 @@ digest bytes. This is the common FIPS 180-4 engine for SHA-224 and SHA-256. -/
       (m[o + 6]!).toUInt64 <<< 8 ||| (m[o + 7]!).toUInt64
     w := w.set! t word
   for t in [16:80] do
-    w := w.set! t (ssig164 (w[t - 2]!) + w[t - 7]! + ssig064 (w[t - 15]!) + w[t - 16]!)
+    w := w.set! t (ssig1Sha512 (w[t - 2]!) + w[t - 7]! + ssig0Sha512 (w[t - 15]!) + w[t - 16]!)
   let mut a := st[0]!
   let mut b := st[1]!
   let mut c := st[2]!
@@ -306,8 +306,8 @@ digest bytes. This is the common FIPS 180-4 engine for SHA-224 and SHA-256. -/
   let mut g := st[6]!
   let mut h := st[7]!
   for t in [0:80] do
-    let t1 := h + bsig164 e + ch64 e f g + k512[t]! + w[t]!
-    let t2 := bsig064 a + maj64 a b c
+    let t1 := h + bsig1Sha512 e + ch64 e f g + k512[t]! + w[t]!
+    let t2 := bsig0Sha512 a + maj64 a b c
     h := g; g := f; f := e; e := d + t1; d := c; c := b; b := a; a := t1 + t2
   return #[st[0]! + a, st[1]! + b, st[2]! + c, st[3]! + d,
     st[4]! + e, st[5]! + f, st[6]! + g, st[7]! + h]
@@ -337,10 +337,10 @@ digest bytes. This is the common FIPS 180-4 engine for the SHA-384 and SHA-512 v
 @[expose] def sha512 (msg : ByteArray) : ByteArray := sha512Family iv512 64 msg
 
 /-- SHA-512/224 of a byte string (28-byte digest). -/
-@[expose] def sha512Trunc224 (msg : ByteArray) : ByteArray := sha512Family iv512224 28 msg
+@[expose] def sha512Trunc224 (msg : ByteArray) : ByteArray := sha512Family iv512Trunc224 28 msg
 
 /-- SHA-512/256 of a byte string (32-byte digest). -/
-@[expose] def sha512Trunc256 (msg : ByteArray) : ByteArray := sha512Family iv512256 32 msg
+@[expose] def sha512Trunc256 (msg : ByteArray) : ByteArray := sha512Family iv512Trunc256 32 msg
 
 @[simp] theorem sha384_size (msg : ByteArray) : (sha384 msg).size = 48 := by
   simp [sha384, sha512Family]
@@ -366,7 +366,7 @@ digest bytes. This is the common FIPS 180-4 engine for the SHA-384 and SHA-512 v
 @[expose] def mgf1Sha256 (seed : ByteArray) (outLen : Nat) : ByteArray := mgf1 seed outLen
 
 /-- Zero-pad (or hash-then-pad) a key to the 128-byte SHA-512 block. -/
-@[expose] def hmacKey512 (key : ByteArray) : ByteArray := Id.run do
+@[expose] def hmacKey0Sha512 (key : ByteArray) : ByteArray := Id.run do
   let k := if key.size > 128 then sha512 key else key
   let mut out := k
   for _ in [0:128 - k.size] do
@@ -375,7 +375,7 @@ digest bytes. This is the common FIPS 180-4 engine for the SHA-384 and SHA-512 v
 
 /-- HMAC-SHA-512. -/
 @[expose] def hmacSha512 (key msg : ByteArray) : ByteArray :=
-  let k0 := hmacKey512 key
+  let k0 := hmacKey0Sha512 key
   sha512 (xorConst k0 0x5c ++ sha512 (xorConst k0 0x36 ++ msg))
 
 /-! ## Checked standard-domain boundaries -/
