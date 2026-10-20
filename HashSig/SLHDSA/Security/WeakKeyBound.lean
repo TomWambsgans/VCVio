@@ -271,7 +271,7 @@ theorem prEvent_run_keygenInternalWithSecretM_le
       fun _ => allQueriesSatisfy_bind
         (allQueriesSatisfy_xmssNodeWithSecret_not_thash e pkSeed skSeed hkey base (by omega) 1)
         fun _ => allQueriesSatisfy_pure _ _
-  rw [hK, simulateQ_bind, simulateQ_bind, StateT.run_bind]
+  rw [hK, simulateQ_bind, simulateQ_bind, StateT.run_bind, prEvent_bind]
   refine prEvent_bind_le_of_forall_le_of_support _ _ _ fun z hz => ?_
   have hnone := snd_apply_inl_eq_none_of_mem_support_run_romImpl
     (K := fun t => ∃ s ys, t = .thash s k ys) _ hpre (fun _ _ => rfl) hz _
@@ -282,7 +282,7 @@ theorem prEvent_run_keygenInternalWithSecretM_le
         from rfl, simulateQ_spec_query]
   rw [OracleSpec.romImpl_apply_inr, randomOracle.run_eq]
   simp only [hnone]
-  simp only [prEvent_norm]
+  simp only [expect_norm]
   exact le_of_eq (SampleableType.prEvent_uniformSample_inst_irrel _ _ Q)
 
 variable [SampleableType core.SkSeed] [SampleableType core.SkPrf]
@@ -301,7 +301,7 @@ theorem prEvent_romSchemeRun_pk_le
       ≤ Pr{let z ← (simulateQ (hashSpec core).romImpl
           (romScheme core e optRand (pure pkSeed)).keygen).run ∅}[P z.1.1] := by
         unfold romSchemeRun
-        rw [unforgeableTranscriptExperiment_def, simulateQ_bind, StateT.run_bind]
+        rw [unforgeableTranscriptExperiment_def, simulateQ_bind, StateT.run_bind, prEvent_bind]
         refine prEvent_bind_le_prEvent_of_support _ _
           (fun a : (PublicKeyCore core × SecretKeyCore core) × (hashSpec core).QueryCache =>
             P a.1.1) _ fun a _ ha => ?_
@@ -315,11 +315,13 @@ theorem prEvent_romSchemeRun_pk_le
         rw [romScheme_keygen]
         simp only [simulateQ_bind, StateT.run_bind, simulateQ_romImpl_liftM_run, map_pure,
           pure_bind, bind_map_left, simulateQ_pure, StateT.run_pure]
-        refine prEvent_bind_le_of_forall_le _ _ _ fun skSeed =>
-          prEvent_bind_le_of_forall_le _ _ _ fun _ => ?_
+        rw [prEvent_bind]
+        refine prEvent_bind_le_of_forall_le _ _ _ fun skSeed => ?_
+        rw [prEvent_bind]
+        refine prEvent_bind_le_of_forall_le _ _ _ fun _ => ?_
         rw [keygenInternalWithSecretM_oracleSecret_eq_ofSimulateQ,
           HasQuery.QueryHom.ofSimulateQ_apply]
-        simpa only [prEvent_norm] using
+        simpa only [expect_norm] using
           prEvent_run_keygenInternalWithSecretM_le hkey e pkSeed skSeed fun r => P ⟨pkSeed, r⟩
 
 end Root
@@ -424,7 +426,7 @@ theorem lintegral_weakKeyMass_le (hn : 16 ≤ vp.params.n)
   calc ∫⁻ pkSeed, weakKeyMass vp pkSeed ∂𝒟[($ᵗ (shakeCore vp).PkSeed : ProbComp _)]
       = Pr{let s ← $ᵗ (shakeCore vp).PkSeed; let r ← $ᵗ (shakeCore vp).Y}[
           IsWeakKey vp ⟨s, r⟩] := by
-        rw [prEvent_bind _ _ Measurable.of_discrete]
+        rw [ExpectationWP.wp_eq_lintegral _ _ Measurable.of_discrete]
         rfl
     _ = Pr{let kt ← $ᵗ (Bytes 32 × Bytes (2 * vp.params.n - 32))}[
           IsHonestKey vp (shakeCore vp) kt.1] :=

@@ -389,7 +389,7 @@ theorem prEvent_run_randomOracle_le_of_transport {α : Type} (q : ℕ)
   refine le_trans (le_of_eq ?_) ((prEvent_bind_le_prEvent_of_forall_eq_zero (answerTape R q)
     (fun v => (simulateQ (tapeCachingImpl D R) oa).run (∅, List.ofFn v)) E (fun z => P z.2.1)
     fun v hv => ?_).trans hE)
-  · simp only [tapeList_eq_map_answerTape, bind_map_left, prEvent_norm]
+  · simp only [tapeList_eq_map_answerTape, expect_norm]
   · exact prEvent_eq_zero_of_forall_mem_support _ _ (htransport v hv)
 
 variable [MeasurableSpace R] [DiscreteMeasurableSpace R]

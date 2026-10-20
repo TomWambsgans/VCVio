@@ -15,6 +15,7 @@ public import ToMathlib.Control.Lawful.MonadState
 public import ToMathlib.Control.Monad.Algebra
 public import ToMathlib.Control.Monad.Dijkstra
 public import ToMathlib.Control.Monad.Fold
+public import ToMathlib.Control.Monad.Fold.WP
 public import ToMathlib.Control.Monad.Graded
 public import ToMathlib.Control.Monad.Ordered
 public import ToMathlib.Control.Monad.RelWP
@@ -50,6 +51,7 @@ public import ToMathlib.Data.Vector
 public import ToMathlib.Data.Vector.Count
 public import ToMathlib.Data.Vector.Induction
 public import ToMathlib.Data.Vector.ListVector
+public import ToMathlib.Lint.SecurityStatements
 public import ToMathlib.Lint.UsesPMF
 public import ToMathlib.Logic.Basic
 public import ToMathlib.MeasureTheory.DiscreteInstances
@@ -69,6 +71,7 @@ public import ToMathlib.MeasureTheory.Measure.Coupling.Discard
 public import ToMathlib.MeasureTheory.Measure.Coupling.Maximal
 public import ToMathlib.MeasureTheory.Measure.Coupling.Residual
 public import ToMathlib.MeasureTheory.Measure.Except
+public import ToMathlib.MeasureTheory.Measure.FinsetConcentrated
 public import ToMathlib.MeasureTheory.Measure.GiryMonad
 public import ToMathlib.MeasureTheory.Measure.IndependentDraws
 public import ToMathlib.MeasureTheory.Measure.Monotone

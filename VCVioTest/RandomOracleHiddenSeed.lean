@@ -72,10 +72,10 @@ theorem prEvent_flaggedIdealImpl_eq :
         rw [Bool.false_or, E.encodedQuery_eq_true_iff]
         simp only [Sum.inl.injEq, Sum.inr.injEq, E, exists_const]
     _ = Pr{let s ← $ᵗ Bool}[s = true] := by
-        have h := EvalDistEq.bind_right ($ᵗ Bool) fun s ↦ OracleComp.EvalDistEq.map_const
-          ((simulateQ (E.flaggedIdealImpl s) prog).run ((∅, ∅), false)) (s = true)
-        rw [bind_pure_comp] at h
-        rw [prEvent_def, prEvent_def, h.evalDist_eq]
+        refine ExpectationWP.wp_congr _ fun s ↦ ?_
+        by_cases hs : s = true
+        · simp [hs, OracleComp.prEvent_true_eq_one]
+        · simp [hs]
     _ = 2⁻¹ := by
         rw [SampleableType.prEvent_uniformSample_eq_singleton, Fintype.card_bool, Nat.cast_ofNat]
 

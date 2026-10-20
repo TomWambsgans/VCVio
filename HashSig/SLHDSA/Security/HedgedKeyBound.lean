@@ -195,7 +195,7 @@ theorem prEvent_run_simulateQ_idealImpl_sign_le {ε : ℝ≥0∞}
     Pr{let z ← (simulateQ (SecretEncoding.idealImpl (hashSpec core) (DeriveQuery core) core.Y)
       ((deriveScheme core optRand pkSeed).sign pk sk msg)).run st}[RandDerivedAt o z.2.2] ≤ ε := by
   rw [Coverage.deriveScheme_sign_eq, simulateQ_bind, StateT.run_bind,
-    SecretEncoding.run_simulateQ_idealImpl_liftM, bind_map_left]
+    SecretEncoding.run_simulateQ_idealImpl_liftM, bind_map_left, prEvent_bind]
   refine (prEvent_bind_le_prEvent_add_of_support (optRand pk) _ (· = o) _ (ε := 0)
     fun a _ ha ↦ (prEvent_eq_zero_of_forall_mem_support _ _ fun z hz ↦
       not_randDerivedAt_of_mem_support_simulateQ_idealImpl ?_ hst hz).le).trans
@@ -303,7 +303,7 @@ theorem prEvent_idealDraw_hmsgAtPrfKey_and_randDerivedAt_le
       exact prEvent_eq_zero_of_forall_not _ _ fun _ h ↦ hO h.2)
   refine (le_of_eq ?_).trans (key.trans
     (mul_le_mul_left (prEvent_idealRun_randDerivedAt_le optRand pkSeed hε hadv) _))
-  simp only [prEvent_norm]
+  simp only [expect_norm]
 
 /-- **The joint bound with a hedged hit of the message-`PRF` key, in the ideal hidden-seed game.**
 Under the key discipline and `|Y| ≤ |SK.prf|`, for injective `toY`, a fixed key `k`, `optRand pk`

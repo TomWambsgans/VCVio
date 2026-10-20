@@ -135,9 +135,8 @@ theorem encard_keyEntries_le [Inhabited R] [DecidableEq R] (g a : R) :
 theorem prEvent_three_bits (p : Bool → Bool → Bool → Prop) :
     Pr{let a ← $ᵗ Bool; let v ← $ᵗ Bool; let ℓ ← $ᵗ Bool}[p a v ℓ] =
       Pr{let z ← $ᵗ (Bool × Bool × Bool)}[p z.1 z.2.1 z.2.2] := by
-  rw [SampleableType.prEvent_uniformSample_prod (fun z : Bool × Bool × Bool ↦ p z.1 z.2.1 z.2.2),
-    prEvent_bind_of_discrete, prEvent_bind_of_discrete]
-  exact lintegral_congr fun a ↦
+  rw [SampleableType.prEvent_uniformSample_prod (fun z : Bool × Bool × Bool ↦ p z.1 z.2.1 z.2.2)]
+  exact ExpectationWP.wp_congr _ fun a ↦
     (SampleableType.prEvent_uniformSample_prod fun y : Bool × Bool ↦ p a y.1 y.2).symm
 
 /-- With one public entry at the node's key, made before the honest code, a conflict or a target
@@ -147,7 +146,7 @@ theorem prEvent_forgerFirst_bool :
        let st ← RelabelState.endFill z.2}[((G Bool).Conflict st ∨ (nk Bool).TCHazard st) ∧
          ((nk Bool).keyEntries st.1).encard ≤ 1] = 3 / 4 := by
   rw [deferredImpl_run_forgerFirst]
-  simp only [bind_map_left, endFill_forgerFirst, prEvent_norm, conflict_or_tcHazard_iff,
+  simp only [endFill_forgerFirst, expect_norm, conflict_or_tcHazard_iff,
     encard_keyEntries_le, and_true]
   rw [prEvent_three_bits (fun a v ℓ ↦ v = false ∨ ℓ = a), SampleableType.prEvent_uniformSample]
   have hc : (Finset.univ.filter
@@ -198,7 +197,7 @@ theorem prEvent_deferredFillDraw_oneCharge_bool :
       ENNReal.div_mul_cancel two_ne_zero ENNReal.ofNat_ne_top, ← ENat.toENNReal_one,
       ENat.toENNReal_le]
   rw [← prEvent_forgerFirst_bool]
-  simp only [CanonicalGraph.deferredFillDraw, prEvent_norm, key]
+  simp only [CanonicalGraph.deferredFillDraw, expect_norm, key]
 
 /-- `OneChargeBound` fails: the coefficient `2` of
 `CanonicalGraph.NodeKeys.prEvent_deferredFillDraw_and_le` cannot be lowered to `1`. -/

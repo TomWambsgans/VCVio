@@ -778,7 +778,7 @@ theorem prEvent_realImpl_le_add_mul_expectedSimulatedQueryCount {ms : ProbComp S
       Prod.map id (E.merge s ∘ Prod.fst) <$>
         (simulateQ (E.coupledImpl s) oa).run ((∅, ∅), false) := by
     rw [E.map_run_simulateQ_coupledImpl s oa ((∅, ∅), false), merge_empty]
-  simp only [hs, Functor.map_map]
+  simp only [hs, expect_norm]
   exact E.prEvent_coupledImpl_le_add_mul_expectedSimulatedQueryCount hε hp oa
     fun s z ↦ P s (z.1, E.merge s z.2)
 

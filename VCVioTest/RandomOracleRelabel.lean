@@ -144,7 +144,7 @@ theorem prEvent_forgerFirst_eq_inv_two (E : RelabelState (Bool →ₒ Bool) Unit
   let _ : MeasurableSpace (spec.Range (.inl (.inr true)) ×
       RelabelState (Bool →ₒ Bool) Unit Unit Bool) := ⊤
   simp only [forgerFirst, simulateQ_bind, simulateQ_spec_query, StateT.run_bind]
-  rw [prEvent_bind_eq_lintegral_of_discrete]
+  rw [prEvent_bind, prEvent_bind_eq_lintegral_of_discrete]
   refine (lintegral_congr_ae
     (evalDist.ae_of_forall_mem_support _ _ MeasurableSet.of_discrete hstep)).trans ?_
   rw [lintegral_const, evalDist_apply_univ_eq_one, mul_one]

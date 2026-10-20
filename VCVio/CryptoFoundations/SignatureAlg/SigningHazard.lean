@@ -67,6 +67,7 @@ theorem prEvent_run_add_withLogging_le (outer : QueryImpl spec (StateT σ ProbCo
     rw [simulateQ_bind, simulateQ_spec_query, WriterT.run_bind', simulateQ_bind, StateT.run_bind]
     cases t with
     | inl t =>
+      rw [prEvent_bind]
       refine prEvent_bind_le_of_forall_le_of_support _ _ _ fun w hw ↦ ?_
       have hs : ¬bad w.2 := by
         simp only [QueryImpl.add_apply_inl, QueryImpl.liftTarget_apply,
@@ -81,7 +82,7 @@ theorem prEvent_run_add_withLogging_le (outer : QueryImpl spec (StateT σ ProbCo
     | inr t =>
       have hq0 : 0 < q := hq.1.resolve_left (not_not_intro (hp t))
       rw [QueryImpl.add_apply_inr, QueryImpl.run_withLogging_apply, simulateQ_bind,
-        StateT.run_bind, bind_assoc]
+        StateT.run_bind, bind_assoc, prEvent_bind]
       refine (prEvent_bind_le_prEvent_add_of_support _ _ (fun w ↦ bad w.2) _
         (ε := (q - 1 : ℕ) * ε) fun w _ hw ↦ ?_).trans ?_
       · simp only [simulateQ_pure, StateT.run_pure, pure_bind, simulateQ_map, StateT.run_map,
@@ -123,7 +124,9 @@ theorem prEvent_run_unforgeableTranscriptExperiment_le (so : QueryImpl spec (Sta
     Pr{let z ← (simulateQ so (unforgeableTranscriptExperiment adv)).run s₀}[bad z.2] ≤ q * ε := by
   rw [unforgeableTranscriptExperiment_def]
   simp only [simulateQ_bind, StateT.run_bind]
+  rw [prEvent_bind]
   refine prEvent_bind_le_of_forall_le_of_support _ _ _ fun ⟨⟨pk, sk⟩, s₁⟩ h₁ ↦ ?_
+  rw [prEvent_bind]
   refine (prEvent_bind_le_prEvent_add_of_support _ _ (fun w ↦ bad w.2) _ (ε := 0)
     fun ⟨⟨⟨msg, sig⟩, log⟩, s₂⟩ _ h₂ ↦ ?_).trans ?_
   · rw [add_zero]

@@ -746,7 +746,8 @@ theorem prEvent_run_dupRandomOracleFwd_le_sum {α W : Type}
       Prod.map_fst, Prod.map_snd, id_eq]
     rfl
   rw [prEvent_eq_evalDist_of_discrete, evalDist_run_dupRandomOracleFwd_eq_tapeFamily τ hR oa ∅ m,
-    hcomp, ← prEvent_eq_evalDist_of_discrete, prEvent_bind_eq_lintegral_of_discrete]
+    hcomp, ← prEvent_eq_evalDist_of_discrete, prEvent_bind,
+    prEvent_bind_eq_lintegral_of_discrete]
   have hs : ∀ᵐ L ∂𝒟[tapeFamily R m], L ∈ support (tapeFamily R m) := by
     rw [ae_iff]
     have := prEvent_eq_zero_of_forall_mem_support (tapeFamily R m)

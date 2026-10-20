@@ -385,7 +385,8 @@ theorem gpvImplFlag_h_agree_good (pk : PK) (sk : SK) (domainSample : PK → Prob
       -- unkeyed `r` ⇒ flag stays `false` ⇒ bodies agree by the inline-salt signing-miss bridge.
       rw [gpvRealImplFlag_run_inr, progGameRunImplNoRecFlag_run_inr]
       simp only [Bool.false_or]
-      rw [OracleComp.prEvent_bind_eq_tsum, OracleComp.prEvent_bind_eq_tsum]
+      rw [prEvent_bind, prEvent_bind,
+        OracleComp.prEvent_bind_eq_tsum, OracleComp.prEvent_bind_eq_tsum]
       refine tsum_congr (fun r => ?_)
       refine congrArg _ ?_
       rcases hkey : saltKeyed M Salt s r with _ | _
@@ -592,7 +593,7 @@ theorem gpv_orig_flag_le_collisionBound_aux
       · -- uniform query: flag and cache untouched
         simp only [OracleQuery.input_query, monadLift_self,
           gpvRealImplFlag_run_inl, gpvRealImpl_run_unif]
-        rw [bind_map_left, bind_map_left]
+        rw [bind_map_left, bind_map_left, prEvent_bind]
         refine prEvent_bind_le_of_forall_le _ _ _ (fun x => ?_)
         exact ih _ cache m qS qH (by simpa using hQS2 _) (by simpa using hQH2 _) hcard
       · -- random-oracle read: flag untouched, cache slice grows ≤ 1
@@ -600,7 +601,7 @@ theorem gpv_orig_flag_le_collisionBound_aux
           simpa using hQH1
         simp only [OracleQuery.input_query, monadLift_self,
           gpvRealImplFlag_run_inl, gpvRealImpl_run_read]
-        rw [bind_map_left]
+        rw [bind_map_left, prEvent_bind]
         refine prEvent_bind_le_of_forall_le_of_support _ _ _ (fun p hp => ?_)
         have hbS := hQS2 p.1
         have hbH := hQH2 p.1
@@ -651,9 +652,9 @@ theorem gpv_orig_flag_le_collisionBound_aux
           refine le_trans (le_of_eq (prEvent_congr _ _ (fun z => z.2.2 = true)
             (fun z => by cases h : z.2.2 <;> simp))) ?_
           -- Bound the continuation pointwise over the signing-step outputs.
-          rw [bind_assoc]
+          rw [bind_assoc, prEvent_bind]
           refine prEvent_bind_le_of_forall_le_of_support _ _ _ (fun p hp => ?_)
-          rw [bind_assoc]
+          rw [bind_assoc, prEvent_bind]
           refine prEvent_bind_le_of_forall_le _ _ _ (fun sgn => ?_)
           rw [pure_bind]
           -- On the off-collision branch the flag stays false; the cache `p.2` grew by ≤ 1.
@@ -667,6 +668,7 @@ theorem gpv_orig_flag_le_collisionBound_aux
           -- Cache-growth invariant: `card (keyedSalts p.2) + qH ≤ m + 1`.
           have hgrow := keyedSalts_randomOracle_run_card_le M Salt (r, msg) cache p hp
           omega
+        rw [prEvent_bind]
         exact (prEvent_bind_le_prEvent_add_of_support _ _
           (fun r : Salt => ¬ saltKeyed M Salt cache r = false) _ fun r hr hnr =>
             htail r hr (not_not.mp hnr)).trans (add_le_add_left hhead _)
@@ -798,11 +800,10 @@ theorem prEvent_flag_bind_no_sign_le (pk : PK) (sk : SK)
       ≤ Pr{let w ← (simulateQ (gpvRealImplFlag psf hr M Salt pk sk) oa).run (cache, b)}[
           w.2.2 = true] := by
   classical
-  rw [simulateQ_bind, StateT.run_bind]
-  refine (prEvent_bind_mono_of_forall_le_of_support _ _ pure _ (fun w => w.2.2 = true)
-    fun w _ => ?_).trans (le_of_eq (by rw [bind_pure]))
+  rw [simulateQ_bind, StateT.run_bind, prEvent_bind]
+  refine wp_mono_of_support _ fun w _ => ?_
   -- On every support point the flag of the signing-free continuation equals `w.2.2`.
-  rw [prEvent_pure]
+  simp only [predInd, propInd_eq_ite]
   by_cases hw : w.2.2 = true
   · rw [ite_eq_left hw]; exact prEvent_le_one _
   · rw [ite_eq_right hw]
@@ -1186,7 +1187,8 @@ theorem gpvImplFlagFresh_h_agree_good (pk : PK) (sk : SK) (domainSample : PK →
       -- unkeyed `r` ⇒ flag stays `false`, signed-set inserts `msg`, bodies agree.
       rw [gpvRealImplFlagFresh_run_inr, progGameRunImplNoRecFlagFresh_run_inr]
       simp only [Bool.false_or]
-      rw [OracleComp.prEvent_bind_eq_tsum, OracleComp.prEvent_bind_eq_tsum]
+      rw [prEvent_bind, prEvent_bind,
+        OracleComp.prEvent_bind_eq_tsum, OracleComp.prEvent_bind_eq_tsum]
       refine tsum_congr (fun r => ?_)
       refine congrArg _ ?_
       rcases hkey : saltKeyed M Salt s.1 r with _ | _

@@ -120,7 +120,7 @@ theorem prEvent_simulateQ_run_map_and_not_bad_le (h : DominatedUntilBad impl₁ 
     simp only [simulateQ_pure, StateT.run_pure]
     refine le_trans (le_of_eq ?_) (prEvent_mono (pure (x, f s) : ProbComp _)
       (fun z ↦ P z ∧ ¬bad s) P fun _ hz ↦ hz.1)
-    simp only [map_pure]
+    rfl
   | query_bind t k ih =>
     by_cases hb : bad s
     · rw [prEvent_eq_zero_of_forall_mem_support _ _ fun z hz hz' ↦
@@ -129,7 +129,8 @@ theorem prEvent_simulateQ_run_map_and_not_bad_le (h : DominatedUntilBad impl₁ 
     simp only [simulateQ_bind, simulateQ_spec_query, StateT.run_bind]
     let _ : MeasurableSpace (spec.Range t × σ₁) := ⊤
     let _ : MeasurableSpace (spec.Range t × σ₂) := ⊤
-    rw [prEvent_bind_eq_lintegral_of_discrete, prEvent_bind_eq_lintegral_of_discrete]
+    rw [prEvent_bind, prEvent_bind, prEvent_bind_eq_lintegral_of_discrete,
+      prEvent_bind_eq_lintegral_of_discrete]
     let g : spec.Range t × σ₂ → ENNReal := fun y ↦
       Pr{let w ← (simulateQ impl₂ (k y.1)).run y.2}[P w]
     -- From a bad intermediate state the first continuation has no mass off `bad`, so the first
@@ -175,7 +176,7 @@ theorem prEvent_simulateQ_run_le_map_or_bad (h : DominatedUntilBad impl₁ impl�
     fun z ↦ P (z.1, f z.2) ∨ bad z.2
   rw [prEvent_true_eq_one] at e₁ e₂
   refine ENNReal.le_of_add_le_add_right
-    (prEvent_ne_top ((fun z ↦ ¬P z) <$> (simulateQ impl₂ oa).run (f s))) ?_
+    (prEvent_ne_top (p := fun z ↦ ¬P z) ((simulateQ impl₂ oa).run (f s))) ?_
   rw [e₁, ← e₂]
   refine add_le_add le_rfl (le_trans (le_of_eq ?_) hcore)
   exact prEvent_congr _ _ _ fun z ↦ not_or
@@ -223,7 +224,7 @@ theorem extendState {Q : Type} (h : AgreeUntilBad impl₁ impl₂ bad)
     (aux : (t : spec.Domain) → σ → spec.Range t → σ → Q → Q) :
     AgreeUntilBad (impl₁.extendState aux) (impl₂.extendState aux) fun st ↦ bad st.1 := by
   intro t st hst P
-  simp only [QueryImpl.extendState_apply, prEvent_norm]
+  simp only [QueryImpl.extendState_apply, expect_norm]
   exact h t st.1 hst fun z ↦ P (z.1, (z.2, aux t st.1 z.1 z.2 st.2))
 
 /-- If two handlers agree until `bad`, the first is dominated by the second until `bad`, through

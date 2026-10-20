@@ -602,7 +602,7 @@ theorem prEvent_tapeCheck_drawList_le_collisionBound (qSign qHash : ℕ)
           tapeCheck Salt c qSign tape = true]
       = Pr{let x ← saltSeq (Salt := Salt) c qSign}[x = true] := by
         rw [← drawList_tapeCheck_eq_saltSeq]
-        simp only [prEvent_norm]
+        simp only [expect_norm]
     _ ≤ collisionBound Salt qSign qHash :=
         prEvent_saltSeq_le_collisionBound Salt qSign qHash c hcache
 

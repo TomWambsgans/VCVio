@@ -29,7 +29,7 @@ checks locally; add `--lint`, `--test`, or `--axioms` for those CI passes. `lake
 test libraries and runs the test executables, and `lake lint` runs source-style and environment checks
 (see `AGENTS.md`, *Building*).
 
-CI's timed build covers the non-test Lean libraries `ToMathlib`, `VCVio`,
+CI's timed build covers the non-test Lean libraries `ToMathlib`, `VCVio`, `VCVioCslib`,
 `LatticeCrypto`, `Extern`, `HashSig`, `Examples`, and `VCVioWidgets`.
 CI starts from the newest cached build, so Lake rebuilds only the modules a change invalidated;
 a nightly run builds from scratch. The build timing report compares each rebuilt module, including
@@ -89,6 +89,8 @@ build boundaries and the staged consolidation.
 - `LatticeCryptoTest/` contains ACVP vectors, regression tests, and differential checks against native backends.
 - `HashSigTest/` contains hash-signature test and validation modules.
 - `Examples/` contains compact framework proofs including OneTimePad, ElGamal, and Schnorr.
+- `VCVio/Schemes/` owns reusable Schnorr, Pedersen, KEM–DEM and MAC-from-PRF constructions;
+  `Examples/` includes small consumers of these APIs.
 - `Interop/` contains experimental bridges to Rust verification frontends such as hax and Aeneas.
 - `csrc/` contains C FFI bridges for the native ML-DSA, ML-KEM, and Falcon implementations used in tests.
 - `third_party/` contains the native backends as git submodules, used by the `Extern` FFI layer and differential tests.
@@ -114,8 +116,9 @@ proofs of binding, extractability, and hiding.
 
 ## Acknowledgments
 
-Parts of the current program-logic refactor use an ordered monad-algebra perspective adapted from
-the Loom project (see [LOOM-REPO](REFERENCES.md#loom-repo) and [LOOM26](REFERENCES.md#loom26)).
+VCVio's program logic is built on core Lean's `Std.WP` weakest preconditions, which follow the
+ordered monad-algebra perspective of the Loom project (see [LOOM-REPO](REFERENCES.md#loom-repo)
+and [LOOM26](REFERENCES.md#loom26)).
 
 ## Contributions
 
@@ -184,11 +187,19 @@ The second case includes things like `spec₁ ⊂ₒ (spec₁ + spec₂)` and `s
 
 ## Program Logic
 
-The library includes a program logic (`VCVio.ProgramLogic`) inspired by pRHL and ordered monad-algebra approaches. It provides:
+The library includes a program logic (`VCVio.ProgramLogic`) built on core Lean's `Std.WP`
+weakest preconditions and inspired by pRHL and ordered monad-algebra approaches. It provides:
 
-* **Relational proof mode** (`by_equiv`): Coupling-based reasoning via `RelTriple` for proving game equivalence or bounding advantage between two computations.
-* **Unary proof mode** (`by_hoare`): Quantitative Hoare triples for bounding probabilities of events in a single computation.
-* **Interactive tactics**: `rvcstep`, `rvcgen`, `vcstep`, `game_trans`, and explicit probability-equality controls such as `vcstep rw` / `vcstep rw congr'` for stepping through game-based proofs.
+* **Relational proof mode** (`by_equiv`): coupling-based reasoning via `RelTriple` for proving
+  game equivalence or bounding the advantage between two computations.
+* **Unary reasoning**: a statement about the outcomes of one computation (a probability bound, an
+  event of probability one, or a possible or necessary outcome) is a core triple
+  `⦃ pre ⦄ oa ⦃ post ⦄` under the reading of `OracleComp` it belongs to. `by_hoare` states a
+  probability goal as an expectation: it splits `if` branches and writes each event as the
+  expectation of its indicator.
+* **Interactive tactics**: `prvcgen` (core `vcgen` on probability bounds and quantitative
+  triples), `prrw` / `prrw congr` / `prrw normalize` for equalities between two programs'
+  probabilities, `rvcstep`, `rvcgen`, and `game_trans` for stepping through game-based proofs.
 
 ## Other Useful Definitions
 

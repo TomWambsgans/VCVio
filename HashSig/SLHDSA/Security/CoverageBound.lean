@@ -235,6 +235,7 @@ theorem prEvent_idealDraw_runItsrCovered_le (e : core.SkSeed ≃ core.Y)
     refine (secretEncoding core e pkSeed).merge_apply_of_not_exists s C ?_
     rintro ⟨x | ⟨o, msg⟩, hx⟩ <;> cases hx
   simp only [idealDraw]
+  rw [prEvent_bind]
   refine prEvent_bind_le_of_forall_le _ _ _ fun s => ?_
   rw [show ((simulateQ (SecretEncoding.idealImpl (hashSpec core) (DeriveQuery core) core.Y)
       (unforgeableTranscriptExperiment (deriveAdversary core adv pkSeed))).run (∅, ∅) >>=

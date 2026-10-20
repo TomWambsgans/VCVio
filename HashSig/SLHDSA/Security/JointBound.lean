@@ -150,11 +150,11 @@ theorem prEvent_idealDraw_le_prEvent_deferredFillDraw (hd : core.KeyDiscipline v
         ((∅, ∅), []) >>= fun z ↦ (z, ·) <$> RelabelState.endFill z.2)}[
         F s (zst.1.1, G.toSplitCache zst.2) ∨ G.Conflict zst.2] := by
     rw [← OracleComp.prEvent_bind_map_swap]
-    simp only [CanonicalGraph.deferredFillDraw, prEvent_norm]
+    simp only [CanonicalGraph.deferredFillDraw, expect_norm]
   rw [prEvent_idealDraw_eq, hswap, prEvent_bind_bind_eq_lintegral_of_discrete,
     prEvent_bind_bind_eq_lintegral_of_discrete]
   refine lintegral_mono fun s ↦ (hs s).trans (le_of_eq ?_)
-  simp only [prEvent_norm]
+  simp only [expect_norm]
 
 /-- **An event of the run is bounded on the deferred lab experiment.** Under the key discipline,
 an event `Q` of the run of SLH-DSA in the random-oracle model at public seed `pkSeed` has

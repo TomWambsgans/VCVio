@@ -263,7 +263,7 @@ theorem IsCharged.prEvent_deferredFillDraw_and_le (h : G.IsCharged P Φ) (h₀ :
     have key := prEvent_bind_draw_and_le_of_potential h.isPotentialStep_cellImpl
       ms H (fun st ↦ c st.1) hH B hB (((X ⊕ K) →ₒ R).queryAll z.2.2) z.2.1 hz
     simpa only [fillDraw, RelabelState.endFill_eq_simulateQ_cellImpl, bind_assoc, bind_map_left,
-      prEvent_norm] using key
+      expect_norm] using key
   have h1 := prEvent_bind_and_le_of_potential h.isPotentialStep_deferredImpl fillDraw
     (fun y ↦ P y.2.1 ∨ H y.2.2 y.2.1) (fun y ↦ Φ y.2.1 + c y.2.1.1) B hB hgmono hg oa
     ((∅, ∅), []) h₀
@@ -271,7 +271,7 @@ theorem IsCharged.prEvent_deferredFillDraw_and_le (h : G.IsCharged P Φ) (h₀ :
         Φ w.2.1 + c w.2.1.1 ≤ B] :=
         prEvent_mono _ _ _ fun w hw ↦ ⟨hw.1, (add_le_add (hU w.2.1) le_rfl).trans hw.2⟩
     _ ≤ B - Φ (∅, ∅) := by
-      simpa only [deferredFillDraw, fillDraw, bind_assoc, prEvent_norm] using h1
+      simpa only [deferredFillDraw, fillDraw, bind_assoc, expect_norm] using h1
     _ ≤ B := tsub_le_self
 
 /-- **A charged hazard over three phases, under a pathwise budget.** As

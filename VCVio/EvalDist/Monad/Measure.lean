@@ -158,7 +158,7 @@ theorem evalDist_bind_apply_le_add_of_disagree (mx : m α) (f g : α → m β)
   rw [evalDist_bind mx f hf, evalDist_bind mx g hg]
   exact Measure.bind_apply_le_add_of_disagree _ _ _ hf hg hbad hevent hgood
 
-/-! ## Reachability and measurable observations -/
+/-! ## Possible outputs and measurable observations -/
 
 namespace evalDist
 
@@ -218,7 +218,7 @@ theorem prEvent_bind_bind_swap_of_countable_left {m : Type → Type v} [Monad m]
     Pr{let a ← mx; let b ← my}[p a b] = Pr{let b ← my; let a ← mx}[p a b] := by
   let _ : MeasurableSpace α := ⊤
   let _ : MeasurableSpace β := ⊤
-  rw [prEvent_def, prEvent_def]
-  simp only [← bind_pure_comp]
-  exact congrArg (· {True}) <| evalDist_bind_bind_swap mx my (fun a b ↦ pure (p a b))
+  have key := congrArg (· {True}) <| evalDist_bind_bind_swap mx my
+    (fun a b ↦ (pure (p a b) : m Prop))
     (measurable_from_prod_countable_right fun _ ↦ Measurable.of_discrete)
+  simpa only [evalDist_singleton_true, expect_norm] using key
