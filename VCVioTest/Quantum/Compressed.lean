@@ -20,8 +20,12 @@ Functions `Fin 2 → Fin 2`, queried on the register `Fin 2 × Fin 2`, and `Fin 
 * One query of `|x, 0⟩` against the empty database `|⊥, ⊥⟩`, by the one-cell formula.
 * Deutsch's algorithm, as a program, has the same law against the compressed runtime as in the
   quantum random-oracle model.
+* **Measuring only the response bit.** The measurement `1 ⊗ |b⟩⟨b|` of the response register
+  keeps the address register coherent: on `(|0, 0⟩ + |1, 0⟩)/√2` it reports `0` and keeps the
+  off-diagonal entry `½`, which a full computational-basis measurement would erase.
 * **An adaptive program**, for oracles `Fin 3 → Fin 2`, calls the oracle, measures the response
-  bit, and on `1` calls again and returns the bit measured after the second call. It makes at
+  bit, and on `1` moves to the next address, calls again and returns the bit measured after the
+  second call. From `|x, 0⟩` the two calls read the distinct cells `x` and `x + 1`. It makes at
   most two calls on every path. Its law against the compressed runtime, against the runtime
   truncated at two of the three cells, and after the database is measured, is the law of the
   quantum random-oracle model; it ends with at most two nonempty cells.
@@ -36,7 +40,7 @@ Functions `Fin 2 → Fin 2`, queried on the register `Fin 2 × Fin 2`, and `Fin 
 public section
 
 open Quantum Matrix MeasureTheory
-open scoped ENNReal
+open scoped ENNReal Kronecker
 
 namespace VCVioTest.QuantumCompressed
 
@@ -99,18 +103,74 @@ theorem isQueryBound_callReg : callReg.IsQueryBound fun _ ↦ 1 :=
     ((QuantumComp₂.isQueryBound_query_iff _ _ _ (fun _ ↦ 1)).mpr Nat.one_pos)
       fun _ ↦ QComp.isQueryBound_act _ 0).mono fun _ ↦ by simp
 
+/-- The projections `1 ⊗ |b⟩⟨b|` onto the values of the response bit form a complete family of
+Kraus operators. -/
+theorem sum_measureResponse_kraus :
+    ∑ b : Fin 2, ((1 : Matrix (Fin 3) (Fin 3) ℂ) ⊗ₖ Matrix.single b b (1 : ℂ))ᴴ *
+      ((1 : Matrix (Fin 3) (Fin 3) ℂ) ⊗ₖ Matrix.single b b (1 : ℂ)) = 1 := by
+  have h (b : Fin 2) :
+      ((1 : Matrix (Fin 3) (Fin 3) ℂ) ⊗ₖ Matrix.single b b (1 : ℂ))ᴴ *
+        ((1 : Matrix (Fin 3) (Fin 3) ℂ) ⊗ₖ Matrix.single b b (1 : ℂ)) =
+      (1 : Matrix (Fin 3) (Fin 3) ℂ) ⊗ₖ Matrix.single b b (1 : ℂ) := by
+    rw [conjTranspose_kronecker, conjTranspose_one, Matrix.conjTranspose_single, star_one,
+      ← mul_kronecker_mul, Matrix.one_mul, Matrix.single_mul_single_same, mul_one]
+  rw [Finset.sum_congr rfl fun b _ ↦ h b]
+  ext ⟨x, b⟩ ⟨x', b'⟩
+  by_cases hx : x = x' <;>
+    simp [Matrix.sum_apply, Matrix.one_apply, Matrix.single_apply, ite_and, hx]
+
+/-- Measure the response bit and nothing else: the measurement with Kraus operators
+`1 ⊗ |b⟩⟨b|`, reporting `b`. The address register stays coherent. -/
+noncomputable def measureResponse : SubInstrument Reg3 Reg3 (Fin 2) :=
+  SubInstrument.ofKraus (fun b ↦ (1 : Matrix (Fin 3) (Fin 3) ℂ) ⊗ₖ Matrix.single b b (1 : ℂ))
+    sum_measureResponse_kraus
+
+/-- The state `(|0, 0⟩ + |1, 0⟩)/√2`: a superposition of two addresses with response bit `0`. -/
+noncomputable def addressSuperposition : Matrix Reg3 Reg3 ℂ :=
+  fun m m' ↦ if m.1 ≠ 2 ∧ m.2 = 0 ∧ m'.1 ≠ 2 ∧ m'.2 = 0 then 1 / 2 else 0
+
+/-- Measuring the response bit of `(|0, 0⟩ + |1, 0⟩)/√2` keeps the coherence between the two
+addresses. -/
+example : measureResponse.branch 0 addressSuperposition (0, 0) (1, 0) = 1 / 2 := by
+  simp [measureResponse, SubInstrument.ofKraus, DSubInstrument.ofKraus, MatrixMap.conj,
+    addressSuperposition, Matrix.mul_apply, Matrix.one_apply, Matrix.single_apply,
+    Matrix.conjTranspose_apply, Fintype.sum_prod_type, Fin.sum_univ_succ]
+
+/-- A full computational-basis measurement that reports only the response bit erases that
+coherence. -/
+example :
+    (DSubInstrument.classical (B := fun _ ↦ Reg3) (fun m : Reg3 ↦ m.2) id).branch 0
+      addressSuperposition (0, 0) (1, 0) = 0 := by
+  rw [DSubInstrument.classical, DSubInstrument.branch_map_apply_univ]
+  simp only [DSubInstrument.branch_ofKraus_apply, MatrixMap.conj, LinearMap.sum_apply,
+    Matrix.sum_apply]
+  refine Finset.sum_eq_zero fun c _ ↦ ?_
+  split_ifs
+  · simp only [cast_eq, LinearMap.coe_mk, AddHom.coe_mk, Matrix.mul_apply, Matrix.single_apply,
+      Matrix.conjTranspose_apply]
+    refine Finset.sum_eq_zero fun m _ ↦ ?_
+    by_cases h : c = (0, 0) <;> by_cases h' : c = (1, 0) <;> simp_all
+  · simp
+
 /-- Measure the response bit. -/
 noncomputable def measureBit : QComp qrom32 (QReg.of Reg3) (QReg.of Reg3) (Fin 2) :=
-  QComp.act (DSubInstrument.classical (B := fun _ ↦ Reg3) (fun m : Reg3 ↦ m.2) id)
+  QComp.act measureResponse
 
-/-- Call the oracle and measure the response bit; on `1`, call the oracle again and return the
-response bit measured after the second call, otherwise return `0`. The second call depends on the
-measured result of the first, and the returned bit depends on the second call: from `|x, 0⟩` the
-first call reads `H x`, and on `H x = 1` the second call resets the response to `0`. -/
+/-- Move to the next address, `x ↦ x + 1`, leaving the response bit unchanged. -/
+noncomputable def nextAddress : QComp qrom32 (QReg.of Reg3) (QReg.of Reg3) Unit :=
+  QComp.act (B := QReg.of Reg3)
+    (SubInstrument.relabel (Equiv.prodCongr (Equiv.addRight (1 : Fin 3)) (Equiv.refl (Fin 2))))
+
+/-- Call the oracle and measure the response bit; on `1`, move to the next address, call the
+oracle again and return the response bit measured after the second call, otherwise return `0`.
+The second call depends on the measured result of the first, and the returned bit depends on the
+second call: from `|x, 0⟩` the first call reads `H x`, and on `H x = 1` the second call reads
+`H (x + 1)` and leaves the response `1 + H (x + 1)`. -/
 noncomputable def queryMeasureQuery : QComp qrom32 (QReg.of Reg3) (QReg.of Reg3) (Fin 2) :=
   callReg.bind fun _ ↦
     measureBit.bind fun b ↦
-      if b = 1 then callReg.bind fun _ ↦ measureBit else QuantumComp₂.pure b
+      if b = 1 then nextAddress.bind fun _ ↦ callReg.bind fun _ ↦ measureBit
+      else QuantumComp₂.pure b
 
 /-- The adaptive program makes at most two calls on every path. -/
 theorem isQueryBound_queryMeasureQuery : queryMeasureQuery.IsQueryBound fun _ ↦ 2 := by
@@ -119,7 +179,8 @@ theorem isQueryBound_queryMeasureQuery : queryMeasureQuery.IsQueryBound fun _ �
   rw [measureBit, QComp.isQueryBound_act_bind_iff]
   intro b
   split_ifs
-  · exact (QuantumComp₂.isQueryBound_bind (b₂ := 0) isQueryBound_callReg
+  · rw [nextAddress, QComp.isQueryBound_act_bind_iff]
+    exact fun _ ↦ (QuantumComp₂.isQueryBound_bind (b₂ := 0) isQueryBound_callReg
       fun _ ↦ QComp.isQueryBound_act _ _).mono fun _ ↦ by simp
   · exact QuantumComp₂.isQueryBound_pure _ _
 
