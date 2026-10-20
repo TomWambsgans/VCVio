@@ -71,7 +71,7 @@ whose reading is the drawn label of `k`. -/
   ∃ t k ℓ v, pk.node t = some k ∧ st.2 (.inr k) = some ℓ ∧ st.1 t = some v ∧ pk.proj t v = ℓ
 
 /-- The public entries at the key of a node whose label is drawn. -/
-def labelledEntries (st : RelabelState pub X K R) : Set ι :=
+@[expose] def labelledEntries (st : RelabelState pub X K R) : Set ι :=
   {t | (st.1 t).isSome ∧ ∃ k, pk.node t = some k ∧ (st.2 (.inr k)).isSome}
 
 /-- The public entries at the key of some node. -/
@@ -80,7 +80,7 @@ def labelledEntries (st : RelabelState pub X K R) : Set ι :=
 
 /-- The projected potential: the public entries at the key of a node whose label is drawn, over
 `|R|`. -/
-noncomputable def potential (st : RelabelState pub X K R) : ℝ≥0∞ :=
+@[expose] noncomputable def potential (st : RelabelState pub X K R) : ℝ≥0∞ :=
   ((pk.labelledEntries st).encard : ℝ≥0∞) / Nat.card R
 
 variable {pk}
@@ -180,14 +180,11 @@ private theorem exists_pub_charge [DecidableEq ι] {st : RelabelState pub X K R}
       have hnot : t ∉ pk.labelledEntries st := fun h ↦ by
         rw [labelledEntries, Set.mem_ofPred_eq, ht] at h
         exact Bool.false_ne_true h.1
-      have h1 := Set.encard_le_encard hins
-      rw [Set.encard_insert_of_notMem hnot] at h1
       unfold potential
       rw [inv_eq_one_div, ENNReal.div_add_div_same]
       gcongr
-      rw [show (1 : ℝ≥0∞) = ((1 : ℕ∞) : ℝ≥0∞) from ENat.toENNReal_one.symm,
-        ← ENat.toENNReal_add, ENat.toENNReal_le, add_comm]
-      exact h1
+      exact_mod_cast (add_comm _ _).trans_le
+        ((Set.encard_insert_of_notMem hnot).symm.trans_le (Set.encard_le_encard hins))
   · refine ⟨0, le_of_eq (prEvent_eq_zero_of_forall_not _ _ fun u hu ↦ ?_),
       fun u ↦ by rw [zero_add]; exact potential_mono (hle u)⟩
     obtain ⟨k, ℓ, hk, hℓ, -⟩ := hfire u hu
@@ -217,7 +214,7 @@ variable (X K R) in
 
 open Classical in
 /-- The pair potential: `1 / |R|` once both cells are drawn, `0` before. -/
-noncomputable def pairPotential (c₁ c₂ : X ⊕ K) (st : RelabelState pub X K R) : ℝ≥0∞ :=
+@[expose] noncomputable def pairPotential (c₁ c₂ : X ⊕ K) (st : RelabelState pub X K R) : ℝ≥0∞ :=
   if (st.2 c₁).isSome ∧ (st.2 c₂).isSome then (Nat.card R : ℝ≥0∞)⁻¹ else 0
 
 variable {c₁ c₂ : X ⊕ K}
@@ -240,45 +237,56 @@ theorem not_pairHazard_empty : ¬PairHazard X K R c₁ c₂ ((∅, ∅) : Relabe
   rintro ⟨v, h, -⟩
   simp only [QueryCache.empty_apply, reduceCtorEq] at h
 
-variable [DecidableEq X] [DecidableEq K] [SampleableType R] [∀ t, SampleableType (pub.Range t)]
+theorem pairHazard_comm {st : RelabelState pub X K R} :
+    PairHazard X K R c₁ c₂ st ↔ PairHazard X K R c₂ c₁ st :=
+  ⟨fun ⟨v, h₁, h₂⟩ ↦ ⟨v, h₂, h₁⟩, fun ⟨v, h₁, h₂⟩ ↦ ⟨v, h₂, h₁⟩⟩
 
-variable (G : CanonicalGraph pub X K R) in
+theorem pairPotential_comm : pairPotential (pub := pub) (R := R) c₁ c₂ = pairPotential c₂ c₁ := by
+  funext st
+  simp only [pairPotential, and_comm]
+
+variable [DecidableEq X] [DecidableEq K] [SampleableType R]
+
+/-- Drawing the undrawn first cell of two distinct cells draws them equal with probability at most
+the weight it adds to the pair potential. -/
+private theorem exists_pair_charge (hne : c₁ ≠ c₂) {st : RelabelState pub X K R}
+    (hc : st.2 c₁ = none) :
+    ∃ w : ℝ≥0∞, Pr{let u ← $ᵗ R}[PairHazard X K R c₁ c₂ (st.1, st.2.cacheQuery c₁ u)] ≤ w ∧
+      ∀ u, w + pairPotential c₁ c₂ st ≤ pairPotential c₁ c₂ (st.1, st.2.cacheQuery c₁ u) := by
+  cases hv : st.2 c₂ with
+  | none =>
+    refine ⟨0, le_of_eq (prEvent_eq_zero_of_forall_not _ _ fun u ⟨v, _, h₂⟩ ↦ ?_), fun u ↦ ?_⟩
+    · rw [QueryCache.cacheQuery_of_ne _ _ hne.symm, hv] at h₂
+      cases h₂
+    · simp [pairPotential, hc, hv, QueryCache.cacheQuery_of_ne _ _ hne.symm]
+  | some v =>
+    refine ⟨(Nat.card R : ℝ≥0∞)⁻¹, (prEvent_mono _ _ (· = v) ?_).trans
+      (SampleableType.prEvent_uniformSample_eq_singleton_natCard v).le, fun u ↦ ?_⟩
+    · rintro u ⟨v', h₁, h₂⟩
+      rw [QueryCache.cacheQuery_self, Option.some_inj] at h₁
+      rw [QueryCache.cacheQuery_of_ne _ _ hne.symm, hv, Option.some_inj] at h₂
+      exact h₁.trans h₂.symm
+    · simp [pairPotential, hc, hv, QueryCache.cacheQuery_of_ne _ _ hne.symm]
+
+variable [∀ t, SampleableType (pub.Range t)] (G : CanonicalGraph pub X K R) in
 /-- **Two distinct cells drawn equal are charged `1 / |R|`**, when the second of them is drawn. -/
 theorem isCharged_pairHazard [DecidableEq ι] (hne : c₁ ≠ c₂) :
     G.IsCharged (PairHazard X K R c₁ c₂) (pairPotential c₁ c₂) where
   mono := pairPotential_mono
   cell st c hst hc := by
-    by_cases hT : ∃ v, (c = c₁ ∧ st.2 c₂ = some v) ∨ (c = c₂ ∧ st.2 c₁ = some v)
-    · obtain ⟨v, hv⟩ := hT
-      refine ⟨(Nat.card R : ℝ≥0∞)⁻¹, ?_, fun u ↦ ?_⟩
-      · refine (prEvent_mono _ _ (fun u ↦ u = v) fun u ⟨v', h1, h2⟩ ↦ ?_).trans
-          (SampleableType.prEvent_uniformSample_eq_singleton_natCard v).le
-        rcases hv with ⟨rfl, hv⟩ | ⟨rfl, hv⟩
-        · rw [QueryCache.cacheQuery_self, Option.some_inj] at h1
-          rw [QueryCache.cacheQuery_of_ne _ _ hne.symm, hv, Option.some_inj] at h2
-          exact h1.trans h2.symm
-        · rw [QueryCache.cacheQuery_self, Option.some_inj] at h2
-          rw [QueryCache.cacheQuery_of_ne _ _ hne, hv, Option.some_inj] at h1
-          exact h2.trans h1.symm
-      · unfold pairPotential
-        rcases hv with ⟨rfl, hv⟩ | ⟨rfl, hv⟩
-        · simp [hc, QueryCache.cacheQuery_of_ne _ _ hne.symm, hv]
-        · simp [hc, QueryCache.cacheQuery_of_ne _ _ hne, hv]
-    · refine ⟨0, le_of_eq (prEvent_eq_zero_of_forall_not _ _ fun u ⟨v, h1, h2⟩ ↦ ?_),
-        fun u ↦ by
-          rw [zero_add]
-          exact pairPotential_mono ⟨le_rfl, QueryCache.le_cacheQuery _ hc⟩⟩
-      by_cases h₁ : c = c₁
-      · subst h₁
-        rw [QueryCache.cacheQuery_of_ne _ _ hne.symm] at h2
-        exact hT ⟨v, .inl ⟨rfl, h2⟩⟩
-      by_cases h₂ : c = c₂
-      · subst h₂
-        rw [QueryCache.cacheQuery_of_ne _ _ hne] at h1
-        exact hT ⟨v, .inr ⟨rfl, h1⟩⟩
-      rw [QueryCache.cacheQuery_of_ne _ _ (Ne.symm h₁)] at h1
-      rw [QueryCache.cacheQuery_of_ne _ _ (Ne.symm h₂)] at h2
-      exact hst ⟨v, h1, h2⟩
+    by_cases h₁ : c = c₁
+    · subst h₁
+      exact exists_pair_charge hne hc
+    by_cases h₂ : c = c₂
+    · subst h₂
+      simp only [pairHazard_comm (c₁ := c₁) (c₂ := c), pairPotential_comm (c₁ := c₁) (c₂ := c)]
+      exact exists_pair_charge (Ne.symm hne) hc
+    refine ⟨0, le_of_eq (prEvent_eq_zero_of_forall_not _ _ fun u ⟨v, h1, h2⟩ ↦ hst ⟨v, ?_, ?_⟩),
+      fun u ↦ ?_⟩
+    · rwa [QueryCache.cacheQuery_of_ne _ _ (Ne.symm h₁)] at h1
+    · rwa [QueryCache.cacheQuery_of_ne _ _ (Ne.symm h₂)] at h2
+    · rw [zero_add]
+      exact pairPotential_mono ⟨le_rfl, QueryCache.le_cacheQuery _ hc⟩
   pub _ _ hst _ _ := ⟨0, le_of_eq (prEvent_eq_zero_of_forall_not _ _ fun _ h ↦ hst h),
     fun _ ↦ by rw [zero_add]; exact le_rfl⟩
 
