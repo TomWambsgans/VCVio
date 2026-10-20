@@ -500,3 +500,12 @@ example (a : Option (ZMod 2)) :
 end ExtractionReplay
 
 end VCVioTest.QuantumCheckedRead
+
+/-- The generic operational checker uses the supplied projective read instrument. -/
+example {P : Type} [Fintype P] [DecidableEq P] {In : P → QReg}
+    {E : EmulatedOracle P In} {X Y : Type} [Fintype Y] [DecidableEq Y]
+    (H : ProjectiveClassicalAnswers E X Y) (B : QReg) (io : List (X × Y)) :
+    ((E.withClassicalReads H).run₂ .instruments
+      ((checkIO io).toQuantumAt (H.classicalCall B))).branch true =
+        MatrixMap.conj ((1 : Matrix B B ℂ) ⊗ₖ H.projector io) :=
+  H.actual_accept_eq_projectorProduct B io
