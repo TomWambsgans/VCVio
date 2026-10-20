@@ -73,9 +73,13 @@ lab experiment
 bound for the run and the ideal-game form of the advantage bound follow.
 
 The joint bound and the advantage bound in the ideal-game form both take a further event.
-`prEvent_idealDraw_runTargetCollision_or_runHiddenHit_or_le_of_budget` joins an event of the
-ideal game that transports to a further hazard of the drawn seeds and the final public cache,
-charged alongside the seed charge inside the same potential under a widened pathwise budget.
+`prEvent_idealDraw_runTargetCollision_or_runHiddenHit_or_le_of_charged` joins an event of the
+ideal game that transports to a hazard of a further charge (`DeferredCharge`): a hazard of
+relabelled states charged inside the joint potential (`CanonicalGraph.IsCharged`), and a hazard
+of the drawn seeds and the filled state charged alongside the seed charge, under one widened
+pathwise budget. Charges combine (`DeferredCharge.add`), and a hazard of the drawn seeds and the
+final public cache alone is one (`DeferredCharge.ofSeed`); that case is
+`prEvent_idealDraw_runTargetCollision_or_runHiddenHit_or_le_of_budget`.
 `prEvent_romSchemeRun_wins_or_le_add_idealDraw` bounds a forgery or a further event `P` of the run
 by such an ideal-game bound plus the coverage term.
 
@@ -188,6 +192,128 @@ omit [DecidableEq core.Y] [SampleableType core.SkSeed] [SampleableType core.SkPr
 theorem div_natCard_ne_top {x : ℝ≥0∞} (hx : x ≠ ⊤) : x / Nat.card core.Y ≠ ⊤ :=
   ENNReal.div_ne_top hx (Nat.cast_ne_zero.2 Nat.card_pos.ne')
 
+variable (core) in
+/-- **A further hazard charged inside the joint potential** of the deferred lab run at public seed
+`pkSeed`: a hazard `P` of relabelled states charged to a potential `Φ`
+(`CanonicalGraph.IsCharged`), failing at the empty state, with `Φ` at most `U` of the public
+cache; and a hazard `H` of the secret seeds and the filled state, firing under uniform seeds with
+probability at most `c` of the public cache. -/
+structure DeferredCharge (pkSeed : core.PkSeed) where
+  /-- The hazard of relabelled states. -/
+  P : LabState core → Prop
+  /-- Its potential. -/
+  Φ : LabState core → ℝ≥0∞
+  isCharged : (slhGraph core pkSeed).IsCharged P Φ
+  not_empty : ¬P (∅, ∅)
+  /-- A bound of the potential by the public cache. -/
+  U : (hashSpec core).QueryCache → ℝ≥0∞
+  le_U : ∀ st, Φ st ≤ U st.1
+  /-- The hazard of the secret seeds and the filled state. -/
+  H : core.SkSeed × core.SkPrf → LabState core → Prop
+  /-- Its charge. -/
+  c : (hashSpec core).QueryCache → ℝ≥0∞
+  prEvent_le : ∀ st, Pr{let s ← $ᵗ (core.SkSeed × core.SkPrf)}[H s st] ≤ c st.1
+
+namespace DeferredCharge
+
+variable {pkSeed : core.PkSeed}
+
+/-- A hazard of the secret seeds and the public cache, charged `c`, as a further charge with no
+hazard of relabelled states. -/
+@[expose] def ofSeed (H : core.SkSeed × core.SkPrf → (hashSpec core).QueryCache → Prop)
+    (c : (hashSpec core).QueryCache → ℝ≥0∞)
+    (hH : ∀ C, Pr{let s ← $ᵗ (core.SkSeed × core.SkPrf)}[H s C] ≤ c C) :
+    DeferredCharge core pkSeed where
+  P _ := False
+  Φ := 0
+  isCharged := CanonicalGraph.isCharged_false _
+  not_empty := id
+  U := 0
+  le_U _ := le_rfl
+  H s st := H s st.1
+  c := c
+  prEvent_le st := hH st.1
+
+/-- Two further charges: the disjunctions of their hazards, charged to the sums. -/
+@[expose] def add (χ₁ χ₂ : DeferredCharge core pkSeed) : DeferredCharge core pkSeed where
+  P st := χ₁.P st ∨ χ₂.P st
+  Φ := χ₁.Φ + χ₂.Φ
+  isCharged := χ₁.isCharged.or_add χ₂.isCharged
+  not_empty := not_or.2 ⟨χ₁.not_empty, χ₂.not_empty⟩
+  U := χ₁.U + χ₂.U
+  le_U st := add_le_add (χ₁.le_U st) (χ₂.le_U st)
+  H s st := χ₁.H s st ∨ χ₂.H s st
+  c := χ₁.c + χ₂.c
+  prEvent_le st := (prEvent_or_le _ _ _).trans (add_le_add (χ₁.prEvent_le st) (χ₂.prEvent_le st))
+
+end DeferredCharge
+
+/-- **The joint bound in the ideal hidden-seed game, with a further charge.** Under the key
+discipline and `|Y| ≤ |SK.prf|`, let an event `F` of the seeds and the outcome of `idealDraw`,
+read at each point of the deferred lab run with its end fill and drawn seeds, imply there a
+conflict, a target collision at a node key, or a hazard of a further charge `χ`, and let twice the
+public entries at node keys over `|Y|`, plus the bound `U` of the potential of `χ`, the seed
+charge and the charge `c` of `χ`, be at most `B` on every deferred run of the lab experiment.
+Then `idealDraw` at public seed `pkSeed` fires, on the transcript rebuilt with the drawn seeds and
+the cache merged under them, a same-key target collision, a hidden-value hit or `F`, or holds in
+its final public cache a point encoding a derivation under the drawn seeds, with probability at
+most `B`. -/
+theorem prEvent_idealDraw_runTargetCollision_or_runHiddenHit_or_le_of_charged
+    (hd : core.KeyDiscipline vp) (hcard : Nat.card core.Y ≤ Nat.card core.SkPrf)
+    (e : core.SkSeed ≃ core.Y) (optRand : PublicKeyCore core → ProbComp core.Y)
+    (pkSeed : core.PkSeed) (adv : UnforgeableAdversary (romScheme core e optRand (pure pkSeed)))
+    (F : core.SkSeed × core.SkPrf →
+      DeriveOutcome core × SecretEncoding.SplitCache (hashSpec core) (DeriveQuery core) core.Y →
+        Prop) (χ : DeferredCharge core pkSeed)
+    (hF : ∀ w ∈ support ((slhGraph core pkSeed).deferredFillDraw ($ᵗ (core.SkSeed × core.SkPrf))
+        (labExperiment core adv pkSeed)),
+      F w.2.2 (w.1.1, (slhGraph core pkSeed).toSplitCache w.2.1) →
+        (slhGraph core pkSeed).Conflict w.2.1 ∨ (slhNodeKeys core pkSeed).TCHazard w.2.1 ∨
+          χ.P w.2.1 ∨ χ.H w.2.2 w.2.1)
+    (B : ℝ≥0∞) (hB : B ≠ ⊤)
+    (hbud : ∀ z ∈ support ((simulateQ (slhGraph core pkSeed).deferredImpl
+        (labExperiment core adv pkSeed)).run ((∅, ∅), [])),
+      2 * (((slhNodeKeys core pkSeed).keyEntries z.2.1.1).encard : ℝ≥0∞) / Nat.card core.Y +
+        χ.U z.2.1.1 + (seedCharge core pkSeed z.2.1.1 + χ.c z.2.1.1) ≤ B) :
+    Pr{let w ← idealDraw e optRand pkSeed adv}[
+      ((RunTargetCollision core e (DeriveOutcome.fill core w.1 w.2.1,
+          (secretEncoding core e pkSeed).merge w.1 w.2.2) ∨
+        RunHiddenHit core e (DeriveOutcome.fill core w.1 w.2.1,
+          (secretEncoding core e pkSeed).merge w.1 w.2.2)) ∨ F w.1 w.2) ∨
+      ∃ x, (w.2.2.1 ((secretEncoding core e pkSeed).enc w.1 x)).isSome] ≤ B := by
+  set E := secretEncoding core e pkSeed
+  set G := slhGraph core pkSeed
+  set nk := slhNodeKeys core pkSeed
+  refine (prEvent_idealDraw_le_prEvent_deferredFillDraw hd e optRand pkSeed adv fun s z ↦
+    ((RunTargetCollision core e (DeriveOutcome.fill core s z.1, E.merge s z.2) ∨
+      RunHiddenHit core e (DeriveOutcome.fill core s z.1, E.merge s z.2)) ∨ F s z) ∨
+    ∃ x, (z.2.1 (E.enc s x)).isSome).trans <|
+  (prEvent_mono_of_support _ _ (fun w ↦ ((G.Conflict w.2.1 ∨ nk.TCHazard w.2.1) ∨ χ.P w.2.1) ∨
+      ((∃ x, (w.2.1.1 (E.enc w.2.2 x)).isSome) ∨ χ.H w.2.2 w.2.1)) fun w hw h ↦ ?_).trans <|
+  (nk.isCharged.or_add χ.isCharged).prEvent_deferredFillDraw_le_of_budget
+    (not_or.2 ⟨not_or.2 ⟨G.not_conflict_empty, CanonicalGraph.NodeKeys.not_tcHazard_empty⟩,
+      χ.not_empty⟩)
+    (fun C ↦ 2 * ((nk.keyEntries C).encard : ℝ≥0∞) / Nat.card core.Y + χ.U C)
+    (fun st ↦ add_le_add (nk.potential_le_two_mul st) (χ.le_U st)) _
+    (fun s st ↦ (∃ x, (st.1 (E.enc s x)).isSome) ∨ χ.H s st)
+    (fun C ↦ seedCharge core pkSeed C + χ.c C)
+    (fun st ↦ (prEvent_or_le _ _ _).trans
+      (add_le_add (prEvent_exists_isSome_apply_secretEncoding_enc_le e pkSeed hcard st.1)
+        (χ.prEvent_le st))) _ B hB hbud
+  have hT : G.Conflict w.2.1 ∨ nk.TCHazard w.2.1 ∨ (∃ x, (w.2.1.1 (E.enc w.2.2 x)).isSome) →
+      ((G.Conflict w.2.1 ∨ nk.TCHazard w.2.1) ∨ χ.P w.2.1) ∨
+        ((∃ x, (w.2.1.1 (E.enc w.2.2 x)).isSome) ∨ χ.H w.2.2 w.2.1) := by
+    rintro (h | h | h)
+    exacts [.inl (.inl (.inl h)), .inl (.inl (.inr h)), .inr (.inl h)]
+  rcases h with ((htchh | hF') | hseed) | hc
+  · exact hT (conflict_or_tcHazard_or_exists_isSome_of_mem_support_deferredFillDraw hd hw
+      (.inl (.inl htchh)))
+  · rcases hF w hw hF' with h | h | h | h
+    exacts [.inl (.inl (.inl h)), .inl (.inl (.inr h)), .inl (.inr h), .inr (.inr h)]
+  · exact hT (conflict_or_tcHazard_or_exists_isSome_of_mem_support_deferredFillDraw hd hw
+      (.inl (.inr hseed)))
+  · exact .inl (.inl (.inl hc))
+
 /-- **The joint bound in the ideal hidden-seed game, with a further hazard.** Under the key
 discipline and `|Y| ≤ |SK.prf|`, let an event `F` of the seeds and the outcome of `idealDraw`, read
 at each point of the deferred lab run with its end fill and drawn seeds, imply there a conflict, a
@@ -223,29 +349,10 @@ theorem prEvent_idealDraw_runTargetCollision_or_runHiddenHit_or_le_of_budget
           (secretEncoding core e pkSeed).merge w.1 w.2.2) ∨
         RunHiddenHit core e (DeriveOutcome.fill core w.1 w.2.1,
           (secretEncoding core e pkSeed).merge w.1 w.2.2)) ∨ F w.1 w.2) ∨
-      ∃ x, (w.2.2.1 ((secretEncoding core e pkSeed).enc w.1 x)).isSome] ≤ B := by
-  set E := secretEncoding core e pkSeed
-  refine (prEvent_idealDraw_le_prEvent_deferredFillDraw hd e optRand pkSeed adv fun s z ↦
-    ((RunTargetCollision core e (DeriveOutcome.fill core s z.1, E.merge s z.2) ∨
-      RunHiddenHit core e (DeriveOutcome.fill core s z.1, E.merge s z.2)) ∨ F s z) ∨
-    ∃ x, (z.2.1 (E.enc s x)).isSome).trans <|
-  (prEvent_mono_of_support _ _
-    (fun w ↦ (slhGraph core pkSeed).Conflict w.2.1 ∨ (slhNodeKeys core pkSeed).TCHazard w.2.1 ∨
-      ((∃ x, (w.2.1.1 (E.enc w.2.2 x)).isSome) ∨ H w.2.2 w.2.1.1)) fun w hw h ↦ ?_).trans <|
-  (slhNodeKeys core pkSeed).prEvent_deferredFillDraw_le_of_budget _
-    (fun s C ↦ (∃ x, (C (E.enc s x)).isSome) ∨ H s C) (fun C ↦ seedCharge core pkSeed C + c C)
-    (fun C ↦ (prEvent_or_le _ _ _).trans
-      (add_le_add (prEvent_exists_isSome_apply_secretEncoding_enc_le e pkSeed hcard C) (hH C)))
-    _ B hB hbud
-  rcases h with ((htchh | hF') | hseed) | hc
-  · rcases conflict_or_tcHazard_or_exists_isSome_of_mem_support_deferredFillDraw hd hw
-      (Or.inl (Or.inl htchh)) with h | h | h
-    exacts [Or.inl h, Or.inr (Or.inl h), Or.inr (Or.inr (Or.inl h))]
-  · exact (hF w hw hF').imp_right (Or.imp_right Or.inr)
-  · rcases conflict_or_tcHazard_or_exists_isSome_of_mem_support_deferredFillDraw hd hw
-      (Or.inl (Or.inr hseed)) with h | h | h
-    exacts [Or.inl h, Or.inr (Or.inl h), Or.inr (Or.inr (Or.inl h))]
-  · exact Or.inl hc
+      ∃ x, (w.2.2.1 ((secretEncoding core e pkSeed).enc w.1 x)).isSome] ≤ B :=
+  prEvent_idealDraw_runTargetCollision_or_runHiddenHit_or_le_of_charged hd hcard e optRand pkSeed
+    adv F (.ofSeed H c hH) (fun w hw h ↦ (hF w hw h).imp_right (Or.imp_right Or.inr)) B hB
+    fun z hz ↦ by simpa only [DeferredCharge.ofSeed, Pi.zero_apply, add_zero] using hbud z hz
 
 /-- **The joint bound in the ideal hidden-seed game, per public seed.** Under the key discipline
 and `|Y| ≤ |SK.prf|`, for a forger with hash budget `qh`, `idealDraw` at public seed `pkSeed`
