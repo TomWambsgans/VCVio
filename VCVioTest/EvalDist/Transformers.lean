@@ -6,7 +6,6 @@ Authors: Devon Tuma
 
 module
 public import VCVio.EvalDist.Monad.Option
-public import VCVio.EvalDist.Monad.Except
 public import VCVio.EvalDist.Defs.Measure.ExceptT
 public import VCVio.EvalDist.ProbabilityBounds
 
@@ -149,14 +148,12 @@ example (mx : ExceptT ε m α) (my : ExceptT ε m β) (p : α → Prop) (q : β 
 
 example (mx : OptionT m α) (p q : α → Prop) (hpq : ∀ x, p x → q x) {bound : ENNReal}
     (h : Pr{let x ← mx}[q x] ≤ bound) : Pr{let x ← mx}[p x] ≤ bound := by
-  have hmono := prEvent_mono mx p q hpq
-  simp only [OptionT.wp_ofMeasure_eq] at hmono
-  grw [hmono, h]
+  grw [prEvent_mono mx p q hpq, h]
 
 example (mx : ExceptT ε m α) (p q : α → Prop) (hpq : ∀ x, p x → q x) :
     Pr{let x ← mx}[p x] ^ 2 ≤ Pr{let x ← mx}[q x] ^ 2 := by
   gcongr ?_ ^ 2
-  simpa only [ExceptT.wp_ofMeasure_eq] using prEvent_mono mx p q hpq
+  exact prEvent_mono mx p q hpq
 
 end events
 

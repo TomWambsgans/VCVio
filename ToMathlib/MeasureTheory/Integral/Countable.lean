@@ -10,9 +10,10 @@ public import Mathlib.MeasureTheory.Integral.Lebesgue.Countable
 /-!
 # Lebesgue integrals against measures concentrated on countable sets
 
-An integral against a measure concentrated on a countable set is the sum over the whole space of
-the singleton masses times the integrand, since the singleton masses vanish off that set. Unlike
-`MeasureTheory.lintegral_countable'`, the space itself need not be countable.
+An integral against a measure concentrated on a countable set `s` is the sum over `s` of the
+integrand weighted by the singleton masses. Since the singleton masses vanish off `s`, it is also
+the sum of those weighted terms over the whole space, with no countability assumption on the
+space itself.
 -/
 
 public section
@@ -29,8 +30,8 @@ theorem lintegral_eq_tsum_of_ae_mem_countable (hs : s.Countable) (h : ∀ᵐ x �
     (f : X → ℝ≥0∞) : ∫⁻ x, f x ∂μ = ∑' x : s, f x * μ {(x : X)} := by
   rw [← lintegral_countable f hs, Measure.restrict_eq_self_of_ae_mem h]
 
-/-- An integral against a measure concentrated on a countable set is the sum over the whole
-space of the singleton masses times the integrand. -/
+/-- Integrals against a measure concentrated on a countable set are sums of the singleton masses
+times the integrand over the whole space. -/
 theorem lintegral_eq_tsum_mul_of_ae_mem_countable (hs : s.Countable) (h : ∀ᵐ x ∂μ, x ∈ s)
     (f : X → ℝ≥0∞) : ∫⁻ x, f x ∂μ = ∑' x, μ {x} * f x := by
   rw [lintegral_eq_tsum_of_ae_mem_countable hs h f,

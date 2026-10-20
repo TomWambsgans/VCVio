@@ -5,7 +5,6 @@ Authors: Devon Tuma
 -/
 
 module
-
 public import PolyFun.Control.Monad.WriterT.WP
 public import ToMathlib.Control.WriterT
 

@@ -19,8 +19,7 @@ public import Init.Data.Vector.Lemmas
 This file defines a function `replicate oa n` that runs the computation `oa` a total of `n` times,
 returning the result as a list of length `n`.
 
-The executions are independent, though simulating them with a stateful handler through
-`simulateQ` can correlate them.
+Note that while the executions are independent, they may no longer be after calling `simulate`.
 -/
 
 @[expose] public section
