@@ -300,38 +300,6 @@ theorem exists_cell_forsSkAdrs_eq_none_of_unopenedCoord (hfst : st.1 = st₀.1)
       (merge_fst_hmsg_of_fst_eq (e := e) (pkSeed := pkSeed) (s := s) hfst) (by simpa using hUC))
     (childCell_inl core (Adrs.isSecretKey_forsSkAdrs _ _))
 
-/-- **A hidden-value hit after the fill is a conflict.** Let `st₀ ≤ st` have the same public
-cache, let the hidden cells of `st₀` for a transcript's log be undrawn, and let verification of
-its forgery settle on the cache that `st₀` stands for. A hidden-value hit of the transcript, at its
-own provider and read on the cache that `st` stands for, makes `st` a conflict: the verifier
-hashed the hidden value while its cell was undrawn, so the public cache holds that point, and in
-`st` the cell is drawn at that value. -/
-theorem conflict_of_hiddenHit [DecidableEq core.Y] (hd : core.KeyDiscipline vp) (hle : st₀ ≤ st)
-    (hfst : st.1 = st₀.1) {o : RomOutcome vp core} (hpk : o.pk.pkSeed = pkSeed)
-    (hsk : o.sk.skSeed = s.1) (h5 : HiddenUndrawn core o.pk o.log st₀) {b : Bool}
-    (hv : simulateQ 𝒞[e, pkSeed, s, st₀].toPartialImpl (GeneralScheme.verifyInternalM
-      (m := OracleComp (publicHashSpec core)) vp core o.msg o.sig o.pk) = some b)
-    (h : HiddenHit (oracleSecret core e o.pk.pkSeed o.sk.skSeed) o 𝒞[e, pkSeed, s, st]) :
-    (slhGraph core pkSeed).Conflict st := by
-  subst hpk
-  by_contra hc
-  have hle' := QueryCache.fst_mono
-    ((secretEncoding core e o.pk.pkSeed).merge_toSplitCache_mono (slhGraph core _) s hle hc)
-  rcases h with ⟨j, pos, m, i, x, hFL, hHCV, ht, hx, hg⟩ | ⟨digest, i, hD, hUC, hx⟩
-  · obtain ⟨c, hcell, h₀⟩ :=
-      exists_cell_chainChild_eq_none_of_hiddenChainValue hd hle hfst rfl hsk h5 hFL hHCV ht
-    rw [hsk] at hx
-    exact hc (conflict_of_chain?_of_cell_eq_none hd hle.1
-      (wotsChainAdrs_setHashAddress_mem_constructionAddresses pos i ht)
-      ((pathCell_wotsInstanceAdrs core pos i.val _).trans hcell) h₀
-      (isSome_thash_of_forgerLayer hle' hv hFL i ht) hx hg)
-  · obtain ⟨c, hcell, h₀⟩ := exists_cell_forsSkAdrs_eq_none_of_unopenedCoord hfst h5 hUC
-    rw [hsk] at hx
-    refine hc (conflict_of_forsSkAdrs_of_cell_eq_none hd hle.1 ?_ hcell h₀
-      (isSome_thash_of_forgerDigest hle' hv hD i) hx)
-    rw [← BottomPosition.forsAdrs_ofDigestParts]
-    exact forsLeafAdrs_mem_constructionAddresses _ i (forsSigLeafIndex_div_pow_a _ _ _)
-
 /-- **A mixed hidden-value hit is a conflict.** Let `st₀ ≤ st` have the same public cache, let the
 hidden cells of `st₀` for a transcript's log be undrawn, and let verification of its forgery, with
 its queries redirected by `ρ`, settle on the cache that `st₀` stands for, where `ρ` passes on
@@ -374,6 +342,28 @@ theorem conflict_of_hiddenHitMixed [DecidableEq core.Y] (hd : core.KeyDiscipline
     rw [← BottomPosition.forsAdrs_ofDigestParts]
     exact forsLeafAdrs_mem_constructionAddresses _ i (forsSigLeafIndex_div_pow_a _ _ _)
 
+/-- **A hidden-value hit after the fill is a conflict.** Let `st₀ ≤ st` have the same public
+cache, let the hidden cells of `st₀` for a transcript's log be undrawn, and let verification of
+its forgery settle on the cache that `st₀` stands for. A hidden-value hit of the transcript, at its
+own provider and read on the cache that `st` stands for, makes `st` a conflict: the verifier
+hashed the hidden value while its cell was undrawn, so the public cache holds that point, and in
+`st` the cell is drawn at that value. -/
+theorem conflict_of_hiddenHit [DecidableEq core.Y] (hd : core.KeyDiscipline vp) (hle : st₀ ≤ st)
+    (hfst : st.1 = st₀.1) {o : RomOutcome vp core} (hpk : o.pk.pkSeed = pkSeed)
+    (hsk : o.sk.skSeed = s.1) (h5 : HiddenUndrawn core o.pk o.log st₀) {b : Bool}
+    (hv : simulateQ 𝒞[e, pkSeed, s, st₀].toPartialImpl (GeneralScheme.verifyInternalM
+      (m := OracleComp (publicHashSpec core)) vp core o.msg o.sig o.pk) = some b)
+    (h : HiddenHit (oracleSecret core e o.pk.pkSeed o.sk.skSeed) o 𝒞[e, pkSeed, s, st]) :
+    (slhGraph core pkSeed).Conflict st := by
+  have hV : 𝒞[e, pkSeed, s, st].viewBy (QueryImpl.id' _) = 𝒞[e, pkSeed, s, st] :=
+    QueryCache.ext fun t ↦ QueryCache.viewBy_apply_of_eq_query (QueryImpl.id'_apply t) _
+  refine conflict_of_hiddenHitMixed hd hle hfst hpk hsk h5 (S := fun _ ↦ False)
+    (fun t _ ↦ QueryImpl.id'_apply t) (fun _ _ _ _ ↦ QueryImpl.id'_apply _)
+    (by rwa [simulateQ_id']) ?_
+  rw [hV]
+  rcases h with ⟨j, pos, m, i, x, h1, h2, h3, h4, h6⟩ | ⟨digest, i, h1, h2, h3⟩
+  exacts [.inl ⟨j, pos, m, i, x, h1, h2, h3, h4, h6, id⟩, .inr ⟨digest, i, h1, h2, h3, id⟩]
+
 /-! ## The settled verification -/
 
 section Verify
@@ -390,6 +380,42 @@ theorem verifyInternalM_labSpec_eq [DecidableEq core.Y] (msg : List Byte)
   (GeneralScheme.verifyInternalM_natural vp core
     (HasQuery.QueryHom.ofSimulateQ (spec := publicHashSpec core)
       (m := OracleComp (labSpec core))) msg sig pk).symm
+
+private theorem simulateQ_ofLift_simulateQ_withDerivationsLift_liftPub {α : Type}
+    (P : OracleComp (publicHashSpec core) α) :
+    simulateQ (QueryImpl.ofLift (deriveSpec core) (OracleComp (labSpec core)))
+        (simulateQ ((hashSpec core).withDerivationsLift (DeriveQuery core) core.Y) (liftPub P)) =
+      simulateQ (HasQuery.toQueryImpl (spec := publicHashSpec core)
+        (m := OracleComp (labSpec core))) P := by
+  induction P using OracleComp.inductionOn with
+  | pure x => simp
+  | query_bind t k ih =>
+    simp only [liftPub, simulateQ_bind, simulateQ_spec_query] at ih ⊢
+    congr 1
+    funext u
+    exact ih u
+
+/-- The lab forger of an adversary followed by a lifted public-hash program is the lab forger of
+the adversary followed by that program over `labSpec`. -/
+theorem labAdversary_withPost [SampleableType core.Y] [DecidableEq core.Y]
+    [SampleableType core.SkSeed] [SampleableType core.SkPrf]
+    {optRand : PublicKeyCore core → ProbComp core.Y} {pkSeedDist : ProbComp core.PkSeed}
+    (adv : UnforgeableAdversary (romScheme core e optRand pkSeedDist))
+    {β : Type} (post : PublicKeyCore core → List Byte × GeneralScheme.SignatureCore vp core →
+      OracleComp (publicHashSpec core) β) (pkSeed : core.PkSeed) :
+    labAdversary core (adv.withPost fun pk out ↦ liftPub (post pk out)) pkSeed =
+      (labAdversary core adv pkSeed).withPost fun pk out ↦
+        simulateQ (HasQuery.toQueryImpl (spec := publicHashSpec core)
+          (m := OracleComp (labSpec core))) (post pk out) := by
+  refine congrArg UnforgeableAdversary.mk (funext fun pk ↦ ?_)
+  simp only [labAdversary, deriveAdversary, UnforgeableAdversary.mapOracles_main,
+    UnforgeableAdversary.withPost, simulateQ_bind, simulateQ_pure]
+  congr 1
+  funext out
+  congr 1
+  rw [← simulateQ_ofLift_simulateQ_withDerivationsLift_liftPub]
+  simp only [OracleComp.liftComp_def, ← QueryImpl.simulateQ_compose]
+  congr 1
 
 variable [SampleableType core.Y] [DecidableEq core.Y] [SampleableType (Bytes vp.params.m)]
   [DecidableEq core.PkSeed] [DecidableEq core.AdrsKey] [DecidableEq core.SkPrf]
@@ -423,44 +449,6 @@ theorem simulateQ_toPartialImpl_verifyInternalM_of_mem_support_deferredImpl_labE
     ((slhGraph core pkSeed).simulateQ_toPartialImpl_merge_fst_of_mem_support_deferredImpl
       (GeneralScheme.verifyInternalM vp core z.1.msg z.1.sig z.1.pk)
       (by rw [← verifyInternalM_labSpec_eq]; exact hv) hle hc)
-
-omit [SampleableType core.Y] [DecidableEq core.Y] [SampleableType (Bytes vp.params.m)]
-  [DecidableEq core.PkSeed] [DecidableEq core.AdrsKey] [DecidableEq core.SkPrf]
-  [SampleableType core.SkSeed] [SampleableType core.SkPrf] in
-private theorem simulateQ_ofLift_simulateQ_withDerivationsLift_liftPub {α : Type}
-    (P : OracleComp (publicHashSpec core) α) :
-    simulateQ (QueryImpl.ofLift (deriveSpec core) (OracleComp (labSpec core)))
-        (simulateQ ((hashSpec core).withDerivationsLift (DeriveQuery core) core.Y) (liftPub P)) =
-      simulateQ (HasQuery.toQueryImpl (spec := publicHashSpec core)
-        (m := OracleComp (labSpec core))) P := by
-  induction P using OracleComp.inductionOn with
-  | pure x => simp
-  | query_bind t k ih =>
-    simp only [liftPub, simulateQ_bind, simulateQ_spec_query] at ih ⊢
-    congr 1
-    funext u
-    exact ih u
-
-omit [SampleableType (Bytes vp.params.m)] [DecidableEq core.PkSeed] [DecidableEq core.AdrsKey]
-  [DecidableEq core.SkPrf] in
-/-- The lab forger of an adversary followed by a lifted public-hash program is the lab forger of
-the adversary followed by that program over `labSpec`. -/
-theorem labAdversary_withPost (adv : UnforgeableAdversary (romScheme core e optRand pkSeedDist))
-    {β : Type} (post : PublicKeyCore core → List Byte × GeneralScheme.SignatureCore vp core →
-      OracleComp (publicHashSpec core) β) (pkSeed : core.PkSeed) :
-    labAdversary core (adv.withPost fun pk out ↦ liftPub (post pk out)) pkSeed =
-      (labAdversary core adv pkSeed).withPost fun pk out ↦
-        simulateQ (HasQuery.toQueryImpl (spec := publicHashSpec core)
-          (m := OracleComp (labSpec core))) (post pk out) := by
-  refine congrArg UnforgeableAdversary.mk (funext fun pk ↦ ?_)
-  simp only [labAdversary, deriveAdversary, UnforgeableAdversary.mapOracles_main,
-    UnforgeableAdversary.withPost, simulateQ_bind, simulateQ_pure]
-  congr 1
-  funext out
-  congr 1
-  rw [← simulateQ_ofLift_simulateQ_withDerivationsLift_liftPub]
-  simp only [OracleComp.liftComp_def, ← QueryImpl.simulateQ_compose]
-  congr 1
 
 /-- **A lifted post-verification of the deferred run is settled on the rebuilt cache.** On a run of
 the lab experiment of an adversary followed by a lifted public-hash program `post`, in the deferred
