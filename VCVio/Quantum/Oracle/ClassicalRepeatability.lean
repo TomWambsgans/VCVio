@@ -283,7 +283,7 @@ theorem branch_checkAdaptiveTranscript (B : QReg) (next : List Y → X) (ys : Li
     simp [adaptiveTranscript]
   | cons y ys ih =>
     rw [checkAdaptiveTranscript, QuantumRuntime.run₂_bind,
-      SubInstrument.branch_bind_apply_univ, Finset.sum_eq_single y]
+      DSubInstrument.branch_bind_apply_univ, Finset.sum_eq_single y]
     · rw [ite_eq_left rfl, ih, H.branch_eq]
       exact (H.transcriptBranch_cons B (next [], y)
         (adaptiveTranscript (fun pre ↦ next (y :: pre)) ys)).symm
