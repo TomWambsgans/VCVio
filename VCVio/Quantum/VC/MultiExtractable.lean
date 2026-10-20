@@ -1030,7 +1030,6 @@ noncomputable def offlineChecks (hk : 1 ≤ k) (c : OpeningClaim k Cm Msg ℓ Pf
         checkAt VC B i (c.idx i) (c.cm i) (c.ans i) (c.pf i)).map
           (fun b₂ ↦ (tdm, b₂))).map (fun r ↦ (b₁, r))
 
-
 /-- The opening and mismatch decision of the P4 challenger, conditional on the retained
 check/extract/check transcript. Randomized openings and both budget checks are preserved. -/
 noncomputable def offlineFinish [DecidableEq Msg] [∀ i, DecidableEq (Pf i)]
@@ -1044,6 +1043,16 @@ noncomputable def offlineFinish [DecidableEq Msg] [∀ i, DecidableEq (Pf i)]
         QuantumComp₂.pure (r.1 && r.2.2 &&
           decide (∃ i : Fin k, ¬ PartialVec.Agrees (tdm i).1 (c.ans i) ∨ pf' i ≠ c.pf i) &&
           decide (∑ i, (c.ans i).dom.card ≤ qs) && decide (Function.Injective c.idx))
+
+omit [AddGroup Z] in
+/-- On an accepted transcript, the finish opens with `tdm` and decides the mismatch event. -/
+theorem offlineFinish_accept [DecidableEq Msg] [∀ i, DecidableEq (Pf i)] (hk : 1 ≤ k) (qs : ℕ)
+    (c : OpeningClaim k Cm Msg ℓ Pf) (B : QReg) (tdm : TpDLen k (DmOf ℓ Msg Td) (.full hk)) :
+    offlineFinish VC (Z := Z) hk qs c B (true, some tdm, true) =
+      (QComp.pi fun i ↦ openAt VC B i (c.ans i).dom (tdm i).2).bind fun pf' ↦ .pure
+        (decide (∃ i : Fin k, ¬ PartialVec.Agrees (tdm i).1 (c.ans i) ∨ pf' i ≠ c.pf i) &&
+          decide (∑ i, (c.ans i).dom.card ≤ qs) && decide (Function.Injective c.idx)) := by
+  simp [offlineFinish]
 
 omit [AddGroup Z] in
 /-- The mismatch branch vanishes unless both checks accept and extraction decodes. -/
@@ -1124,7 +1133,6 @@ theorem offlineInstrument_map_snd [DecidableEq Msg] [∀ i, DecidableEq (Pf i)]
       offlineChallenger VC code hk qs c B := by
   rw [offlineInstrument, QuantumRuntime.bind_record_map_snd,
     offlineChallenger_eq_bind_offlineChecks VC code]
-
 
 /-- Retaining the prefix outcomes identifies each branch with the three executed branches. -/
 theorem run₂_offlineChecks (R : QuantumRuntime (mixedExtSpec k X Y Cm Z))
