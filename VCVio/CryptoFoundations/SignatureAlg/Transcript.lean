@@ -101,6 +101,16 @@ theorem unforgeableTranscriptExperiment_def
       return ⟨pk, sk, log, msg, σ, verified⟩ := by
   unfold unforgeableTranscriptExperiment; rfl
 
+/-- The experiment depends on the scheme only as a value: against equal schemes, an adversary and
+its retyping have the same experiment. -/
+theorem unforgeableTranscriptExperiment_congr
+    {sigAlg₁ sigAlg₂ : SignatureAlg (OracleComp spec) M PK SK S} (h : sigAlg₁ = sigAlg₂)
+    (adv : UnforgeableAdversary sigAlg₁) :
+    unforgeableTranscriptExperiment adv =
+      unforgeableTranscriptExperiment (sigAlg := sigAlg₂) ⟨adv.main⟩ := by
+  subst h
+  rfl
+
 /-- The transcript with its secret key replaced by its image under `g`. -/
 def UnforgeableTranscript.mapSk (g : SK' → SK) (z : UnforgeableTranscript M PK SK' S) :
     UnforgeableTranscript M PK SK S :=

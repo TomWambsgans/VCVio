@@ -7,6 +7,7 @@ Authors: Alexander Hicks
 module
 
 public import VCVio.CryptoFoundations.SignatureAlg.RomQueryCount
+public import VCVio.OracleComp.EvalDist.Sum
 import VCVio.OracleComp.QueryTracking.SubSpec
 
 /-!
@@ -18,6 +19,13 @@ queries to the ambient oracles, the program `post pk out` on its public key `pk`
 adversary perform computations, a verification of its own forgery for instance, whose queries the
 experiment then records like any other query of the adversary.
 
+`SignatureAlg.withVerify sigAlg ver` is the scheme `sigAlg` with its verification replaced by
+`ver`. The experiment against `adv.withPost post` is the experiment of the scheme verifying by
+`post` against `adv`, followed by the scheme's own verification of the forgery
+(`SignatureAlg.unforgeableTranscriptExperiment_withPost`). Under a stateful handler, an event of
+the former has probability at most that of any event of the latter satisfied by all of its
+extensions (`SignatureAlg.prEvent_run_withVerify_le_prEvent_run_withPost`).
+
 * `SignatureAlg.UnforgeableAdversary.RomQueryBound.withPost`: in the random oracle model the
   budget adds up. If `adv` makes at most `qh` hash and `qs` signing queries and every
   `post pk out` at most `v` hash queries, the adversary followed by `post` makes at most `qh + v`
@@ -27,6 +35,22 @@ experiment then records like any other query of the adversary.
 public section
 
 open OracleSpec OracleComp
+
+/-- Running a program lifted into `spec + sig` with the queries of `spec` passed through and
+those of `sig` answered by a logging implementation runs the program and logs nothing. -/
+theorem OracleComp.run_simulateQ_passthrough_add_liftComp {ι ιs : Type} {spec : OracleSpec ι}
+    {sig : OracleSpec ιs} (so : QueryImpl sig (WriterT (QueryLog sig) (OracleComp spec)))
+    {β : Type} (P : OracleComp spec β) :
+    (simulateQ (spec.passthrough + so) (liftComp P (spec + sig))).run =
+      (·, ([] : QueryLog sig)) <$> P := by
+  rw [QueryImpl.passthrough_add, QueryImpl.simulateQ_add_liftComp_left]
+  induction P using OracleComp.inductionOn with
+  | pure x => rfl
+  | query_bind t k ih =>
+    rw [simulateQ_bind, WriterT.run_bind', simulateQ_spec_query, QueryImpl.liftTarget_apply]
+    change ((·, ([] : QueryLog sig)) <$> (QueryImpl.id' spec t)) >>= _ = _
+    simp only [bind_map_left, map_bind, ih]
+    simp [QueryImpl.id'_apply]
 
 namespace SignatureAlg
 
@@ -41,6 +65,91 @@ its output `out`, as its own queries to the ambient oracles; its output is that 
     let out ← adv.main pk
     let _ ← liftComp (post pk out) (spec + (M →ₒ S))
     pure out
+
+/-- The scheme `sigAlg` with its verification replaced by `ver`. -/
+@[expose] def withVerify {m : Type → Type*} [Monad m] (sigAlg : SignatureAlg m M PK SK S)
+    (ver : PK → M → S → m Bool) : SignatureAlg m M PK SK S :=
+  { sigAlg with verify := ver }
+
+section withVerify
+
+variable {m : Type → Type*} [Monad m] (sigAlg : SignatureAlg m M PK SK S)
+  (ver : PK → M → S → m Bool)
+
+@[simp] theorem withVerify_keygen : (sigAlg.withVerify ver).keygen = sigAlg.keygen := rfl
+
+@[simp] theorem withVerify_sign : (sigAlg.withVerify ver).sign = sigAlg.sign := rfl
+
+@[simp] theorem withVerify_verify : (sigAlg.withVerify ver).verify = ver := rfl
+
+end withVerify
+
+/-- Running an adversary followed by `post` with the signing oracle is running the adversary with
+the signing oracle, then `post` on its output; `post` adds nothing to the log. -/
+theorem runWithSigningOracle_withPost {spec : OracleSpec ι}
+    (sigAlg : SignatureAlg (OracleComp spec) M PK SK S) (adv : UnforgeableAdversary sigAlg)
+    {β : Type} (post : PK → M × S → OracleComp spec β) (pk : PK) (sk : SK) :
+    sigAlg.runWithSigningOracle pk sk ((adv.withPost post).main pk) =
+      sigAlg.runWithSigningOracle pk sk (adv.main pk) >>= fun r =>
+        (fun _ => r) <$> post pk r.1 := by
+  simp only [runWithSigningOracle_def, UnforgeableAdversary.withPost, simulateQ_bind,
+    WriterT.run_bind', OracleComp.run_simulateQ_passthrough_add_liftComp, simulateQ_pure,
+    WriterT.run_pure', bind_map_left, map_bind, map_pure]
+  refine bind_congr fun r => ?_
+  simp [List.append_nil]
+
+/-- **An adversary followed by a verification of its forgery.** The experiment against `adv`
+followed by `post` is the experiment of the scheme verifying by `post` against `adv`, followed by
+the scheme's own verification of the forgery, whose verdict replaces the transcript's. -/
+theorem unforgeableTranscriptExperiment_withPost {spec : OracleSpec ι}
+    (sigAlg : SignatureAlg (OracleComp spec) M PK SK S) (adv : UnforgeableAdversary sigAlg)
+    (post : PK → M × S → OracleComp spec Bool) :
+    unforgeableTranscriptExperiment (adv.withPost post) =
+      unforgeableTranscriptExperiment
+          (sigAlg := sigAlg.withVerify fun pk msg sig => post pk (msg, sig)) ⟨adv.main⟩ >>=
+        fun z => (fun v => { z with verified := v }) <$> sigAlg.verify z.pk z.msg z.sig := by
+  simp only [unforgeableTranscriptExperiment_def, runWithSigningOracle_withPost, bind_assoc,
+    pure_bind, map_eq_bind_pure_comp, Function.comp_def]
+  rfl
+
+/-- The identity `unforgeableTranscriptExperiment_withPost` under a stateful handler `so`, run
+from a state `s`. -/
+theorem run_simulateQ_unforgeableTranscriptExperiment_withPost {spec : OracleSpec ι} {σ : Type}
+    (so : QueryImpl spec (StateT σ ProbComp)) (sigAlg : SignatureAlg (OracleComp spec) M PK SK S)
+    (adv : UnforgeableAdversary sigAlg) (post : PK → M × S → OracleComp spec Bool) (s : σ) :
+    (simulateQ so (unforgeableTranscriptExperiment (adv.withPost post))).run s =
+      (simulateQ so (unforgeableTranscriptExperiment
+          (sigAlg := sigAlg.withVerify fun pk msg sig => post pk (msg, sig)) ⟨adv.main⟩)).run s >>=
+        fun z => (fun r => ({ z.1 with verified := r.1 }, r.2)) <$>
+          (simulateQ so (sigAlg.verify z.1.pk z.1.msg z.1.sig)).run z.2 := by
+  rw [unforgeableTranscriptExperiment_withPost, simulateQ_bind, StateT.run_bind]
+  refine bind_congr fun z => ?_
+  rw [simulateQ_map, StateT.run_map]
+
+/-- **The experiment verifying by `post` is a prefix of the experiment against the adversary
+followed by `post`.** Under a stateful handler `so` from a state `s`, an event `P` of the run of
+the experiment of the scheme verifying by `post` against `adv`, each of whose reachable
+occurrences leads, along every run of the scheme's own verification of the forgery, to the event
+`Q` with the new verdict, has probability at most that of `Q` in the run of the experiment against
+`adv` followed by `post`. -/
+theorem prEvent_run_withVerify_le_prEvent_run_withPost {spec : OracleSpec ι} {σ : Type}
+    (so : QueryImpl spec (StateT σ ProbComp)) (sigAlg : SignatureAlg (OracleComp spec) M PK SK S)
+    (adv : UnforgeableAdversary sigAlg) (post : PK → M × S → OracleComp spec Bool) (s : σ)
+    (P Q : UnforgeableTranscript M PK SK S × σ → Prop)
+    (hPQ : ∀ z ∈ support ((simulateQ so (unforgeableTranscriptExperiment
+        (sigAlg := sigAlg.withVerify fun pk msg sig => post pk (msg, sig)) ⟨adv.main⟩)).run s),
+      P z → ∀ r ∈ support ((simulateQ so (sigAlg.verify z.1.pk z.1.msg z.1.sig)).run z.2),
+        Q ({ z.1 with verified := r.1 }, r.2)) :
+    Pr{let z ← (simulateQ so (unforgeableTranscriptExperiment
+        (sigAlg := sigAlg.withVerify fun pk msg sig => post pk (msg, sig)) ⟨adv.main⟩)).run s}[
+        P z] ≤
+      Pr{let z ← (simulateQ so (unforgeableTranscriptExperiment (adv.withPost post))).run s}[
+        Q z] := by
+  rw [run_simulateQ_unforgeableTranscriptExperiment_withPost]
+  refine prEvent_le_prEvent_bind_of_support _ _ _ _ fun z hz hP b hb => ?_
+  rw [support_map] at hb
+  obtain ⟨r, hr, rfl⟩ := hb
+  exact hPQ z hz hP r hr
 
 /-- **The budget of an adversary followed by a program.** If `adv` makes at most `qh` hash and
 `qs` signing queries and every `post pk out` at most `v` hash queries, then `adv` followed by
