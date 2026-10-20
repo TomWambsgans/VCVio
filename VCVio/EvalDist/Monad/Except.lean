@@ -105,6 +105,30 @@ theorem prEvent_bind_bind_and {β : Type} (mx : ExceptT ε m α) (my : ExceptT �
   simp only [← wp_ofMeasure_eq]
   exact _root_.prEvent_bind_bind_and mx my p q
 
+/-- An event of two successive draws, which may read both outputs, integrates the event of the
+second draw over a discrete first draw. -/
+theorem prEvent_bind_bind_eq_lintegral_of_discrete {β : Type} [MeasurableSpace α]
+    [DiscreteMeasurableSpace α] (mx : ExceptT ε m α) (f : α → ExceptT ε m β) (p : α → β → Prop) :
+    Pr{let x ← mx; let y ← f x}[p x y] = ∫⁻ x, Pr{let y ← f x}[p x y] ∂𝒟[mx] := by
+  simp only [← wp_ofMeasure_eq]
+  exact _root_.prEvent_bind_bind_eq_lintegral_of_discrete mx f p
+
+/-- Two output maps of one computation: an event of the first map is at most an event of the
+second when, at every output, the first event implies the second. -/
+theorem prEvent_map_le_map {γ β : Type} (mx : ExceptT ε m γ) (f : γ → α) (g : γ → β)
+    (p : α → Prop) (q : β → Prop) (h : ∀ x, p (f x) → q (g x)) :
+    Pr{let y ← f <$> mx}[p y] ≤ Pr{let z ← g <$> mx}[q z] := by
+  simp only [← wp_ofMeasure_eq]
+  exact _root_.prEvent_map_le_map mx f g p q h
+
+/-- An event of a pure computation is at most an event of another pure computation when the
+first event implies the second. -/
+theorem prEvent_pure_le_pure {β : Type} (a : α) (b : β) (p : α → Prop) (q : β → Prop)
+    (h : p a → q b) :
+    Pr{let y ← (pure a : ExceptT ε m α)}[p y] ≤ Pr{let z ← (pure b : ExceptT ε m β)}[q z] := by
+  simp only [← wp_ofMeasure_eq]
+  exact _root_.prEvent_pure_le_pure a b p q h
+
 /-- The zero observation has expectation zero. -/
 @[simp]
 theorem wp_zero (mx : ExceptT ε m α) : wp⟦mx⟧ (fun _ => 0) = 0 := by
@@ -133,5 +157,31 @@ theorem wp_mul_propInd (mx : ExceptT ε m α) (p : α → Prop) (c : ℝ≥0∞)
   exact _root_.wp_mul_propInd mx p c
 
 end measure
+
+section sequencing
+
+variable {m : Type → Type v} [Monad m] [LawfulMonad m] [MonadAttach m] [ExactMonadAttach m]
+  [EvalDistSemantics m] [LawfulEvalDistSemantics m] {ε α β : Type} [MeasurableSpace ε]
+
+/-- **An event of a draw bounds an event after its continuation.** An event `p` of `mx`, each of
+whose possible occurrences leads almost surely to the event `q` of the continuation, has
+probability at most that of `q` after the bind. -/
+theorem prEvent_le_prEvent_bind_of_support (mx : ExceptT ε m α) (f : α → ExceptT ε m β)
+    (p : α → Prop) (q : β → Prop) (h : ∀ a ∈ support mx, p a → Pr{let y ← f a}[q y] = 1) :
+    Pr{let a ← mx}[p a] ≤ Pr{let y ← mx >>= f}[q y] := by
+  simp only [← wp_ofMeasure_eq] at h ⊢
+  exact _root_.prEvent_le_prEvent_bind_of_support mx f p q h
+
+/-- A continuation event bounded by `δ` at the possible draws satisfying `p`, and null at the
+possible draws outside `p`, is bounded after the draw by the probability of `p` times `δ`. -/
+theorem prEvent_bind_le_prEvent_mul_of_forall_le_of_support (mx : ExceptT ε m α)
+    (f : α → ExceptT ε m β) (p : α → Prop) (q : β → Prop) {δ : ℝ≥0∞}
+    (h₁ : ∀ a ∈ support mx, p a → Pr{let y ← f a}[q y] ≤ δ)
+    (h₂ : ∀ a ∈ support mx, ¬ p a → Pr{let y ← f a}[q y] = 0) :
+    Pr{let y ← mx >>= f}[q y] ≤ Pr{let a ← mx}[p a] * δ := by
+  simp only [← wp_ofMeasure_eq] at h₁ h₂ ⊢
+  exact _root_.prEvent_bind_le_prEvent_mul_of_forall_le_of_support mx f p q h₁ h₂
+
+end sequencing
 
 end ExceptT
