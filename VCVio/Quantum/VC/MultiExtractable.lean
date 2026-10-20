@@ -66,7 +66,7 @@ properties:
   `Convexity.StdSimplex ℝ Ω`) over a family of runtimes on the coherent signature
   (`Quantum.mixedLawWith`). The random-oracle model is the uniform distribution
   (`Quantum.uniformWeights`) over the family of `Quantum.romVCOracle`, for which P1 reads as a
-  bound against `Quantum.sampledLawWith` (`Quantum.simulates_uniformWeights_iff`).
+  bound against `Quantum.sampledEvalDistMap` (`Quantum.simulates_uniformWeights_iff`).
 * P2's distance `‖Ψ − Ψ′‖²` (p. 50) is `Quantum.comError`, the trace of the defect
   `C = U_ME O_i − O_i U_ME` against the joint post-state of the oracle register and the adversary's
   output, summed over outcomes. On a unitary adversary from a pure state it is `‖C V |ψ⟩|ϕ⟩‖²`
@@ -153,18 +153,18 @@ variable {spec : QuantumOracleSpec.{u₁, v₁}} {L : LocalSig.{u, v}} {W : QReg
 on `Ω` (Mathlib's `Convexity.StdSimplex ℝ Ω`: real weights `p.weights ω ≥ 0` with finite support
 summing to `1`) and a family of runtimes `R`, the law of an observation of the leaf reached by
 `x` when the oracle is realized by `R ω` with probability `p.weights ω`: the mixture
-`∑ ω, p.weights ω • (R ω).outcomeLawWith I x ρ (f ω)`. The observation sees the sampled value. -/
+`∑ ω, p.weights ω • (R ω).evalDistMap I x ρ (f ω)`. The observation sees the sampled value. -/
 @[expose]
 noncomputable def mixedLawWith (p : StdSimplex ℝ Ω) (R : Ω → QuantumRuntime spec)
     (I : L.Interp) (x : QuantumComp L spec W A) (ρ : SubState A) (f : Ω → (Σ u, W u) → β) :
     Measure β :=
-  p.weights.sum fun ω r ↦ ENNReal.ofReal r • (R ω).outcomeLawWith I x ρ (f ω)
+  p.weights.sum fun ω r ↦ ENNReal.ofReal r • (R ω).evalDistMap I x ρ (f ω)
 
 /-- The mixed law of a set is the weighted sum of its measures under the runs. -/
 theorem mixedLawWith_apply (p : StdSimplex ℝ Ω) (R : Ω → QuantumRuntime spec) (I : L.Interp)
     (x : QuantumComp L spec W A) (ρ : SubState A) (f : Ω → (Σ u, W u) → β) (s : Set β) :
     mixedLawWith p R I x ρ f s =
-      p.weights.sum fun ω r ↦ ENNReal.ofReal r * (R ω).outcomeLawWith I x ρ (f ω) s := by
+      p.weights.sum fun ω r ↦ ENNReal.ofReal r * (R ω).evalDistMap I x ρ (f ω) s := by
   simp only [mixedLawWith, Finsupp.sum, Measure.coe_finsetSum, Finset.sum_apply,
     Measure.smul_apply, smul_eq_mul]
 
@@ -182,12 +182,12 @@ theorem uniformWeights_weights_apply (Ω : Type) [SampleableType Ω] (ω : Ω) :
   rw [uniformWeights, StdSimplex.weights_barycenter_apply, Nat.card_eq_fintype_card]
 
 /-- **The uniform mixture is uniform sampling.** Against the uniform distribution, the mixed law
-is `Quantum.sampledLawWith`, the law of `R ω` for `ω` drawn with VCVio's `$ᵗ`. -/
+is `Quantum.sampledEvalDistMap`, the law of `R ω` for `ω` drawn with VCVio's `$ᵗ`. -/
 theorem mixedLawWith_uniformWeights {Ω : Type} [SampleableType Ω] (R : Ω → QuantumRuntime spec)
     (I : L.Interp) (x : QuantumComp L spec W A) (ρ : SubState A) (f : Ω → (Σ u, W u) → β) :
-    mixedLawWith (uniformWeights Ω) R I x ρ f = sampledLawWith R I x ρ f := by
+    mixedLawWith (uniformWeights Ω) R I x ρ f = sampledEvalDistMap R I x ρ f := by
   let := Fintype.ofFinite Ω
-  rw [sampledLawWith_eq_sum, mixedLawWith, Finsupp.sum_fintype _ _ fun _ ↦ by simp,
+  rw [sampledEvalDistMap_eq_sum, mixedLawWith, Finsupp.sum_fintype _ _ fun _ ↦ by simp,
     Finset.smul_sum]
   refine Finset.sum_congr rfl fun ω _ ↦ ?_
   rw [uniformWeights_weights_apply, Nat.card_eq_fintype_card,
@@ -212,10 +212,10 @@ def Simulates {Ω : Type*} (p : StdSimplex ℝ Ω) (Ref : Ω → QuantumRuntime 
   ∀ (t : ℕ) {A : QReg} {W : QReg → Type w}
     (x : QuantumComp LocalSig.instruments.{v} (cohSpec (oIn k X Y)) W A)
     (f : (Σ u, W u) → Bool) (ρ : SubState A), x.IsQueryBound (fun _ ↦ t) →
-    E.coherent.toRuntime.outcomeLawWith .instruments x ρ f {true} ≤
+    E.coherent.toRuntime.evalDistMap .instruments x ρ f {true} ≤
         mixedLawWith p Ref .instruments x ρ (fun _ ↦ f) {true} + κsim t ∧
       mixedLawWith p Ref .instruments x ρ (fun _ ↦ f) {true} ≤
-        E.coherent.toRuntime.outcomeLawWith .instruments x ρ f {true} + κsim t
+        E.coherent.toRuntime.evalDistMap .instruments x ρ f {true} + κsim t
 
 variable {Ω : Type*} {p : StdSimplex ℝ Ω} {Ref : Ω → QuantumRuntime (cohSpec (oIn k X Y))}
   {E : VCOracle k X Y}
@@ -227,30 +227,30 @@ theorem Simulates.mono {κ κ' : ℕ → ℝ≥0∞} (h : Simulates.{v, w} p Ref
     (h t x f ρ hx).2.trans (add_le_add le_rfl (hκ t))⟩
 
 /-- **P1 against a uniformly sampled reference model**, such as the random-oracle model: the
-mixture is `Quantum.sampledLawWith`. -/
+mixture is `Quantum.sampledEvalDistMap`. -/
 theorem simulates_uniformWeights_iff {Ω : Type} [SampleableType Ω]
     {Ref : Ω → QuantumRuntime (cohSpec (oIn k X Y))} {κ : ℕ → ℝ≥0∞} :
     Simulates.{v, w} (uniformWeights Ω) Ref E κ ↔
       ∀ (t : ℕ) {A : QReg} {W : QReg → Type w}
         (x : QuantumComp LocalSig.instruments.{v} (cohSpec (oIn k X Y)) W A)
         (f : (Σ u, W u) → Bool) (ρ : SubState A), x.IsQueryBound (fun _ ↦ t) →
-        E.coherent.toRuntime.outcomeLawWith .instruments x ρ f {true} ≤
-            sampledLawWith Ref .instruments x ρ (fun _ ↦ f) {true} + κ t ∧
-          sampledLawWith Ref .instruments x ρ (fun _ ↦ f) {true} ≤
-            E.coherent.toRuntime.outcomeLawWith .instruments x ρ f {true} + κ t := by
+        E.coherent.toRuntime.evalDistMap .instruments x ρ f {true} ≤
+            sampledEvalDistMap Ref .instruments x ρ (fun _ ↦ f) {true} + κ t ∧
+          sampledEvalDistMap Ref .instruments x ρ (fun _ ↦ f) {true} ≤
+            E.coherent.toRuntime.evalDistMap .instruments x ρ f {true} + κ t := by
   simp only [Simulates, mixedLawWith_uniformWeights]
 
-/-- **P1 from its uniform form**: bounds against `Quantum.sampledLawWith` give P1 against the
+/-- **P1 from its uniform form**: bounds against `Quantum.sampledEvalDistMap` give P1 against the
 uniform distribution. -/
 theorem Simulates.ofUniform {Ω : Type} [SampleableType Ω]
     {Ref : Ω → QuantumRuntime (cohSpec (oIn k X Y))} {κ : ℕ → ℝ≥0∞}
     (h : ∀ (t : ℕ) {A : QReg} {W : QReg → Type w}
       (x : QuantumComp LocalSig.instruments.{v} (cohSpec (oIn k X Y)) W A)
       (f : (Σ u, W u) → Bool) (ρ : SubState A), x.IsQueryBound (fun _ ↦ t) →
-      E.coherent.toRuntime.outcomeLawWith .instruments x ρ f {true} ≤
-          sampledLawWith Ref .instruments x ρ (fun _ ↦ f) {true} + κ t ∧
-        sampledLawWith Ref .instruments x ρ (fun _ ↦ f) {true} ≤
-          E.coherent.toRuntime.outcomeLawWith .instruments x ρ f {true} + κ t) :
+      E.coherent.toRuntime.evalDistMap .instruments x ρ f {true} ≤
+          sampledEvalDistMap Ref .instruments x ρ (fun _ ↦ f) {true} + κ t ∧
+        sampledEvalDistMap Ref .instruments x ρ (fun _ ↦ f) {true} ≤
+          E.coherent.toRuntime.evalDistMap .instruments x ρ f {true} + κ t) :
     Simulates.{v, w} (uniformWeights Ω) Ref E κ :=
   simulates_uniformWeights_iff.mpr h
 
@@ -261,11 +261,11 @@ theorem Simulates.of_classicalPorts {F : Ω → VCOracle k X Y} {κ : ℕ → �
     (h : Simulates.{v, w} p (fun ω ↦ (F ω).coherent.toRuntime) E κ) {A : QReg} {W : QReg → Type w}
     (x : QuantumComp LocalSig.instruments.{v} (uSpec (Fin k) (oIn k X Y)) W A)
     (f : (Σ u, W u) → Bool) (ρ : SubState A) {b : Fin k → ℕ} (hx : x.IsQueryBound b) :
-    E.toRuntime.outcomeLawWith .instruments x ρ f {true} ≤
+    E.toRuntime.evalDistMap .instruments x ρ f {true} ≤
         mixedLawWith p (fun ω ↦ (F ω).toRuntime) .instruments x ρ (fun _ ↦ f) {true} +
           κ (∑ i, b i) ∧
       mixedLawWith p (fun ω ↦ (F ω).toRuntime) .instruments x ρ (fun _ ↦ f) {true} ≤
-        E.toRuntime.outcomeLawWith .instruments x ρ f {true} + κ (∑ i, b i) := by
+        E.toRuntime.evalDistMap .instruments x ρ f {true} + κ (∑ i, b i) := by
   have h' := h (∑ i, b i) x.toCoherent f ρ (QuantumComp.isQueryBound_toCoherent hx)
   simp only [mixedLawWith, EmulatedOracle.outcomeLawWith_toCoherent] at h'
   simpa only [mixedLawWith] using h'
@@ -653,7 +653,7 @@ def ExtractionCorrect (κ : ℕ → ℝ≥0∞ → ℝ≥0∞ → ℕ → ℝ≥
       (ρ.matrix ⊗ₖ E.init.matrix) (.inl i) ≤ wVC →
     (E.withExtract ME code).totalMass .instruments x (ρ.matrix ⊗ₖ E.init.matrix) (.inr ()) ≤
       wME →
-    (E.withExtract ME code).coherent.toRuntime.outcomeLawWith .instruments
+    (E.withExtract ME code).coherent.toRuntime.evalDistMap .instruments
       (experiment x fun u y ↦ extractChallenger VC code hk n (claim u y) u) ρ Sigma.snd
         {true} ≤ κ t wVC wME n
 
@@ -671,7 +671,7 @@ def OfflineExtractable [DecidableEq Msg] [∀ i, DecidableEq (Pf i)]
       (ρ.matrix ⊗ₖ E.init.matrix) (.inl i) ≤ wVC →
     (E.withExtract ME code).totalMass .instruments x (ρ.matrix ⊗ₖ E.init.matrix) (.inr ()) ≤
       wME →
-    (E.withExtract ME code).coherent.toRuntime.outcomeLawWith .instruments
+    (E.withExtract ME code).coherent.toRuntime.evalDistMap .instruments
       (experiment x fun u y ↦ offlineChallenger VC code hk qs (claim u y) u) ρ Sigma.snd
         {true} ≤ κ t wVC wME qs
 
@@ -706,7 +706,7 @@ theorem ExtractionCorrect.of_classicalPorts {κ : ℕ → ℝ≥0∞ → ℝ≥0
       (ρ.matrix ⊗ₖ E.init.matrix) (.inl i) ≤ wVC)
     (h₂ : (E.withExtract ME code).toRuntime.queryMass .instruments x
       (ρ.matrix ⊗ₖ E.init.matrix) (.inr ()) ≤ wME) :
-    (E.withExtract ME code).coherent.toRuntime.outcomeLawWith .instruments
+    (E.withExtract ME code).coherent.toRuntime.evalDistMap .instruments
       (experiment x.toCoherent fun u y ↦ extractChallenger VC code hk n (claim u y) u) ρ
         Sigma.snd {true} ≤ κ (∑ i, b i) wVC wME n := by
   refine h hk _ n wVC wME x.toCoherent claim ρ hn (QuantumComp.isQueryBound_toCoherent hx)
@@ -726,7 +726,7 @@ theorem OfflineExtractable.of_classicalPorts [DecidableEq Msg] [∀ i, Decidable
       (ρ.matrix ⊗ₖ E.init.matrix) (.inl i) ≤ wVC)
     (h₂ : (E.withExtract ME code).toRuntime.queryMass .instruments x
       (ρ.matrix ⊗ₖ E.init.matrix) (.inr ()) ≤ wME) :
-    (E.withExtract ME code).coherent.toRuntime.outcomeLawWith .instruments
+    (E.withExtract ME code).coherent.toRuntime.evalDistMap .instruments
       (experiment x.toCoherent fun u y ↦ offlineChallenger VC code hk qs (claim u y) u) ρ
         Sigma.snd {true} ≤ κ (∑ i, b i) wVC wME qs := by
   refine h hk _ qs wVC wME x.toCoherent claim ρ (QuantumComp.isQueryBound_toCoherent hx) ?_ ?_
@@ -765,13 +765,13 @@ def OnlineIndistinguishable (κ : ℕ → ℝ≥0∞ → ℝ≥0∞ → ℝ≥0�
       (ρ.matrix ⊗ₖ (E.withRecord ME code bot U hU).init.matrix) (.inl (.inr ())) ≤ wME →
     (E.withRecord ME code bot U hU).totalMass .instruments x
       (ρ.matrix ⊗ₖ (E.withRecord ME code bot U hU).init.matrix) (.inr ()) ≤ wRec →
-    (E.withRecord ME code bot U hU).coherent.toRuntime.outcomeLawWith .instruments x ρ f
+    (E.withRecord ME code bot U hU).coherent.toRuntime.evalDistMap .instruments x ρ f
         {true} ^ (2⁻¹ : ℝ) ≤
-      (E.withRecordME ME code bot U hU).coherent.toRuntime.outcomeLawWith .instruments x ρ f
+      (E.withRecordME ME code bot U hU).coherent.toRuntime.evalDistMap .instruments x ρ f
         {true} ^ (2⁻¹ : ℝ) + κ t wVC wME wRec ^ (2⁻¹ : ℝ) ∧
-    (E.withRecordME ME code bot U hU).coherent.toRuntime.outcomeLawWith .instruments x ρ f
+    (E.withRecordME ME code bot U hU).coherent.toRuntime.evalDistMap .instruments x ρ f
         {true} ^ (2⁻¹ : ℝ) ≤
-      (E.withRecord ME code bot U hU).coherent.toRuntime.outcomeLawWith .instruments x ρ f
+      (E.withRecord ME code bot U hU).coherent.toRuntime.evalDistMap .instruments x ρ f
         {true} ^ (2⁻¹ : ℝ) + κ t wVC wME wRec ^ (2⁻¹ : ℝ)
 
 variable {E ME code}
@@ -802,13 +802,13 @@ theorem OnlineIndistinguishable.of_classicalPorts {κ : ℕ → ℝ≥0∞ → �
       (ρ.matrix ⊗ₖ (E.withRecord ME code bot U hU).init.matrix) (.inl (.inr ())) ≤ wME)
     (h₃ : (E.withRecord ME code bot U hU).toRuntime.queryMass .instruments x
       (ρ.matrix ⊗ₖ (E.withRecord ME code bot U hU).init.matrix) (.inr ()) ≤ wRec) :
-    (E.withRecord ME code bot U hU).toRuntime.outcomeLawWith .instruments x ρ f
+    (E.withRecord ME code bot U hU).toRuntime.evalDistMap .instruments x ρ f
         {true} ^ (2⁻¹ : ℝ) ≤
-      (E.withRecordME ME code bot U hU).toRuntime.outcomeLawWith .instruments x ρ f
+      (E.withRecordME ME code bot U hU).toRuntime.evalDistMap .instruments x ρ f
         {true} ^ (2⁻¹ : ℝ) + κ (∑ i, b i) wVC wME wRec ^ (2⁻¹ : ℝ) ∧
-    (E.withRecordME ME code bot U hU).toRuntime.outcomeLawWith .instruments x ρ f
+    (E.withRecordME ME code bot U hU).toRuntime.evalDistMap .instruments x ρ f
         {true} ^ (2⁻¹ : ℝ) ≤
-      (E.withRecord ME code bot U hU).toRuntime.outcomeLawWith .instruments x ρ f
+      (E.withRecord ME code bot U hU).toRuntime.evalDistMap .instruments x ρ f
         {true} ^ (2⁻¹ : ℝ) + κ (∑ i, b i) wVC wME wRec ^ (2⁻¹ : ℝ) := by
   have h' := h Yr Cell bot U hU (∑ i, b i) wVC wME wRec x.toCoherent f ρ
     (QuantumComp.isQueryBound_toCoherent hx)

@@ -28,7 +28,7 @@ signature `Quantum.qromSpec X Y` of a random oracle:
 The main theorem, `Quantum.outcomeLawWith_compressedRuntime` (Lemma 4.4 of ePrint 2025/2166,
 Lemma 4 of Zhandry), says that every program, observed
 through any function of its leaf, has the same law against the compressed runtime as in the
-quantum random-oracle model (`Quantum.qromLawWith`). It holds for general programs
+quantum random-oracle model (`Quantum.qromEvalDistMap`). It holds for general programs
 (`Quantum.QuantumComp`): adaptive, with their own local operations and registers, whose final
 register may depend on the outcome, and with any number of calls on each path. The fixed-register
 forms (`Quantum.outcomeLaw₂_compressedRuntime`, `Quantum.outcomeLaw₂_map_compressedRuntime`) and
@@ -45,9 +45,9 @@ The proof passes through the purified runtime.
    same weight against the two runtimes (`Quantum.trace_jointPost_compressedRuntime`).
 2. The purified oracle is block diagonal in the function register, acting on the block of `H`
    as the oracle unitary of `H`. Reading the function register at `H`, the row `⟨H|`, intertwines
-   the purified runtime with `Quantum.xorRuntime H` and sends the uniform superposition to
-   `|Y|^(-|X|)` times the initial state of `Quantum.xorRuntime H`. Summing over `H` recovers the
-   trace, so the weight of each leaf against the purified runtime is the average over `H` of its
+   the purified runtime with `Quantum.additiveOracleRuntime H` and sends the uniform superposition
+   to `|Y|^(-|X|)` times its initial state. Summing over `H` recovers the trace, so the weight of
+   each leaf against the purified runtime is the average over `H` of its
    weights against the oracle unitaries (`Quantum.trace_jointPost_purifiedRuntime`).
 
 ## Main definitions
@@ -130,7 +130,7 @@ omit [DecidableEq Y] in
 theorem matrix_uniformFunctionState [Nonempty Y] :
     (uniformFunctionState X Y).matrix =
       MatrixMap.conj (uniformColumn X Y) (Matrix.single () () 1) := by
-  rw [uniformFunctionState, SubInstrument.matrix_post, SubInstrument.branch_ofIsometry_apply,
+  rw [uniformFunctionState, DSubInstrument.matrix_post, SubInstrument.branch_ofIsometry_apply,
     SubState.matrix_basis]
 
 /-- Tabulating the uniform superposition over functions gives the empty database with every cell
@@ -327,9 +327,9 @@ law, whatever the observation. -/
 theorem outcomeLawWith_compressedRuntime_eq_purifiedRuntime {γ : Type*} [MeasurableSpace γ]
     (I : L.Interp) (x : QuantumComp L (qromSpec X Y) W A) (ρ : SubState A)
     (f : (Σ u, W u) → γ) :
-    (compressedRuntime X Y).outcomeLawWith I x ρ f =
-      (purifiedRuntime X Y).outcomeLawWith I x ρ f := by
-  simp only [QuantumRuntime.outcomeLawWith]
+    (compressedRuntime X Y).evalDistMap I x ρ f =
+      (purifiedRuntime X Y).evalDistMap I x ρ f := by
+  simp only [QuantumRuntime.evalDistMap]
   refine congrArg Measure.sum (funext fun p ↦ ?_)
   rw [trace_jointPost_compressedRuntime]
 
@@ -369,11 +369,11 @@ theorem trace_jointPost_purifiedRuntime (I : L.Interp) (x : QuantumComp L (qromS
     (ρ : SubState A) (p : Σ u, W u) :
     ((purifiedRuntime X Y).jointPost I x ρ p).matrix.trace =
       ∑ H : X → Y, (Fintype.card Y : ℂ)⁻¹ ^ Fintype.card X *
-        ((xorRuntime H).jointPost I x ρ p).matrix.trace := by
+        ((additiveOracleRuntime H).jointPost I x ρ p).matrix.trace := by
   refine (sum_trace_amplifyLeft_conj_evalRow (B := p.1)
     ((purifiedRuntime X Y).jointPost I x ρ p).matrix).symm.trans
     (Finset.sum_congr rfl fun H _ ↦ ?_)
-  have hsim := QuantumRuntime.simulation (R₁ := purifiedRuntime X Y) (R₂ := xorRuntime H)
+  have hsim := QuantumRuntime.simulation (R₁ := purifiedRuntime X Y) (R₂ := additiveOracleRuntime H)
     (V := MatrixMap.conj (evalRow H)) I (fun i r ↦ by
       change (MatrixMap.conj (oracleUnitary H)).amplify Unit ∘ₗ
           (MatrixMap.conj (evalRow H)).amplifyLeft (X × Y) =
@@ -382,7 +382,7 @@ theorem trace_jointPost_purifiedRuntime (I : L.Interp) (x : QuantumComp L (qromS
       rw [MatrixMap.amplify_conj, MatrixMap.amplifyLeft_conj, ← MatrixMap.conj_mul,
         ← MatrixMap.conj_mul, oracleUnitary_kronecker_one_mul_one_kronecker_evalRow]) x p
   have h : ((Fintype.card Y : ℂ)⁻¹ ^ Fintype.card X) •
-      ((xorRuntime H).run I x).branch p (ρ.matrix ⊗ₖ (SubState.basis ()).matrix) =
+      ((additiveOracleRuntime H).run I x).branch p (ρ.matrix ⊗ₖ (SubState.basis ()).matrix) =
       (MatrixMap.conj (evalRow H)).amplifyLeft p.1
         (((purifiedRuntime X Y).run I x).branch p
           (ρ.matrix ⊗ₖ (purifiedRuntime X Y).init.matrix)) := by
@@ -390,7 +390,7 @@ theorem trace_jointPost_purifiedRuntime (I : L.Interp) (x : QuantumComp L (qromS
     rw [LinearMap.comp_apply, LinearMap.comp_apply, MatrixMap.amplifyLeft_kronecker] at h'
     refine Eq.trans ?_ h'
     rw [← map_smul]
-    refine congrArg (((xorRuntime H).run I x).branch p) ?_
+    refine congrArg (((additiveOracleRuntime H).run I x).branch p) ?_
     have hk : ((Fintype.card Y : ℂ)⁻¹ ^ Fintype.card X) •
         (ρ.matrix ⊗ₖ (SubState.basis ()).matrix : Matrix (A × Unit) (A × Unit) ℂ) =
         ρ.matrix ⊗ₖ MatrixMap.conj (evalRow H) (uniformFunctionState X Y).matrix := by
@@ -405,7 +405,7 @@ theorem ofReal_trace_jointPost_purifiedRuntime (I : L.Interp)
     (x : QuantumComp L (qromSpec X Y) W A) (ρ : SubState A) (p : Σ u, W u) :
     ENNReal.ofReal ((purifiedRuntime X Y).jointPost I x ρ p).matrix.trace.re =
       ∑ H : X → Y, ((Fintype.card Y : ℝ≥0∞) ^ Fintype.card X)⁻¹ *
-        ENNReal.ofReal ((xorRuntime H).jointPost I x ρ p).matrix.trace.re := by
+        ENNReal.ofReal ((additiveOracleRuntime H).jointPost I x ρ p).matrix.trace.re := by
   have hc : ((Fintype.card Y : ℂ)⁻¹ ^ Fintype.card X) =
       (((Fintype.card Y : ℝ)⁻¹ ^ Fintype.card X : ℝ) : ℂ) := by
     push_cast
@@ -420,18 +420,16 @@ theorem ofReal_trace_jointPost_purifiedRuntime (I : L.Interp)
     ENNReal.ofReal_pow (inv_nonneg.mpr hN.le), ENNReal.ofReal_inv_of_pos hN,
     ENNReal.ofReal_natCast, ENNReal.inv_pow]
 
-variable [SampleableType (X → Y)]
-
 /-- **The purified runtime realizes the quantum random-oracle model.** Every program, observed
 through any function of its leaf, has the same law against the purified runtime as in the quantum
 random-oracle model. -/
 theorem outcomeLawWith_purifiedRuntime {γ : Type*} [MeasurableSpace γ] (I : L.Interp)
     (x : QuantumComp L (qromSpec X Y) W A) (ρ : SubState A) (f : (Σ u, W u) → γ) :
-    (purifiedRuntime X Y).outcomeLawWith I x ρ f = qromLawWith I x ρ fun _ ↦ f := by
+    (purifiedRuntime X Y).evalDistMap I x ρ f = qromEvalDistMap I x ρ fun _ ↦ f := by
   refine Measure.ext fun s hs ↦ ?_
-  rw [qromLawWith_eq_sum, Measure.smul_apply, Measure.coe_finsetSum, Finset.sum_apply,
-    smul_eq_mul, QuantumRuntime.outcomeLawWith_apply _ _ _ _ _ hs]
-  simp only [QuantumRuntime.outcomeLawWith_apply _ _ _ _ _ hs,
+  rw [qromEvalDistMap_eq_sum, Measure.smul_apply, Measure.coe_finsetSum, Finset.sum_apply,
+    smul_eq_mul, QuantumRuntime.evalDistMap_apply _ _ _ _ _ hs]
+  simp only [QuantumRuntime.evalDistMap_apply _ _ _ _ _ hs,
     ofReal_trace_jointPost_purifiedRuntime, Finset.sum_mul, mul_assoc]
   rw [Summable.tsum_finsetSum fun _ _ ↦ ENNReal.summable, Finset.mul_sum]
   simp only [ENNReal.tsum_mul_left]
@@ -443,7 +441,7 @@ end purifiedQromRuntime
 section main
 
 variable {X Y : Type} [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y] [AddCommGroup Y]
-  [SampleableType (X → Y)] {L : LocalSig.{u, v}} {W : QReg → Type w} {A B : QReg}
+  {L : LocalSig.{u, v}} {W : QReg → Type w} {A B : QReg}
   {α β : Type w}
 
 /-- **The compressed oracle is perfectly indistinguishable from a random function.** Every
@@ -453,30 +451,30 @@ Programs are general: adaptive, with their own local operations and registers, w
 register that may depend on the outcome, and with any number of calls on each path. -/
 theorem outcomeLawWith_compressedRuntime {γ : Type*} [MeasurableSpace γ] (I : L.Interp)
     (x : QuantumComp L (qromSpec X Y) W A) (ρ : SubState A) (f : (Σ u, W u) → γ) :
-    (compressedRuntime X Y).outcomeLawWith I x ρ f = qromLawWith I x ρ fun _ ↦ f := by
+    (compressedRuntime X Y).evalDistMap I x ρ f = qromEvalDistMap I x ρ fun _ ↦ f := by
   rw [outcomeLawWith_compressedRuntime_eq_purifiedRuntime, outcomeLawWith_purifiedRuntime]
 
 /-- The law of the leaf against the compressed runtime is the law of the quantum random-oracle
 model. -/
 theorem outcomeLaw_compressedRuntime [MeasurableSpace (Σ u, W u)] (I : L.Interp)
     (x : QuantumComp L (qromSpec X Y) W A) (ρ : SubState A) :
-    (compressedRuntime X Y).outcomeLaw I x ρ = qromLaw I x ρ := by
-  rw [← QuantumRuntime.outcomeLawWith_id, outcomeLawWith_compressedRuntime, qromLawWith_id]
+    (compressedRuntime X Y).evalDist I x ρ = qromEvalDist I x ρ := by
+  rw [← QuantumRuntime.evalDistMap_id, outcomeLawWith_compressedRuntime, qromEvalDistMap_id]
 
 /-- The law of the value of a fixed-register program against the compressed runtime is its law
 in the quantum random-oracle model. -/
 theorem outcomeLaw₂_compressedRuntime [MeasurableSpace α] (I : L.Interp)
     (x : QuantumComp₂ L (qromSpec X Y) A B α) (ρ : SubState A) :
-    (compressedRuntime X Y).outcomeLaw₂ I x ρ = qromLaw₂ I x ρ := by
-  rw [QuantumRuntime.outcomeLaw₂_eq_outcomeLawWith, qromLaw₂_eq_qromLawWith]
+    (compressedRuntime X Y).evalDist₂ I x ρ = qromEvalDist₂ I x ρ := by
+  rw [QuantumRuntime.evalDist₂_eq_evalDistMap, qromEvalDist₂_eq_qromEvalDistMap]
   exact outcomeLawWith_compressedRuntime (W := QuantumComp₂.Leaf B α) I x ρ _
 
 /-- The law of a relabelled value of a fixed-register program against the compressed runtime is
 its relabelled law in the quantum random-oracle model. -/
 theorem outcomeLaw₂_map_compressedRuntime [MeasurableSpace β] (I : L.Interp) (g : α → β)
     (x : QuantumComp₂ L (qromSpec X Y) A B α) (ρ : SubState A) :
-    (compressedRuntime X Y).outcomeLaw₂ I (x.map g) ρ = qromLawWith₂ I x ρ fun _ ↦ g := by
-  rw [QuantumRuntime.outcomeLaw₂_map_eq_outcomeLawWith, qromLawWith₂_eq_qromLawWith]
+    (compressedRuntime X Y).evalDist₂ I (x.map g) ρ = qromEvalDistMap₂ I x ρ fun _ ↦ g := by
+  rw [QuantumRuntime.evalDist₂_map_eq_evalDistMap, qromEvalDistMap₂_eq_qromEvalDistMap]
   exact outcomeLawWith_compressedRuntime (W := QuantumComp₂.Leaf B α) I x ρ _
 
 /-- **Combs.** A comb on `M` whose queries go through `ℓ` and `ℓ'`, framed by the database
@@ -488,8 +486,8 @@ theorem outcomeMeasure_run_frame_compressedRuntime {M : Type} [Fintype M] [Decid
     ((c.frame (compressedRuntime X Y).D (compressedRuntime X Y).init).run
         ((compressedRuntime X Y).combQuery () E ℓ ℓ')).outcomeMeasure
         (c.frame (compressedRuntime X Y).D (compressedRuntime X Y).init).init =
-      qromLaw₂ .instruments (c.toComp () E ℓ ℓ') c.init := by
-  rw [← QuantumComb.outcomeLaw_toComp, outcomeLaw₂_compressedRuntime]
+      qromEvalDist₂ .instruments (c.toComp () E ℓ ℓ') c.init := by
+  rw [← QuantumComb.evalDist_toComp, outcomeLaw₂_compressedRuntime]
 
 end main
 
