@@ -321,6 +321,17 @@ theorem Clash.mono {c c' : spec.QueryCache} (h : ∀ q, (c q).isSome → (c' q).
   obtain ⟨q, q', hne, hq, hq', he⟩ := hc
   exact ⟨q, q', hne, h q hq, h q' hq', he⟩
 
+/-- A clash has a cached point that `route` does not read back from its encoding, and another
+cached point with the same encoding: `route` reads back at most one point of an encoding. -/
+theorem Clash.exists_route_ne {c : spec.QueryCache} (hc : E.Clash c) :
+    ∃ q q', q ≠ q' ∧ (c q).isSome ∧ (c q').isSome ∧ E.encode q = E.encode q' ∧
+      E.route (E.encode q) ≠ some q := by
+  obtain ⟨q, q', hne, hq, hq', he⟩ := hc
+  by_cases hfix : E.route (E.encode q) = some q
+  · refine ⟨q', q, hne.symm, hq', hq, he.symm, fun hfix' => hne ?_⟩
+    exact Option.some.inj (hfix.symm.trans ((congrArg E.route he).trans hfix'))
+  · exact ⟨q, q', hne, hq, hq', he, hfix⟩
+
 /-- The single view at an input no cached typed point encodes is the table entry. -/
 theorem singleView_apply_of_not_covered {c : spec.QueryCache} {pv : (D →ₒ M).QueryCache} {x : D}
     (h : ¬E.Covered c x) : E.singleView c pv x = pv x := by

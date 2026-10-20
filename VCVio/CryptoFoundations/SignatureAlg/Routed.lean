@@ -401,6 +401,38 @@ theorem UnforgeableAdversary.RomQueryBound.route
       exact (isQueryBoundP_false _ 0).of_imp fun t h => by simp [IsSignQuery] at h
     · exact (ht trivial).elim
 
+/-- **The typed queries of the routed adversary, by raw query.** If every run of the router at the
+public key `pk` on a raw query satisfying `Raw pk` queries the typed oracles only at points satisfying
+`P pk`, and the adversary on the common interface queries the typed oracles only at such points
+and the raw oracles only at raw queries satisfying `Raw pk`, then the adversary that holds the
+router queries the typed oracles only at points satisfying `P pk`. -/
+theorem UnforgeableAdversary.allQueriesSatisfy_route_of_raw
+    {sigAlg' : SignatureAlg (OracleComp (unifSpec + (hs + ext))) M PK SK' S}
+    {sigAlg : SignatureAlg (OracleComp (unifSpec + hs)) M PK SK S}
+    {R : PK → QueryImpl ext (StateT σ (OracleComp (unifSpec + hs)))} {P : PK → ι → Prop}
+    {Raw : PK → ιe → Prop}
+    (hR : ∀ pk x, Raw pk x → ∀ s,
+      AllQueriesSatisfy ((R pk x).run s) (Sum.elim (fun _ => True) (P pk)))
+    {adv : UnforgeableAdversary sigAlg'}
+    (hadv : ∀ pk, AllQueriesSatisfy (adv.main pk)
+      (Sum.elim (Sum.elim (fun _ => True) (Sum.elim (P pk) (Raw pk))) fun _ => True))
+    (s₀ : σ) (pk : PK) :
+    AllQueriesSatisfy ((adv.route (sigAlg := sigAlg) R s₀).main pk)
+      (Sum.elim (Sum.elim (fun _ => True) (P pk)) fun _ => True) := by
+  refine (allQueriesSatisfy_def _ _).2 ((isQueryBound_map_iff _ _ _ _ _).2
+    ((allQueriesSatisfy_def _ _).1 ((hadv pk).simulateQ_run ?_ s₀)))
+  rintro ((n | t | x) | m) ht s
+  · simp only [programRouterImpl, StateT.run_monadLift]
+    exact allQueriesSatisfy_bind ((allQueriesSatisfy_query_iff _ _).2 trivial) fun _ =>
+      allQueriesSatisfy_pure _ _
+  · simp only [programRouterImpl, StateT.run_monadLift]
+    exact allQueriesSatisfy_bind ((allQueriesSatisfy_query_iff _ _).2 ht) fun _ =>
+      allQueriesSatisfy_pure _ _
+  · exact (hR pk x ht s).simulateQ fun t ht => (allQueriesSatisfy_query_iff _ _).2 ht
+  · simp only [programRouterImpl, StateT.run_monadLift]
+    exact allQueriesSatisfy_bind ((allQueriesSatisfy_query_iff _ _).2 trivial) fun _ =>
+      allQueriesSatisfy_pure _ _
+
 /-- **The typed queries of the routed adversary.** If every run of the router at the public key
 `pk` queries the typed oracles only at points satisfying `P pk`, and the adversary on the common
 interface queries them only at such points, then so does the adversary that holds the router. -/
@@ -414,20 +446,8 @@ theorem UnforgeableAdversary.allQueriesSatisfy_route
       (Sum.elim (Sum.elim (fun _ => True) (Sum.elim (P pk) fun _ => True)) fun _ => True))
     (s₀ : σ) (pk : PK) :
     AllQueriesSatisfy ((adv.route (sigAlg := sigAlg) R s₀).main pk)
-      (Sum.elim (Sum.elim (fun _ => True) (P pk)) fun _ => True) := by
-  refine (allQueriesSatisfy_def _ _).2 ((isQueryBound_map_iff _ _ _ _ _).2
-    ((allQueriesSatisfy_def _ _).1 ((hadv pk).simulateQ_run ?_ s₀)))
-  rintro ((n | t | x) | m) ht s
-  · simp only [programRouterImpl, StateT.run_monadLift]
-    exact allQueriesSatisfy_bind ((allQueriesSatisfy_query_iff _ _).2 trivial) fun _ =>
-      allQueriesSatisfy_pure _ _
-  · simp only [programRouterImpl, StateT.run_monadLift]
-    exact allQueriesSatisfy_bind ((allQueriesSatisfy_query_iff _ _).2 ht) fun _ =>
-      allQueriesSatisfy_pure _ _
-  · exact (hR pk x s).simulateQ fun t ht => (allQueriesSatisfy_query_iff _ _).2 ht
-  · simp only [programRouterImpl, StateT.run_monadLift]
-    exact allQueriesSatisfy_bind ((allQueriesSatisfy_query_iff _ _).2 trivial) fun _ =>
-      allQueriesSatisfy_pure _ _
+      (Sum.elim (Sum.elim (fun _ => True) (P pk)) fun _ => True) :=
+  allQueriesSatisfy_route_of_raw (Raw := fun _ _ => True) (fun pk x _ => hR pk x) hadv s₀ pk
 
 end SignatureAlg
 
@@ -481,21 +501,30 @@ theorem isQueryBoundP_run_tableRouter_of_route_eq_none {x : D} (hx : E.route x =
   simp only [tableRouter, StateT.run_mk, hx]
   exact isQueryBoundP_bind_zero _ _ (isQueryBoundP_liftM_isRight _) fun _ => trivial
 
-/-- The router holding its table queries the typed oracles only at a point the router reads
-back from its own encoding. -/
-theorem allQueriesSatisfy_run_tableRouter (x : D) (pv : (D →ₒ M).QueryCache) :
+/-- The router holding its table queries the typed oracles only at the point it reads its raw
+input as. -/
+theorem allQueriesSatisfy_run_tableRouter_route (x : D) (pv : (D →ₒ M).QueryCache) :
     AllQueriesSatisfy ((E.tableRouter x).run pv)
-      (Sum.elim (fun _ => True) fun t => E.route (E.encode t) = some t) := by
+      (Sum.elim (fun _ => True) fun t => E.route x = some t) := by
   simp only [tableRouter, StateT.run_mk]
   refine allQueriesSatisfy_bind ?_ fun z => ?_
   · exact allQueriesSatisfy_liftM_sum_elim _ _
   · cases h : E.route x with
     | none => exact allQueriesSatisfy_pure _ _
     | some q =>
-      refine (allQueriesSatisfy_def _ _).2 ((isQueryBound_map_iff _ _ _ _ _).2
-        ((allQueriesSatisfy_def _ _).1 ((allQueriesSatisfy_query_iff _ _).2 ?_)))
-      change E.route (E.encode q) = some q
-      rw [E.encode_eq_of_route_eq_some h, h]
+      exact (allQueriesSatisfy_def _ _).2 ((isQueryBound_map_iff _ _ _ _ _).2
+        ((allQueriesSatisfy_def _ _).1 ((allQueriesSatisfy_query_iff _ _).2 rfl)))
+
+/-- The router holding its table queries the typed oracles only at a point the router reads
+back from its own encoding. -/
+theorem allQueriesSatisfy_run_tableRouter (x : D) (pv : (D →ₒ M).QueryCache) :
+    AllQueriesSatisfy ((E.tableRouter x).run pv)
+      (Sum.elim (fun _ => True) fun t => E.route (E.encode t) = some t) := by
+  refine (allQueriesSatisfy_run_tableRouter_route x pv).mono ?_
+  rintro (n | t) ht
+  · trivial
+  · change E.route (E.encode t) = some t
+    rw [E.encode_eq_of_route_eq_some ht, ht]
 
 variable [DecidableEq ι]
 
