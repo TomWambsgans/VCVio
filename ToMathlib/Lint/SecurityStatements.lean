@@ -12,8 +12,8 @@ public meta import Lean.Meta.InferType
 # Security-statement hygiene
 
 Two environment linters over the security libraries, the modules under `VCVio.CryptoFoundations`,
-`VCVio.Schemes`, `LatticeCrypto`, `HashSig` and `Examples`, each reporting a syntactic shape that
-can make a security theorem uninformative:
+`LatticeCrypto`, `HashSig` and `Examples`, each reporting a syntactic shape that can make a
+security theorem uninformative:
 
 * `existentialReduction`: a theorem whose conclusion existentially quantifies a reduction,
   simulator, extractor or distinguisher, that is, a function (possibly of no arguments) into an
@@ -52,13 +52,9 @@ register_option linter.securityStatements.everywhere : Bool := {
 
 namespace ToMathlib.Lint
 
-/-- The module roots whose theorems are security statements, including named schemes. -/
+/-- The module roots whose theorems are security statements. -/
 private def securityRoots : Array Name :=
-  #[`VCVio.CryptoFoundations, `VCVio.Schemes, `LatticeCrypto, `HashSig, `Examples]
-
-/-- Whether a defining module is under a default security-statement linter root. -/
-def isSecurityModule (moduleName : Name) : Bool :=
-  securityRoots.any (·.isPrefixOf moduleName)
+  #[`VCVio.CryptoFoundations, `LatticeCrypto, `HashSig, `Examples]
 
 /-- Whether a declaration is linted: it is in a module under a security root, or the option
 `linter.securityStatements.everywhere` is set. -/
@@ -67,7 +63,7 @@ private def inScope (declName : Name) : MetaM Bool := do
   let env ← getEnv
   let some idx := env.getModuleIdxFor? declName | return false
   let module := env.header.moduleNames[idx.toNat]!
-  return isSecurityModule module
+  return securityRoots.any (·.isPrefixOf module)
 
 /-- Whether a type is that of a computation: an application of `OracleComp` or `ProbComp`, or of
 `OptionT`, `ExceptT` or `StateT` to one. -/

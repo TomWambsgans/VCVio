@@ -39,10 +39,10 @@ analogue.
 
 For an end-to-end EUF-CMA reduction worked through the framework (Σ-protocol →
 Fiat-Shamir transform → managed-RO NMA → replay forking → DLog), see
-[`VCVio/Schemes/Schnorr/Signature.lean`](../../VCVio/Schemes/Schnorr/Signature.lean) and the
+[`Examples/Schnorr/Signature.lean`](../../Examples/Schnorr/Signature.lean) and the
 [Schnorr signature walkthrough](end-to-end-examples.md#schnorr-signature-euf-cma).
 The Schnorr-specific σ-protocol facts that feed in live in
-[`VCVio/Schemes/Schnorr/SigmaProtocol.lean`](../../VCVio/Schemes/Schnorr/SigmaProtocol.lean).
+[`Examples/Schnorr/SigmaProtocol.lean`](../../Examples/Schnorr/SigmaProtocol.lean).
 
 ### Commitment schemes (`CommitmentScheme`)
 
@@ -379,8 +379,7 @@ placeholders `GPVHashAndSign.reduction` and `FiatShamirWithAbort.cmaToNmaAdv`, e
 `scripts/axiom_baseline.json` until it is constructed.
 
 Two environment linters in `ToMathlib/Lint/SecurityStatements.lean` guard the statements of
-the security libraries by defining-module prefix (`VCVio.CryptoFoundations`, `VCVio.Schemes`,
-`LatticeCrypto`, `HashSig`, `Examples`):
+the security libraries (`VCVio.CryptoFoundations`, `LatticeCrypto`, `HashSig`, `Examples`):
 `existentialReduction` reports a theorem whose conclusion existentially quantifies a function
 into an oracle computation, and `unconstrainedRealParameter` reports a theorem with a parameter
 in `ℝ` that reaches the conclusion through `ENNReal.ofReal` or `Real.toNNReal` and is bounded by
