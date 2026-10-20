@@ -91,6 +91,7 @@ public import VCVioTest.Quantum.InstabilityBound
 public import VCVioTest.Quantum.Kraus
 public import VCVioTest.Quantum.Oracle
 public import VCVioTest.Quantum.Pure
+public import VCVioTest.Quantum.Subsystem
 public import VCVioTest.QueryBounds
 public import VCVioTest.QueryCacheInstability
 public import VCVioTest.QueryHom
