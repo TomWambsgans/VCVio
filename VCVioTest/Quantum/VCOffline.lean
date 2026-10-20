@@ -5,6 +5,7 @@ Authors: Quang Dao
 -/
 
 module
+public import VCVio.Quantum.VC.Merkle.Offline
 
 public import VCVio.Quantum.VC.Proof.GoodEvent
 
@@ -437,4 +438,77 @@ theorem ordinary_bad_weight_pos :
 
 end FinitePrefix
 
+end VCVioTest.QuantumVCOffline
+
+namespace VCVioTest.QuantumVCOffline
+
+open Quantum Matrix OracleComp
+open scoped Kronecker
+
+section CheckedChallenger
+
+variable {k : ℕ} {X Y Msg Cm Z : Type} [Fintype X] [DecidableEq X] [Fintype Y]
+  [DecidableEq Y] [AddCommGroup Y] [Fintype Cm] [DecidableEq Cm]
+  [Fintype Z] [DecidableEq Z] [AddGroup Z] {ℓ : Fin k → ℕ} {Td Pf : Fin k → Type}
+  [DecidableEq Msg] [∀ i, DecidableEq (Pf i)]
+  (VC : ∀ i, VectorCommitment X Y Msg Cm (Td i) (Pf i) (ℓ i))
+  (ME : MultiExtractor k Cm (DmOf ℓ Msg Td) (Fin k → Database X Y))
+  (code : TpDCode k (DmOf ℓ Msg Td) Z) (hk : 1 ≤ k) (qs : ℕ)
+  (c : OpeningClaim k Cm Msg ℓ Pf) (B : QReg)
+
+open scoped Classical in
+/-- Fresh extraction through an arbitrary code measures its actual extraction fibre. -/
+example (tdm : TpDLen k (DmOf ℓ Msg Td) (TupleLen.full hk)) :
+    (((compressedVCOracle k X Y).withExtract ME code).coherent.toRuntime.run₂ .instruments
+      (extractQuery code B (TpIC.full hk c.idx c.cm))).branch (some tdm) =
+      MatrixMap.conj ((1 : Matrix B B ℂ) ⊗ₖ extractProj ME (TpIC.full hk c.idx c.cm) tdm) := by
+  classical
+  exact run₂_extractQuery_branch (compressedVCOracle k X Y) ME code B
+    (TpIC.full hk c.idx c.cm) tdm
+
+open scoped Classical in
+/-- Rejecting the first checked batch annihilates the retained mismatch branch. -/
+example (tdm : TpDLen k (DmOf ℓ Msg Td) (TupleLen.full hk)) :
+    (((compressedVCOracle k X Y).mixedExtractRuntime ME code).run₂ .instruments
+      (offlineInstrument VC code hk qs c B)).branch ((false, some tdm, true), true) = 0 := by
+  apply run₂_offlineInstrument_reject
+  simp
+
+open scoped Classical in
+/-- Exceeding the opening budget annihilates the actual challenger's event. -/
+example (ρ : SubState (B × (Fin k → Database X Y)))
+    (hq : ¬ ∑ i, (c.ans i).dom.card ≤ qs) :
+    (((compressedVCOracle k X Y).mixedExtractRuntime ME code).run₂ .instruments
+      (offlineChallenger VC code hk qs c B)).outcomeMeasure ρ {true} = 0 :=
+  offlineChallenger_over_budget VC code
+    ((compressedVCOracle k X Y).mixedExtractRuntime ME code) hk qs c B ρ hq
+
+open scoped Classical in
+/-- Every supported randomized opening is retained in the good-database zero identity. -/
+example (io : ∀ i, (VC i).CheckIOForm) (tdBot : ∀ i, Td i)
+    (Pgood : Set (Database X Y)) [DecidablePred (· ∈ Pgood)]
+    (hC : Conditions VC io ME tdBot Pgood)
+    (tdm : TpDLen k (DmOf ℓ Msg Td) (TupleLen.full hk)) :
+    let R := (compressedVCOracle k X Y).mixedExtractRuntime ME code
+    let K := checkPassProjector io c.Wᶜ c.idx c.cm c.ans c.pf *
+      extractProj ME (TpIC.full hk c.idx c.cm) tdm *
+      checkPassProjector io c.W c.idx c.cm c.ans c.pf *
+      diagonal (fun D : Fin k → Database X Y ↦ if ∀ i, D i ∈ Pgood then (1 : ℂ) else 0)
+    (R.run₂ .instruments (offlineFinish VC (Z := Z) hk qs c B
+      (true, some tdm, true))).branch true ∘ₗ
+        MatrixMap.conj ((1 : Matrix B B ℂ) ⊗ₖ K) = 0 := by
+  classical
+  exact run₂_offlineFinish_partial_good_zero io ME tdBot Pgood hC code hk qs c B tdm
+
+open scoped Classical in
+/-- The generic offline endpoint is available through ordinary public imports. -/
+example [OracleSpec.UniformAnswerMeasure (X →ₒ Y)]
+    (io : ∀ i, (VC i).CheckIOForm) (tdBot : ∀ i, Td i)
+    (Pgood : Set (Database X Y)) [DecidablePred (· ∈ Pgood)]
+    (hC : Conditions VC io ME tdBot Pgood) :
+    OfflineExtractable VC (compressedVCOracle k X Y) ME code
+      (fun t wVC _ qs ↦ offlineError io Pgood t wVC qs) :=
+  offlineExtractable_compressedVCOracle io ME tdBot Pgood hC code
+
+end CheckedChallenger
 end VCVioTest.QuantumVCOffline
