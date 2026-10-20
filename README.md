@@ -72,8 +72,12 @@ infrastructure and some tooling and automation remain under active development.
   parameter sets: the three-oracle bound plus `(q_s + 1) / 2^{8n}` and a weak-key term, which over
   the uniform public seed is at most `|A_hon| / 2^256`, about `2^{−172}` or less
   (`shakeAdvantage_le_securityBound_validatedParams`); in hedged signing the second term is
-  `1 / 2^{8n} + q_s (q_h + q_s + 1) / 2^{16n}`, which keeps the three-oracle level
-  (`shakeAdvantage_le_securityBound_hedged_validatedParams`). The SHA-2 parameter sets have no
+  `1 / 2^{8n} + q_s (q_h + q_s + 1) / 2^{16n}`
+  (`shakeAdvantage_pure_le_securityBound_hedged_validatedParams`,
+  `shakeAdvantage_le_securityBound_hedged_validatedParams`), which reaches the three-oracle level
+  per public seed (at `n = 32`, for every seed outside the weak set), while over the uniform
+  public seed at `n = 32` the weak-key term still caps the level at about 236 bits. The SHA-2
+  parameter sets have no
   single-oracle model. An SUF-CMA bound and a complete FIPS conformance result are not proved; see
   `docs/design/slh-dsa-status-and-roadmap.md` and, for the accounting and levels,
   `docs/design/slh-dsa-classical-rom-bound.md`.

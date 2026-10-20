@@ -46,11 +46,12 @@ assembled in `HashSig/SLHDSA/Security/ByteBound.lean`, in both signing modes, fo
 - per public seed of weak-key mass zero, the same without a weak-key term
   (`shakeAdvantage_pure_le_securityBound_of_weakKeyMass_eq_zero`); at `n = 32` these are the
   seeds outside the weak set (`shakeAdvantage_pure_le_securityBound_of_n_eq_32`);
-- in hedged signing (`opt_rand` uniform), each of these with `1 / 2^{8n} + q_s (q_h + q_s + 1) /
-  2^{16n}` in place of `(q_s + 1) / 2^{8n}` (`shakeAdvantage_pure_le_securityBound_hedged`,
-  `shakeAdvantage_le_securityBound_hedged`,
-  `shakeAdvantage_pure_le_securityBound_hedged_of_weakKeyMass_eq_zero`,
-  `shakeAdvantage_pure_le_securityBound_hedged_of_n_eq_32`), which keeps the three-oracle level
+- in hedged signing (`opt_rand` uniform), the per-seed, averaged and `n = 32` forms with
+  `1 / 2^{8n} + q_s (q_h + q_s + 1) / 2^{16n}` in place of `(q_s + 1) / 2^{8n}`
+  (`shakeAdvantage_pure_le_securityBound_hedged`, `shakeAdvantage_le_securityBound_hedged`,
+  `shakeAdvantage_pure_le_securityBound_hedged_of_n_eq_32`). Per public seed of weak-key mass
+  zero (at `n = 32`, every seed outside the weak set) they reach the three-oracle level; over the
+  uniform public seed at `n = 32` the weak-key term still caps the level at about 236 bits
   ([How the bound is accounted](#how-the-bound-is-accounted)).
 
 At the six SHAKE parameter sets every side condition is discharged and the adversary's budget is
@@ -168,9 +169,9 @@ hits one of the at most `q_h + q_s + 1` cached `H_msg` points with probability a
 `(q_h + q_s + 1) / 2^{8n}`, so the joint event costs `q_s · ε · (q_h + q_s + 1) / 2^{8n}`
 (`prEvent_idealDraw_hmsgAtPrfKey_and_randDerivedAt_le`), added outside the potential; the
 `1 / 2^{8n}` for `SK.prf = PK.seed` stays inside it. For a uniform `opt_rand`, `ε = 2^{−8n}` and
-`q_s / 2^{8n}` becomes `q_s (q_h + q_s + 1) / 2^{16n}`, which keeps the three-oracle level
-(`shakeAdvantage_pure_le_securityBound_hedged`). Deterministic signing has `ε = 1` and keeps the
-mode-independent statement.
+`q_s / 2^{8n}` becomes `q_s (q_h + q_s + 1) / 2^{16n}`, which reaches the three-oracle level per
+public seed of weak-key mass zero (`shakeAdvantage_pure_le_securityBound_hedged`). Deterministic
+signing has `ε = 1` and keeps the mode-independent statement.
 
 ### Coverage after the seed hop
 
@@ -217,7 +218,7 @@ mass zero, which at `n = 32` is every seed outside the weak set
 the uniform public seed, and differs from the per-seed column only at `n = 32`. The two "Hedged"
 columns are the same two bounds for hedged signing, with `1 / 2^{8n} + q_s (q_h + q_s + 1) /
 2^{16n}` in place of `(q_s + 1) / 2^{8n}`: the levels of
-`shakeAdvantage_pure_le_securityBound_hedged_of_weakKeyMass_eq_zero` (at `n = 32`,
+`shakeAdvantage_pure_le_securityBound_hedged` at a seed of weak-key mass zero (at `n = 32`,
 `shakeAdvantage_pure_le_securityBound_hedged_of_n_eq_32`) and of
 `shakeAdvantage_le_securityBound_hedged`. They equal the three-oracle levels to two decimals,
 except that the averaged one keeps the weak-key term at `n = 32`. The remaining
@@ -348,8 +349,10 @@ implementation does depend on are:
 - **Signing mode.** The three-oracle bound is the same in both modes. At byte level the bound
   for every signing mode charges `q_s / 2^{8n}` for the signer's strings; hedged signing, with
   `opt_rand` uniform, has the sharper proved bound with `q_s (q_h + q_s + 1) / 2^{16n}` instead,
-  at the three-oracle level (0.38–0.58 bits above the mode-independent bound at
-  `q_h = q_s = 2^64`). An implementation in deterministic mode gets the mode-independent bound.
+  which per public seed (at `n = 32`, outside the weak set) is at the three-oracle level, 0.38–0.58
+  bits above the mode-independent bound at `q_h = q_s = 2^64`; over the uniform public seed at
+  `n = 32` both modes stay at the weak-key cap of about 236 bits. An implementation in
+  deterministic mode gets the mode-independent bound.
 - **Signature count.** The bound is a function of `q_s`; a deployment that signs fewer than `2^64`
   messages per key obtains the corresponding smaller coverage term.
 - **Address encoding.** The key hypothesis `CorePrimitives.KeyDiscipline` bundles injectivity of
