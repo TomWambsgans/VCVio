@@ -6,8 +6,8 @@ Authors: Nicolas Consigny, Alexander Hicks
 
 module
 public import HashSig.SLHDSA.Primitives
-public import HashSig.SLHDSA.Concrete.Sha2
-public import HashSig.SLHDSA.Concrete.Keccak
+public import VCVio.Algorithms.Sha2
+public import VCVio.Algorithms.Keccak
 
 /-!
 # FIPS 205 SHA2 and SHAKE primitive instantiations
@@ -38,8 +38,8 @@ type byte; on the stated FIPS address domain it is definitionally the checked gr
 namespace SLHDSA.Concrete
 
 open SLHDSA
-open Sha2
-open Keccak
+open VCVio.Algorithms.Sha2
+open VCVio.Algorithms.Keccak
 
 /-! ## Fixed-width byte helpers -/
 

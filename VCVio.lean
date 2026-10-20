@@ -1,5 +1,8 @@
 module  -- shake: keep-all --deprecated_module: ignore
 
+public import VCVio.Algorithms.Encoding
+public import VCVio.Algorithms.Keccak
+public import VCVio.Algorithms.Sha2
 public import VCVio.CryptoFoundations.AKE.UAKE.Defs
 public import VCVio.CryptoFoundations.AKE.UAKE.Party
 public import VCVio.CryptoFoundations.AKE.UAKE.Runtime

@@ -66,6 +66,8 @@ See the [repository ownership map](docs/design/repository-layout.md) for placeme
 build boundaries and the staged consolidation.
 
 - `VCVio/`: generic oracle-computation framework, program logic, crypto abstractions, and generic reductions.
+- `VCVio/Algorithms/` contains shared pure SHA-2, HMAC, MGF1, SHA-3 and SHAKE implementations;
+  their independent regressions run with `lake exe algorithm_tests`.
 - `VCVioCslib/`: optional cslib-backed non-uniform P/poly adapters; it is a separate Lake library
   so core `VCVio` remains backend-neutral.
 - `ToMathlib/`: local Mathlib-facing utilities and lemmas intended to remain below the framework layer.
@@ -231,10 +233,10 @@ Security notions, experiments, games, and advantages follow
 - Multiparty local views: `PolyFun/Interaction/Multiparty/Core.lean`
 - Concurrent specs and frontiers: `PolyFun/Interaction/Concurrent/Spec.lean`, `PolyFun/Interaction/Concurrent/Frontier.lean`
 - Concurrent processes and execution: `PolyFun/Interaction/Concurrent/Process.lean`
-- Open systems (interfaces, composition): `PolyFun/Interaction/UC/OpenTheory.lean`
-- Open processes (boundary traffic, UC bridge): `PolyFun/Interaction/UC/OpenProcess.lean` (monad-parametric `OpenProcess m Party Δ` with intrinsic `stepSampler` field and `OpenStep.boundaryTrace`)
-- Concrete open-theory model: `PolyFun/Interaction/UC/OpenProcessModel.lean` (`openTheory Party m schedulerSampler` threads `TypeTree.Sampler` through `map` / `par` / `wire` / `plug`)
-- UC emulation and security: `PolyFun/Interaction/UC/Emulates.lean`
+- Open systems (interfaces, composition): `PolyFun/Interaction/Open/OpenTheory.lean`
+- Open processes (boundary traffic, UC bridge): `PolyFun/Interaction/Open/OpenProcess.lean` (monad-parametric `OpenProcess m Party Δ` with intrinsic `stepSampler` field and `OpenStep.boundaryTrace`)
+- Concrete open-theory model: `PolyFun/Interaction/Open/OpenProcessModel.lean` (`openTheory Party m schedulerSampler` threads `TypeTree.Sampler` through `map` / `par` / `wire` / `plug`)
+- UC emulation and security: `PolyFun/Interaction/Open/Emulates.lean`
 - Computational UC observation layer: `VCVio/Interaction/UC/Computational.lean`
 - Per-node samplers as data (`TypeTree.Sampler m tree` = `Decoration (fun X => m X) tree`): `PolyFun/Interaction/Basic/Sampler.lean`
 - `TypeTree.Fintype` / `TypeTree.Nonempty` ornaments + canonical uniform sampler: `PolyFun/Interaction/Basic/TypeTreeFintype.lean`, `VCVio/Interaction/UC/Runtime.lean`
@@ -433,7 +435,7 @@ with the occurrences of each in the current tree.
 After adding new `.lean` files: `./scripts/update-lib.sh` (CI's `scripts/check-imports.sh`
 fails when a regenerated umbrella would differ from the committed one).
 
-Lean toolchain and Mathlib must stay in sync (both currently `v4.34.0`); the bump procedure
+Lean toolchain and Mathlib must stay in sync (both currently `v4.35.0`); the bump procedure
 is in `CONTRIBUTING.md`. Mathlib's file-length linter is enabled at 1500 lines. Split
 files by responsibility before crossing that limit; retain an import façade when an existing
 module path forms part of the public API.
