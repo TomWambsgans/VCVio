@@ -125,6 +125,13 @@ abbrev hashSpec (core : CorePrimitives p) :
 
 namespace Security
 
+/-- A public-hash program as a program of the whole interface `unifSpec + hashSpec core`, its
+queries issued through the query capability. -/
+noncomputable abbrev liftPub {core : CorePrimitives p} {α : Type}
+    (P : OracleComp (publicHashSpec core) α) : OracleComp (unifSpec + hashSpec core) α :=
+  simulateQ (HasQuery.toQueryImpl (spec := publicHashSpec core)
+    (m := OracleComp (unifSpec + hashSpec core))) P
+
 /-- The transcript of one execution of the unforgeability experiment of an SLH-DSA scheme on
 internal messages: key pair, signing log, forgery and verification verdict. -/
 abbrev RomOutcome (vp : ValidatedParams) (core : CorePrimitives vp.params) : Type :=

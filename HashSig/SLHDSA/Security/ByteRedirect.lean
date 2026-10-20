@@ -231,16 +231,7 @@ theorem isTotalQueryBound_linkedRedirect (t : (publicHashSpec (shakeCore vp)).Do
 
 /-! ## The redirect on the whole interface -/
 
-variable (vp)
-
-/-- A public-hash program as a program of the whole interface `unifSpec + hashSpec`, its queries
-issued through the query capability. -/
-noncomputable abbrev liftPub {α : Type} (P : OracleComp (publicHashSpec (shakeCore vp)) α) :
-    OracleComp (unifSpec + hashSpec (shakeCore vp)) α :=
-  simulateQ (HasQuery.toQueryImpl (spec := publicHashSpec (shakeCore vp))
-    (m := OracleComp (unifSpec + hashSpec (shakeCore vp)))) P
-
-variable (pk)
+variable (vp pk)
 
 /-- **The linked redirect on the whole interface**: `linkedRedirect` on the public hash, the
 identity on uniform draws and on `PRF_msg`. -/
@@ -266,8 +257,8 @@ variable {vp pk}
 program. -/
 theorem simulateQ_linkedHashRedirect_liftPub {α : Type}
     (P : OracleComp (publicHashSpec (shakeCore vp)) α) :
-    simulateQ (linkedHashRedirect vp pk) (liftPub vp P) =
-      liftPub vp (simulateQ (linkedRedirect vp pk) P) := by
+    simulateQ (linkedHashRedirect vp pk) (liftPub P) =
+      liftPub (simulateQ (linkedRedirect vp pk) P) := by
   rw [liftPub, liftPub, ← QueryImpl.simulateQ_compose, ← QueryImpl.simulateQ_compose]
   congr 1
   funext t
@@ -288,7 +279,7 @@ theorem romScheme_verify_eq_liftPub
     (pkSeedDist : ProbComp (shakeCore vp).PkSeed) (msg : List Byte)
     (sig : GeneralScheme.SignatureCore vp (shakeCore vp)) :
     (romScheme (shakeCore vp) (Equiv.refl _) optRand pkSeedDist).verify pk msg sig =
-      liftPub vp (GeneralScheme.verifyInternalM vp (shakeCore vp) msg sig pk) :=
+      liftPub (GeneralScheme.verifyInternalM vp (shakeCore vp) msg sig pk) :=
   (GeneralScheme.verifyInternalM_natural vp (shakeCore vp)
     (HasQuery.QueryHom.ofSimulateQ (spec := publicHashSpec (shakeCore vp))
       (m := OracleComp (unifSpec + hashSpec (shakeCore vp)))) msg sig pk).symm
@@ -303,7 +294,7 @@ theorem simulateQ_encImpl_linkedHashRedirect (t : (unifSpec + hashSpec (shakeCor
   · by_cases h : IsLinked vp pk t
     · rcases t with ⟨s, k, _ | ⟨r, rest⟩⟩ | _
       · exact h.elim
-      · change simulateQ (encImpl vp) (liftPub vp (linkedRedirect vp pk _)) = _
+      · change simulateQ (encImpl vp) (liftPub (linkedRedirect vp pk _)) = _
         rw [linkedRedirect_of_isLinked h]
         simp only [liftPub]
         change prefixBytes vp.params.n <$> (query (spec := shakeSpec vp)
@@ -312,7 +303,7 @@ theorem simulateQ_encImpl_linkedHashRedirect (t : (unifSpec + hashSpec (shakeCor
         rw [encode_linkedHmsg rest h.2.1]
         rfl
       · exact h.elim
-    · change simulateQ (encImpl vp) (liftPub vp (linkedRedirect vp pk t)) = _
+    · change simulateQ (encImpl vp) (liftPub (linkedRedirect vp pk t)) = _
       rw [linkedRedirect_of_not_isLinked h]
       simp only [liftPub, simulateQ_HasQuery_query]
       exact simulateQ_HasQuery_query (encImpl vp) _
@@ -332,7 +323,7 @@ theorem shakeRomScheme_verify_eq
     (pkSeedDist : ProbComp (shakeCore vp).PkSeed) (msg : List Byte)
     (sig : GeneralScheme.SignatureCore vp (shakeCore vp)) :
     (shakeRomScheme vp optRand pkSeedDist).verify pk msg sig =
-      simulateQ (encImpl vp) (liftPub vp (redirectedVerify vp pk msg sig)) := by
+      simulateQ (encImpl vp) (liftPub (redirectedVerify vp pk msg sig)) := by
   rw [redirectedVerify, ← simulateQ_linkedHashRedirect_liftPub,
     simulateQ_encImpl_simulateQ_linkedHashRedirect,
     ← romScheme_verify_eq_liftPub optRand pkSeedDist]
@@ -462,7 +453,7 @@ verification `redirectedVerify` of its forgery at its public key. -/
     (adv : UnforgeableAdversary (shakeRomScheme vp optRand pkSeedDist)) :
     UnforgeableAdversary (romScheme (shakeCore vp) (Equiv.refl _) optRand pkSeedDist) :=
   (linkedRouteAdv vp hn hnm adv).withPost fun pk out =>
-    liftPub vp (redirectedVerify vp pk out.1 out.2)
+    liftPub (redirectedVerify vp pk out.1 out.2)
 
 /-- **Encoding undoes `linkedAdv`.** Encoding the common interface, with the router at any public
 seed, turns `linkedAdv vp adv` back into `adv`. -/

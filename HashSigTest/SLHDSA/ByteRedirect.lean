@@ -231,7 +231,7 @@ example (set : FipsParameterSet)
     (pk : PublicKeyCore (shakeCore set.validatedParams)) (msg : List Byte)
     (sig : GeneralScheme.SignatureCore set.validatedParams (shakeCore set.validatedParams)) :
     (shakeRomScheme _ optRand pkSeedDist).verify pk msg sig =
-      simulateQ (encImpl _) (liftPub _ (redirectedVerify _ pk msg sig)) :=
+      simulateQ (encImpl _) (liftPub (redirectedVerify _ pk msg sig)) :=
   shakeRomScheme_verify_eq optRand pkSeedDist msg sig
 
 /-- Encoding the common interface undoes the forger-side redirect. -/

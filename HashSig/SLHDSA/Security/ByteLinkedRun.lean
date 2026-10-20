@@ -71,7 +71,7 @@ noncomputable def linkedRomScheme :
       (PublicKeyCore (shakeCore vp)) (SecretKeyCore (shakeCore vp))
       (GeneralScheme.SignatureCore vp (shakeCore vp)) :=
   (romScheme (shakeCore vp) (Equiv.refl _) optRand pkSeedDist).withVerify fun pk msg sig =>
-    liftPub vp (redirectedVerify vp pk msg sig)
+    liftPub (redirectedVerify vp pk msg sig)
 
 /-- **The single-SHAKE256 scheme is the linked scheme, encoded.** -/
 theorem shakeRomScheme_eq_map_linkedRomScheme :
@@ -229,7 +229,7 @@ point. -/
 theorem allQueriesSatisfy_liftPub_redirectedVerify (pk : PublicKeyCore (shakeCore vp))
     (skPrf : (shakeCore vp).SkPrf) (msg : List Byte)
     (sig : GeneralScheme.SignatureCore vp (shakeCore vp)) :
-    AllQueriesSatisfy (liftPub vp (redirectedVerify vp pk msg sig))
+    AllQueriesSatisfy (liftPub (redirectedVerify vp pk msg sig))
       (Sum.elim (fun _ => True) fun q =>
         IsHonestQuery vp pk skPrf q ∧ ∀ t, q = .inl t → ¬IsLinked vp pk t) := by
   have hV : AllQueriesSatisfy (GeneralScheme.verifyInternalM
@@ -485,7 +485,7 @@ theorem shakeAdvantage_pure_le_verifyingAdv (h32 : vp.params.n = 32)
   refine prEvent_run_withVerify_le_prEvent_run_withPost (hashSpec (shakeCore vp)).romImpl
     (romScheme (shakeCore vp) (Equiv.refl _) optRand (pure pkSeed))
     (linkedRouteAdv vp h32.le hnm adv)
-    (fun pk out => liftPub vp (redirectedVerify vp pk out.1 out.2)) ∅ _ _ fun z hz hP r hr => ?_
+    (fun pk out => liftPub (redirectedVerify vp pk out.1 out.2)) ∅ _ _ fun z hz hP r hr => ?_
   obtain ⟨hseed, hprov, hset, hlink, hver⟩ := honestReplays_of_mem_support_run_linkedRomScheme
     _ (fun _ q h t ht => by rcases h with ⟨-, h⟩ | ⟨M, rfl⟩; exacts [h t ht, by cases ht; exact id])
     (allQueriesSatisfy_linkedRouteAdv_main h32.le hnm adv) hz
