@@ -87,6 +87,10 @@ for lattice-specific entry points and workflows.
 External papers and project references cited in this repo are centralized in
 [`REFERENCES.md`](REFERENCES.md).
 
+For the quantum layer (`VCVio/Quantum/`), [`docs/quantum/`](docs/quantum/README.md) has a tutorial
+for readers new to quantum computing, a guide to the layer's definitions and theorems, and
+reference pages; the design record is [`docs/design/quantum-layer.md`](docs/design/quantum-layer.md).
+
 ## End-to-end examples
 
 For compact examples showing how the framework layers compose on concrete

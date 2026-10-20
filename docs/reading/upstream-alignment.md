@@ -177,6 +177,9 @@ stack. See the [program-logic guide](../agents/program-logic.md#core-wp-and-the-
 for these boundaries and the v4.35 tracking links. The source-count survey below
 records the earlier snapshot; its control/WP recommendations are superseded here.
 
+The upgrade uses published Mathlib v4.35.0 and pins PolyFun to main at
+`ef4c157b3c6775fb55864303d96f9b400428d5f0`, which includes the #314–#328 naming stack.
+
 **Transparency.** `attribute [implicit_reducible] OracleSpec` (`VCVio/OracleComp/OracleSpec.lean:44`)
 was documented in the survey snapshot as helping instance synthesis, but at the pin
 `[implicit_reducible]` unfolds at `.implicit` only (`Lean/ReducibilityAttrs.lean:214–216`),
@@ -226,7 +229,7 @@ counts in `AddWriterT (QueryCount ι)` with the standard `Multiplicative` tag.
 
 **`OracleSpec` operations vs PolyFun** (PolyFun `corrections.md` item 4): `OracleSpec`'s
 `+`/`×`/`Σ`/`Π` are re-declared for `ι → Type` indexing but are `rfl`-bridged to
-`PFunctor.sum/sigma/pi` (`toPFunctor_add/sigma/mul/pi` in `OracleSpec.lean`); the theory is
+`PFunctor.add/sigma/pi` (`toPFunctor_add/sigma/mul/pi` in `OracleSpec.lean`); the theory is
 not re-proved. `QueryImpl`/`ProbHandler` vs PolyFun `Sampler`/`Decoration` (item 3) remains
 two vocabularies for one concept; reconcile when the Kleisli–Mealy wiring lands.
 [`internal-duplication.md`](internal-duplication.md) records how their index structures differ.

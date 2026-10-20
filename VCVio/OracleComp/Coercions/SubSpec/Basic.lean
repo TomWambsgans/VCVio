@@ -98,6 +98,7 @@ def toLens (h : SubSpec spec superSpec) :
   onQuery t := h₂.onQuery (h₁.onQuery t)
   onResponse t r := h₁.onResponse t (h₂.onResponse (h₁.onQuery t) r)
 
+open scoped PFunctor in
 @[simp] lemma trans_toLens (h₁ : spec ⊂ₒ superSpec) (h₂ : superSpec ⊂ₒ spec₃) :
     (SubSpec.trans h₁ h₂).toLens = h₂.toLens ∘ₗ h₁.toLens := rfl
 

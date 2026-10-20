@@ -31,17 +31,18 @@ private partial def sources (dir : FilePath) : IO (Array FilePath) := do
   for entry in ← dir.readDir do
     if ← entry.path.isDir then
       files := files ++ (← sources entry.path)
-    else if entry.path.extension == some "lean" && entry.fileName != "lakefile.lean" then
+    else if entry.path.extension == some "lean" then
       files := files.push entry.path
   return files
 
 private def allowed (externOnly : Bool) (owner : String) (path : FilePath) (name : Name) : Bool :=
   let head := name.getRoot.toString
+  let source := (path.withExtension "").components.foldl Name.str .anonymous
   if externOnly then
     owner == "Extern" || tests.contains owner || head != "Extern"
   else if core.contains owner then
     !(["Interop", "Hax", "Aeneas"].contains head) &&
-      (if path.components.take 2 == ["VCVio", "Algorithms"] then
+      (if (`VCVio.Algorithms).isPrefixOf source then
         ["Init", "Std", "Lean", "Mathlib", "Batteries", "Cslib", "ToCslib", "PolyFun",
          "Qq", "Aesop", "ToMathlib"].contains head || (`VCVio.Algorithms).isPrefixOf name
        else true)

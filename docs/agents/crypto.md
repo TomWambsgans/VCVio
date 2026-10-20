@@ -342,7 +342,7 @@ such as `SecurityGame.secureAgainst_of_reduction`, take the reduction as a funct
 cannot be stated for an adversary that exists only inside an existential.
 
 When the reduction is not implemented yet, do not fall back to `∃`: define it as a `sorry`
-placeholder and state the bound for that definition, as `GPVHashAndSign.reduction` and the
+placeholder and state the bound for that definition, as `MLDSA.eufCmaMLWEReduction` and the
 with-aborts EUF-NMA forger `FiatShamirWithAbort.cmaToNmaAdv` do, with a docstring that says the
 proof is deferred. The
 placeholder is carried by `scripts/axiom_baseline.json`, and the `existentialReduction` linter

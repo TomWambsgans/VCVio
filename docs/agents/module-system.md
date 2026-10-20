@@ -217,26 +217,32 @@ type such as
 ((spec₁ + spec₂) + spec₃).Range (.inl (.inr t))
 ```
 
-If `PFunctor.sum` represented its direction family through the ordinary wrapper
+If `PFunctor.add` represented its direction family through the ordinary wrapper
 `Sum.elim P.B Q.B`, reducing this type would cross the oracle `HAdd`
 projection, the PFunctor `HAdd` projection and `Sum.elim` before reaching the
 primitive dependent recursor. The last wrapper is semireducible, so the chain
 could stop at `.implicit`.
 
-`PFunctor.sum` therefore writes `Sum.rec` directly and publishes its position
-and branch-direction equations. The OracleSpec `HAdd` is a plain instance, so
-the `instance` command gives it `instance_reducible`, and its body calls
-`PFunctor.sum` by name. Using the overloaded `+` inside that instance would
+`PFunctor.add` writes `Sum.rec` directly and publishes its position and
+branch-direction equations. The OracleSpec `HAdd` is a plain instance, so the
+`instance` command gives it `instance_reducible`, and its body calls
+`PFunctor.add` by name. Using the overloaded `+` inside that instance would
 insert another `HAdd.hAdd` projection into the instance's own dependent type;
 naming the construction directly keeps the instance well-typed at
 `.implicit`.
 
-The instance's exact status matters. Marking it `@[implicit_reducible]` would
-remove the `instance_reducible` status used during instance unification, while
-marking it `@[reducible]` would make ordinary `simp` matching unfold combined
-specifications and destabilize the established normal forms of supports. The
-default instance status occupies the required middle ground, and no global
-attribute on `Sum.elim`, `Sum.rec`, or `HAdd.hAdd` is needed.
+cslib's simp lemma `PFunctor.add_eq_add` states `P.add Q = P + Q`, making
+addition notation the normal form.
+A simp set that unfolds `HAdd.hAdd` must exclude `PFunctor.add_eq_add`
+(for example, `simp [HAdd.hAdd, -PFunctor.add_eq_add]`): otherwise unfolding
+addition and rewriting the named construction back to notation form a loop.
+
+The instance's exact status matters. Explicitly changing it to
+`@[implicit_reducible]` removes the `instance_reducible` status used during
+instance unification, while changing it to `@[reducible]` makes ordinary
+`simp` matching unfold combined specs and destabilizes established support
+normal forms. The default instance status occupies the required middle
+ground. No global attribute on `Sum.elim`, `Sum.rec`, or `HAdd.hAdd` is needed.
 
 Only the binary coproduct writes its recursor directly. `PFunctor.sigma`,
 `PFunctor.pi`, products, and their OracleSpec façades also build dependent
