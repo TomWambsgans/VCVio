@@ -203,15 +203,20 @@ structure DeferredCharge (pkSeed : core.PkSeed) where
   P : LabState core → Prop
   /-- Its potential. -/
   Φ : LabState core → ℝ≥0∞
+  /-- The hazard is charged to the potential in the deferred game of `slhGraph core pkSeed`. -/
   isCharged : (slhGraph core pkSeed).IsCharged P Φ
+  /-- The hazard fails at the empty state. -/
   not_empty : ¬P (∅, ∅)
   /-- A bound of the potential by the public cache. -/
   U : (hashSpec core).QueryCache → ℝ≥0∞
+  /-- The potential of every state is at most `U` of its public cache. -/
   le_U : ∀ st, Φ st ≤ U st.1
   /-- The hazard of the secret seeds and the filled state. -/
   H : core.SkSeed × core.SkPrf → LabState core → Prop
   /-- Its charge. -/
   c : (hashSpec core).QueryCache → ℝ≥0∞
+  /-- Under uniform secret seeds the seed hazard fires at every state with probability at most
+  `c` of its public cache. -/
   prEvent_le : ∀ st, Pr{let s ← $ᵗ (core.SkSeed × core.SkPrf)}[H s st] ≤ c st.1
 
 namespace DeferredCharge
