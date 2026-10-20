@@ -17,15 +17,16 @@ after `id ⊗ V` is `id ⊗ V` after the matching step of `R₁`:
 `(R₂.step i).branch r ∘ₗ (id ⊗ V) = (id ⊗ V) ∘ₗ (R₁.step i).branch r`.
 
 Then every program, under any interpretation of its local operations, run against `R₂` after
-`id ⊗ V` is `id ⊗ V` after its run against `R₁`, on every leaf `⟨u, y⟩`, with `id ⊗ V` on the
-register `u` of that leaf (`Quantum.QuantumRuntime.simulation`). A program has no command on the
+`id ⊗ V` is `id ⊗ V` after its run against `R₁`, on every leaf `⟨u, y⟩`, with `id_u ⊗ V`,
+where `id_u` acts on the program register `u` and `V` on the runtime register
+(`Quantum.QuantumRuntime.simulation`). A program has no command on the
 runtime register, so the proof is an induction on the program tree. The statement asks nothing of
 `V` beyond linearity.
 
 When `V` is trace preserving and sends the initial operator of `R₁` to that of `R₂`, no
 observation by the program can tell the runtimes apart: the reduced post-states and the outcome
-laws agree (`Quantum.QuantumRuntime.reducedPost_eq_of_simulation` and
-`Quantum.QuantumRuntime.outcomeLaw_eq_of_simulation`). An example is a runtime that also counts
+distributions agree (`Quantum.QuantumRuntime.reducedPost_eq_of_simulation` and
+`Quantum.QuantumRuntime.evalDist_eq_of_simulation`). An example is a runtime that also counts
 the calls in a counter register, against the same runtime without the counter: `V` forgets the
 counter by the partial trace over it, from the counting runtime to the stateless one.
 
@@ -34,13 +35,12 @@ calls of one particular run receive (`Quantum.QuantumRuntime.ForallQueries`). Th
 agree on that input (`Quantum.QuantumRuntime.run_branch_apply_eq_of_forallQueries`).
 
 Each statement is proved for general programs, with the fixed-register forms (`simulation₂`,
-`outcomeLaw₂_eq_of_simulation`, ...) as corollaries at the leaves `⟨B, rfl, a⟩`.
+`evalDist₂_eq_of_simulation`, ...) as corollaries at the leaves `⟨B, rfl, a⟩`.
 
 ## Main definitions
 
-* `Quantum.SubInstrument.Intertwines L₁ L₂ p p'`: on every outcome, `p'` after `L₁` is `L₂`
-  after `p`; `Quantum.DSubInstrument.Intertwines` is the dependent form, with a map `L₂ i` on
-  the output register of each outcome `i`.
+* `Quantum.DSubInstrument.Intertwines L₁ L₂ p p'`: on every outcome `i`, `p'` after `L₁`
+  is `L₂ i` after `p` on the output register of each outcome `i`.
 * `Quantum.QuantumRuntime.ForallQueries R I P x ρ`: every call along every branch of the run of
   `x` from `ρ` receives an operator satisfying `P`.
 
@@ -48,7 +48,7 @@ Each statement is proved for general programs, with the fixed-register forms (`s
 
 * `Quantum.QuantumRuntime.simulation`.
 * `Quantum.QuantumRuntime.reducedPost_eq_of_simulation`,
-  `Quantum.QuantumRuntime.outcomeLaw_eq_of_simulation`.
+  `Quantum.QuantumRuntime.evalDist_eq_of_simulation`.
 * `Quantum.QuantumRuntime.run_branch_apply_eq_of_forallQueries`: two runtimes whose steps agree
   on the operators the calls of a run receive give the same run on that input. This is the
   general form of "the oracle is only seen where it is queried".
@@ -63,89 +63,25 @@ universe u v u₁ v₁ w
 
 namespace Quantum
 
-namespace SubInstrument
-
-variable {X X' Y Y' Z Z' : Type*} [Fintype X] [Fintype X'] [Fintype Y] [Fintype Y'] [Fintype Z]
-  [Fintype Z'] {α β : Type*}
-
-/-! ## Intertwining -/
-
-/-- `p'` simulates `p` through `L₁` on inputs and `L₂` on outputs: on every outcome `a`,
-`p'.branch a ∘ₗ L₁ = L₂ ∘ₗ p.branch a`. -/
-@[expose]
-def Intertwines (L₁ : MatrixMap X X') (L₂ : MatrixMap Y Y') (p : SubInstrument X Y α)
-    (p' : SubInstrument X' Y' α) : Prop :=
-  ∀ a, p'.branch a ∘ₗ L₁ = L₂ ∘ₗ p.branch a
-
-/-- A step, then a step without outcome, then returning the first outcome: the branch at `a` is
-the second step after the branch of the first at `a`. -/
-theorem branch_bind_bind_unit_pure (p : SubInstrument X Y α) (u : SubInstrument Y Z Unit)
-    (a : α) :
-    (p.bind fun a' ↦ u.bind fun _ ↦ SubInstrument.pure a').branch a =
-      u.branch () ∘ₗ p.branch a :=
-  LinearMap.ext fun ρ ↦ by
-    rw [branch_bind_apply, tsum_eq_single a fun a' ha' ↦ by
-        rw [branch_bind_unit, branch_pure_of_ne (Ne.symm ha'), LinearMap.zero_comp,
-          LinearMap.zero_apply],
-      branch_bind_unit, branch_pure_self, LinearMap.id_comp, LinearMap.comp_apply]
-
-/-- Two subinstruments whose branches leave operators of the same trace on two substates, on
-every outcome, have the same outcome measures on them. -/
-theorem outcomeMeasure_congr [MeasurableSpace α] {p : SubInstrument X Y α}
-    {p' : SubInstrument X' Y' α} {ρ : SubState X} {ρ' : SubState X'}
-    (h : ∀ a, (p.branch a ρ.matrix).trace = (p'.branch a ρ'.matrix).trace) :
-    p.outcomeMeasure ρ = p'.outcomeMeasure ρ' := by
-  rw [outcomeMeasure_eq_sum, outcomeMeasure_eq_sum]
-  exact congrArg Measure.sum <| funext fun a ↦ by rw [h a]
-
-namespace Intertwines
-
-/-- `pure a` intertwines with itself through any map. -/
-theorem pure (L : MatrixMap X X') (a : α) :
-    Intertwines L L (SubInstrument.pure a) (SubInstrument.pure a) := fun a' ↦ by
-  obtain rfl | h := eq_or_ne a' a
-  · rw [branch_pure_self, branch_pure_self, LinearMap.id_comp, LinearMap.comp_id]
-  · rw [branch_pure_of_ne h, branch_pure_of_ne h, LinearMap.zero_comp, LinearMap.comp_zero]
-
-/-- Intertwining is preserved by sequencing. -/
-theorem bind {L₁ : MatrixMap X X'} {L₂ : MatrixMap Y Y'} {L₃ : MatrixMap Z Z'}
-    {p : SubInstrument X Y α} {p' : SubInstrument X' Y' α} {k : α → SubInstrument Y Z β}
-    {k' : α → SubInstrument Y' Z' β} (hp : Intertwines L₁ L₂ p p')
-    (hk : ∀ a, Intertwines L₂ L₃ (k a) (k' a)) :
-    Intertwines L₁ L₃ (p.bind k) (p'.bind k') := fun b ↦ LinearMap.ext fun ρ ↦ by
-  rw [LinearMap.comp_apply, LinearMap.comp_apply, branch_bind_apply, branch_bind_apply,
-    MatrixMap.map_tsum L₃ (f := fun a ↦ (k a).branch b (p.branch a ρ))
-      ((p.isCPTNIFamily.comp_eval (fun a ↦ (k a).isCPTNIFamily) b).summable_apply ρ)]
-  refine tsum_congr fun a ↦ ?_
-  have h₁ := LinearMap.congr_fun (hp a) ρ
-  have h₂ := LinearMap.congr_fun (hk a b) (p.branch a ρ)
-  simp only [LinearMap.comp_apply] at h₁ h₂
-  rw [h₁, h₂]
-
-/-- Framing by a common ancilla preserves intertwining. -/
-theorem frame {L₁ : MatrixMap X X'} {L₂ : MatrixMap Y Y'} {p : SubInstrument X Y α}
-    {p' : SubInstrument X' Y' α} (h : Intertwines L₁ L₂ p p') (E : Type*) [Fintype E] :
-    Intertwines (L₁.amplify E) (L₂.amplify E) (p.frame E) (p'.frame E) := fun a ↦ by
-  rw [branch_frame_apply, branch_frame_apply, ← MatrixMap.amplify_comp, h a,
-    MatrixMap.amplify_comp]
-
-/-- A subinstrument framed by two ancillas intertwines through a map `id ⊗ V` between the
-ancillas. -/
-theorem frame_amplifyLeft (p : SubInstrument X Y α) {R S : Type*} [Fintype R] [Fintype S]
-    (V : MatrixMap R S) :
-    Intertwines (V.amplifyLeft X) (V.amplifyLeft Y) (p.frame R) (p.frame S) := fun a ↦ by
-  rw [branch_frame_apply, branch_frame_apply, MatrixMap.amplify_comp_amplifyLeft]
-
-end Intertwines
-
-
-end SubInstrument
-
 namespace DSubInstrument
 
 variable {X X' : Type*} [Fintype X] [Fintype X'] {ι κ : Type*} {B B' : ι → Type*}
   [∀ i, Fintype (B i)] [∀ i, Fintype (B' i)] {C C' : κ → Type*} [∀ c, Fintype (C c)]
   [∀ c, Fintype (C' c)]
+
+/-- A step, then a step without outcome, then returning the first outcome: the branch at `a` is
+the second step after the branch of the first at `a`. -/
+theorem branch_bind_bind_unit_ret (p : DSubInstrument X ι B)
+    {Z : ι → Type*} [∀ i, Fintype (Z i)]
+    (u : (i : ι) → DSubInstrument (B i) Unit fun _ ↦ Z i)
+    (a : ι) :
+    (p.bind fun a' ↦ (u a').bind fun _ ↦ DSubInstrument.ret Z a').branch a =
+      (u a).branch () ∘ₗ p.branch a :=
+  LinearMap.ext fun ρ ↦ by
+    rw [branch_bind_apply, tsum_eq_single a fun a' ha' ↦ by
+        rw [branch_bind_unit, branch_ret_of_ne Z (Ne.symm ha'), LinearMap.zero_comp,
+          LinearMap.zero_apply],
+      branch_bind_unit, branch_ret_self, LinearMap.id_comp, LinearMap.comp_apply]
 
 /-! ## Intertwining of dependent subinstruments -/
 
@@ -189,6 +125,15 @@ theorem bind {L₁ : MatrixMap X X'} {L₂ : ∀ i, MatrixMap (B i) (B' i)}
   simp only [LinearMap.comp_apply] at h₁ h₂
   rw [h₁, h₂]
 
+/-- Framing by a common ancilla preserves intertwining on each output system. -/
+theorem frame {L₁ : MatrixMap X X'} {L₂ : ∀ i, MatrixMap (B i) (B' i)}
+    {p : DSubInstrument X ι B} {p' : DSubInstrument X' ι B'}
+    (h : Intertwines L₁ L₂ p p') (E : Type*) [Fintype E] :
+    Intertwines (L₁.amplify E) (fun i ↦ (L₂ i).amplify E) (p.frame E) (p'.frame E) :=
+  fun i ↦ by
+    rw [branch_frame_apply, branch_frame_apply, ← MatrixMap.amplify_comp, h i,
+      MatrixMap.amplify_comp]
+
 /-- A dependent subinstrument framed by two ancillas intertwines through a map `id ⊗ V` between
 the ancillas. -/
 theorem frame_amplifyLeft (p : DSubInstrument X ι B) {R S : Type*} [Fintype R] [Fintype S]
@@ -200,16 +145,9 @@ end Intertwines
 
 end DSubInstrument
 
-/-- Intertwining subinstruments have intertwining dependent forms. -/
-theorem SubInstrument.Intertwines.toD {X X' Y Y' : Type*} [Fintype X] [Fintype X'] [Fintype Y]
-    [Fintype Y'] {α : Type*} {L₁ : MatrixMap X X'} {L₂ : MatrixMap Y Y'}
-    {p : SubInstrument X Y α} {p' : SubInstrument X' Y' α} (h : Intertwines L₁ L₂ p p') :
-    DSubInstrument.Intertwines L₁ (fun _ ↦ L₂) (SubInstrument.toD p) (SubInstrument.toD p') :=
-  h
-
 namespace QuantumRuntime
 
-open SubInstrument
+open SubInstrument DSubInstrument
 
 variable {spec : QuantumOracleSpec.{u₁, v₁}} {L : LocalSig.{u, v}} (I : L.Interp)
   {X : QReg → Type w} {A B : QReg} {α : Type w}
@@ -222,7 +160,7 @@ variable {R S : Type*} [Fintype R] [Fintype S] [DecidableEq R] [DecidableEq S]
 /-- The relabelling before a call intertwines through `id ⊗ V` on both sides. -/
 theorem intertwines_relabel_queryEquivIn {A I E : Type*} [Fintype A] [Fintype I] [Fintype E]
     [DecidableEq A] [DecidableEq I] [DecidableEq E] (ℓ : A ≃ I × E) :
-    Intertwines (V.amplifyLeft A) ((V.amplifyLeft I).amplify E)
+    Intertwines (V.amplifyLeft A) (fun _ ↦ (V.amplifyLeft I).amplify E)
       (relabel (queryEquivIn ℓ R)) (relabel (queryEquivIn ℓ S)) := fun u ↦ by
   refine LinearMap.ext fun ρ ↦ ?_
   ext x y
@@ -232,7 +170,7 @@ theorem intertwines_relabel_queryEquivIn {A I E : Type*} [Fintype A] [Fintype I]
 /-- The relabelling after a call intertwines through `id ⊗ V` on both sides. -/
 theorem intertwines_relabel_queryEquivOut (O E : Type*) [Fintype O] [Fintype E] [DecidableEq O]
     [DecidableEq E] :
-    Intertwines ((V.amplifyLeft O).amplify E) (V.amplifyLeft (O × E))
+    Intertwines ((V.amplifyLeft O).amplify E) (fun _ ↦ V.amplifyLeft (O × E))
       (relabel (queryEquivOut O R E)) (relabel (queryEquivOut O S E)) := fun u ↦ by
   refine LinearMap.ext fun ρ ↦ ?_
   ext x y
@@ -245,13 +183,14 @@ variable {R₁ R₂ : QuantumRuntime spec} {V : MatrixMap R₁.D R₂.D}
 
 /-- A call intertwines through `id ⊗ V` when the port's steps do. -/
 theorem intertwines_queryStep {i : spec.Port}
-    (h : Intertwines (V.amplifyLeft (spec.In i)) (V.amplifyLeft (spec.Out i)) (R₁.step i)
+    (h : Intertwines (V.amplifyLeft (spec.In i)) (fun _ ↦ V.amplifyLeft (spec.Out i)) (R₁.step i)
       (R₂.step i))
     (E : QReg) (ℓ : A ≃ spec.In i × E) :
-    Intertwines (V.amplifyLeft A) (V.amplifyLeft (QReg.of (spec.Out i × E)))
+    Intertwines (V.amplifyLeft A) (fun _ ↦ V.amplifyLeft (QReg.of (spec.Out i × E)))
       (R₁.queryStep i E ℓ) (R₂.queryStep i E ℓ) :=
   (intertwines_relabel_queryEquivIn V ℓ).bind fun _ ↦ (h.frame E).bind fun r ↦
-    (intertwines_relabel_queryEquivOut V (spec.Out i) E).bind fun _ ↦ Intertwines.pure _ r
+    (intertwines_relabel_queryEquivOut V (spec.Out i) E).bind fun _ ↦
+      Intertwines.ret (fun _ ↦ V.amplifyLeft (spec.Out i × E)) r
 
 /-! ## Simulation -/
 
@@ -272,11 +211,12 @@ theorem intertwines_run
     exact (DSubInstrument.Intertwines.frame_amplifyLeft (I o) V).bind ih
   | queryBind _ i E ℓ k ih =>
     rw [run_queryBind, run_queryBind]
-    exact (intertwines_queryStep (fun r ↦ h i r) E ℓ).toD.bind ih
+    exact (intertwines_queryStep (fun r ↦ h i r) E ℓ).bind ih
 
 /-- **Simulation.** If every step of `R₂` after `id ⊗ V` is `id ⊗ V` after the matching step of
 `R₁`, then every program run against `R₂` after `id ⊗ V` is `id ⊗ V` after its run against
-`R₁`, on every leaf `⟨u, y⟩`, with `id ⊗ V` on the register `u` of that leaf. -/
+`R₁`, on every leaf `⟨u, y⟩`, with `id_u ⊗ V`: `id_u` acts on the program register `u`,
+and `V` acts on the runtime register. -/
 theorem simulation
     (h : ∀ i r, (R₂.step i).branch r ∘ₗ V.amplifyLeft (spec.In i) =
       V.amplifyLeft (spec.Out i) ∘ₗ (R₁.step i).branch r)
@@ -328,12 +268,12 @@ theorem trace_jointPost_eq_of_simulation
   rw [← trace_reducedPost, ← trace_reducedPost, reducedPost_eq_of_simulation I h hV hinit]
 
 /-- **Indistinguishability.** Under a simulation through a trace-preserving `V` that sends the
-initial operator of `R₁` to that of `R₂`, the outcome laws of every program agree. -/
-theorem outcomeLaw_eq_of_simulation [MeasurableSpace (Σ u, X u)]
+initial operator of `R₁` to that of `R₂`, the outcome distributions of every program agree. -/
+theorem evalDist_eq_of_simulation [MeasurableSpace (Σ u, X u)]
     (h : ∀ i r, (R₂.step i).branch r ∘ₗ V.amplifyLeft (spec.In i) =
       V.amplifyLeft (spec.Out i) ∘ₗ (R₁.step i).branch r)
     (hV : V.IsTP) (hinit : V R₁.init.matrix = R₂.init.matrix) (x : QuantumComp L spec X A)
-    (ρ : SubState A) : R₂.outcomeLaw I x ρ = R₁.outcomeLaw I x ρ :=
+    (ρ : SubState A) : R₂.evalDist I x ρ = R₁.evalDist I x ρ :=
   DSubInstrument.outcomeMeasure_congr fun p ↦ trace_jointPost_eq_of_simulation I h hV hinit x ρ p
 
 /-- Under a simulation, the joint post-state of a fixed-register program against `R₂` is
@@ -354,14 +294,14 @@ theorem reducedPost₂_eq_of_simulation
     (ρ : SubState A) (a : α) : R₂.reducedPost₂ I x ρ a = R₁.reducedPost₂ I x ρ a :=
   reducedPost_eq_of_simulation I h hV hinit x ρ ⟨B, rfl, a⟩
 
-/-- **Indistinguishability** for fixed-register programs: the laws of the returned value
+/-- **Indistinguishability** for fixed-register programs: the distributions of the returned value
 agree. -/
-theorem outcomeLaw₂_eq_of_simulation [MeasurableSpace α]
+theorem evalDist₂_eq_of_simulation [MeasurableSpace α]
     (h : ∀ i r, (R₂.step i).branch r ∘ₗ V.amplifyLeft (spec.In i) =
       V.amplifyLeft (spec.Out i) ∘ₗ (R₁.step i).branch r)
     (hV : V.IsTP) (hinit : V R₁.init.matrix = R₂.init.matrix) (x : QuantumComp₂ L spec A B α)
-    (ρ : SubState A) : R₂.outcomeLaw₂ I x ρ = R₁.outcomeLaw₂ I x ρ :=
-  SubInstrument.outcomeMeasure_congr fun a ↦
+    (ρ : SubState A) : R₂.evalDist₂ I x ρ = R₁.evalDist₂ I x ρ :=
+  DSubInstrument.outcomeMeasure_congr fun a ↦
     trace_jointPost_eq_of_simulation I h hV hinit x ρ ⟨B, rfl, a⟩
 
 /-! ## Agreement on the states presented to the calls -/
@@ -451,7 +391,7 @@ theorem queryStep_branch_apply (i : spec.Port) (E : QReg) (ℓ : A ≃ spec.In i
     (R.queryStep i E ℓ).branch r ρ =
       (relabel (queryEquivOut (spec.Out i) R.D E)).branch ()
         (((R.step i).frame E).branch r ((relabel (queryEquivIn ℓ R.D)).branch () ρ)) := by
-  rw [queryStep, branch_bind_unit, branch_bind_bind_unit_pure]
+  rw [queryStep, branch_bind_unit, branch_bind_bind_unit_ret]
   rfl
 
 /-- A call on a basis state `|a, d⟩` of `A × D`: the port's step acts on the exposed factor
@@ -494,7 +434,7 @@ theorem run_branch_apply_eq_of_forallQueries {D : QReg} {σ₁ σ₂ : SubState 
         ((QuantumRuntime.mk D σ₂ s₂).queryStep i E ℓ).branch r ρ := by
       rw [queryStep_branch_apply, queryStep_branch_apply]
       exact congrArg _ (hs i E _ hx.1 r)
-    rw [branch_toD_apply, branch_toD_apply, ← hq]
+    rw [← hq]
     exact ih r (hx.2 r)
 
 /-- **Only the presented operators matter**, for fixed-register programs. -/
@@ -530,18 +470,18 @@ theorem ForallQueries.of_congr {D : QReg} {σ₁ σ₂ : SubState D}
     exact ih r (hx.2 r)
 
 /-- Under the hypotheses of `run_branch_apply_eq_of_forallQueries` from the joint substate
-`ρ ⊗ init`, with the same initial substate, the outcome laws agree. -/
-theorem outcomeLaw_eq_of_forallQueries [MeasurableSpace (Σ u, X u)] {D : QReg} {σ : SubState D}
+`ρ ⊗ init`, with the same initial substate, the outcome distributions agree. -/
+theorem evalDist_eq_of_forallQueries [MeasurableSpace (Σ u, X u)] {D : QReg} {σ : SubState D}
     {s₁ s₂ : ∀ i, SubInstrument (spec.In i × D) (spec.Out i × D) (spec.Result i)}
     {P : ∀ (i : spec.Port) (E : QReg), Matrix ((spec.In i × D) × E) ((spec.In i × D) × E) ℂ → Prop}
     (hs : ∀ i E σ, P i E σ → ∀ r, ((s₁ i).frame E).branch r σ = ((s₂ i).frame E).branch r σ)
     {x : QuantumComp L spec X A} {ρ : SubState A}
     (hx : (QuantumRuntime.mk D σ s₁).ForallQueries I P x (ρ.prod σ).matrix) :
-    (QuantumRuntime.mk D σ s₁).outcomeLaw I x ρ = (QuantumRuntime.mk D σ s₂).outcomeLaw I x ρ :=
+    (QuantumRuntime.mk D σ s₁).evalDist I x ρ = (QuantumRuntime.mk D σ s₂).evalDist I x ρ :=
   DSubInstrument.outcomeMeasure_congr fun p ↦ by
     rw [run_branch_apply_eq_of_forallQueries (σ₂ := σ) I hs hx p]
 
-/-- Under the hypotheses of `outcomeLaw_eq_of_forallQueries`, the joint post-states agree. -/
+/-- Under the hypotheses of `evalDist_eq_of_forallQueries`, the joint post-states agree. -/
 theorem jointPost_eq_of_forallQueries {D : QReg} {σ : SubState D}
     {s₁ s₂ : ∀ i, SubInstrument (spec.In i × D) (spec.Out i × D) (spec.Result i)}
     {P : ∀ (i : spec.Port) (E : QReg), Matrix ((spec.In i × D) × E) ((spec.In i × D) × E) ℂ → Prop}
@@ -552,20 +492,20 @@ theorem jointPost_eq_of_forallQueries {D : QReg} {σ : SubState D}
   SubState.ext <| run_branch_apply_eq_of_forallQueries (σ₂ := σ) I hs hx p
 
 /-- Under the hypotheses of `run_branch_apply_eq_of_forallQueries` from the joint substate
-`ρ ⊗ init`, with the same initial substate, the laws of the value returned by a fixed-register
-program agree. -/
-theorem outcomeLaw₂_eq_of_forallQueries [MeasurableSpace α] {D : QReg} {σ : SubState D}
+`ρ ⊗ init`, with the same initial substate, the distributions of the value returned by a
+fixed-register program agree. -/
+theorem evalDist₂_eq_of_forallQueries [MeasurableSpace α] {D : QReg} {σ : SubState D}
     {s₁ s₂ : ∀ i, SubInstrument (spec.In i × D) (spec.Out i × D) (spec.Result i)}
     {P : ∀ (i : spec.Port) (E : QReg), Matrix ((spec.In i × D) × E) ((spec.In i × D) × E) ℂ → Prop}
     (hs : ∀ i E σ, P i E σ → ∀ r, ((s₁ i).frame E).branch r σ = ((s₂ i).frame E).branch r σ)
     {x : QuantumComp₂ L spec A B α} {ρ : SubState A}
     (hx : (QuantumRuntime.mk D σ s₁).ForallQueries I P x (ρ.prod σ).matrix) :
-    (QuantumRuntime.mk D σ s₁).outcomeLaw₂ I x ρ =
-      (QuantumRuntime.mk D σ s₂).outcomeLaw₂ I x ρ :=
-  SubInstrument.outcomeMeasure_congr fun a ↦ by
+    (QuantumRuntime.mk D σ s₁).evalDist₂ I x ρ =
+      (QuantumRuntime.mk D σ s₂).evalDist₂ I x ρ :=
+  DSubInstrument.outcomeMeasure_congr fun a ↦ by
     rw [run₂_branch_apply_eq_of_forallQueries (σ₂ := σ) I hs hx a]
 
-/-- Under the hypotheses of `outcomeLaw₂_eq_of_forallQueries`, the joint post-states of the
+/-- Under the hypotheses of `evalDist₂_eq_of_forallQueries`, the joint post-states of the
 fixed-register program agree. -/
 theorem jointPost₂_eq_of_forallQueries {D : QReg} {σ : SubState D}
     {s₁ s₂ : ∀ i, SubInstrument (spec.In i × D) (spec.Out i × D) (spec.Result i)}
