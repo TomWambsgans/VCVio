@@ -46,7 +46,7 @@ with FIPS 205's SHAKE internal algorithms. This file checks both at concrete par
 
 public section
 
-open OracleComp OracleSpec SignatureAlg
+open OracleComp OracleSpec SignatureAlg VCVio.Algorithms
 
 namespace SLHDSA.ByteModelTest
 

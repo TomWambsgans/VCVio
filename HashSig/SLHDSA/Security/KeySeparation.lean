@@ -75,7 +75,8 @@ theorem keySeparated_shaPrimitives : shaPrimitives.core.KeySeparated := by
 /-- Offset `9` of the compressed address `ADRSc` is the low byte of the address type. -/
 theorem _root_.SLHDSA.Adrs.getElem_compressSha2_nine (a : Adrs) :
     a.compressSha2[9]'(by simp) = UInt8.ofNat (a.type % 256) := by
-  simp [Adrs.compressSha2, List.getElem_append_right, Adrs.toBytesBE, toByte]
+  simp [Adrs.compressSha2, List.getElem_append_right, Adrs.toBytesBE, toByte,
+    VCVio.Algorithms.Encoding.natToBytesBE]
 
 /-- Offset `9` of the fallback key is its type tag. -/
 theorem getElem_sha2FallbackKey_nine (type : ℕ) :

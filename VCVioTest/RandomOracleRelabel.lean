@@ -141,7 +141,8 @@ theorem prEvent_forgerFirst_eq_inv_two (E : RelabelState (Bool →ₒ Bool) Unit
       _ = 2⁻¹ := by
         rw [SampleableType.prEvent_uniformSample_eq_singleton, Fintype.card_bool,
           Nat.cast_ofNat]
-  let _ : MeasurableSpace (Bool × RelabelState (Bool →ₒ Bool) Unit Unit Bool) := ⊤
+  let _ : MeasurableSpace (spec.Range (.inl (.inr true)) ×
+      RelabelState (Bool →ₒ Bool) Unit Unit Bool) := ⊤
   simp only [forgerFirst, simulateQ_bind, simulateQ_spec_query, StateT.run_bind]
   rw [prEvent_bind_eq_lintegral_of_discrete]
   refine (lintegral_congr_ae

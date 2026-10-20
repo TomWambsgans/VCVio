@@ -38,7 +38,7 @@ variable {ι : Type} [DecidableEq ι] {hashSpec : OracleSpec.{0, 0} ι}
   [∀ t, SampleableType (hashSpec.Range t)]
 
 /-- A run of the forwarded lazy random oracle only extends its cache. -/
-@[deprecated OracleComp.le_snd_of_mem_support_run_unifFwdImpl_add_withCaching
+@[deprecated OracleComp.le_snd_of_mem_support_run_unifFwdImpl_add_withCaching +typeChanged
   (since := "2026-09-29")]
 theorem le_of_mem_support_run {α : Type} (oa : OracleComp (unifSpec + hashSpec) α)
     (s : hashSpec.QueryCache) :

@@ -700,8 +700,9 @@ theorem evalDist_run_dupRandomOracleFwd_eq_tapeFamily {α : Type}
     rcases t with n | t | t
     · simp only [dupRandomOracleFwd, tapeImplFwd, QueryImpl.add_apply_inl, unifFwdImpl,
         QueryImpl.liftTarget_apply, StateT.run_monadLift, bind_assoc, pure_bind]
-      let _ : MeasurableSpace (unifSpec.Range n) := ⊤
-      let _ : DiscreteMeasurableSpace (unifSpec.Range n) := ⟨fun _ => trivial⟩
+      let _ : MeasurableSpace ((unifSpec + (spec + spec)).Range (.inl n)) := ⊤
+      let _ : DiscreteMeasurableSpace ((unifSpec + (spec + spec)).Range (.inl n)) :=
+        ⟨fun _ => trivial⟩
       rw [evalDist_bind_bind_swap_of_countable, evalDist_bind_of_discrete,
         evalDist_bind_of_discrete]
       refine Measure.bind_congr_right ?_

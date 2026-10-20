@@ -42,7 +42,7 @@ def wotsPrfLayer300 : Adrs := { wotsSkAdrs Adrs.zero 0 with layer := 300 }
 
 /-- The checked compression rejects it. -/
 theorem compressSha2Checked_wotsPrfLayer300 :
-    wotsPrfLayer300.compressSha2Checked = .error (.outOfRange 1 300) := by decide
+    wotsPrfLayer300.compressSha2Checked = .error (.outOfRange 1 300) := by rfl
 
 /-- Its SHA-2 key is the fallback key of a secret-key type: the all-zero string with `8` at the type
 byte. -/

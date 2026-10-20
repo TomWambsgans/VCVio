@@ -62,7 +62,7 @@ parameter sets are not checked against scheme-level vectors there.
 
 public section
 
-open OracleComp OracleSpec
+open OracleComp OracleSpec VCVio.Algorithms
 
 namespace SLHDSA.Concrete
 
@@ -107,6 +107,8 @@ theorem toList_byteArrayPrefixOrZero_of_le {bs : ByteArray} {k : ℕ} (h : k ≤
   simpa using hraw
 
 namespace Keccak
+
+open VCVio.Algorithms.Keccak
 
 /-- One squeezed block, as a byte list. -/
 theorem toList_data_squeeze (s : Array UInt64) (k : ℕ) :
