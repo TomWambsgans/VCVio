@@ -6,19 +6,18 @@ Authors: Quang Dao
 
 module
 
-public import VCVio.Quantum.VC.Proof.Offline
+public import VCVio.Quantum.VC.Proof.GoodEvent
 
 /-!
-# Local potential and charged-certificate tests
+# Collision certificates and good-event bounds
 
-Numerical calibrations of bounds-note (NOTE) equations (77), (89), and (107) in NOTE's
-refinement of ePrint 2025/2166 §9.3's collision-event argument (Lemma 9.6,
-p. 61; event bound, pp. 64–65):
-a singleton flip in an answer space of size 64, a three-coefficient instance with nonzero
-restriction error, and a two-call certificate with original mass one and bound `19/128`.
-The tests cover the abstract certificate and the concrete old-oracle collision theorem,
-with no local trace hypotheses in the concrete applications. They include the zero-query
-case and unrestricted programs using ordinary, extraction, and recording ports.
+Numerical calibrations cover a singleton flip among 64 answers, a three-coefficient
+instance with nonzero restriction error, and a two-call collision certificate with
+ordinary mass one and bound `19/128`.
+
+The public-import tests cover zero queries, substates, coherent ports, and the generic
+good-event facade. The collision estimate and the instability estimate use the same
+post-adversary bad-event projector.
 -/
 
 public section
@@ -142,5 +141,57 @@ example (x : QuantumComp L (cohSpec (recIn 1 Bool (ZMod 64) Unit (ZMod 2) Bool))
   simpa only [Nat.cast_zero, mul_zero, zero_div, ENNReal.ofReal_zero, zero_mul] using h
 
 end Concrete
+
+
+section GoodEvent
+
+open Quantum.EmulatedOracle OracleSpec
+
+variable {k : ℕ} {X Y Cm Z : Type} [Fintype X] [DecidableEq X]
+  [Fintype Y] [DecidableEq Y] [AddCommGroup Y] [Fintype Cm] [DecidableEq Cm]
+  [Fintype Z] [DecidableEq Z] [AddGroup Z] {Dm : Fin k → Type}
+  (ME : MultiExtractor k Cm Dm (Fin k → Database X Y)) (code : TpDCode k Dm Z)
+  {L : LocalSig} (I : L.Interp) {W : QReg → Type*} {A : QReg}
+
+/-- The generic event bound elaborates through ordinary imports with arbitrary codes,
+substates, and coherent ordinary/extraction programs. -/
+example [UniformAnswerMeasure (X →ₒ Y)] (Pgood : Set (Database X Y))
+    [DecidablePred (· ∈ Pgood)] (hgood : Database.empty ∈ Pgood)
+    (x : QuantumComp L (cohSpec (extIn k X Y Cm Z)) W A)
+    {t : ℕ} (hx : x.IsQueryBound (fun _ ↦ t)) (ρ : SubState A) :
+    let E := (compressedVCOracle k X Y).withExtract ME code
+    let σ := ρ.matrix ⊗ₖ E.init.matrix
+    E.coherent.toRuntime.eventWeight I (familyBadProjector (k := k) Pgood) x σ ≤
+      24 * t * min (∑ i : Fin k, E.totalMass I x σ (.inl i)) t *
+        Database.instability (offlineLabel Pgood) t :=
+  badEvent_compressedWithExtract_le ME code Pgood hgood I x hx ρ
+
+/-- The sharp collision bound supplies the same bad-event input as the generic facade. -/
+example [DecidablePred (fun D : Database X Y ↦ D.CollisionFree)]
+    (x : QuantumComp L (cohSpec (extIn k X Y Cm Z)) W A)
+    {t : ℕ} (hx : x.IsQueryBound (fun _ ↦ t)) (ρ : SubState A) :
+    let E := (compressedVCOracle k X Y).withExtract ME code
+    let σ := ρ.matrix ⊗ₖ E.init.matrix
+    E.coherent.toRuntime.eventWeight I
+        (familyBadProjector (k := k) {D : Database X Y | D.CollisionFree}) x σ ≤
+      ENNReal.ofReal ((7 * t + 5) * t / (4 * (Fintype.card Y : ℝ))) *
+        min (∑ i : Fin k, E.totalMass I x σ (.inl i)) t := by
+  dsimp only
+  rw [familyBadProjector_collisionFree]
+  exact collisionEvent_compressedWithExtract_le ME code I x hx ρ
+
+/-- A zero-call substate has no bad weight for any good set containing the empty database. -/
+example [UniformAnswerMeasure (X →ₒ Y)] (Pgood : Set (Database X Y))
+    [DecidablePred (· ∈ Pgood)] (hgood : Database.empty ∈ Pgood)
+    (x : QuantumComp L (cohSpec (extIn k X Y Cm Z)) W A)
+    (hx : x.IsQueryBound (fun _ ↦ 0)) (ρ : SubState A) :
+    let E := (compressedVCOracle k X Y).withExtract ME code
+    E.coherent.toRuntime.eventWeight I (familyBadProjector (k := k) Pgood) x
+      (ρ.matrix ⊗ₖ E.init.matrix) = 0 := by
+  apply le_antisymm ?_ zero_le
+  have h := badEvent_compressedWithExtract_le ME code Pgood hgood I x hx ρ
+  simpa only [Nat.cast_zero, mul_zero, zero_mul] using h
+
+end GoodEvent
 
 end VCVioTest.QuantumVCOffline
