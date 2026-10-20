@@ -51,9 +51,7 @@ The forger's points are described by whatever predicate `F pk` its hash queries 
   `allQueriesSatisfy_verifyInternalM_isHonestQuery`: the honest algorithms issue honest queries
   only;
 * `isHonestQuery_or_of_mem_support_romSchemeRun`: every point of the final cache of the run is an
-  honest query of the run's key pair or a forger query;
-* `isHonestQuery_or_of_mem_support_run_withVerify`: the same for the run of `romScheme` with its
-  verification replaced (`SignatureAlg.withVerify`) by any verification issuing honest queries.
+  honest query of the run's key pair or a forger query.
 -/
 
 public section
@@ -163,30 +161,23 @@ theorem isHonestQuery_of_mem_support_run_romScheme_keygen (e : core.SkSeed ≃ c
       (pk := ⟨pkSeed, pkRoot⟩) rfl skPrf)
     (fun _ h => by simp at h) hroot⟩
 
-/-- **Provenance of the cached points of a run verifying by `ver`.** Let `ver` be a verification
-issuing honest queries of every key pair only. Against a forger whose hash queries at every public
-key `pk` satisfy `F pk`, on every transcript of the experiment of `romScheme` verifying by `ver`,
-run under one lazy random oracle from the empty cache, every point of the final cache is an honest
-query of the key pair (`IsHonestQuery`) or satisfies `F` at the public key. -/
-theorem isHonestQuery_or_of_mem_support_run_withVerify (e : core.SkSeed ≃ core.Y)
+/-- **Provenance of the cached points of the run.** Against a forger whose hash queries at every
+public key `pk` satisfy `F pk`, every point of the final cache of `romSchemeRun` is an honest query
+of the run's key pair (`IsHonestQuery`: a tweakable-hash point at `PK.seed` and an honest address
+key, an `H_msg` point at `(PK.seed, PK.root)`, a `PRF_msg` point keyed by `SK.prf`) or satisfies
+`F` at the run's public key. -/
+theorem isHonestQuery_or_of_mem_support_romSchemeRun (e : core.SkSeed ≃ core.Y)
     (optRand : PublicKeyCore core → ProbComp core.Y) (pkSeedDist : ProbComp core.PkSeed)
-    {ver : PublicKeyCore core → List Byte → GeneralScheme.SignatureCore vp core →
-      OracleComp (unifSpec + hashSpec core) Bool}
-    (hver : ∀ pk skPrf msg sig, AllQueriesSatisfy (ver pk msg sig)
-      (Sum.elim (fun _ => True) (IsHonestQuery vp pk skPrf)))
-    {adv : UnforgeableAdversary ((romScheme core e optRand pkSeedDist).withVerify ver)}
+    {adv : UnforgeableAdversary (romScheme core e optRand pkSeedDist)}
     (F : PublicKeyCore core → (hashSpec core).Domain → Prop)
     (hadv : ∀ pk, AllQueriesSatisfy (adv.main pk)
       (Sum.elim (Sum.elim (fun _ => True) (F pk)) fun _ => True))
     {z : RomOutcome vp core × (hashSpec core).QueryCache}
-    (hz : z ∈ support ((simulateQ (hashSpec core).romImpl
-      (unforgeableTranscriptExperiment adv)).run ∅)) :
+    (hz : z ∈ support (romSchemeRun core e optRand pkSeedDist adv)) :
     ∀ q, (z.2 q).isSome → IsHonestQuery vp z.1.pk z.1.sk.skPrf q ∨ F z.1.pk q := by
   obtain ⟨s₁, s₂, hk, hf, hv⟩ :=
     exists_mem_support_run_of_mem_support_run_unforgeableTranscriptExperiment
       (hashSpec core).romImpl adv hz
-  rw [withVerify_keygen] at hk
-  rw [withVerify_verify] at hv
   obtain ⟨-, hs, hr, hk⟩ :=
     isHonestQuery_of_mem_support_run_romScheme_keygen e optRand pkSeedDist hk
   let P : (hashSpec core).Domain → Prop := fun q =>
@@ -205,26 +196,8 @@ theorem isHonestQuery_or_of_mem_support_run_withVerify (e : core.SkSeed ≃ core
         (hP fun _ => Or.inl)) hc hz)
     (hadv z.1.pk) (fun q hq => Or.inl (hk q hq)) hf
   exact forall_isSome_of_mem_support_run_simulateQ_romImpl
-    ((hver z.1.pk z.1.sk.skPrf z.1.msg z.1.sig).mono (hP fun _ => Or.inl)) hf hv
-
-/-- **Provenance of the cached points of the run.** Against a forger whose hash queries at every
-public key `pk` satisfy `F pk`, every point of the final cache of `romSchemeRun` is an honest query
-of the run's key pair (`IsHonestQuery`: a tweakable-hash point at `PK.seed` and an honest address
-key, an `H_msg` point at `(PK.seed, PK.root)`, a `PRF_msg` point keyed by `SK.prf`) or satisfies
-`F` at the run's public key. -/
-theorem isHonestQuery_or_of_mem_support_romSchemeRun (e : core.SkSeed ≃ core.Y)
-    (optRand : PublicKeyCore core → ProbComp core.Y) (pkSeedDist : ProbComp core.PkSeed)
-    {adv : UnforgeableAdversary (romScheme core e optRand pkSeedDist)}
-    (F : PublicKeyCore core → (hashSpec core).Domain → Prop)
-    (hadv : ∀ pk, AllQueriesSatisfy (adv.main pk)
-      (Sum.elim (Sum.elim (fun _ => True) (F pk)) fun _ => True))
-    {z : RomOutcome vp core × (hashSpec core).QueryCache}
-    (hz : z ∈ support (romSchemeRun core e optRand pkSeedDist adv)) :
-    ∀ q, (z.2 q).isSome → IsHonestQuery vp z.1.pk z.1.sk.skPrf q ∨ F z.1.pk q :=
-  isHonestQuery_or_of_mem_support_run_withVerify e optRand pkSeedDist
-    (ver := (romScheme core e optRand pkSeedDist).verify)
-    (fun pk skPrf msg sig => allQueriesSatisfy_verifyInternalM_isHonestQuery msg sig pk skPrf)
-    (adv := adv) F hadv hz
+    ((allQueriesSatisfy_verifyInternalM_isHonestQuery z.1.msg z.1.sig z.1.pk z.1.sk.skPrf).mono
+      (hP fun _ => Or.inl)) hf hv
 
 /-- The public seed of every transcript of the run is drawn from the seed distribution. -/
 theorem pkSeed_mem_support_of_mem_support_romSchemeRun (e : core.SkSeed ≃ core.Y)

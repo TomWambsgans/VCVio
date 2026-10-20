@@ -92,20 +92,6 @@ theorem unforgeableTranscriptExperiment_withPost {spec : OracleSpec ι}
     pure_bind, map_eq_bind_pure_comp, Function.comp_def]
   rfl
 
-/-- The identity `unforgeableTranscriptExperiment_withPost` under a stateful handler `so`, run
-from a state `s`. -/
-theorem run_simulateQ_unforgeableTranscriptExperiment_withPost {spec : OracleSpec ι} {σ : Type}
-    (so : QueryImpl spec (StateT σ ProbComp)) (sigAlg : SignatureAlg (OracleComp spec) M PK SK S)
-    (adv : UnforgeableAdversary sigAlg) (post : PK → M × S → OracleComp spec Bool) (s : σ) :
-    (simulateQ so (unforgeableTranscriptExperiment (adv.withPost post))).run s =
-      (simulateQ so (unforgeableTranscriptExperiment
-          (sigAlg := sigAlg.withVerify fun pk msg sig => post pk (msg, sig)) ⟨adv.main⟩)).run s >>=
-        fun z => (fun r => ({ z.1 with verified := r.1 }, r.2)) <$>
-          (simulateQ so (sigAlg.verify z.1.pk z.1.msg z.1.sig)).run z.2 := by
-  rw [unforgeableTranscriptExperiment_withPost, simulateQ_bind, StateT.run_bind]
-  refine bind_congr fun z => ?_
-  rw [simulateQ_map, StateT.run_map]
-
 /-- **The experiment verifying by `post` is a prefix of the experiment against the adversary
 followed by `post`.** Under a stateful handler `so` from a state `s`, an event `P` of the run of
 the experiment of the scheme verifying by `post` against `adv`, each of whose reachable
@@ -125,10 +111,10 @@ theorem prEvent_run_withVerify_le_prEvent_run_withPost {spec : OracleSpec ι} {�
         P z] ≤
       Pr{let z ← (simulateQ so (unforgeableTranscriptExperiment (adv.withPost post))).run s}[
         Q z] := by
-  rw [run_simulateQ_unforgeableTranscriptExperiment_withPost]
+  rw [unforgeableTranscriptExperiment_withPost, simulateQ_bind, StateT.run_bind]
   refine prEvent_le_prEvent_bind_of_support _ _ _ _ fun z hz hP =>
     prEvent_eq_one_of_forall_mem_support _ _ fun b hb => ?_
-  rw [support_map] at hb
+  rw [simulateQ_map, StateT.run_map, support_map] at hb
   obtain ⟨r, hr, rfl⟩ := hb
   exact hPQ z hz hP r hr
 
