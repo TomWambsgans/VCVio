@@ -259,6 +259,7 @@ theorem coherent_budget : twoCalls.toCoherent.IsQueryBound (fun _ ↦ 2) := by
 
 /-- A zero budget cannot hide the extraction call. -/
 example : ¬ extractCall.IsQueryBound (fun _ ↦ 0) := by
+  classical
   rw [extractCall, QuantumComp.isQueryBound_queryBind_iff]
   simp
 
