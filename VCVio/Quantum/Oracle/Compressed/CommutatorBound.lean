@@ -303,6 +303,26 @@ end queryBlock
 
 /-! ## The blocks of the truncated phase oracle -/
 
+section cellBlock
+
+variable {X Y Q : Type*} [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y]
+  [Fintype Q] [DecidableEq Q]
+
+/-- Basis states in a cell block are parameterized by the cell content. -/
+theorem sum_ite_cellBlock {M : Type*} [AddCommMonoid M] (x : X) (q : Q)
+    {r : Database X Y} (hr : r x = none) (g : (X × Q) × Database X Y → M) :
+    ∑ m : (X × Q) × Database X Y,
+      (if (m.1, Function.update m.2 m.1.1 none) = ((x, q), r) then g m else 0) =
+      ∑ a, g ((x, q), Function.update r x a) := by
+  rw [Fintype.sum_prod_type, Finset.sum_eq_single (x, q)]
+  · simp only [Prod.mk.injEq, true_and]
+    exact Database.sum_ite_update_none_eq hr _
+  · intro q' _ hq
+    exact Finset.sum_eq_zero fun D _ ↦ by simp [hq]
+  · simp
+
+end cellBlock
+
 section phaseBlock
 
 variable {X Y : Type*} [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y] [AddCommGroup Y]
@@ -314,13 +334,8 @@ theorem sum_ite_phaseBlock {M : Type*} [AddCommMonoid M] (x : X) (χ : AddChar Y
     {r : Database X Y} (hr : r x = none) (g : (X × AddChar Y ℂ) × Database X Y → M) :
     ∑ m : (X × AddChar Y ℂ) × Database X Y,
       (if (m.1, Function.update m.2 m.1.1 none) = ((x, χ), r) then g m else 0) =
-      ∑ a, g ((x, χ), Function.update r x a) := by
-  rw [Fintype.sum_prod_type, Finset.sum_eq_single (x, χ)]
-  · simp only [Prod.mk.injEq, true_and]
-    exact Database.sum_ite_update_none_eq hr _
-  · intro q _ hq
-    exact Finset.sum_eq_zero fun D _ ↦ by simp [hq]
-  · simp
+      ∑ a, g ((x, χ), Function.update r x a) :=
+  sum_ite_cellBlock x χ hr g
 
 /-- The truncated phase oracle keeps the query register and every cell but the queried one. -/
 theorem phaseBlock_eq_of_truncatedPhaseOracle_ne_zero {t : ℕ}
