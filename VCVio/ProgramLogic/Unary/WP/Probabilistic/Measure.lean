@@ -37,8 +37,10 @@ omit [LawfulMonad m] in
 theorem μ_one_le {α : Type} (mx : m α) :
     MAlgOrdered.μ (mx >>= fun _ ↦ pure (1 : ENNReal)) ≤ 1 := by
   let : MeasurableSpace α := MeasurableSpace.comap (fun _ : α ↦ (1 : ENNReal)) inferInstance
-  exact ExpectationWP.wp_le_const mx measurable_const
-    (Filter.Eventually.of_forall fun _ ↦ le_rfl)
+  change ∫⁻ y, y ∂𝒟[mx >>= fun _ ↦ pure (1 : ENNReal)] ≤ 1
+  rw [lintegral_evalDist_bind mx _ (by simp only [evalDist_pure]; exact measurable_const)
+    (g := fun y ↦ y) measurable_id]
+  simp
 
 /-- The expectation algebra restricted to bounded probability assertions. -/
 @[expose, instance_reducible]
