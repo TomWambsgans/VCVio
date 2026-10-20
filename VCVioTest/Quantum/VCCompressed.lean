@@ -91,9 +91,9 @@ and any observation of its output. -/
 example (ρ : SubState Reg) {γ : Type} [MeasurableSpace γ]
     (f : (Σ u, (fun u ↦ PSigma fun _ : u = QReg.of ((cohSpec (oIn 2 Bool (ZMod 2))).Out () ×
       QReg.of Unit) ↦ (cohSpec (oIn 2 Bool (ZMod 2))).Result ()) u) → γ) :
-    (E₂).coherent.toRuntime.outcomeLawWith .instruments oneQuery ρ f =
+    (E₂).coherent.toRuntime.evalDistMap .instruments oneQuery ρ f =
       ∑ H : Fin 2 → Bool → ZMod 2, (Fintype.card (Fin 2 → Bool → ZMod 2) : ℝ≥0∞)⁻¹ •
-        (romVCOracle 2 Bool (ZMod 2) H).coherent.toRuntime.outcomeLawWith .instruments oneQuery
+        (romVCOracle 2 Bool (ZMod 2) H).coherent.toRuntime.evalDistMap .instruments oneQuery
           ρ f :=
   outcomeLawWith_coherent_compressedVCOracle _ _ _ _
 
@@ -106,7 +106,7 @@ coherent compressed oracles is at most the averaged probability against the rand
 example (ρ : SubState Reg) (f : (Σ u, (fun u ↦ PSigma fun _ : u =
       QReg.of ((cohSpec (oIn 2 Bool (ZMod 2))).Out () × QReg.of Unit) ↦
         (cohSpec (oIn 2 Bool (ZMod 2))).Result ()) u) → Bool) :
-    (E₂).coherent.toRuntime.outcomeLawWith .instruments oneQuery ρ f {true} ≤
+    (E₂).coherent.toRuntime.evalDistMap .instruments oneQuery ρ f {true} ≤
       mixedLawWith
         (Convexity.StdSimplex.barycenter : Convexity.StdSimplex ℝ (Fin 2 → Bool → ZMod 2))
         (fun H ↦ (romVCOracle 2 Bool (ZMod 2) H).coherent.toRuntime) .instruments oneQuery ρ
@@ -133,9 +133,9 @@ theorem block_romVCOracle (H : Fin 2 → Bool → ZMod 2) (o : Bool × ZMod 2) :
 
 /-- Against the random oracle `H`, the call returns `H 0 false` with certainty. -/
 theorem outcomeLaw₂_romVCOracle_answerCall (H : Fin 2 → Bool → ZMod 2) (y : ZMod 2) :
-    (romVCOracle 2 Bool (ZMod 2) H).toRuntime.outcomeLaw₂ .instruments answerCall
+    (romVCOracle 2 Bool (ZMod 2) H).toRuntime.evalDist₂ .instruments answerCall
       (SubState.basis ()) {y} = if H 0 false = y then 1 else 0 := by
-  rw [QuantumRuntime.outcomeLaw₂_apply_singleton, QuantumRuntime.matrix_jointPost₂, answerCall,
+  rw [QuantumRuntime.evalDist₂_apply_singleton, QuantumRuntime.matrix_jointPost₂, answerCall,
     EmulatedOracle.branch_run₂_callBasis, Finset.sum_eq_single (false, H 0 false)
       (fun o _ ho ↦ by simp [block_romVCOracle, ho]) (by simp)]
   by_cases h : H 0 false = y
@@ -150,11 +150,11 @@ theorem outcomeLaw₂_romVCOracle_answerCall (H : Fin 2 → Bool → ZMod 2) (y 
 probability `1 / 2`. By `Quantum.outcomeLawWith_compressedVCOracle` the law is the average over
 the `16` random oracles `H`, of which `8` have `H 0 false = y`. -/
 example (y : ZMod 2) :
-    (E₂).toRuntime.outcomeLaw₂ .instruments answerCall (SubState.basis ()) {y} = 2⁻¹ := by
+    (E₂).toRuntime.evalDist₂ .instruments answerCall (SubState.basis ()) {y} = 2⁻¹ := by
   have h := outcomeLawWith_compressedVCOracle (k := 2) (X := Bool) (Y := ZMod 2) .instruments
     answerCall (SubState.basis ()) (QuantumComp₂.leafEquiv (QReg.of Unit) (ZMod 2)).symm
-  rw [QuantumRuntime.outcomeLaw₂_eq_outcomeLawWith, h, Measure.coe_finsetSum, Finset.sum_apply]
-  simp only [Measure.smul_apply, ← QuantumRuntime.outcomeLaw₂_eq_outcomeLawWith, smul_eq_mul]
+  rw [QuantumRuntime.evalDist₂_eq_evalDistMap, h, Measure.coe_finsetSum, Finset.sum_apply]
+  simp only [Measure.smul_apply, ← QuantumRuntime.evalDist₂_eq_evalDistMap, smul_eq_mul]
   rw [Finset.sum_congr rfl fun H _ ↦ by rw [outcomeLaw₂_romVCOracle_answerCall H y]]
   have h8 : (Finset.univ.filter fun H : Fin 2 → Bool → ZMod 2 ↦ H 0 false = y).card = 8 := by
     fin_cases y <;> decide
@@ -173,7 +173,7 @@ example (i : Fin 2) : (romVCOracle 2 Bool (ZMod 2) 0).U i = 1 := by
 /-- **The identity oracle has a different law**: against it the call never returns `1`, so the
 measured answer tells the compressed oracles apart from the identity. -/
 example :
-    (romVCOracle 2 Bool (ZMod 2) 0).toRuntime.outcomeLaw₂ .instruments answerCall
+    (romVCOracle 2 Bool (ZMod 2) 0).toRuntime.evalDist₂ .instruments answerCall
       (SubState.basis ()) {1} = 0 :=
   (outcomeLaw₂_romVCOracle_answerCall 0 1).trans (by simp)
 

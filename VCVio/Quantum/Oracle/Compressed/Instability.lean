@@ -171,8 +171,8 @@ theorem instability_comp_le {κ : Type*} (f : ι → κ) (π : Database X Y → 
   rw [instability_eq_iSup_flip_compl, instability_eq_iSup_flip_compl]
   refine iSup_le fun k ↦ QueryCache.flip_le_iff.mpr fun D hD hlt x hx ↦ ?_
   refine le_iSup_of_le (π (equivQueryCache.symm D)) <|
-    (QueryCache.extendProb_mono D x fun c hc ↦ ?_).trans
-      (QueryCache.extendProb_le_flip rfl hlt hx)
+    (QueryCache.updateProb_mono D x fun c hc ↦ ?_).trans
+      (QueryCache.updateProb_le_flip rfl hlt hx)
   simp only [Set.mem_compl_iff, mem_labelPartition, Function.comp_apply] at hD hc ⊢
   exact fun h ↦ hc (h ▸ hD)
 
@@ -204,7 +204,7 @@ theorem instability_eq_iSup (π : Database X Y → ι) (t : ℕ) :
   refine iSup_congr_Prop (by simp) fun _ ↦ ?_
   refine iSup_congr_Prop (by rw [encard_toSet_equivQueryCache]; exact Nat.cast_lt) fun _ ↦ ?_
   refine iSup_congr fun x ↦ iSup_congr_Prop Iff.rfl fun _ ↦ ?_
-  rw [QueryCache.extendProb_eq_card_div]
+  rw [QueryCache.updateProb_eq_card_div]
   refine congrArg (· / _) (congrArg Nat.cast (congrArg Finset.card (Finset.ext fun u ↦ ?_)))
   simp
 

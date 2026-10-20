@@ -619,7 +619,6 @@ theorem queryMass_bind (x : QuantumComp L spec X A) (k : ∀ u, X u → QuantumC
     have hrun : ∀ p, (R.run I (QuantumComp.queryBind i' E ℓ k')).branch p ρ =
         ∑' r, (R.run I (k' r)).branch p ((R.queryStep i' E ℓ).branch r ρ) := fun p ↦ by
       rw [run_queryBind, DSubInstrument.branch_bind_apply]
-      rfl
     have htail : ∑' p, R.queryMass I (k p.1 p.2)
           ((R.run I (QuantumComp.queryBind i' E ℓ k')).branch p ρ) i =
         ∑' r, ∑' p, R.queryMass I (k p.1 p.2)
@@ -628,7 +627,7 @@ theorem queryMass_bind (x : QuantumComp L spec X A) (k : ∀ u, X u → QuantumC
       refine tsum_congr fun p ↦ ?_
       rw [hrun p]
       exact R.queryMass_tsum_state I _
-        (((SubInstrument.toD (R.queryStep i' E ℓ)).isCPTNIFamily.comp_eval
+        (((R.queryStep i' E ℓ).isCPTNIFamily.comp_eval
           (fun r ↦ (R.run I (k' r)).isCPTNIFamily) p).summable_apply ρ)
         (fun r ↦ (R.run I (k' r)).posSemidef_branch_apply p (hb r)) i
     rw [QuantumComp.queryBind_bind, htail]

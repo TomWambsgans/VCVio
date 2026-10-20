@@ -11,12 +11,12 @@ public import VCVio.Quantum.Oracle.Basis
 /-!
 # The oracle unitary of a function
 
-A quantum algorithm queries a function `H : X → Y` into an additive group `Y` on a register
-`X × Y`: a query input and a response register. The query is the permutation of the
-computational basis that adds the value of `H` into the response register,
-`|x, y⟩ ↦ |x, y + H x⟩`. For `Y` a vector space over `ZMod 2` this is the XOR oracle. A program
-keeps the rest of its register outside the call (`Quantum.QuantumComp.query` carries it along),
-so the query register has no workspace.
+A quantum algorithm queries a function `H : X → Y` into a finite additive group `Y` on a register
+`X × Y`: a query input and a response register. The query is the permutation of the computational
+basis that adds the value of `H` into the response, `|x, y⟩ ↦ |x, y + H x⟩`, and its matrix is
+unitary. For bitstrings with addition modulo two this is the XOR oracle. A program keeps the rest of
+its register outside the call (`Quantum.QuantumComp.query` carries it along), so the query register
+has no workspace.
 
 ## Main definitions
 
@@ -90,7 +90,8 @@ section oracleUnitary
 variable [AddCommGroup Y] [DecidableEq X] [DecidableEq Y]
 
 /-- The oracle unitary of `H : X → Y` on the register `X × Y`: the permutation matrix sending the
-basis vector `|x, y⟩` to `|x, y + H x⟩`. -/
+basis vector `|x, y⟩` to `|x, y + H x⟩`. See `VCVio.Quantum.Oracle.Model` for the QROM
+experiment and the Boneh et al. reference with its §2.1 / PDF p. 7 locator. -/
 @[expose]
 def oracleUnitary (H : X → Y) : Matrix (X × Y) (X × Y) ℂ :=
   basisMatrix (oracleEquiv H)
@@ -177,21 +178,21 @@ theorem lossless_oracleQuery (H : X → Y) :
 theorem oracleQuery_zero :
     (oracleQuery (0 : X → Y) : SubInstrument (X × Y) (X × Y) Unit) =
       SubInstrument.pure () :=
-  SubInstrument.ext <| funext fun ⟨⟩ ↦ by simp
+  DSubInstrument.ext <| funext fun ⟨⟩ ↦ by simp
 
 /-- A query to `H` followed by a query to `H'` is one query to `H + H'`. -/
 theorem oracleQuery_bind_oracleQuery (H H' : X → Y) :
     ((oracleQuery H : SubInstrument (X × Y) (X × Y) Unit).bind fun _ ↦ oracleQuery H') =
       oracleQuery (H + H') :=
-  SubInstrument.ext <| funext fun u ↦ by
-    rw [SubInstrument.branch_bind_unit, branch_oracleQuery_apply, branch_oracleQuery_apply,
+  DSubInstrument.ext <| funext fun u ↦ by
+    rw [DSubInstrument.branch_bind_unit, branch_oracleQuery_apply, branch_oracleQuery_apply,
       branch_oracleQuery_apply, ← MatrixMap.conj_mul, ← oracleUnitary_add, add_comm]
 
 /-- A query sends the basis state at `(x, y)` to the basis state at `(x, y + H x)`. -/
 theorem post_oracleQuery_basis (H : X → Y) (m : X × Y) :
     (oracleQuery H).post (SubState.basis m) () = SubState.basis (m.1, m.2 + H m.1) :=
   SubState.ext <| by
-    rw [SubInstrument.matrix_post, branch_oracleQuery_apply, SubState.matrix_basis, oracleUnitary,
+    rw [DSubInstrument.matrix_post, branch_oracleQuery_apply, SubState.matrix_basis, oracleUnitary,
       conj_basisMatrix_equiv_single]
     rfl
 
@@ -279,7 +280,7 @@ theorem post_oracleQuery_congr {S : Set X} {H H' : X → Y} (hH : Set.EqOn H H' 
     {ρ : SubState (X × Y)} (hρ : QuerySupportedOn Prod.fst S ρ.matrix) :
     (oracleQuery H).post ρ () = (oracleQuery H').post ρ () :=
   SubState.ext <| by
-    rw [SubInstrument.matrix_post, SubInstrument.matrix_post, branch_oracleQuery_apply,
+    rw [DSubInstrument.matrix_post, DSubInstrument.matrix_post, branch_oracleQuery_apply,
       branch_oracleQuery_apply, conj_oracleUnitary_congr hH hρ]
 
 end QuerySupportedOn
