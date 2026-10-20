@@ -16,8 +16,8 @@ import all HashSigTest.SLHDSA.ByteLinkedRun
 `HashSig.SLHDSA.Security.ByteLinkedView` bounds the advantage against SLH-DSA over one SHAKE256
 oracle at `n = 32` by the events of the run against the verifying adversary. This file checks it.
 
-* **At SLH-DSA-SHAKE-256s** the bound holds at every public seed, for any `opt_rand`, with the
-  verifying adversary of an adversary making `2 ^ 64` hash and `2 ^ 64` signing queries making
+* **At SLH-DSA-SHAKE-256s** the bound holds at every public seed, for any `opt_rand`; when the
+  adversary makes `2 ^ 64` hash and `2 ^ 64` signing queries, the verifying adversary makes
   `2 ^ 64 + V` hash and `2 ^ 64` signing queries.
 * **Off a weak seed.** At the public seed `typeSevenSeed`, whose bytes are not an honest address
   key, no run point has a virtual hit or an honest input at a linked point, so the headline's
@@ -25,8 +25,9 @@ oracle at `n = 32` by the events of the run against the verifying adversary. Thi
 * **A cached linked point is not an honest input.** At the weak seed of
   `HashSigTest.SLHDSA.ByteLinkedRun`, the cache holding the linked point that the non-redirected
   verification queries, and its `H_msg` reading, has a cached linked point but no honest entry at
-  all, so neither `VirtualHit` nor `LinkedHonestInput` holds there: the root event is not read off
-  cache content.
+  all, and no ledger secret is queried at a linked point, since a secret-key address and a ledger
+  address have different keys; so neither `VirtualHit` nor `LinkedHonestInput` holds there: the
+  root event is not read off cache content.
 -/
 
 public section
@@ -114,12 +115,12 @@ theorem exists_secret_of_honestEntry {c : PublicHash.Cache (shakeCore vp256s)}
   | forsNode _ _ _ _ _ _ _ hl => exact hfors hl
   | forsRoots _ _ _ ht => exact hfors (ht ⟨0, by decide⟩)
 
-open ByteLinkedRunTest (pk cache cache_apply_of_ne weakKey node) in
-/-- **The negative control.** For every run point at the public key `pk`, with secret seed other
-than `PK.root` and final cache `cache`: the cache holds a linked point, and there is neither a
-virtual hit nor an honest input at a linked point. -/
+open ByteLinkedRunTest (pk cache cache_apply_of_ne weakKey weakAdrs weakAdrs_mem node) in
+/-- **The negative control.** For every pair of a transcript at the public key `pk`, with any
+secret key, and the cache `cache`: the cache holds a linked point, and there is neither a virtual
+hit nor an honest input at a linked point. -/
 example (z : RomOutcome vp256s (shakeCore vp256s) × (hashSpec (shakeCore vp256s)).QueryCache)
-    (hpk : z.1.pk = pk) (hsk : z.1.sk.skSeed ≠ pk.pkRoot) (hc : z.2 = cache) :
+    (hpk : z.1.pk = pk) (hc : z.2 = cache) :
     LinkedCached vp256s z.1.pk z.2 ∧ ¬VirtualHit vp256s z ∧ ¬LinkedHonestInput vp256s z := by
   have hno : ∀ t, ¬HonestEntry (oracleSecret (shakeCore vp256s) (Equiv.refl _) z.1.pk.pkSeed
       z.1.sk.skSeed) z.1.pk.pkSeed z.2.fst t := fun t ht => by
@@ -133,8 +134,11 @@ example (z : RomOutcome vp256s (shakeCore vp256s) × (hashSpec (shakeCore vp256s
     exact ⟨rfl, rfl, rfl⟩
   · rw [hc, cache, QueryCache.cacheQuery_of_ne _ _ (by simp), QueryCache.cacheQuery_self]
     rfl
-  rintro (⟨t, -, ht⟩ | ⟨-, -, -, -, -, -, hr⟩)
+  rintro (⟨t, -, ht⟩ | ⟨_, b, _, hab, -, hks, -⟩)
   · exact hno t ht
-  · exact hsk (by rw [← hpk]; exact hr)
+  · rw [hpk] at hks
+    exact keySeparated_shakePrimitives vp256s.params b weakAdrs
+      (isSecretKey_of_inl_mem_childAdrs hab)
+      (type_le_four_of_mem_constructionAddresses weakAdrs_mem) (Vector.toList_inj.mp hks)
 
 end SLHDSA.ByteLinkedViewTest

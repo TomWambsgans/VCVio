@@ -27,33 +27,19 @@ of `romScheme` against the verifying adversary `verifyingAdv`
 * `LinkedHonestInput`: an honest input of `C` at a linked point (`HonestInputIn`);
 * `RunItsrCovered`: interleaved-target coverage on `C`;
 
-each conjoined with freshness of the forged message where the landed run events carry it. The
+each conjoined with freshness of the forged message where the run events of `RomSchemeUnion`
+carry it. The
 first and last are the events of `HashSig.SLHDSA.Security.RomSchemeUnion`, read on the cache
 itself.
 
 ## The argument
 
-`shakeAdvantage_pure_le_verifyingAdv` bounds the advantage by redirected wins, the key clash, or
-an honest replay failing off the linked points. When the replays settle off the linked points,
-the cache with them removed lies below both `C` and `V` (`OracleSpec.QueryCache.filter_le_viewBy`),
-and redirected verification accepts on `C` exactly when verification accepts on `V`, so the
-bridge on a settled cache (`bad_event_of_settled`) fires on `V`. Unless `C` has an honest input
-at a linked point, `V` transfers honestly to `C` off the linked points (`HonestTransfer`, since the
-two agree off them), which splits the bridge's events (`bad_event_of_redirectedWins`):
-
-* a target collision on `V` is one on `C`, or its non-honest input is linked and its value on `V`
-  is an `H_msg` prefix (`targetCollision_or_virtualHit_of_viewBy`);
-* a hidden-value hit on `V` is mixed (`hiddenHitMixed_of_hiddenHit`);
-* coverage reads only `H_msg` points, which the redirect passes on (`itsrCovered_congr`).
-
-When an honest replay fails off the linked points, `C` has an honest input at a linked point
-(`linkedHonestInput_of_not_honestOffLinked`): on the support of a run the replays settle on `C`
-(`settled_of_mem_support_romSchemeRun`), and would otherwise transfer honestly to `C` with the
-linked points removed.
-
-Both new events need a public seed whose bytes are an honest address key
-(`not_virtualHit_and_not_linkedHonestInput`): an honest entry is at the key of a ledger address,
-and a ledger secret is queried at the key of a secret-key child of one.
+When the honest replays settle off the linked points, the bridge on a settled cache
+(`bad_event_of_settled`) fires on the view `V`, and unless `C` has an honest input at a linked
+point, `V` transfers honestly to `C` off the linked points (`HonestTransfer`), which splits the
+bridge's events onto `C` (`bad_event_of_redirectedWins`). When a replay fails off the linked points,
+the replays, settled on `C` on the support of a run, show an honest input at a linked point
+(`linkedHonestInput_of_not_honestOffLinked`).
 
 ## Scope
 
@@ -69,7 +55,7 @@ and a ledger secret is queried at the key of a secret-key child of one.
 
 *The headline*: `shakeAdvantage_pure_le_viewEvents`.
 
-*Weak seeds*: `isHonestKey_of_honestEntry`, `not_virtualHit_and_not_linkedHonestInput`.
+*Weak seeds*: `not_virtualHit_and_not_linkedHonestInput`.
 -/
 
 public section
@@ -116,19 +102,21 @@ the cache, with the hashed forger point not linked, and its forged message is fr
 
 /-! ## The splits -/
 
-/-- Without an honest input at a linked point, a target collision on the view of the run's cache
-through the linked redirect is a target collision on the cache, or a virtual hit. -/
+/-- If the view of the run's cache through the linked redirect transfers honestly to the cache off
+the linked points, a target collision on the view is a target collision on the cache, or a virtual
+hit. -/
 theorem targetCollision_or_virtualHit_of_viewBy
     (z : RomOutcome vp (shakeCore vp) × (hashSpec (shakeCore vp)).QueryCache)
-    (hz : ¬LinkedHonestInput vp z)
+    (ht : HonestTransfer (Equiv.refl _) z.1.pk.pkSeed z.1.sk.skSeed (IsLinked vp z.1.pk)
+      (z.2.fst.viewBy (linkedRedirect vp z.1.pk)) z.2.fst)
     (h : TargetCollision (oracleSecret (shakeCore vp) (Equiv.refl _) z.1.pk.pkSeed z.1.sk.skSeed)
       z.1.pk.pkSeed (z.2.fst.viewBy (linkedRedirect vp z.1.pk))) :
     TargetCollision (oracleSecret (shakeCore vp) (Equiv.refl _) z.1.pk.pkSeed z.1.sk.skSeed)
       z.1.pk.pkSeed z.2.fst ∨ VirtualHit vp z := by
   obtain ⟨key, xs, ys, v, hhon, hne, hx, hy⟩ := h
-  have hhon' := (HonestTransfer.mk (fun _ ht => viewBy_linkedRedirect_of_not_isLinked _ ht)
-    hz).honestEntry hhon
-  rw [viewBy_linkedRedirect_of_not_isLinked _ fun hL => hz (.inl ⟨_, hL, hhon'⟩)] at hx
+  have hhon' := ht.honestEntry hhon
+  rw [viewBy_linkedRedirect_of_not_isLinked _ fun hL => ht.not_honestInputIn (.inl ⟨_, hL, hhon'⟩)]
+    at hx
   by_cases hyl : IsLinked vp z.1.pk (.thash z.1.pk.pkSeed key ys)
   · obtain ⟨r, rest, rfl⟩ : ∃ r rest, ys = r :: rest := by
       cases ys with
@@ -166,7 +154,7 @@ theorem bad_event_of_redirectedWins
     (QueryCache.simulateQ_toPartialImpl_mono hle _ ho.1)
     (fun x hx => QueryCache.simulateQ_toPartialImpl_mono hle _ (ho.2 x hx)) hv with
     htc | hhh | hit
-  · rcases targetCollision_or_virtualHit_of_viewBy z hz htc with htc | hvh
+  · rcases targetCollision_or_virtualHit_of_viewBy z ht htc with htc | hvh
     · exact .inl (.inl (.inl ⟨htc, hw.1⟩))
     · exact .inr (.inl hvh)
   · exact .inl (.inl (.inr ⟨hiddenHitMixed_of_hiddenHit ht hm hhh, hw.1⟩))
@@ -203,7 +191,8 @@ distribution, the advantage of an adversary against `shakeRomScheme` at `pkSeed`
 probability that, in the three-oracle run of `romScheme` against the verifying adversary
 `verifyingAdv`, there is a target collision on the public-hash cache or a mixed hidden-value hit
 on its view through the linked redirect, the message-`PRF` key is hit at `opt_rand = PK.seed`, a
-virtual hit, an honest input at a linked point, or interleaved-target coverage. -/
+virtual hit, an honest input at a linked point, or interleaved-target coverage, where the target
+collision, the hidden-value hit and the coverage each come with a fresh message. -/
 theorem shakeAdvantage_pure_le_viewEvents
     {optRand : PublicKeyCore (shakeCore vp) → ProbComp (shakeCore vp).Y}
     (h32 : vp.params.n = 32) (hnm : vp.params.n ≤ vp.params.m) (pkSeed : (shakeCore vp).PkSeed)
@@ -218,29 +207,13 @@ theorem shakeAdvantage_pure_le_viewEvents
     (prEvent_mono_of_support _ _ _ fun z hz h => ?_)
   by_cases ho : HonestOffLinked vp z
   · rcases h with (hw | hk) | hn
-    · rcases bad_event_of_redirectedWins z hw ho with (h | h) | h | h
-      · exact .inl (.inl h)
-      · exact .inr h
-      · exact .inl (.inr (.inr (.inl h)))
-      · exact .inl (.inr (.inr (.inr h)))
+    · have := bad_event_of_redirectedWins z hw ho
+      tauto
     · exact .inl (.inr (.inl hk))
     · exact absurd ho hn
   · exact .inl (.inr (.inr (.inr (linkedHonestInput_of_not_honestOffLinked hz ho))))
 
 /-! ## Weak seeds -/
-
-/-- Every honest entry is at the key of a ledger address. -/
-theorem isHonestKey_of_honestEntry {core : CorePrimitives vp.params} {s pk : core.PkSeed}
-    {k : core.AdrsKey} {xs : List core.Y} {secret : Adrs → OracleComp (publicHashSpec core) core.Y}
-    {c : PublicHash.Cache core} (h : HonestEntry secret pk c (.thash s k xs)) :
-    IsHonestKey vp core k := by
-  cases h with
-  | xmssNode _ _ _ _ _ _ hmem => exact ⟨_, .inl hmem, rfl⟩
-  | wotsPk _ _ hmem => exact ⟨_, .inl hmem, rfl⟩
-  | wotsChain _ _ _ _ _ hmem => exact ⟨_, .inl hmem, rfl⟩
-  | forsLeaf _ _ _ hmem => exact ⟨_, .inl hmem, rfl⟩
-  | forsNode _ _ _ _ _ _ hmem => exact ⟨_, .inl hmem, rfl⟩
-  | forsRoots _ _ hmem => exact ⟨_, .inl hmem, rfl⟩
 
 /-- If the address key held by the bytes of the public seed is not an honest key, a run point
 has no virtual hit and no honest input at a linked point. -/

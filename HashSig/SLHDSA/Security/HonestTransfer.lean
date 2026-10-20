@@ -190,8 +190,8 @@ theorem chain_of_mem {adrs : Adrs} {i t : ℕ} {x v : core.Y}
       pk sk (wotsSkAdrs adrs i)) = some x)
     (hc : chain? core A pk (wotsChainAdrs adrs i) x 0 t = some v) :
     simulateQ B.toPartialImpl (oracleSecret core e (m := OracleComp (publicHashSpec core))
-      pk sk (wotsSkAdrs adrs i)) = some x ∧ chain? core B pk (wotsChainAdrs adrs i) x 0 t = some v
-    := by
+      pk sk (wotsSkAdrs adrs i)) = some x ∧
+        chain? core B pk (wotsChainAdrs adrs i) x 0 t = some v := by
   have hx' := h.secret (wotsChainAdrs_setHashAddress_mem_constructionAddresses_of_le
     (Nat.zero_le t) hmem) (inl_wotsSkAdrs_mem_childAdrs _ _) hx
   exact ⟨hx', h.chain hx' (fun s hs =>

@@ -56,8 +56,8 @@ only at honest keys is argued here from the ledger, not proved: this module prov
 of a query from its key, and the membership of the keys of honest queries is a statement about the
 programs, proved separately. The keys of the nodes of the SLH-DSA graph are honest
 (`isHonestKey_nodeKey`), and so are those of their secret children
-(`isHonestKey_of_inl_mem_childAdrs`). The predicate is decided classically, by a pinned instance,
-and never enumerated.
+(`isHonestKey_of_inl_mem_childAdrs`) and of honest entries (`isHonestKey_of_honestEntry`). The
+predicate is decided classically, by a pinned instance, and never enumerated.
 
 An `H_msg` string `R ‖ PK.seed ‖ PK.root ‖ M` is read by rule 1 only if its address key, the first
 `32` bytes of `PK.seed ‖ PK.root` for `16 ≤ n`, is honest: the public key is then weak
@@ -366,6 +366,12 @@ theorem isHonestKey_nodeKey (κ : NodeKey core) : IsHonestKey vp core κ.1 :=
 theorem isHonestKey_of_inl_mem_childAdrs {a b : Adrs} (ha : a ∈ constructionAddresses vp)
     (hb : .inl b ∈ childAdrs vp a) : IsHonestKey vp core (core.adrsToKey b) :=
   ⟨b, .inr ⟨a, ha, hb⟩, rfl⟩
+
+/-- Every honest entry is at the key of a ledger address. -/
+theorem isHonestKey_of_honestEntry {s pk : core.PkSeed} {k : core.AdrsKey} {xs : List core.Y}
+    {secret : Adrs → OracleComp (publicHashSpec core) core.Y} {c : PublicHash.Cache core}
+    (h : HonestEntry secret pk c (.thash s k xs)) : IsHonestKey vp core k := by
+  cases h <;> exact ⟨_, .inl ‹_ ∈ constructionAddresses vp›, rfl⟩
 
 end Honest
 
