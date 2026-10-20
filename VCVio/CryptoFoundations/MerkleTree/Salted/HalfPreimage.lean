@@ -6,160 +6,101 @@ Authors: Quang Dao
 
 module
 public import VCVio.CryptoFoundations.MerkleTree.Salted.Extract
+public import VCVio.CryptoFoundations.MerkleTree.Recovery
 
 /-!
-# Half-preimages and the stability of Merkle extraction
+# Stability of salted Merkle extraction
 
-The half-preimages of a database `D` (Chiesa, Di, Hu and Zheng, ePrint 2025/2166, Def 8.5,
-p. 55; Chiesa, Manohar and Spooner, TCC 2019, Def 6.3) are the values `u` that occur as one
-half of a node input `(u, u')` or `(u', u)` in the domain of `D`.
-
-Lemma 8.6 (p. 55; CMS19 Lemma 6.5) says that adding a new entry `x ↦ y` to `D` can change
-`MTExtract(rt, D)` only when `y ∈ {rt} ∪ HP(D)`. It holds for **every** database, with or without
-collisions:
-
-* every label that the extraction reaches is the root or a half of a node input in `dom D`, so it
-  lies in `{rt} ∪ HP(D)` (`extLabel_mem`);
-* the new entry changes no preimage set of a value `u ≠ y` (`nodePre_update`, `leafPre_update`), so
-  the extraction, which only asks for preimages of reached labels, is unchanged.
-
-Lemma 8.8 (§8.3, p. 56) uses this with `|HP(D)| ≤ 2 |D|` (`ncard_halfPreimages_le`) to bound
-the instability of the online label of `MTMultiExtract`; `multiExtract_update_eq` is the form of
-Lemma 8.6 for one database of a tuple.
-
-## Main definitions
-
-* `SaltedMerkle.halfPreimages enc D`: `HP(D)`, for the node-shaped inputs.
-
-## Main results
-
-* `SaltedMerkle.extract_eq_of_not_mem`: Lemma 8.6.
-* `SaltedMerkle.mem_of_extract_ne`: Lemma 8.6, in the paper's contrapositive form.
-* `SaltedMerkle.multiExtract_update_eq`: Lemma 8.6 for `MTMultiExtract`.
-* `SaltedMerkle.ncard_halfPreimages_le`: `|HP(D)| ≤ 2 |dom D|` for every database with finite
-  support; `SaltedMerkle.ncard_halfPreimages_le_of_finite` for a finite oracle domain.
+Chiesa, Di, Hu and Zheng, ePrint 2025/2166, Lemma 8.6: fresh insertion can change extraction only
+when its answer is the root or a component of a supported node input. The shared decoded-input
+count bounds this set by two labels per supported input. All stability statements allow collisions.
 -/
 
 public section
 
-open Quantum
-
+open Quantum BinaryTree MerkleTreeHashing MerkleTreeExtractor
 universe uX uY uM uS
-
 namespace SaltedMerkle
-
 variable {X : Type uX} {Y : Type uY} {Msg : Type uM} {Salt : Type uS}
 
-/-- The half-preimages `HP(D)` of a database (Def 8.5, p. 55): the values `u` with a node
-input `(u, u')` or `(u', u)` in the domain of `D`. -/
+/-- Components of supported node inputs, as in Definition 8.5. -/
 @[expose]
-def halfPreimages (enc : Encoding X Y Msg Salt) (D : Database X Y) : Set Y :=
-  {u | ∃ u', D (enc.node (u, u')) ≠ none ∨ D (enc.node (u', u)) ≠ none}
+def halfPreimages (enc : QueryEncoding X Unit Unit (Msg × Salt) Y) (D : Database X Y) : Set Y :=
+  MerkleTreeExtractor.halfPreimages
+    (RoleDecoder.ofInjective (enc.node ()) (enc.node_injective ())).decode D
 
-variable (enc : Encoding X Y Msg Salt)
+variable (enc : QueryEncoding X Unit Unit (Msg × Salt) Y)
 
-/-- The left half of a node input in the domain is a half-preimage. -/
-theorem fst_mem_halfPreimages {D : Database X Y} {c : Y × Y} (h : D (enc.node c) ≠ none) :
+/-- The left component of a supported node input belongs to the half-preimage set. -/
+theorem fst_mem_halfPreimages {D : Database X Y} {c : Y × Y} (h : D (enc.node () c) ≠ none) :
     c.1 ∈ halfPreimages enc D :=
-  ⟨c.2, Or.inl h⟩
+  ⟨enc.node () c, c, h, RoleDecoder.decode_encode _ c, Or.inl rfl⟩
 
-/-- The right half of a node input in the domain is a half-preimage. -/
-theorem snd_mem_halfPreimages {D : Database X Y} {c : Y × Y} (h : D (enc.node c) ≠ none) :
+/-- The right component of a supported node input belongs to the half-preimage set. -/
+theorem snd_mem_halfPreimages {D : Database X Y} {c : Y × Y} (h : D (enc.node () c) ≠ none) :
     c.2 ∈ halfPreimages enc D :=
-  ⟨c.1, Or.inr h⟩
+  ⟨enc.node () c, c, h, RoleDecoder.decode_encode _ c, Or.inr rfl⟩
 
-/-- `|HP(D)| ≤ 2 |dom D|` for a database with finite support: every input in the domain contributes
-at most its two halves. The oracle domain `X` may be infinite. -/
+/-- At most two half-preimages occur per supported oracle input. -/
 theorem ncard_halfPreimages_le (D : Database X Y) (hD : {x | D x ≠ none}.Finite) :
-    (halfPreimages enc D).ncard ≤ 2 * {x | D x ≠ none}.ncard := by
-  set P : Set (Y × Y) := {c | D (enc.node c) ≠ none}
-  have hP : P.Finite := hD.preimage enc.node_injective.injOn
-  have hsub : halfPreimages enc D ⊆ Prod.fst '' P ∪ Prod.snd '' P := by
-    rintro u ⟨u', h | h⟩
-    · exact Or.inl ⟨(u, u'), h, rfl⟩
-    · exact Or.inr ⟨(u', u), h, rfl⟩
-  have hcard : P.ncard ≤ {x | D x ≠ none}.ncard :=
-    Set.ncard_le_ncard_of_injOn enc.node (fun _ hc ↦ hc) enc.node_injective.injOn hD
-  calc (halfPreimages enc D).ncard
-      ≤ (Prod.fst '' P ∪ Prod.snd '' P).ncard :=
-        Set.ncard_le_ncard hsub ((hP.image _).union (hP.image _))
-    _ ≤ (Prod.fst '' P).ncard + (Prod.snd '' P).ncard := Set.ncard_union_le _ _
-    _ ≤ P.ncard + P.ncard := add_le_add (Set.ncard_image_le hP) (Set.ncard_image_le hP)
-    _ ≤ 2 * {x | D x ≠ none}.ncard := by omega
+    (halfPreimages enc D).ncard ≤ 2 * {x | D x ≠ none}.ncard :=
+  MerkleTreeExtractor.ncard_halfPreimages_le _ D hD
 
-/-- `|HP(D)| ≤ 2 |dom D|` over a finite oracle domain, where every database has finite support. -/
+/-- Every table over a finite oracle domain satisfies the half-preimage bound. -/
 theorem ncard_halfPreimages_le_of_finite [Finite X] (D : Database X Y) :
     (halfPreimages enc D).ncard ≤ 2 * {x | D x ≠ none}.ncard :=
   ncard_halfPreimages_le enc D (Set.toFinite _)
 
 section Extract
-
 variable [LinearOrder Y] [Fintype Y]
 
-/-- Every label that `MTExtract(rt, D)` reaches is the root or a half-preimage of `D`. -/
-theorem extLabel_mem {D : Database X Y} {rt : Y} {j p : ℕ} {u : Y}
-    (h : extLabel enc D rt j p = some u) : u ∈ insert rt (halfPreimages enc D) := by
-  induction j generalizing p u with
-  | zero =>
-      cases Option.some.inj h
-      exact Set.mem_insert _ _
-  | succ j ih =>
-      rw [extLabel_succ] at h
-      obtain ⟨u', -, h⟩ := Option.bind_eq_some_iff.mp h
-      obtain ⟨c, hc, rfl⟩ := Option.map_eq_some_iff.mp h
-      have hD : D (enc.node c) ≠ none := by simp [nodePre_spec enc hc]
-      refine Set.mem_insert_of_mem _ ?_
-      split_ifs
-      · exact fst_mem_halfPreimages enc hD
-      · exact snd_mem_halfPreimages enc hD
+/-- A resolved node pair contributes both its components to the half-preimage set. -/
+theorem resolvePair_mem_halfPreimages {D : Database X Y} {u : Y} {c : Y × Y}
+    (h : resolvePair (enc.node ()) D u = some c) :
+    c.1 ∈ halfPreimages enc D ∧ c.2 ∈ halfPreimages enc D := by
+  have hd : D (enc.node () c) ≠ none := by simp [resolvePair_spec h]
+  exact ⟨fst_mem_halfPreimages enc hd, snd_mem_halfPreimages enc hd⟩
 
-variable [DecidableEq X] {D : Database X Y} {x : X} {y : Y}
+/-- Every reached typed node has the root label or a supported node-input component. -/
+theorem extractedLabel_mem (D : Database X Y) (rt : Y) (d : ℕ)
+    (i : SkeletonNodeIndex (Skeleton.perfect d)) {u : Y}
+    (h : (treeWith (fun _ : Unit => resolvePair (enc.node ()) D) (Skeleton.perfect d)
+      (fun _ => ()) rt).get i = some u) : u ∈ insert rt (halfPreimages enc D) := by
+  exact treeWith_get_mem _ _
+    (fun _ _ _ _ hc => (resolvePair_mem_halfPreimages enc hc).imp
+      (Set.mem_insert_of_mem rt) (Set.mem_insert_of_mem rt)) _ _ _ (Set.mem_insert _ _) i h
 
-/-- Adding an entry `x ↦ y` at an empty position does not change the node preimage of `u ≠ y`. -/
-theorem nodePre_update (hx : D x = none) {u : Y} (hu : u ≠ y) :
-    nodePre enc (Function.update D x (some y)) u = nodePre enc D u := by
-  simp only [nodePre, leastPre_update hx hu]
+variable [DecidableEq X] [Fintype Msg] [LinearOrder Msg] [Fintype Salt] [LinearOrder Salt]
+  {D : Database X Y} {x : X} {y : Y}
 
-omit [Fintype Y] in
-/-- Adding an entry `x ↦ y` at an empty position does not change the leaf preimage of `u ≠ y`. -/
-theorem leafPre_update [Fintype Msg] [LinearOrder Msg] [Fintype Salt] [LinearOrder Salt]
-    (hx : D x = none) {u : Y} (hu : u ≠ y) :
-    leafPre enc (Function.update D x (some y)) u = leafPre enc D u := by
-  simp only [leafPre, leastPre_update hx hu]
-
-/-- Adding an entry `x ↦ y` with `y ∉ {rt} ∪ HP(D)` at an empty position does not change the
-extracted labels. -/
-theorem extLabel_update {rt : Y} (hx : D x = none) (hy : y ∉ insert rt (halfPreimages enc D))
-    (j p : ℕ) : extLabel enc (Function.update D x (some y)) rt j p = extLabel enc D rt j p := by
-  induction j generalizing p with
-  | zero => rfl
-  | succ j ih =>
-      rw [extLabel_succ, extLabel_succ, ih]
-      refine Option.bind_congr fun u hu ↦ ?_
-      rw [nodePre_update enc hx fun h : u = y ↦ hy (h ▸ extLabel_mem enc hu)]
-
-variable [Fintype Msg] [LinearOrder Msg] [Fintype Salt] [LinearOrder Salt]
-
-/-- **Lemma 8.6** (p. 55; CMS19 Lemma 6.5), for every database, collisions included: adding
-an entry `x ↦ y` at an empty position, with `y ∉ {rt} ∪ HP(D)`, does not change
-`MTExtract(rt, D)`. -/
+/-- Fresh insertion outside the reached-label set leaves the complete extracted value unchanged. -/
 theorem extract_eq_of_not_mem {d : ℕ} {rt : Y} (hx : D x = none)
     (hy : y ∉ insert rt (halfPreimages enc D)) :
     extract enc d rt (Function.update D x (some y)) = extract enc d rt D := by
-  have hleaf : ∀ ι, extLeaf enc d rt (Function.update D x (some y)) ι = extLeaf enc d rt D ι := by
-    intro ι
-    rw [extLeaf, extLeaf, extLabel_update enc hx hy]
-    exact Option.bind_congr fun u hu ↦
-      leafPre_update enc hx fun h : u = y ↦ hy (h ▸ extLabel_mem enc hu)
-  simp only [extract, hleaf, extLabel_update enc hx hy]
+  have ht : treeWith (fun _ : Unit => resolvePair (enc.node ()) (Function.update D x (some y)))
+      (Skeleton.perfect d) (fun _ => ()) rt =
+      treeWith (fun _ : Unit => resolvePair (enc.node ()) D) (Skeleton.perfect d)
+        (fun _ => ()) rt := by
+    apply treeWith_eq_of_eqOn _ _ (insert rt (halfPreimages enc D))
+    · intro address u hu c hc
+      exact (resolvePair_mem_halfPreimages enc hc).imp
+        (Set.mem_insert_of_mem rt) (Set.mem_insert_of_mem rt)
+    · intro address u hu
+      exact resolvePair_update (enc.node ()) hx (fun h => hy (h ▸ hu))
+    · exact Set.mem_insert _ _
+  have hl : ∀ i, extLeaf enc d rt (Function.update D x (some y)) i = extLeaf enc d rt D i := by
+    intro i
+    rw [extLeaf, ht, extLeaf]
+    unfold recoverLeaf
+    exact Option.bind_congr fun u hu =>
+      resolvePair_update (enc.leaf ()) hx (fun h => hy (h ▸ extractedLabel_mem enc D rt d _ hu))
+  simp only [extract, ht, hl]
 
-/-- **Lemma 8.6**, as stated in the paper: if adding `x ↦ y` at an empty position changes
-`MTExtract(rt, D)`, then `y ∈ {rt} ∪ HP(D)`. -/
+/-- If fresh insertion changes extraction, its answer lies in the root/half-preimage set. -/
 theorem mem_of_extract_ne {d : ℕ} {rt : Y} (hx : D x = none)
     (hne : extract enc d rt (Function.update D x (some y)) ≠ extract enc d rt D) :
     y ∈ insert rt (halfPreimages enc D) :=
-  by_contra fun hy ↦ hne (extract_eq_of_not_mem enc hx hy)
-
+  by_contra fun hy => hne (extract_eq_of_not_mem enc hx hy)
 /-- **Lemma 8.6 for `MTMultiExtract`**: adding `x ↦ y` at an empty position of the database `j'`
 does not change the extraction of a tuple, provided `y` avoids `{rt_i} ∪ HP(D_{j'})` for every
 position `i` of the tuple with oracle `j'`. -/
@@ -179,5 +120,4 @@ theorem multiExtract_update_eq {k : ℕ} (d : Fin k → ℕ) (tic : TpIC k Y)
   · rfl
 
 end Extract
-
 end SaltedMerkle
