@@ -11,17 +11,15 @@ public import VCVio.Quantum.VC.Proof.Extraction
 /-!
 # Exact replay for the compressed oracle
 
-The old compressed oracle satisfies Definition 10.3(2) of Chiesa, Di, Hu and Zheng,
-ePrint 2025/2166, on every state. Its classical answer projector includes the bottom
-sector for answer zero, as in FIX.md §10, equation (31). The projectors are conjugated
-diagonal lookup events; this proves completeness, orthogonality, commutation and exact
-replay without a validity hypothesis. The independent finite matrix example at the end
-checks the nonprojectivity of the Hadamard extension discussed in FIX.md (14), (32).
+The ordinary answer projectors and the checked read projectors commute on the entire
+private space. Their transcript identities apply to arbitrary joint substates, including
+states produced by extraction before the first read. Extraction between repetitions is
+excluded, as required for Chiesa, Di, Hu and Zheng, ePrint 2025/2166, Lemma 11.12.
 -/
 
 public section
 
-open Matrix
+open Matrix OracleComp
 open scoped Kronecker
 
 universe uL vL w
@@ -32,6 +30,51 @@ namespace ProjectiveClassicalAnswers
 variable {P : Type} [Fintype P] [DecidableEq P] {In : P → QReg}
   {E : EmulatedOracle P In} {X Y : Type} [Fintype Y] [DecidableEq Y]
   (H : ProjectiveClassicalAnswers E X Y)
+
+/-- The accepting branch of the complete checker fold. Calls continue after a failed comparison;
+all rejected answer histories have zero contribution to the accepting branch. -/
+theorem actual_fold_accept (B : QReg) (io : List (X × Y)) (acc : Bool) :
+    ((E.withClassicalReads H).run₂ .instruments
+      ((io.foldlM checkIOStep acc).toQuantumAt (H.classicalCall B))).branch true =
+        if acc then H.transcriptBranch B io else 0 := by
+  induction io generalizing acc with
+  | nil =>
+    rw [List.foldlM_nil, toQuantumAt_pure, QuantumRuntime.run₂_pure]
+    cases acc
+    · exact SubInstrument.branch_pure_of_ne (by decide)
+    · rw [SubInstrument.branch_pure_self]
+      simp only [ite_true, transcriptBranch_nil]
+      rfl
+  | cons p io ih =>
+    have hp : ((p :: io).foldlM checkIOStep acc).toQuantumAt (H.classicalCall B) =
+        (H.classicalCall B p.1).bind fun y ↦
+          (io.foldlM checkIOStep (acc && decide (y = p.2))).toQuantumAt
+            (H.classicalCall B) := by
+      rw [List.foldlM_cons, checkIOStep, bind_assoc]
+      simp only [pure_bind]
+      exact toQuantumAt_query_bind (H.classicalCall B) p.1 _
+    rw [hp, QuantumRuntime.run₂_bind, DSubInstrument.branch_bind_apply_univ,
+      Finset.sum_eq_single p.2]
+    · rw [ih]
+      simp only [decide_true, Bool.and_true]
+      cases acc
+      · simp
+      · simp only [↓reduceIte]
+        rw [H.branch_classicalCall]
+        exact (H.transcriptBranch_cons B p io).symm
+    · intro y _ hy
+      rw [ih]
+      simp only [hy, decide_false, Bool.and_false, Bool.false_eq_true, ite_false]
+      rfl
+    · simp
+
+/-- The actual classical `checkIO` accepts on the product of its answer projectors, including
+repeated and contradictory prescriptions, on any entangled reference/private input matrix. -/
+theorem actual_accept_eq_projectorProduct (B : QReg) (io : List (X × Y)) :
+    ((E.withClassicalReads H).run₂ .instruments
+      ((checkIO io).toQuantumAt (H.classicalCall B))).branch true =
+        MatrixMap.conj ((1 : Matrix B B ℂ) ⊗ₖ H.projector io) := by
+  simpa only [checkIO, ↓reduceIte, transcriptBranch] using H.actual_fold_accept B io true
 
 /-- Transcript projectors commute through general quantum programs that coherently choose
 ordinary ports. This lifts portwise commutation without assuming a classical port schedule. -/
@@ -61,6 +104,88 @@ theorem replay_after_coherent_run {L : LocalSig.{uL, vL}} (I : L.Interp)
   rw [← LinearMap.comp_assoc, ← H.commute_coherent_run I prog leaf tr,
     LinearMap.comp_assoc, H.replay_transcript]
 
+/-- Each leaf of a mixed program commutes with the retained transcript. The program may use
+ordinary coherent queries, checked reads and external operations, but has no extraction port. -/
+theorem commute_mixed_run {Addr Ans : Type} [Fintype Ans] [DecidableEq Ans]
+    (K : ProjectiveClassicalAnswers E Addr Ans)
+    (hcomm : ∀ x y c a, H.A x y * K.A c a = K.A c a * H.A x y)
+    {L : LocalSig.{uL, vL}} (I : L.Interp) {W : QReg → Type w}
+    {B : QReg} (prog : QuantumComp L
+      (withReadSpec (EmulatedOracle.cohSpec In) Addr Ans) W B)
+    (leaf : Σ u, W u) (tr : List (X × Y)) :
+    ((E.withClassicalReads K).run I prog).branch leaf ∘ₗ H.transcriptBranch B tr =
+      H.transcriptBranch leaf.1 tr ∘ₗ ((E.withClassicalReads K).run I prog).branch leaf := by
+  have hs := QuantumRuntime.simulation (R₁ := E.withClassicalReads K)
+    (R₂ := E.withClassicalReads K) (V := MatrixMap.conj (H.projector tr)) I
+    (fun p r ↦ ?_) prog leaf
+  · dsimp +instances only [EmulatedOracle.withClassicalReads, QuantumRuntime.extend,
+      EmulatedOracle.toRuntime, EmulatedOracle.coherent] at hs ⊢
+    simpa only [MatrixMap.amplifyLeft_conj, transcriptBranch] using hs
+  · cases p with
+    | inl p =>
+      change Unit at r
+      change (E.coherent.toRuntime.step p).branch r ∘ₗ
+          (MatrixMap.conj (H.projector tr)).amplifyLeft (EmulatedOracle.cohIn In) =
+        (MatrixMap.conj (H.projector tr)).amplifyLeft (EmulatedOracle.cohIn In) ∘ₗ
+          (E.coherent.toRuntime.step p).branch r
+      cases p
+      rw [E.coherent.toRuntime_step_branch, MatrixMap.amplifyLeft_conj]
+      simp only [← MatrixMap.conj_mul]
+      rw [EmulatedOracle.coherent_U_mul_one_kronecker E E (H.projector tr)
+        (fun p ↦ H.ordinary_commute_projector p tr)]
+    | inr x =>
+      change Ans at r
+      change (K.step x).branch r ∘ₗ (MatrixMap.conj (H.projector tr)).amplifyLeft Unit =
+        (MatrixMap.conj (H.projector tr)).amplifyLeft Unit ∘ₗ (K.step x).branch r
+      rw [K.step_branch, MatrixMap.amplifyLeft_conj]
+      have hc : K.A x r * H.projector tr = H.projector tr * K.A x r := by
+        induction tr with
+        | nil => simp
+        | cons q tr ih =>
+          rw [projector_cons, ← Matrix.mul_assoc, ← hcomm, Matrix.mul_assoc, ih,
+            ← Matrix.mul_assoc]
+      simp only [← MatrixMap.conj_mul, ← mul_kronecker_mul, Matrix.one_mul, hc]
+
+/-- Exact replay on arbitrary initial joint substates after a mixed program, separately on
+its complete leaves. Any extraction used to prepare the initial state precedes the first read. -/
+theorem replay_after_mixed_run {Addr Ans : Type} [Fintype Ans] [DecidableEq Ans]
+    (K : ProjectiveClassicalAnswers E Addr Ans)
+    (hcomm : ∀ x y c a, H.A x y * K.A c a = K.A c a * H.A x y)
+    {L : LocalSig.{uL, vL}} (I : L.Interp)
+    {W : QReg → Type w} {B : QReg} (prog : QuantumComp L
+      (withReadSpec (EmulatedOracle.cohSpec In) Addr Ans) W B)
+    (leaf : Σ u, W u) (tr : List (X × Y)) :
+    H.transcriptBranch leaf.1 tr ∘ₗ ((E.withClassicalReads K).run I prog).branch leaf ∘ₗ
+        H.transcriptBranch B tr =
+      ((E.withClassicalReads K).run I prog).branch leaf ∘ₗ H.transcriptBranch B tr := by
+  erw [← LinearMap.comp_assoc, ← H.commute_mixed_run K hcomm I prog leaf tr,
+    LinearMap.comp_assoc, H.replay_transcript]
+  rfl
+
+/-- Retained ordinary and checked transcripts can be replayed together after a mixed
+program, with the same fixed inputs and coins and an arbitrary initial joint substate. -/
+theorem replay_mixed_transcripts_after_run {Addr Ans : Type} [Fintype Ans] [DecidableEq Ans]
+    (K : ProjectiveClassicalAnswers E Addr Ans)
+    (hcomm : ∀ x y c a, H.A x y * K.A c a = K.A c a * H.A x y)
+    {L : LocalSig.{uL, vL}} (I : L.Interp) {W : QReg → Type w} {B : QReg}
+    (prog : QuantumComp L (withReadSpec (EmulatedOracle.cohSpec In) Addr Ans) W B)
+    (leaf : Σ u, W u) (ts : List (X × Y)) (us : List (Addr × Ans)) :
+    (H.transcriptBranch leaf.1 ts ∘ₗ K.transcriptBranch leaf.1 us) ∘ₗ
+        ((E.withClassicalReads K).run I prog).branch leaf ∘ₗ
+        (H.transcriptBranch B ts ∘ₗ K.transcriptBranch B us) =
+      ((E.withClassicalReads K).run I prog).branch leaf ∘ₗ
+        (H.transcriptBranch B ts ∘ₗ K.transcriptBranch B us) := by
+  have hc : ((E.withClassicalReads K).run I prog).branch leaf ∘ₗ
+        (H.transcriptBranch B ts ∘ₗ K.transcriptBranch B us) =
+      (H.transcriptBranch leaf.1 ts ∘ₗ K.transcriptBranch leaf.1 us) ∘ₗ
+        ((E.withClassicalReads K).run I prog).branch leaf := by
+    erw [← LinearMap.comp_assoc, H.commute_mixed_run K hcomm I prog leaf ts,
+      LinearMap.comp_assoc, K.commute_mixed_run K K.commute_cells I prog leaf us,
+      ← LinearMap.comp_assoc]
+  erw [← LinearMap.comp_assoc, ← hc, LinearMap.comp_assoc,
+    H.replay_mixed_transcripts K hcomm]
+  rfl
+
 end ProjectiveClassicalAnswers
 
 namespace CompressedReplay
@@ -81,27 +206,43 @@ end conjugation
 variable {k : ℕ} {X Y : Type} [Fintype X] [DecidableEq X]
   [Fintype Y] [DecidableEq Y] [AddCommGroup Y]
 
+/-- Prescribed present answers form the checked transcript projector. -/
+theorem filledCheck_eq_projector (io : List ((Fin k × X) × Y)) :
+    filledCheck io = (compressedVCOracle k X Y).classicalRead.projector
+      (io.map fun p ↦ (p.1, some p.2)) := by
+  induction io with
+  | nil =>
+    simp only [filledCheck_nil, List.map_nil, ProjectiveClassicalAnswers.projector_nil]
+    rfl
+  | cons p io ih =>
+    rw [filledCheck_cons, List.map_cons, ProjectiveClassicalAnswers.projector_cons, ih]
+    rfl
+
+/-- The implemented short-circuiting checked interpreter accepts on exactly its transcript
+projector, including zero prescriptions. A missing read returns rejection. -/
+theorem checked_accept_eq_projectorProduct
+    {Cm Z : Type} [Fintype Cm] [DecidableEq Cm] [Fintype Z] [DecidableEq Z] [AddGroup Z]
+    {Dm : Fin k → Type} (ME : MultiExtractor k Cm Dm (compressedVCOracle k X Y).S)
+    (code : TpDCode k Dm Z) (B : QReg) (j : Fin k) (io : List (X × Y)) :
+    (((compressedVCOracle k X Y).mixedExtractRuntime ME code).run₂ .instruments
+      (runClassicalChecked B j (liftComp (checkIO io) (unifSpec + (X →ₒ Y))))).branch
+        (some true) =
+      (compressedVCOracle k X Y).classicalRead.transcriptBranch B
+        (io.map fun p ↦ ((j, p.1), some p.2)) := by
+  simp only [checkIO, branch_run₂_checked_fold, ite_true, filledCheck_eq_projector,
+    List.map_map, Function.comp_def, ProjectiveClassicalAnswers.transcriptBranch]
+  rfl
+
 /-- The old answer projector, expressed by lookup in the decompressed basis. -/
 noncomputable def answer (x : Fin k × X) (y : Y) :
     Matrix (Fin k → Database X Y) (Fin k → Database X Y) ℂ :=
   compressDatabases k X Y *
     diagonal (fun D ↦ if (D x.1).lookup x.2 = y then 1 else 0) * compressDatabases k X Y
 
-/-- Filled-label projector in the compressed basis, the `Q` term of FIX (31). -/
-noncomputable def filled (x : Fin k × X) (y : Y) :
-    Matrix (Fin k → Database X Y) (Fin k → Database X Y) ℂ :=
-  compressDatabases k X Y *
-    diagonal (fun D ↦ if D x.1 x.2 = some y then 1 else 0) * compressDatabases k X Y
-
-/-- Bottom-sector projector in the compressed basis, the `R` term of FIX (31). -/
-noncomputable def invalid (x : Fin k × X) :
-    Matrix (Fin k → Database X Y) (Fin k → Database X Y) ℂ :=
-  compressDatabases k X Y *
-    diagonal (fun D ↦ if D x.1 x.2 = none then 1 else 0) * compressDatabases k X Y
-
-/-- FIX (31): the zero answer includes the invalid sector on all private states. -/
+/-- The ordinary zero answer includes the missing sector on every private state. -/
 theorem old_answer_projector (x : Fin k × X) (y : Y) :
-    answer x y = filled x y + if y = 0 then invalid x else 0 := by
+    answer x y = compressedReadProjector k X Y x (some y) +
+      if y = 0 then compressedReadProjector k X Y x none else 0 := by
   have hd : (diagonal fun D : Fin k → Database X Y ↦
         if (D x.1).lookup x.2 = y then (1 : ℂ) else 0) =
       (diagonal fun D ↦ if D x.1 x.2 = some y then 1 else 0) +
@@ -113,7 +254,7 @@ theorem old_answer_projector (x : Fin k × X) (y : Y) :
       cases he : D x.1 x.2 <;> by_cases hy : y = 0 <;>
         simp [Database.lookup_apply, he, hy, eq_comm]
     · by_cases hy : y = 0 <;> simp [hy, h]
-  unfold answer filled invalid
+  unfold answer compressedReadProjector
   rw [hd]
   split_ifs
   · rw [Matrix.mul_add, Matrix.add_mul]
@@ -159,6 +300,14 @@ theorem answer_commute (x x' : Fin k × X) (y y' : Y) :
     answer x y * answer x' y' = answer x' y' * answer x y := by
   simp only [answer, conjugate_mul _ (compressDatabases_mul_self ..),
     diagonal_ite_mul_diagonal_ite]
+  simp only [and_comm]
+
+/-- Ordinary answer projectors commute with checked answers at every pair of cells. -/
+theorem answer_commute_checked (x x' : Fin k × X) (y : Y) (a : Option Y) :
+    answer x y * compressedReadProjector k X Y x' a =
+      compressedReadProjector k X Y x' a * answer x y := by
+  simp only [answer, compressedReadProjector,
+    conjugate_mul _ (compressDatabases_mul_self ..), diagonal_ite_mul_diagonal_ite]
   simp only [and_comm]
 
 /-- The classical basis-call branch of the old oracle on an arbitrary reference register. -/
@@ -228,65 +377,19 @@ theorem answer_commute_ordinary (p : Fin k) (x : Fin k × X) (y : Y) :
 
 /-- The old compressed oracle has complete projective classical answers on all states.
 The generic API supplies fixed-coin adaptive replay and rejection of contradictory lists. -/
+@[expose]
 noncomputable def projectiveClassicalAnswers :
-    ProjectiveClassicalAnswers (compressedVCOracle k X Y) (Fin k × X) Y where
-  query x := ⟨x.1, (x.2, 0)⟩
-  read _ o := o.2
+    ProjectiveClassicalAnswers (compressedVCOracle k X Y).toEmulatedOracle (Fin k × X) Y where
   A := answer
-  branch_eq := branch_eq
   hermitian := answer_hermitian
-  orthogonal := answer_orthogonal
+  orthogonal x z y := by
+    change answer x z * answer x y = if z = y then answer x z else 0
+    rw [answer_orthogonal]
+    split_ifs with h <;> simp_all
   complete := answer_complete
   commute_cells x y x' y' := answer_commute x x' y y'
   commute_ordinary := answer_commute_ordinary
 
 end CompressedReplay
 
-/-! ## An independent Hadamard counterexample -/
-
-namespace HadamardReplayCounterexample
-
-/-- A four-answer Hadamard branch in the decompressed five-sector basis. The first four
-coordinates are the filled labels and the last is bottom. FIX (14) gives coefficient
-`1 / sqrt 4 = 1/2` on bottom for each answer, whereas the old port assigns it only to zero. -/
-noncomputable def kraus (y : Fin 4) : Matrix (Fin 5) (Fin 5) ℂ :=
-  diagonal fun i ↦ if i = 4 then 1 / 2 else if i.val = y.val then 1 else 0
-
-/-- These four branch matrices form a complete quantum instrument. -/
-theorem kraus_complete : ∑ y : Fin 4, (kraus y)ᴴ * kraus y = 1 := by
-  ext i j
-  fin_cases i <;> fin_cases j <;>
-    norm_num [kraus, Matrix.sum_apply, Fin.sum_univ_succ, diagonal_conjTranspose,
-      diagonal_mul_diagonal, Matrix.one_apply, map_ofNat]
-
-/-- The four-answer Hadamard instrument on the filled and bottom sectors. -/
-noncomputable def instrument : SubInstrument (Fin 5) (Fin 5) (Fin 4) :=
-  SubInstrument.ofKraus kraus kraus_complete
-
-/-- The Hadamard branch matrix is not idempotent, hence is not a projector. -/
-theorem kraus_not_projective (y : Fin 4) : kraus y * kraus y ≠ kraus y := by
-  intro h
-  have he := congrFun (congrFun h 4) 4
-  norm_num [kraus, diagonal_mul_diagonal] at he
-
-/-- Its Kraus map is not idempotent either: the bottom matrix has weights `1/4` then `1/16`.
-This rules out projective-answer certificates even if a different Kraus representation is used. -/
-theorem branch_not_repeatable (y : Fin 4) :
-    MatrixMap.conj (kraus y) ∘ₗ MatrixMap.conj (kraus y) ≠ MatrixMap.conj (kraus y) := by
-  intro h
-  have he := congrFun (congrFun (LinearMap.congr_fun h
-    (diagonal fun i : Fin 5 ↦ if i = 4 then (1 : ℂ) else 0)) 4) 4
-  norm_num [MatrixMap.conj_apply, LinearMap.comp_apply, kraus, diagonal_mul_diagonal,
-    diagonal_conjTranspose, map_ofNat] at he
-
-/-- The complete Hadamard instrument fails the necessary branch identity of the
-projective-answer API, independently of any compressed-oracle implementation. -/
-theorem instrument_not_repeatable (y : Fin 4) :
-    instrument.branch y ∘ₗ instrument.branch y ≠ instrument.branch y := by
-  have hb : instrument.branch y = MatrixMap.conj (kraus y) :=
-    DSubInstrument.branch_ofKraus_apply _ kraus_complete y
-  rw [hb]
-  exact branch_not_repeatable y
-
-end HadamardReplayCounterexample
 end Quantum

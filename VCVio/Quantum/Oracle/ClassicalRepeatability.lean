@@ -6,13 +6,14 @@ Authors: Quang Dao
 
 module
 public import VCVio.Quantum.Oracle.ClassicalCalls
+public import VCVio.Quantum.Oracle.ClassicalRead
 
 /-!
 # Projective classical answers and exact replay
 
 The sufficient condition for Definition 10.3(2) of Chiesa, Di, Hu and Zheng,
-ePrint 2025/2166, is an instrument of commuting Hermitian projectors, as in
-FIX.md §10, equation (31). All identities below act on matrices, hence on arbitrary
+ePrint 2025/2166, is an instrument of commuting Hermitian projectors with complete
+classical outcomes. All identities below act on matrices, hence on arbitrary
 subnormalized states entangled with a reference register. No reachable-state condition
 or normalization is used. Ordinary queries commute on a separate call register;
 no commutation with extraction is assumed.
@@ -32,35 +33,6 @@ universe uL vL w
 
 namespace Quantum
 
-/-- A projective classical interface of an emulated oracle. The branch equation is for
-actual basis calls with an arbitrary held register. Completeness is on the entire private
-space, and ordinary commutation includes every port of this oracle. An extraction extension
-must therefore be kept outside this structure unless its commutation is proved separately. -/
-structure ProjectiveClassicalAnswers {P : Type*} {In : P → QReg}
-    (E : EmulatedOracle P In) (X Y : Type) [Fintype Y] [DecidableEq Y] where
-  /-- Port and prepared basis input of a classical query. -/
-  query : X → Σ p, In p
-  /-- Reading of the returned call register. -/
-  read : (x : X) → In (query x).1 → Y
-  /-- Answer projector on the private register. -/
-  A : X → Y → Matrix E.S E.S ℂ
-  /-- The actual subnormalized branch, including a reference register. -/
-  branch_eq : ∀ (B : QReg) x y,
-    (E.toRuntime.run₂ .instruments (QComp.callBasis (query x).1 B (query x).2
-      (fun o _ ↦ read x o))).branch y = MatrixMap.conj ((1 : Matrix B B ℂ) ⊗ₖ A x y)
-  /-- Each answer projector is Hermitian. -/
-  hermitian : ∀ x y, (A x y)ᴴ = A x y
-  /-- Answers at the same cell are orthogonal idempotents. -/
-  orthogonal : ∀ x z y, A x z * A x y = if z = y then A x y else 0
-  /-- The answers resolve the identity, including invalid private sectors. -/
-  complete : ∀ x, ∑ y, A x y = 1
-  /-- Answer projectors commute across addresses and ports. -/
-  commute_cells : ∀ x y x' y', A x y * A x' y' = A x' y' * A x y
-  /-- A check commutes with ordinary queries on a separate call register. -/
-  commute_ordinary : ∀ p x y,
-    E.U p * ((1 : Matrix (In p) (In p) ℂ) ⊗ₖ A x y) =
-      ((1 : Matrix (In p) (In p) ℂ) ⊗ₖ A x y) * E.U p
-
 namespace ProjectiveClassicalAnswers
 
 variable {P : Type*} {In : P → QReg} {E : EmulatedOracle P In}
@@ -76,7 +48,7 @@ theorem repeat_branch (B : QReg) (x : X) (z y : Y) :
     H.branch B x z ∘ₗ H.branch B x y = if z = y then H.branch B x y else 0 := by
   rw [branch, branch, ← MatrixMap.conj_mul, ← mul_kronecker_mul, Matrix.one_mul,
     H.orthogonal]
-  split_ifs <;> simp
+  split_ifs with h <;> simp [h]
 
 /-- Forgetting the answer gives an idempotent channel, including on substates. -/
 theorem forget_repeat (B : QReg) (x : X) :
@@ -155,6 +127,39 @@ theorem replay_transcript (B : QReg) (tr : List (X × Y)) :
     H.transcriptBranch B tr ∘ₗ H.transcriptBranch B tr = H.transcriptBranch B tr := by
   rw [transcriptBranch, ← MatrixMap.conj_mul, ← mul_kronecker_mul, Matrix.one_mul,
     H.projector_mul_self]
+
+/-- Products of cross-commuting answer families commute, so mixed transcripts may be grouped
+by capability without changing the retained joint branch. -/
+theorem projector_commute {Addr Ans : Type} [Fintype Ans] [DecidableEq Ans]
+    (K : ProjectiveClassicalAnswers E Addr Ans)
+    (hcomm : ∀ x y c a, H.A x y * K.A c a = K.A c a * H.A x y)
+    (ts : List (X × Y)) (us : List (Addr × Ans)) :
+    H.projector ts * K.projector us = K.projector us * H.projector ts := by
+  have ha (x : X) (y : Y) : H.A x y * K.projector us = K.projector us * H.A x y := by
+    induction us with
+    | nil => simp
+    | cons q us ih =>
+      rw [projector_cons, ← Matrix.mul_assoc, hcomm, Matrix.mul_assoc, ih,
+        ← Matrix.mul_assoc]
+  induction ts with
+  | nil => simp
+  | cons q ts ih =>
+    rw [projector_cons, Matrix.mul_assoc, ih, ← Matrix.mul_assoc, ha, Matrix.mul_assoc]
+
+/-- Replay of a transcript containing both commuting answer families preserves its whole
+branch. Fixing the query policies and coins fixes the two retained answer lists. -/
+theorem replay_mixed_transcripts {Addr Ans : Type} [Fintype Ans] [DecidableEq Ans]
+    (K : ProjectiveClassicalAnswers E Addr Ans)
+    (hcomm : ∀ x y c a, H.A x y * K.A c a = K.A c a * H.A x y)
+    (B : QReg) (ts : List (X × Y)) (us : List (Addr × Ans)) :
+    (H.transcriptBranch B ts ∘ₗ K.transcriptBranch B us) ∘ₗ
+        (H.transcriptBranch B ts ∘ₗ K.transcriptBranch B us) =
+      H.transcriptBranch B ts ∘ₗ K.transcriptBranch B us := by
+  simp only [transcriptBranch, ← MatrixMap.conj_mul, ← mul_kronecker_mul, Matrix.one_mul]
+  congr 2
+  rw [Matrix.mul_assoc, ← Matrix.mul_assoc (K.projector us),
+    ← H.projector_commute K hcomm ts us, Matrix.mul_assoc,
+    K.projector_mul_self, ← Matrix.mul_assoc, H.projector_mul_self]
 
 /-- The adaptive transcript determined by a fixed choice of coins, inputs and answer prefix.
 The caller chooses a finite stopping prefix; no bound on the policy or its computation is used. -/
@@ -260,31 +265,82 @@ theorem replay_fixedCoins_terminal {Coins : Type*} (B : QReg)
     Matrix.one_mul, H.terminal_adaptive_projector_mul _ _ _ _ hy hz]
   split_ifs <;> simp
 
+section runtime
+
+variable {P : Type} [Fintype P] [DecidableEq P] {In : P → QReg}
+  {E : EmulatedOracle P In} (H : ProjectiveClassicalAnswers E X Y)
+
+/-- Read a classical address through the dedicated read port. -/
+@[expose]
+noncomputable def classicalCall (_H : ProjectiveClassicalAnswers E X Y) (B : QReg) (x : X) :
+    QComp (withReadSpec (EmulatedOracle.cohSpec In) X Y) B B Y :=
+  QuantumComp₂.bind (QComp.act (B := QReg.of (Unit × B))
+    (SubInstrument.relabel (Equiv.uniqueProd B Unit).symm)) fun _ ↦
+    QuantumComp₂.bind (QuantumComp₂.query (spec := withReadSpec (EmulatedOracle.cohSpec In) X Y)
+      (.inr x) B (Equiv.refl (Unit × B))) fun a ↦
+      QuantumComp₂.bind (QComp.act (SubInstrument.relabel (Equiv.uniqueProd B Unit))) fun _ ↦
+        QuantumComp₂.pure a
+
+/-- A read restores the trivial public factor around the runtime's read-port step. -/
+theorem run₂_classicalCall (B : QReg) (x : X) :
+    (E.withClassicalReads H).run₂ .instruments (H.classicalCall B x) =
+      E.read H x B := by
+  let R := E.withClassicalReads H
+  change R.run₂ .instruments (H.classicalCall B x) = _
+  rw [classicalCall, EmulatedOracle.read, QuantumRuntime.run₂_act_bind, SubInstrument.frame_relabel]
+  unfold SubInstrument.reindex
+  refine congrArg (fun f : Unit → SubInstrument ((Unit × B) × R.D) (B × R.D) Y ↦
+    (SubInstrument.relabel
+      ((Equiv.uniqueProd B Unit).prodCongr (Equiv.refl R.D)).symm).bind f) ?_
+  funext u
+  have hq := R.run₂_query_bind (A := QReg.of (Unit × B)) (B := B)
+    .instruments (.inr x) B
+    (Equiv.refl (Unit × B)) (fun a ↦
+      QuantumComp₂.bind (QComp.act (SubInstrument.relabel (Equiv.uniqueProd B Unit)))
+        fun _ ↦ QuantumComp₂.pure a)
+  refine hq.trans ?_
+  refine congrArg (fun f : Y → SubInstrument ((Unit × B) × R.D) (B × R.D) Y ↦
+    (R.queryStep (A := QReg.of (Unit × B)) (.inr x) B (Equiv.refl _)).bind f) ?_
+  funext a
+  rw [QuantumRuntime.run₂_act_bind]
+  erw [SubInstrument.frame_relabel]
+  exact congrArg (fun f : Unit → SubInstrument (B × R.D) (B × R.D) Y ↦
+    (SubInstrument.relabel
+      ((Equiv.uniqueProd B Unit).prodCongr (Equiv.refl R.D))).bind f)
+    (funext fun _ ↦ R.run₂_pure .instruments a)
+
+/-- The implemented read has the framed answer-projector branch. -/
+theorem branch_classicalCall (B : QReg) (x : X) (y : Y) :
+    ((E.withClassicalReads H).run₂ .instruments (H.classicalCall B x)).branch y =
+      H.branch B x y := by
+  rw [H.run₂_classicalCall, E.read_branch]
+  rfl
+
 /-- Execute an adaptive query prefix and retain precisely the prescribed answer transcript.
 Every call uses the actual emulated-oracle runtime; a mismatched answer returns `false`.
 The program is the postselection of a deterministic classical algorithm with fixed coins. -/
 noncomputable def checkAdaptiveTranscript (B : QReg) (next : List Y → X) :
-    List Y → QComp (uSpec P In) B B Bool
+    List Y → QComp (withReadSpec (EmulatedOracle.cohSpec In) X Y) B B Bool
   | [] => QuantumComp₂.pure true
   | y :: ys =>
-    (QComp.callBasis (H.query (next [])).1 B (H.query (next [])).2
-      (fun o _ ↦ H.read (next []) o)).bind fun z ↦
+    (H.classicalCall B (next [])).bind fun z ↦
         if z = y then checkAdaptiveTranscript B (fun pre ↦ next (z :: pre)) ys
         else QuantumComp₂.pure false
 
 /-- The actual accepting branch of adaptive transcript postselection is its projector product.
 Rejected outcomes are retained as separate branches of the program, never renormalized away. -/
 theorem branch_checkAdaptiveTranscript (B : QReg) (next : List Y → X) (ys : List Y) :
-    (E.toRuntime.run₂ .instruments (H.checkAdaptiveTranscript B next ys)).branch true =
+    ((E.withClassicalReads H).run₂ .instruments (H.checkAdaptiveTranscript B next ys)).branch true =
       H.transcriptBranch B (adaptiveTranscript next ys) := by
   induction ys generalizing next with
   | nil =>
     rw [checkAdaptiveTranscript, QuantumRuntime.run₂_pure, SubInstrument.branch_pure_self]
-    simp [adaptiveTranscript]
+    simp only [adaptiveTranscript, transcriptBranch_nil]
+    rfl
   | cons y ys ih =>
     rw [checkAdaptiveTranscript, QuantumRuntime.run₂_bind,
       DSubInstrument.branch_bind_apply_univ, Finset.sum_eq_single y]
-    · rw [ite_eq_left rfl, ih, H.branch_eq]
+    · rw [ite_eq_left rfl, ih, H.branch_classicalCall]
       exact (H.transcriptBranch_cons B (next [], y)
         (adaptiveTranscript (fun pre ↦ next (y :: pre)) ys)).symm
     · intro z _ hz
@@ -295,11 +351,16 @@ theorem branch_checkAdaptiveTranscript (B : QReg) (next : List Y → X) (ys : Li
 /-- Operational fixed-coin replay of any adaptive classical query prefix leaves its accepting
 joint branch unchanged. The initial state can be the output of any preceding quantum program. -/
 theorem replay_checkAdaptiveTranscript (B : QReg) (next : List Y → X) (ys : List Y) :
-    (E.toRuntime.run₂ .instruments (H.checkAdaptiveTranscript B next ys)).branch true ∘ₗ
-        (E.toRuntime.run₂ .instruments (H.checkAdaptiveTranscript B next ys)).branch true =
-      (E.toRuntime.run₂ .instruments (H.checkAdaptiveTranscript B next ys)).branch true := by
+    ((E.withClassicalReads H).run₂ .instruments
+        (H.checkAdaptiveTranscript B next ys)).branch true ∘ₗ
+      ((E.withClassicalReads H).run₂ .instruments
+        (H.checkAdaptiveTranscript B next ys)).branch true =
+      ((E.withClassicalReads H).run₂ .instruments
+        (H.checkAdaptiveTranscript B next ys)).branch true := by
   rw [H.branch_checkAdaptiveTranscript]
   exact H.replay_transcript B _
+
+end runtime
 
 /-- An answer already present in a transcript is absorbed by its projector. -/
 theorem answer_mul_projector_of_mem (q : X × Y) (tr : List (X × Y)) (hq : q ∈ tr) :
