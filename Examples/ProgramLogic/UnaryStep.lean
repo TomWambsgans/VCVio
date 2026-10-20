@@ -410,6 +410,7 @@ example :
     ⦃ 1 ⦄ wrappedTrueStep (spec := spec) ⦃ fun y => if y = true then 1 else 0 ⦄ := by
   vcstep with triple_wrappedTrueStep
 
+/-- An irreducible wrapper around `pure true`, used to test cached spec lookup. -/
 @[irreducible] def cacheTraceWrapped : OracleComp spec Bool := pure true
 
 @[local vcspec] theorem triple_cacheTraceWrapped :

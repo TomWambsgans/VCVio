@@ -142,6 +142,7 @@ def VCSpecEntry.lookupKey (entry : VCSpecEntry) : VCSpecLookupKey :=
   the right-hand head check happens at lookup time. -/
 structure VCSpecRegistry where
   all : Array VCSpecEntry := #[]
+  /-- Unary entries, keyed by the pattern of their computation. -/
   unary : DiscrTree VCSpecEntry := .empty
   relational : DiscrTree VCSpecEntry := .empty
   deriving Inhabited
@@ -178,6 +179,8 @@ declaration as a spec theorem and on failure falls back to inserting it into
 normalization rewrites needed to massage a goal into spec-applicable shape.
 
 This attribute is not intended to be used directly. -/
+
+/-- The simp extension behind the `vcspec_simp` attribute. -/
 initialize vcSpecSimpExt : Meta.SimpExtension ←
   Meta.registerSimpAttr `vcspec_simp
     "simp theorems internally used by VCVio program-logic tactics"

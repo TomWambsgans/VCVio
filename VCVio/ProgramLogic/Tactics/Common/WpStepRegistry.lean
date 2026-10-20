@@ -102,7 +102,9 @@ def WpStepEntry.theoremName! (entry : WpStepEntry) : Name :=
 * `compTree` is the comp-keyed discrimination tree consulted by the
   current `runWpStepRules` dispatch. -/
 structure WpStepRegistry where
+  /-- Every registered entry, in insertion order. -/
   all : Array WpStepEntry := #[]
+  /-- Entries keyed by the pattern of their computation, consulted by `runWpStepRules`. -/
   compTree : DiscrTree WpStepEntry := .empty
 
 instance : Inhabited WpStepRegistry := ⟨{}⟩
@@ -112,6 +114,7 @@ private def WpStepRegistry.addToCompTree
     DiscrTree WpStepEntry :=
   Lean.Meta.Sym.insertPattern tree entry.compPattern entry
 
+/-- The scoped environment extension holding the registered `wpStep` rules. -/
 initialize wpStepRegistry :
     SimpleScopedEnvExtension WpStepEntry WpStepRegistry ←
   registerSimpleScopedEnvExtension {

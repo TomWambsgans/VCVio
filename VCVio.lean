@@ -105,11 +105,8 @@ public import VCVio.CryptoFoundations.HardnessAssumptions.TweakableHash.ToFinalV
 public import VCVio.CryptoFoundations.HardnessAssumptions.TweakableHash.ToFinalValidity.Core
 public import VCVio.CryptoFoundations.HashCommitment
 public import VCVio.CryptoFoundations.IdenSchemeWithAbort
-public import VCVio.CryptoFoundations.KEMDEM
-public import VCVio.CryptoFoundations.KEMDEM.Measure
 public import VCVio.CryptoFoundations.KeyEncapMech
 public import VCVio.CryptoFoundations.MacAlg
-public import VCVio.CryptoFoundations.MacFromPRF
 public import VCVio.CryptoFoundations.MerkleTree.Addressed.Basic
 public import VCVio.CryptoFoundations.MerkleTree.Addressed.Extractability
 public import VCVio.CryptoFoundations.MerkleTree.Addressed.Extractor
@@ -482,6 +479,15 @@ public import VCVio.Quantum.Pure.Vector
 public import VCVio.Quantum.Register
 public import VCVio.Quantum.Semantics
 public import VCVio.Quantum.SubInstrument
+public import VCVio.Schemes.KEMDEM
+public import VCVio.Schemes.KEMDEM.Measure
+public import VCVio.Schemes.MacFromPRF
+public import VCVio.Schemes.Pedersen
+public import VCVio.Schemes.Schnorr.BoundedChallenges
+public import VCVio.Schemes.Schnorr.ChallengeRestriction
+public import VCVio.Schemes.Schnorr.SigmaProtocol
+public import VCVio.Schemes.Schnorr.Signature
+public import VCVio.Schemes.Schnorr.Transforms
 public import VCVio.StateSeparating.Advantage.Measure
 public import VCVio.StateSeparating.CellRef
 public import VCVio.StateSeparating.DistEquiv
