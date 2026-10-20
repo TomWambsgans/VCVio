@@ -78,6 +78,31 @@ theorem runWithSigningOracle_withPost {spec : OracleSpec ι}
   refine bind_congr fun r => ?_
   simp [List.append_nil]
 
+/-- Under a stateful interpretation of the ambient oracles along whose runs a key `key` of the
+state never decreases, the program `post` of a transcript of the experiment against `adv`
+followed by `post` runs on the transcript's public key and forgery from some state to some state
+whose key is at most that of the final one. -/
+theorem exists_mem_support_run_post_of_mem_support_run_withPost {spec : OracleSpec ι}
+    {σ τ : Type} [Preorder τ] (key : σ → τ) {sigAlg : SignatureAlg (OracleComp spec) M PK SK S}
+    (so : QueryImpl spec (StateT σ ProbComp))
+    (hmono : ∀ {γ : Type} (ob : OracleComp spec γ) (s : σ),
+      ∀ z ∈ support ((simulateQ so ob).run s), key s ≤ key z.2)
+    (adv : UnforgeableAdversary sigAlg) {β : Type} (post : PK → M × S → OracleComp spec β)
+    {s₀ : σ} {z : UnforgeableTranscript M PK SK S × σ}
+    (hz : z ∈ support ((simulateQ so (unforgeableTranscriptExperiment (adv.withPost post))).run
+      s₀)) :
+    ∃ (t₁ t₂ : σ) (b : β), key t₂ ≤ key z.2 ∧
+      (b, t₂) ∈ support ((simulateQ so (post z.1.pk (z.1.msg, z.1.sig))).run t₁) := by
+  obtain ⟨s₁, s₂, -, hf, hv⟩ :=
+    exists_mem_support_run_of_mem_support_run_unforgeableTranscriptExperiment so _ hz
+  rw [runWithSigningOracle_withPost, simulateQ_bind, StateT.run_bind, mem_support_bind_iff] at hf
+  obtain ⟨⟨⟨out, l⟩, t₁⟩, -, hf⟩ := hf
+  rw [simulateQ_map, StateT.run_map, support_map] at hf
+  obtain ⟨⟨b, t₂⟩, hb, hbt⟩ := hf
+  simp only [Prod.mk.injEq] at hbt
+  obtain ⟨⟨rfl, -⟩, rfl⟩ := hbt
+  exact ⟨t₁, t₂, b, hmono _ _ (z.1.verified, z.2) hv, hb⟩
+
 /-- **An adversary followed by a verification of its forgery.** The experiment against `adv`
 followed by `post` is the experiment of the scheme verifying by `post` against `adv`, followed by
 the scheme's own verification of the forgery, whose verdict replaces the transcript's. -/
