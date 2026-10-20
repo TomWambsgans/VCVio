@@ -905,8 +905,8 @@ theorem instability_le_of_eq_imp (π₁ : Database X Y → ι) (π₂ : Database
   rw [instability_eq_iSup_flip_compl, instability_eq_iSup_flip_compl]
   refine iSup_le fun k ↦ QueryCache.flip_le_iff.mpr fun D hD hlt x hx ↦ ?_
   refine le_iSup_of_le (π₂ (equivQueryCache.symm D)) <|
-    (QueryCache.extendProb_mono D x fun c hc ↦ ?_).trans
-      (QueryCache.extendProb_le_flip rfl hlt hx)
+    (QueryCache.updateProb_mono D x fun c hc ↦ ?_).trans
+      (QueryCache.updateProb_le_flip rfl hlt hx)
   simp only [Set.mem_compl_iff, mem_labelPartition] at hD hc ⊢
   exact fun he ↦ hc ((h _ _ he).trans hD)
 end Database
@@ -1346,8 +1346,8 @@ theorem outcomeLawWith_rpow_bounds_of_graded_ports
             (1 ⊗ₖ diagonal fun d ↦ if g d ≤ j then (1 : ℂ) else 0))).PosSemidef)
     {γ : Type*} [MeasurableSpace γ] (f : (Σ B, W B) → γ) {s : Set γ}
     (hs : MeasurableSet s) :
-    let p₀ := E.coherent.toRuntime.outcomeLawWith I x ρ f s
-    let p₁ := (QuantumRuntime.mk E.S E.init s₁).outcomeLawWith I x ρ f s
+    let p₀ := E.coherent.toRuntime.evalDistMap I x ρ f s
+    let p₁ := (QuantumRuntime.mk E.S E.init s₁).evalDistMap I x ρ f s
     let err := ((∑ j ∈ Finset.range t, ENNReal.ofReal (r j)) *
       E.selectedTotalMass I selected x (ρ.matrix ⊗ₖ E.init.matrix)) ^ (2⁻¹ : ℝ)
     p₀ ^ (2⁻¹ : ℝ) ≤ p₁ ^ (2⁻¹ : ℝ) + err ∧

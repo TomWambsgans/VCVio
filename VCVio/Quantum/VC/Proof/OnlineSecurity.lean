@@ -41,8 +41,8 @@ theorem outcomeLawWith_rotatePrivate (E : EmulatedOracle P In) (V : Matrix E.S E
     {L : LocalSig} (I : L.Interp) {W : QReg → Type*} {A : QReg}
     (x : QuantumComp L (cohSpec In) W A) (ρ : SubState A)
     {γ : Type*} [MeasurableSpace γ] (f : (Σ B, W B) → γ) :
-    (E.rotatePrivate V hV).coherent.toRuntime.outcomeLawWith I x ρ f =
-      E.coherent.toRuntime.outcomeLawWith I x ρ f := by
+    (E.rotatePrivate V hV).coherent.toRuntime.evalDistMap I x ρ f =
+      E.coherent.toRuntime.evalDistMap I x ρ f := by
   have hv : V * Vᴴ = 1 := by
     simpa only [star_eq_conjTranspose] using mem_unitaryGroup_iff.mp hV
   apply outcomeLawWith_eq_of_intertwine E.coherent (E.rotatePrivate V hV).coherent Vᴴ
@@ -149,10 +149,10 @@ theorem outcomeLawWith_recording_rpow_bounds
     let T := E.withRecordME ME code bot U hU
     let err := ((∑ j ∈ Finset.range t, ENNReal.ofReal (rate j)) *
       ∑ i : Fin k, R.totalMass I x (ρ.matrix ⊗ₖ R.init.matrix) (.inl (.inl i))) ^ (2⁻¹ : ℝ)
-    R.coherent.toRuntime.outcomeLawWith I x ρ f event ^ (2⁻¹ : ℝ) ≤
-      T.coherent.toRuntime.outcomeLawWith I x ρ f event ^ (2⁻¹ : ℝ) + err ∧
-    T.coherent.toRuntime.outcomeLawWith I x ρ f event ^ (2⁻¹ : ℝ) ≤
-      R.coherent.toRuntime.outcomeLawWith I x ρ f event ^ (2⁻¹ : ℝ) + err := by
+    R.coherent.toRuntime.evalDistMap I x ρ f event ^ (2⁻¹ : ℝ) ≤
+      T.coherent.toRuntime.evalDistMap I x ρ f event ^ (2⁻¹ : ℝ) + err ∧
+    T.coherent.toRuntime.evalDistMap I x ρ f event ^ (2⁻¹ : ℝ) ≤
+      R.coherent.toRuntime.evalDistMap I x ρ f event ^ (2⁻¹ : ℝ) + err := by
   let R := E.withRecord ME code bot U hU
   let T := E.withRecordME ME code bot U hU
   let V := RecReg.swapUnitary (Cell := Cell) ME
@@ -174,8 +174,8 @@ theorem outcomeLawWith_recording_rpow_bounds
     dsimp only at hb ⊢
     rw [selectedTotalMass_ordinaryPort] at hb
     change _ ∧ _ at hb
-    rw [show (QuantumRuntime.mk R.S R.init F.coherent.toRuntime.step).outcomeLawWith I x ρ f =
-      F.coherent.toRuntime.outcomeLawWith I x ρ f from rfl, hl] at hb
+    rw [show (QuantumRuntime.mk R.S R.init F.coherent.toRuntime.step).evalDistMap I x ρ f =
+      F.coherent.toRuntime.evalDistMap I x ρ f from rfl, hl] at hb
     exact hb
   · rcases p with (i | u) | u
     · exact withRecord_rotated_ordinary_gram E ME code bot U hU g j (rate j) i (hC j hj i)
@@ -192,13 +192,13 @@ variable {spec : QuantumOracleSpec} {L : LocalSig} {W : QReg → Type*} {A : QRe
 theorem outcomeLawWith_le_one (R : QuantumRuntime spec) (I : L.Interp)
     (x : QuantumComp L spec W A) (ρ : SubState A)
     {γ : Type*} [MeasurableSpace γ] (f : (Σ B, W B) → γ) (s : Set γ) :
-    R.outcomeLawWith I x ρ f s ≤ 1 := by
+    R.evalDistMap I x ρ f s ≤ 1 := by
   let : MeasurableSpace (Σ B, W B) := ⊤
   calc
-    _ ≤ R.outcomeLawWith I x ρ f Set.univ := MeasureTheory.measure_mono (Set.subset_univ _)
-    _ = R.outcomeLaw I x ρ Set.univ := by
-      rw [R.outcomeLawWith_apply_univ, ← R.outcomeLawWith_apply_univ I x ρ (fun p ↦ p),
-        R.outcomeLawWith_id]
+    _ ≤ R.evalDistMap I x ρ f Set.univ := MeasureTheory.measure_mono (Set.subset_univ _)
+    _ = R.evalDist I x ρ Set.univ := by
+      rw [R.evalDistMap_apply_univ, ← R.evalDistMap_apply_univ I x ρ (fun p ↦ p),
+        R.evalDistMap_id]
     _ ≤ 1 := MeasureTheory.measure_le_one _ _
 end QuantumRuntime
 
