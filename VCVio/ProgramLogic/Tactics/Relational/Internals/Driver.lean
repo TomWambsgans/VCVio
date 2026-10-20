@@ -34,7 +34,7 @@ private inductive RelGoalKind where
   | relTripleBind
   | relTripleSpec
   | relWP
-  | quantRelTriple
+  | stdDoRelTriple
   | rawRWP
   | couplingPost
   | oneSidedCandidate
@@ -46,7 +46,7 @@ private def RelGoalKind.canTryImmediateClose : RelGoalKind → Bool
   | _ => false
 
 private def classifyRelGoalKind (target : Expr) : TacticM RelGoalKind := do
-  if isRawRelWPGoal target then
+  if isRawStdDoRelWPGoal target then
     return .rawRWP
   if (relWPGoalParts? target).isSome then
     return .relWP
@@ -57,7 +57,7 @@ private def classifyRelGoalKind (target : Expr) : TacticM RelGoalKind := do
     match relTripleGoalParts? target with
     | some (_, _, post) => some post
     | none =>
-        match quantRelTripleGoalParts? target with
+        match stdDoRelTripleGoalParts? target with
         | some (_, _, _, post) => some post
         | none => none
   if let some post := post? then
@@ -73,8 +73,8 @@ private def classifyRelGoalKind (target : Expr) : TacticM RelGoalKind := do
     return .oneSidedCandidate
   if ← relCompsDefEq oa ob then
     return .relTripleRefl
-  if shape.isQuantitative then
-    return .quantRelTriple
+  if shape.isStdDo then
+    return .stdDoRelTriple
   return .relTripleSpec
 
 private def tryCloseRelGoalAtCoreGateway : TacticM Bool := do
@@ -101,11 +101,11 @@ private def tryCloseRelGoalAtCoreGateway : TacticM Bool := do
 
 /-- Controlled one-sided relational bind step on the left. -/
 def runRVCGenRawBindLeftStep : TacticM Bool := withMainContext do
-  runRawRelWPBindLeftRule <||> runQuantRelTripleBindLeftRule
+  runRawRelWPBindLeftRule <||> runStdDoRelTripleBindLeftRule
 
 /-- Controlled one-sided relational bind step on the right. -/
 def runRVCGenRawBindRightStep : TacticM Bool := withMainContext do
-  runRawRelWPBindRightRule <||> runQuantRelTripleBindRightRule
+  runRawRelWPBindRightRule <||> runStdDoRelTripleBindRightRule
 
 /-- Normalize and classify the main relational goal, then try its structural rules. -/
 def runRVCGenCore : TacticM Bool := withVCGenStructuralTiming <| withMainContext do
@@ -123,7 +123,7 @@ def runRVCGenCore : TacticM Bool := withVCGenStructuralTiming <| withMainContext
   let target ← instantiateMVars (← getMainTarget)
   if ← tryCloseRelGoalAtCoreGateway then
     return true
-  if let some (_pre, oa, ob, _) := quantRelTripleGoalParts? target then
+  if let some (_pre, oa, ob, _) := stdDoRelTripleGoalParts? target then
     let oa ← whnfReducible (← instantiateMVars oa)
     let ob ← whnfReducible (← instantiateMVars ob)
     if ← runERelPureRule then
@@ -169,7 +169,7 @@ def runRVCGenCore : TacticM Bool := withVCGenStructuralTiming <| withMainContext
 /-- Apply a relational structural step with an explicit intermediate relation or theorem hint. -/
 def runRVCGenCoreUsing (hint : TSyntax `term) : TacticM Bool := withMainContext do
   let target ← instantiateMVars (← getMainTarget)
-  if let some (_, oa, ob, _) := quantRelTripleGoalParts? target then
+  if let some (_, oa, ob, _) := stdDoRelTripleGoalParts? target then
     let oa ← whnfReducible (← instantiateMVars oa)
     let ob ← whnfReducible (← instantiateMVars ob)
     if isBindExpr oa && isBindExpr ob then
@@ -376,7 +376,7 @@ private def runRVCGenStepWithTheoremDirect
 private def runRVCGenStepWithTheoremConseq
     (thm : TSyntax `term) (requireClosed : Bool := false) : TacticM Bool := do
   let target ← instantiateMVars (← getMainTarget)
-  if isRawRelWPGoal target then
+  if isRawStdDoRelWPGoal target then
     return (← runRawRelWPTheoremConseq thm requireClosed)
   let wrapper? ←
     if (relTripleGoalParts? target).isSome then
@@ -387,7 +387,7 @@ private def runRVCGenStepWithTheoremConseq
         refine le_trans ?_
           (MAlgRelOrdered.relWP_mono
             (m₁ := OracleComp _) (m₂ := OracleComp _) (l := Prop) _ _ ?_)))
-    else if (quantRelTripleGoalParts? target).isSome then
+    else if (stdDoRelTripleGoalParts? target).isSome then
       pure <| some (← `(tactic|
         refine OracleComp.Rel.Quantitative.relTriple_conseq le_rfl ?_ ?_))
     else
@@ -400,8 +400,8 @@ private def runRVCGenStepWithTheoremConseq
       unless ← focusFirstGoalSatisfying fun target =>
           (relTripleGoalParts? target).isSome ||
           (relWPGoalParts? target).isSome ||
-          (quantRelTripleGoalParts? target).isSome ||
-          isRawRelWPGoal target do
+          (stdDoRelTripleGoalParts? target).isSome ||
+          isRawStdDoRelWPGoal target do
         throwError "rvcstep with theorem: failed to focus theorem subgoal after consequence rule"
       let before ← getGoals
       evalTactic (← `(tactic| apply $thm))
@@ -421,7 +421,7 @@ before the cached path sees the concrete target carrier. -/
 private def runRelationalVCSpecRule
     (entry : VCSpecEntry) (requireClosed : Bool := false) : TacticM Bool := do
   let target ← instantiateMVars (← getMainTarget)
-  if isRawRelWPGoal target && entry.kind == .relWP then
+  if isRawStdDoRelWPGoal target && entry.kind == .relWP then
     let saved ← saveState
     let ok ←
       match ← observing? do
@@ -472,7 +472,7 @@ private def runDirectRelVCSpecRule : TacticM Bool := do
     let some kind :=
       if (relTripleGoalParts? target).isSome then
         some .relTriple
-      else if (relWPGoalParts? target).isSome || isRawRelWPGoal target then
+      else if (relWPGoalParts? target).isSome || isRawStdDoRelWPGoal target then
         some .relWP
       else
         none
@@ -496,7 +496,7 @@ def runRVCGenStepWithTheorem (thm : TSyntax `term) (requireClosed : Bool := fals
 private def relationalGoalKind? (target : Expr) : Option VCSpecKind :=
   if (relTripleGoalParts? target).isSome then
     some .relTriple
-  else if (relWPGoalParts? target).isSome || isRawRelWPGoal target then
+  else if (relWPGoalParts? target).isSome || isRawStdDoRelWPGoal target then
     some .relWP
   else
     none
@@ -790,7 +790,7 @@ def throwRVCGenStepError : TacticM Unit := withMainContext do
       let theoremCandidates := theoremCandidateTiers.foldl (init := #[]) fun acc tier =>
         acc ++ tier.map (·.theoremName!)
       let goalLabel :=
-        if isQuantRelTripleGoal target then
+        if isStdDoRelTripleGoal target then
           "quantitative `VCVio.ProgramLogic.RelTriple`"
         else if (relWPGoalParts? target).isSome then
           "`RelWP`"
@@ -924,7 +924,7 @@ rules. -/
 def runRVCGenSearchFinish : TacticM Unit := do
   unless (← getGoals).isEmpty do
     let _ ← tryEvalTacticSyntax
-      (← `(tactic| all_goals try simp only [expect_norm, expect_eval]))
+      (← `(tactic| all_goals try simp only [game_rule]))
   unless (← getGoals).isEmpty do
     let _ ← tryEvalTacticSyntax
       (← `(tactic| all_goals first

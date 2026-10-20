@@ -18,6 +18,7 @@ The Giry composition laws transport measure-level independence to computation sy
 The general interchange theorem requires joint measurability; the three-draw law
 specializes to discrete intermediate results and leaves the final result space arbitrary.
 Uniform finite draws can be reindexed by a bijection before an arbitrary continuation.
+A bound on a scalar observation over the support bounds its expectation.
 -/
 
 public section
@@ -154,7 +155,7 @@ theorem evalDist_bind_apply_le_add_of_disagree (mx : m α) (f g : α → m β)
   rw [evalDist_bind mx f hf, evalDist_bind mx g hg]
   exact Measure.bind_apply_le_add_of_disagree _ _ _ hf hg hbad hevent hgood
 
-/-! ## Possible outputs and measurable observations -/
+/-! ## Reachability and measurable observations -/
 
 namespace evalDist
 

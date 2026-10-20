@@ -67,7 +67,7 @@ for keys on which verification is independent of the challenge.
 starts with an ordinary prover given its statement and message before execution. Its named
 adapter appends the final verification query to an initially empty cached oracle and proves
 that forkable acceptance equals acceptance of the actual verifier. `knowledgeExtractor_success`
-then gives the replay reduction's valid-witness bound at that fixed statement.
+then gives the existing replay reduction's valid-witness bound at that fixed statement.
 Failed forks retain the reduction's uniform-witness fallback.
 
 [`FiatShamir/Sigma/ExtractionCost.lean`](../../VCVio/CryptoFoundations/FiatShamir/Sigma/ExtractionCost.lean)
@@ -141,7 +141,7 @@ Reading order:
    delivers the bound
 
 ```
-etvDist (hidingMixedReal A) (hidingMixedSim A)  ≤  t / |S|,
+measureETVDist (hidingMixedReal A) (hidingMixedSim A)  ≤  t / |S|,
 ```
 
 where the salt is sampled inside the experiment and `t` is the adversary's
@@ -151,7 +151,7 @@ per-salt version is false.
 The framework machinery exercised: `cachingOracle`, `loggingOracle`,
 `IsTotalQueryBound`, the birthday bound
 `prEvent_cacheCollision_le_birthday_total_tight`, and the identical-until-bad
-bound `etvDist_simulateQ_run'_le_prEvent_bad_of_evalDistEq`.
+bound `measureETVDist_simulateQ_run'_le_prEvent_bad_of_evalDistEq`.
 
 ## PRF Tag/Reader Network Unlinkability
 
@@ -172,7 +172,7 @@ two named PRF advantages and four explicit losses:
 `named_reduction_budgets` gives the actual distinguishers' PRF-query bounds:
 `qTag + qReader · |TagId|` and `qTag + qReader · |TagId| · sessionsPerTag`. These are
 pathwise oracle-query counts, not machine-time or PPT certificates.
-The FIFO service model and its derived schedule are those of `Network.lean`.
+The FIFO service model and its derived schedule remain those of `Network.lean`.
 The free-program uniform-sampling model supplies probability measures for the real runs;
 there is no additional losslessness assumption.
 

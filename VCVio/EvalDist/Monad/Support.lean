@@ -12,7 +12,7 @@ public import VCVio.Prelude.Core
 /-!
 # Possible outputs under monadic operations
 
-The possible outputs of `pure`, bind and map follow from `ExactMonadAttach`.
+Pure, bind, and map preserve operational reachability through `ExactMonadAttach`.
 Finite-support equations add enumeration assumptions without choosing probabilities.
 -/
 

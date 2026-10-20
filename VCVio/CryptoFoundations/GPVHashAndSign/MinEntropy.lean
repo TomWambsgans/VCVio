@@ -67,23 +67,21 @@ theorem programmedPreimageAdvantage_le_trapdoorGuessingProbability [DecidableEq 
   classical
   unfold programmedPreimageAdvantage programmedPreimageExperiment
   rw [← prEvent_eq_evalDist_singleton]
-  rw [prEvent_bind]
   refine prEvent_bind_le_of_forall_le_of_support _ _ _ fun pksk hmem => ?_
   obtain ⟨pk, sk⟩ := pksk
-  rw [prEvent_bind]
   refine prEvent_bind_le_of_forall_le _ _ _ fun y => ?_
   have hinner : ∀ x : Domain,
       Pr{let z ← adversary pk y >>= fun x' => pure (decide (x' = x))}[z = true]
         = Pr{let z ← adversary pk y}[z = x] := by
     intro x
-    rw [prEvent_bind, OracleComp.prEvent_bind_eq_tsum]
+    rw [OracleComp.prEvent_bind_eq_tsum]
     refine (tsum_eq_single x fun x' hx' => ?_).trans (by simp)
     simp [hx']
   calc Pr{let z ← (psf.trapdoorSample pk sk y >>= fun x =>
         adversary pk y >>= fun x' => pure (decide (x' = x)))}[z = true]
       = ∑' x : Domain, Pr{let z ← psf.trapdoorSample pk sk y}[z = x] *
           Pr{let z ← adversary pk y}[z = x] := by
-        rw [prEvent_bind, OracleComp.prEvent_bind_eq_tsum]
+        rw [OracleComp.prEvent_bind_eq_tsum]
         exact tsum_congr fun x => by rw [hinner]
     _ ≤ ∑' x : Domain, (⨆ z : Domain, Pr{let x ← psf.trapdoorSample pk sk y}[x = z]) *
           Pr{let z ← adversary pk y}[z = x] :=

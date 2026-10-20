@@ -239,7 +239,6 @@ theorem advantage_le_advantage_add_of_trapdoorSample_measureTVDist
   classical
   rw [advantage_eq_keygen_average_realGameVerifyFresh psf hr M Salt adv,
     advantage_eq_keygen_average_realGameVerifyFresh psf' hr M Salt ⟨adv.main⟩,
-    prEvent_bind hr.gen, prEvent_bind hr.gen,
     OracleComp.prEvent_bind_eq_tsum hr.gen,
     OracleComp.prEvent_bind_eq_tsum hr.gen]
   have hper : ∀ x : PK × SK, x ∈ support hr.gen →

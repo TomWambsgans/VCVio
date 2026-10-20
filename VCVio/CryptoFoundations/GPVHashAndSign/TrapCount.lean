@@ -1240,7 +1240,7 @@ lemma reservoir_embed_winnerIdx_le [DecidableEq Domain] (pk : PK) (sk : SK)
         let x ← psf.trapdoorSample pk sk ((r.2.1 (r.1.2.1, r.1.1)).getD y)
         pure (decide (r.1.2.2 = x) &&
           decide (r.2.1 (r.1.2.1, r.1.1) = some y)) : ProbComp Bool)}[z = true] := by
-  conv_rhs => rw [prEvent_bind, OracleComp.prEvent_bind_eq_tsum]
+  rw [OracleComp.prEvent_bind_eq_tsum]
   refine ENNReal.tsum_le_tsum fun y => ?_
   refine mul_le_mul' le_rfl ?_
   -- Rewrite the un-augmented embed run as the projection of the index-augmented run.
@@ -1254,14 +1254,12 @@ lemma reservoir_embed_winnerIdx_le [DecidableEq Domain] (pk : PK) (sk : SK)
       (((∅ : (Salt × M →ₒ Range).QueryCache), (0 : ℕ)), (fun _ => none))).symm]
   rw [bind_map_left]
   -- Both sides now share the index-augmented run; compare per output `r`.
-  rw [prEvent_bind, prEvent_bind]
   refine prEvent_bind_mono_of_forall_le_of_support _ _ _ _ _ (fun r _ => ?_)
   simp only [Prod.map, id_eq]
   -- Per output `r` the trapdoor draws agree; the augmented win adds the conjunct
   -- `idx(forged) = some j`, which can only restrict.
-  rw [prEvent_bind, prEvent_bind]
   refine prEvent_bind_mono_of_forall_le_of_support _ _ _ _ _ (fun x _ => ?_)
-  simp only [prEvent_pure, propInd_eq_ite]
+  simp only [prEvent_pure]
   split_ifs with h1 h2 <;> first | rfl | simp_all
 
 omit [DecidableEq Range] [Fintype Salt] in

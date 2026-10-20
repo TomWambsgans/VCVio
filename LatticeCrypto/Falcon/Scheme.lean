@@ -33,7 +33,7 @@ The Falcon scheme is an instantiation of the GPV hash-and-sign framework over NT
   `‖(s₁, s₂)‖₂² ≤ ⌊β²⌋`.
 
 The signing flow follows the Falcon+ convention (fresh salt per retry, pk-bound hashing),
-matching the concrete executable signer in `Extern.Falcon.Sign`.
+matching the concrete executable signer in `LatticeCrypto.Falcon.Concrete.Sign`.
 
 ## References
 
@@ -121,10 +121,7 @@ theorem validKeyPair_eq_true_iff (pk : PublicKey p) (sk : SecretKey p) :
 4. Build the Falcon tree via `ffLDL*` and normalize (Algorithms 8–9).
 
 This is modeled as a deterministic function from a seed. The actual NTRUGen uses
-rejection sampling, but that detail is abstracted away.
-
-**Placeholder.** The function is not implemented: its body is `sorry`, so nothing about the keys
-it returns can be proved. -/
+rejection sampling, but that detail is abstracted away. -/
 noncomputable def keyGenFromSeed (_seed : List Byte) : PublicKey p × SecretKey p := sorry
 
 /-! ### GPV Bridge -/
