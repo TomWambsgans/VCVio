@@ -808,43 +808,6 @@ theorem l2_opNorm_compressed_recordingDefect_source_sq_le
 end
 
 section
-variable {X Y : Type} {B ι : Type*} [Fintype X] [DecidableEq X]
-  [Fintype Y] [DecidableEq Y] [AddCommGroup Y] [Fintype B] [DecidableEq B]
-
-/-- The checked read has a single summed Gram bound on a population-supported source.
-Its coefficient is independent of the number of optional answers. -/
-theorem posSemidef_sum_checkedReadDefect_gram
-    [OracleSpec.UniformAnswerMeasure (X →ₒ Y)]
-    (π : Database X Y → ι) (U : ι → Matrix B B ℂ)
-    (hU : ∀ l, U l ∈ unitaryGroup B ℂ) (p : ℕ) :
-    let P := diagonal (fun a : (X × Database X Y) × B ↦
-      if a.1.2.size ≤ p then (1 : ℂ) else 0)
-    ((24 * (Database.instability π (p + 1)).toReal) •
-      (1 : Matrix ((X × Database X Y) × B) ((X × Database X Y) × B) ℂ) -
-      ∑ a, (checkedReadDefect π U a * P)ᴴ * (checkedReadDefect π U a * P)).PosSemidef := by
-  classical
-  dsimp only
-  let P := diagonal (fun a : (X × Database X Y) × B ↦
-    if a.1.2.size ≤ p then (1 : ℂ) else 0)
-  let K := MatrixMap.stinespring (checkedReadDefect π U) * P
-  have hn := l2_opNorm_checkedReadDefectStack_sq_le π U hU p
-  have h₁ := MatrixMap.posSemidef_l2_opNorm_sq_smul_one_sub K
-  have h₂ := (PosSemidef.one (n := (X × Database X Y) × B) (R := ℂ)).smul
-    (sub_nonneg.mpr hn)
-  have he : K = MatrixMap.stinespring (fun a ↦ checkedReadDefect π U a * P) := by
-    ext a b
-    simp only [K, Matrix.mul_apply, MatrixMap.stinespring_apply]
-  have hg := MatrixMap.conjTranspose_stinespring_mul_stinespring
-    (fun a ↦ checkedReadDefect π U a * P)
-  rw [← he] at hg
-  change (_ • 1 - ∑ a, (checkedReadDefect π U a * P)ᴴ *
-    (checkedReadDefect π U a * P)).PosSemidef
-  rw [← hg]
-  convert h₁.add h₂ using 1
-  module
-end
-
-section
 variable {A : Type*} [Fintype A] [DecidableEq A]
 /-- A squared operator-norm bound gives the corresponding positive Gram slack. -/
 theorem posSemidef_scalar_sub_gram_of_norm_sq_le (K : Matrix A A ℂ) {r : ℝ}
@@ -1297,50 +1260,6 @@ theorem tsum_rpow_queryWeight_le_of_total_grade
       apply ENNReal.rpow_le_rpow _ (by norm_num)
       gcongr
       exact ENNReal.sum_le_tsum _
-
-/-- Both event comparisons follow from a sum of source-restricted branch Grams.
-The same source total weight occurs in both directions, including for mixed signatures. -/
-theorem outcomeLawWith_rpow_bounds_of_graded_grams [∀ i, Fintype (spec.Result i)]
-    (hR : ∀ i a t (σ : Matrix (spec.In i × R.D) (spec.In i × R.D) ℂ),
-      QuerySupportedOn (fun m : spec.In i × R.D ↦ g m.2) (Set.Iic t) σ →
-        QuerySupportedOn (fun m : spec.Out i × R.D ↦ g m.2) (Set.Iic (t + 1))
-          ((R.step i).branch a σ))
-    (s₁ : ∀ i, SubInstrument (spec.In i × R.D) (spec.Out i × R.D) (spec.Result i))
-    (U V : ∀ i, spec.Result i → Matrix (spec.Out i × R.D) (spec.In i × R.D) ℂ)
-    (hU : ∀ i a, (R.step i).branch a = MatrixMap.conj (U i a))
-    (hV : ∀ i a, (s₁ i).branch a = MatrixMap.conj (V i a))
-    (Δ : ∀ i, Matrix (spec.In i × R.D) (spec.In i × R.D) ℂ)
-    {W : QReg → Type w} {A : QReg} {x : QuantumComp L spec W A}
-    {t : ℕ} (hx : x.IsTotalQueryBound t) (ρ : SubState A)
-    (hgrade : QuerySupportedOn (fun m : A × R.D ↦ g m.2) (Set.Iic 0)
-      (ρ.matrix ⊗ₖ R.init.matrix))
-    (rate : ℕ → ℝ) (hrate : ∀ j < t, 0 ≤ rate j)
-    (hC : ∀ j < t, ∀ i,
-      let P := (1 : Matrix (spec.In i) (spec.In i) ℂ) ⊗ₖ
-        diagonal (fun d ↦ if g d ≤ j then (1 : ℂ) else 0)
-      ((rate j) • Δ i - ∑ a,
-        ((U i a - V i a) * P)ᴴ * ((U i a - V i a) * P)).PosSemidef)
-    {γ : Type*} [MeasurableSpace γ] (f : (Σ B, W B) → γ)
-    {event : Set γ} (hevent : MeasurableSet event) :
-    let p₀ := R.evalDistMap I x ρ f event
-    let p₁ := (QuantumRuntime.mk R.D R.init s₁).evalDistMap I x ρ f event
-    let err := ((∑ j ∈ Finset.range t, ENNReal.ofReal (rate j)) *
-      R.totalWeight I (fun i σ ↦ ENNReal.ofReal (Δ i * σ).trace.re) x
-        (ρ.matrix ⊗ₖ R.init.matrix)) ^ (2⁻¹ : ℝ)
-    p₀ ^ (2⁻¹ : ℝ) ≤ p₁ ^ (2⁻¹ : ℝ) + err ∧
-      p₁ ^ (2⁻¹ : ℝ) ≤ p₀ ^ (2⁻¹ : ℝ) + err := by
-  have hb := R.tsum_rpow_queryWeight_le_of_total_grade I g hR
-    (krausWeight (fun i a ↦ U i a - V i a))
-    (fun i σ ↦ ENNReal.ofReal (Δ i * σ).trace.re) hx
-    (ρ.prod R.init).posSemidef hgrade (fun j ↦ ENNReal.ofReal (rate j)) ?_
-  · have h₀ := rpow_inv_two_outcomeLawWith_le I R.init hU hV x ρ f hevent
-    have h₁ := rpow_inv_two_outcomeLawWith_le' I R.init hU hV x ρ f hevent
-    exact ⟨h₀.trans (add_le_add le_rfl hb), h₁.trans (add_le_add le_rfl hb)⟩
-  · intro j hj i σ hσ hsupp
-    refine R.krausWeight_le_of_sum_gram (fun i a ↦ U i a - V i a) i _
-      (Δ i) (hrate j hj) (hC j hj i) hσ ?_
-    rw [← diagonal_one, diagonal_kronecker_diagonal]
-    exact hsupp.conj_diagonal_eq_self fun m hm ↦ by simp [Set.mem_Iic.mp hm]
 
 end QuantumRuntime
 
