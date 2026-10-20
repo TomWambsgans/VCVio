@@ -28,25 +28,21 @@ three-oracle run of `romScheme` against the verifying adversary `verifyingAdv`
 ## The argument
 
 The linked scheme `linkedRomScheme`, `romScheme` verifying by `redirectedVerify`, encodes to
-`shakeRomScheme` (`shakeRomScheme_eq_map_linkedRomScheme`), so the single-oracle coupling bounds the
-advantage by the run of the linked scheme against `linkedRouteAdv` winning or ending with a clash
+`shakeRomScheme` (`shakeRomScheme_eq_map_linkedRomScheme`), so the single-oracle coupling bounds
+the advantage by its run against `linkedRouteAdv` winning or ending with a clash
 (`shakeAdvantage_pure_le_linkedRomScheme`). That run is the run against `verifyingAdv` up to its
-final, non-redirected verification (`SignatureAlg.unforgeableTranscriptExperiment_withPost`).
-`RedirectedWins` and `RunPrfKeyClash` are monotone in the cache, and `¬HonestOffLinked` passes to
-a larger cache on which the honest replays settle (`HonestReplays.not_filter_of_le`). A clash is
-monotone the other way: the final verification caches linked points whose `H_msg` readings the
-redirected one has cached. So the clash is classified on the linked run, whose verification
-(`allQueriesSatisfy_liftPub_redirectedVerify`) and forger (`allQueriesSatisfy_linkedRouteAdv_main`)
-query no linked point. There a cached linked point makes an honest replay fail off the linked
-points (`honestReplays_and_not_honestOffLinked_of_mem_support_run_linkedRomScheme`), and a clash
-is the message-`PRF` key hit or a cached linked point
-(`hmsgAtPrfKey_and_prfMsgAt_or_eq_or_linkedCached_of_clash`, through
-`isLinked_of_encode_eq_encode_hmsg` at `n = 32`).
+final, non-redirected verification (`SignatureAlg.unforgeableTranscriptExperiment_withPost`),
+which only adds cache entries. A clash is not carried to the larger cache by that verification
+alone, since it caches linked points whose `H_msg` readings the redirected one has cached, so the
+clash is classified on the linked run, where only the honest algorithms cache linked points
+(`honestReplays_of_mem_support_run_linkedRomScheme`,
+`hmsgAtPrfKey_and_prfMsgAt_or_eq_or_linkedCached_of_clash`).
 
 ## The root event
 
-On the support of a run the honest replays settle on the public-hash cache, so `¬HonestOffLinked`
-holds exactly when some honest replay reads a linked point
+On the support of a run the honest replays settle on the public-hash cache. There
+`¬HonestOffLinked` means that an honest replay reads a linked point: a replay settled on a
+sub-cache that fails off the linked points has a linked point in that sub-cache
 (`OracleSpec.QueryCache.exists_isSome_and_not_of_simulateQ_toPartialImpl_filter_ne`). It never
 holds at a public seed whose bytes are not an honest address key
 (`honestOffLinked_of_mem_support_romSchemeRun`). `HonestOffLinked` makes the honest replays
@@ -85,12 +81,6 @@ noncomputable def linkedRomScheme :
   (romScheme (shakeCore vp) (Equiv.refl _) optRand pkSeedDist).withVerify fun pk msg sig =>
     liftPub vp (redirectedVerify vp pk msg sig)
 
-private theorem linkedRomScheme_keygen : (linkedRomScheme vp optRand pkSeedDist).keygen =
-    (romScheme (shakeCore vp) (Equiv.refl _) optRand pkSeedDist).keygen := rfl
-
-private theorem linkedRomScheme_verify : (linkedRomScheme vp optRand pkSeedDist).verify =
-    fun pk msg sig => liftPub vp (redirectedVerify vp pk msg sig) := rfl
-
 /-- **The single-SHAKE256 scheme is the linked scheme, encoded.** -/
 theorem shakeRomScheme_eq_map_linkedRomScheme :
     shakeRomScheme vp optRand pkSeedDist =
@@ -113,7 +103,7 @@ theorem shakeAdvantage_pure_le_linkedRomScheme (hn : vp.params.n ≤ 32)
         z.1.wins = true ∨ (shakeEncoding vp hn hnm pkSeed).Clash z.2] := by
   have hE : ∀ z ∈ support (linkedRomScheme vp optRand (pure pkSeed)).keygen,
       shakeEncoding vp hn hnm z.1.pkSeed = shakeEncoding vp hn hnm pkSeed := fun _ hz => by
-    rw [linkedRomScheme_keygen] at hz
+    rw [linkedRomScheme, withVerify_keygen] at hz
     exact congrArg _ (pkSeed_eq_of_mem_support_romScheme_keygen _ _ hz)
   let A : UnforgeableAdversary ((linkedRomScheme vp optRand (pure pkSeed)).map
       (simulateQ' (liftTypedImpl (ext := shakeSpec vp)))) := ⟨(linkedAdv vp adv).main⟩
@@ -359,14 +349,13 @@ private theorem linkedInv_of_mem_support_run {α : Type}
   · exact h'
   · exact (h' t rfl ht).elim
 
-/-- Key generation establishes the linked invariant, with the secret key carrying the public
-key's seed and root. -/
+/-- Key generation establishes the linked invariant. -/
 private theorem linkedInv_keygen
     {z : (PublicKeyCore (shakeCore vp) × SecretKeyCore (shakeCore vp)) ×
       (hashSpec (shakeCore vp)).QueryCache}
     (hz : z ∈ support ((simulateQ (hashSpec (shakeCore vp)).romImpl
       (romScheme (shakeCore vp) (Equiv.refl _) optRand pkSeedDist).keygen).run ∅)) :
-    z.1.2.pkSeed = z.1.1.pkSeed ∧ z.1.2.pkRoot = z.1.1.pkRoot ∧ LinkedInv z.1.1 z.1.2 [] z.2 := by
+    LinkedInv z.1.1 z.1.2 [] z.2 := by
   obtain ⟨pkSeed, -, hz⟩ := roSim.exists_mem_support_run_of_mem_support_run_liftM_bind _ _ _ hz
   unfold romKeygenAt at hz
   obtain ⟨skSeed, -, hz⟩ := roSim.exists_mem_support_run_of_mem_support_run_liftM_bind _ _ _ hz
@@ -377,7 +366,7 @@ private theorem linkedInv_keygen
   subst hz
   rw [keygenInternalWithSecretM_oracleSecret_eq_ofSimulateQ (core := shakeCore vp)
     (m := OracleComp (unifSpec + hashSpec (shakeCore vp))) (Equiv.refl _) pkSeed skSeed] at hroot
-  refine ⟨rfl, rfl, ⟨simulateQ_toPartialImpl_snd_fst_of_mem_support_run_romImpl _ hroot,
+  refine ⟨⟨simulateQ_toPartialImpl_snd_fst_of_mem_support_run_romImpl _ hroot,
     fun x hx => by simp at hx⟩, fun ⟨t, ht, hct⟩ hk => ?_⟩
   exact forall_of_simulateQ_toPartialImpl_filter_fst_of_mem_support_run_romImpl _ hroot hk.1 t
     rfl hct ht
@@ -418,35 +407,65 @@ private theorem linkedInv_sign (hs : sk.pkSeed = pk.pkSeed) (hr : sk.pkRoot = pk
       exact forall_of_simulateQ_toPartialImpl_filter_fst_of_mem_support_run_romImpl _ hz hnew t
         (Option.not_isSome_iff_eq_none.1 fun h => hlc ⟨t, ht, h⟩) hzt ht
 
-/-- **The linked invariant of the linked run.** Against an adversary that queries no linked point
-at its public key, on every transcript of the run of the linked scheme the honest replays settle
-on the public-hash cache, and a cached linked point makes them fail off the linked points. -/
-theorem honestReplays_and_not_honestOffLinked_of_mem_support_run_linkedRomScheme
+/-- **The linked run.** Let `F pk` be a predicate holding of no linked point of `pk`, and let the
+adversary's hash queries at every public key `pk` satisfy `F pk`. On every transcript of the run of
+the linked scheme: the public seed is drawn from the seed distribution; every cached point is an
+honest query of the key pair or satisfies `F` at the public key; the honest replays settle on the
+public-hash cache, and once a linked point is cached they fail off the linked points; and the
+verdict is the replay of the redirected verification on the public-hash cache. -/
+theorem honestReplays_of_mem_support_run_linkedRomScheme
+    (F : PublicKeyCore (shakeCore vp) → (hashSpec (shakeCore vp)).Domain → Prop)
+    (hF : ∀ pk q, F pk q → ∀ t, q = .inl t → ¬IsLinked vp pk t)
     {adv : UnforgeableAdversary (linkedRomScheme vp optRand pkSeedDist)}
-    (hadv : ∀ pk, AllQueriesSatisfy (adv.main pk) (Sum.elim (Sum.elim (fun _ => True) fun q =>
-      ∀ t, q = .inl t → ¬IsLinked vp pk t) fun _ => True))
+    (hadv : ∀ pk, AllQueriesSatisfy (adv.main pk)
+      (Sum.elim (Sum.elim (fun _ => True) (F pk)) fun _ => True))
     {z : RomOutcome vp (shakeCore vp) × (hashSpec (shakeCore vp)).QueryCache}
     (hz : z ∈ support ((simulateQ (hashSpec (shakeCore vp)).romImpl
       (unforgeableTranscriptExperiment adv)).run ∅)) :
-    HonestReplays vp z.1.pk z.1.sk z.1.log z.2.fst ∧
-      (LinkedCached vp z.1.pk z.2 → ¬HonestOffLinked vp z) := by
+    z.1.pk.pkSeed ∈ support pkSeedDist ∧
+      (∀ q, (z.2 q).isSome → IsHonestQuery vp z.1.pk z.1.sk.skPrf q ∨ F z.1.pk q) ∧
+      HonestReplays vp z.1.pk z.1.sk z.1.log z.2.fst ∧
+      (LinkedCached vp z.1.pk z.2 → ¬HonestOffLinked vp z) ∧
+      simulateQ z.2.fst.toPartialImpl (redirectedVerify vp z.1.pk z.1.msg z.1.sig) =
+        some z.1.verified := by
   obtain ⟨s₁, s₂, hk, hf, hv⟩ :=
     exists_mem_support_run_of_mem_support_run_unforgeableTranscriptExperiment _ adv hz
-  rw [linkedRomScheme_keygen] at hk
-  rw [linkedRomScheme_verify] at hv
-  obtain ⟨hs, hr, hI⟩ := linkedInv_keygen hk
-  have hI₂ := holds_of_mem_support_run_runWithSigningOracle (hashSpec (shakeCore vp)).romImpl
-    (linkedRomScheme vp optRand pkSeedDist) z.1.pk z.1.sk
-    (fun log c => LinkedInv z.1.pk z.1.sk log c)
-    (fun t ht _ _ hI _ hz' => linkedInv_of_mem_support_run
+  rw [linkedRomScheme, withVerify_keygen] at hk
+  rw [linkedRomScheme, withVerify_verify] at hv
+  obtain ⟨hseed, hs, hr, hprov⟩ := isHonestQuery_of_mem_support_run_romScheme_keygen
+    (core := shakeCore vp) _ _ _ hk
+  let I : QueryLog (List Byte →ₒ GeneralScheme.SignatureCore vp (shakeCore vp)) →
+      (hashSpec (shakeCore vp)).QueryCache → Prop := fun log c =>
+    (∀ q, (c q).isSome → IsHonestQuery vp z.1.pk z.1.sk.skPrf q ∨ F z.1.pk q) ∧
+      LinkedInv z.1.pk z.1.sk log c
+  -- a program whose queries are honest or in `F`, and never linked, keeps `I`
+  have hstep : ∀ {α : Type} {oa : OracleComp (unifSpec + hashSpec (shakeCore vp)) α},
+      AllQueriesSatisfy oa (Sum.elim (fun _ => True) fun q =>
+        (IsHonestQuery vp z.1.pk z.1.sk.skPrf q ∨ F z.1.pk q) ∧
+          ∀ t, q = .inl t → ¬IsLinked vp z.1.pk t) →
+      ∀ log c, I log c → ∀ w ∈ support ((simulateQ (hashSpec (shakeCore vp)).romImpl oa).run c),
+        I log w.2 := fun hoa _ _ hI _ hw =>
+    ⟨forall_isSome_of_mem_support_run_simulateQ_romImpl (hoa.mono fun q hq => by
+        rcases q with n | q; exacts [trivial, hq.1]) hI.1 hw,
+      linkedInv_of_mem_support_run (hoa.mono fun q hq => by
+        rcases q with n | q; exacts [trivial, hq.2]) hI.2 hw⟩
+  have hI := holds_of_mem_support_run_runWithSigningOracle (hashSpec (shakeCore vp)).romImpl
+    (linkedRomScheme vp optRand pkSeedDist) z.1.pk z.1.sk I
+    (fun t ht _ _ hI _ hw => hstep
       (oa := (liftM ((unifSpec + hashSpec (shakeCore vp)).query t) : OracleComp _ _))
-      ((allQueriesSatisfy_query_iff _ _).2 ht) hI (by rwa [simulateQ_spec_query]))
-    (fun _ _ _ hI _ hz' => linkedInv_sign (optRand := optRand) (pkSeedDist := pkSeedDist) hs hr hI
-      hz') (hadv z.1.pk) hI hf
-  refine linkedInv_of_mem_support_run ((allQueriesSatisfy_liftPub_redirectedVerify _ z.1.pk.pkSeed
-    _ _).mono fun q h => ?_) hI₂ hv
-  rcases q with n | q
-  exacts [trivial, h.2]
+      ((allQueriesSatisfy_query_iff _ _).2 (by
+        rcases t with n | q; exacts [trivial, ⟨Or.inr ht, hF _ _ ht⟩])) _ _ hI _
+      (by rwa [simulateQ_spec_query]))
+    (fun msg _ _ hI _ hw => ⟨forall_isSome_of_mem_support_run_simulateQ_romImpl
+      ((allQueriesSatisfy_romScheme_sign (core := shakeCore vp) (Equiv.refl _) optRand pkSeedDist
+        hs hr msg).mono
+        fun q hq => by rcases q with n | q; exacts [trivial, Or.inl hq]) hI.1 hw,
+      linkedInv_sign (optRand := optRand) (pkSeedDist := pkSeedDist) hs hr hI.2 hw⟩)
+    (hadv z.1.pk) ⟨fun q hq => Or.inl (hprov q hq), linkedInv_keygen hk⟩ hf
+  obtain ⟨hprov', hlink⟩ := hstep ((allQueriesSatisfy_liftPub_redirectedVerify _ z.1.sk.skPrf
+    _ _).mono fun q h => by rcases q with n | q; exacts [trivial, ⟨Or.inl h.1, h.2⟩]) _ _ hI _ hv
+  exact ⟨hseed, hprov', hlink.1, hlink.2,
+    simulateQ_toPartialImpl_snd_fst_of_mem_support_run_romImpl _ hv⟩
 
 end Invariant
 
@@ -455,49 +474,6 @@ end Invariant
 section Headline
 
 variable {optRand : PublicKeyCore (shakeCore vp) → ProbComp (shakeCore vp).Y}
-
-/-- The facts of the linked run the headline reads off its support: the public seed, the
-provenance shape of the cache, the linked invariant, and the replay of the verdict. -/
-private theorem of_mem_support_run_linkedRouteAdv (h32 : vp.params.n = 32)
-    (hnm : vp.params.n ≤ vp.params.m) (pkSeed : (shakeCore vp).PkSeed)
-    (adv : UnforgeableAdversary (shakeRomScheme vp optRand (pure pkSeed)))
-    {z : RomOutcome vp (shakeCore vp) × (hashSpec (shakeCore vp)).QueryCache}
-    (hz : z ∈ support ((simulateQ (hashSpec (shakeCore vp)).romImpl
-      (unforgeableTranscriptExperiment (sigAlg := linkedRomScheme vp optRand (pure pkSeed))
-        ⟨(linkedRouteAdv vp h32.le hnm adv).main⟩)).run ∅)) :
-    z.1.pk.pkSeed = pkSeed ∧
-      (∀ q, (z.2 q).isSome →
-        shakeRoute vp (IsHonestKey vp (shakeCore vp)) z.1.pk.pkSeed (encode vp q) = some q ∨
-          (∃ r msg, q = .inl (.hmsg r z.1.pk.pkSeed z.1.pk.pkRoot msg)) ∨
-            ∃ o msg, q = .inr ⟨z.1.sk.skPrf, o, msg⟩) ∧
-      HonestReplays vp z.1.pk z.1.sk z.1.log z.2.fst ∧
-      (LinkedCached vp z.1.pk z.2 → ¬HonestOffLinked vp z) ∧
-      simulateQ z.2.fst.toPartialImpl (redirectedVerify vp z.1.pk z.1.msg z.1.sig) =
-        some z.1.verified := by
-  have hfq := allQueriesSatisfy_linkedRouteAdv_main h32.le hnm adv
-  obtain ⟨hseed, hprov⟩ := isHonestQuery_or_of_mem_support_run_withVerify (core := shakeCore vp)
-    (Equiv.refl _) optRand (pure pkSeed) (fun pk skPrf msg sig =>
-      (allQueriesSatisfy_liftPub_redirectedVerify pk skPrf msg sig).mono fun q h => by
-        rcases q with n | q
-        exacts [trivial, h.1]) _ hfq hz
-  have hinv := honestReplays_and_not_honestOffLinked_of_mem_support_run_linkedRomScheme
-    (adv := ⟨(linkedRouteAdv vp h32.le hnm adv).main⟩) (fun pk => (hfq pk).mono fun q h => by
-      rcases q with (n | q) | m
-      · trivial
-      · rcases h with ⟨-, h⟩ | ⟨M, rfl⟩
-        · exact h
-        · rintro t ⟨⟩
-          exact id
-      · trivial) hz
-  obtain ⟨_, _, -, -, hv⟩ :=
-    exists_mem_support_run_of_mem_support_run_unforgeableTranscriptExperiment _ _ hz
-  rw [linkedRomScheme_verify] at hv
-  refine ⟨by simpa using hseed, fun q hq => ?_, hinv.1, hinv.2,
-    simulateQ_toPartialImpl_snd_fst_of_mem_support_run_romImpl _ hv⟩
-  rcases hprov q hq with h | h | ⟨M, rfl⟩
-  · exact shakeRoute_encode_eq_some_or_of_isHonestQuery h32.le hnm h
-  · exact Or.inl h.1
-  · exact Or.inr (Or.inl ⟨_, M, rfl⟩)
 
 /-- **SLH-DSA over one SHAKE256 oracle at `n = 32`, per public seed, against the verifying
 adversary.** At `n = 32` and `n ≤ m`, for every public seed `pkSeed` and every `opt_rand`
@@ -518,8 +494,18 @@ theorem shakeAdvantage_pure_le_verifyingAdv (h32 : vp.params.n = 32)
     (romScheme (shakeCore vp) (Equiv.refl _) optRand (pure pkSeed))
     (linkedRouteAdv vp h32.le hnm adv)
     (fun pk out => liftPub vp (redirectedVerify vp pk out.1 out.2)) ∅ _ _ fun z hz hP r hr => ?_
-  obtain ⟨hseed, hshape, hset, hlink, hver⟩ := of_mem_support_run_linkedRouteAdv h32 hnm pkSeed
-    adv hz
+  obtain ⟨hseed, hprov, hset, hlink, hver⟩ := honestReplays_of_mem_support_run_linkedRomScheme
+    _ (fun _ q h t ht => by rcases h with ⟨-, h⟩ | ⟨M, rfl⟩; exacts [h t ht, by cases ht; exact id])
+    (allQueriesSatisfy_linkedRouteAdv_main h32.le hnm adv) hz
+  replace hseed : z.1.pk.pkSeed = pkSeed := by simpa using hseed
+  have hshape : ∀ q, (z.2 q).isSome →
+      shakeRoute vp (IsHonestKey vp (shakeCore vp)) z.1.pk.pkSeed (encode vp q) = some q ∨
+        (∃ r msg, q = .inl (.hmsg r z.1.pk.pkSeed z.1.pk.pkRoot msg)) ∨
+          ∃ o msg, q = .inr ⟨z.1.sk.skPrf, o, msg⟩ := fun q hq => by
+    rcases hprov q hq with h | h | ⟨M, rfl⟩
+    · exact shakeRoute_encode_eq_some_or_of_isHonestQuery h32.le hnm h
+    · exact Or.inl h.1
+    · exact Or.inr (Or.inl ⟨_, M, rfl⟩)
   have hle : z.2 ≤ r.2 :=
     le_snd_of_mem_support_run_unifFwdImpl_add_withCaching uniformSampleImpl _ hr
   rcases hP with hw | hcl
