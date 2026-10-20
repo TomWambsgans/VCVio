@@ -87,7 +87,7 @@ theorem queryStep_of_step
     (h : QuerySupportedOn (fun m : A × R.D ↦ g m.2) (Set.Iic t) ρ) :
     QuerySupportedOn (fun m : (spec.Out i × E) × R.D ↦ g m.2) (Set.Iic (t + 1))
       ((R.queryStep i E ℓ).branch r ρ) := by
-  rw [QuantumRuntime.queryStep_branch_apply, SubInstrument.branch_frame_apply]
+  rw [QuantumRuntime.queryStep_branch_apply, DSubInstrument.branch_frame_apply]
   have h₁ := (h.branch_relabel (QuantumRuntime.queryEquivIn ℓ R.D)).imp
     (q' := fun m : (spec.In i × R.D) × E ↦ g m.1.2) (S' := Set.Iic t) fun m hm ↦ by
       obtain ⟨y, rfl⟩ := (QuantumRuntime.queryEquivIn ℓ R.D).surjective m
@@ -138,7 +138,6 @@ theorem run_of_step [Fintype spec.Port]
     obtain ⟨hq, hk⟩ := (QuantumComp.isQueryBound_queryBind_iff i E ℓ k b).mp hx
     rw [QuantumRuntime.run_queryBind, DSubInstrument.branch_bind_apply]
     refine QuerySupportedOn.tsum fun r ↦ ?_
-    rw [SubInstrument.branch_toD_apply]
     have h := ih r (hk r) (queryStep_of_step R g hR i E ℓ r hρ)
     rwa [Nat.add_assoc, Nat.add_comm 1, sum_update_sub_one_add_one hq] at h
 
@@ -557,7 +556,7 @@ theorem QuantumRuntime.tsum_jointPost₂_trace_le_one {spec : QuantumOracleSpec.
     ∑' a, ENNReal.ofReal (R.jointPost₂ I x ρ a).matrix.trace.re ≤ 1 := by
   let _ : MeasurableSpace α := ⊤
   have h := (R.run₂ I x).outcomeMeasure_apply_univ_le_one (ρ.prod R.init)
-  rw [SubInstrument.outcomeMeasure_apply _ _ MeasurableSet.univ] at h
+  rw [DSubInstrument.outcomeMeasure_apply _ _ MeasurableSet.univ] at h
   simp only [Set.indicator_univ, Pi.one_apply, mul_one] at h
   exact h
 

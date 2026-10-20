@@ -84,14 +84,15 @@ of `p`, and move the output along `eB`. -/
 theorem branch_reindex_apply (eA : A ≃ A') (eB : B ≃ B') (p : SubInstrument A B α) (a : α)
     (ρ : Matrix A' A' ℂ) :
     (p.reindex eA eB).branch a ρ = (p.branch a (ρ.submatrix eA eA)).submatrix eB.symm eB.symm := by
-  rw [reindex, branch_bind_unit, branch_bind_bind_unit_pure, LinearMap.comp_apply,
+  rw [reindex, DSubInstrument.branch_bind_unit, DSubInstrument.branch_bind_bind_unit_ret,
+    LinearMap.comp_apply,
     LinearMap.comp_apply, relabel_branch_apply, relabel_branch_apply, Equiv.symm_symm]
 
 /-- A transported lossless subinstrument is lossless. -/
 theorem Lossless.reindex {p : SubInstrument A B α} (hp : p.Lossless) (eA : A ≃ A')
     (eB : B ≃ B') : (p.reindex eA eB).Lossless :=
   (lossless_relabel _).bind fun _ ↦ hp.bind fun _ ↦
-    (lossless_relabel _).bind fun _ ↦ lossless_pure _
+    (lossless_relabel _).bind fun _ ↦ DSubInstrument.lossless_ret _ _
 
 end SubInstrument
 
@@ -213,18 +214,18 @@ observation of every program has the same law against `R.addRegister G σ` as ag
 theorem outcomeLawWith_addRegister {L : LocalSig.{u, v}} (I : L.Interp) {X : QReg → Type w}
     {A : QReg} {γ : Type*} [MeasurableSpace γ] (hσ : σ.matrix.trace = 1)
     (x : QuantumComp L s X A) (ρ : SubState A) (f : (Σ u, X u) → γ) :
-    (R.addRegister G σ).outcomeLawWith I x ρ f = R.outcomeLawWith I x ρ f := by
+    (R.addRegister G σ).evalDistMap I x ρ f = R.evalDistMap I x ρ f := by
   have h := fun p ↦ (trace_jointPost_eq_of_simulation (R₁ := R.addRegister G σ) (R₂ := R)
     (V := MatrixMap.traceRight R.D G) I (simulation_addRegister R G σ)
     (fun M ↦ MatrixMap.trace_traceRight M) (R.traceRight_addRegister_init G σ hσ) x ρ p).symm
-  simp only [outcomeLawWith, h]
+  simp only [evalDistMap, h]
 
 /-- A register that no port touches, prepared in a state of trace one, changes no outcome law. -/
 theorem outcomeLaw_addRegister {L : LocalSig.{u, v}} (I : L.Interp) {X : QReg → Type w}
     {A : QReg} [MeasurableSpace (Σ u, X u)] (hσ : σ.matrix.trace = 1)
     (x : QuantumComp L s X A) (ρ : SubState A) :
-    (R.addRegister G σ).outcomeLaw I x ρ = R.outcomeLaw I x ρ :=
-  (outcomeLaw_eq_of_simulation (R₁ := R.addRegister G σ) (R₂ := R)
+    (R.addRegister G σ).evalDist I x ρ = R.evalDist I x ρ :=
+  (evalDist_eq_of_simulation (R₁ := R.addRegister G σ) (R₂ := R)
     (V := MatrixMap.traceRight R.D G) I (simulation_addRegister R G σ)
     (fun M ↦ MatrixMap.trace_traceRight M) (R.traceRight_addRegister_init G σ hσ) x ρ).symm
 

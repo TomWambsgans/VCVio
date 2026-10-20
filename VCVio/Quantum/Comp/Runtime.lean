@@ -11,10 +11,13 @@ public import VCVio.Quantum.Oracle.Basis
 /-!
 # Runtimes and the execution of quantum programs
 
-A runtime interprets the ports of a signature. It owns a private register `D`, which starts in
-the substate `init` and persists from one call to the next, and it answers a call of port `i`
-with a subinstrument `step i` from `In i × D` to `Out i × D` with outcomes in `Result i`. The
-program has no command that acts on `D`: it reaches `D` only through calls.
+A runtime implements the ports of a signature, and is the quantum analogue of a stateful query
+implementation. It owns a private register `D`, which starts in the substate `init` and persists
+from one call to the next, and it answers a call of port `i` with a subinstrument `step i` from
+`In i × D` to `Out i × D` with outcomes in `Result i`. The program has no command that acts on `D`:
+it reaches `D` only through calls, and `D` may become entangled with the program's register. The
+joint register is ordered program first, private register second. "Runtime" means an
+implementation of the oracle, not a running time.
 
 Running a program `x : QuantumComp L spec X A` under an interpretation `I` of its local
 operations and against a runtime `R` gives a dependent subinstrument `R.run I x` from `A × R.D`
@@ -33,10 +36,17 @@ whose outcomes are the leaves `⟨u, y⟩` of `x`, with output register `u × R.
 
 A program `x : QuantumComp₂ L spec A B α` has its leaves on `B`, so its run is a subinstrument
 `R.run₂ I x` from `A × R.D` to `B × R.D` with outcomes in `α`: the run of `x` restricted to the
-leaves `⟨B, rfl, a⟩` (`Quantum.DSubInstrument.comap`) and read through the equivalence between
-subinstruments and dependent subinstruments with a constant output register. Its branch at `a`
-is the branch of `R.run I x` at that leaf (`Quantum.QuantumRuntime.branch_run₂`), and it is a
+leaves `⟨B, rfl, a⟩` (`Quantum.DSubInstrument.comap`) with constant output register.
+Its branch at `a` is the branch of `R.run I x` at that leaf
+(`Quantum.QuantumRuntime.branch_run₂`), and it is a
 morphism of indexed monads (`Quantum.QuantumRuntime.run₂_bind`).
+
+Constant-output composites use the `SubInstrument` facades, including chained mapping and
+losslessness proofs. A continuation with an outcome-dependent output uses
+`Quantum.DSubInstrument.bind` explicitly, even when its first step has a constant output.
+For rewrites headed by a constant facade, use its constant law, such as
+`Quantum.SubInstrument.map_eq_bind_pure`. Identity relabelling follows by `simp`, or by
+`rw [SubInstrument.map, DSubInstrument.map_id]` to expose the dependent map law.
 
 ## Observation
 
@@ -47,15 +57,15 @@ in `init`, that is from the product substate `ρ ⊗ init`:
   reports the leaf `p = ⟨u, y⟩`. Its trace is the weight of `p`.
 * `Quantum.QuantumRuntime.reducedPost R I x ρ p`: its reduced substate on the program register
   `u`, which is all a later program can act on.
-* `Quantum.QuantumRuntime.outcomeLaw R I x ρ`: the law of the leaf reached, a subprobability
+* `Quantum.QuantumRuntime.evalDist R I x ρ`: the distribution of the leaf reached, a subprobability
   measure whose missing mass is failure.
-* `Quantum.QuantumRuntime.outcomeLawWith R I x ρ f`: the law of an observation `f` of the leaf
+* `Quantum.QuantumRuntime.evalDistMap R I x ρ f`: the distribution of an observation `f` of the leaf
   reached, as a sum of weighted point masses, so that `f` need not be measurable.
 
-The fixed-register versions `jointPost₂`, `reducedPost₂` and `outcomeLaw₂` observe `R.run₂ I x`,
-and agree with the general ones at the leaves `⟨B, rfl, a⟩`; the law of the value of a
-fixed-register program is the general law observed through the value of the leaf
-(`Quantum.QuantumRuntime.outcomeLaw₂_eq_outcomeLawWith`).
+The fixed-register versions `jointPost₂`, `reducedPost₂` and `evalDist₂` observe `R.run₂ I x`,
+and agree with the general ones at the leaves `⟨B, rfl, a⟩`; the distribution of the value of a
+fixed-register program is the general distribution observed through the value of the leaf
+(`Quantum.QuantumRuntime.evalDist₂_eq_evalDistMap`).
 
 ## Main definitions
 
@@ -63,7 +73,7 @@ fixed-register program is the general law observed through the value of the leaf
 * `Quantum.QuantumRuntime.queryStep`, `Quantum.QuantumRuntime.run` and
   `Quantum.QuantumRuntime.run₂`.
 * `Quantum.QuantumRuntime.jointPost`, `Quantum.QuantumRuntime.reducedPost`,
-  `Quantum.QuantumRuntime.outcomeLaw` and `Quantum.QuantumRuntime.outcomeLawWith`, with the
+  `Quantum.QuantumRuntime.evalDist` and `Quantum.QuantumRuntime.evalDistMap`, with the
   fixed-register versions.
 
 ## Main statements
@@ -85,8 +95,14 @@ universe u v u₁ v₁ w w₁
 
 namespace Quantum
 
-/-- A runtime for the signature `spec`: a private register `D` with initial substate `init`, and
-for each port the subinstrument that answers a call of it. -/
+/-- An implementation of the ports of `spec` with private quantum memory. The private register
+`D` starts in the substate `init` and persists across calls. A call of port `i` applies the
+subinstrument `step i` from `In i × D` to `Out i × D`, whose outcomes are the classical results
+`Result i`.
+
+During a run, local operations act as `Φ ⊗ id_D`, and a call applies `step i ⊗ id_E` to
+`(In i × D) × E`, where `E` is the rest of the program register; so `D` can carry information
+from one call to the next. `init` and the steps may lose trace. -/
 structure QuantumRuntime (spec : QuantumOracleSpec.{u₁, v₁}) where
   /-- The runtime's private register, which persists across calls. -/
   D : QReg
@@ -146,7 +162,7 @@ noncomputable def queryStep (i : spec.Port) (E : QReg) (ℓ : A ≃ spec.In i ×
 theorem lossless_queryStep {i : spec.Port} (hi : (R.step i).Lossless) (E : QReg)
     (ℓ : A ≃ spec.In i × E) : (R.queryStep i E ℓ).Lossless :=
   (SubInstrument.lossless_relabel _).bind fun _ ↦ (hi.frame E).bind fun _ ↦
-    (SubInstrument.lossless_relabel _).bind fun _ ↦ SubInstrument.lossless_pure _
+    (SubInstrument.lossless_relabel _).bind fun _ ↦ DSubInstrument.lossless_ret _ _
 
 /-! ## Execution -/
 
@@ -158,11 +174,15 @@ noncomputable def runAux :
   | _, .pure x => DSubInstrument.ret (fun p : Σ u, X u ↦ p.1 × R.D) ⟨_, x⟩
   | _, .liftBind (.prim o) k => ((I o).frame R.D).bind fun b ↦ runAux (k (ULift.up b))
   | _, .liftBind (.query i E ℓ) k =>
-      (SubInstrument.toD (R.queryStep i E ℓ)).bind fun r ↦ runAux (k (ULift.up r))
+      DSubInstrument.bind (R.queryStep i E ℓ) fun r ↦ runAux (k (ULift.up r))
 
-/-- **Execution.** A program run under the interpretation `I` against the runtime `R` is a
-dependent subinstrument on the joint register of the program and the runtime, whose outcomes are
-the leaves `⟨u, y⟩` of the program, with output register `u × R.D` on the leaf `⟨u, y⟩`. -/
+/-- The execution of the program `x` under the interpretation `I` of its local operations, against
+the runtime `R`: a dependent subinstrument from `A × R.D` whose outcomes are the leaves `⟨u, y⟩` of
+`x`, with output register `u × R.D` on the leaf `⟨u, y⟩`. A local operation applies `I o ⊗ id_D`;
+a call applies `R.step i` to the exposed port register and `D`, with the rest of the program
+register carried along (`queryStep`). `run` sends `bind` of programs to `bind` of dependent
+subinstruments (`run_bind`). It does not choose an initial state; the observations below start
+from `ρ ⊗ R.init`. -/
 @[expose]
 noncomputable def run (x : QuantumComp L spec X A) :
     DSubInstrument (A × R.D) (Σ u, X u) fun p ↦ p.1 × R.D :=
@@ -188,7 +208,7 @@ continuation. -/
 theorem run_queryBind (i : spec.Port) (E : QReg) (ℓ : A ≃ spec.In i × E)
     (k : spec.Result i → QuantumComp L spec X (QReg.of (spec.Out i × E))) :
     R.run I (QuantumComp.queryBind i E ℓ k) =
-      (SubInstrument.toD (R.queryStep i E ℓ)).bind fun r ↦ R.run I (k r) :=
+      DSubInstrument.bind (R.queryStep i E ℓ) fun r ↦ R.run I (k r) :=
   rfl
 
 /-- Running the generic local operation followed by a continuation. -/
@@ -202,7 +222,7 @@ theorem run_query_bind (i : spec.Port) (E : QReg) (ℓ : A ≃ spec.In i × E)
     (k : ∀ u, (PSigma fun _ : u = QReg.of (spec.Out i × E) ↦ spec.Result i) →
       QuantumComp L spec Y u) :
     R.run I ((QuantumComp.query i E ℓ).bind k) =
-      (SubInstrument.toD (R.queryStep i E ℓ)).bind fun r ↦ R.run I (k _ ⟨rfl, r⟩) :=
+      DSubInstrument.bind (R.queryStep i E ℓ) fun r ↦ R.run I (k _ ⟨rfl, r⟩) :=
   rfl
 
 /-- **`run` respects sequencing.** Running `x.bind k` runs `x`, and on the leaf `⟨u, y⟩` runs
@@ -226,7 +246,7 @@ theorem lossless_run {x : QuantumComp L spec X A} (hx : x.Lossless I)
   | pure _ _ => exact DSubInstrument.lossless_ret _ _
   | primBind _ o k ih => exact (hx.1.frame R.D).bind fun b ↦ ih b (hx.2 b)
   | queryBind _ i E ℓ k ih =>
-    exact (SubInstrument.lossless_toD_iff.mpr (R.lossless_queryStep (hR i) E ℓ)).bind
+    exact DSubInstrument.Lossless.bind (R.lossless_queryStep (hR i) E ℓ)
       fun r ↦ ih r (hx r)
 
 /-! ## Execution of programs on a fixed final register -/
@@ -236,8 +256,7 @@ theorem lossless_run {x : QuantumComp L spec X A} (hx : x.Lossless I)
 Every leaf of `x` has this form, so nothing is dropped. -/
 @[expose]
 noncomputable def run₂ (x : QuantumComp₂ L spec A B α) : SubInstrument (A × R.D) (B × R.D) α :=
-  DSubInstrument.toSubInstrument
-    ((R.run I x).comap (QuantumComp₂.leafEquiv B α) (QuantumComp₂.leafEquiv B α).injective)
+  (R.run I x).comap (QuantumComp₂.leafEquiv B α) (QuantumComp₂.leafEquiv B α).injective
 
 /-- **Agreement of the two runs.** The branch at `a` of the fixed-register run is the branch of
 the general run at the leaf `⟨B, rfl, a⟩`. -/
@@ -245,10 +264,9 @@ theorem branch_run₂ (x : QuantumComp₂ L spec A B α) (a : α) :
     (R.run₂ I x).branch a = (R.run I x).branch ⟨B, rfl, a⟩ :=
   rfl
 
-/-- The dependent form of the fixed-register run is the general run restricted to the leaves on
-`B`. -/
-theorem toD_run₂ (x : QuantumComp₂ L spec A B α) :
-    SubInstrument.toD (R.run₂ I x) =
+/-- The fixed-register run is the general run restricted to the leaves on `B`. -/
+theorem run₂_eq_comap (x : QuantumComp₂ L spec A B α) :
+    R.run₂ I x =
       (R.run I x).comap (QuantumComp₂.leafEquiv B α) (QuantumComp₂.leafEquiv B α).injective :=
   rfl
 
@@ -256,7 +274,7 @@ theorem toD_run₂ (x : QuantumComp₂ L spec A B α) :
 @[simp]
 theorem run₂_pure (a : α) :
     R.run₂ I (QuantumComp₂.pure a : QuantumComp₂ L spec A A α) = SubInstrument.pure a := by
-  refine SubInstrument.ext (funext fun a' ↦ ?_)
+  refine DSubInstrument.ext (funext fun a' ↦ ?_)
   change (DSubInstrument.ret (fun p : Σ u, QuantumComp₂.Leaf A α u ↦ p.1 × R.D)
     ⟨A, rfl, a⟩).branch ⟨A, rfl, a'⟩ = _
   obtain rfl | h := eq_or_ne a' a
@@ -272,10 +290,10 @@ theorem run₂_queryBind (i : spec.Port) (E : QReg) (ℓ : A ≃ spec.In i × E)
     (k : spec.Result i → QuantumComp₂ L spec (QReg.of (spec.Out i × E)) B α) :
     R.run₂ I (QuantumComp₂.queryBind i E ℓ k) =
       (R.queryStep i E ℓ).bind fun r ↦ R.run₂ I (k r) := by
-  refine SubInstrument.ext (funext fun a ↦ LinearMap.ext fun ρ ↦ ?_)
-  change ((SubInstrument.toD (R.queryStep i E ℓ)).bind fun r ↦ R.run I (k r)).branch
+  refine DSubInstrument.ext (funext fun a ↦ LinearMap.ext fun ρ ↦ ?_)
+  change (DSubInstrument.bind (R.queryStep i E ℓ) fun r ↦ R.run I (k r)).branch
     ⟨B, rfl, a⟩ ρ = _
-  rw [DSubInstrument.branch_bind_apply, SubInstrument.branch_bind_apply]
+  rw [DSubInstrument.branch_bind_apply, DSubInstrument.branch_bind_apply]
   rfl
 
 /-- Running a call followed by a continuation. -/
@@ -293,12 +311,12 @@ theorem run₂_query (i : spec.Port) (E : QReg) (ℓ : A ≃ spec.In i × E) :
   simp only [run₂_pure] at h
   exact h
 
-/-- Running a local operation followed by a continuation, in dependent form: the operation's
+/-- Running a local operation followed by a continuation: the operation's
 interpretation framed by the runtime register, then the runs of the continuation. -/
-theorem toD_run₂_primBind (o : L.Op A)
+theorem run₂_primBind (o : L.Op A)
     (k : (b : L.Outcome o) → QuantumComp₂ L spec (L.next o b) B α) :
-    SubInstrument.toD (R.run₂ I (QuantumComp₂.primBind o k)) =
-      ((I o).frame R.D).bind fun b ↦ SubInstrument.toD (R.run₂ I (k b)) := by
+    R.run₂ I (QuantumComp₂.primBind o k) =
+      ((I o).frame R.D).bind fun b ↦ R.run₂ I (k b) := by
   refine DSubInstrument.ext (funext fun a ↦ LinearMap.ext fun ρ ↦ ?_)
   change (((I o).frame R.D).bind fun b ↦ R.run I (k b)).branch ⟨B, rfl, a⟩ ρ = _
   rw [DSubInstrument.branch_bind_apply, DSubInstrument.branch_bind_apply]
@@ -314,11 +332,10 @@ theorem run₂_bind (x : QuantumComp₂ L spec A B α) (k : α → QuantumComp�
   · intro _ a _ k
     rw [QuantumComp₂.pure_bind, run₂_pure, SubInstrument.pure_bind]
   · intro _ _ o k' ih _ k
-    refine SubInstrument.toD_injective ?_
-    rw [QuantumComp₂.primBind_bind, toD_run₂_primBind, SubInstrument.toD_bind,
-      toD_run₂_primBind, DSubInstrument.bind_assoc]
+    rw [QuantumComp₂.primBind_bind, run₂_primBind,
+      run₂_primBind, SubInstrument.bind, DSubInstrument.bind_assoc]
     refine congrArg _ (funext fun b ↦ ?_)
-    rw [ih b k, SubInstrument.toD_bind]
+    rw [ih b k]
   · intro _ _ i E ℓ k' ih _ k
     rw [QuantumComp₂.queryBind_bind, run₂_queryBind, run₂_queryBind, SubInstrument.bind_assoc]
     exact congrArg _ (funext fun r ↦ ih r k)
@@ -333,8 +350,7 @@ theorem run₂_map (f : α → β) (x : QuantumComp₂ L spec A B α) :
 lossless. -/
 theorem lossless_run₂ {x : QuantumComp₂ L spec A B α} (hx : x.Lossless I)
     (hR : ∀ i, (R.step i).Lossless) : (R.run₂ I x).Lossless :=
-  SubInstrument.lossless_toD_iff.mp
-    ((R.lossless_run I hx hR).comap (QuantumComp₂.leafEquiv B α).bijective)
+  (R.lossless_run I hx hR).comap (QuantumComp₂.leafEquiv B α).bijective
 
 /-- Running a local subinstrument followed by a continuation applies it framed by the runtime
 register, then the runs of the continuation. -/
@@ -342,8 +358,7 @@ register, then the runs of the continuation. -/
 theorem run₂_act_bind {α β : Type w} (p : SubInstrument A B β) (k : β → QComp spec B C α) :
     R.run₂ .instruments ((QComp.act p).bind k) =
       (p.frame R.D).bind fun b ↦ R.run₂ .instruments (k b) := by
-  refine SubInstrument.toD_injective ?_
-  rw [QComp.act_bind, toD_run₂_primBind, SubInstrument.toD_bind, SubInstrument.toD_frame]
+  rw [QComp.act_bind, run₂_primBind]
   rfl
 
 /-- Running a local subinstrument applies it framed by the runtime register. -/
@@ -370,10 +385,13 @@ noncomputable def reducedPost (x : QuantumComp L spec X A) (ρ : SubState A) (p 
     SubState p.1 :=
   (R.jointPost I x ρ p).traceRight
 
-/-- The law of the leaf reached by `x` run from `ρ ⊗ init`: a subprobability measure whose
-missing mass is the weight of failure. -/
+/-- The distribution of the leaf reached when `x` runs under `I` against `R`, from the substate `ρ`
+of its starting register and the runtime's initial substate, that is from `ρ ⊗ R.init`. It is a
+subprobability measure on the leaves `Σ u, X u`; its missing mass is failure. A leaf records the
+final register and the returned data, not the final quantum state, which `jointPost` and
+`reducedPost` keep. -/
 @[expose]
-noncomputable def outcomeLaw [MeasurableSpace (Σ u, X u)] (x : QuantumComp L spec X A)
+noncomputable def evalDist [MeasurableSpace (Σ u, X u)] (x : QuantumComp L spec X A)
     (ρ : SubState A) : Measure (Σ u, X u) :=
   (R.run I x).outcomeMeasure (ρ.prod R.init)
 
@@ -388,56 +406,56 @@ theorem trace_reducedPost (x : QuantumComp L spec X A) (ρ : SubState A) (p : Σ
     (R.reducedPost I x ρ p).matrix.trace = (R.jointPost I x ρ p).matrix.trace :=
   MatrixMap.trace_traceRight _
 
-/-- Outcome laws are subprobability measures. -/
+/-- Outcome distributions are subprobability measures. -/
 instance [MeasurableSpace (Σ u, X u)] (x : QuantumComp L spec X A) (ρ : SubState A) :
-    IsSubprobabilityMeasure (R.outcomeLaw I x ρ) :=
+    IsSubprobabilityMeasure (R.evalDist I x ρ) :=
   DSubInstrument.outcomeMeasure.instIsSubprobabilityMeasure _ _
 
 /-- The weight of a single leaf is the trace of the joint post-state. -/
-theorem outcomeLaw_apply_singleton [MeasurableSpace (Σ u, X u)]
+theorem evalDist_apply_singleton [MeasurableSpace (Σ u, X u)]
     [MeasurableSingletonClass (Σ u, X u)] (x : QuantumComp L spec X A) (ρ : SubState A)
     (p : Σ u, X u) :
-    R.outcomeLaw I x ρ {p} = ENNReal.ofReal (R.jointPost I x ρ p).matrix.trace.re :=
+    R.evalDist I x ρ {p} = ENNReal.ofReal (R.jointPost I x ρ p).matrix.trace.re :=
   DSubInstrument.outcomeMeasure_apply_singleton _ _ p
 
-/-- When the run is lossless, the outcome law has the product of the traces of `ρ` and `init`
-as its total mass. -/
-theorem outcomeLaw_apply_univ_of_lossless [MeasurableSpace (Σ u, X u)]
+/-- When the run is lossless, the outcome distribution has the product of the traces of `ρ` and
+`init` as its total mass. -/
+theorem evalDist_apply_univ_of_lossless [MeasurableSpace (Σ u, X u)]
     {x : QuantumComp L spec X A} (hx : (R.run I x).Lossless) (ρ : SubState A) :
-    R.outcomeLaw I x ρ Set.univ =
+    R.evalDist I x ρ Set.univ =
       ENNReal.ofReal (ρ.matrix.trace.re * R.init.matrix.trace.re) := by
-  rw [outcomeLaw, hx.outcomeMeasure_apply_univ, SubState.trace_re_prod]
+  rw [evalDist, hx.outcomeMeasure_apply_univ, SubState.trace_re_prod]
 
-/-- The law of the observation `f` of the leaf reached by `x` run from `ρ ⊗ init`: each leaf `p`
-contributes its weight, the trace of the joint post-state, at the point `f p`. It is a sum of
-weighted point masses, so `f` need not be measurable. -/
+/-- The distribution of the observation `f` of the leaf reached by `x` run from `ρ ⊗ init`: each
+leaf `p` contributes its weight, the trace of the joint post-state, at the point `f p`. It is a sum
+of weighted point masses, so `f` need not be measurable. -/
 @[expose]
-noncomputable def outcomeLawWith {γ : Type*} [MeasurableSpace γ] (x : QuantumComp L spec X A)
+noncomputable def evalDistMap {γ : Type*} [MeasurableSpace γ] (x : QuantumComp L spec X A)
     (ρ : SubState A) (f : (Σ u, X u) → γ) : Measure γ :=
   Measure.sum fun p ↦ ENNReal.ofReal (R.jointPost I x ρ p).matrix.trace.re • Measure.dirac (f p)
 
-/-- The observed law of a measurable set sums the weights of the leaves observed in it. -/
-theorem outcomeLawWith_apply {γ : Type*} [MeasurableSpace γ] (x : QuantumComp L spec X A)
+/-- The observed distribution of a measurable set sums the weights of the leaves observed in it. -/
+theorem evalDistMap_apply {γ : Type*} [MeasurableSpace γ] (x : QuantumComp L spec X A)
     (ρ : SubState A) (f : (Σ u, X u) → γ) {s : Set γ} (hs : MeasurableSet s) :
-    R.outcomeLawWith I x ρ f s =
+    R.evalDistMap I x ρ f s =
       ∑' p, ENNReal.ofReal (R.jointPost I x ρ p).matrix.trace.re * s.indicator 1 (f p) := by
-  simp only [outcomeLawWith, Measure.sum_apply _ hs, Measure.smul_apply,
+  simp only [evalDistMap, Measure.sum_apply _ hs, Measure.smul_apply,
     Measure.dirac_apply' _ hs, smul_eq_mul]
 
-/-- Observing the leaf itself gives the outcome law. -/
-theorem outcomeLawWith_id [MeasurableSpace (Σ u, X u)] (x : QuantumComp L spec X A)
-    (ρ : SubState A) : R.outcomeLawWith I x ρ (fun p ↦ p) = R.outcomeLaw I x ρ :=
+/-- Observing the leaf itself gives the outcome distribution. -/
+theorem evalDistMap_id [MeasurableSpace (Σ u, X u)] (x : QuantumComp L spec X A)
+    (ρ : SubState A) : R.evalDistMap I x ρ (fun p ↦ p) = R.evalDist I x ρ :=
   rfl
 
-/-- The total mass of an observed law is the trace functional of the run at `ρ ⊗ init`, whatever
-the observation. -/
-theorem outcomeLawWith_apply_univ {γ : Type*} [MeasurableSpace γ] (x : QuantumComp L spec X A)
+/-- The total mass of an observed distribution is the trace functional of the run at `ρ ⊗ init`,
+whatever the observation. -/
+theorem evalDistMap_apply_univ {γ : Type*} [MeasurableSpace γ] (x : QuantumComp L spec X A)
     (ρ : SubState A) (f : (Σ u, X u) → γ) :
-    R.outcomeLawWith I x ρ f Set.univ =
+    R.evalDistMap I x ρ f Set.univ =
       ENNReal.ofReal
         (MatrixMap.familyTrace (R.run I x).branch (ρ.prod R.init).matrix).re := by
   let : MeasurableSpace (Σ u, X u) := ⊤
-  rw [outcomeLawWith_apply _ _ _ _ _ MeasurableSet.univ,
+  rw [evalDistMap_apply _ _ _ _ _ MeasurableSet.univ,
     ← DSubInstrument.outcomeMeasure_apply_univ,
     DSubInstrument.outcomeMeasure_apply _ _ MeasurableSet.univ]
   rfl
@@ -448,8 +466,8 @@ theorem tsum_jointPost_trace (x : QuantumComp L spec X A) (ρ : SubState A) :
       ENNReal.ofReal
         (MatrixMap.familyTrace (R.run I x).branch (ρ.prod R.init).matrix).re := by
   let : MeasurableSpace (Σ u, X u) := ⊤
-  rw [← R.outcomeLawWith_apply_univ I x ρ (fun p ↦ p),
-    R.outcomeLawWith_apply I x ρ _ MeasurableSet.univ]
+  rw [← R.evalDistMap_apply_univ I x ρ (fun p ↦ p),
+    R.evalDistMap_apply I x ρ _ MeasurableSet.univ]
   simp
 
 /-! ### Observation of programs on a fixed final register -/
@@ -468,10 +486,10 @@ noncomputable def reducedPost₂ (x : QuantumComp₂ L spec A B α) (ρ : SubSta
     SubState B :=
   (R.jointPost₂ I x ρ a).traceRight
 
-/-- The law of the value returned by the fixed-register program `x` run from `ρ ⊗ init`: a
+/-- The distribution of the value returned by the fixed-register program `x` run from `ρ ⊗ init`: a
 subprobability measure whose missing mass is the weight of failure. -/
 @[expose]
-noncomputable def outcomeLaw₂ [MeasurableSpace α] (x : QuantumComp₂ L spec A B α)
+noncomputable def evalDist₂ [MeasurableSpace α] (x : QuantumComp₂ L spec A B α)
     (ρ : SubState A) : Measure α :=
   (R.run₂ I x).outcomeMeasure (ρ.prod R.init)
 
@@ -487,40 +505,41 @@ theorem reducedPost₂_eq_reducedPost (x : QuantumComp₂ L spec A B α) (ρ : S
     R.reducedPost₂ I x ρ a = R.reducedPost I x ρ ⟨B, rfl, a⟩ :=
   rfl
 
-/-- The outcome law of a fixed-register program is the general outcome law read through the
-equivalence between leaves and values, for any measurable structure on the leaves for which that
-equivalence is measurable. -/
-theorem outcomeLaw₂_eq_map [MeasurableSpace α] [MeasurableSpace (Σ u, QuantumComp₂.Leaf B α u)]
+/-- The outcome distribution of a fixed-register program is the general outcome distribution read
+through the equivalence between leaves and values, for any measurable structure on the leaves for
+which that equivalence is measurable. -/
+theorem evalDist₂_eq_map [MeasurableSpace α] [MeasurableSpace (Σ u, QuantumComp₂.Leaf B α u)]
     (hm : Measurable (QuantumComp₂.leafEquiv B α).symm) (x : QuantumComp₂ L spec A B α)
     (ρ : SubState A) :
-    R.outcomeLaw₂ I x ρ = (R.outcomeLaw I x ρ).map (QuantumComp₂.leafEquiv B α).symm := by
+    R.evalDist₂ I x ρ = (R.evalDist I x ρ).map (QuantumComp₂.leafEquiv B α).symm := by
   ext s hs
   rw [Measure.map_apply hm hs]
   change (R.run₂ I x).outcomeMeasure (ρ.prod R.init) s =
     (R.run I x).outcomeMeasure (ρ.prod R.init) ((QuantumComp₂.leafEquiv B α).symm ⁻¹' s)
-  rw [SubInstrument.outcomeMeasure_apply _ _ hs, DSubInstrument.outcomeMeasure_apply _ _ (hm hs)]
+  rw [DSubInstrument.outcomeMeasure_apply _ _ hs, DSubInstrument.outcomeMeasure_apply _ _ (hm hs)]
   conv_rhs => rw [← (QuantumComp₂.leafEquiv B α).tsum_eq]
   refine tsum_congr fun a ↦ congrArg₂ (· * ·) rfl ?_
   classical
   simp only [Set.indicator_apply, Set.mem_preimage, Equiv.symm_apply_apply, Pi.one_apply]
 
-/-- The law of a relabelled value of a fixed-register program is the general observed law, read
-through the value `(leafEquiv B α).symm p` of each leaf `p`. No measurability is needed. -/
-theorem outcomeLaw₂_map_eq_outcomeLawWith {γ : Type*} [MeasurableSpace γ] (g : α → γ)
+/-- The distribution of a relabelled value of a fixed-register program is the general observed
+distribution, read through the value `(leafEquiv B α).symm p` of each leaf `p`. No measurability is
+needed. -/
+theorem evalDist₂_map_eq_evalDistMap {γ : Type*} [MeasurableSpace γ] (g : α → γ)
     (x : QuantumComp₂ L spec A B α) (ρ : SubState A) :
-    R.outcomeLaw₂ I (x.map g) ρ =
-      R.outcomeLawWith I x ρ fun p ↦ g ((QuantumComp₂.leafEquiv B α).symm p) := by
-  rw [outcomeLaw₂, run₂_map, SubInstrument.outcomeMeasure_map]
+    R.evalDist₂ I (x.map g) ρ =
+      R.evalDistMap I x ρ fun p ↦ g ((QuantumComp₂.leafEquiv B α).symm p) := by
+  rw [evalDist₂, run₂_map, DSubInstrument.outcomeMeasure_map]
   exact Measure.sum_comp_equiv (QuantumComp₂.leafEquiv B α) fun p ↦
     ENNReal.ofReal (R.jointPost I x ρ p).matrix.trace.re •
       Measure.dirac (g ((QuantumComp₂.leafEquiv B α).symm p))
 
-/-- The law of the value of a fixed-register program is the general observed law, read through
-the value of each leaf. No measurability is needed. -/
-theorem outcomeLaw₂_eq_outcomeLawWith [MeasurableSpace α] (x : QuantumComp₂ L spec A B α)
+/-- The distribution of the value of a fixed-register program is the general observed distribution,
+read through the value of each leaf. No measurability is needed. -/
+theorem evalDist₂_eq_evalDistMap [MeasurableSpace α] (x : QuantumComp₂ L spec A B α)
     (ρ : SubState A) :
-    R.outcomeLaw₂ I x ρ = R.outcomeLawWith I x ρ (QuantumComp₂.leafEquiv B α).symm := by
-  have h := R.outcomeLaw₂_map_eq_outcomeLawWith I id x ρ
+    R.evalDist₂ I x ρ = R.evalDistMap I x ρ (QuantumComp₂.leafEquiv B α).symm := by
+  have h := R.evalDist₂_map_eq_evalDistMap I id x ρ
   rw [QuantumComp₂.map_id] at h
   exact h
 
@@ -535,24 +554,24 @@ theorem trace_reducedPost₂ (x : QuantumComp₂ L spec A B α) (ρ : SubState A
     (R.reducedPost₂ I x ρ a).matrix.trace = (R.jointPost₂ I x ρ a).matrix.trace :=
   MatrixMap.trace_traceRight _
 
-/-- Outcome laws of fixed-register programs are subprobability measures. -/
+/-- Outcome distributions of fixed-register programs are subprobability measures. -/
 instance [MeasurableSpace α] (x : QuantumComp₂ L spec A B α) (ρ : SubState A) :
-    IsSubprobabilityMeasure (R.outcomeLaw₂ I x ρ) :=
-  SubInstrument.outcomeMeasure.instIsSubprobabilityMeasure _ _
+    IsSubprobabilityMeasure (R.evalDist₂ I x ρ) :=
+  DSubInstrument.outcomeMeasure.instIsSubprobabilityMeasure _ _
 
 /-- The weight of a single value is the trace of the joint post-state. -/
-theorem outcomeLaw₂_apply_singleton [MeasurableSpace α] [MeasurableSingletonClass α]
+theorem evalDist₂_apply_singleton [MeasurableSpace α] [MeasurableSingletonClass α]
     (x : QuantumComp₂ L spec A B α) (ρ : SubState A) (a : α) :
-    R.outcomeLaw₂ I x ρ {a} = ENNReal.ofReal (R.jointPost₂ I x ρ a).matrix.trace.re :=
-  SubInstrument.outcomeMeasure_apply_singleton _ _ a
+    R.evalDist₂ I x ρ {a} = ENNReal.ofReal (R.jointPost₂ I x ρ a).matrix.trace.re :=
+  DSubInstrument.outcomeMeasure_apply_singleton _ _ a
 
-/-- When the run is lossless, the outcome law has the product of the traces of `ρ` and `init`
-as its total mass. -/
-theorem outcomeLaw₂_apply_univ_of_lossless [MeasurableSpace α] {x : QuantumComp₂ L spec A B α}
+/-- When the run is lossless, the outcome distribution has the product of the traces of `ρ` and
+`init` as its total mass. -/
+theorem evalDist₂_apply_univ_of_lossless [MeasurableSpace α] {x : QuantumComp₂ L spec A B α}
     (hx : (R.run₂ I x).Lossless) (ρ : SubState A) :
-    R.outcomeLaw₂ I x ρ Set.univ =
+    R.evalDist₂ I x ρ Set.univ =
       ENNReal.ofReal (ρ.matrix.trace.re * R.init.matrix.trace.re) := by
-  rw [outcomeLaw₂, hx.outcomeMeasure_apply_univ, SubState.trace_re_prod]
+  rw [evalDist₂, hx.outcomeMeasure_apply_univ, SubState.trace_re_prod]
 
 end QuantumRuntime
 
