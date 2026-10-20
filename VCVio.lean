@@ -349,6 +349,7 @@ public import VCVio.OracleComp.QueryTracking.RandomOracle.JointPotential
 public import VCVio.OracleComp.QueryTracking.RandomOracle.LoggedRun
 public import VCVio.OracleComp.QueryTracking.RandomOracle.ProbeEps
 public import VCVio.OracleComp.QueryTracking.RandomOracle.Programming
+public import VCVio.OracleComp.QueryTracking.RandomOracle.ProjectedHazards
 public import VCVio.OracleComp.QueryTracking.RandomOracle.ReadSet
 public import VCVio.OracleComp.QueryTracking.RandomOracle.Redirect
 public import VCVio.OracleComp.QueryTracking.RandomOracle.Relabel
