@@ -11,12 +11,11 @@ public import HashSig.SLHDSA.Security.RomSchemeRun
 # The random-oracle bad-event bridge for SLH-DSA with both PRFs inside the oracle
 
 A cache on which key generation, every logged signature and the forgery's accepting
-verification replay exhibits one of the three events of `HashSig.SLHDSA.Security.RomDescentSecret`
-at the provider and public seed those replays use: a same-address target collision, a hidden-value
-hit or interleaved-target coverage (`bad_event_of_settled`).  On the support of `romSchemeRun`
-the final cache settles all three replays at the run's own oracle-backed provider
-`oracleSecret core e o.pk.pkSeed o.sk.skSeed` and the run's own public seed `o.pk.pkSeed`, so a
-winning forgery exhibits one of the three events there, each conjoined with freshness of the
+verification replay exhibits one of the three events of `HashSig.SLHDSA.Security.RomDescentSecret`:
+a same-address target collision, a hidden-value hit or interleaved-target coverage
+(`bad_event_of_settled`).  On the support of `romSchemeRun` the final cache settles all three
+replays at the run's own provider `oracleSecret core e o.pk.pkSeed o.sk.skSeed` and public seed,
+so a winning forgery exhibits one of the three events there, each conjoined with freshness of the
 forged message for the signing log (`bad_event_of_wins_romSchemeRun`).  The provider and the seed
 are fixed by the run, not chosen by the caller.
 
@@ -123,9 +122,9 @@ theorem exists_xmssSignWithSecret_eq_some_of_signFromPositionWithSecret
 
 /-- If every logged signature of `o` replays on `c` at its own randomizer, a used leaf's honest
 message is settled: the logged signature that passes through `pos` signed there the root its own
-lower-layer XMSS signature recovers, which coverage identifies with the settled honest root of the
-child tree; at layer `0` it signed the FORS public key its own recovery produced, which coverage
-identifies with the settled honest FORS public key. -/
+lower-layer XMSS signature recovers, which its settled signing replay identifies with the settled
+honest root of the child tree; at layer `0` it signed the FORS public key its own recovery
+produced, which the same replay identifies with the settled honest FORS public key. -/
 theorem exists_honestMessage?_eq_some_of_usedLeaf
     (secret : Adrs → OracleComp (publicHashSpec core) core.Y) (o : RomOutcome vp core)
     (c : PublicHash.Cache core)
@@ -268,8 +267,7 @@ theorem bad_event_of_wins_romSchemeRun (laws : core.ByteLaws) (e : core.SkSeed �
   obtain ⟨hfresh, hv⟩ := (UnforgeableTranscript.wins_eq_true_iff z.1).mp hw
   obtain ⟨-, -, hroot, hlog, hver⟩ :=
     settled_of_mem_support_romSchemeRun core e optRand pkSeedDist adv hz
-  rw [hv] at hver
-  exact (bad_event_of_settled laws _ z.1 z.2.fst hroot hlog hver).imp (⟨·, hfresh⟩)
+  exact (bad_event_of_settled laws _ z.1 z.2.fst hroot hlog (hv ▸ hver)).imp (⟨·, hfresh⟩)
     (Or.imp (⟨·, hfresh⟩) (⟨·, hfresh⟩))
 
 end Run
