@@ -7,6 +7,7 @@ Authors: Quang Dao
 module
 public import VCVio.Quantum.VC.Unitaries
 public import VCVio.Quantum.Oracle.Unitary
+public import VCVio.Quantum.Oracle.ClassicalRead
 
 /-!
 # Emulated oracles for vector commitments
@@ -23,6 +24,10 @@ The oracles of the multi-extractability experiments of Chiesa, Di, Hu and Zheng
   (`Quantum.VCOracle.withRecord`) or `Record(MultiExtract, U)` (`Quantum.VCOracle.withRecordME`);
 * the random-oracle model as an emulated oracle with a trivial private register
   (`Quantum.romVCOracle`, p. 28).
+
+Trusted classical checks use a projective read on the same private register, returning `Option Y`.
+The mixed runtimes carry this read alongside ordinary, extraction, and recording ports. The read
+certificate concerns the base oracle; it asserts no commutation with extraction or recording.
 
 "Polynomial time" of the emulation (p. 50) is not part of the definitions.
 
@@ -50,8 +55,9 @@ abbrev oIn : Fin k → QReg :=
 
 /-- `EO = (Init, (O_i)_{i ∈ [k]})` (ePrint 2025/2166, p. 50): an emulated oracle with `k`
 ports on the query register `X × Y`. -/
-abbrev VCOracle :=
-  EmulatedOracle (Fin k) (oIn k X Y)
+structure VCOracle extends EmulatedOracle (Fin k) (oIn k X Y) where
+  /-- The projective classical read on the shared private register. -/
+  classicalRead : ProjectiveClassicalAnswers toEmulatedOracle (Fin k × X) (Option Y)
 
 /-- The port registers of `EO^(Ext)`: the oracle ports, then the extraction port on `TpIC × Z`
 (ePrint 2025/2166, p. 50). -/
@@ -65,12 +71,31 @@ abbrev recIn (Cm Z Yr : Type) [Fintype Cm] [DecidableEq Cm] [Fintype Z] [Decidab
     [Fintype Yr] [DecidableEq Yr] : (Fin k ⊕ Unit) ⊕ Unit → QReg :=
   Sum.elim (extIn k X Y Cm Z) fun _ ↦ QReg.of (TpIC k Cm × Yr)
 
+/-- Coherent oracle calls and classical reads on the same database. -/
+abbrev mixedOracleSpec :=
+  withReadSpec (EmulatedOracle.cohSpec (oIn k X Y)) (Fin k × X) (Option Y)
+
+/-- Coherent oracle/extraction calls together with classical reads. -/
+abbrev mixedExtSpec (Cm Z : Type) [Fintype Cm] [DecidableEq Cm]
+    [Fintype Z] [DecidableEq Z] :=
+  withReadSpec (EmulatedOracle.cohSpec (extIn k X Y Cm Z)) (Fin k × X) (Option Y)
+
+/-- Coherent oracle/extraction/record calls together with classical reads. -/
+abbrev mixedRecSpec (Cm Z Yr : Type) [Fintype Cm] [DecidableEq Cm]
+    [Fintype Z] [DecidableEq Z] [Fintype Yr] [DecidableEq Yr] :=
+  withReadSpec (EmulatedOracle.cohSpec (recIn k X Y Cm Z Yr)) (Fin k × X) (Option Y)
+
 variable {k X Y}
 
 namespace VCOracle
 
 variable {Cm Z : Type} [Fintype Cm] [DecidableEq Cm] [Fintype Z] [DecidableEq Z] [AddGroup Z]
   {Dm : Fin k → Type} (E : VCOracle k X Y)
+
+/-- The base oracle with its projective classical reads. -/
+@[expose, reducible]
+noncomputable def mixedRuntime : QuantumRuntime (mixedOracleSpec k X Y) :=
+  E.toEmulatedOracle.withClassicalReads E.classicalRead
 
 /-! ## Extraction -/
 
@@ -79,9 +104,22 @@ variable {Cm Z : Type} [Fintype Cm] [DecidableEq Cm] [Fintype Z] [DecidableEq Z]
 @[expose]
 noncomputable def withExtract (ME : MultiExtractor k Cm Dm E.S) (code : TpDCode k Dm Z) :
     EmulatedOracle (Fin k ⊕ Unit) (extIn k X Y Cm Z) :=
-  E.extend (fun _ ↦ extractUnitary ME code) fun _ ↦ extractUnitary_mem_unitaryGroup ME code
+  E.toEmulatedOracle.extend (fun _ ↦ extractUnitary ME code)
+    fun _ ↦ extractUnitary_mem_unitaryGroup ME code
 
 variable (ME : MultiExtractor k Cm Dm E.S) (code : TpDCode k Dm Z)
+
+/-- Extraction and reads share the base private register, without a commutation assertion. -/
+@[expose, reducible]
+noncomputable def mixedExtractRuntime : QuantumRuntime (mixedExtSpec k X Y Cm Z) :=
+  (E.withExtract ME code).coherent.toRuntime.extend E.classicalRead.step
+
+/-- Every ordinary, extraction, and read step preserves total probability. -/
+theorem lossless_mixedExtractRuntime_step (p : (mixedExtSpec k X Y Cm Z).Port) :
+    ((E.mixedExtractRuntime ME code).step p).Lossless := by
+  cases p with
+  | inl p => exact (E.withExtract ME code).coherent.lossless_toRuntime_step p
+  | inr x => exact E.classicalRead.lossless_step x
 
 /-- `EO^(Ext)` keeps the private register. -/
 @[simp]
@@ -135,6 +173,27 @@ noncomputable def withRecordME (bot : Cell) (U : Matrix (Yr × Cell) (Yr × Cell
   (E.withRecReg ME code bot).extend (fun _ ↦ recordMEUnitary ME U)
     fun _ ↦ recordMEUnitary_mem_unitaryGroup ME hU
 
+/-- A read carries the recording register unchanged. -/
+@[expose]
+noncomputable def recordingRead (x : Fin k × X) :
+    SubInstrument (Unit × (E.S × RecReg k Cm Dm Cell))
+      (Unit × (E.S × RecReg k Cm Dm Cell)) (Option Y) :=
+  (E.classicalRead.step x).frame (RecReg k Cm Dm Cell) |>.reindex
+    (Equiv.prodAssoc Unit E.S (RecReg k Cm Dm Cell))
+    (Equiv.prodAssoc Unit E.S (RecReg k Cm Dm Cell))
+
+/-- Reads beside the recording extension use the base oracle instrument. -/
+@[expose, reducible]
+noncomputable def mixedRecordRuntime (bot : Cell) (U : Matrix (Yr × Cell) (Yr × Cell) ℂ)
+    (hU : U ∈ unitaryGroup (Yr × Cell) ℂ) : QuantumRuntime (mixedRecSpec k X Y Cm Z Yr) :=
+  (E.withRecord ME code bot U hU).coherent.toRuntime.extend E.recordingRead
+
+/-- Reads beside the extractor-controlled recording extension use the same instrument. -/
+@[expose, reducible]
+noncomputable def mixedRecordMERuntime (bot : Cell) (U : Matrix (Yr × Cell) (Yr × Cell) ℂ)
+    (hU : U ∈ unitaryGroup (Yr × Cell) ℂ) : QuantumRuntime (mixedRecSpec k X Y Cm Z Yr) :=
+  (E.withRecordME ME code bot U hU).coherent.toRuntime.extend E.recordingRead
+
 variable (bot : Cell) (U : Matrix (Yr × Cell) (Yr × Cell) ℂ) (hU : U ∈ unitaryGroup (Yr × Cell) ℂ)
 
 /-- The two record worlds share their ports other than the record port. -/
@@ -172,5 +231,15 @@ noncomputable def romVCOracle (k : ℕ) (X Y : Type) [Fintype X] [DecidableEq X]
   init := SubState.basis ()
   U i := oracleUnitary (H i) ⊗ₖ (1 : Matrix Unit Unit ℂ)
   unitary i := kronecker_mem_unitary (oracleUnitary_mem_unitaryGroup (H i)) (one_mem _)
+  classicalRead := {
+    A := fun x a ↦ if a = some (H x.1 x.2) then 1 else 0
+    hermitian := by intros; split_ifs <;> simp
+    orthogonal := by
+      intro x a b
+      by_cases ha : a = some (H x.1 x.2) <;>
+        by_cases hb : b = some (H x.1 x.2) <;> simp_all [eq_comm]
+    complete := by intro x; simp
+    commute_cells := by intros; split_ifs <;> simp
+    commute_ordinary := by intros; split_ifs <;> simp }
 
 end Quantum

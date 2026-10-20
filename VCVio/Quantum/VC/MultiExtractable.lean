@@ -52,10 +52,11 @@ properties:
 * **Masses** `TotalMass(A, i, EO')` (p. 51) are
   `Quantum.EmulatedOracle.totalMass` of the adversary alone, never of the challenger.
 * **Challengers** run on the adversary's final register, after it, as one program
-  (`Quantum.experiment`). `Open` and `Check` of the general `VectorCommitment` run inside the
-  experiment through `OracleComp.toQuantumAt`: coins are uniform coins
-  (`Quantum.QComp.coinImpl`), and oracle queries of `Check^{O_j}` are classical calls of port
-  `j` on the basis input `|t, 0⟩` (`Quantum.oracleCall`). Extraction is a classical call of the
+  (`Quantum.experiment`). `Open` uses uniform coins through `OracleComp.toQuantumAt`.
+  `Check` uses `runClassicalChecked`: uniform coins and projective reads at classical addresses.
+  A missing answer returns rejection without losing mass. The adversary keeps its ordinary
+  oracle/extraction syntax and is lifted into the mixed runtime before the challenger.
+  Extraction is a classical call of the
   extraction port on `|tic, 0⟩` followed by decoding (`Quantum.extractQuery`); its branches are
   the projectors onto the fibres of `MultiExtract(tic, ·)` (`Quantum.run₂_extractQuery_branch`).
 
@@ -141,6 +142,41 @@ theorem run_experiment (R : QuantumRuntime spec) (x : QuantumComp LocalSig.instr
   simp only [QuantumComp.run_liftInstruments]
 
 end experiment
+
+namespace QuantumRuntime
+variable {L : LocalSig.{u, v}} {spec : QuantumOracleSpec} (R : QuantumRuntime spec)
+  (I : L.Interp) {A B C : QReg} {α β : Type*}
+
+/-- Recording both outcomes identifies a composite instrument branch with the composition
+of its two branches. The input, intermediate, and output registers may differ. -/
+theorem run₂_bind_record (f : QuantumComp₂ L spec A B α)
+    (g : α → QuantumComp₂ L spec B C β) (a : α) (b : β) :
+    (R.run₂ I (f.bind fun a ↦ (g a).map (fun b ↦ (a, b)))).branch (a, b) =
+      (R.run₂ I (g a)).branch b ∘ₗ (R.run₂ I f).branch a := by
+  classical
+  ext ρ : 1
+  rw [run₂_bind, DSubInstrument.branch_bind_apply]
+  simp only [run₂_map, SubInstrument.map_eq_bind_pure, DSubInstrument.branch_bind_apply]
+  rw [tsum_eq_single a]
+  · rw [tsum_eq_single b]
+    · simp
+    · intro b' hb
+      rw [SubInstrument.branch_pure_of_ne (by simp [Ne.symm hb]), LinearMap.zero_apply]
+  · intro a' ha
+    have hz : ∀ b' : β,
+        (SubInstrument.pure (a', b') :
+          SubInstrument (C × R.D) (C × R.D) (α × β)).branch (a, b) = 0 :=
+      fun _ ↦ SubInstrument.branch_pure_of_ne (by simp [Ne.symm ha])
+    simp only [hz, LinearMap.zero_apply, tsum_zero]
+
+/-- Forgetting the first recorded outcome recovers ordinary sequencing. -/
+theorem bind_record_map_snd (f : QuantumComp₂ L spec A B α)
+    (g : α → QuantumComp₂ L spec B C β) :
+    (f.bind fun a ↦ (g a).map (fun b ↦ (a, b))).map Prod.snd = f.bind g := by
+  simp only [QuantumComp₂.map, QuantumComp₂.bind_assoc, QuantumComp₂.pure_bind,
+    QuantumComp₂.bind_pure]
+
+end QuantumRuntime
 
 /-! ## P1: simulation indistinguishability -/
 
@@ -427,7 +463,7 @@ end commute
 section calls
 
 variable {k : ℕ} {X Y Cm Z : Type} [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y]
-  [Fintype Cm] [DecidableEq Cm] [Fintype Z] [DecidableEq Z] [AddGroup Z] {Dm : Fin k → Type}
+  [Fintype Cm] [DecidableEq Cm] [Fintype Z] [DecidableEq Z] {Dm : Fin k → Type}
 
 /-- The answer register `Y` of a reading of the coherent register of `EO^(Ext)` on an oracle
 port. Readings on the extraction port, which a call of an oracle port does not produce, give
@@ -446,13 +482,183 @@ noncomputable def oracleCall [Zero Y] (B : QReg) (j : Fin k) (t : X) :
   QComp.callBasis (spec := cohSpec (extIn k X Y Cm Z)) () B
     (⟨.inl j, ((t, 0) : X × Y)⟩ : Σ i, extIn k X Y Cm Z i) fun o _ ↦ readY o
 
-/-- The queries of a vector commitment's `Check^{O_j}` answered from inside an experiment: coins
-by uniform coins, oracle queries by classical queries of oracle `j`. -/
+/-- Read a classical address through the dedicated read port. -/
 @[expose]
-noncomputable def oracleImpl [Zero Y] (B : QReg) (j : Fin k) :
-    QueryImpl (unifSpec + (X →ₒ Y)) (QComp (cohSpec (extIn k X Y Cm Z)) B B) :=
-  QComp.coinImpl (cohSpec (extIn k X Y Cm Z)) B +
-    (fun t ↦ oracleCall B j t : QueryImpl (X →ₒ Y) (QComp (cohSpec (extIn k X Y Cm Z)) B B))
+noncomputable def checkedRead (B : QReg) (j : Fin k) (t : X) :
+    QComp (mixedExtSpec k X Y Cm Z) B B (Option Y) :=
+  QuantumComp₂.bind (QComp.act (B := QReg.of (Unit × B))
+    (SubInstrument.relabel (Equiv.uniqueProd B Unit).symm)) fun _ ↦
+    QuantumComp₂.bind (QuantumComp₂.query (spec := mixedExtSpec k X Y Cm Z)
+      (.inr (j, t)) B (Equiv.refl (Unit × B))) fun a ↦
+      QuantumComp₂.bind (QComp.act (SubInstrument.relabel (Equiv.uniqueProd B Unit))) fun _ ↦
+        QuantumComp₂.pure a
+
+/-- Coins return present values; a missing oracle answer short-circuits the classical program. -/
+@[expose]
+noncomputable def checkedOracleImpl (B : QReg) (j : Fin k) :
+    QueryImpl (unifSpec + (X →ₒ Y)) (OptionT (QComp (mixedExtSpec k X Y Cm Z) B B)) :=
+  (fun n ↦ OptionT.mk (some <$> QComp.coinImpl (mixedExtSpec k X Y Cm Z) B n) :
+    QueryImpl unifSpec (OptionT (QComp (mixedExtSpec k X Y Cm Z) B B))) +
+    (fun t ↦ OptionT.mk (checkedRead B j t) :
+      QueryImpl (X →ₒ Y) (OptionT (QComp (mixedExtSpec k X Y Cm Z) B B)))
+
+/-- Interpret a classical algorithm using uniform coins and checked oracle answers. -/
+@[expose]
+noncomputable def runClassicalChecked {α : Type} (B : QReg) (j : Fin k)
+    (p : OracleComp (unifSpec + (X →ₒ Y)) α) :
+    QComp (mixedExtSpec k X Y Cm Z) B B (Option α) :=
+  (simulateQ (checkedOracleImpl B j) p).run
+
+/-- The checked interpreter returns present pure values. -/
+@[simp]
+theorem runClassicalChecked_pure {α : Type} (B : QReg) (j : Fin k) (a : α) :
+    runClassicalChecked (X := X) (Y := Y) (Cm := Cm) (Z := Z) B j (pure a) =
+      QuantumComp₂.pure (some a) := rfl
+
+/-- A checked query returns its optional answer before deciding whether to continue. -/
+theorem runClassicalChecked_query_bind {α : Type} (B : QReg) (j : Fin k)
+    (t : (unifSpec + (X →ₒ Y)).Domain)
+    (f : (unifSpec + (X →ₒ Y)).Range t → OracleComp (unifSpec + (X →ₒ Y)) α) :
+    runClassicalChecked (Cm := Cm) (Z := Z) B j (liftM ((unifSpec + (X →ₒ Y)).query t) >>= f) =
+      ((checkedOracleImpl B j t).run).bind (fun a ↦
+        match a with
+        | none => QuantumComp₂.pure none
+        | some y => runClassicalChecked B j (f y)) := by
+  rw [runClassicalChecked, simulateQ_bind, simulateQ_spec_query, OptionT.run_bind,
+    Option.elimM, QuantumComp₂.bind_eq]
+  congr 1
+  funext a
+  cases a <;> rfl
+
+/-- A checked read is a lossless program, including the missing-answer branch. -/
+theorem lossless_checkedRead (B : QReg) (j : Fin k) (t : X) :
+    (checkedRead (Y := Y) (Cm := Cm) (Z := Z) B j t).Lossless .instruments :=
+  QuantumComp₂.lossless_bind (QComp.lossless_act (SubInstrument.lossless_relabel _)) fun _ ↦
+    QuantumComp₂.lossless_bind (QuantumComp₂.lossless_query _ _ _) fun _ ↦
+      QuantumComp₂.lossless_bind (QComp.lossless_act (SubInstrument.lossless_relabel _)) fun _ ↦
+        QuantumComp₂.lossless_pure _
+
+/-- Missing answers return a value, so the checked fold preserves losslessness. -/
+theorem lossless_runClassicalChecked {α : Type} (B : QReg) (j : Fin k)
+    (p : OracleComp (unifSpec + (X →ₒ Y)) α) :
+    (runClassicalChecked (Cm := Cm) (Z := Z) B j p).Lossless .instruments := by
+  induction p using OracleComp.inductionOn with
+  | pure a => exact QuantumComp₂.lossless_pure _
+  | query_bind t f ih =>
+    rw [runClassicalChecked_query_bind]
+    apply QuantumComp₂.lossless_bind
+    · cases t with
+      | inl n =>
+        exact QuantumComp₂.lossless_bind (QComp.lossless_coinImpl n) fun _ ↦
+          QuantumComp₂.lossless_pure _
+      | inr t => exact lossless_checkedRead B j t
+    · intro a
+      cases a with
+      | none => exact QuantumComp₂.lossless_pure _
+      | some y => exact ih y
+
+/-- A read restores the trivial public factor around the runtime's read-port step. -/
+theorem run₂_checkedRead_eq (R : QuantumRuntime (mixedExtSpec k X Y Cm Z))
+    (B : QReg) (j : Fin k) (t : X) :
+    R.run₂ .instruments (checkedRead B j t) =
+      (R.queryStep (A := QReg.of (Unit × B)) (.inr (j, t)) B (Equiv.refl _)).reindex
+        ((Equiv.uniqueProd B Unit).prodCongr (Equiv.refl R.D))
+        ((Equiv.uniqueProd B Unit).prodCongr (Equiv.refl R.D)) := by
+  rw [checkedRead, QuantumRuntime.run₂_act_bind, SubInstrument.frame_relabel]
+  unfold SubInstrument.reindex
+  refine congrArg (fun f : Unit → SubInstrument ((Unit × B) × R.D) (B × R.D) (Option Y) ↦
+    (SubInstrument.relabel
+      ((Equiv.uniqueProd B Unit).prodCongr (Equiv.refl R.D)).symm).bind f) ?_
+  funext u
+  have hq := R.run₂_query_bind (A := QReg.of (Unit × B)) (B := B)
+    .instruments (.inr (j, t)) B
+    (Equiv.refl (Unit × B)) (fun a ↦
+      QuantumComp₂.bind (QComp.act (SubInstrument.relabel (Equiv.uniqueProd B Unit)))
+        fun _ ↦ QuantumComp₂.pure a)
+  refine hq.trans ?_
+  refine congrArg (fun f : Option Y → SubInstrument ((Unit × B) × R.D) (B × R.D) (Option Y) ↦
+    (R.queryStep (A := QReg.of (Unit × B)) (.inr (j, t)) B (Equiv.refl _)).bind f) ?_
+  funext a
+  rw [QuantumRuntime.run₂_act_bind]
+  erw [SubInstrument.frame_relabel]
+  exact congrArg (fun f : Unit → SubInstrument (B × R.D) (B × R.D) (Option Y) ↦
+    (SubInstrument.relabel
+      ((Equiv.uniqueProd B Unit).prodCongr (Equiv.refl R.D))).bind f)
+    (funext fun _ ↦ R.run₂_pure .instruments a)
+
+variable [AddGroup Z]
+
+/-- The read-port program executes the base oracle's framed projective instrument. -/
+theorem run₂_checkedRead (E : VCOracle k X Y) (ME : MultiExtractor k Cm Dm E.S)
+    (code : TpDCode k Dm Z) (B : QReg) (j : Fin k) (t : X) :
+    (E.mixedExtractRuntime ME code).run₂ .instruments (checkedRead B j t) =
+      E.toEmulatedOracle.read E.classicalRead (j, t) B := by
+  rw [run₂_checkedRead_eq]
+  rfl
+
+/-- Every actual checked-read branch is conjugation by its answer projector. -/
+theorem branch_run₂_checkedRead (E : VCOracle k X Y) (ME : MultiExtractor k Cm Dm E.S)
+    (code : TpDCode k Dm Z) (B : QReg) (j : Fin k) (t : X) (a : Option Y) :
+    ((E.mixedExtractRuntime ME code).run₂ .instruments (checkedRead B j t)).branch a =
+      MatrixMap.conj ((1 : Matrix B B ℂ) ⊗ₖ E.classicalRead.A (j, t) a) := by
+  rw [run₂_checkedRead, EmulatedOracle.read_branch]
+
+/-- The real oracle always returns its function value and leaves the joint state unchanged. -/
+theorem run₂_checkedRead_rom [AddCommGroup Y] (H : Fin k → X → Y)
+    (ME : MultiExtractor k Cm Dm (romVCOracle k X Y H).S) (code : TpDCode k Dm Z)
+    (B : QReg) (j : Fin k) (t : X) :
+    ((romVCOracle k X Y H).mixedExtractRuntime ME code).run₂ .instruments
+      (checkedRead B j t) = SubInstrument.pure (some (H j t)) := by
+  apply DSubInstrument.ext
+  funext a
+  rw [branch_run₂_checkedRead]
+  change MatrixMap.conj ((1 : Matrix B B ℂ) ⊗ₖ
+    (if a = some (H j t) then (1 : Matrix Unit Unit ℂ) else 0)) = _
+  by_cases h : a = some (H j t)
+  · subst a
+    simp only [ite_true, one_kronecker_one, MatrixMap.conj_one]
+    erw [SubInstrument.branch_pure_self]
+    rfl
+  · simp only [ite_eq_right h, kronecker_zero, MatrixMap.conj_zero]
+    erw [SubInstrument.branch_pure_of_ne h]
+    rfl
+
+/-- Against a real function, the complete joint checked law is the ordinary classical run
+with its result wrapped in `some`. Uniform coins and the residual workspace are retained. -/
+theorem runClassicalChecked_rom [AddCommGroup Y] {α : Type} (H : Fin k → X → Y)
+    (ME : MultiExtractor k Cm Dm (romVCOracle k X Y H).S) (code : TpDCode k Dm Z)
+    (B : QReg) (j : Fin k) (p : OracleComp (unifSpec + (X →ₒ Y)) α) :
+    let R := (romVCOracle k X Y H).mixedExtractRuntime ME code
+    R.run₂ .instruments (runClassicalChecked B j p) =
+      (R.run₂ .instruments (p.toQuantumAt
+        (QComp.coinImpl (mixedExtSpec k X Y Cm Z) B +
+          (fun t ↦ QuantumComp₂.pure (H j t) :
+            QueryImpl (X →ₒ Y) (QComp (mixedExtSpec k X Y Cm Z) B B))))).map some := by
+  dsimp only
+  induction p using OracleComp.inductionOn with
+  | pure a => simp
+  | query_bind t f ih =>
+    rw [runClassicalChecked_query_bind, OracleComp.toQuantumAt_query_bind,
+      QuantumRuntime.run₂_bind, QuantumRuntime.run₂_bind]
+    cases t with
+    | inl n =>
+      change (((romVCOracle k X Y H).mixedExtractRuntime ME code).run₂ .instruments
+        ((QComp.coinImpl (mixedExtSpec k X Y Cm Z) B n).map some)).bind _ = _
+      simp only [QuantumRuntime.run₂_map, SubInstrument.map_eq_bind_pure,
+        DSubInstrument.bind_assoc, SubInstrument.pure_bind]
+      congr 1
+      funext y
+      exact ih y
+    | inr t =>
+      change (((romVCOracle k X Y H).mixedExtractRuntime ME code).run₂ .instruments
+        (checkedRead B j t)).bind _ = _
+      rw [run₂_checkedRead_rom]
+      change _ = SubInstrument.map some
+        ((((romVCOracle k X Y H).mixedExtractRuntime ME code).run₂ .instruments
+          (QuantumComp₂.pure (H j t))).bind _)
+      rw [QuantumRuntime.run₂_pure]
+      erw [SubInstrument.pure_bind, SubInstrument.pure_bind]
+      exact ih (H j t)
 
 /-- The decoded output of a reading of the coherent register of `EO^(Ext)` on the extraction
 port, at the length of `tic`. Readings on an oracle port give `none`. -/
@@ -558,15 +764,47 @@ end calls
 section challengers
 
 variable {k : ℕ} {X Y Msg Cm Z : Type} [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y]
-  [Zero Y] [Fintype Cm] [DecidableEq Cm] [Fintype Z] [DecidableEq Z] [AddGroup Z]
+  [Fintype Cm] [DecidableEq Cm] [Fintype Z] [DecidableEq Z]
   {ℓ : Fin k → ℕ} {Td Pf : Fin k → Type} (VC : ∀ i, VectorCommitment X Y Msg Cm (Td i) (Pf i) (ℓ i))
 
 /-- `VC_i.Check^{O_j}(cm, Q, ans, pf)` run from inside an experiment, with `Q = dom ans`
 (ePrint 2025/2166, p. 51). -/
 @[expose]
 noncomputable def checkAt (B : QReg) (i j : Fin k) (cm : Cm) (ans : PartialVec (ℓ i) Msg)
-    (pf : Pf i) : QComp (cohSpec (extIn k X Y Cm Z)) B B Bool :=
-  ((VC i).check cm ans pf).toQuantumAt (oracleImpl B j)
+    (pf : Pf i) : QComp (mixedExtSpec k X Y Cm Z) B B Bool := do
+  let result ← runClassicalChecked B j ((VC i).check cm ans pf)
+  pure (result.getD false)
+
+/-- Checks preserve all mass: a missing read is a rejecting Boolean result. -/
+theorem lossless_checkAt (B : QReg) (i j : Fin k) (cm : Cm)
+    (ans : PartialVec (ℓ i) Msg) (pf : Pf i) :
+    (checkAt (Z := Z) VC B i j cm ans pf).Lossless .instruments := by
+  unfold checkAt
+  exact QuantumComp₂.lossless_bind (lossless_runClassicalChecked B j _) fun _ ↦
+    QuantumComp₂.lossless_pure _
+
+/-- The complete joint check instrument is lossless, including all rejection branches. -/
+theorem lossless_run₂_checkAt [AddGroup Z] (E : VCOracle k X Y)
+    (ME : MultiExtractor k Cm (DmOf ℓ Msg Td) E.S) (code : TpDCode k (DmOf ℓ Msg Td) Z)
+    (B : QReg) (i j : Fin k) (cm : Cm) (ans : PartialVec (ℓ i) Msg) (pf : Pf i) :
+    ((E.mixedExtractRuntime ME code).run₂ .instruments
+      (checkAt VC B i j cm ans pf)).Lossless :=
+  QuantumRuntime.lossless_run₂ _ _ (lossless_checkAt VC B i j cm ans pf)
+    (E.lossless_mixedExtractRuntime_step ME code)
+
+/-- A malformed prescribed transcript rejects without reading. -/
+theorem checkAt_outputIO_none (i : Fin k) (io : (VC i).CheckIOForm) (B : QReg)
+    (j : Fin k) (cm : Cm) (ans : PartialVec (ℓ i) Msg) (pf : Pf i)
+    (h : io.outputIO cm ans pf = none) :
+    checkAt (Z := Z) VC B i j cm ans pf = QuantumComp₂.pure false := by
+  simp [checkAt, io.check_eq, h]
+
+/-- An empty prescribed transcript accepts without reading. -/
+theorem checkAt_outputIO_nil (i : Fin k) (io : (VC i).CheckIOForm) (B : QReg)
+    (j : Fin k) (cm : Cm) (ans : PartialVec (ℓ i) Msg) (pf : Pf i)
+    (h : io.outputIO cm ans pf = some []) :
+    checkAt (Z := Z) VC B i j cm ans pf = QuantumComp₂.pure true := by
+  simp [checkAt, io.check_eq, h, checkIO]
 
 /-- `VC_i.Open(Q, td)` run from inside an experiment, its coins answered by uniform coins
 (ePrint 2025/2166, p. 51). It makes no oracle call. -/
@@ -585,14 +823,17 @@ structure ExtractClaim (k : ℕ) (Cm : Type) where
   /-- The positions `W` whose checks are run. -/
   W : Finset (Fin k)
 
+variable [AddGroup Z]
+
 /-- **The P3 challenger** (ePrint 2025/2166, Def 7.3, p. 51), on the adversary's final
 register `B`: extract `(m_i, td_i)_i` from the full tuple of the claim, open every position at
 `Dom(m_i)`, run `VC_i.Check^{O_{idx_i}}` for `i ∈ W`, and report the event
 `b = 0 ∧ |W| ≤ n ∧ (idx_i)_i distinct`. -/
 @[expose]
 noncomputable def extractChallenger (code : TpDCode k (DmOf ℓ Msg Td) Z) (hk : 1 ≤ k) (n : ℕ)
-    (c : ExtractClaim k Cm) (B : QReg) : QComp (cohSpec (extIn k X Y Cm Z)) B B Bool :=
-  (extractQuery code B (TpIC.full hk c.idx c.cm)).bind fun
+    (c : ExtractClaim k Cm) (B : QReg) : QComp (mixedExtSpec k X Y Cm Z) B B Bool :=
+  QuantumComp₂.bind (QuantumComp.liftOrdinary
+    (extractQuery code B (TpIC.full hk c.idx c.cm))) fun
     | none => QuantumComp₂.pure false
     | some tdm =>
       (QComp.pi fun i : Fin k ↦ openAt VC B i (tdm i).1.dom (tdm i).2).bind fun pf ↦
@@ -624,9 +865,10 @@ oracle and move the private register. -/
 @[expose]
 noncomputable def offlineChallenger [DecidableEq Msg] [∀ i, DecidableEq (Pf i)]
     (code : TpDCode k (DmOf ℓ Msg Td) Z) (hk : 1 ≤ k) (qs : ℕ) (c : OpeningClaim k Cm Msg ℓ Pf)
-    (B : QReg) : QComp (cohSpec (extIn k X Y Cm Z)) B B Bool :=
+    (B : QReg) : QComp (mixedExtSpec k X Y Cm Z) B B Bool :=
   (QComp.allIn c.W fun i ↦ checkAt VC B i (c.idx i) (c.cm i) (c.ans i) (c.pf i)).bind fun b₁ ↦
-    (extractQuery code B (TpIC.full hk c.idx c.cm)).bind fun otdm ↦
+    QuantumComp₂.bind (QuantumComp.liftOrdinary
+    (extractQuery code B (TpIC.full hk c.idx c.cm))) fun otdm ↦
       (QComp.allIn c.Wᶜ fun i ↦ checkAt VC B i (c.idx i) (c.cm i) (c.ans i) (c.pf i)).bind
         fun b₂ ↦ match otdm with
           | none => QuantumComp₂.pure false
@@ -635,6 +877,104 @@ noncomputable def offlineChallenger [DecidableEq Msg] [∀ i, DecidableEq (Pf i)
               QuantumComp₂.pure (b₁ && b₂ &&
                 decide (∃ i : Fin k, ¬ PartialVec.Agrees (tdm i).1 (c.ans i) ∨ pf' i ≠ c.pf i) &&
                 decide (∑ i, (c.ans i).dom.card ≤ qs) && decide (Function.Injective c.idx))
+
+variable (code : TpDCode k (DmOf ℓ Msg Td) Z)
+
+/-- The check/extract/check prefix of the P4 challenger with all three classical results
+retained, including the decoded extraction tuple and both acceptance bits. -/
+noncomputable def offlineChecks (hk : 1 ≤ k) (c : OpeningClaim k Cm Msg ℓ Pf) (B : QReg) :
+    QComp (mixedExtSpec k X Y Cm Z) B B
+      (Bool × Option (TpDLen k (DmOf ℓ Msg Td) (TupleLen.full hk)) × Bool) :=
+  (QComp.allIn c.W fun i ↦ checkAt VC B i (c.idx i) (c.cm i) (c.ans i) (c.pf i)).bind fun b₁ ↦
+    (QuantumComp₂.bind (QuantumComp.liftOrdinary
+    (extractQuery code B (TpIC.full hk c.idx c.cm))) fun tdm ↦
+      (QComp.allIn c.Wᶜ fun i ↦
+        checkAt VC B i (c.idx i) (c.cm i) (c.ans i) (c.pf i)).map
+          (fun b₂ ↦ (tdm, b₂))).map (fun r ↦ (b₁, r))
+
+
+/-- The opening and mismatch decision of the P4 challenger, conditional on the retained
+check/extract/check transcript. Randomized openings and both budget checks are preserved. -/
+noncomputable def offlineFinish [DecidableEq Msg] [∀ i, DecidableEq (Pf i)]
+    (hk : 1 ≤ k) (qs : ℕ) (c : OpeningClaim k Cm Msg ℓ Pf) (B : QReg)
+    (r : Bool × Option (TpDLen k (DmOf ℓ Msg Td) (TupleLen.full hk)) × Bool) :
+    QComp (mixedExtSpec k X Y Cm Z) B B Bool :=
+  match r.2.1 with
+  | none => QuantumComp₂.pure false
+  | some tdm => (QComp.pi fun i : Fin k ↦
+      openAt VC B i (c.ans i).dom (tdm i).2).bind fun pf' ↦
+        QuantumComp₂.pure (r.1 && r.2.2 &&
+          decide (∃ i : Fin k, ¬ PartialVec.Agrees (tdm i).1 (c.ans i) ∨ pf' i ≠ c.pf i) &&
+          decide (∑ i, (c.ans i).dom.card ≤ qs) && decide (Function.Injective c.idx))
+
+/-- The actual P4 challenger is the retained prefix followed by its opening/mismatch decision.
+This is an equality of programs, including rejected checks and decoding failure. -/
+theorem offlineChallenger_eq_bind_offlineChecks [DecidableEq Msg] [∀ i, DecidableEq (Pf i)]
+    (hk : 1 ≤ k) (qs : ℕ) (c : OpeningClaim k Cm Msg ℓ Pf) (B : QReg) :
+    offlineChallenger VC code hk qs c B =
+      QuantumComp₂.bind (offlineChecks VC code hk c B)
+        (offlineFinish VC (Z := Z) hk qs c B) := by
+  simp only [offlineChallenger, offlineChecks, QuantumComp₂.map,
+    QuantumComp₂.bind_assoc]
+  congr 1
+  funext b₁
+  erw [QuantumComp₂.bind_assoc, QuantumComp₂.bind_assoc]
+  simp only [QuantumComp₂.pure_bind]
+  congr 1
+  funext tdm
+  erw [QuantumComp₂.bind_assoc]
+  congr 1
+  funext b₂
+  erw [QuantumComp₂.pure_bind]
+  cases tdm <;> rfl
+
+/-- The actual P4 challenger instrument retaining its check/extraction transcript alongside
+the final mismatch-event bit. Forgetting the transcript recovers `offlineChallenger`. -/
+noncomputable def offlineInstrument [DecidableEq Msg] [∀ i, DecidableEq (Pf i)]
+    (hk : 1 ≤ k) (qs : ℕ) (c : OpeningClaim k Cm Msg ℓ Pf) (B : QReg) :
+    QComp (mixedExtSpec k X Y Cm Z) B B
+      ((Bool × Option (TpDLen k (DmOf ℓ Msg Td) (TupleLen.full hk)) × Bool) × Bool) :=
+  (offlineChecks VC code hk c B).bind fun r ↦
+    (offlineFinish VC (Z := Z) hk qs c B r).map fun b ↦ (r, b)
+
+/-- Forgetting the retained transcript gives exactly the original P4 challenger. -/
+theorem offlineInstrument_map_snd [DecidableEq Msg] [∀ i, DecidableEq (Pf i)]
+    (hk : 1 ≤ k) (qs : ℕ) (c : OpeningClaim k Cm Msg ℓ Pf) (B : QReg) :
+    (offlineInstrument VC code hk qs c B).map Prod.snd =
+      offlineChallenger VC code hk qs c B := by
+  rw [offlineInstrument, QuantumRuntime.bind_record_map_snd,
+    offlineChallenger_eq_bind_offlineChecks VC code]
+
+
+/-- Retaining the prefix outcomes identifies each branch with the three executed branches. -/
+theorem run₂_offlineChecks (R : QuantumRuntime (mixedExtSpec k X Y Cm Z))
+    (hk : 1 ≤ k) (c : OpeningClaim k Cm Msg ℓ Pf) (B : QReg)
+    (b₁ b₂ : Bool) (tdm : Option (TpDLen k (DmOf ℓ Msg Td) (TupleLen.full hk))) :
+    (R.run₂ .instruments (offlineChecks VC code hk c B)).branch (b₁, tdm, b₂) =
+      ((R.run₂ .instruments (QComp.allIn c.Wᶜ fun i ↦
+        checkAt VC B i (c.idx i) (c.cm i) (c.ans i) (c.pf i))).branch b₂ ∘ₗ
+        (R.run₂ .instruments (QuantumComp.liftOrdinary
+          (extractQuery code B (TpIC.full hk c.idx c.cm)))).branch tdm) ∘ₗ
+      (R.run₂ .instruments (QComp.allIn c.W fun i ↦
+        checkAt VC B i (c.idx i) (c.cm i) (c.ans i) (c.pf i))).branch b₁ := by
+  let checks := fun W ↦ QComp.allIn W fun i ↦
+    checkAt (Z := Z) VC B i (c.idx i) (c.cm i) (c.ans i) (c.pf i)
+  let extract : QComp (mixedExtSpec k X Y Cm Z) B B _ :=
+    QuantumComp.liftOrdinary (extractQuery code B (TpIC.full hk c.idx c.cm))
+  have h₁ := R.run₂_bind_record .instruments (checks c.W)
+    (fun _ ↦ extract.bind fun d ↦ (checks c.Wᶜ).map (fun b ↦ (d, b))) b₁ (tdm, b₂)
+  have h₂ := R.run₂_bind_record .instruments extract (fun _ ↦ checks c.Wᶜ) tdm b₂
+  exact h₁.trans (congrArg (fun F ↦ F ∘ₗ (R.run₂ .instruments (checks c.W)).branch b₁) h₂)
+
+/-- The retained event branch executes the finishing program on its particular transcript. -/
+theorem run₂_offlineInstrument [DecidableEq Msg] [∀ i, DecidableEq (Pf i)]
+    (R : QuantumRuntime (mixedExtSpec k X Y Cm Z)) (hk : 1 ≤ k) (qs : ℕ)
+    (c : OpeningClaim k Cm Msg ℓ Pf) (B : QReg)
+    (r : Bool × Option (TpDLen k (DmOf ℓ Msg Td) (TupleLen.full hk)) × Bool) (b : Bool) :
+    (R.run₂ .instruments (offlineInstrument VC code hk qs c B)).branch (r, b) =
+      (R.run₂ .instruments (offlineFinish VC hk qs c B r)).branch b ∘ₗ
+        (R.run₂ .instruments (offlineChecks VC code hk c B)).branch r :=
+  R.run₂_bind_record .instruments _ _ r b
 
 variable (E : VCOracle k X Y) (ME : MultiExtractor k Cm (DmOf ℓ Msg Td) E.S)
   (code : TpDCode k (DmOf ℓ Msg Td) Z)
@@ -653,8 +993,8 @@ def ExtractionCorrect (κ : ℕ → ℝ≥0∞ → ℝ≥0∞ → ℕ → ℝ≥
       (ρ.matrix ⊗ₖ E.init.matrix) (.inl i) ≤ wVC →
     (E.withExtract ME code).totalMass .instruments x (ρ.matrix ⊗ₖ E.init.matrix) (.inr ()) ≤
       wME →
-    (E.withExtract ME code).coherent.toRuntime.evalDistMap .instruments
-      (experiment x fun u y ↦ extractChallenger VC code hk n (claim u y) u) ρ Sigma.snd
+    (E.mixedExtractRuntime ME code).evalDistMap .instruments
+      (experiment x.liftOrdinary fun u y ↦ extractChallenger VC code hk n (claim u y) u) ρ Sigma.snd
         {true} ≤ κ t wVC wME n
 
 /-- **P4, offline extractability** (ePrint 2025/2166, Def 7.3, p. 51): against every
@@ -671,8 +1011,9 @@ def OfflineExtractable [DecidableEq Msg] [∀ i, DecidableEq (Pf i)]
       (ρ.matrix ⊗ₖ E.init.matrix) (.inl i) ≤ wVC →
     (E.withExtract ME code).totalMass .instruments x (ρ.matrix ⊗ₖ E.init.matrix) (.inr ()) ≤
       wME →
-    (E.withExtract ME code).coherent.toRuntime.evalDistMap .instruments
-      (experiment x fun u y ↦ offlineChallenger VC code hk qs (claim u y) u) ρ Sigma.snd
+    (E.mixedExtractRuntime ME code).evalDistMap .instruments
+      (experiment x.liftOrdinary fun u y ↦ offlineChallenger VC code hk qs (claim u y) u)
+      ρ Sigma.snd
         {true} ≤ κ t wVC wME qs
 
 variable {VC E ME code}
@@ -706,8 +1047,9 @@ theorem ExtractionCorrect.of_classicalPorts {κ : ℕ → ℝ≥0∞ → ℝ≥0
       (ρ.matrix ⊗ₖ E.init.matrix) (.inl i) ≤ wVC)
     (h₂ : (E.withExtract ME code).toRuntime.queryMass .instruments x
       (ρ.matrix ⊗ₖ E.init.matrix) (.inr ()) ≤ wME) :
-    (E.withExtract ME code).coherent.toRuntime.evalDistMap .instruments
-      (experiment x.toCoherent fun u y ↦ extractChallenger VC code hk n (claim u y) u) ρ
+    (E.mixedExtractRuntime ME code).evalDistMap .instruments
+      (experiment x.toCoherent.liftOrdinary fun u y ↦
+        extractChallenger VC code hk n (claim u y) u) ρ
         Sigma.snd {true} ≤ κ (∑ i, b i) wVC wME n := by
   refine h hk _ n wVC wME x.toCoherent claim ρ hn (QuantumComp.isQueryBound_toCoherent hx)
     ?_ ?_
@@ -726,8 +1068,9 @@ theorem OfflineExtractable.of_classicalPorts [DecidableEq Msg] [∀ i, Decidable
       (ρ.matrix ⊗ₖ E.init.matrix) (.inl i) ≤ wVC)
     (h₂ : (E.withExtract ME code).toRuntime.queryMass .instruments x
       (ρ.matrix ⊗ₖ E.init.matrix) (.inr ()) ≤ wME) :
-    (E.withExtract ME code).coherent.toRuntime.evalDistMap .instruments
-      (experiment x.toCoherent fun u y ↦ offlineChallenger VC code hk qs (claim u y) u) ρ
+    (E.mixedExtractRuntime ME code).evalDistMap .instruments
+      (experiment x.toCoherent.liftOrdinary fun u y ↦
+        offlineChallenger VC code hk qs (claim u y) u) ρ
         Sigma.snd {true} ≤ κ (∑ i, b i) wVC wME qs := by
   refine h hk _ qs wVC wME x.toCoherent claim ρ (QuantumComp.isQueryBound_toCoherent hx) ?_ ?_
   · simpa only [EmulatedOracle.totalMass_toCoherent] using h₁
@@ -861,7 +1204,7 @@ end MEErrors
 section bundle
 
 variable {k : ℕ} {X Y Msg Cm : Type} [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y]
-  [Zero Y] [Fintype Msg] [DecidableEq Msg] [Fintype Cm] [DecidableEq Cm] {ℓ : Fin k → ℕ}
+  [Fintype Msg] [DecidableEq Msg] [Fintype Cm] [DecidableEq Cm] {ℓ : Fin k → ℕ}
   {Td Pf : Fin k → Type} [∀ i, Fintype (Td i)] [∀ i, DecidableEq (Td i)]
   [∀ i, DecidableEq (Pf i)] (VC : ∀ i, VectorCommitment X Y Msg Cm (Td i) (Pf i) (ℓ i))
 

@@ -37,7 +37,7 @@ namespace VCVioTest.QuantumVCModule
 open EmulatedOracle (cohSpec)
 
 variable {k : ℕ} {X Y Msg Cm Z : Type} [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y]
-  [Zero Y] [Fintype Msg] [DecidableEq Msg] [Fintype Cm] [DecidableEq Cm] [Fintype Z]
+  [Fintype Msg] [DecidableEq Msg] [Fintype Cm] [DecidableEq Cm] [Fintype Z]
   [DecidableEq Z] [AddGroup Z] {ℓ : Fin k → ℕ} {Td Pf : Fin k → Type} [∀ i, Fintype (Td i)]
   [∀ i, DecidableEq (Td i)] [∀ i, DecidableEq (Pf i)]
   {VC : ∀ i, VectorCommitment X Y Msg Cm (Td i) (Pf i) (ℓ i)} {E : VCOracle k X Y}
@@ -118,8 +118,8 @@ example {κ : ℕ → ℝ≥0∞ → ℝ≥0∞ → ℕ → ℝ≥0∞} (h : Ext
     {A : QReg} {W : QReg → Type w}
     (x : QuantumComp LocalSig.instruments.{v} (cohSpec (extIn k X Y Cm Z)) W A)
     (claim : ∀ u, W u → ExtractClaim k Cm) (ρ : SubState A) (hx : x.IsQueryBound fun _ ↦ 0) :
-    (E.withExtract ME code).coherent.toRuntime.evalDistMap .instruments
-      (experiment x fun u y ↦ extractChallenger VC code hk 0 (claim u y) u) ρ Sigma.snd
+    (E.mixedExtractRuntime ME code).evalDistMap .instruments
+      (experiment x.liftOrdinary fun u y ↦ extractChallenger VC code hk 0 (claim u y) u) ρ Sigma.snd
         {true} ≤ κ 0 ⊤ ⊤ 0 :=
   h hk 0 0 ⊤ ⊤ x claim ρ (Nat.zero_le _) hx le_top le_top
 
@@ -135,8 +135,8 @@ example {κ : ℕ → ℝ≥0∞ → ℝ≥0∞ → ℕ → ℝ≥0∞} (h : Off
     (x : QuantumComp LocalSig.instruments.{v} (cohSpec (extIn k X Y Cm Z)) W A)
     (claim : ∀ u, W u → OpeningClaim k Cm Msg ℓ Pf) (ρ : SubState A)
     (hx : x.IsQueryBound fun _ ↦ 0) :
-    (E.withExtract ME code).coherent.toRuntime.evalDistMap .instruments
-      (experiment x fun u y ↦ offlineChallenger VC code hk 0 (claim u y) u) ρ Sigma.snd
+    (E.mixedExtractRuntime ME code).evalDistMap .instruments
+      (experiment x.liftOrdinary fun u y ↦ offlineChallenger VC code hk 0 (claim u y) u) ρ Sigma.snd
         {true} ≤ κ 0 ⊤ ⊤ 0 :=
   h hk 0 0 ⊤ ⊤ x claim ρ hx le_top le_top
 
@@ -201,8 +201,8 @@ example {κ : ℕ → ℝ≥0∞ → ℝ≥0∞ → ℕ → ℝ≥0∞} (h : Ext
       (fun _ ↦ ULift.{1} Bool) A)
     (claim : QReg → ULift.{1} Bool → ExtractClaim k Cm) (ρ : SubState A)
     (hx : x.IsQueryBound fun _ ↦ 0) :
-    (E.withExtract ME code).coherent.toRuntime.evalDistMap .instruments
-      (experiment x fun u y ↦ extractChallenger VC code hk 0 (claim u y) u) ρ Sigma.snd
+    (E.mixedExtractRuntime ME code).evalDistMap .instruments
+      (experiment x.liftOrdinary fun u y ↦ extractChallenger VC code hk 0 (claim u y) u) ρ Sigma.snd
         {true} ≤ κ 0 ⊤ ⊤ 0 :=
   h hk 0 0 ⊤ ⊤ x claim ρ (Nat.zero_le _) hx le_top le_top
 
@@ -212,11 +212,14 @@ example (hk : 1 ≤ k) {A : QReg}
     (x : QuantumComp LocalSig.instruments.{1} (cohSpec (extIn k X Y Cm Z))
       (fun _ ↦ ULift.{1} Bool) A)
     (claim : QReg → ULift.{1} Bool → ExtractClaim k Cm) :
-    (E.withExtract ME code).coherent.toRuntime.run .instruments
-        (experiment x fun u y ↦ extractChallenger VC code hk 0 (claim u y) u) =
+    (E.mixedExtractRuntime ME code).run .instruments
+        (experiment x.liftOrdinary fun u y ↦ extractChallenger VC code hk 0 (claim u y) u) =
       ((E.withExtract ME code).coherent.toRuntime.run .instruments x).bind fun p ↦
-        (E.withExtract ME code).coherent.toRuntime.run .instruments
+        (E.mixedExtractRuntime ME code).run .instruments
           (extractChallenger VC code hk 0 (claim p.1 p.2) p.1).forgetReg :=
-  run_experiment _ x _
+  by
+    rw [run_experiment]
+    erw [QuantumRuntime.run_liftOrdinary]
+    rfl
 
 end VCVioTest.QuantumVCModule
