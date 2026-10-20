@@ -284,7 +284,7 @@ projective-answer API, independently of any compressed-oracle implementation. -/
 theorem instrument_not_repeatable (y : Fin 4) :
     instrument.branch y ∘ₗ instrument.branch y ≠ instrument.branch y := by
   have hb : instrument.branch y = MatrixMap.conj (kraus y) :=
-    SubInstrument.branch_ofKraus_apply _ _ _
+    DSubInstrument.branch_ofKraus_apply _ kraus_complete y
   rw [hb]
   exact branch_not_repeatable y
 
