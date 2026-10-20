@@ -273,4 +273,54 @@ example (hk : 1 ≤ k) {A : QReg}
     erw [QuantumRuntime.run_liftOrdinary]
     rfl
 
+/-! ## Retained offline events -/
+
+example (tic : TpIC k Cm) (B : QReg) :
+    MatrixMap.IsCPTNIFamily (fun tdm ↦
+      MatrixMap.conj ((1 : Matrix B B ℂ) ⊗ₖ extractProj ME tic tdm)) :=
+  extractProj_isCPTNIFamily ME tic B
+
+variable (R : QuantumRuntime (mixedExtSpec k X Y Cm Z)) (hk : 1 ≤ k) (qs : ℕ)
+  (c : OpeningClaim k Cm Msg ℓ Pf) (B : QReg)
+
+example (r : Bool × Option (TpDLen k (DmOf ℓ Msg Td) (TupleLen.full hk)) × Bool)
+    (hr : ¬ ∃ tdm, r = (true, some tdm, true)) :
+    (R.run₂ .instruments (offlineFinish VC (Z := Z) hk qs c B r)).branch true = 0 :=
+  run₂_offlineFinish_reject VC R hk qs c B r hr
+
+example (r : Bool × Option (TpDLen k (DmOf ℓ Msg Td) (TupleLen.full hk)) × Bool)
+    (hr : ¬ ∃ tdm, r = (true, some tdm, true)) :
+    (R.run₂ .instruments (offlineInstrument VC code hk qs c B)).branch (r, true) = 0 :=
+  run₂_offlineInstrument_reject VC code R hk qs c B r hr
+
+example (hq : ¬ ∑ i, (c.ans i).dom.card ≤ qs)
+    (r : Bool × Option (TpDLen k (DmOf ℓ Msg Td) (TupleLen.full hk)) × Bool) :
+    (R.run₂ .instruments (offlineFinish VC (Z := Z) hk qs c B r)).branch true = 0 :=
+  run₂_offlineFinish_over_budget VC R hk qs c B hq r
+
+example (ρ : SubState (B × R.D)) :
+    (R.run₂ .instruments (offlineChallenger VC code hk qs c B)).outcomeMeasure ρ {true} =
+      ∑' tdm, ENNReal.ofReal (((R.run₂ .instruments
+        (offlineInstrument VC code hk qs c B)).branch ((true, some tdm, true), true))
+          ρ.matrix).trace.re :=
+  offlineChallenger_weight_eq_retained VC code R hk qs c B ρ
+
+example (hq : ¬ ∑ i, (c.ans i).dom.card ≤ qs)
+    (r : Bool × Option (TpDLen k (DmOf ℓ Msg Td) (TupleLen.full hk)) × Bool) :
+    (R.run₂ .instruments (offlineInstrument VC code hk qs c B)).branch (r, true) = 0 :=
+  run₂_offlineInstrument_over_budget VC code R hk qs c B hq r
+
+example (ρ : SubState (B × R.D)) (hq : ¬ ∑ i, (c.ans i).dom.card ≤ qs) :
+    (R.run₂ .instruments (offlineChallenger VC code hk qs c B)).outcomeMeasure ρ {true} = 0 :=
+  offlineChallenger_over_budget VC code R hk qs c B ρ hq
+
+/-- The experiment equation preserves dependent registers and arbitrary leaf universes. -/
+example {A : QReg} {W : QReg → Type w}
+    (x : QuantumComp LocalSig.instruments.{v} (mixedExtSpec k X Y Cm Z) W A)
+    (chal : ∀ u, W u → QComp (mixedExtSpec k X Y Cm Z) u u Bool) (ρ : SubState A) :
+    R.evalDistMap .instruments (experiment x chal) ρ Sigma.snd {true} =
+      ∑' p : Σ u, W u, (R.run₂ .instruments (chal p.1 p.2)).outcomeMeasure
+        (R.jointPost .instruments x ρ p) {true} :=
+  evalDistMap_experiment_true_eq_tsum R x chal ρ
+
 end VCVioTest.QuantumVCModule

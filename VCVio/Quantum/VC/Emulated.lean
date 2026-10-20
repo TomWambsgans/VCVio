@@ -40,10 +40,124 @@ certificate concerns the base oracle; it asserts no commutation with extraction 
 
 public section
 
-open Matrix
-open scoped Kronecker ENNReal
+open Matrix MeasureTheory
+open scoped Kronecker ENNReal ComplexOrder
+
+universe u v w u₁ v₁
 
 namespace Quantum
+
+/-- The original joint poststates of an arbitrary runtime have total trace at most one. -/
+theorem QuantumRuntime.tsum_jointPost_trace_le_one {spec : QuantumOracleSpec.{u, v}}
+    (R : QuantumRuntime spec) {L : LocalSig.{u₁, v₁}} (I : L.Interp)
+    {A : QReg} {W : QReg → Type w} (x : QuantumComp L spec W A) (ρ : SubState A) :
+    ∑' p, ENNReal.ofReal (R.jointPost I x ρ p).matrix.trace.re ≤ 1 := by
+  exact ((R.run I x).isCPTNIFamily.tsum_ofReal_trace_re_le (ρ.prod R.init).posSemidef).trans
+    (ENNReal.ofReal_le_one.mpr (ρ.prod R.init).trace_re_le_one)
+
+/-- Every measurable runtime event has probability at most one. -/
+theorem QuantumRuntime.outcomeLawWith_le_one {spec : QuantumOracleSpec.{u, v}}
+    (R : QuantumRuntime spec) {L : LocalSig.{u₁, v₁}} (I : L.Interp)
+    {A : QReg} {W : QReg → Type w} (x : QuantumComp L spec W A) (ρ : SubState A)
+    {γ : Type*} [MeasurableSpace γ] (f : (Σ B, W B) → γ) (s : Set γ) :
+    R.evalDistMap I x ρ f s ≤ 1 := by
+  apply (measure_mono (Set.subset_univ s)).trans
+  rw [R.evalDistMap_apply_univ I x ρ f, ← R.tsum_jointPost_trace I x ρ]
+  exact R.tsum_jointPost_trace_le_one I x ρ
+
+/-- A trace-weighted constant has total weight at most that constant. -/
+theorem tsum_weighted_trace_le {P : Type*} (m : P → ℝ≥0∞) (hm : ∑' p, m p ≤ 1)
+    (c : ℝ≥0∞) : ∑' p, c * m p ≤ c := by
+  rw [ENNReal.tsum_mul_left]
+  exact (mul_le_mul_right hm c).trans_eq (mul_one c)
+
+/-- The total weight of the outcomes of a run is at most one. -/
+theorem QuantumRuntime.tsum_jointPost₂_trace_le_one {spec : QuantumOracleSpec.{u₁, v₁}}
+    (R : QuantumRuntime spec) {L : LocalSig.{u, v}} (I : L.Interp) {A B : QReg} {α : Type w}
+    (x : QuantumComp₂ L spec A B α) (ρ : SubState A) :
+    ∑' a, ENNReal.ofReal (R.jointPost₂ I x ρ a).matrix.trace.re ≤ 1 := by
+  let _ : MeasurableSpace α := ⊤
+  have h := (R.run₂ I x).outcomeMeasure_apply_univ_le_one (ρ.prod R.init)
+  rw [DSubInstrument.outcomeMeasure_apply _ _ MeasurableSet.univ] at h
+  simp only [Set.indicator_univ, Pi.one_apply, mul_one] at h
+  exact h
+
+/-- The difference of two complete Kraus families has squared trace at most four times
+input trace, with the outcomes retained inside the sum. -/
+theorem sum_trace_conj_sub_le_four {n m ι : Type*} [Fintype n] [DecidableEq n]
+    [Fintype m] [Fintype ι] (F G : ι → Matrix m n ℂ)
+    (hF : ∑ a, (F a)ᴴ * F a = 1) (hG : ∑ a, (G a)ᴴ * G a = 1)
+    {ρ : Matrix n n ℂ} (hρ : ρ.PosSemidef) :
+    ∑ a, ENNReal.ofReal (MatrixMap.conj (F a - G a) ρ).trace.re ≤
+      4 * ENNReal.ofReal ρ.trace.re := by
+  have hpoint (a : ι) : (MatrixMap.conj (F a - G a) ρ).trace.re ≤
+      2 * ((MatrixMap.conj (F a) ρ).trace.re + (MatrixMap.conj (G a) ρ).trace.re) := by
+    have hp := (hρ.mul_mul_conjTranspose_same (F a + G a)).trace_re_nonneg
+    have he : MatrixMap.conj (F a - G a) ρ + MatrixMap.conj (F a + G a) ρ =
+        (MatrixMap.conj (F a) ρ + MatrixMap.conj (G a) ρ) +
+        (MatrixMap.conj (F a) ρ + MatrixMap.conj (G a) ρ) := by
+      simp only [MatrixMap.conj_apply, conjTranspose_sub, conjTranspose_add]
+      simp only [Matrix.sub_mul, Matrix.mul_sub, Matrix.add_mul, Matrix.mul_add]
+      abel
+    have ht := congrArg (fun M ↦ M.trace.re) he
+    simp only [trace_add, Complex.add_re] at ht
+    have hp' : 0 ≤ (MatrixMap.conj (F a + G a) ρ).trace.re := hp
+    linarith
+  have hf := congrArg Complex.re (MatrixMap.isTP_sum_conj hF ρ)
+  have hg := congrArg Complex.re (MatrixMap.isTP_sum_conj hG ρ)
+  simp only [LinearMap.sum_apply, trace_sum, Complex.re_sum] at hf hg
+  have hn (a : ι) : 0 ≤ (MatrixMap.conj (F a - G a) ρ).trace.re :=
+    (hρ.mul_mul_conjTranspose_same (F a - G a)).trace_re_nonneg
+  rw [← ENNReal.ofReal_sum_of_nonneg (fun a _ ↦ hn a),
+    ← ENNReal.ofReal_ofNat, ← ENNReal.ofReal_mul (by norm_num : (0 : ℝ) ≤ 4)]
+  apply ENNReal.ofReal_le_ofReal
+  calc
+    _ ≤ ∑ a, 2 * ((MatrixMap.conj (F a) ρ).trace.re +
+        (MatrixMap.conj (G a) ρ).trace.re) := Finset.sum_le_sum fun a _ ↦ hpoint a
+    _ = 4 * ρ.trace.re := by rw [← Finset.mul_sum, Finset.sum_add_distrib, hf, hg]; ring
+
+section extractionMeasurement
+
+variable {k : ℕ} {Cm : Type} {Dm : Fin k → Type}
+
+/-- The projector onto the private states `s` with `MultiExtract(tic, s) = tdm` (the paper's
+`Π_tdm`, p. 59). -/
+@[expose]
+noncomputable def extractProj {S : Type*} [DecidableEq S] [∀ i, DecidableEq (Dm i)]
+    (ME : MultiExtractor k Cm Dm S) (tic : TpIC k Cm) (tdm : TpDLen k Dm tic.1) :
+    Matrix S S ℂ :=
+  diagonal fun s ↦ if ME.extract tic s = tdm then 1 else 0
+
+/-- Measured extraction fibres form a completely positive, trace-nonincreasing family,
+including when the decommitment outcome type is not finite. -/
+theorem extractProj_isCPTNIFamily {S : Type*} [Fintype S] [DecidableEq S]
+    [∀ i, DecidableEq (Dm i)] (ME : MultiExtractor k Cm Dm S) (tic : TpIC k Cm) (B : QReg) :
+    MatrixMap.IsCPTNIFamily (fun tdm ↦
+      MatrixMap.conj ((1 : Matrix B B ℂ) ⊗ₖ extractProj ME tic tdm)) := by
+  classical
+  let K := fun tdm ↦ (1 : Matrix B B ℂ) ⊗ₖ extractProj ME tic tdm
+  have he (tdm) : K tdm = diagonal (fun b : B × S ↦
+      if ME.extract tic b.2 = tdm then (1 : ℂ) else 0) := by
+    simp only [K, extractProj, ← diagonal_one, diagonal_kronecker_diagonal, one_mul]
+  refine ⟨fun _ ↦ MatrixMap.isCP_conj _, fun fs ρ hρ ↦ ?_⟩
+  have hg : ∑ tdm ∈ fs, (K tdm)ᴴ * K tdm =
+      diagonal (fun b : B × S ↦ if ME.extract tic b.2 ∈ fs then (1 : ℂ) else 0) := by
+    ext a b
+    by_cases hab : a = b
+    · subst b
+      simp [he, Matrix.sum_apply, diagonal_conjTranspose, diagonal_mul_diagonal]
+    · simp [he, Matrix.sum_apply, diagonal_conjTranspose, diagonal_mul_diagonal, hab]
+  have ht : (1 - ∑ tdm ∈ fs, (K tdm)ᴴ * K tdm).PosSemidef := by
+    rw [hg, ← diagonal_one, diagonal_sub]
+    apply PosSemidef.diagonal
+    intro b
+    by_cases hb : ME.extract tic b.2 ∈ fs <;> simp [hb]
+  have hh := ht.trace_mul_re_nonneg hρ
+  simp only [Matrix.sub_mul, Matrix.one_mul, Matrix.trace_sub, Complex.sub_re,
+    Finset.sum_mul, Matrix.trace_sum, Complex.re_sum, ← MatrixMap.trace_conj_apply] at hh
+  exact sub_nonneg.mp hh
+
+end extractionMeasurement
 
 variable (k : ℕ) (X Y : Type) [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y]
 

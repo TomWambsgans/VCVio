@@ -141,6 +141,47 @@ theorem run_experiment (R : QuantumRuntime spec) (x : QuantumComp LocalSig.instr
   rw [experiment, QuantumRuntime.run_bind]
   simp only [QuantumComp.run_liftInstruments]
 
+/-- **Forgetting the register, on any input.** Observing a set `s` of values on the run of a
+fixed-register program with its register forgotten, from any joint substate, is observing `s` on
+its fixed-register run. -/
+theorem QuantumRuntime.outcomeMeasure_run_forgetReg {L : LocalSig.{u, v}}
+    {spec : QuantumOracleSpec.{u₁, v₁}} (R : QuantumRuntime spec) (I : L.Interp) {A B : QReg}
+    {α : Type w} [MeasurableSpace α] [MeasurableSpace (Σ _ : QReg, α)]
+    (x : QuantumComp₂ L spec A B α) (σ : SubState (A × R.D)) {s : Set α} (hs : MeasurableSet s)
+    (hs' : MeasurableSet (Sigma.snd ⁻¹' s : Set (Σ _ : QReg, α))) :
+    (R.run I x.forgetReg).outcomeMeasure σ (Sigma.snd ⁻¹' s) = (R.run₂ I x).outcomeMeasure σ s := by
+  let _ : MeasurableSpace (Σ u, QuantumComp₂.Leaf B α u) := ⊤
+  rw [QuantumRuntime.run_forgetReg, DSubInstrument.map_eq_bind_ret,
+    DSubInstrument.outcomeMeasure_bind, Measure.sum_apply _ hs',
+    DSubInstrument.outcomeMeasure_apply _ _ hs]
+  simp only [DSubInstrument.outcomeMeasure_ret, Measure.smul_apply, Measure.dirac_apply' _ hs',
+    smul_eq_mul, DSubInstrument.matrix_post]
+  refine ((QuantumComp₂.leafEquiv B α).tsum_eq _).symm.trans (tsum_congr fun a ↦ ?_)
+  rfl
+
+/-- A challenger experiment is the sum over the actual dependent post-adversary substates. -/
+theorem evalDistMap_experiment_true_eq_tsum {spec : QuantumOracleSpec.{u₁, v₁}} {A : QReg}
+    {W : QReg → Type w} (R : QuantumRuntime spec)
+    (x : QuantumComp LocalSig.instruments.{v} spec W A)
+    (chal : ∀ u, W u → QComp.{u₁, v₁, 0} spec u u Bool) (ρ : SubState A) :
+    R.evalDistMap .instruments (experiment x chal) ρ Sigma.snd {true} =
+      ∑' p : Σ u, W u, (R.run₂ .instruments (chal p.1 p.2)).outcomeMeasure
+        (R.jointPost .instruments x ρ p) {true} := by
+  let _ : MeasurableSpace (Σ _ : QReg, Bool) := ⊤
+  let _ : MeasurableSpace (Σ u, W u) := ⊤
+  have hS : MeasurableSet (Sigma.snd ⁻¹' {true} : Set (Σ _ : QReg, Bool)) :=
+    MeasurableSpace.measurableSet_top
+  have h₁ : R.evalDistMap .instruments (experiment x chal) ρ Sigma.snd {true} =
+      (R.run .instruments (experiment x chal)).outcomeMeasure (ρ.prod R.init)
+        (Sigma.snd ⁻¹' {true}) := by
+    rw [QuantumRuntime.evalDistMap_apply _ _ _ _ _ (measurableSet_singleton true),
+      DSubInstrument.outcomeMeasure_apply _ _ hS]
+    rfl
+  rw [h₁, run_experiment, DSubInstrument.outcomeMeasure_bind, Measure.sum_apply _ hS]
+  simp only [QuantumRuntime.outcomeMeasure_run_forgetReg R _ _ _ (measurableSet_singleton true)
+    hS]
+  rfl
+
 end experiment
 
 namespace QuantumRuntime
@@ -230,75 +271,6 @@ theorem mixedLawWith_uniformWeights {Ω : Type} [SampleableType Ω] (R : Ω → 
     ENNReal.ofReal_inv_of_pos (Nat.cast_pos.mpr Fintype.card_pos), ENNReal.ofReal_natCast]
 
 end mixture
-
-/-- The original joint poststates of an arbitrary runtime have total trace at most one. -/
-theorem QuantumRuntime.tsum_jointPost_trace_le_one {spec : QuantumOracleSpec.{u, v}}
-    (R : QuantumRuntime spec) {L : LocalSig.{u₁, v₁}} (I : L.Interp)
-    {A : QReg} {W : QReg → Type w} (x : QuantumComp L spec W A) (ρ : SubState A) :
-    ∑' p, ENNReal.ofReal (R.jointPost I x ρ p).matrix.trace.re ≤ 1 := by
-  exact ((R.run I x).isCPTNIFamily.tsum_ofReal_trace_re_le (ρ.prod R.init).posSemidef).trans
-    (ENNReal.ofReal_le_one.mpr (ρ.prod R.init).trace_re_le_one)
-
-/-- Every measurable runtime event has probability at most one. -/
-theorem QuantumRuntime.outcomeLawWith_le_one {spec : QuantumOracleSpec.{u, v}}
-    (R : QuantumRuntime spec) {L : LocalSig.{u₁, v₁}} (I : L.Interp)
-    {A : QReg} {W : QReg → Type w} (x : QuantumComp L spec W A) (ρ : SubState A)
-    {γ : Type*} [MeasurableSpace γ] (f : (Σ B, W B) → γ) (s : Set γ) :
-    R.evalDistMap I x ρ f s ≤ 1 := by
-  apply (measure_mono (Set.subset_univ s)).trans
-  rw [R.evalDistMap_apply_univ I x ρ f, ← R.tsum_jointPost_trace I x ρ]
-  exact R.tsum_jointPost_trace_le_one I x ρ
-
-/-- A trace-weighted constant has total weight at most that constant. -/
-theorem tsum_weighted_trace_le {P : Type*} (m : P → ℝ≥0∞) (hm : ∑' p, m p ≤ 1)
-    (c : ℝ≥0∞) : ∑' p, c * m p ≤ c := by
-  rw [ENNReal.tsum_mul_left]
-  exact (mul_le_mul_right hm c).trans_eq (mul_one c)
-
-/-- The total weight of the outcomes of a run is at most one. -/
-theorem QuantumRuntime.tsum_jointPost₂_trace_le_one {spec : QuantumOracleSpec.{u₁, v₁}}
-    (R : QuantumRuntime spec) {L : LocalSig.{u, v}} (I : L.Interp) {A B : QReg} {α : Type w}
-    (x : QuantumComp₂ L spec A B α) (ρ : SubState A) :
-    ∑' a, ENNReal.ofReal (R.jointPost₂ I x ρ a).matrix.trace.re ≤ 1 := by
-  let _ : MeasurableSpace α := ⊤
-  have h := (R.run₂ I x).outcomeMeasure_apply_univ_le_one (ρ.prod R.init)
-  rw [DSubInstrument.outcomeMeasure_apply _ _ MeasurableSet.univ] at h
-  simp only [Set.indicator_univ, Pi.one_apply, mul_one] at h
-  exact h
-
-/-- The difference of two complete Kraus families has squared trace at most four times
-input trace, with the outcomes retained inside the sum. -/
-theorem sum_trace_conj_sub_le_four {n m ι : Type*} [Fintype n] [DecidableEq n]
-    [Fintype m] [Fintype ι] (F G : ι → Matrix m n ℂ)
-    (hF : ∑ a, (F a)ᴴ * F a = 1) (hG : ∑ a, (G a)ᴴ * G a = 1)
-    {ρ : Matrix n n ℂ} (hρ : ρ.PosSemidef) :
-    ∑ a, ENNReal.ofReal (MatrixMap.conj (F a - G a) ρ).trace.re ≤
-      4 * ENNReal.ofReal ρ.trace.re := by
-  have hpoint (a : ι) : (MatrixMap.conj (F a - G a) ρ).trace.re ≤
-      2 * ((MatrixMap.conj (F a) ρ).trace.re + (MatrixMap.conj (G a) ρ).trace.re) := by
-    have hp := (hρ.mul_mul_conjTranspose_same (F a + G a)).trace_re_nonneg
-    have he : MatrixMap.conj (F a - G a) ρ + MatrixMap.conj (F a + G a) ρ =
-        (MatrixMap.conj (F a) ρ + MatrixMap.conj (G a) ρ) +
-        (MatrixMap.conj (F a) ρ + MatrixMap.conj (G a) ρ) := by
-      simp only [MatrixMap.conj_apply, conjTranspose_sub, conjTranspose_add]
-      simp only [Matrix.sub_mul, Matrix.mul_sub, Matrix.add_mul, Matrix.mul_add]
-      abel
-    have ht := congrArg (fun M ↦ M.trace.re) he
-    simp only [trace_add, Complex.add_re] at ht
-    have hp' : 0 ≤ (MatrixMap.conj (F a + G a) ρ).trace.re := hp
-    linarith
-  have hf := congrArg Complex.re (MatrixMap.isTP_sum_conj hF ρ)
-  have hg := congrArg Complex.re (MatrixMap.isTP_sum_conj hG ρ)
-  simp only [LinearMap.sum_apply, trace_sum, Complex.re_sum] at hf hg
-  have hn (a : ι) : 0 ≤ (MatrixMap.conj (F a - G a) ρ).trace.re :=
-    (hρ.mul_mul_conjTranspose_same (F a - G a)).trace_re_nonneg
-  rw [← ENNReal.ofReal_sum_of_nonneg (fun a _ ↦ hn a),
-    ← ENNReal.ofReal_ofNat, ← ENNReal.ofReal_mul (by norm_num : (0 : ℝ) ≤ 4)]
-  apply ENNReal.ofReal_le_ofReal
-  calc
-    _ ≤ ∑ a, 2 * ((MatrixMap.conj (F a) ρ).trace.re +
-        (MatrixMap.conj (G a) ρ).trace.re) := Finset.sum_le_sum fun a _ ↦ hpoint a
-    _ = 4 * ρ.trace.re := by rw [← Finset.mul_sum, Finset.sum_add_distrib, hf, hg]; ring
 
 section simulation
 
@@ -647,9 +619,9 @@ def readY [Zero Y] : (Σ i, extIn k X Y Cm Z i) → Y
   | ⟨.inl _, m⟩ => (m : X × Y).2
   | ⟨.inr _, _⟩ => 0
 
-/-- **A classical query of oracle `j`** at `t` from inside an experiment (the queries of
-`Check^{O_j}`, ePrint 2025/2166, p. 51): call the coherent port on the basis input
-`|j, t, 0⟩`, measure the port register, and return the answer `y`. -/
+/-- An ordinary basis call of oracle `j` at `t`: call the coherent port on `|j, t, 0⟩`,
+measure the port register, and return the answer `y`. Checkers use `checkedRead` through
+`runClassicalChecked` to retain the distinction between missing and present answers. -/
 @[expose]
 noncomputable def oracleCall [Zero Y] (B : QReg) (j : Fin k) (t : X) :
     QComp (cohSpec (extIn k X Y Cm Z)) B B Y :=
@@ -852,14 +824,6 @@ noncomputable def extractQuery (code : TpDCode k Dm Z) (B : QReg) (tic : TpIC k 
   QComp.callBasis (spec := cohSpec (extIn k X Y Cm Z)) () B
     (⟨.inr (), ((tic, 0) : TpIC k Cm × Z)⟩ : Σ i, extIn k X Y Cm Z i) fun o _ ↦
       readExtract code tic o
-
-/-- The projector onto the private states `s` with `MultiExtract(tic, s) = tdm` (the paper's
-`Π_tdm`, p. 59). -/
-@[expose]
-noncomputable def extractProj {S : Type*} [DecidableEq S] [∀ i, DecidableEq (Dm i)]
-    (ME : MultiExtractor k Cm Dm S) (tic : TpIC k Cm) (tdm : TpDLen k Dm tic.1) :
-    Matrix S S ℂ :=
-  diagonal fun s ↦ if ME.extract tic s = tdm then 1 else 0
 
 variable [∀ i, DecidableEq (Dm i)] (E : VCOracle k X Y) (ME : MultiExtractor k Cm Dm E.S)
   (code : TpDCode k Dm Z) (B : QReg)
@@ -1081,6 +1045,48 @@ noncomputable def offlineFinish [DecidableEq Msg] [∀ i, DecidableEq (Pf i)]
           decide (∃ i : Fin k, ¬ PartialVec.Agrees (tdm i).1 (c.ans i) ∨ pf' i ≠ c.pf i) &&
           decide (∑ i, (c.ans i).dom.card ≤ qs) && decide (Function.Injective c.idx))
 
+omit [AddGroup Z] in
+/-- The mismatch branch vanishes unless both checks accept and extraction decodes. -/
+theorem run₂_offlineFinish_reject [DecidableEq Msg] [∀ i, DecidableEq (Pf i)]
+    (R : QuantumRuntime (mixedExtSpec k X Y Cm Z))
+    (hk : 1 ≤ k) (qs : ℕ) (c : OpeningClaim k Cm Msg ℓ Pf) (B : QReg)
+    (r : Bool × Option (TpDLen k (DmOf ℓ Msg Td) (TupleLen.full hk)) × Bool)
+    (hr : ¬ ∃ tdm, r = (true, some tdm, true)) :
+    (R.run₂ .instruments (offlineFinish VC (Z := Z) hk qs c B r)).branch true = 0 := by
+  rcases r with ⟨a, v, b⟩
+  cases v with
+  | none =>
+    simp only [offlineFinish, QuantumRuntime.run₂_pure,
+      SubInstrument.branch_pure_of_ne (by decide : true ≠ false)]
+  | some tdm =>
+    have hb : a = false ∨ b = false := by cases a <;> cases b <;> simp_all
+    ext ρ : 1
+    rw [offlineFinish, QuantumRuntime.run₂_bind, DSubInstrument.branch_bind_apply]
+    simp only [LinearMap.zero_apply]
+    refine (tsum_congr fun pf ↦ ?_).trans tsum_zero
+    rcases hb with rfl | rfl <;>
+      simp [QuantumRuntime.run₂_pure]
+
+omit [AddGroup Z] in
+/-- The finishing mismatch branch vanishes when the claim exceeds its opening budget. -/
+theorem run₂_offlineFinish_over_budget [DecidableEq Msg] [∀ i, DecidableEq (Pf i)]
+    (R : QuantumRuntime (mixedExtSpec k X Y Cm Z))
+    (hk : 1 ≤ k) (qs : ℕ) (c : OpeningClaim k Cm Msg ℓ Pf) (B : QReg)
+    (hq : ¬ ∑ i, (c.ans i).dom.card ≤ qs)
+    (r : Bool × Option (TpDLen k (DmOf ℓ Msg Td) (TupleLen.full hk)) × Bool) :
+    (R.run₂ .instruments (offlineFinish VC (Z := Z) hk qs c B r)).branch true = 0 := by
+  rcases r with ⟨a, v, b⟩
+  cases v with
+  | none =>
+    simp only [offlineFinish, QuantumRuntime.run₂_pure,
+      SubInstrument.branch_pure_of_ne (by decide : true ≠ false)]
+  | some tdm =>
+    ext ρ : 1
+    rw [offlineFinish, QuantumRuntime.run₂_bind, DSubInstrument.branch_bind_apply]
+    simp only [LinearMap.zero_apply]
+    refine (tsum_congr fun pf ↦ ?_).trans tsum_zero
+    simp [hq, QuantumRuntime.run₂_pure]
+
 /-- The actual P4 challenger is the retained prefix followed by its opening/mismatch decision.
 This is an equality of programs, including rejected checks and decoding failure. -/
 theorem offlineChallenger_eq_bind_offlineChecks [DecidableEq Msg] [∀ i, DecidableEq (Pf i)]
@@ -1149,6 +1155,69 @@ theorem run₂_offlineInstrument [DecidableEq Msg] [∀ i, DecidableEq (Pf i)]
       (R.run₂ .instruments (offlineFinish VC hk qs c B r)).branch b ∘ₗ
         (R.run₂ .instruments (offlineChecks VC code hk c B)).branch r :=
   R.run₂_bind_record .instruments _ _ r b
+
+/-- The mismatch probability retains every accepting check/extract/check outcome and its
+own finishing instrument. No projector description of the checked batches is assumed. -/
+theorem offlineChallenger_weight_eq_retained [DecidableEq Msg] [∀ i, DecidableEq (Pf i)]
+    (R : QuantumRuntime (mixedExtSpec k X Y Cm Z)) (hk : 1 ≤ k) (qs : ℕ)
+    (c : OpeningClaim k Cm Msg ℓ Pf) (B : QReg) (ρ : SubState (B × R.D)) :
+    (R.run₂ .instruments (offlineChallenger VC code hk qs c B)).outcomeMeasure ρ {true} =
+      ∑' tdm, ENNReal.ofReal (((R.run₂ .instruments
+        (offlineInstrument VC code hk qs c B)).branch ((true, some tdm, true), true))
+          ρ.matrix).trace.re := by
+  classical
+  rw [offlineChallenger_eq_bind_offlineChecks VC code, QuantumRuntime.run₂_bind]
+  erw [DSubInstrument.outcomeMeasure_bind,
+    Measure.sum_apply _ (measurableSet_singleton true)]
+  simp only [DSubInstrument.outcomeMeasure_apply_singleton]
+  let f := fun r ↦ ENNReal.ofReal (((R.run₂ .instruments
+    (offlineFinish VC (Z := Z) hk qs c B r)).branch true)
+      (((R.run₂ .instruments (offlineChecks VC code hk c B)).branch r) ρ.matrix)).trace.re
+  let g := fun tdm : TpDLen k (DmOf ℓ Msg Td) (TupleLen.full hk) ↦ (true, some tdm, true)
+  have hg : Function.Injective g := by
+    intro a b h
+    exact Option.some.inj (congrArg (fun r ↦ r.2.1) h)
+  have hs : Function.support f ⊆ Set.range g := by
+    intro r hr
+    by_contra hn
+    have hz := run₂_offlineFinish_reject VC R hk qs c B r (by
+      simpa only [Set.mem_range, g, eq_comm] using hn)
+    exact hr (by simp [f, hz])
+  change (∑' r, f r) = _
+  rw [← hg.tsum_eq hs]
+  apply tsum_congr
+  intro tdm
+  rw [run₂_offlineInstrument]
+  rfl
+
+/-- A rejected retained transcript has zero mismatch-event branch. -/
+theorem run₂_offlineInstrument_reject [DecidableEq Msg] [∀ i, DecidableEq (Pf i)]
+    (R : QuantumRuntime (mixedExtSpec k X Y Cm Z)) (hk : 1 ≤ k) (qs : ℕ)
+    (c : OpeningClaim k Cm Msg ℓ Pf) (B : QReg)
+    (r : Bool × Option (TpDLen k (DmOf ℓ Msg Td) (TupleLen.full hk)) × Bool)
+    (hr : ¬ ∃ tdm, r = (true, some tdm, true)) :
+    (R.run₂ .instruments (offlineInstrument VC code hk qs c B)).branch (r, true) = 0 := by
+  rw [run₂_offlineInstrument, run₂_offlineFinish_reject VC R hk qs c B r hr]
+  exact LinearMap.zero_comp _
+
+/-- A retained mismatch branch vanishes when the claim exceeds its opening budget. -/
+theorem run₂_offlineInstrument_over_budget [DecidableEq Msg] [∀ i, DecidableEq (Pf i)]
+    (R : QuantumRuntime (mixedExtSpec k X Y Cm Z)) (hk : 1 ≤ k) (qs : ℕ)
+    (c : OpeningClaim k Cm Msg ℓ Pf) (B : QReg) (hq : ¬ ∑ i, (c.ans i).dom.card ≤ qs)
+    (r : Bool × Option (TpDLen k (DmOf ℓ Msg Td) (TupleLen.full hk)) × Bool) :
+    (R.run₂ .instruments (offlineInstrument VC code hk qs c B)).branch (r, true) = 0 := by
+  rw [run₂_offlineInstrument, run₂_offlineFinish_over_budget VC R hk qs c B hq r]
+  exact LinearMap.zero_comp _
+
+/-- Claims exceeding the opening budget have zero mismatch probability. -/
+theorem offlineChallenger_over_budget [DecidableEq Msg] [∀ i, DecidableEq (Pf i)]
+    (R : QuantumRuntime (mixedExtSpec k X Y Cm Z)) (hk : 1 ≤ k) (qs : ℕ)
+    (c : OpeningClaim k Cm Msg ℓ Pf) (B : QReg) (ρ : SubState (B × R.D))
+    (hq : ¬ ∑ i, (c.ans i).dom.card ≤ qs) :
+    (R.run₂ .instruments (offlineChallenger VC code hk qs c B)).outcomeMeasure ρ {true} = 0 := by
+  rw [offlineChallenger_weight_eq_retained VC code R hk qs c B ρ]
+  simp only [run₂_offlineInstrument_over_budget VC code R hk qs c B hq,
+    LinearMap.zero_apply, trace_zero, Complex.zero_re, ENNReal.ofReal_zero, tsum_zero]
 
 variable (E : VCOracle k X Y) (ME : MultiExtractor k Cm (DmOf ℓ Msg Td) E.S)
   (code : TpDCode k (DmOf ℓ Msg Td) Z)
