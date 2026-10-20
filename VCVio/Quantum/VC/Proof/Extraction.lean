@@ -1023,11 +1023,11 @@ theorem outcomeMeasure_run₂_openings_le_of_openingQueryBound [∀ i, Decidable
     (fun i b ↦ exists_branch_run₂_toQuantumAt_coinImpl_eq_smul _ _ b) pf
   by_cases hs : ∃ i, pf i ∉ support ((VC i).opening (tdm i).1.dom (tdm i).2)
   · rw [SubInstrument.outcomeMeasure_eq_zero_of_matrix_eq_zero _ (by
-      rw [SubInstrument.matrix_post, hc₀, hz hs, zero_smul, LinearMap.zero_apply])]
+      rw [DSubInstrument.matrix_post, hc₀, hz hs, zero_smul, LinearMap.zero_apply])]
     exact zero_le
   · refine outcomeMeasure_run₂_checks_le_of_openingQueryBound io ME code q hq hC hk n c tdm pf
       (fun i ↦ Classical.byContradiction fun h ↦ hs ⟨i, h⟩) _ ?_
-    rw [SubInstrument.matrix_post, hc₀, LinearMap.smul_apply, LinearMap.id_apply]
+    rw [DSubInstrument.matrix_post, hc₀, LinearMap.smul_apply, LinearMap.id_apply]
     exact (LinearMap.map_smul _ c₀ φ.matrix).trans (congrArg (c₀ • ·) hφ)
 
 /-- **The openings and checks after extraction.** On a substate supported on the extraction
@@ -1066,11 +1066,11 @@ theorem outcomeMeasure_run₂_extractChallenger_le_of_openingQueryBound
   refine SubInstrument.outcomeMeasure_bind_le _ _ _ (measurableSet_singleton _) fun o ↦ ?_
   cases o with
   | none =>
-    rw [QuantumRuntime.run₂_pure, SubInstrument.outcomeMeasure_pure]
+    rw [QuantumRuntime.run₂_pure, DSubInstrument.outcomeMeasure_ret]
     simp
   | some tdm =>
     refine outcomeMeasure_run₂_openings_le_of_openingQueryBound io ME code q hq hC hk n c tdm _ ?_
-    rw [SubInstrument.matrix_post,
+    rw [DSubInstrument.matrix_post,
       run₂_extractQuery_branch (compressedVCOracle k X Y) ME code B]
     have hK := (mul_kronecker_mul (1 : Matrix B B ℂ) (1 : Matrix B B ℂ)
       (extractProj ME (TpIC.full hk c.idx c.cm) tdm)
