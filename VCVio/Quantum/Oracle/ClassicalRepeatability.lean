@@ -40,6 +40,7 @@ variable {P : Type*} {In : P → QReg} {E : EmulatedOracle P In}
   (H : ProjectiveClassicalAnswers E X Y)
 
 /-- The classical-answer branch on a joint reference/private register. -/
+@[expose]
 noncomputable def branch (B : QReg) (x : X) (y : Y) : MatrixMap (B × E.S) (B × E.S) :=
   MatrixMap.conj ((1 : Matrix B B ℂ) ⊗ₖ H.A x y)
 
@@ -163,6 +164,7 @@ theorem replay_mixed_transcripts {Addr Ans : Type} [Fintype Ans] [DecidableEq An
 
 /-- The adaptive transcript determined by a fixed choice of coins, inputs and answer prefix.
 The caller chooses a finite stopping prefix; no bound on the policy or its computation is used. -/
+@[expose]
 def adaptiveTranscript (next : List Y → X) : List Y → List (X × Y)
   | [] => []
   | y :: ys => (next [], y) :: adaptiveTranscript (fun pre ↦ next (y :: pre)) ys
@@ -224,6 +226,7 @@ theorem replay_fixedCoins_answers {Coins : Type*} (B : QReg)
 
 /-- A finite answer sequence at which a deterministic stopping policy first stops.
 This permits answer-dependent stopping times without a uniform query bound. -/
+@[expose]
 def TerminalTranscript (stop : List Y → Bool) : List Y → Prop
   | [] => stop [] = true
   | y :: ys => stop [] = false ∧ TerminalTranscript (fun pre ↦ stop (y :: pre)) ys
@@ -264,6 +267,37 @@ theorem replay_fixedCoins_terminal {Coins : Type*} (B : QReg)
   rw [transcriptBranch, transcriptBranch, ← MatrixMap.conj_mul, ← mul_kronecker_mul,
     Matrix.one_mul, H.terminal_adaptive_projector_mul _ _ _ _ hy hz]
   split_ifs <;> simp
+
+/-- Combine two commuting answer families while retaining the capability in both the action
+and outcome. An outcome from the other capability has zero projector. -/
+@[expose]
+noncomputable def sumAnswers {Addr Ans : Type} [Fintype Ans] [DecidableEq Ans]
+    (K : ProjectiveClassicalAnswers E Addr Ans)
+    (hcomm : ∀ x y c a, H.A x y * K.A c a = K.A c a * H.A x y) :
+    ProjectiveClassicalAnswers E (X ⊕ Addr) (Y ⊕ Ans) where
+  A x a := match x, a with
+    | .inl x, .inl y => H.A x y
+    | .inr c, .inr a => K.A c a
+    | _, _ => 0
+  hermitian x a := by cases x <;> cases a <;> simp [H.hermitian, K.hermitian]
+  orthogonal x a b := by
+    cases x <;> cases a <;> cases b <;> simp [H.orthogonal, K.orthogonal]
+  complete x := by cases x <;> simp [Fintype.sum_sum_type, H.complete, K.complete]
+  commute_cells x a c b := by
+    cases x <;> cases a <;> cases c <;> cases b <;>
+      first | exact H.commute_cells _ _ _ _ | exact K.commute_cells _ _ _ _ |
+        exact hcomm _ _ _ _ | exact (hcomm _ _ _ _).symm | simp
+  commute_ordinary p x a := by
+    cases x <;> cases a <;> simp [H.commute_ordinary, K.commute_ordinary]
+
+/-- Retain an answer history under a fixed policy and an operational implementation of its
+calls. The policy sees all earlier outcomes, including missing checked answers. -/
+noncomputable def checkMixedTranscript {spec : QuantumOracleSpec} {B : QReg}
+    (call : X → QComp spec B B Y) (next : List Y → X) : List Y → QComp spec B B Bool
+  | [] => QuantumComp₂.pure true
+  | y :: ys => (call (next [])).bind fun z ↦
+      if z = y then checkMixedTranscript call (fun pre ↦ next (z :: pre)) ys
+      else QuantumComp₂.pure false
 
 section runtime
 
@@ -359,6 +393,49 @@ theorem replay_checkAdaptiveTranscript (B : QReg) (next : List Y → X) (ys : Li
         (H.checkAdaptiveTranscript B next ys)).branch true := by
   rw [H.branch_checkAdaptiveTranscript]
   exact H.replay_transcript B _
+
+/-- Any implementation of the certified calls in the mixed runtime realizes the adaptive
+history projector. In particular the implementation may use both runtime ports. -/
+theorem branch_checkMixedTranscript {Addr Ans : Type} [Fintype Ans] [DecidableEq Ans]
+    (K : ProjectiveClassicalAnswers E Addr Ans) (B : QReg)
+    (call : X → QComp (withReadSpec (EmulatedOracle.cohSpec In) Addr Ans) B B Y)
+    (hcall : ∀ x y, ((E.withClassicalReads K).run₂ .instruments (call x)).branch y =
+      H.branch B x y) (next : List Y → X) (ys : List Y) :
+    ((E.withClassicalReads K).run₂ .instruments
+      (checkMixedTranscript call next ys)).branch true =
+      H.transcriptBranch B (adaptiveTranscript next ys) := by
+  induction ys generalizing next with
+  | nil =>
+    rw [checkMixedTranscript, QuantumRuntime.run₂_pure, SubInstrument.branch_pure_self]
+    simp only [adaptiveTranscript, transcriptBranch_nil]
+    rfl
+  | cons y ys ih =>
+    rw [checkMixedTranscript, QuantumRuntime.run₂_bind,
+      DSubInstrument.branch_bind_apply_univ, Finset.sum_eq_single y]
+    · rw [ite_eq_left rfl, ih, hcall]
+      exact (H.transcriptBranch_cons B (next [], y) _).symm
+    · intro z _ hz
+      rw [ite_eq_right hz, QuantumRuntime.run₂_pure,
+        SubInstrument.branch_pure_of_ne (by decide), LinearMap.zero_comp]
+    · simp
+
+/-- With the same coins and stopping rule, replay of a terminal mixed execution retains
+exactly its original history and substate; incompatible terminal histories vanish. -/
+theorem replay_checkMixedTranscript {Addr Ans : Type} [Fintype Ans] [DecidableEq Ans]
+    (K : ProjectiveClassicalAnswers E Addr Ans) (B : QReg)
+    (call : X → QComp (withReadSpec (EmulatedOracle.cohSpec In) Addr Ans) B B Y)
+    (hcall : ∀ x y, ((E.withClassicalReads K).run₂ .instruments (call x)).branch y =
+      H.branch B x y) {Coins : Type*} (next : Coins → List Y → X)
+    (stop : Coins → List Y → Bool) (coins : Coins) (ys zs : List Y)
+    (hy : TerminalTranscript (stop coins) ys) (hz : TerminalTranscript (stop coins) zs) :
+    ((E.withClassicalReads K).run₂ .instruments
+        (checkMixedTranscript call (next coins) zs)).branch true ∘ₗ
+      ((E.withClassicalReads K).run₂ .instruments
+        (checkMixedTranscript call (next coins) ys)).branch true =
+      if zs = ys then ((E.withClassicalReads K).run₂ .instruments
+        (checkMixedTranscript call (next coins) ys)).branch true else 0 := by
+  simp only [H.branch_checkMixedTranscript K B call hcall]
+  exact H.replay_fixedCoins_terminal B next stop coins ys zs hy hz
 
 end runtime
 

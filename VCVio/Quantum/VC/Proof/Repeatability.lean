@@ -390,6 +390,89 @@ noncomputable def projectiveClassicalAnswers :
   commute_cells x y x' y' := answer_commute x x' y y'
   commute_ordinary := answer_commute_ordinary
 
+/-- The mixed answer certificate preserves the distinction between an ordinary answer and
+both kinds of checked outcome. It supplies algebra, not an additional runtime port. -/
+@[expose]
+noncomputable def mixedAnswers :=
+  (projectiveClassicalAnswers (k := k) (X := X) (Y := Y)).sumAnswers
+    (compressedVCOracle k X Y).classicalRead (fun x y c a ↦ answer_commute_checked x c y a)
+
+/-- An ordinary basis call uses the live coherent ordinary port; a checked call uses the
+implemented read port. The sum tag records which capability produced the answer. -/
+@[expose]
+noncomputable def mixedCall (B : QReg) :
+    (Fin k × X) ⊕ (Fin k × X) → QComp (mixedOracleSpec k X Y) B B (Y ⊕ Option Y)
+  | .inl x =>
+    QuantumComp₂.map Sum.inl
+      ((QComp.callBasis (spec := uSpec (Fin k) (oIn k X Y)) x.1 B (x.2, 0)
+        (fun o _ ↦ o.2)).toCoherent.liftOrdinary)
+  | .inr x => ((compressedVCOracle k X Y).classicalRead.classicalCall B x).map Sum.inr
+
+/-- Both capabilities realize their own projectors in the actual checked runtime. -/
+theorem branch_mixedCall (B : QReg) (x : (Fin k × X) ⊕ (Fin k × X)) (a : Y ⊕ Option Y) :
+    ((compressedVCOracle k X Y).mixedRuntime.run₂ .instruments (mixedCall B x)).branch a =
+      (mixedAnswers (k := k) (X := X) (Y := Y)).branch B x a := by
+  have ho (x : Fin k × X) (y : Y) :
+      ((compressedVCOracle k X Y).mixedRuntime.run₂ .instruments
+        ((QComp.callBasis (spec := uSpec (Fin k) (oIn k X Y)) x.1 B (x.2, 0)
+          (fun o _ ↦ o.2)).toCoherent.liftOrdinary)).branch y =
+      MatrixMap.conj ((1 : Matrix B B ℂ) ⊗ₖ answer x y) := by
+    erw [QuantumRuntime.branch_run₂]
+    change (((compressedVCOracle k X Y).coherent.toRuntime.extend
+      (t := classicalReadSpec (Fin k × X) (Option Y))
+      (compressedVCOracle k X Y).classicalRead.step).run .instruments _).branch _ = _
+    erw [QuantumRuntime.run_liftOrdinary, EmulatedOracle.run_toCoherent]
+    exact branch_eq B x y
+  cases x <;> cases a
+  all_goals
+    erw [mixedCall, QuantumRuntime.run₂_map]
+    change (DSubInstrument.map _ _).branch _ = _
+    erw [DSubInstrument.branch_map_apply_univ]
+    simp only [Sum.inl.injEq, Sum.inr.injEq, Sum.inl_ne_inr, Sum.inr_ne_inl,
+      cast_eq, dite_eq_ite, ite_false, Finset.sum_const_zero,
+      Finset.sum_ite_eq', Finset.mem_univ, ite_true]
+  · erw [ho]
+    rfl
+  · simp [ProjectiveClassicalAnswers.branch, mixedAnswers,
+      ProjectiveClassicalAnswers.sumAnswers]
+    rfl
+  · simp [ProjectiveClassicalAnswers.branch, mixedAnswers,
+      ProjectiveClassicalAnswers.sumAnswers]
+    rfl
+  · erw [ProjectiveClassicalAnswers.branch_classicalCall]
+    rfl
+
+/-- A fixed mixed policy is realized by alternating actual ordinary and checked calls.
+The retained branch is the product of the mixed projectors selected by the answer history. -/
+theorem branch_mixedAdaptive (B : QReg)
+    (next : List (Y ⊕ Option Y) → (Fin k × X) ⊕ (Fin k × X)) (ys : List (Y ⊕ Option Y)) :
+    ((compressedVCOracle k X Y).mixedRuntime.run₂ .instruments
+      (ProjectiveClassicalAnswers.checkMixedTranscript (mixedCall B) next ys)).branch true =
+      (mixedAnswers (k := k) (X := X) (Y := Y)).transcriptBranch B
+        (ProjectiveClassicalAnswers.adaptiveTranscript next ys) :=
+  (mixedAnswers (k := k) (X := X) (Y := Y)).branch_checkMixedTranscript
+    (compressedVCOracle k X Y).classicalRead B (mixedCall B) (branch_mixedCall B) next ys
+
+/-- Terminal histories of the actual mixed execution replay with the same coins, including
+answer-dependent stopping and checked failures. Distinct terminal histories have zero branch. -/
+theorem replay_mixedAdaptive {Coins : Type*} (B : QReg)
+    (next : Coins → List (Y ⊕ Option Y) → (Fin k × X) ⊕ (Fin k × X))
+    (stop : Coins → List (Y ⊕ Option Y) → Bool) (coins : Coins) (ys zs : List (Y ⊕ Option Y))
+    (hy : ProjectiveClassicalAnswers.TerminalTranscript (stop coins) ys)
+    (hz : ProjectiveClassicalAnswers.TerminalTranscript (stop coins) zs) :
+    ((compressedVCOracle k X Y).mixedRuntime.run₂ .instruments
+        (ProjectiveClassicalAnswers.checkMixedTranscript
+          (mixedCall B) (next coins) zs)).branch true ∘ₗ
+      ((compressedVCOracle k X Y).mixedRuntime.run₂ .instruments
+        (ProjectiveClassicalAnswers.checkMixedTranscript
+          (mixedCall B) (next coins) ys)).branch true =
+      if zs = ys then ((compressedVCOracle k X Y).mixedRuntime.run₂ .instruments
+        (ProjectiveClassicalAnswers.checkMixedTranscript (mixedCall B) (next coins) ys)).branch true
+      else 0 :=
+  (mixedAnswers (k := k) (X := X) (Y := Y)).replay_checkMixedTranscript
+    (compressedVCOracle k X Y).classicalRead B (mixedCall B) (branch_mixedCall B)
+    next stop coins ys zs hy hz
+
 end CompressedReplay
 
 end Quantum
