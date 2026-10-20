@@ -95,9 +95,8 @@ noncomputable def sandwich (p : SubInstrument A B α) (Φ : MatrixMap A' A) (Ψ 
     (hΦ : Φ.IsCP) (hΦ' : Φ.IsTNI) (hΨ : Ψ.IsCP) (hΨ' : Ψ.IsTNI) : SubInstrument A' B' α where
   branch a := Ψ ∘ₗ p.branch a ∘ₗ Φ
   isCP_branch a := hΨ.comp ((p.isCP_branch a).comp hΦ)
-  isTNI_sum s ρ hρ := by
+  trace_le s ρ hρ := by
     have hΦρ := hΦ.posSemidef hρ
-    rw [MatrixMap.trace_re_sum_apply]
     calc ∑ a ∈ s, ((Ψ ∘ₗ p.branch a ∘ₗ Φ) ρ).trace.re
         ≤ ∑ a ∈ s, (p.branch a (Φ ρ)).trace.re :=
           Finset.sum_le_sum fun a _ ↦ hΨ' _ ((p.isCP_branch a).posSemidef hΦρ)
@@ -615,12 +614,12 @@ theorem rpow_inv_two_outcomeLawWith_le_of_inImage {γ : Type*} [MeasurableSpace 
       (ρ.matrix ⊗ₖ σ₀.matrix))
     (h₁ : (QuantumRuntime.mk D σ₀ s₁).ForallQueries I (InImageAt P s₁) x
       (ρ.matrix ⊗ₖ σ₀.matrix)) :
-    (QuantumRuntime.mk D σ₀ s₀).outcomeLawWith I x ρ f s ^ (2⁻¹ : ℝ) ≤
-      (QuantumRuntime.mk D σ₀ s₁).outcomeLawWith I x ρ f s ^ (2⁻¹ : ℝ) +
+    (QuantumRuntime.mk D σ₀ s₀).evalDistMap I x ρ f s ^ (2⁻¹ : ℝ) ≤
+      (QuantumRuntime.mk D σ₀ s₁).evalDistMap I x ρ f s ^ (2⁻¹ : ℝ) +
         ∑' j, (QuantumRuntime.mk D σ₀ s₀).queryWeight I (krausWeight (lemmaKraus P V U W)) x
           (ρ.matrix ⊗ₖ σ₀.matrix) j ^ (2⁻¹ : ℝ) := by
   classical
-  rw [outcomeLawWith_apply _ _ _ _ _ hs, outcomeLawWith_apply _ _ _ _ _ hs]
+  rw [evalDistMap_apply _ _ _ _ _ hs, evalDistMap_apply _ _ _ _ _ hs]
   simp only [matrix_jointPost]
   rw [tsum_indicator_eq_isometry hV f s
       (fun p ↦ ((QuantumRuntime.mk D σ₀ s₀).run I x).branch p (ρ.matrix ⊗ₖ σ₀.matrix)),
@@ -639,12 +638,12 @@ theorem rpow_inv_two_outcomeLawWith_le_of_inImage' {γ : Type*} [MeasurableSpace
       (ρ.matrix ⊗ₖ σ₀.matrix))
     (h₁ : (QuantumRuntime.mk D σ₀ s₁).ForallQueries I (InImageAt P s₁) x
       (ρ.matrix ⊗ₖ σ₀.matrix)) :
-    (QuantumRuntime.mk D σ₀ s₁).outcomeLawWith I x ρ f s ^ (2⁻¹ : ℝ) ≤
-      (QuantumRuntime.mk D σ₀ s₀).outcomeLawWith I x ρ f s ^ (2⁻¹ : ℝ) +
+    (QuantumRuntime.mk D σ₀ s₁).evalDistMap I x ρ f s ^ (2⁻¹ : ℝ) ≤
+      (QuantumRuntime.mk D σ₀ s₀).evalDistMap I x ρ f s ^ (2⁻¹ : ℝ) +
         ∑' j, (QuantumRuntime.mk D σ₀ s₀).queryWeight I (krausWeight (lemmaKraus P V U W)) x
           (ρ.matrix ⊗ₖ σ₀.matrix) j ^ (2⁻¹ : ℝ) := by
   classical
-  rw [outcomeLawWith_apply _ _ _ _ _ hs, outcomeLawWith_apply _ _ _ _ _ hs]
+  rw [evalDistMap_apply _ _ _ _ _ hs, evalDistMap_apply _ _ _ _ _ hs]
   simp only [matrix_jointPost]
   rw [tsum_indicator_eq_isometry hV f s
       (fun p ↦ ((QuantumRuntime.mk D σ₀ s₀).run I x).branch p (ρ.matrix ⊗ₖ σ₀.matrix)),
@@ -713,8 +712,8 @@ theorem rpow_inv_two_outcomeLawWith_le_of_inImage_mass {γ : Type*} [MeasurableS
       (ρ.matrix ⊗ₖ σ₀.matrix))
     (h₁ : (QuantumRuntime.mk D σ₀ s₁).ForallQueries I (InImageAt P s₁) x
       (ρ.matrix ⊗ₖ σ₀.matrix)) :
-    (QuantumRuntime.mk D σ₀ s₀).outcomeLawWith I x ρ f s ^ (2⁻¹ : ℝ) ≤
-      (QuantumRuntime.mk D σ₀ s₁).outcomeLawWith I x ρ f s ^ (2⁻¹ : ℝ) +
+    (QuantumRuntime.mk D σ₀ s₀).evalDistMap I x ρ f s ^ (2⁻¹ : ℝ) ≤
+      (QuantumRuntime.mk D σ₀ s₁).evalDistMap I x ρ f s ^ (2⁻¹ : ℝ) +
         ∑' j, (∑' i, (∑' r, ENNReal.ofReal (‖projDiff P V U W i r‖ ^ 2)) *
           (QuantumRuntime.mk D σ₀ s₀).queryMassAt I x (ρ.matrix ⊗ₖ σ₀.matrix) i j) ^
             (2⁻¹ : ℝ) :=
@@ -734,8 +733,8 @@ theorem rpow_inv_two_outcomeLawWith_le_of_inImage_mass' {γ : Type*} [Measurable
       (ρ.matrix ⊗ₖ σ₀.matrix))
     (h₁ : (QuantumRuntime.mk D σ₀ s₁).ForallQueries I (InImageAt P s₁) x
       (ρ.matrix ⊗ₖ σ₀.matrix)) :
-    (QuantumRuntime.mk D σ₀ s₁).outcomeLawWith I x ρ f s ^ (2⁻¹ : ℝ) ≤
-      (QuantumRuntime.mk D σ₀ s₀).outcomeLawWith I x ρ f s ^ (2⁻¹ : ℝ) +
+    (QuantumRuntime.mk D σ₀ s₁).evalDistMap I x ρ f s ^ (2⁻¹ : ℝ) ≤
+      (QuantumRuntime.mk D σ₀ s₀).evalDistMap I x ρ f s ^ (2⁻¹ : ℝ) +
         ∑' j, (∑' i, (∑' r, ENNReal.ofReal (‖projDiff P V U W i r‖ ^ 2)) *
           (QuantumRuntime.mk D σ₀ s₀).queryMassAt I x (ρ.matrix ⊗ₖ σ₀.matrix) i j) ^
             (2⁻¹ : ℝ) :=
@@ -754,10 +753,10 @@ theorem max_tsub_rpow_inv_two_outcomeLawWith_le_of_inImage_mass {γ : Type*}
       (ρ.matrix ⊗ₖ σ₀.matrix))
     (h₁ : (QuantumRuntime.mk D σ₀ s₁).ForallQueries I (InImageAt P s₁) x
       (ρ.matrix ⊗ₖ σ₀.matrix)) :
-    max ((QuantumRuntime.mk D σ₀ s₀).outcomeLawWith I x ρ f s ^ (2⁻¹ : ℝ) -
-        (QuantumRuntime.mk D σ₀ s₁).outcomeLawWith I x ρ f s ^ (2⁻¹ : ℝ))
-      ((QuantumRuntime.mk D σ₀ s₁).outcomeLawWith I x ρ f s ^ (2⁻¹ : ℝ) -
-        (QuantumRuntime.mk D σ₀ s₀).outcomeLawWith I x ρ f s ^ (2⁻¹ : ℝ)) ≤
+    max ((QuantumRuntime.mk D σ₀ s₀).evalDistMap I x ρ f s ^ (2⁻¹ : ℝ) -
+        (QuantumRuntime.mk D σ₀ s₁).evalDistMap I x ρ f s ^ (2⁻¹ : ℝ))
+      ((QuantumRuntime.mk D σ₀ s₁).evalDistMap I x ρ f s ^ (2⁻¹ : ℝ) -
+        (QuantumRuntime.mk D σ₀ s₀).evalDistMap I x ρ f s ^ (2⁻¹ : ℝ)) ≤
       ∑' j, (∑' i, (∑' r, ENNReal.ofReal (‖projDiff P V U W i r‖ ^ 2)) *
         (QuantumRuntime.mk D σ₀ s₀).queryMassAt I x (ρ.matrix ⊗ₖ σ₀.matrix) i j) ^
           (2⁻¹ : ℝ) :=
@@ -787,8 +786,8 @@ theorem rpow_inv_two_outcomeLawWith_le_of_inImage_of_isQueryBound {γ : Type*}
       (ρ.matrix ⊗ₖ σ₀.matrix))
     (h₁ : (QuantumRuntime.mk D σ₀ s₁).ForallQueries I (InImageAt P s₁) x
       (ρ.matrix ⊗ₖ σ₀.matrix)) :
-    (QuantumRuntime.mk D σ₀ s₀).outcomeLawWith I x ρ f s ^ (2⁻¹ : ℝ) ≤
-      (QuantumRuntime.mk D σ₀ s₁).outcomeLawWith I x ρ f s ^ (2⁻¹ : ℝ) +
+    (QuantumRuntime.mk D σ₀ s₀).evalDistMap I x ρ f s ^ (2⁻¹ : ℝ) ≤
+      (QuantumRuntime.mk D σ₀ s₁).evalDistMap I x ρ f s ^ (2⁻¹ : ℝ) +
         (((∑ i ∈ t, b i : ℕ) : ℝ≥0∞) *
           ∑' i, (∑' r, ENNReal.ofReal (‖projDiff P V U W i r‖ ^ 2)) *
             (QuantumRuntime.mk D σ₀ s₀).queryMass I x (ρ.matrix ⊗ₖ σ₀.matrix) i) ^
@@ -809,8 +808,8 @@ theorem rpow_inv_two_outcomeLawWith_le_of_inImage_of_isQueryBound' {γ : Type*}
       (ρ.matrix ⊗ₖ σ₀.matrix))
     (h₁ : (QuantumRuntime.mk D σ₀ s₁).ForallQueries I (InImageAt P s₁) x
       (ρ.matrix ⊗ₖ σ₀.matrix)) :
-    (QuantumRuntime.mk D σ₀ s₁).outcomeLawWith I x ρ f s ^ (2⁻¹ : ℝ) ≤
-      (QuantumRuntime.mk D σ₀ s₀).outcomeLawWith I x ρ f s ^ (2⁻¹ : ℝ) +
+    (QuantumRuntime.mk D σ₀ s₁).evalDistMap I x ρ f s ^ (2⁻¹ : ℝ) ≤
+      (QuantumRuntime.mk D σ₀ s₀).evalDistMap I x ρ f s ^ (2⁻¹ : ℝ) +
         (((∑ i ∈ t, b i : ℕ) : ℝ≥0∞) *
           ∑' i, (∑' r, ENNReal.ofReal (‖projDiff P V U W i r‖ ^ 2)) *
             (QuantumRuntime.mk D σ₀ s₀).queryMass I x (ρ.matrix ⊗ₖ σ₀.matrix) i) ^
@@ -830,10 +829,10 @@ theorem max_tsub_rpow_inv_two_outcomeLawWith_le_of_inImage_of_isQueryBound {γ :
       (ρ.matrix ⊗ₖ σ₀.matrix))
     (h₁ : (QuantumRuntime.mk D σ₀ s₁).ForallQueries I (InImageAt P s₁) x
       (ρ.matrix ⊗ₖ σ₀.matrix)) :
-    max ((QuantumRuntime.mk D σ₀ s₀).outcomeLawWith I x ρ f s ^ (2⁻¹ : ℝ) -
-        (QuantumRuntime.mk D σ₀ s₁).outcomeLawWith I x ρ f s ^ (2⁻¹ : ℝ))
-      ((QuantumRuntime.mk D σ₀ s₁).outcomeLawWith I x ρ f s ^ (2⁻¹ : ℝ) -
-        (QuantumRuntime.mk D σ₀ s₀).outcomeLawWith I x ρ f s ^ (2⁻¹ : ℝ)) ≤
+    max ((QuantumRuntime.mk D σ₀ s₀).evalDistMap I x ρ f s ^ (2⁻¹ : ℝ) -
+        (QuantumRuntime.mk D σ₀ s₁).evalDistMap I x ρ f s ^ (2⁻¹ : ℝ))
+      ((QuantumRuntime.mk D σ₀ s₁).evalDistMap I x ρ f s ^ (2⁻¹ : ℝ) -
+        (QuantumRuntime.mk D σ₀ s₀).evalDistMap I x ρ f s ^ (2⁻¹ : ℝ)) ≤
       (((∑ i ∈ t, b i : ℕ) : ℝ≥0∞) *
         ∑' i, (∑' r, ENNReal.ofReal (‖projDiff P V U W i r‖ ^ 2)) *
           (QuantumRuntime.mk D σ₀ s₀).queryMass I x (ρ.matrix ⊗ₖ σ₀.matrix) i) ^
@@ -857,10 +856,10 @@ theorem max_tsub_rpow_inv_two_outcomeLawWith_sq_le_of_inImage_of_isQueryBound {�
       (ρ.matrix ⊗ₖ σ₀.matrix))
     (h₁ : (QuantumRuntime.mk D σ₀ s₁).ForallQueries I (InImageAt P s₁) x
       (ρ.matrix ⊗ₖ σ₀.matrix)) :
-    max ((QuantumRuntime.mk D σ₀ s₀).outcomeLawWith I x ρ f s ^ (2⁻¹ : ℝ) -
-        (QuantumRuntime.mk D σ₀ s₁).outcomeLawWith I x ρ f s ^ (2⁻¹ : ℝ))
-      ((QuantumRuntime.mk D σ₀ s₁).outcomeLawWith I x ρ f s ^ (2⁻¹ : ℝ) -
-        (QuantumRuntime.mk D σ₀ s₀).outcomeLawWith I x ρ f s ^ (2⁻¹ : ℝ)) ^ 2 ≤
+    max ((QuantumRuntime.mk D σ₀ s₀).evalDistMap I x ρ f s ^ (2⁻¹ : ℝ) -
+        (QuantumRuntime.mk D σ₀ s₁).evalDistMap I x ρ f s ^ (2⁻¹ : ℝ))
+      ((QuantumRuntime.mk D σ₀ s₁).evalDistMap I x ρ f s ^ (2⁻¹ : ℝ) -
+        (QuantumRuntime.mk D σ₀ s₀).evalDistMap I x ρ f s ^ (2⁻¹ : ℝ)) ^ 2 ≤
       ((∑ i ∈ t, b i : ℕ) : ℝ≥0∞) *
         ∑' i, (∑' r, ENNReal.ofReal (‖projDiff P V U W i r‖ ^ 2)) *
           (QuantumRuntime.mk D σ₀ s₀).queryMass I x (ρ.matrix ⊗ₖ σ₀.matrix) i :=

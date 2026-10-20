@@ -1,4 +1,5 @@
-module
+module  -- shake: keep-all --deprecated_module: ignore
+
 public import VCVio.CryptoFoundations.AKE.UAKE.Defs
 public import VCVio.CryptoFoundations.AKE.UAKE.Party
 public import VCVio.CryptoFoundations.AKE.UAKE.Runtime

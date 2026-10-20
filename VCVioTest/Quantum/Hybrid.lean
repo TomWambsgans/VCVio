@@ -150,7 +150,7 @@ theorem fail_branch (i : unitSpec.Port) (r : unitSpec.Result i) :
     (SubInstrument.fail : SubInstrument (Unit × Fin 2) (Unit × Fin 2) Unit).branch r =
       MatrixMap.conj ((fun _ _ ↦ (0 : Matrix (Unit × Fin 2) (Unit × Fin 2) ℂ)) i r) := by
   refine LinearMap.ext fun ρ ↦ ?_
-  simp [SubInstrument.branch_fail]
+  simp [DSubInstrument.branch_fail]
 
 /-- Against the identity step, `oneCall` keeps the trace of its input. -/
 theorem tsum_trace_run_idRuntime (ρ : SubState (QReg.of (Unit × Unit))) :
@@ -161,14 +161,14 @@ theorem tsum_trace_run_idRuntime (ρ : SubState (QReg.of (Unit × Unit))) :
   simp only [MatrixMap.conj_one, LinearMap.id_apply]
   refine (idRuntime.tsum_jointPost_trace I oneCall ρ).trans ?_
   rw [idRuntime.lossless_run I (x := oneCall) (fun _ ↦ trivial)
-    (fun _ ↦ SubInstrument.lossless_ofKraus _ (by simp)), SubState.trace_re_prod]
+    (fun _ ↦ DSubInstrument.lossless_ofKraus _ (by simp)), SubState.trace_re_prod]
   simp
 
 /-- A call against the failing step fails. -/
 theorem branch_queryStep_failRuntime (E : QReg) {A : QReg} (ℓ : A ≃ unitSpec.In () × E)
     (r : Unit) : (failRuntime.queryStep () E ℓ).branch r = 0 := by
   refine LinearMap.ext fun ρ ↦ ?_
-  simp [queryStep, SubInstrument.branch_bind_apply, SubInstrument.branch_fail]
+  simp [queryStep, DSubInstrument.branch_fail]
 
 /-- Against the failing step, `oneCall` fails. -/
 theorem tsum_trace_run_failRuntime (ρ : SubState (QReg.of (Unit × Unit))) :
@@ -178,7 +178,7 @@ theorem tsum_trace_run_failRuntime (ρ : SubState (QReg.of (Unit × Unit))) :
   simp only [MatrixMap.conj_one, LinearMap.id_apply]
   refine (failRuntime.tsum_jointPost_trace I oneCall ρ).trans ?_
   rw [oneCall, run_queryBind, DSubInstrument.familyTrace_bind]
-  simp [SubInstrument.branch_toD, branch_queryStep_failRuntime]
+  simp [branch_queryStep_failRuntime]
 
 /-- The error term of Lemma 5.7 for the identity step against the failing step, on `oneCall`, is
 the square root of the trace of the input. -/
@@ -236,7 +236,7 @@ end OneCall
 @[expose, reducible]
 noncomputable def measBit : LocalSig.instruments.Op (QReg.of (Unit × Fin 2)) :=
   ⟨Fin 2, fun _ ↦ QReg.of (Unit × Fin 2),
-    SubInstrument.toD (SubInstrument.classical id fun m : Unit × Fin 2 ↦ m.2)⟩
+    DSubInstrument.classical (B := fun _ ↦ Unit × Fin 2) (fun m ↦ m.2) id⟩
 
 /-- Measure the bit; on `1`, call with the bit as the rest of the register; return the bit. -/
 @[expose]
@@ -253,10 +253,10 @@ branch of the measurement on `1`, whatever the runtime. -/
 theorem queryMass_callIfOne (R : QuantumRuntime unitSpec)
     (ρ : Matrix (QReg.of (Unit × Fin 2) × R.D) (QReg.of (Unit × Fin 2) × R.D) ℂ) :
     R.queryMass .instruments callIfOne ρ () =
-      ENNReal.ofReal (((SubInstrument.classical id fun m : Unit × Fin 2 ↦ m.2).branch 1).amplify
-        R.D ρ).trace.re := by
+      ENNReal.ofReal (((DSubInstrument.classical (B := fun _ ↦ Unit × Fin 2)
+        (fun m ↦ m.2) id).branch 1).amplify R.D ρ).trace.re := by
   rw [callIfOne, queryMass_primBind, tsum_fintype, Fin.sum_univ_two]
-  simp [queryMass_queryBind_self, DSubInstrument.branch_frame_apply, SubInstrument.branch_toD]
+  simp [queryMass_queryBind_self, DSubInstrument.branch_frame_apply]
 
 /-- There is never a second call. -/
 theorem queryMassAt_callIfOne_succ (R : QuantumRuntime unitSpec)
@@ -272,7 +272,7 @@ theorem queryMass_callIfOne_basis (R : QuantumRuntime unitSpec) (c : Fin 2) :
         ((SubState.basis ((), c)).matrix ⊗ₖ R.init.matrix) () =
       if c = 1 then ENNReal.ofReal R.init.matrix.trace.re else 0 := by
   rw [queryMass_callIfOne, MatrixMap.amplify_kronecker, SubState.matrix_basis,
-    SubInstrument.branch_classical_basis, Matrix.trace_kronecker]
+    DSubInstrument.branch_classical_basis, Matrix.trace_kronecker]
   split_ifs <;> simp_all
 
 /-! ## Two coherent indices -/
@@ -486,8 +486,8 @@ two-sided form, with the index masses of the run against `U` only, bounds
 `|√p₀ - √p₁|` by an error term that vanishes. -/
 example {γ : Type*} [MeasurableSpace γ] (f : (Σ u, (fun _ : QReg ↦ Unit) u) → γ) {s : Set γ}
     (hs : MeasurableSet s) :
-    idBitRuntime.outcomeLawWith I indexCall (SubState.basis ((0 : Fin 2), ())) f s =
-      flipRuntime.outcomeLawWith I indexCall (SubState.basis ((0 : Fin 2), ())) f s := by
+    idBitRuntime.evalDistMap I indexCall (SubState.basis ((0 : Fin 2), ())) f s =
+      flipRuntime.evalDistMap I indexCall (SubState.basis ((0 : Fin 2), ())) f s := by
   have hin : ∀ {s : ∀ i, SubInstrument (bitSpec.In i × QReg.of Unit)
       (bitSpec.Out i × QReg.of Unit) (bitSpec.Result i)},
       (QuantumRuntime.mk (QReg.of Unit) (SubState.basis ()) s).ForallQueries I

@@ -1,4 +1,5 @@
-module
+module  -- shake: keep-all --deprecated_module: ignore
+
 public import VCVioTest.AKE.UAKE.ExperimentFixtures
 public import VCVioTest.AKE.UAKE.TranscriptFixtures
 public import VCVioTest.Asymptotics.Negligible
