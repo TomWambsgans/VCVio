@@ -5,7 +5,7 @@ Authors: Quang Dao
 -/
 
 module
-import VCVio.Quantum.VC.Merkle.Online
+public import VCVio.Quantum.VC.Merkle.Online
 
 /-!
 # Public-import checks for recording grades and online constants
@@ -104,3 +104,112 @@ end
 #check Quantum.compressed_online_of_instability
 #check SaltedMerkle.merkle_online
 #print axioms SaltedMerkle.merkle_online
+
+public section
+
+open Quantum
+open scoped ENNReal
+
+namespace ReadRecordingCounterexample
+
+open Matrix
+open scoped Kronecker
+
+private def swapBits (b : Bool) : Equiv.Perm (Bool × Bool × Bool) where
+  toFun r := if b then (r.2.2, r.2.1, r.1) else (r.2.1, r.1, r.2.2)
+  invFun r := if b then (r.2.2, r.2.1, r.1) else (r.2.1, r.1, r.2.2)
+  left_inv r := by cases b <;> rfl
+  right_inv r := by cases b <;> rfl
+
+private def split (d : Option Bool) : Equiv.Perm (Bool × Bool × Bool) :=
+  swapBits (d == some false)
+
+/-- The empty-read branch has a nonzero commutator with the controlled record swap. -/
+example : readPermutationDefect split
+    (fun _ : Unit ↦ checkedReadEmptyCell (Y := Bool))
+      ((some false, (false, false, true)), ()) (some true, (true, false, false)) =
+        (1 / 2 : ℂ) := by
+  norm_num [readPermutationDefect, split, swapBits, checkedReadEmptyCell_apply,
+    cellUniform_some, cellAmp_mul_self]
+
+end ReadRecordingCounterexample
+
+section ReadMass
+
+open Matrix
+
+private abbrev readSpec := classicalReadSpec Unit Bool
+private abbrev workReg := QReg.of (Unit × Unit)
+
+private noncomputable def readOnce :
+    QuantumComp LocalSig.instruments readSpec (fun _ ↦ Unit) workReg :=
+  .queryBind () (QReg.of Unit) (Equiv.refl _) (fun _ ↦ .pure ())
+
+example : readOnce.IsTotalQueryBound 1 := by
+  simp [readOnce, QuantumComp.isTotalQueryBound_queryBind_iff]
+
+/-- A read-only wrapper charges its input trace once, independently of its outcome law. -/
+example (R : QuantumRuntime readSpec)
+    (σ : Matrix (workReg × R.D) (workReg × R.D) ℂ) :
+    R.totalWeight .instruments (fun _ τ ↦ ENNReal.ofReal τ.trace.re) readOnce σ =
+      ENNReal.ofReal σ.trace.re := by
+  simp [readOnce, QuantumRuntime.totalWeight_queryBind, QuantumRuntime.trace_callInput]
+
+/-- A program without calls has zero mass in either runtime. -/
+example (R T : QuantumRuntime readSpec)
+    (σ : Matrix (workReg × R.D) (workReg × R.D) ℂ)
+    (τ : Matrix (workReg × T.D) (workReg × T.D) ℂ) :
+    R.totalWeight .instruments (fun _ ω ↦ ENNReal.ofReal ω.trace.re)
+        (QuantumComp.pure (A := workReg) (X := fun _ ↦ Unit) ()) σ =
+      T.totalWeight .instruments (fun _ ω ↦ ENNReal.ofReal ω.trace.re)
+        (QuantumComp.pure (A := workReg) (X := fun _ ↦ Unit) ()) τ := by
+  simp
+
+private noncomputable abbrev constantRead (b : Bool) : QuantumRuntime readSpec where
+  D := QReg.of Unit
+  init := SubState.basis ()
+  step _ := SubInstrument.pure b
+
+private noncomputable def conditionalRead : QuantumComp LocalSig.instruments readSpec
+    (fun _ ↦ Unit) workReg :=
+  .queryBind () (QReg.of Unit) (Equiv.refl _)
+    (fun b ↦ if b then readOnce else .pure ())
+
+/-- Adaptive read mass belongs to its execution world, even with identical initialization. -/
+example (b : Bool) (σ : Matrix (workReg × Unit) (workReg × Unit) ℂ) :
+    (constantRead b).totalWeight .instruments (fun _ τ ↦ ENNReal.ofReal τ.trace.re)
+      conditionalRead σ = (if b then 2 else 1) * ENNReal.ofReal σ.trace.re := by
+  dsimp only [constantRead, workReg, readSpec, classicalReadSpec]
+  simp only [conditionalRead, QuantumRuntime.totalWeight_queryBind,
+    tsum_fintype, Fintype.sum_bool]
+  simp only [Bool.false_eq_true, ite_false, ite_true, QuantumRuntime.totalWeight_pure,
+    add_zero, readOnce, QuantumRuntime.totalWeight_queryBind,
+    QuantumRuntime.totalWeight_pure, tsum_zero]
+  rw [QuantumRuntime.queryStep_branch_apply]
+  cases b <;> simp [SubInstrument.relabel_branch_apply, QuantumRuntime.trace_callInput,
+    QuantumRuntime.queryEquivIn, QuantumRuntime.queryEquivOut, Function.comp_def, two_mul]
+  rfl
+
+end ReadMass
+
+/-- Empty records give zero read defect without observing the record-key register. -/
+theorem VCOnlineTest.readPermutationDefect_empty_record
+    {k : ℕ} {Cm S Cell A : Type} {Dm : Fin k → Type}
+    [Fintype Cm] [∀ i, Fintype (Dm i)] [∀ i, DecidableEq (Dm i)]
+    [DecidableEq Cell]
+    (ME : MultiExtractor k Cm Dm S) (M : A → Matrix S S ℂ) (bot : Cell)
+    (s s' : S) (r : RecReg k Cm Dm Cell) (a : A) :
+    readPermutationDefect (RecReg.swapEquiv ME) M ((s, r), a) (s', RecReg.const bot) = 0 := by
+  simp [readPermutationDefect, RecReg.swapEquiv, RecReg.swap_const]
+
+example (N t : ℕ) : merkleOnlineError N t ⊤ = merkleOnlineError N t t := by
+  simp [merkleOnlineError]
+
+/-- The mixed recording weight charges the entire read input once. -/
+example (E : VCOracle 1 Unit (ZMod 2))
+    (ME : MultiExtractor 1 Unit (fun _ ↦ Unit) E.S)
+    (code : TpDCode 1 (fun _ ↦ Unit) (ZMod 2))
+    (σ : Matrix (Unit × (E.S × RecReg 1 Unit (fun _ ↦ Unit) Bool))
+      (Unit × (E.S × RecReg 1 Unit (fun _ ↦ Unit) Bool)) ℂ) :
+    E.recordVCWeight ME code false (1 : Matrix (Unit × Bool) (Unit × Bool) ℂ)
+      (one_mem _) (.inr (0, ())) σ = ENNReal.ofReal σ.trace.re := rfl

@@ -15,10 +15,9 @@ A list of `n` recorded extraction keys contributes at most `n` roots at an affec
 All keys share the same half-preimage set, giving the bound `(n + 2 * D.size) / |Y|`.
 The empty list has zero instability. No collision-freeness hypothesis is needed.
 
-These bounds prove online indistinguishability as in ePrint 2025/2166, Lemma 9.7, pp. 65–70.
-The sharper
-joint-budget count and the time-dependent sum are from the bounds note, equations (24)–(25)
-and (30), and the repair note, equation (2). The final theorem includes the probability cap.
+These bounds prove mixed online indistinguishability following Chiesa, Di, Hu and Zheng,
+ePrint 2025/2166, Lemma 9.7, pp. 65–70. The joint population budget gives an exact sum
+of local rates, with the combined source mass capped by the total call budget.
 -/
 
 public section
@@ -146,14 +145,14 @@ theorem instability_onlineLabel_empty [AnswerMeasure (X →ₒ Y)]
     exact Fin.elim0 a
   rw [he, Database.instability_const]
 
-/-- The joint-budget arithmetic in the bounds note, equation (30): a nonempty record set
+/-- Joint-budget arithmetic: a nonempty record set
 and the remaining database fit into the budget before the active query. -/
 theorem online_joint_count_le {n r h : ℕ} (hn : 1 ≤ n) (hcost : r + n ≤ h - 1) :
     n + 2 * r ≤ 2 * h - 3 := by
   omega
 
 /-- The list instability at a joint database/record budget. The zero database cutoff is
-included, and a nonempty list uses the odd coefficient from the bounds note, equation (30). -/
+included, and a nonempty list gives the odd coefficient `2*h-3`. -/
 theorem instability_onlineLabel_list_le_jointBudget [Finite X]
     [UniformAnswerMeasure (X →ₒ Y)] {n s h : ℕ} (tics : Fin n → TpIC k Y)
     (Dfix : Fin k → Database X Y) (j : Fin k) (hn : 1 ≤ n) (hcost : s + n ≤ h) :
@@ -179,8 +178,8 @@ variable [Fintype X] [AddCommGroup Y] [UniformAnswerMeasure (X →ₒ Y)]
 /-- The generalized commutator on a joint-budget block has squared norm at most
 `24*(2*h-3)/|Y|`. The controls may act on the entire block: their label preservation,
 unitarity, and commutation with the truncated oracle are explicit hypotheses.
-The coefficient 24 is from the bounds note, equation (30), and the repair note, equation (2),
-using ePrint 2025/2166, Theorem 5.4, p. 31, in its generalized form. -/
+The proof uses the generalized commutator estimate associated with Chiesa, Di, Hu and Zheng,
+ePrint 2025/2166, Theorem 5.4, p. 31. -/
 theorem l2_opNorm_online_commutator_sq_le {n s h : ℕ} (tics : Fin n → TpIC k Y)
     (Dfix : Fin k → Database X Y) (j : Fin k) (hn : 1 ≤ n) (hcost : s + n ≤ h)
     (W : (∀ a : Fin n,
@@ -214,7 +213,7 @@ end SaltedMerkle
 namespace Quantum
 
 /-- The local weight of the query at zero-based position `j`. The first query has weight zero;
-the later weights are the odd numbers in the bounds note, equation (30). -/
+the later weights are consecutive odd numbers. -/
 @[expose]
 def onlineStepWeight (j : ℕ) : ℕ := 2 * j - 1
 
@@ -234,7 +233,7 @@ theorem sum_onlineStepWeight (t : ℕ) :
       rw [he]
       ring
 
-/-- Weighted Cauchy–Schwarz gives the exact constant in the bounds note, equation (30).
+/-- Weighted Cauchy–Schwarz preserves the coefficient 24 in the accumulated error.
 The masses are arbitrary nonnegative reals; relating them to a recording execution is a
 separate operator argument. -/
 theorem online_weighted_sum_sq_le (t : ℕ) (mass : ℕ → ℝ) (hmass : ∀ j, 0 ≤ mass j)
@@ -256,7 +255,7 @@ theorem online_weighted_sum_sq_le (t : ℕ) (mass : ℕ → ℝ) (hmass : ∀ j,
     _ = _ := by ring
 
 /-- The square-root accumulation in extended nonnegative reals, including infinite mass
-bounds. Its coefficient and odd-weight schedule are the bounds note, equation (30). -/
+bounds. The odd weights sum to the square of the remaining call budget. -/
 theorem online_weighted_rpow_sum_le (t N : ℕ) (mass : ℕ → ℝ≥0∞) (w : ℝ≥0∞)
     (hw : ∑ j ∈ Finset.range t, mass j ≤ w) :
     ∑ j ∈ Finset.range t, ((24 / N : ℝ≥0∞) * onlineStepWeight j * mass j) ^ (2⁻¹ : ℝ) ≤
@@ -293,7 +292,7 @@ open Matrix
 open scoped Kronecker ComplexOrder
 
 /-- Time-dependent discrepancy weights along an actual coherent execution have the exact
-online square-root bound of the bounds note, equation (30). The port hypothesis is a local
+online square-root bound. The port hypothesis is a local
 squared operator bound on inputs of grade `j`; it does not assume an execution comparison.
 Applying it to the recording swap requires discharging this operator hypothesis. -/
 theorem EmulatedOracle.tsum_rpow_queryWeight_conj_le_online
@@ -323,11 +322,10 @@ theorem EmulatedOracle.tsum_rpow_queryWeight_conj_le_online
   simp only [div_eq_mul_inv]
   ac_rfl
 
-/-- The capped numerical online error from the bounds note, equation (30), and the repair
-note, equation (2). The final `SaltedMerkle.merkle_online` theorem attains this error. -/
+/-- The online error uses the combined source mass, capped by the total number of calls. -/
 @[expose]
 noncomputable def merkleOnlineError (N t : ℕ) (w : ℝ≥0∞) : ℝ≥0∞ :=
-  min 1 (24 * w * (t - 1 : ℕ) ^ 2 / N)
+  min 1 (24 * min w (t : ℝ≥0∞) * (t - 1 : ℕ) ^ 2 / N)
 
 /-- The numerical error is always at most one. -/
 theorem merkleOnlineError_le_one (N t : ℕ) (w : ℝ≥0∞) : merkleOnlineError N t w ≤ 1 :=
@@ -350,7 +348,7 @@ variable {X Y Msg Salt : Type} {k : ℕ} [DecidableEq X] [Finite X] [LinearOrder
   [Fintype Y] [Nonempty Y] [Fintype Msg] [LinearOrder Msg] [Fintype Salt] [LinearOrder Salt]
   [UniformAnswerMeasure (X →ₒ Y)]
 /-- Finite occupied-key sets satisfy the joint-budget instability bound. The coefficient
-24 and odd schedule are the bounds note, equation (30), and the repair note, equation (2). -/
+24 multiplies the odd schedule obtained from the shared database and recording budget. -/
 theorem instability_online_keys_le (enc : Encoding X Y Msg Salt) (d : Fin k → ℕ)
     (keys : Finset (TpIC k Y)) (Dfix : Fin k → Database X Y) (i : Fin k)
     (t : ℕ) (hn : 1 ≤ keys.card) (ht : keys.card ≤ t) :
@@ -383,11 +381,10 @@ variable {X Y Msg Salt Z : Type} {k : ℕ} [Fintype X] [DecidableEq X]
   [UniformAnswerMeasure (X →ₒ Y)]
 open scoped Classical in
 /-- Salted Merkle recording satisfies P5 with error
-`min 1 (24 * wVC * (t - 1)^2 / |Y|)` in its two-sided square-root form.
-The coefficient 24 and joint-budget schedule are the bounds note, equation (30), and the
-repair note, equation (2). This instantiates ePrint 2025/2166, Definition 7.3, P5, pp. 50–51,
-and Lemma 9.7, pp. 65–70, for arbitrary coherent adaptive programs, local instruments and
-subnormalized workspace states. No collision-freeness assumption is required. -/
+`min 1 (24 * min wVC t * (t - 1)^2 / |Y|)` in both directed square-root inequalities.
+Ordinary queries and checked reads contribute to the same source mass. This instantiates
+Chiesa, Di, Hu and Zheng, ePrint 2025/2166, Definition 7.3, P5, and Lemma 9.7,
+for mixed adaptive programs and subnormalized states. -/
 theorem merkle_online (enc : Encoding X Y Msg Salt) (d : Fin k → ℕ)
     (code : TpDCode k (DmOf (fun i ↦ 2 ^ d i) Msg fun i ↦ Td Y Salt (d i)) Z) :
     OnlineIndistinguishable.{v, w} (compressedVCOracle k X Y) (multiExtract enc d) code

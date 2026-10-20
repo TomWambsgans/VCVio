@@ -10,21 +10,12 @@ public import VCVio.Quantum.VC.Proof.Offline
 public import VCVio.Quantum.Oracle.Compressed.CollisionRuntime
 
 /-!
-# Recording grades and time-dependent coherent comparisons
+# Recording grades and summed branch comparisons
 
-The recording population counts occupied commitment keys, counting all split cells at a key
-only once. The extraction-controlled swap preserves this population and fixes the empty record.
-These are the recording-register ingredients of ePrint 2025/2166, Definition 9.8 and
-Lemmas 9.10–9.12, pp. 66–67, used in the online comparison of Lemma 9.7, pp. 65–70.
-
-The population is a basis-support grade, so its use does not measure a coherent record key.
-The joint database/record cost in the bounds note, equation (30), requires charging ordinary
-calls and recording calls to the same budget.
-
-Grade-restricted squared port bounds lift to coherent input mass and to the actual query
-prefixes. Their time-dependent sum gives both square-root event comparisons, with the first
-execution's selected mass in both directions. `Proof.OnlineSecurity` identifies the ports
-with the extraction-controlled recording swap and assembles P5.
+Occupied commitment keys and database entries form a coherent joint grade. Summed branch Gram
+bounds give both directed square-root inequalities with the same source total weight.
+The recording swap follows Chiesa, Di, Hu and Zheng, ePrint 2025/2166, Definition 9.8 and
+Lemmas 9.10–9.12, pp. 66–67. Ordinary coherent ports specialize to selected oracle mass.
 -/
 
 public section
@@ -178,7 +169,6 @@ theorem swap_rest_eq_iff (s : S) (q : TpIC k Cm) (R R' : RecReg k Cm Dm Cell) :
   exact cellSwap_rest (fun q ↦ ME.extract q s) q R R'
 
 
-
 variable [Fintype Cm] [∀ i, Fintype (Dm i)]
 
 /-- The swap preserves the occupied keys exactly. -/
@@ -235,7 +225,6 @@ theorem swap_eq_of_extract_eq_on_occupied (s s' : S) (bot : Cell)
     by_cases hq : q ∈ occupied bot R
     · simp only [swap, h q hq]
     · simp [swap, (hz q hq).1, (hz q hq).2]
-
 
 end RecReg
 
@@ -495,8 +484,8 @@ section
 variable {X Y B : Type} {ι : Type*} [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y]
   [AddCommGroup Y] [UniformAnswerMeasure (X →ₒ Y)] [Fintype B] [DecidableEq B]
 /-- Transfer the generalized commutator bound to a database source cutoff. The output
-cutoff is one larger, as the ordinary port can create one database entry. The coefficient
-24 is the bounds note, equation (30), and the repair note, equation (2). -/
+cutoff is one larger, as the ordinary port can create one database entry. The squared norm
+is bounded by 24 times the joint-label instability. -/
 theorem l2_opNorm_source_commutator_sq_le (π : Database X Y → ι) (t : ℕ)
     (U : ι → Matrix B B ℂ) (hU : ∀ l, U l ∈ unitaryGroup _ ℂ) :
     let L := labelControlled (fun a : ((X × Y) × Database X Y) × B ↦ π a.1.2)
@@ -819,6 +808,43 @@ theorem l2_opNorm_compressed_recordingDefect_source_sq_le
 end
 
 section
+variable {X Y : Type} {B ι : Type*} [Fintype X] [DecidableEq X]
+  [Fintype Y] [DecidableEq Y] [AddCommGroup Y] [Fintype B] [DecidableEq B]
+
+/-- The checked read has a single summed Gram bound on a population-supported source.
+Its coefficient is independent of the number of optional answers. -/
+theorem posSemidef_sum_checkedReadDefect_gram
+    [OracleSpec.UniformAnswerMeasure (X →ₒ Y)]
+    (π : Database X Y → ι) (U : ι → Matrix B B ℂ)
+    (hU : ∀ l, U l ∈ unitaryGroup B ℂ) (p : ℕ) :
+    let P := diagonal (fun a : (X × Database X Y) × B ↦
+      if a.1.2.size ≤ p then (1 : ℂ) else 0)
+    ((24 * (Database.instability π (p + 1)).toReal) •
+      (1 : Matrix ((X × Database X Y) × B) ((X × Database X Y) × B) ℂ) -
+      ∑ a, (checkedReadDefect π U a * P)ᴴ * (checkedReadDefect π U a * P)).PosSemidef := by
+  classical
+  dsimp only
+  let P := diagonal (fun a : (X × Database X Y) × B ↦
+    if a.1.2.size ≤ p then (1 : ℂ) else 0)
+  let K := MatrixMap.stinespring (checkedReadDefect π U) * P
+  have hn := l2_opNorm_checkedReadDefectStack_sq_le π U hU p
+  have h₁ := MatrixMap.posSemidef_l2_opNorm_sq_smul_one_sub K
+  have h₂ := (PosSemidef.one (n := (X × Database X Y) × B) (R := ℂ)).smul
+    (sub_nonneg.mpr hn)
+  have he : K = MatrixMap.stinespring (fun a ↦ checkedReadDefect π U a * P) := by
+    ext a b
+    simp only [K, Matrix.mul_apply, MatrixMap.stinespring_apply]
+  have hg := MatrixMap.conjTranspose_stinespring_mul_stinespring
+    (fun a ↦ checkedReadDefect π U a * P)
+  rw [← he] at hg
+  change (_ • 1 - ∑ a, (checkedReadDefect π U a * P)ᴴ *
+    (checkedReadDefect π U a * P)).PosSemidef
+  rw [← hg]
+  convert h₁.add h₂ using 1
+  module
+end
+
+section
 variable {A : Type*} [Fintype A] [DecidableEq A]
 /-- A squared operator-norm bound gives the corresponding positive Gram slack. -/
 theorem posSemidef_scalar_sub_gram_of_norm_sq_le (K : Matrix A A ℂ) {r : ℝ}
@@ -894,7 +920,6 @@ theorem posSemidef_rotated_port_difference_of_source_bound
   rw [hp]
   exact posSemidef_scalar_sub_gram_of_norm_sq_le _ h
 end
-
 
 namespace Database
 variable {X Y : Type} {ι κ : Type*} [DecidableEq X] [AnswerMeasure (X →ₒ Y)]
@@ -1079,7 +1104,8 @@ variable {k : ℕ} {X Y Cm Z Yr Cell : Type}
   (E : VCOracle k X Y) (ME : MultiExtractor k Cm Dm E.S) (code : TpDCode k Dm Z)
   (bot : Cell) (g : E.S → ℕ)
 
-private theorem recording_initial_grade
+/-- The initial workspace and empty recording register have joint grade zero. -/
+theorem recording_initial_grade
     (hinit : QuerySupportedOn g (Set.Iic 0) E.init.matrix)
     {A : QReg} (ρ : SubState A) :
     QuerySupportedOn (fun m : A × (E.S × RecReg k Cm Dm Cell) ↦
@@ -1206,6 +1232,116 @@ theorem queryWeight_mono_of_grade
           (QuerySupportedOn.queryStep_of_step R g hR i E ℓ r hgrade) ?_
       simpa only [Nat.add_assoc, Nat.add_comm 1] using hw
 
+/-- A summed branch Gram inequality bounds the entire instrument discrepancy on a
+supported input. The outcomes are summed before taking a bound. -/
+theorem krausWeight_le_of_sum_gram [∀ i, Fintype (spec.Result i)]
+    (C : ∀ i, spec.Result i → Matrix (spec.Out i × R.D) (spec.In i × R.D) ℂ)
+    (i : spec.Port) (P Δ : Matrix (spec.In i × R.D) (spec.In i × R.D) ℂ)
+    {r : ℝ} (hr : 0 ≤ r)
+    (hC : (r • Δ - ∑ a, (C i a * P)ᴴ * (C i a * P)).PosSemidef)
+    {σ : Matrix (spec.In i × R.D) (spec.In i × R.D) ℂ} (hσ : σ.PosSemidef)
+    (hsupp : MatrixMap.conj P σ = σ) :
+    krausWeight C i σ ≤ ENNReal.ofReal r * ENNReal.ofReal (Δ * σ).trace.re := by
+  have ht := hC.trace_mul_re_nonneg hσ
+  simp only [Matrix.sub_mul, Matrix.smul_mul, Matrix.trace_sub, Matrix.trace_smul,
+    Complex.sub_re, Complex.real_smul, Complex.re_ofReal_mul,
+    Finset.sum_mul, Matrix.trace_sum, Complex.re_sum] at ht
+  have he (a : spec.Result i) :
+      (((C i a * P)ᴴ * (C i a * P)) * σ).trace =
+        (MatrixMap.conj (C i a) σ).trace := by
+    rw [← MatrixMap.trace_conj_apply, MatrixMap.conj_mul, LinearMap.comp_apply, hsupp]
+  simp only [he] at ht
+  have hn (a : spec.Result i) : 0 ≤ (MatrixMap.conj (C i a) σ).trace.re :=
+    (hσ.mul_mul_conjTranspose_same (C i a)).trace_re_nonneg
+  rw [krausWeight, tsum_fintype, ← ENNReal.ofReal_sum_of_nonneg (s := Finset.univ)
+    (fun a _ ↦ hn a), ← ENNReal.ofReal_mul hr]
+  exact ENNReal.ofReal_le_ofReal (sub_nonneg.mp ht)
+
+/-- Graded branch discrepancies accumulate against the selected weight of the source run.
+Total calls bound the support in time even when different calls have different outcome types. -/
+theorem tsum_rpow_queryWeight_le_of_total_grade
+    (hR : ∀ i a t (σ : Matrix (spec.In i × R.D) (spec.In i × R.D) ℂ),
+      QuerySupportedOn (fun m : spec.In i × R.D ↦ g m.2) (Set.Iic t) σ →
+        QuerySupportedOn (fun m : spec.Out i × R.D ↦ g m.2) (Set.Iic (t + 1))
+          ((R.step i).branch a σ))
+    (d w : ∀ i, Matrix (spec.In i × R.D) (spec.In i × R.D) ℂ → ℝ≥0∞)
+    {W : QReg → Type w} {A : QReg} {x : QuantumComp L spec W A}
+    {t : ℕ} (hx : x.IsTotalQueryBound t)
+    {ρ : Matrix (A × R.D) (A × R.D) ℂ} (hρ : ρ.PosSemidef)
+    (hgrade : QuerySupportedOn (fun m : A × R.D ↦ g m.2) (Set.Iic 0) ρ)
+    (rate : ℕ → ℝ≥0∞)
+    (hd : ∀ j < t, ∀ i σ, σ.PosSemidef →
+      QuerySupportedOn (fun m : spec.In i × R.D ↦ g m.2) (Set.Iic j) σ →
+        d i σ ≤ rate j * w i σ) :
+    ∑' j, R.queryWeight I d x ρ j ^ (2⁻¹ : ℝ) ≤
+      ((∑ j ∈ Finset.range t, rate j) * R.totalWeight I w x ρ) ^ (2⁻¹ : ℝ) := by
+  have hz : ∀ j ∉ Finset.range t, R.queryWeight I d x ρ j ^ (2⁻¹ : ℝ) = 0 := by
+    intro j hj
+    rw [R.queryWeight_eq_zero_of_isTotalQueryBound I hx (by simpa using hj) ρ,
+      ENNReal.zero_rpow_of_pos (by norm_num)]
+  rw [tsum_eq_sum hz]
+  calc
+    _ ≤ ∑ j ∈ Finset.range t,
+        rate j ^ (2⁻¹ : ℝ) * R.queryWeight I w x ρ j ^ (2⁻¹ : ℝ) := by
+      apply Finset.sum_le_sum
+      intro j hj
+      rw [← ENNReal.mul_rpow_of_nonneg _ _ (by norm_num : (0 : ℝ) ≤ 2⁻¹)]
+      apply ENNReal.rpow_le_rpow _ (by norm_num)
+      rw [← R.queryWeight_const_mul]
+      exact R.queryWeight_mono_of_grade I g hR x hρ 0 j hgrade
+        (by simpa using hd j (Finset.mem_range.mp hj))
+    _ ≤ _ := by
+      refine (ENNReal.inner_le_Lp_mul_Lq _ _ _ Real.HolderConjugate.two_two).trans ?_
+      simp only [rpow_inv_two_rpow_two, one_div]
+      rw [← ENNReal.mul_rpow_of_nonneg _ _ (by norm_num : (0 : ℝ) ≤ 2⁻¹)]
+      apply ENNReal.rpow_le_rpow _ (by norm_num)
+      gcongr
+      exact ENNReal.sum_le_tsum _
+
+/-- Both event comparisons follow from a sum of source-restricted branch Grams.
+The same source total weight occurs in both directions, including for mixed signatures. -/
+theorem outcomeLawWith_rpow_bounds_of_graded_grams [∀ i, Fintype (spec.Result i)]
+    (hR : ∀ i a t (σ : Matrix (spec.In i × R.D) (spec.In i × R.D) ℂ),
+      QuerySupportedOn (fun m : spec.In i × R.D ↦ g m.2) (Set.Iic t) σ →
+        QuerySupportedOn (fun m : spec.Out i × R.D ↦ g m.2) (Set.Iic (t + 1))
+          ((R.step i).branch a σ))
+    (s₁ : ∀ i, SubInstrument (spec.In i × R.D) (spec.Out i × R.D) (spec.Result i))
+    (U V : ∀ i, spec.Result i → Matrix (spec.Out i × R.D) (spec.In i × R.D) ℂ)
+    (hU : ∀ i a, (R.step i).branch a = MatrixMap.conj (U i a))
+    (hV : ∀ i a, (s₁ i).branch a = MatrixMap.conj (V i a))
+    (Δ : ∀ i, Matrix (spec.In i × R.D) (spec.In i × R.D) ℂ)
+    {W : QReg → Type w} {A : QReg} {x : QuantumComp L spec W A}
+    {t : ℕ} (hx : x.IsTotalQueryBound t) (ρ : SubState A)
+    (hgrade : QuerySupportedOn (fun m : A × R.D ↦ g m.2) (Set.Iic 0)
+      (ρ.matrix ⊗ₖ R.init.matrix))
+    (rate : ℕ → ℝ) (hrate : ∀ j < t, 0 ≤ rate j)
+    (hC : ∀ j < t, ∀ i,
+      let P := (1 : Matrix (spec.In i) (spec.In i) ℂ) ⊗ₖ
+        diagonal (fun d ↦ if g d ≤ j then (1 : ℂ) else 0)
+      ((rate j) • Δ i - ∑ a,
+        ((U i a - V i a) * P)ᴴ * ((U i a - V i a) * P)).PosSemidef)
+    {γ : Type*} [MeasurableSpace γ] (f : (Σ B, W B) → γ)
+    {event : Set γ} (hevent : MeasurableSet event) :
+    let p₀ := R.evalDistMap I x ρ f event
+    let p₁ := (QuantumRuntime.mk R.D R.init s₁).evalDistMap I x ρ f event
+    let err := ((∑ j ∈ Finset.range t, ENNReal.ofReal (rate j)) *
+      R.totalWeight I (fun i σ ↦ ENNReal.ofReal (Δ i * σ).trace.re) x
+        (ρ.matrix ⊗ₖ R.init.matrix)) ^ (2⁻¹ : ℝ)
+    p₀ ^ (2⁻¹ : ℝ) ≤ p₁ ^ (2⁻¹ : ℝ) + err ∧
+      p₁ ^ (2⁻¹ : ℝ) ≤ p₀ ^ (2⁻¹ : ℝ) + err := by
+  have hb := R.tsum_rpow_queryWeight_le_of_total_grade I g hR
+    (krausWeight (fun i a ↦ U i a - V i a))
+    (fun i σ ↦ ENNReal.ofReal (Δ i * σ).trace.re) hx
+    (ρ.prod R.init).posSemidef hgrade (fun j ↦ ENNReal.ofReal (rate j)) ?_
+  · have h₀ := rpow_inv_two_outcomeLawWith_le I R.init hU hV x ρ f hevent
+    have h₁ := rpow_inv_two_outcomeLawWith_le' I R.init hU hV x ρ f hevent
+    exact ⟨h₀.trans (add_le_add le_rfl hb), h₁.trans (add_le_add le_rfl hb)⟩
+  · intro j hj i σ hσ hsupp
+    refine R.krausWeight_le_of_sum_gram (fun i a ↦ U i a - V i a) i _
+      (Δ i) (hrate j hj) (hC j hj i) hσ ?_
+    rw [← diagonal_one, diagonal_kronecker_diagonal]
+    exact hsupp.conj_diagonal_eq_self fun m hm ↦ by simp [Set.mem_Iic.mp hm]
+
 end QuantumRuntime
 
 namespace EmulatedOracle
@@ -1296,32 +1432,18 @@ theorem tsum_rpow_queryWeight_conj_le_of_grade
           (2⁻¹ : ℝ) ≤
       ((∑ j ∈ Finset.range t, ENNReal.ofReal (r j)) *
         E.selectedTotalMass I selected x ρ) ^ (2⁻¹ : ℝ) := by
-  let m := fun j ↦ E.coherent.toRuntime.queryWeight I
-    (fun _ σ ↦ E.selectedMass selected σ) x ρ j
-  have hz : ∀ j ∉ Finset.range t,
-      E.coherent.toRuntime.queryWeight I
-        (fun _ σ ↦ ENNReal.ofReal (MatrixMap.conj (coherentBlocks C) σ).trace.re) x ρ j ^
-          (2⁻¹ : ℝ) = 0 := by
-    intro j hj
-    rw [E.coherent.toRuntime.queryWeight_eq_zero_of_isQueryBound I hx Finset.univ
-      (by simp) (by simpa using hj) ρ, ENNReal.zero_rpow_of_pos (by norm_num)]
-  rw [tsum_eq_sum hz]
-  calc
-    _ ≤ ∑ j ∈ Finset.range t, ENNReal.ofReal (r j) ^ (2⁻¹ : ℝ) * m j ^ (2⁻¹ : ℝ) := by
-      apply Finset.sum_le_sum
-      intro j hj
-      rw [← ENNReal.mul_rpow_of_nonneg _ _ (by norm_num : (0 : ℝ) ≤ 2⁻¹)]
-      apply ENNReal.rpow_le_rpow _ (by norm_num)
-      exact E.queryWeight_conj_le_selectedMass_of_grade g hE I x hρ 0 j hgrade C selected
-        (hr j (Finset.mem_range.mp hj)) (by simpa using hC j (Finset.mem_range.mp hj))
-    _ ≤ _ := by
-      refine (ENNReal.inner_le_Lp_mul_Lq _ _ _ Real.HolderConjugate.two_two).trans ?_
-      simp only [rpow_inv_two_rpow_two, one_div]
-      rw [← ENNReal.mul_rpow_of_nonneg _ _ (by norm_num : (0 : ℝ) ≤ 2⁻¹)]
-      apply ENNReal.rpow_le_rpow _ (by norm_num)
-      gcongr
-      rw [← E.tsum_queryWeight_selectedMass I selected x ρ]
-      exact ENNReal.sum_le_tsum _
+  have hb := E.coherent.toRuntime.tsum_rpow_queryWeight_le_of_total_grade I g
+    (E.coherent.querySupportedOn_toRuntime_step g (E.coherent_U_grade g hE))
+    (fun _ σ ↦ ENNReal.ofReal (MatrixMap.conj (coherentBlocks C) σ).trace.re)
+    (fun _ σ ↦ E.selectedMass selected σ)
+    ((QuantumComp.isTotalQueryBound_iff_isQueryBound x t).mpr hx) hρ hgrade
+    (fun j ↦ ENNReal.ofReal (r j)) ?_
+  · simpa only [QuantumRuntime.totalWeight, E.tsum_queryWeight_selectedMass] using hb
+  · intro j hj _ σ hσ hsupp
+    refine E.ofReal_trace_coherentBlocks_conj_le_selectedMass C _ selected
+      (hr j hj) (hC j hj) hσ ?_
+    rw [← diagonal_one, diagonal_kronecker_diagonal]
+    exact hsupp.conj_diagonal_eq_self fun m hm ↦ by simp [Set.mem_Iic.mp hm]
 
 /-- Both square-root event comparisons follow from graded portwise squared difference
 bounds. The two directions use the selected mass of the first, actual execution. The second
@@ -1372,7 +1494,5 @@ theorem outcomeLawWith_rpow_bounds_of_graded_ports
   exact ⟨h₀.trans (add_le_add le_rfl hb), h₁.trans (add_le_add le_rfl hb)⟩
 
 end chargedComparison
-
 end EmulatedOracle
-
 end Quantum
