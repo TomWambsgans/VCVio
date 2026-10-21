@@ -33,7 +33,7 @@ open pull request #766 proves an unconditional EUF-CMA bound in the classical ra
 | Security lane, slices 1–5 (on `main`) | `Security/TargetCounts.lean`, `Security/ReachableTargets.lean` (#630); `Security/EncodedTargets.lean` (#631); `WotsInjectivity.lean` (#665); `Security/TraceTargets.lean` (#666); the consolidated second-round review fixes for those four, including `VCVio/OracleComp/QueryTracking/{QueryBound,LoggingOracle}.lean`'s `AllQueriesSatisfy` (#680, `0a1ff722`); `Security/ComponentTraces.lean` (#682, `630301f3`) | `slhdsa_target_ledger_tests`, `slhdsa_encoded_ledger_tests`, `slhdsa_trace_target_tests`, `slhdsa_component_trace_tests` |
 | Security lane, slice 6 (on `main`) | `Security/CanonicalGames.lean` (#683) | `slhdsa_canonical_game_tests` |
 | Security lane, slices 7–8 | `Security/{WotsWitnesses,ForsWitnesses,XmssWitnesses,HypertreeWitnesses,SchemeWitnesses,HmsgWitnesses,SufResidual,SchemeGames,Composition,SufBound}.lean` (#685–#718, on `main`); `Security/LimitedProfile.lean` (#723) | Owning witness, residual, scheme-game, composition, SUF-bound and profile executables in `lake test` |
-| Byte-level SHAKE model and bound (#766) | `Security/RomConformance.lean`, `Security/ByteModel.lean`, `Security/ByteConformance.lean`, `Security/ByteRouter.lean`, `Security/RunProvenance.lean`, `Security/ByteClash.lean`, `Security/PrfKeyBound.lean`, `Security/HedgedKeyBound.lean`, `Security/WeakKeyBound.lean`, `Security/ByteBound.lean` | `slhdsa_byte_model_tests` (+ `ByteModelVectors/`), `HashSigTest/SLHDSA/{ByteRouter,ByteClash,PrfKeyBound,HedgedKeyBound,WeakKeyBound,ByteBound}.lean` |
+| Byte-level SHAKE model and bound (#766) | `Security/RomConformance.lean`, `Security/ByteModel.lean`, `Security/ByteConformance.lean`, `Security/ByteRouter.lean`, `Security/RunProvenance.lean`, `Security/ByteClash.lean`, `Security/PrfKeyBound.lean`, `Security/HedgedKeyBound.lean`, `Security/WeakKeyBound.lean`, `Security/ByteRedirect.lean`, `Security/ByteLinkedRun.lean`, `Security/ByteLinkedView.lean`, `Security/HonestTransfer.lean`, `Security/ByteLinkedBound.lean`, `Security/LinkedHazards.lean`, `Security/ByteBound.lean` | `slhdsa_byte_model_tests` (+ `ByteModelVectors/`), `HashSigTest/SLHDSA/{ByteRouter,ByteClash,PrfKeyBound,HedgedKeyBound,WeakKeyBound,ByteRedirect,ByteLinkedRun,ByteLinkedView,ByteLinkedBound,LinkedHazards,ByteBound}.lean` |
 | Generic hash games consumed | `VCVio/CryptoFoundations/HardnessAssumptions/TweakableHash/*.lean`, `KeyedHash/ITSR.lean`, `VCVio/CryptoFoundations/SignatureAlg.lean` | `VCVioTest/SMDT*.lean` |
 
 Every SLH-DSA test executable is registered in the `@[test_driver] script test` of `lakefile.lean`
@@ -157,10 +157,11 @@ and bounds the forging advantage in it:
 | Answering that oracle with SHAKE256 gives the library's FIPS 205 SHAKE internal algorithms, in both signing modes and for every public-seed distribution | `shakeRomScheme_map_shakeAnswer`, `shakeRomScheme_map_shakeAnswer_validatedParams` | `Security/ByteConformance.lean` |
 | Those internal algorithms reproduce NIST ACVP-Server vectors (commit `975de31e`) at SLH-DSA-SHAKE-128f: keyGen test case 31, internal-interface sigGen test cases 137 (deterministic) and 448 (hedged), sigVer test cases 223 and 219 | `slhdsa_byte_model_tests` | `HashSigTest/SLHDSA/ByteModel.lean`, `ByteModelVectors/vectors.json` |
 | The forging advantage over one SHAKE256 oracle, per public seed, for `16 ≤ n ≤ 32`, `n ≤ m` and address fields within their FIPS 205 widths (`CanonicalAddressBounds`): at most `securityBound p 2^{8n} 2 1 q_h q_s + (q_s + 1) / 2^{8n} + weakKeyMass vp PK.seed`, in both signing modes | `shakeAdvantage_pure_le_securityBound` | `Security/ByteBound.lean` |
-| The same over the uniform public seed, with the weak-key term at most `\|A_hon\| / 2^256` | `shakeAdvantage_le_securityBound` | `Security/ByteBound.lean` |
 | Per public seed of weak-key mass zero, and at `n = 32` per public seed outside the weak set, without the weak-key term | `shakeAdvantage_pure_le_securityBound_of_weakKeyMass_eq_zero`, `shakeAdvantage_pure_le_securityBound_of_n_eq_32` | `Security/ByteBound.lean` |
-| Both bounds at the six SHAKE parameter sets, the adversary's budget the only hypothesis; the theorems are stated over all twelve `FipsParameterSet` values, a SHA-2 value contributing only its parameters, which equal its SHAKE twin's | `shakeAdvantage_pure_le_securityBound_validatedParams`, `shakeAdvantage_le_securityBound_validatedParams` | `Security/ByteBound.lean`, `HashSigTest/SLHDSA/ByteBound.lean` |
-| In hedged signing (`opt_rand` uniform), each of these bounds with `1 / 2^{8n} + q_s (q_h + q_s + 1) / 2^{16n}` in place of `(q_s + 1) / 2^{8n}`, at the three-oracle level per public seed (at `n = 32`, outside the weak set); over the uniform public seed at `n = 32` the weak-key term still caps the level at about 236 bits; for any `opt_rand` source equal to `PK.seed` with probability at most `ε`, with `1 / 2^{8n} + q_s ε (q_h + q_s + 1) / 2^{8n}` | `shakeAdvantage_pure_le_securityBound_hedged`, `shakeAdvantage_le_securityBound_hedged`, `shakeAdvantage_pure_le_securityBound_hedged_of_n_eq_32`, `shakeAdvantage_pure_le_securityBound_hedged_validatedParams`, `shakeAdvantage_le_securityBound_hedged_validatedParams`, `shakeAdvantage_pure_le_securityBound_of_prEvent_optRand_le` | `Security/ByteBound.lean`, `Security/HedgedKeyBound.lean`, `HashSigTest/SLHDSA/ByteBound.lean` |
+| At `n = 32`, at every public seed, weak seeds included: at most `securityBound p 2^256 2 1 (q_h + V) q_s + 2 (q_s + 1) / 2^256`, `V` the verifier's query bound, through the verification redirected at the linked points; per seed, the smaller of this and the per-seed bound | `shakeAdvantage_pure_le_securityBound_add_of_n_eq_32`, `shakeAdvantage_pure_le_min_of_n_eq_32` | `Security/LinkedHazards.lean`, `Security/ByteBound.lean` |
+| Over the uniform public seed, the per-seed bound with the weak-key term replaced by `\|A_hon\| / 2^256 · weakSeedFactor vp ε`, where `ε` is the bound at every seed and the factor is `min 1 ε` at `n = 32` and `1` otherwise; it implies the bound with `\|A_hon\| / 2^256` | `shakeAdvantage_le_securityBound`, `shakeAdvantage_le_securityBound_of_n_eq_32`, `weakSeedFactor_le_one` | `Security/ByteBound.lean`, `HashSigTest/SLHDSA/ByteBound.lean` |
+| These bounds at the six SHAKE parameter sets, the adversary's budget the only hypothesis, the averaged one a single statement for `n < 32` and `n = 32`; the theorems are stated over all twelve `FipsParameterSet` values, a SHA-2 value contributing only its parameters, which equal its SHAKE twin's | `shakeAdvantage_pure_le_securityBound_validatedParams`, `shakeAdvantage_pure_le_securityBound_add_validatedParams`, `shakeAdvantage_le_securityBound_validatedParams` | `Security/ByteBound.lean`, `HashSigTest/SLHDSA/ByteBound.lean` |
+| In hedged signing (`opt_rand` uniform), each of these bounds with `1 / 2^{8n} + q_s (q_h + q_s + 1) / 2^{16n}` in place of `(q_s + 1) / 2^{8n}`, at the three-oracle level per public seed (at `n = 32`, outside the weak set) and over the uniform public seed; for any `opt_rand` source equal to `PK.seed` with probability at most `ε`, with `1 / 2^{8n} + q_s ε (q_h + q_s + 1) / 2^{8n}` | `shakeAdvantage_pure_le_securityBound_hedged`, `shakeAdvantage_le_securityBound_hedged`, `shakeAdvantage_pure_le_securityBound_hedged_of_n_eq_32`, `shakeAdvantage_pure_le_min_hedged_of_n_eq_32`, `shakeAdvantage_pure_le_securityBound_hedged_validatedParams`, `shakeAdvantage_pure_le_securityBound_add_hedged_validatedParams`, `shakeAdvantage_le_securityBound_hedged_validatedParams`, `shakeAdvantage_pure_le_securityBound_of_prEvent_optRand_le` | `Security/ByteBound.lean`, `Security/HedgedKeyBound.lean`, `Security/LinkedHazards.lean`, `HashSigTest/SLHDSA/ByteBound.lean` |
 
 The faithfulness step routes a forger's byte strings to typed queries of the three oracles
 (`Security/ByteRouter.lean`), classifies every clash of two byte strings in the routed run as a hit
@@ -168,17 +169,23 @@ of the message-`PRF` key or a weak public key (`Security/ByteClash.lean`), charg
 jointly with the three-oracle events (`Security/PrfKeyBound.lean`) and bounds the second by the
 uniformity of the public root (`Security/WeakKeyBound.lean`). In hedged signing the hit keeps the
 condition `opt_rand = PK.seed` of the clashing `PRF_msg` string and is charged as a product in
-the ideal hidden-seed game (`Security/HedgedKeyBound.lean`). The accounting and the levels are in
-[`slh-dsa-classical-rom-bound.md`](slh-dsa-classical-rom-bound.md).
+the ideal hidden-seed game (`Security/HedgedKeyBound.lean`). At `n = 32` a tweakable-hash query at
+the address `PK.seed` with first block `PK.root` shares its string with an `H_msg` query; the
+verification redirected at those linked points (`Security/ByteRedirect.lean`) is run as the
+adversary's own queries, its events are read on the cache through the redirect
+(`Security/ByteLinkedRun.lean`, `Security/ByteLinkedView.lean`, `Security/HonestTransfer.lean`) and
+bounded in one potential with two further charged events (`Security/ByteLinkedBound.lean`,
+`Security/LinkedHazards.lean`), which gives the bound at every seed. The accounting and the levels
+are in [`slh-dsa-classical-rom-bound.md`](slh-dsa-classical-rom-bound.md).
 
 The single oracle answers every string with `m` bytes, the longest SHAKE256 output FIPS 205 reads.
 This is a modelling choice: a forger against a variable-length extendable-output oracle that reads
 more than `m` bytes sees only bytes no SLH-DSA evaluation reads, and is simulated against this
-oracle, query for query, by sampling those bytes itself; that simulation is not formalised. Not
-proved: the removal of the weak-key term from the averaged bound at `n = 32`,
-where it is about `2^{−172}` and holds the averaged byte-level level of the 256-bit sets near 236
-bits at `q_h = q_s = 2^64` (254.00 and 253.89 per seed outside the weak set, 254.41 and 254.27 in
-hedged signing); any byte-level model of the SHA-2 sets; a strong-unforgeability bound; and
+oracle, query for query, by sampling those bytes itself; that simulation is not formalised. At
+`q_h = q_s = 2^64` the averaged byte-level levels of the 256-bit sets are 254.00 (256s) and 253.89
+(256f), 254.41 and 254.27 in hedged signing, equal to the per-seed levels outside the weak set; at
+every seed, weak seeds included, they are 253.68 and 253.59, 254.00 and 253.89 in hedged signing.
+Not proved: any byte-level model of the SHA-2 sets; a strong-unforgeability bound; and
 the external interfaces (Algorithms 21–25), which the theorem does not reach. There is no complete
 FIPS conformance result.
 
