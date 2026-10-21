@@ -48,9 +48,15 @@ queries of `unifSpec` are free: the adversary may use arbitrarily many private c
 
 ## Scope
 
-* No bad event is defined here and no union bound over several bad events is taken.  `P` is an
-  arbitrary predicate; the only thing assumed of it is that it does not hold of the empty cache
-  and that a fresh answer makes it fire with mass at most `ε`.
+* No bad event is defined here and no union bound over several bad events is taken.  For the
+  engine, `P` is an arbitrary predicate on the state and `Φ` an arbitrary `ℝ≥0∞`-valued
+  potential; for the fresh-answer bound, `P` is an arbitrary predicate on the cache, and the only
+  thing assumed of it is that it does not hold of the empty cache and that a fresh answer makes
+  it fire with mass at most `ε`.
+* Unlike `OracleComp.prEvent_randomOracle_le_of_bad_queries`, the budgeted fresh-answer bound
+  allows private coins.  Unlike `OracleComp.prEvent_randomOracle_le_expectedFreshQueryCharge`, it
+  is pathwise (`q * ε` under `IsQueryBoundP`) rather than an expected charge, and it bounds a
+  predicate of the final cache rather than an event of the output.
 * `hfresh` demands one `ε` uniformly over every non-firing cache, so the theorem bounds
   *target-hitting* events: those whose set of firing fresh answers stays small however full the
   cache already is.  A bad event whose fresh-answer bad set grows with the cache — any collision
@@ -76,7 +82,7 @@ queries of `unifSpec` are free: the adversary may use arbitrarily many private c
 
 ## Labels
 
-Fifteen declarations.
+Thirteen declarations.
 
 *The potential engine*:
 
@@ -89,9 +95,7 @@ Fifteen declarations.
 
 *Step shapes of the shared lazy oracle*:
 
-* `OracleComp.exists_run_unifFwdImpl_add_randomOracle_inl`,
-  `OracleComp.run_unifFwdImpl_add_randomOracle_inr_some`,
-  `OracleComp.run_unifFwdImpl_add_randomOracle_inr_none`.
+* `OracleComp.exists_run_unifFwdImpl_add_randomOracle_inl`.
 
 *The fresh-answer bound*:
 
@@ -357,21 +361,6 @@ theorem exists_run_unifFwdImpl_add_randomOracle_inl (i : unifSpec.Domain)
         (fun u => (u, c)) <$> samp :=
   ⟨liftM (OracleSpec.query i), by simp [unifFwdImpl]⟩
 
-/-- A public-hash step at an already cached query is deterministic and leaves the cache
-untouched. -/
-theorem run_unifFwdImpl_add_randomOracle_inr_some {t : spec.Domain} {c : spec.QueryCache}
-    {u : spec.Range t} (h : c t = some u) :
-    ((unifFwdImpl spec + spec.randomOracle) (Sum.inr t)).run c = pure (u, c) := by
-  simp [h]
-
-/-- A public-hash step at a query that was not already cached samples uniformly and caches the
-answer. -/
-theorem run_unifFwdImpl_add_randomOracle_inr_none {t : spec.Domain} {c : spec.QueryCache}
-    (h : c t = none) :
-    ((unifFwdImpl spec + spec.randomOracle) (Sum.inr t)).run c =
-      (fun u => (u, c.cacheQuery t u)) <$> ($ᵗ spec.Range t) := by
-  simp [h]
-
 /-! ## The fresh-answer bound -/
 
 /-- **The fresh-answer bound for a shared lazy random oracle.**  `P` is a predicate on the
@@ -414,9 +403,9 @@ theorem evalDist_run_setOf_le_of_fresh_bound (P : spec.QueryCache → Prop) (hP 
       exact Or.inr ⟨samp, fun _ => c, 0, hsamp, by simp [hc], fun _ => by simp⟩
     · rcases h : c t with _ | u
       · exact Or.inr ⟨$ᵗ spec.Range t, fun u => c.cacheQuery t u, ε,
-          run_unifFwdImpl_add_randomOracle_inr_none h, hfresh t c hc h,
+          QueryImpl.withCaching_run_none _ h, hfresh t c hc h,
           fun u => by rw [QueryCache.enncard_cacheQuery c t u h, add_mul, one_mul, add_comm]⟩
-      · exact Or.inl ⟨u, c, run_unifFwdImpl_add_randomOracle_inr_some h, hc⟩
+      · exact Or.inl ⟨u, c, QueryImpl.withCaching_run_some _ h, hc⟩
   have key := evalDist_apply_setOf_and_le_of_potential
     (unifFwdImpl spec + spec.randomOracle) P (fun c => QueryCache.enncard c * ε) hmono hstep oa
     ((q : ℝ≥0∞) * ε) (ENNReal.mul_ne_top (by simp) hε) ∅ hP
@@ -460,11 +449,12 @@ theorem enncard_le_of_mem_support_run_unifFwdImpl_add_randomOracle {α : Type}
     rw [hsamp, support_map] at hw
     obtain ⟨u, -, rfl⟩ := hw
     simp
-  · rcases hc : c t with _ | u
-    · rw [run_unifFwdImpl_add_randomOracle_inr_none hc, support_map] at hw
+  · rw [QueryImpl.add_apply_inr] at hw
+    rcases hc : c t with _ | u
+    · rw [QueryImpl.withCaching_run_none _ hc, support_map] at hw
       obtain ⟨u, -, rfl⟩ := hw
       simpa using QueryCache.toSet_encard_cacheQuery_le c t u
-    · rw [run_unifFwdImpl_add_randomOracle_inr_some hc] at hw
+    · rw [QueryImpl.withCaching_run_some _ hc] at hw
       simp_all
 
 /-- **The fresh-answer bound under a query budget.**  `P` is a predicate on the public-hash cache
