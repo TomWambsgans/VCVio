@@ -113,8 +113,8 @@ noncomputable def prescribedVC (ps : Option (List (Bool × ZMod 2))) :
   check _ _ _ := OracleComp.liftComp (ps.elim (pure false) checkIO) (unifSpec + (Bool →ₒ ZMod 2))
 
 /-- The fixed checker exposes precisely its prescribed list. -/
-def prescribedIO (ps : Option (List (Bool × ZMod 2))) : (prescribedVC ps).CheckIOForm where
-  outputIO _ _ _ := ps
+def prescribedIO (ps : Option (List (Bool × ZMod 2))) : (prescribedVC ps).NonadaptiveCheck where
+  pairs _ _ _ := ps
   check_eq _ _ _ := rfl
   qVC _ := ps.elim 0 List.length
   qVC_mono _ _ _ := le_rfl
@@ -136,7 +136,8 @@ example {Z : Type} [Fintype Z] [DecidableEq Z] [AddGroup Z]
       if (prescribedIO (some [(false, 0)])).checkOn (D 0) () (fun _ ↦ none) ()
         then (1 : ℂ) else 0) *
         compressDatabases 2 Bool (ZMod 2) = Q (0, false) (some 0) := by
-    simp [compressedReadProjector, VectorCommitment.CheckIOForm.checkOn, prescribedIO, checkIOOn]
+    simp [compressedReadProjector, VectorCommitment.NonadaptiveCheck.checkOn,
+      prescribedIO, checkIOOn]
   exact (LinearMap.congr_fun h ρ).trans
     (congrArg (fun P ↦ MatrixMap.conj ((1 : Matrix B B ℂ) ⊗ₖ P) ρ) hP)
 

@@ -22,7 +22,7 @@ databases. The private register of the emulated oracle of the theorem is the tup
 * `Quantum.Conditions`: the algebraic conditions of Theorem 8.4, admissibility of the
   multi-extractor (p. 53) and conditions 1–3 (pp. 53–54), stated against the general
   vector-commitment interface `VectorCommitment` with a randomized opening. Condition 1 is the
-  data of a `VectorCommitment.CheckIOForm` for every scheme. The efficiency of the extractor is
+  data of a `VectorCommitment.NonadaptiveCheck` for every scheme. The efficiency of the extractor is
   not among them (see the departures).
 * `Quantum.offlineLabel`: the partition `P_offline = (P_good, P_bad)` (p. 53) as a labelling
   of databases.
@@ -49,9 +49,9 @@ The labels are the arguments of `Quantum.Database.instability` in the error boun
   and condition 3 asks every possible opening `pfᵢ ← Open(Dom(mᵢ), tdᵢ)` to pass the check: both
   quantify over the support of the opening. For a deterministic opening
   (`DetVectorCommitment.toVectorCommitment`) the support is a single proof.
-* The paper's `Check^{D}` (p. 53) is `VectorCommitment.CheckIOForm.checkOn`: the check runs
+* The paper's `Check^{D}` (p. 53) is `VectorCommitment.NonadaptiveCheck.checkOn`: the check runs
   `OutputIO` and rejects any listed query outside the domain of the database.
-* The paper's `q_VC(qs, ℓ)` has the length as a second argument; `CheckIOForm.qVC` is the query
+* The paper's `q_VC(qs, ℓ)` has the length as a second argument; `NonadaptiveCheck.qVC` is the query
   complexity of `VC i` at its own length `ℓ i`, so `q1` and `q2` use `qVC` of the size of the opened
   set alone. The paper evaluates `q1` at `ℓmax` (p. 54); here each `VC i` is evaluated at `ℓ i`.
 * Conditions 2 and 3 are stated for the full tuples `Quantum.TpIC.full` of `k` distinct indices
@@ -128,7 +128,7 @@ of its `⊥` and the good databases `Pgood`. Admissibility is the repaired, dist
 Def 7.1 (`Quantum.MultiExtractor.Admissible`), and the efficiency of `ME` (p. 53) is not
 included: it is a separate hypothesis. Condition 1 (p. 53), that every check is deterministic
 and classical, of the form `OutputIO` followed by `CheckIO` with query complexity `qVC_i`, is the
-data `io i : (VC i).CheckIOForm`.
+data `io i : (VC i).NonadaptiveCheck`.
 
 * `admissible`: the multi-extractor is admissible (p. 53) in the repaired sense of
   `Quantum.MultiExtractor.Admissible`, with `⊥ = (⊥^{ℓ_i}, tdBot i)`.
@@ -141,7 +141,7 @@ data `io i : (VC i).CheckIOForm`.
   `Dom(m_i)` with the extracted trapdoor makes the extracted message `m_i` pass the check
   `VC_i.Check^{D_{idx i}}`. -/
 structure Conditions (VC : ∀ i, VectorCommitment X Y Msg Cm (Td i) (Pf i) (ℓ i))
-    (io : ∀ i, (VC i).CheckIOForm)
+    (io : ∀ i, (VC i).NonadaptiveCheck)
     (ME : MultiExtractor k Cm (DmOf ℓ Msg Td) (Fin k → Database X Y)) (tdBot : ∀ i, Td i)
     (Pgood : Set (Database X Y)) : Prop where
   /-- The multi-extractor is admissible (Def 7.1, p. 49; Thm 8.4, p. 53), repaired to require
@@ -178,7 +178,7 @@ variable {k : ℕ} {X : Type uX} {Y : Type} {Msg : Type uM} {Cm : Type} {ℓ : F
 checks when the opened sets have sizes summing to at most `qs`. It enters the offline error
 (p. 54). -/
 @[expose]
-def q1 (io : ∀ i, (VC i).CheckIOForm) (qs : ℕ) : ℕ :=
+def q1 (io : ∀ i, (VC i).NonadaptiveCheck) (qs : ℕ) : ℕ :=
   ((Finset.univ : Finset (Fin k → Fin (qs + 1))).filter fun v ↦ ∑ i, (v i : ℕ) ≤ qs).sup
     fun v ↦ ∑ i, (io i).qVC (v i)
 
@@ -186,10 +186,10 @@ def q1 (io : ∀ i, (VC i).CheckIOForm) (qs : ℕ) : ℕ :=
 the largest number of queries of a check that opens a whole vector. It enters the extraction
 error (p. 54). -/
 @[expose]
-def q2 (io : ∀ i, (VC i).CheckIOForm) : ℕ :=
+def q2 (io : ∀ i, (VC i).NonadaptiveCheck) : ℕ :=
   Finset.univ.sup fun i ↦ (io i).qVC (ℓ i)
 
-variable (io : ∀ i, (VC i).CheckIOForm)
+variable (io : ∀ i, (VC i).NonadaptiveCheck)
 
 /-- Every split of a budget `qs` among the `k` checks makes at most `q1 qs` queries in total. -/
 theorem sum_qVC_le_q1 {qs : ℕ} (qsv : Fin k → ℕ) (h : ∑ i, qsv i ≤ qs) :
