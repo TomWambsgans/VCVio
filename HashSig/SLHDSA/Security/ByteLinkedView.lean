@@ -27,8 +27,7 @@ of `romScheme` against the verifying adversary `verifyingAdv`
 * `LinkedHonestInput`: an honest input of `C` at a linked point (`HonestInputIn`);
 * `RunItsrCovered`: interleaved-target coverage on `C`;
 
-each conjoined with freshness of the forged message where the run events of `RomSchemeUnion`
-carry it. The
+coverage conjoined with freshness of the forged `H_msg` point, as `RunItsrCovered` carries it. The
 first and last are the events of `HashSig.SLHDSA.Security.RomSchemeUnion`, read on the cache
 itself.
 
@@ -93,12 +92,12 @@ variable (vp) in
 variable (vp) in
 /-- A run point exhibits a hidden-value hit at its own oracle-backed provider whose forger replay
 is read on its public-hash cache through the linked redirect and whose honest values are read on
-the cache, with the hashed forger point not linked, and its forged message is fresh. -/
+the cache, with the hashed forger point not linked. -/
 @[expose] def RunHiddenHitMixed
     (z : RomOutcome vp (shakeCore vp) × (hashSpec (shakeCore vp)).QueryCache) : Prop :=
   HiddenHitMixed (IsLinked vp z.1.pk)
     (oracleSecret (shakeCore vp) (Equiv.refl _) z.1.pk.pkSeed z.1.sk.skSeed) z.1
-    (z.2.fst.viewBy (linkedRedirect vp z.1.pk)) z.2.fst ∧ RunFresh (shakeCore vp) z
+    (z.2.fst.viewBy (linkedRedirect vp z.1.pk)) z.2.fst
 
 /-! ## The splits -/
 
@@ -130,7 +129,7 @@ theorem targetCollision_or_virtualHit_of_viewBy
 
 /-- If the forgery wins on the redirected verification and the honest replays settle off the
 linked points, the run point exhibits a target collision, a mixed hidden-value hit or coverage,
-each with a fresh message, or a virtual hit, or an honest input at a linked point. -/
+coverage at a fresh `H_msg` point, or a virtual hit, or an honest input at a linked point. -/
 theorem bad_event_of_redirectedWins
     (z : RomOutcome vp (shakeCore vp) × (hashSpec (shakeCore vp)).QueryCache)
     (hw : RedirectedWins vp z) (ho : HonestOffLinked vp z) :
@@ -155,11 +154,13 @@ theorem bad_event_of_redirectedWins
     (fun x hx => QueryCache.simulateQ_toPartialImpl_mono hle _ (ho.2 x hx)) hv with
     htc | hhh | hit
   · rcases targetCollision_or_virtualHit_of_viewBy z ht htc with htc | hvh
-    · exact .inl (.inl (.inl ⟨htc, hw.1⟩))
+    · exact .inl (.inl (.inl htc))
     · exact .inr (.inl hvh)
-  · exact .inl (.inl (.inr ⟨hiddenHitMixed_of_hiddenHit ht hm hhh, hw.1⟩))
+  · exact .inl (.inl (.inr (hiddenHitMixed_of_hiddenHit ht hm hhh)))
   · exact .inl (.inr ⟨(itsrCovered_congr fun r s root msg => ht.eqOn _ (hm r s root msg)).1 hit,
-      hw.1⟩)
+      fun hm' => hw.1 (by
+        obtain ⟨x, hx, he⟩ := List.mem_map.1 hm'
+        exact List.mem_map.2 ⟨x, hx, congrArg Prod.snd he⟩)⟩)
 
 /-- On the support of the run of `romScheme` against any adversary, if an honest replay fails off
 the linked points, the run's public-hash cache has an honest input at a linked point. -/
@@ -191,8 +192,8 @@ distribution, the advantage of an adversary against `shakeRomScheme` at `pkSeed`
 probability that, in the three-oracle run of `romScheme` against the verifying adversary
 `verifyingAdv`, there is a target collision on the public-hash cache or a mixed hidden-value hit
 on its view through the linked redirect, the message-`PRF` key is hit at `opt_rand = PK.seed`, a
-virtual hit, an honest input at a linked point, or interleaved-target coverage, where the target
-collision, the hidden-value hit and the coverage each come with a fresh message. -/
+virtual hit, an honest input at a linked point, or interleaved-target coverage at a fresh `H_msg`
+point. -/
 theorem shakeAdvantage_pure_le_viewEvents
     {optRand : PublicKeyCore (shakeCore vp) → ProbComp (shakeCore vp).Y}
     (h32 : vp.params.n = 32) (hnm : vp.params.n ≤ vp.params.m) (pkSeed : (shakeCore vp).PkSeed)

@@ -425,8 +425,8 @@ byte laws, if `idealDraw` at public seed `pkSeed` fires, on the transcript rebui
 seeds and the cache merged under them, a same-key target collision, a hidden-value hit or `P`, or
 holds a point encoding a derivation in its final public cache, with probability at most `B`, then
 the run of SLH-DSA in the random-oracle model at `pkSeed` wins or fires `P` with probability at
-most `B` plus the probability that `idealDraw` fires interleaved-target coverage with a fresh
-forged message (`RunItsrCovered`) there. The first game hop is applied to the whole event before
+most `B` plus the probability that `idealDraw` fires interleaved-target coverage at a fresh
+`H_msg` point (`RunItsrCovered`) there. The first game hop is applied to the whole event before
 the union is split, so a seed guess is charged once, inside `B`. -/
 theorem prEvent_romSchemeRun_wins_or_le_add_idealDraw (laws : core.ByteLaws)
     (e : core.SkSeed ≃ core.Y) (optRand : PublicKeyCore core → ProbComp core.Y)
@@ -447,7 +447,8 @@ theorem prEvent_romSchemeRun_wins_or_le_add_idealDraw (laws : core.ByteLaws)
     fun z hz h ↦ ?_).trans
     ((prEvent_romSchemeRun_pure_le_prEvent_idealDraw_or e optRand pkSeed adv _).trans ?_)
   · rcases h with hw | h
-    · rcases bad_event_of_wins_romSchemeRun laws e optRand _ adv hz hw with h | h | h
+    · rcases bad_event_of_strongWins_romSchemeRun laws e optRand _ adv hz
+        (UnforgeableTranscript.strongWins_of_wins hw) with h | h | h
       exacts [Or.inl (Or.inl (Or.inl h)), Or.inl (Or.inl (Or.inr h)), Or.inr h]
     · exact Or.inl (Or.inr h)
   exact (prEvent_mono _ _ _ fun _ h ↦ or_right_comm.1 h).trans
@@ -457,7 +458,7 @@ theorem prEvent_romSchemeRun_wins_or_le_add_idealDraw (laws : core.ByteLaws)
 Under the byte laws, the key discipline and `|Y| ≤ |SK.prf|`, the forging advantage against
 SLH-DSA in the random-oracle model at public seed `pkSeed`, of a forger with hash budget `qh`, is at
 most `2 (qh + V) / |Y|`, with `V` the verifier's query bound, plus the probability that
-`idealDraw` at `pkSeed` fires interleaved-target coverage with a fresh forged message
+`idealDraw` at `pkSeed` fires interleaved-target coverage at a fresh `H_msg` point
 (`RunItsrCovered`) on the transcript rebuilt with the drawn seeds and the cache merged under them.
 The forger guessing a secret seed is charged once, inside the first term. The statement is per
 public seed; the coverage term remains a probability in the ideal hidden-seed game and is not
@@ -481,7 +482,7 @@ theorem unforgeableAdvantage_romScheme_pure_le_add_idealDraw (laws : core.ByteLa
           optRand pkSeed hadv)))
 
 /-- **The coverage term of the ideal hidden-seed game does not depend on the drawn seeds.**
-Interleaved-target coverage with a fresh forged message, read in `idealDraw` on the transcript
+Interleaved-target coverage at a fresh `H_msg` point, read in `idealDraw` on the transcript
 rebuilt with the drawn seeds and the cache merged under them, has the probability that the
 secret-free experiment run alone in the ideal game fires it, read on the transcript rebuilt with
 any fixed seeds `s₀` and on the run's final public cache. Coverage reads only `H_msg` answers, and
@@ -531,7 +532,7 @@ theorem prEvent_idealDraw_runItsrCovered_eq (e : core.SkSeed ≃ core.Y)
 key discipline and `|Y| ≤ |SK.prf|`, the forging advantage against SLH-DSA in the random-oracle
 model at public seed `pkSeed`, of a forger with hash budget `qh`, is at most `2 (qh + V) / |Y|`,
 with `V` the verifier's query bound, plus the probability that the run fires interleaved-target
-coverage with a fresh forged message (`RunItsrCovered`). The statement is per public seed; the
+coverage at a fresh `H_msg` point (`RunItsrCovered`). The statement is per public seed; the
 coverage term remains a probability of the run and is not bounded here; the faithfulness step
 relating the three-oracle model to the byte-level scheme is not included (it is bounded in
 `HashSig.SLHDSA.Security.ByteBound`). For deterministic

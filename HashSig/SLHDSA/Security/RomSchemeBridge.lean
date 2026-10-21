@@ -17,10 +17,10 @@ a same-address target collision, a hidden-value hit or interleaved-target covera
 (randomizer and message) that is the point of no logged signature, at the price of a fourth
 disjunct, the forged pair of message and signature being logged (`bad_event_or_logged_of_settled`).
 On the support of `romSchemeRun` the final cache settles all three replays at the run's own provider
-`oracleSecret core e o.pk.pkSeed o.sk.skSeed` and public seed, so a winning forgery exhibits one
-of the three events there, each conjoined with freshness of the forged message for the signing log
-(`bad_event_of_wins_romSchemeRun`).  The provider and the seed are fixed by the run, not chosen by
-the caller.
+`oracleSecret core e o.pk.pkSeed o.sk.skSeed` and public seed, so a forgery whose pair of message
+and signature was never returned by the signing oracle exhibits a target collision, a hidden-value
+hit, or coverage at a fresh `H_msg` point there (`bad_event_of_strongWins_romSchemeRun`).  The
+provider and the seed are fixed by the run, not chosen by the caller.
 
 The descent runs top-down from the cached public root (`bad_event_or_honestDescent_of_settled`):
 key generation settles the honest root of the top tree at the value the forgery's verification
@@ -60,7 +60,7 @@ signature used.
 
 *The bridges on a settled cache*: `bad_event_of_settled`, `bad_event_or_logged_of_settled`.
 
-*The bridge on the run*: `bad_event_of_wins_romSchemeRun`.
+*The bridge on the run*: `bad_event_of_strongWins_romSchemeRun`.
 
 ## References
 
@@ -411,25 +411,26 @@ variable [SampleableType core.SkSeed] [SampleableType core.SkPrf] [DecidableEq c
 
 /-! ## The bridge on the run -/
 
-/-- **The random-oracle bad-event bridge.**  On the support of `romSchemeRun`, a winning forgery
-exhibits, at the run's own oracle-backed provider and public seed and in the public-hash part of
-the final cache, a same-address target collision, or a hidden-value hit, or interleaved-target
-coverage, and in each case the forged message is fresh for the signing log. -/
-theorem bad_event_of_wins_romSchemeRun (laws : core.ByteLaws) (e : core.SkSeed ≃ core.Y)
+/-- **The random-oracle bad-event bridge.**  On the support of `romSchemeRun`, a strongly winning
+forgery exhibits, at the run's own oracle-backed provider and public seed and in the public-hash
+part of the final cache, a same-address target collision, or a hidden-value hit, or
+interleaved-target coverage at an `H_msg` point that is the point of no logged signature. -/
+theorem bad_event_of_strongWins_romSchemeRun (laws : core.ByteLaws) (e : core.SkSeed ≃ core.Y)
     (optRand : PublicKeyCore core → ProbComp core.Y) (pkSeedDist : ProbComp core.PkSeed)
     (adv : UnforgeableAdversary (romScheme core e optRand pkSeedDist))
     {z : RomOutcome vp core × (hashSpec core).QueryCache}
-    (hz : z ∈ support (romSchemeRun core e optRand pkSeedDist adv)) (hw : z.1.wins = true) :
-    (TargetCollision (oracleSecret core e z.1.pk.pkSeed z.1.sk.skSeed) z.1.pk.pkSeed
-        z.2.fst ∧ z.1.msg ∉ z.1.log.map (fun e => e.1)) ∨
-      (HiddenHit (oracleSecret core e z.1.pk.pkSeed z.1.sk.skSeed) z.1 z.2.fst ∧
-        z.1.msg ∉ z.1.log.map (fun e => e.1)) ∨
-      (ItsrCovered z.1 z.2.fst ∧ z.1.msg ∉ z.1.log.map (fun e => e.1)) := by
-  obtain ⟨hfresh, hv⟩ := (UnforgeableTranscript.wins_eq_true_iff z.1).mp hw
+    (hz : z ∈ support (romSchemeRun core e optRand pkSeedDist adv))
+    (hw : z.1.strongWins = true) :
+    TargetCollision (oracleSecret core e z.1.pk.pkSeed z.1.sk.skSeed) z.1.pk.pkSeed z.2.fst ∨
+      HiddenHit (oracleSecret core e z.1.pk.pkSeed z.1.sk.skSeed) z.1 z.2.fst ∨
+      (ItsrCovered z.1 z.2.fst ∧
+        (z.1.sig.randomness, z.1.msg) ∉ z.1.log.map (fun e => (e.2.randomness, e.1))) := by
+  obtain ⟨hfresh, hv⟩ := (UnforgeableTranscript.strongWins_eq_true_iff z.1).mp hw
   obtain ⟨-, -, hroot, hlog, hver⟩ :=
     settled_of_mem_support_romSchemeRun core e optRand pkSeedDist adv hz
-  exact (bad_event_of_settled laws _ z.1 z.2.fst hroot hlog (hv ▸ hver)).imp (⟨·, hfresh⟩)
-    (Or.imp (⟨·, hfresh⟩) (⟨·, hfresh⟩))
+  rcases bad_event_or_logged_of_settled laws _ z.1 z.2.fst hroot hlog (hv ▸ hver) with
+    h | h | h | h
+  exacts [.inl h, .inr (.inl h), .inr (.inr h), absurd h hfresh]
 
 end Run
 

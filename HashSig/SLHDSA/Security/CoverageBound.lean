@@ -21,8 +21,8 @@ with the joint bound of `HashSig.SLHDSA.Security.JointBound` proves the security
 ## The coverage bound
 
 `prEvent_idealDraw_runItsrCovered_le`: in `idealDraw`, a forger with hash budget `qh` and signing
-budget `qs` makes the forged message fresh and every FORS digit of its digest covered by the digest
-of a logged signature (`RunItsrCovered`) with probability at most
+budget `qs` makes the forged `H_msg` point fresh and every FORS digit of its digest covered by the
+digest of a logged signature (`RunItsrCovered`) with probability at most
 `(qh + 1) · weightedTargetCoverBound h a k qs qh (qs / |Y|)`. The chain is:
 
 * *Untagging.* The secret-free experiment in the ideal game is the role-tagged experiment
@@ -213,7 +213,7 @@ variable [SampleableType core.Y] [SampleableType (Bytes vp.params.m)] [Decidable
 
 /-- **The coverage bound in the ideal hidden-seed game, per public seed.** For a forger with hash
 budget `qh` and signing budget `qs`, `idealDraw` at public seed `pkSeed` fires interleaved-target
-coverage with a fresh forged message (`RunItsrCovered`), on the transcript rebuilt with the drawn
+coverage at a fresh `H_msg` point (`RunItsrCovered`), on the transcript rebuilt with the drawn
 seeds and the cache merged under them, with probability at most
 `(qh + 1) · weightedTargetCoverBound h a k qs qh (qs / |Y|)`. -/
 theorem prEvent_idealDraw_runItsrCovered_le (e : core.SkSeed ≃ core.Y)

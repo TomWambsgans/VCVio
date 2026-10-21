@@ -194,7 +194,7 @@ theorem prEvent_idealDraw_verifyingAdv_le_of_charged (hd : (shakeCore vp).KeyDis
     rcases h with hhm | hf | hx
     · exact .inl ((conflict_or_exists_isSome_of_hiddenHitMixed_withPost hd
         (linkedRouteAdv vp hn hnm adv) (fun _ _ ht ↦ linkedRedirect_of_not_isLinked ht)
-        (fun _ _ _ _ _ ↦ rfl) hw (hns hhm).1.1).resolve_right (hns hhm).2)
+        (fun _ _ _ _ _ ↦ rfl) hw (hns hhm).1).resolve_right (hns hhm).2)
     · exact hF w hw hf
     · exact hX w hw (hns hx).1 (hns hx).2
 

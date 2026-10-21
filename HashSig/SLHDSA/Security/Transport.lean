@@ -124,8 +124,7 @@ theorem tcHazard_of_runTargetCollision_fill (hd : core.KeyDiscipline vp) {z : De
     (h : RunTargetCollision core e (DeriveOutcome.fill core s z,
       (secretEncoding core e pkSeed).merge s ((slhGraph core pkSeed).toSplitCache st))) :
     (slhNodeKeys core pkSeed).TCHazard st := by
-  have h := h.1
-  simp only [DeriveOutcome.fill_pk, DeriveOutcome.fill_sk_skSeed, hpk] at h
+  simp only [RunTargetCollision, DeriveOutcome.fill_pk, DeriveOutcome.fill_sk_skSeed, hpk] at h
   exact tcHazard_of_targetCollision hd h
 
 /-! ## Completed public misses -/
@@ -515,7 +514,7 @@ theorem conflict_or_tcHazard_or_exists_isSome_of_mem_support_deferredFillDraw
       (by rwa [← hfst])
     exact Or.inl (conflict_of_hiddenHit hd hle hfst (o := DeriveOutcome.fill core w.2.2 w.1.1)
       (by simpa [DeriveOutcome.fill] using hpk) (by simp [DeriveOutcome.fill, fillSecretKey])
-      (by simpa [DeriveOutcome.fill] using h5) hv hhh.1)
+      (by simpa [DeriveOutcome.fill] using h5) hv hhh)
   · exact Or.inr (Or.inr
       ((exists_isSome_toSplitCache_fst_secretEncoding_enc_iff hd.keySeparated).1 hseed))
   · exact Or.inl hc

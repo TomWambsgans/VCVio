@@ -528,10 +528,10 @@ open AnswerTape SLHDSA.DigestTransport CanonicalGames
 variable [SampleableType core.SkSeed] [SampleableType core.SkPrf]
 
 /-- **The event mapping.** On the instrumented role run of a forger with hash budget `qh` and
-signing budget `qs`, over a family drawn at the lengths `tapeLength qh qs`, coverage of a fresh
-forgery yields a witness whose tape event holds of the family and whose run event holds of the
-run. The forgery's `H_msg` point is not of class `signer`, since it would then be the point of a
-logged signature on the forged message; so it sits at a forger-tape position `n`. Every FORS
+signing budget `qs`, over a family drawn at the lengths `tapeLength qh qs`, coverage of a forgery
+whose `H_msg` point is fresh yields a witness whose tape event holds of the family and whose run
+event holds of the run. The forgery's `H_msg` point is not of class `signer`, since it would then
+be the point of a logged signature; so it sits at a forger-tape position `n`. Every FORS
 digit of its digest is matched by a logged signature's digest, at a signer-tape position or at a
 forger-tape position other than `n`, and in the second case the logged point is in the hit set,
 since it is not of class `signer`. -/
@@ -552,7 +552,7 @@ theorem exists_witness_of_runItsrCovered {e : core.SkSeed ≃ core.Y}
   rw [UnforgeableTranscript.mapSk_sig, UnforgeableTranscript.mapSk_msg] at hdig
   rw [UnforgeableTranscript.mapSk_log] at hidx
   simp only [RunFresh, DeriveOutcome.fill, UnforgeableTranscript.mapSk_msg,
-    UnforgeableTranscript.mapSk_log] at hfresh
+    UnforgeableTranscript.mapSk_log, UnforgeableTranscript.mapSk_sig] at hfresh
   have hlen := length_of_mem_support_tapeFamily (tapeLength qh qs) hL
   have hF := cnt_le_of_isQueryBoundP (tapeClass core) (range_eq_tapeClassRange core)
     (freshHitAux (IsRandPoint core) (randRel core)) ∅ L _ .forger
@@ -573,7 +573,8 @@ theorem exists_witness_of_runItsrCovered {e : core.SkSeed ≃ core.Y}
     rcases hj₀ with h | h
     · exact h
     · obtain ⟨en, hen, heq⟩ := exists_mem_log_of_cls_eq_signer hz tgt (by rw [hcls₀, h]; rfl)
-      exact absurd (List.mem_map.2 ⟨en, hen, ((hmsgPoint_inj core _).1 heq).2.symm⟩) hfresh
+      obtain ⟨h1, h2⟩ := (hmsgPoint_inj core _).1 heq
+      exact absurd (List.mem_map.2 ⟨en, hen, Prod.ext h1.symm h2.symm⟩) hfresh
   subst hj₀F
   obtain ⟨n₀, hn₀, hn₀lt, _, hv₀⟩ := hp₀ (by simp)
   rw [hlen] at hn₀lt
@@ -594,7 +595,8 @@ theorem exists_witness_of_runItsrCovered {e : core.SkSeed ≃ core.Y}
     obtain ⟨hm1, hm2⟩ := coveringDigest_match_of_mem_hmsgIndices vp digest d' i hmem
     set ti := hmsgPoint core z.1.pk en.2.randomness en.1
     have hne : ti ≠ tgt := fun h =>
-      hfresh (List.mem_map.2 ⟨en, hen, ((hmsgPoint_inj core _).1 h).2⟩)
+      hfresh (List.mem_map.2 ⟨en, hen, Prod.ext ((hmsgPoint_inj core _).1 h).1
+        ((hmsgPoint_inj core _).1 h).2⟩)
     obtain ⟨j, hclsj, hj, hpj⟩ := hpos ti d' hd'
     rcases hj with hj | hj
     · -- forger tape: a position other than the target's, and a hit
