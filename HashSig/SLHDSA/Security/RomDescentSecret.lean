@@ -43,15 +43,19 @@ or the forgery carries, at a FORS coordinate no logged signature opened, the set
 **Interleaved-target coverage** (`ItsrCovered`).  Every FORS coordinate the forgery's digest
 selects is selected by the digest of some logged signature.
 
-The case analyses `xmssPkFromSig?_cases`, `wotsChain_cases`, `wotsLeaf_cases`, `xmssLayer_cases`
-and `fors_cases` split a settled verification step into these events or the next step of the
-descent.  The first three take the ledger membership of the addresses they may name as
-hypotheses; `xmssLayer_cases` and `fors_cases` discharge the ledger memberships from the hypertree
-position and the digest-derived FORS instance through the membership lemmas of
+The case analyses `xmssPkFromSig?_cases`, `wotsChain_cases`, `wotsLeaf_cases`, `xmssLayer_cases`,
+`forsPkFromSig?_cases` and `fors_cases` split a settled verification step into these events or the
+next step of the descent.  The first three take the ledger membership of the addresses they may
+name as hypotheses; `xmssLayer_cases` and the FORS cases discharge the ledger memberships from
+the hypertree position and the digest-derived FORS instance through the membership lemmas of
 `HashSig.SLHDSA.Security.ComponentTraces`.  In `xmssLayer_cases` the hidden-value hit at a used
 leaf with a different honest message is on a chain where the forgery's message selects a smaller
 step (`chainStepsCore_two_encodings`), and at an unused leaf it is on a chain where that message
-selects a step below the top (`exists_chainStepsCore_lt_pred_w`).  The positional facts draw no
+selects a step below the top (`exists_chainStepsCore_lt_pred_w`).  Where the forgery replays a
+logged randomizer on a logged message, the descent ends without coverage:
+`targetCollision_or_xmssSignWithSecret_eq_some` and `targetCollision_or_eq_of_forsSignWithSecret`
+close a layer whose recovery meets the honest value with a target collision or with the forgery's
+component equal to the settled honest one.  The positional facts draw no
 secret: `childTreeAdrs` and `forsInstanceAdrs` name the tree and FORS instance a hypertree position
 signs, `forgerMessage?` is the message the verification replay presents to each layer, and
 `forgerLayers_of_recoverFromPositionM` reads every layer of a settled Algorithm 13 run off the
@@ -70,13 +74,14 @@ union-ledger targets (`xmssNodeAdrs_childTreeAdrs_mem_constructionAddresses`,
   the secret seed settles the secret itself, and `HiddenHit` can then fire on it, so a bound on
   `HiddenHit` must charge the queries that name the secret seed.  The cache records no
   provenance, so that charge is read off the forger's query log, not off the cache.
-* `ItsrCovered` does not exclude the forger's point being a logged message and randomizer;
-  freshness of the forged message for the signing log, as EUF-CMA requires, excludes it.
+* `ItsrCovered` does not exclude the forger's `H_msg` point being that of a logged signature:
+  replaying a logged randomizer on its own message covers every coordinate of the digest.  A
+  bound on coverage must exclude such a point.
 * Nothing here is quantum.
 
 ## Labels
 
-Thirty declarations, none private.
+Thirty-three declarations, none private.
 
 *Positions and the verifier's replay*: `childTreeAdrs`, `childTreeAdrs_next`, `forsInstanceAdrs`,
 `forsInstanceAdrs_initial`, `forsPkAdrs_forsInstanceAdrs_mem_constructionAddresses`,
@@ -96,7 +101,10 @@ Thirty declarations, none private.
 
 *Position congruence*: `signFromPositionWithSecret_pos_congr`.
 
-*The FORS stop*: `unopenedCoord_of_notMem`, `fors_cases`.
+*The FORS stop*: `unopenedCoord_of_notMem`, `forsPkFromSig?_cases`, `fors_cases`.
+
+*Openings at a logged point*: `targetCollision_or_xmssSignWithSecret_eq_some`,
+`targetCollision_or_eq_of_forsSignWithSecret`.
 
 ## References
 
@@ -425,8 +433,9 @@ section Descent
 variable (secret : Adrs → OracleComp (publicHashSpec core) core.Y)
 
 /-- An XMSS signature at leaf `idx` whose recovered root is settled at the settled honest root of
-the same tree yields either a same-address target collision, or settled forger chain tops equal
-to the settled honest chain tops at that leaf.  The hypotheses `hnode` and `hpk` place the tree's
+the same tree yields either a same-address target collision, or its authentication path is the
+settled honest authentication path at that leaf and its settled chain tops are the settled honest
+chain tops there.  The hypotheses `hnode` and `hpk` place the tree's
 internal nodes and the leaf's public-key compression in the union ledger. -/
 theorem xmssPkFromSig?_cases (pk : core.PkSeed) (c : PublicHash.Cache core) (adrs : Adrs)
     (idx : ℕ) (hidx : idx < 2 ^ vp.params.hp)
@@ -437,6 +446,9 @@ theorem xmssPkFromSig?_cases (pk : core.PkSeed) (c : PublicHash.Cache core) (adr
     {r : core.Y} (hforge : xmssPkFromSig? core c idx sig msg pk adrs = some r)
     (hhonest : xmssRootWithSecret? core c secret pk adrs = some r) :
     TargetCollision secret pk c ∨
+    simulateQ c.toPartialImpl (PerfectMerkleTree.intrinsicAuthPathM
+        (xmssLeafWithSecret core (PublicHash.f core pk) (PublicHash.tl core pk) secret adrs)
+        (xmssNodeHashM core pk adrs) idx vp.params.hp) = some sig.auth ∧
     ∃ tops : Vector core.Y vp.params.len,
       simulateQ c.toPartialImpl
         (wotsPkFromSigTopsM core sig.wots msg pk (wotsLeafAdrs adrs idx)) = some tops ∧
@@ -445,13 +457,13 @@ theorem xmssPkFromSig?_cases (pk : core.PkSeed) (c : PublicHash.Cache core) (adr
     (simulateQ_toPartialImpl_xmssPkFromSigM_eq_some_iff core c idx sig msg pk adrs).mp hforge
   rcases PerfectMerkleTree.climbM_merkleRootM_cases c.toPartialImpl _ _ idx vp.params.hp 0
       (Nat.div_eq_of_lt hidx) leaf' sig.auth hclimb hhonest with
-    ⟨hleaf, -⟩ | ⟨h, l, rr, l', r', v, hh, hhp, hne, hl, hr, hq, hq'⟩
+    ⟨hleaf, hauth⟩ | ⟨h, l, rr, l', r', v, hh, hhp, hne, hl, hr, hq, hq'⟩
   · simp only [xmssLeafWithSecret, wotsPkGenWithSecret, simulateQ_bind_eq_some_iff,
       simulateQ_toPartialImpl_tl] at hleaf
     obtain ⟨tops, htops, hTl⟩ := hleaf
     by_cases heq : tops = tops'
     · subst heq
-      exact Or.inr ⟨tops, htops', htops⟩
+      exact Or.inr ⟨hauth, tops, htops', htops⟩
     · exact Or.inl ⟨core.adrsToKey (wotsPkAdrs (wotsLeafAdrs adrs idx)), tops.toList,
         tops'.toList, leaf', HonestEntry.wotsPk _ tops hpk htops, mt Vector.toList_inj.mp heq,
         hTl, hTl'⟩
@@ -530,7 +542,8 @@ theorem xmssLayer_cases (laws : core.ByteLaws) (o : RomOutcome vp core)
       (UsedLeaf o c j pos ∧ honestMessage? c secret o.pk.pkSeed pos = some m') := by
   rcases xmssPkFromSig?_cases secret o.pk.pkSeed c pos.toAdrs pos.leaf.val pos.leaf.isLt
       (fun _ _ hh hhp hi => xmssNodeAdrs_mem_constructionAddresses_of_position pos hh hhp hi)
-      (wotsPkAdrs_mem_constructionAddresses pos) _ m' hforge hhonest with h | ⟨tops, htops', htops⟩
+      (wotsPkAdrs_mem_constructionAddresses pos) _ m' hforge hhonest with
+    h | ⟨-, tops, htops', htops⟩
   · exact Or.inl h
   rcases wotsLeaf_cases secret o.pk.pkSeed c _
       (fun i hi _ hs => wotsChainAdrs_setHashAddress_mem_constructionAddresses pos ⟨i, hi⟩ hs) _
@@ -548,6 +561,30 @@ theorem xmssLayer_cases (laws : core.ByteLaws) (o : RomOutcome vp core)
     obtain ⟨x₀, hx₀, hchain⟩ := hall ⟨i, hi⟩
     exact Or.inr (Or.inl (Or.inl ⟨j, pos, m', ⟨i, hi⟩, x₀, hlayer, fun h => absurd h hused, htop,
       hx₀, hchain⟩))
+
+/-- At a hypertree position, an XMSS signature `sig` on `m'` whose recovered root is settled at the
+settled honest root of the tree yields either a same-address target collision, or `sig` is the
+settled honest XMSS signature at that position on `m'`. -/
+theorem targetCollision_or_xmssSignWithSecret_eq_some (pk : core.PkSeed)
+    (c : PublicHash.Cache core) (pos : LayerPosition vp) (sig : XmssSig vp.params core)
+    (m' : core.Y) {r : core.Y}
+    (hforge : xmssPkFromSig? core c pos.leaf.val sig m' pk pos.toAdrs = some r)
+    (hhonest : xmssRootWithSecret? core c secret pk pos.toAdrs = some r) :
+    TargetCollision secret pk c ∨
+      simulateQ c.toPartialImpl (xmssSignWithSecret core (PublicHash.f core pk)
+        (PublicHash.tl core pk) (PublicHash.h core pk) secret m' pos.toAdrs pos.leaf.val) =
+          some sig := by
+  rcases xmssPkFromSig?_cases secret pk c pos.toAdrs pos.leaf.val pos.leaf.isLt
+      (fun _ _ hh hhp hi => xmssNodeAdrs_mem_constructionAddresses_of_position pos hh hhp hi)
+      (wotsPkAdrs_mem_constructionAddresses pos) sig m' hforge hhonest with
+    h | ⟨hauth, tops, htops', htops⟩
+  · exact Or.inl h
+  refine (wotsLeaf_cases secret pk c _
+    (fun i hi _ hs => wotsChainAdrs_setHashAddress_mem_constructionAddresses pos ⟨i, hi⟩ hs)
+    sig.wots m' tops htops' htops).imp id fun hall => ?_
+  exact (simulateQ_toPartialImpl_xmssSignWithSecret_eq_some_iff core c secret m' pk _ _).mpr
+    ⟨hauth, (simulateQ_toPartialImpl_wotsSignWithSecret_eq_some_iff core c secret m' pk _).mpr
+      hall⟩
 
 /-- Algorithm 12 over a provider at two equal positions, with the layer-count proof transported
 along the equality: the proof depends on the position, so the position cannot be rewritten in
@@ -587,18 +624,27 @@ theorem unopenedCoord_of_notMem (o : RomOutcome vp core) (c : PublicHash.Cache c
   rw [hleaf, ← HmsgIndex.globalLeaf_of_mem hmem] at hjleaf
   rwa [HmsgIndex.ext_of_coords hjadrs hjleaf] at hjmem
 
-/-- The FORS stop.  At the FORS instance the forger's digest names, if the forger's recovered FORS
-public key is settled at the settled honest one, then either a same-address target collision (on
-the `T_k` compression of the roots, on an `H` node of an opened root path, or on an `F` leaf), or
-every FORS coordinate the digest selects is covered by a logged digest, or at an uncovered
-coordinate the forgery carries the settled secret. -/
-theorem fors_cases (o : RomOutcome vp core) (c : PublicHash.Cache core)
-    (digest : Bytes vp.params.m) (hd : ForgerDigest o c digest) (forsPk : core.Y)
-    (hforge : forsPkFromSig? core c o.sig.fors (splitDigest vp.params digest).md.toList
-      o.pk.pkSeed (splitDigest vp.params digest).forsAdrs = some forsPk)
-    (hhonest : forsPkGenWithSecret? core c secret o.pk.pkSeed
+/-- At the FORS instance a digest names, a FORS signature whose recovered FORS public key is
+settled at the settled honest one yields either a same-address target collision (on the `T_k`
+compression of the roots, on an `H` node of an opened root path, or on an `F` leaf), or, in every
+tree, the forgery's secret is the settled secret and its authentication path is the settled
+honest authentication path at the leaf the digest selects. -/
+theorem forsPkFromSig?_cases (pk : core.PkSeed) (c : PublicHash.Cache core)
+    (digest : Bytes vp.params.m) (sig : ForsSigCore vp.params core) (forsPk : core.Y)
+    (hforge : forsPkFromSig? core c sig (splitDigest vp.params digest).md.toList pk
+      (splitDigest vp.params digest).forsAdrs = some forsPk)
+    (hhonest : forsPkGenWithSecret? core c secret pk
       (splitDigest vp.params digest).forsAdrs = some forsPk) :
-    TargetCollision secret o.pk.pkSeed c ∨ HiddenHit secret o c ∨ ItsrCovered o c := by
+    TargetCollision secret pk c ∨ ∀ i : Fin vp.params.k,
+      simulateQ c.toPartialImpl (secret (forsSkAdrs (splitDigest vp.params digest).forsAdrs
+        (i.val * 2 ^ vp.params.a + forsIdx vp.params (splitDigest vp.params digest).md.toList
+          i.val))) = some (sig[i.val]).sk ∧
+      simulateQ c.toPartialImpl (PerfectMerkleTree.intrinsicAuthPathM
+        (forsLeafWithSecret core (PublicHash.f core pk) secret
+          (splitDigest vp.params digest).forsAdrs)
+        (forsNodeHashWith (PublicHash.h core pk) (splitDigest vp.params digest).forsAdrs)
+        (i.val * 2 ^ vp.params.a + forsIdx vp.params (splitDigest vp.params digest).md.toList i.val)
+        vp.params.a) = some (sig[i.val]).auth := by
   have hrootMem :
       forsPkAdrs (splitDigest vp.params digest).forsAdrs ∈ constructionAddresses vp := by
     rw [← BottomPosition.forsAdrs_ofDigestParts]
@@ -627,41 +673,75 @@ theorem fors_cases (o : RomOutcome vp core) (c : PublicHash.Cache core)
   · exact Or.inl ⟨core.adrsToKey (forsPkAdrs adrs), roots.toList, roots'.toList, forsPk,
       HonestEntry.forsRoots adrs roots hrootMem hper, mt Vector.toList_inj.mp hroots, hTk, hTk'⟩
   subst hroots
-  suffices hsk : TargetCollision secret o.pk.pkSeed c ∨ ∀ i : Fin vp.params.k,
-      simulateQ c.toPartialImpl (secret (forsSkAdrs adrs (forsSigLeafIndex vp.params md i.val))) =
-        some (o.sig.fors[i.val]).sk by
-    refine hsk.imp id fun hsk => ?_
-    by_cases hcov : ∀ idx ∈ hmsgIndices vp.params digest, ∃ e ∈ o.log, ∃ digest',
-        LoggedDigest o c e digest' ∧ idx ∈ hmsgIndices vp.params digest'
-    · exact Or.inr ⟨digest, hd, hcov⟩
-    · push Not at hcov
-      obtain ⟨idx, hmem, huncov⟩ := hcov
-      exact Or.inl (Or.inr ⟨digest, idx.tree, hd, unopenedCoord_of_notMem o c hmem
-        fun ⟨e, he, digest', hd', hmem'⟩ => huncov e he digest' hd' hmem', hsk idx.tree⟩)
   refine or_iff_not_imp_left.mpr fun hcoll i => ?_
-  by_contra hi
-  refine hcoll ?_
   obtain ⟨leaf', hF', hclimb⟩ := hper' i
   rcases PerfectMerkleTree.climbM_merkleRootM_cases c.toPartialImpl _ _
       (i.val * 2 ^ vp.params.a + forsIdx vp.params md i.val) vp.params.a i.val
       (by rw [← forsSigLeafIndex_eq]; exact forsSigLeafIndex_div_pow_a vp.params md i.val) leaf'
-      (o.sig.fors[i.val]).auth hclimb (hper i) with
-    ⟨hleaf, -⟩ | ⟨h, l, rr, l', r', v, hh, hha, hne, hl, hr, hq, hq'⟩
+      (sig[i.val]).auth hclimb (hper i) with
+    ⟨hleaf, hauth⟩ | ⟨h, l, rr, l', r', v, hh, hha, hne, hl, hr, hq, hq'⟩
   · simp only [forsLeafWithSecret, simulateQ_bind_eq_some_iff, simulateQ_toPartialImpl_f]
       at hleaf
     obtain ⟨x, hx, hleaf⟩ := hleaf
-    refine ⟨core.adrsToKey (forsNodeAdrs adrs 0
-      (i.val * 2 ^ vp.params.a + forsIdx vp.params md i.val)), [x], [(o.sig.fors[i.val]).sk],
+    refine ⟨?_, hauth⟩
+    by_contra hi
+    refine hcoll ⟨core.adrsToKey (forsNodeAdrs adrs 0
+      (i.val * 2 ^ vp.params.a + forsIdx vp.params md i.val)), [x], [(sig[i.val]).sk],
       leaf', HonestEntry.forsLeaf adrs _ x (hleafMem i) hx, fun h => hi ?_, hleaf, hF'⟩
     simp only [List.cons.injEq, and_true] at h
-    rw [forsSigLeafIndex_eq, ← h]
-    exact hx
+    rwa [← h]
   · simp only [forsNodeHashWith, simulateQ_toPartialImpl_h] at hq hq'
-    refine ⟨core.adrsToKey (forsNodeAdrs adrs h _), [l, rr], [l', r'], v,
+    refine absurd ⟨core.adrsToKey (forsNodeAdrs adrs h _), [l, rr], [l', r'], v,
       HonestEntry.forsNode adrs h _ l rr hh (hnodeMem i h hh hha) hl hr, fun hlist => hne ?_, hq,
-      hq'⟩
+      hq'⟩ hcoll
     simp only [List.cons.injEq, and_true] at hlist
     exact Prod.ext hlist.1 hlist.2
+
+/-- The FORS stop.  At the FORS instance the forger's digest names, if the forger's recovered FORS
+public key is settled at the settled honest one, then either a same-address target collision (on
+the `T_k` compression of the roots, on an `H` node of an opened root path, or on an `F` leaf), or
+every FORS coordinate the digest selects is covered by a logged digest, or at an uncovered
+coordinate the forgery carries the settled secret. -/
+theorem fors_cases (o : RomOutcome vp core) (c : PublicHash.Cache core)
+    (digest : Bytes vp.params.m) (hd : ForgerDigest o c digest) (forsPk : core.Y)
+    (hforge : forsPkFromSig? core c o.sig.fors (splitDigest vp.params digest).md.toList
+      o.pk.pkSeed (splitDigest vp.params digest).forsAdrs = some forsPk)
+    (hhonest : forsPkGenWithSecret? core c secret o.pk.pkSeed
+      (splitDigest vp.params digest).forsAdrs = some forsPk) :
+    TargetCollision secret o.pk.pkSeed c ∨ HiddenHit secret o c ∨ ItsrCovered o c := by
+  refine (forsPkFromSig?_cases secret o.pk.pkSeed c digest o.sig.fors forsPk hforge
+    hhonest).imp id fun hsk => ?_
+  by_cases hcov : ∀ idx ∈ hmsgIndices vp.params digest, ∃ e ∈ o.log, ∃ digest',
+      LoggedDigest o c e digest' ∧ idx ∈ hmsgIndices vp.params digest'
+  · exact Or.inr ⟨digest, hd, hcov⟩
+  · push Not at hcov
+    obtain ⟨idx, hmem, huncov⟩ := hcov
+    refine Or.inl (Or.inr ⟨digest, idx.tree, hd, unopenedCoord_of_notMem o c hmem
+      fun ⟨e, he, digest', hd', hmem'⟩ => huncov e he digest' hd' hmem', ?_⟩)
+    rw [forsSigLeafIndex_eq]
+    exact (hsk idx.tree).1
+
+/-- At the FORS instance a digest names, a FORS signature whose recovered FORS public key is
+settled at the settled honest one yields either a same-address target collision, or it is the
+settled honest FORS signature at that digest. -/
+theorem targetCollision_or_eq_of_forsSignWithSecret (pk : core.PkSeed)
+    (c : PublicHash.Cache core) (digest : Bytes vp.params.m) (sig sig' : ForsSigCore vp.params core)
+    (forsPk : core.Y)
+    (hforge : forsPkFromSig? core c sig (splitDigest vp.params digest).md.toList pk
+      (splitDigest vp.params digest).forsAdrs = some forsPk)
+    (hhonest : forsPkGenWithSecret? core c secret pk
+      (splitDigest vp.params digest).forsAdrs = some forsPk)
+    (hsign : simulateQ c.toPartialImpl (forsSignWithSecretM core secret
+      (splitDigest vp.params digest).md.toList pk (splitDigest vp.params digest).forsAdrs) =
+        some sig') :
+    TargetCollision secret pk c ∨ sig = sig' := by
+  rw [simulateQ_toPartialImpl_forsSignWithSecret_eq_some_iff] at hsign
+  refine (forsPkFromSig?_cases secret pk c digest sig forsPk hforge hhonest).imp id
+    fun h => Vector.ext fun i hi => ?_
+  obtain ⟨hx', hpath'⟩ := h ⟨i, hi⟩
+  obtain ⟨path, hpath, x, hx, hsig⟩ := hsign ⟨i, hi⟩
+  rw [Fin.getElem_fin] at hsig
+  rw [← hsig, Option.some.inj (hx.symm.trans hx'), Option.some.inj (hpath.symm.trans hpath')]
 
 end Descent
 
