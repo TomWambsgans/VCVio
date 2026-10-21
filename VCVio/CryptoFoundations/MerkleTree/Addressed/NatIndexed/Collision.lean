@@ -6,7 +6,7 @@ Authors: Alexander Hicks
 
 module
 
-public import VCVio.CryptoFoundations.MerkleTree.Addressed.NatIndexed.Option
+public import VCVio.CryptoFoundations.MerkleTree.Addressed.NatIndexed.OptionCoverage
 
 /-!
 # Collision extraction from a settled climb against a settled honest root
@@ -32,8 +32,7 @@ children of that node.  `climbM_merkleRootM_step` is the one-level descent.
 
 ## Labels
 
-`climbM_merkleRootM_step`, `simulateQ_intrinsicAuthPathM_eq_some_of_siblings`,
-`climbM_merkleRootM_cases`.
+Two declarations: `climbM_merkleRootM_step`, `climbM_merkleRootM_cases`.
 -/
 
 public section
@@ -93,25 +92,6 @@ theorem climbM_merkleRootM_step (idx : ℕ) (node : Y) (auth : List Y) (k : ℕ)
       exact Or.inl ⟨r, hv, h2 ▸ hr, hs ▸ hl⟩
     · exact Or.inr ⟨l, r, auth[k], v, heq, hl, hr, hq', hq⟩
 
-/-- An authentication path whose every entry is the settled honest sibling at its height is the
-settled honest authentication path. -/
-theorem simulateQ_intrinsicAuthPathM_eq_some_of_siblings (idx : ℕ) :
-    ∀ (z : ℕ) (path : Vector Y z),
-      (∀ k (hk : k < z),
-        simulateQ impl (merkleRootM leaf nodeHash k (sibling (idx / 2 ^ k))) = some path[k]) →
-      simulateQ impl (intrinsicAuthPathM leaf nodeHash idx z) = some path
-  | 0, path, _ => by
-    obtain rfl : path = #v[] := Vector.ext fun k hk => absurd hk (Nat.not_lt_zero k)
-    rfl
-  | z + 1, path, h => by
-    rw [simulateQ_intrinsicAuthPathM_succ_eq_some_iff]
-    refine ⟨path.pop, path[z], simulateQ_intrinsicAuthPathM_eq_some_of_siblings idx z path.pop
-      (fun k hk => by simpa [Vector.getElem_pop] using h k (by omega)), h z (by omega), ?_⟩
-    exact Vector.ext fun k hk => by
-      rcases Nat.lt_succ_iff_lt_or_eq.1 hk with hk | rfl
-      · simp [hk]
-      · simp
-
 /-- A settled climb from `node` at leaf `idx` along a path `auth` of length `hp` that reaches the
 settled honest root of the height-`hp` subtree containing `idx` either starts at the settled
 honest leaf `idx` and carries the settled honest authentication path, or exhibits at some
@@ -141,8 +121,8 @@ theorem climbM_merkleRootM_cases (idx hp t : ℕ) (hidx : idx / 2 ^ hp = t) (nod
     refine (key hp le_rfl).imp (fun ⟨v, hv, hm, hsib⟩ => ⟨?_, ?_⟩) id
     · simp only [Nat.sub_self, List.take_zero, climbM_nil, simulateQ_pure_eq_some_iff] at hv
       simpa [merkleRootM, hv] using hm
-    · exact simulateQ_intrinsicAuthPathM_eq_some_of_siblings impl leaf nodeHash idx hp auth
-        fun k hk => hsib k hk (by omega)
+    · exact (simulateQ_intrinsicAuthPathM_eq_some_iff impl leaf nodeHash idx).2
+        fun k => hsib k k.isLt (by omega)
   intro n
   induction n with
   | zero =>

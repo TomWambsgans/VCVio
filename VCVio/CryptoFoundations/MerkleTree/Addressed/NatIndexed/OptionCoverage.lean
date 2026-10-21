@@ -13,7 +13,9 @@ public import VCVio.CryptoFoundations.MerkleTree.Addressed.NatIndexed.Option
 
 What a settled reading of a perfect-tree program settles below it, when the oracle is interpreted
 into `Option`.  A settled subtree root settles the root of every subtree under it
-(`exists_simulateQ_merkleRootM_eq_some_of_div_pow_eq`).  A settled climb from a settled leaf along a
+(`exists_simulateQ_merkleRootM_eq_some_of_div_pow_eq`).  A settled authentication path is settled
+entrywise: entry `j` is the settled root of the sibling subtree at height `j`
+(`simulateQ_intrinsicAuthPathM_eq_some_iff`).  A settled climb from a settled leaf along a
 settled authentication path settles every ancestor of the leaf, the running value of the climb being
 the settled sub-root at each height (`simulateQ_merkleRootM_div_pow_eq_some_of_climbM`); conversely,
 a settled ancestor settles the climb to it (`simulateQ_climbM_eq_some_of_merkleRootM`). An
@@ -30,9 +32,11 @@ that settles its sibling sub-roots alike (`simulateQ_intrinsicAuthPathM_of_merkl
 
 ## Labels
 
-Four declarations.
+Five declarations.
 
 *Settled subtrees*: `exists_simulateQ_merkleRootM_eq_some_of_div_pow_eq`.
+
+*Settled paths*: `simulateQ_intrinsicAuthPathM_eq_some_iff`.
 
 *Settled climbs*: `simulateQ_merkleRootM_div_pow_eq_some_of_climbM`,
 `simulateQ_climbM_eq_some_of_merkleRootM`.
@@ -73,6 +77,30 @@ theorem exists_simulateQ_merkleRootM_eq_some_of_div_pow_eq {z t : ℕ} {r : Y}
     rcases Nat.even_or_odd (t' / 2 ^ (z' + k - z')) with ⟨n, hn⟩ | ⟨n, hn⟩
     · exact ih hl (by omega)
     · exact ih hr (by omega)
+
+/-! ## Settled paths -/
+
+/-- An authentication path is settled exactly when it is settled entrywise: entry `j` is the
+settled root of the sibling subtree at height `j`. -/
+theorem simulateQ_intrinsicAuthPathM_eq_some_iff (idx : ℕ) {z : ℕ} {path : Vector Y z} :
+    simulateQ impl (intrinsicAuthPathM leaf nodeHash idx z) = some path ↔
+      ∀ j : Fin z, simulateQ impl (merkleRootM leaf nodeHash j (sibling (idx / 2 ^ j.val))) =
+        some path[j] := by
+  induction z with
+  | zero =>
+    simp only [intrinsicAuthPathM, simulateQ_pure_eq_some_iff]
+    exact ⟨fun _ j => j.elim0, fun _ => Vector.eq_empty.symm⟩
+  | succ z ih =>
+    rw [simulateQ_intrinsicAuthPathM_succ_eq_some_iff]
+    constructor
+    · rintro ⟨prefix_, sib, hpre, hsib, rfl⟩ j
+      refine Fin.lastCases ?_ (fun j => ?_) j
+      · simpa using hsib
+      · simpa [Vector.getElem_push] using ih.mp hpre j
+    · intro h
+      refine ⟨path.pop, path[z], ih.mpr fun j => ?_, ?_, Vector.push_pop_back path⟩
+      · simpa [Vector.getElem_pop] using h j.castSucc
+      · simpa using h (Fin.last z)
 
 /-! ## Settled climbs -/
 
@@ -160,13 +188,8 @@ theorem simulateQ_intrinsicAuthPathM_of_merkleRootM (impl' : QueryImpl spec Opti
         some w → simulateQ impl' (merkleRootM leaf nodeHash z' (sibling (idx / 2 ^ z'))) =
           some w) →
       simulateQ impl (intrinsicAuthPathM leaf nodeHash idx z) = some path →
-      simulateQ impl' (intrinsicAuthPathM leaf nodeHash idx z) = some path
-  | 0, path, _, h => by simp [intrinsicAuthPathM, Vector.eq_empty (xs := path)] at h ⊢
-  | z + 1, path, hs, h => by
-    obtain ⟨prefix_, sib, hpre, hsib, rfl⟩ :=
-      (simulateQ_intrinsicAuthPathM_succ_eq_some_iff impl leaf nodeHash idx z).mp h
-    exact (simulateQ_intrinsicAuthPathM_succ_eq_some_iff impl' leaf nodeHash idx z).mpr
-      ⟨prefix_, sib, simulateQ_intrinsicAuthPathM_of_merkleRootM impl' idx
-        (fun z' hz' => hs z' (by omega)) hpre, hs z (by omega) sib hsib, rfl⟩
+      simulateQ impl' (intrinsicAuthPathM leaf nodeHash idx z) = some path :=
+  fun hs h => (simulateQ_intrinsicAuthPathM_eq_some_iff impl' leaf nodeHash idx).2 fun j =>
+    hs j j.isLt _ ((simulateQ_intrinsicAuthPathM_eq_some_iff impl leaf nodeHash idx).1 h j)
 
 end PerfectMerkleTree
