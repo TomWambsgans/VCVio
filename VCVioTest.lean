@@ -86,6 +86,7 @@ public import VCVioTest.ProgramLogic.MeasureWP
 public import VCVioTest.ProgramLogic.OracleWP
 public import VCVioTest.ProgramLogic.UntilBad
 public import VCVioTest.Quantum.Basic
+public import VCVioTest.Quantum.CheckedReadAlgebra
 public import VCVioTest.Quantum.Compressed
 public import VCVioTest.Quantum.InstabilityBound
 public import VCVioTest.Quantum.Kraus
