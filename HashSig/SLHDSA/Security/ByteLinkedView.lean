@@ -33,11 +33,12 @@ itself.
 
 ## The argument
 
-When the honest replays settle off the linked points, the bridge on a settled cache
-(`bad_event_of_settled`) fires on the view `V`, and unless `C` has an honest input at a linked
-point, `V` transfers honestly to `C` off the linked points (`HonestTransfer`), which splits the
-bridge's events onto `C` (`bad_event_of_redirectedWins`). When a replay fails off the linked points,
-the replays, settled on `C` on the support of a run, show an honest input at a linked point
+When the honest replays settle off the linked points, the strong bridge on a settled cache
+(`bad_event_or_logged_of_settled`) fires on the view `V`, its logged disjunct excluded by the
+freshness of the forged pair, and unless `C` has an honest input at a linked point, `V` transfers
+honestly to `C` off the linked points (`HonestTransfer`), which splits the bridge's events onto `C`
+(`bad_event_of_redirectedWins`). When a replay fails off the linked points, the replays, settled on
+`C` on the support of a run, show an honest input at a linked point
 (`linkedHonestInput_of_not_honestOffLinked`).
 
 ## Scope
@@ -148,19 +149,18 @@ theorem bad_event_of_redirectedWins
       (z.2.fst.viewBy (linkedRedirect vp z.1.pk)) z.2.fst :=
     ⟨fun _ ht => viewBy_linkedRedirect_of_not_isLinked _ ht, hz⟩
   have hm : ∀ r s root msg, ¬IsLinked vp z.1.pk (.hmsg r s root msg) := fun _ _ _ _ => id
-  rcases bad_event_of_settled (shakePrimitives_byteLaws vp.params)
+  rcases bad_event_or_logged_of_settled (shakePrimitives_byteLaws vp.params)
     (oracleSecret (shakeCore vp) (Equiv.refl _) z.1.pk.pkSeed z.1.sk.skSeed) z.1 _
     (QueryCache.simulateQ_toPartialImpl_mono hle _ ho.1)
     (fun x hx => QueryCache.simulateQ_toPartialImpl_mono hle _ (ho.2 x hx)) hv with
-    htc | hhh | hit
+    htc | hhh | ⟨hit, hpt⟩ | hlog
   · rcases targetCollision_or_virtualHit_of_viewBy z ht htc with htc | hvh
     · exact .inl (.inl (.inl htc))
     · exact .inr (.inl hvh)
   · exact .inl (.inl (.inr (hiddenHitMixed_of_hiddenHit ht hm hhh)))
   · exact .inl (.inr ⟨(itsrCovered_congr fun r s root msg => ht.eqOn _ (hm r s root msg)).1 hit,
-      fun hm' => hw.1 (by
-        obtain ⟨x, hx, he⟩ := List.mem_map.1 hm'
-        exact List.mem_map.2 ⟨x, hx, congrArg Prod.snd he⟩)⟩)
+      hpt⟩)
+  · exact absurd hlog hw.1
 
 /-- On the support of the run of `romScheme` against any adversary, if an honest replay fails off
 the linked points, the run's public-hash cache has an honest input at a linked point. -/

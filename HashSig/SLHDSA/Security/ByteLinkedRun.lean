@@ -19,8 +19,8 @@ against SLH-DSA over one SHAKE256 oracle is at most the probability of an event 
 three-oracle run of `romScheme` against the verifying adversary `verifyingAdv`
 (`shakeAdvantage_pure_le_verifyingAdv`):
 
-* `RedirectedWins`: the forgery's message is fresh and the redirected verification
-  `redirectedVerify` accepts on the public-hash part of the final cache;
+* `RedirectedWins`: the forged pair of message and signature is fresh and the redirected
+  verification `redirectedVerify` accepts on the public-hash part of the final cache;
 * `RunPrfKeyClash id pkSeed pkSeed`: the message-`PRF` key is hit at `opt_rand = PK.seed`;
 * `¬HonestOffLinked`: key generation or a logged signature, replayed at the oracle-backed provider
   on the public-hash cache with its linked points removed, fails to return its value.
@@ -139,11 +139,12 @@ the public-hash part of the cache with every linked point removed. -/
   HonestReplays vp z.1.pk z.1.sk z.1.log (QueryCache.filter (¬IsLinked vp z.1.pk ·) z.2.fst)
 
 variable (vp) in
-/-- **The forgery wins on the redirected verification**: its message was never signed and the
-redirected verification accepts it on the public-hash part of the cache. -/
+/-- **The forgery wins on the redirected verification**: its pair of message and signature was
+never returned by the signing oracle and the redirected verification accepts it on the public-hash
+part of the cache. -/
 @[expose] def RedirectedWins
     (z : RomOutcome vp (shakeCore vp) × (hashSpec (shakeCore vp)).QueryCache) : Prop :=
-  z.1.msg ∉ z.1.log.map (fun e => e.1) ∧
+  ⟨z.1.msg, z.1.sig⟩ ∉ z.1.log ∧
     simulateQ z.2.fst.toPartialImpl (redirectedVerify vp z.1.pk z.1.msg z.1.sig) = some true
 
 variable (vp) in
@@ -501,7 +502,8 @@ theorem shakeAdvantage_pure_le_verifyingAdv (h32 : vp.params.n = 32)
   have hle : z.2 ≤ r.2 :=
     le_snd_of_mem_support_run_unifFwdImpl_add_withCaching uniformSampleImpl _ hr
   rcases hP with hw | hcl
-  · obtain ⟨hfresh, hv⟩ := (UnforgeableTranscript.wins_eq_true_iff _).1 hw
+  · obtain ⟨hfresh, hv⟩ := (UnforgeableTranscript.strongWins_eq_true_iff _).1
+      (UnforgeableTranscript.strongWins_of_wins hw)
     rw [hv] at hver
     exact Or.inl (Or.inl ⟨hfresh, QueryCache.simulateQ_toPartialImpl_mono
       (QueryCache.fst_mono hle) _ hver⟩)
