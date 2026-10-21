@@ -42,6 +42,11 @@ example : DetVectorCommitment X Bool Bool Bool (Td Bool Bool 0) (Pf Bool Bool 0)
 example : VectorCommitment X Bool Bool Bool (Td Bool Bool 1) (Pf Bool Bool 1) 2 :=
   (scheme enc 1).toVectorCommitment
 
+/-- Finite labels and salts give a finite trapdoor register. -/
+example : Finite (Td Bool Bool 2) := inferInstance
+
+noncomputable example : Fintype (Td Bool Bool 2) := inferInstance
+
 example : (scheme (Msg := Bool) enc 0).PerfectlyComplete := perfectlyComplete enc 0
 
 example : (scheme (Msg := Bool) enc 1).PerfectlyComplete := perfectlyComplete enc 1
