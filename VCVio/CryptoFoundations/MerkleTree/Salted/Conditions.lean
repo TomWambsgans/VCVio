@@ -31,32 +31,6 @@ open Quantum OracleComp
 
 namespace SaltedMerkle
 
-/-- Finite labels and salts give finitely many typed trapdoors. -/
-instance instFiniteTd {Y Salt : Type*} [Finite Y] [Finite Salt] (d : ℕ) :
-    Finite (Td Y Salt d) := by
-  have htree (n : ℕ) : Finite (BinaryTree.FullData (Option Y) (BinaryTree.Skeleton.perfect n)) := by
-    induction n with
-    | zero =>
-        exact Finite.of_surjective BinaryTree.FullData.leaf
-          (by intro t; cases t; exact ⟨_, rfl⟩)
-    | succ n ih =>
-        let := ih
-        exact Finite.of_surjective
-          (fun p : Option Y × BinaryTree.FullData (Option Y) (BinaryTree.Skeleton.perfect n) ×
-              BinaryTree.FullData (Option Y) (BinaryTree.Skeleton.perfect n) =>
-            BinaryTree.FullData.internal p.1 p.2.1 p.2.2)
-          (by
-            intro t
-            cases t with
-            | internal value left right => exact ⟨(value, left, right), rfl⟩)
-  let := htree d
-  exact inferInstanceAs (Finite ((Fin (2 ^ d) → Option Salt) ×
-    BinaryTree.FullData (Option Y) (BinaryTree.Skeleton.perfect d)))
-
-/-- Optional salts and typed perfect trees form a finite trapdoor register. -/
-noncomputable instance instFintypeTd {Y Salt : Type*} [Fintype Y] [Fintype Salt] (d : ℕ) :
-    Fintype (Td Y Salt d) := Fintype.ofFinite _
-
 variable {X Y Msg Salt : Type} [DecidableEq X] [LinearOrder Y] [Fintype Y]
   [Fintype Msg] [LinearOrder Msg] [Fintype Salt] [LinearOrder Salt] [SampleableType Salt]
   (enc : MerkleTreeHashing.QueryEncoding X Unit Unit (Msg × Salt) Y) {k : ℕ} (d : Fin k → ℕ)
