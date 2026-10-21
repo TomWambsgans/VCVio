@@ -37,6 +37,32 @@ abbrev Td (Y : Type uY) (Salt : Type uS) (d : ℕ) :=
 def tdBot {Y : Type uY} {Salt : Type uS} {d : ℕ} : Td Y Salt d :=
   (fun _ => none, populateDown _ (fun _ => (none, none)) none)
 
+/-- Finite labels and salts give finitely many typed trapdoors. -/
+instance instFiniteTd {Y : Type uY} {Salt : Type uS} [Finite Y] [Finite Salt] (d : ℕ) :
+    Finite (Td Y Salt d) := by
+  have htree (n : ℕ) : Finite (FullData (Option Y) (Skeleton.perfect n)) := by
+    induction n with
+    | zero =>
+        exact Finite.of_surjective FullData.leaf
+          (by intro t; cases t; exact ⟨_, rfl⟩)
+    | succ n ih =>
+        let := ih
+        exact Finite.of_surjective
+          (fun p : Option Y × FullData (Option Y) (Skeleton.perfect n) ×
+              FullData (Option Y) (Skeleton.perfect n) =>
+            FullData.internal p.1 p.2.1 p.2.2)
+          (by
+            intro t
+            cases t with
+            | internal value left right => exact ⟨(value, left, right), rfl⟩)
+  let := htree d
+  exact inferInstanceAs (Finite ((Fin (2 ^ d) → Option Salt) ×
+    FullData (Option Y) (Skeleton.perfect d)))
+
+/-- Optional salts and typed perfect trees form a finite trapdoor register. -/
+noncomputable instance instFintypeTd {Y : Type uY} {Salt : Type uS} [Fintype Y] [Fintype Salt]
+    (d : ℕ) : Fintype (Td Y Salt d) := Fintype.ofFinite _
+
 /-- A salt and the path-label/sibling pairs in root-to-leaf order. -/
 structure PathProof (Y : Type uY) (Salt : Type uS) (d : ℕ) where
   /-- The salt of the opened leaf. -/
