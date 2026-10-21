@@ -8,6 +8,7 @@ module
 public import VCVio.CryptoFoundations.MerkleTree.LabelledPath
 public import VCVio.CryptoFoundations.VectorCommitment
 public import VCVio.OracleComp.Constructions.SampleableType.Basic
+public import Mathlib.Data.List.Rotate
 
 /-!
 # Salted Merkle commitments
@@ -64,12 +65,13 @@ def opening (d : ℕ) (Q : Finset (Fin (2 ^ d))) (td : Td Y Salt d) : Pf Y Salt 
       fun p => ⟨salt, ⟨p.toList, by simp⟩⟩
   else none
 
-/-- The prescribed checks for one labelled leaf opening. -/
+/-- The leaf check followed by the prescribed node checks in root-to-leaf order.
+Rotating the depth-many node pairs places the final leaf pair first. -/
 @[expose]
 def leafIO (enc : QueryEncoding X Unit Unit (Msg × Salt) Y) (rt : Y)
     (i : Fin (2 ^ d)) (a : Msg) (pp : PathProof Y Salt d) : List (X × Y) :=
-  pathIO (enc.node ()) (enc.leaf () (a, pp.salt)) (SkeletonLeafIndex.perfectEquiv d i)
-    rt (pp.at _)
+  (pathIO (enc.node ()) (enc.leaf () (a, pp.salt)) (SkeletonLeafIndex.perfectEquiv d i)
+    rt (pp.at _)).rotate d
 
 /-- The prescribed checks at an answered and opened position. -/
 @[expose]
@@ -80,7 +82,7 @@ def entryIO (enc : QueryEncoding X Unit Unit (Msg × Salt) Y) (rt : Y) (i : Fin 
 
 /-- Reject mismatched domains; otherwise list each prescribed pair once. -/
 @[expose]
-def outputIO [DecidableEq X] [DecidableEq Y]
+def pairs [DecidableEq X] [DecidableEq Y]
     (enc : QueryEncoding X Unit Unit (Msg × Salt) Y) (d : ℕ) (rt : Y)
     (ans : PartialVec (2 ^ d) Msg) (pf : Pf Y Salt d) : Option (List (X × Y)) :=
   if ∀ i, (pf i).isSome = (ans i).isSome then
@@ -92,7 +94,7 @@ def outputIO [DecidableEq X] [DecidableEq Y]
 def checkOn [DecidableEq X] [DecidableEq Y]
     (enc : QueryEncoding X Unit Unit (Msg × Salt) Y) (d : ℕ)
     (D : X → Option Y) (rt : Y) (ans : PartialVec (2 ^ d) Msg) (pf : Pf Y Salt d) : Bool :=
-  (outputIO enc d rt ans pf).elim false (checkIOOn D)
+  (pairs enc d rt ans pf).elim false (checkIOOn D)
 
 variable (enc : QueryEncoding X Unit Unit (Msg × Salt) Y)
 
@@ -121,10 +123,10 @@ theorem path_of_opening_eq_some {Q : Finset (Fin (2 ^ d))} {td : Td Y Salt d}
 section Check
 variable [DecidableEq X] [DecidableEq Y]
 /-- `OutputIO` lists at most `d + 1` pairs per opened position. -/
-theorem length_outputIO_le (rt : Y) (ans : PartialVec (2 ^ d) Msg) (pf : Pf Y Salt d)
-    (io : List (X × Y)) (h : outputIO enc d rt ans pf = some io) :
+theorem length_pairs_le (rt : Y) (ans : PartialVec (2 ^ d) Msg) (pf : Pf Y Salt d)
+    (io : List (X × Y)) (h : pairs enc d rt ans pf = some io) :
     io.length ≤ ans.dom.card * (d + 1) := by
-  unfold outputIO at h
+  unfold pairs at h
   split_ifs at h with hpf
   obtain rfl := Option.some.inj h.symm
   refine (List.dedup_sublist _).length_le.trans ?_
@@ -164,12 +166,14 @@ theorem opening_eq_some (hc : Consistent G enc rt ans td) {i : Fin (2 ^ d)} {a :
   obtain ⟨root, p, hr, hp, hg⟩ := hc.closed.readPath _ hl hg
   rw [hc.root] at hr
   cases hr
-  refine ⟨⟨salt, ⟨p.toList, by simp⟩⟩, ?_, hg⟩
-  simp [opening, PartialVec.mem_dom, ha, hs, hp]
+  refine ⟨⟨salt, ⟨p.toList, by simp⟩⟩, ?_, ?_⟩
+  · simp [opening, PartialVec.mem_dom, ha, hs, hp]
+  · intro q hq
+    exact hg q (List.mem_rotate.mp hq)
 
 /-- Openings of a consistent trapdoor parse, and all their prescribed relations hold. -/
-theorem outputIO_opening [DecidableEq X] [DecidableEq Y] (hc : Consistent G enc rt ans td) :
-    ∃ io, outputIO enc d rt ans (opening d ans.dom td) = some io ∧
+theorem pairs_opening [DecidableEq X] [DecidableEq Y] (hc : Consistent G enc rt ans td) :
+    ∃ io, pairs enc d rt ans (opening d ans.dom td) = some io ∧
       ∀ q ∈ io, G q.1 q.2 := by
   have hpf : ∀ i, (opening d ans.dom td i).isSome = (ans i).isSome := by
     intro i
@@ -188,15 +192,15 @@ theorem outputIO_opening [DecidableEq X] [DecidableEq Y] (hc : Consistent G enc 
 end Consistent
 
 /-- A generated family of paths contains at most one distinct pair per tree vertex. -/
-theorem length_outputIO_opening_le [DecidableEq X] [DecidableEq Y] (rt : Y)
+theorem length_pairs_opening_le [DecidableEq X] [DecidableEq Y] (rt : Y)
     (ans : PartialVec (2 ^ d) Msg) (Q : Finset (Fin (2 ^ d))) (td : Td Y Salt d)
-    (io : List (X × Y)) (h : outputIO enc d rt ans (opening d Q td) = some io) :
+    (io : List (X × Y)) (h : pairs enc d rt ans (opening d Q td) = some io) :
     io.length ≤ 2 * 2 ^ d - 1 := by
   let inputs : SkeletonLeafIndex (Skeleton.perfect d) → Option X := fun i =>
     (ans ((SkeletonLeafIndex.perfectEquiv d).symm i)).bind fun a =>
       (td.1 ((SkeletonLeafIndex.perfectEquiv d).symm i)).map fun salt => enc.leaf () (a, salt)
   have hsub : ∀ q ∈ io, q ∈ treeIO (enc.node ()) td.2 inputs rt := by
-    unfold outputIO at h
+    unfold pairs at h
     split_ifs at h
     cases h
     intro q hq
@@ -207,9 +211,10 @@ theorem length_outputIO_opening_le [DecidableEq X] [DecidableEq Y] (rt : Y)
     rename_i a pp
     obtain ⟨hs, ht⟩ := path_of_opening_eq_some hp
     exact pathIO_subset_treeIO (enc.node ()) td.2 inputs rt _ _ ht
-      (by simp [inputs, ha, hs]) q hq
+      (leaf := enc.leaf () (a, pp.salt))
+      (by simp [inputs, ha, hs]) q (by simpa only [leafIO, List.mem_rotate] using hq)
   have hn : io.Nodup := by
-    unfold outputIO at h
+    unfold pairs at h
     split_ifs at h
     cases h
     exact List.nodup_dedup _
@@ -298,24 +303,23 @@ def scheme [DecidableEq X] [DecidableEq Y] [SampleableType Salt]
     let γ ← OracleComp.liftComp ($ᵗ (Fin (2 ^ d) → Salt)) (unifSpec + (X →ₒ Y))
     OracleComp.liftComp (commitTree enc d msg γ) (unifSpec + (X →ₒ Y))
   opening := opening d
-  check rt ans pf := (outputIO enc d rt ans pf).elim (pure false) checkIO
+  check rt ans pf := (pairs enc d rt ans pf).elim (pure false) checkIO
 
-/-- The check of `scheme enc d` has the `CheckIO` form, with at most `d + 1` pairs per opened
-position. -/
+/-- The non-adaptive check of `scheme enc d`, with at most `d + 1` pairs per opened position. -/
 @[expose]
-def checkIOForm [DecidableEq X] [DecidableEq Y] [SampleableType Salt]
+def nonadaptiveCheck [DecidableEq X] [DecidableEq Y] [SampleableType Salt]
     (enc : QueryEncoding X Unit Unit (Msg × Salt) Y) (d : ℕ) :
-    (scheme (Msg := Msg) enc d).toVectorCommitment.CheckIOForm where
-  outputIO := outputIO enc d
+    (scheme (Msg := Msg) enc d).toVectorCommitment.NonadaptiveCheck where
+  pairs := pairs enc d
   check_eq _ _ _ := rfl
   qVC q := q * (d + 1)
   qVC_mono _ _ h := Nat.mul_le_mul_right _ h
-  length_le rt ans pf io h := length_outputIO_le enc rt ans pf io h
+  length_le rt ans pf io h := length_pairs_le enc rt ans pf io h
 
-/-- The table check of `checkIOForm enc d` is `checkOn enc d`. -/
-theorem checkIOForm_checkOn [DecidableEq X] [DecidableEq Y] [SampleableType Salt]
+/-- The table check of `nonadaptiveCheck enc d` is `checkOn enc d`. -/
+theorem nonadaptiveCheck_checkOn [DecidableEq X] [DecidableEq Y] [SampleableType Salt]
     (enc : QueryEncoding X Unit Unit (Msg × Salt) Y) (d : ℕ) :
-    (checkIOForm enc d).checkOn = checkOn enc d :=
+    (nonadaptiveCheck enc d).checkOn = checkOn enc d :=
   rfl
 
 /-- **Perfect completeness** of the salted Merkle commitment against every fixed oracle function
@@ -333,9 +337,9 @@ theorem perfectlyComplete [DecidableEq X] [DecidableEq Y] [SampleableType Salt]
   rw [simulateQ_commitTree] at hz
   rw [support_pure, Set.mem_singleton_iff] at hz
   subst hz
-  obtain ⟨io, hio, hG⟩ := (consistent_honestTree enc d H msg γ Q).outputIO_opening
+  obtain ⟨io, hio, hG⟩ := (consistent_honestTree enc d H msg γ Q).pairs_opening
   rw [PartialVec.dom_restrict] at hio
-  change evalWithAnswerFn _ ((outputIO enc d _ _ (opening d Q _)).elim (pure false) checkIO) = true
+  change evalWithAnswerFn _ ((pairs enc d _ _ (opening d Q _)).elim (pure false) checkIO) = true
   rw [hio, Option.elim_some, evalWithAnswerFn_checkIO, List.all_eq_true]
   intro p hp
   simp [hG p hp]
