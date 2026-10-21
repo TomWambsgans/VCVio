@@ -528,7 +528,7 @@ section passProjector
 
 variable {k : ℕ} {X Y Msg Cm : Type} [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y]
   [AddCommGroup Y] {ℓ : Fin k → ℕ} {Td Pf : Fin k → Type}
-  {VC : ∀ i, VectorCommitment X Y Msg Cm (Td i) (Pf i) (ℓ i)} (io : ∀ i, (VC i).CheckIOForm)
+  {VC : ∀ i, VectorCommitment X Y Msg Cm (Td i) (Pf i) (ℓ i)} (io : ∀ i, (VC i).NonadaptiveCheck)
 
 /-- **The pass projector of the checks on `W`** (ePrint 2025/2166, p. 61): the diagonal
 projector onto the tuples of databases `D` on which every check `VC_i.Check^{D_{idx i}}` with
@@ -546,7 +546,7 @@ theorem exists_le_checkPassProjector_conj_of_length_le (n : ℕ) (W : Finset (Fi
     (hW : W.card ≤ n)
     (idx : Fin k → Fin k) (cm : Fin k → Cm) (ans : ∀ i, PartialVec (ℓ i) Msg) (pf : ∀ i, Pf i)
     (q : ℕ)
-    (hlen : ∀ i, (((io i).outputIO (cm i) (ans i) (pf i)).getD []).length ≤ q) :
+    (hlen : ∀ i, (((io i).pairs (cm i) (ans i) (pf i)).getD []).length ≤ q) :
     ∃ a : ℝ, (1 - (Fintype.card Y : ℝ)⁻¹) ^ (2 * n * q) ≤ a ∧
       checkPassProjector io W idx cm ans pf *
           (compressDatabases k X Y * checkPassProjector io W idx cm ans pf *
@@ -555,22 +555,22 @@ theorem exists_le_checkPassProjector_conj_of_length_le (n : ℕ) (W : Finset (Fi
   have hN : (0 : ℝ) ≤ 1 - (Fintype.card Y : ℝ)⁻¹ :=
     sub_nonneg.mpr (inv_le_one_of_one_le₀ (by exact_mod_cast Fintype.card_pos))
   have hN1 : 1 - (Fintype.card Y : ℝ)⁻¹ ≤ 1 := sub_le_self _ (inv_nonneg.mpr (Nat.cast_nonneg _))
-  by_cases hall : ∀ i ∈ W, ((io i).outputIO (cm i) (ans i) (pf i)).isSome
+  by_cases hall : ∀ i ∈ W, ((io i).pairs (cm i) (ans i) (pf i)).isSome
   · -- the prescriptions on each database
     let L : Fin k → List (X × Y) := fun j ↦ (List.finRange k).flatMap fun i ↦
-      if i ∈ W ∧ idx i = j then ((io i).outputIO (cm i) (ans i) (pf i)).getD [] else []
+      if i ∈ W ∧ idx i = j then ((io i).pairs (cm i) (ans i) (pf i)).getD [] else []
     have hmem : ∀ j p, p ∈ L j ↔ ∃ i, (i ∈ W ∧ idx i = j) ∧
-        p ∈ ((io i).outputIO (cm i) (ans i) (pf i)).getD [] := by
+        p ∈ ((io i).pairs (cm i) (ans i) (pf i)).getD [] := by
       intro j p
       simp only [L, List.mem_flatMap, List.mem_finRange, true_and]
       refine exists_congr fun i ↦ ?_
       split_ifs with h <;> simp [h]
     have hc : ∀ (D : Fin k → Database X Y), ∀ i ∈ W,
         ((io i).checkOn (D (idx i)) (cm i) (ans i) (pf i) = true ↔
-          ∀ p ∈ ((io i).outputIO (cm i) (ans i) (pf i)).getD [], D (idx i) p.1 = some p.2) := by
+          ∀ p ∈ ((io i).pairs (cm i) (ans i) (pf i)).getD [], D (idx i) p.1 = some p.2) := by
       intro D i hi
       obtain ⟨Li, hLi⟩ := Option.isSome_iff_exists.mp (hall i hi)
-      simp [VectorCommitment.CheckIOForm.checkOn, hLi, checkIOOn_eq_true_iff]
+      simp [VectorCommitment.NonadaptiveCheck.checkOn, hLi, checkIOOn_eq_true_iff]
     have hP : checkPassProjector io W idx cm ans pf = piKron fun j ↦ checkProjector Y (L j) := by
       ext D D'
       rw [checkPassProjector, piKron_apply, diagonal_apply]
@@ -597,7 +597,7 @@ theorem exists_le_checkPassProjector_conj_of_length_le (n : ℕ) (W : Finset (Fi
     have hcells : ∑ j, (ioCells (L j)).card ≤ n * q :=
       calc ∑ j, (ioCells (L j)).card
           ≤ ∑ j, (L j).length := Finset.sum_le_sum fun j _ ↦ card_ioCells_le_length _
-        _ = ∑ i ∈ W, (((io i).outputIO (cm i) (ans i) (pf i)).getD []).length := by
+        _ = ∑ i ∈ W, (((io i).pairs (cm i) (ans i) (pf i)).getD []).length := by
             simp only [L, List.length_flatMap, ← Fin.sum_univ_def, apply_ite List.length,
               List.length_nil, ite_and]
             simp only [Finset.sum_ite_mem, Finset.univ_inter]
@@ -623,7 +623,7 @@ theorem exists_le_checkPassProjector_conj_of_length_le (n : ℕ) (W : Finset (Fi
       funext D
       refine ite_eq_right_iff.mpr fun h ↦ ?_
       have := h i hi
-      simp [VectorCommitment.CheckIOForm.checkOn, Option.not_isSome_iff_eq_none.mp hn] at this
+      simp [VectorCommitment.NonadaptiveCheck.checkOn, Option.not_isSome_iff_eq_none.mp hn] at this
     exact ⟨_, le_rfl, by simp [hP0]⟩
 
 /-- The pass projector against its compressed conjugate. For `|W| ≤ n`, `P (C P C) P = a P` with
@@ -639,7 +639,7 @@ theorem exists_le_checkPassProjector_conj (n : ℕ) (W : Finset (Fin k)) (hW : W
         (a : ℂ) • checkPassProjector io W idx cm ans pf := by
   apply exists_le_checkPassProjector_conj_of_length_le io n W hW idx cm ans pf (q2 io)
   intro i
-  cases h : (io i).outputIO (cm i) (ans i) (pf i) with
+  cases h : (io i).pairs (cm i) (ans i) (pf i) with
   | none => simp
   | some L => exact ((io i).length_le _ _ _ _ h).trans (qVC_card_dom_le_q2 io i (ans i))
 
@@ -649,7 +649,7 @@ section filledBatch
 
 variable {k : ℕ} {X Y Msg Cm : Type} [DecidableEq Y] {ℓ : Fin k → ℕ} {Td Pf : Fin k → Type}
   {VC : ∀ i, VectorCommitment X Y Msg Cm (Td i) (Pf i) (ℓ i)}
-  (io : ∀ i, (VC i).CheckIOForm) [Fintype X] [DecidableEq X] [Fintype Y] [AddCommGroup Y]
+  (io : ∀ i, (VC i).NonadaptiveCheck) [Fintype X] [DecidableEq X] [Fintype Y] [AddCommGroup Y]
 
 /-- The accepting projector of the batch of checked reads. -/
 @[expose]
@@ -673,7 +673,7 @@ section extractError
 
 variable {k : ℕ} {X Y Msg Cm : Type} [Fintype Y] [DecidableEq Y] {ℓ : Fin k → ℕ}
   {Td Pf : Fin k → Type} {VC : ∀ i, VectorCommitment X Y Msg Cm (Td i) (Pf i) (ℓ i)}
-  (io : ∀ i, (VC i).CheckIOForm)
+  (io : ∀ i, (VC i).NonadaptiveCheck)
 
 /-- **The error of Lemma 9.3, exact form**: `1 - (1 - 1/N)^{2 n q2}` (ePrint 2025/2166),
 with `N = |Y|`. It is at most `2 n q2 / N`
@@ -708,7 +708,7 @@ section challenger
 variable {k : ℕ} {X Y Msg Cm Z : Type} [Fintype X] [DecidableEq X] [Fintype Y] [DecidableEq Y]
   [AddCommGroup Y] [Fintype Cm] [DecidableEq Cm] [Fintype Z] [DecidableEq Z] [AddGroup Z]
   {ℓ : Fin k → ℕ} {Td Pf : Fin k → Type}
-  {VC : ∀ i, VectorCommitment X Y Msg Cm (Td i) (Pf i) (ℓ i)} (io : ∀ i, (VC i).CheckIOForm)
+  {VC : ∀ i, VectorCommitment X Y Msg Cm (Td i) (Pf i) (ℓ i)} (io : ∀ i, (VC i).NonadaptiveCheck)
   (ME : MultiExtractor k Cm (DmOf ℓ Msg Td) (compressedVCOracle k X Y).S)
   (code : TpDCode k (DmOf ℓ Msg Td) Z) {tdBot : ∀ i, Td i} {Pgood : Set (Database X Y)}
 
@@ -766,7 +766,7 @@ theorem outcomeMeasure_run₂_checks_le_of_openingQueryBound [∀ i, DecidableEq
     obtain ⟨a, ha0, ha⟩ := exists_le_checkPassProjector_conj_of_length_le io n c.W hW c.idx c.cm
       (fun i ↦ (tdm i).1) pf q (by
         intro i
-        cases hL : (io i).outputIO (c.cm i) (tdm i).1 (pf i) with
+        cases hL : (io i).pairs (c.cm i) (tdm i).1 (pf i) with
         | none => simp
         | some L => exact hq i (c.cm i) (tdm i).1 (tdm i).2 (pf i) (hpf i) L hL)
     -- the checks on the partial tables pass under the extraction outcome (condition 3)

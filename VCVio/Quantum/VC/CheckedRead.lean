@@ -219,7 +219,7 @@ private theorem checkAt_branch (R : QuantumRuntime (mixedExtSpec k X Y Cm Z))
 /-- The accepting checked branch is exactly the compressed partial-table check projector. -/
 theorem branch_run₂_checkAt_compressedVCOracle
     (ME : MultiExtractor k Cm (DmOf ℓ Msg Td) (compressedVCOracle k X Y).S)
-    (code : TpDCode k (DmOf ℓ Msg Td) Z) (io : ∀ i, (VC i).CheckIOForm)
+    (code : TpDCode k (DmOf ℓ Msg Td) Z) (io : ∀ i, (VC i).NonadaptiveCheck)
     (B : QReg) (i j : Fin k) (cm : Cm) (ans : PartialVec (ℓ i) Msg) (pf : Pf i) :
     (((compressedVCOracle k X Y).mixedExtractRuntime ME code).run₂ .instruments
       (checkAt VC B i j cm ans pf)).branch true =
@@ -229,11 +229,11 @@ theorem branch_run₂_checkAt_compressedVCOracle
   refine (checkAt_branch VC _ B i j cm ans pf).trans ?_
   have hcheck := (io i).check_eq cm ans pf
   rw [hcheck]
-  cases h : (io i).outputIO cm ans pf with
+  cases h : (io i).pairs cm ans pf with
   | none =>
     have hzero : (diagonal (fun D : Fin k → Database X Y ↦
         if (io i).checkOn (D j) cm ans pf then (1 : ℂ) else 0)) = 0 := by
-      simp [VectorCommitment.CheckIOForm.checkOn, h]
+      simp [VectorCommitment.NonadaptiveCheck.checkOn, h]
     simp only [Option.elim_none, liftComp_pure, runClassicalChecked_pure,
       QuantumRuntime.run₂_pure]
     have hP : MatrixMap.conj ((1 : Matrix B B ℂ) ⊗ₖ
@@ -250,7 +250,7 @@ theorem branch_run₂_checkAt_compressedVCOracle
       congr 2
       congr 1
       funext D
-      simp only [VectorCommitment.CheckIOForm.checkOn, h, Option.elim_some,
+      simp only [VectorCommitment.NonadaptiveCheck.checkOn, h, Option.elim_some,
         checkIOOn_eq_true_iff]
       congr 1
       simp only [List.forall_mem_map]
