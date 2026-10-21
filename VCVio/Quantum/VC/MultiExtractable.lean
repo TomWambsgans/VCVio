@@ -931,16 +931,16 @@ theorem lossless_run₂_checkAt [AddGroup Z] (E : VCOracle k X Y)
     (E.lossless_mixedExtractRuntime_step ME code)
 
 /-- A malformed prescribed transcript rejects without reading. -/
-theorem checkAt_outputIO_none (i : Fin k) (io : (VC i).CheckIOForm) (B : QReg)
+theorem checkAt_pairs_none (i : Fin k) (io : (VC i).NonadaptiveCheck) (B : QReg)
     (j : Fin k) (cm : Cm) (ans : PartialVec (ℓ i) Msg) (pf : Pf i)
-    (h : io.outputIO cm ans pf = none) :
+    (h : io.pairs cm ans pf = none) :
     checkAt (Z := Z) VC B i j cm ans pf = QuantumComp₂.pure false := by
   simp [checkAt, io.check_eq, h]
 
 /-- An empty prescribed transcript accepts without reading. -/
-theorem checkAt_outputIO_nil (i : Fin k) (io : (VC i).CheckIOForm) (B : QReg)
+theorem checkAt_pairs_nil (i : Fin k) (io : (VC i).NonadaptiveCheck) (B : QReg)
     (j : Fin k) (cm : Cm) (ans : PartialVec (ℓ i) Msg) (pf : Pf i)
-    (h : io.outputIO cm ans pf = some []) :
+    (h : io.pairs cm ans pf = some []) :
     checkAt (Z := Z) VC B i j cm ans pf = QuantumComp₂.pure true := by
   simp [checkAt, io.check_eq, h, checkIO]
 
