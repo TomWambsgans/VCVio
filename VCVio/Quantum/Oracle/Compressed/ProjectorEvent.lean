@@ -34,13 +34,16 @@ measurement `M` instead pays `‖[M, O^(t) ⊗ 1]‖²`: this is at most `24 I` 
 `Quantum.l2_opNorm_commutator_purifiedMeasurement_sq_le_twentyFour_mul`, and at most `80 I` with
 the constant of [CDHZ, Theorem 5.4]. All three constants are formalized.
 
-[CDHZ]: A. Chiesa, Z. Di, Z. Hu and Y. Zheng, ePrint 2025/2166.
-
 ## Main results
 
 * `Quantum.l2_opNorm_truncatedOracle_le_one`: the truncated oracle is a contraction.
 * `Quantum.sum_norm_labelProjector_mulVec_sq_le_six_mul_sq_sum_sqrt`: the bound `6 I (∑ √m_j)²`.
 * `Quantum.sum_norm_labelProjector_mulVec_sq_le_six_mul_mul_sum`: the bound `6 q I w`.
+
+## References
+
+* [CDHZ] A. Chiesa, Z. Di, Z. Hu and Y. Zheng, *How to Prove Post-Quantum Security for Succinct
+  Non-Interactive Reductions*, ePrint 2025/2166.
 -/
 
 public section

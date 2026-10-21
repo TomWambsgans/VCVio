@@ -856,7 +856,7 @@ def checkedReadOutcome (z : Y × ZMod 2) : Option Y :=
   if z.2 = 0 then none else some z.1
 
 /-- Orthogonal output projection retaining a checked-read outcome. -/
-noncomputable def checkedReadOutcomeProjector {E : Type*} [Fintype E] [DecidableEq E]
+noncomputable def checkedReadOutcomeProjector {E : Type*} [DecidableEq E]
     (a : Option Y) : Matrix (((X × (Y × ZMod 2)) × Database X Y) × E)
       (((X × (Y × ZMod 2)) × Database X Y) × E) ℂ :=
   diagonal (fun i ↦ if checkedReadOutcome i.1.1.2 = a then 1 else 0)
@@ -1041,7 +1041,7 @@ private theorem readResponseIndex_injective {E : Type*} :
   have ha := checkedReadValue_injective h.1.1.2
   simp [h.1.1.1, h.1.2, h.2, ha]
 
-private noncomputable def readInputCutoff {E : Type*} [Fintype E] [DecidableEq E] (p : ℕ) :
+private noncomputable def readInputCutoff {E : Type*} [DecidableEq E] (p : ℕ) :
     Matrix ((X × Database X Y) × E) ((X × Database X Y) × E) ℂ :=
   diagonal (fun i ↦ if i.1.2.size ≤ p then 1 else 0)
 
