@@ -33,12 +33,13 @@ and at the compatibility bundle. At every FIPS 205 parameter set an honest entry
 ## The address encoding is not injective at any shipped bundle
 
 `CorePrimitives.KeyInjective` asks for injectivity of `core.adrsToKey` on the in-range addresses
-only, because no shipped bundle is injective on all of `Adrs`. Its six natural-number fields are
-each written into four bytes, so `⟨0, 0, 3, 0, 0, 0⟩` and `⟨0, 0, 3, 0, 0, 2 ^ 32⟩`, two FORS leaf
-addresses of one tree differing only in the leaf index, have the same 32-byte serialization
-(`toBytes_collision`) and the same 22-byte `ADRSc` compression (`compressSha2_collision`). The
-FIPS SHA-2 key `Concrete.sha2AdrsKey` routes through the checked compression instead and maps
-every rejected address of one type class to one fallback key (`sha2AdrsKey_toList_collision`).
+only, because no shipped bundle is injective on all of `Adrs`. Each of its six natural-number
+fields is written into a fixed number of bytes, four for the leaf index, so `⟨0, 0, 3, 0, 0, 0⟩`
+and `⟨0, 0, 3, 0, 0, 2 ^ 32⟩`, two FORS leaf addresses of one tree differing only in the leaf
+index, have the same 32-byte serialization (`toBytes_collision`) and the same 22-byte `ADRSc`
+compression (`compressSha2_collision`). The FIPS SHA-2 key `Concrete.sha2AdrsKey` routes
+through the checked compression instead and maps every rejected address of one type class to
+one fallback key (`sha2AdrsKey_toList_collision`).
 Hence `not_injective_adrsToKey_shake`, `not_injective_adrsToKey_sha` and
 `not_injective_adrsToKey_sha2`, stated at the field each bundle installs.
 -/
