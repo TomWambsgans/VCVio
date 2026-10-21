@@ -74,18 +74,21 @@ build boundaries and the staged consolidation.
 - `Extern/`: native FFI surface — the `@[extern]` bindings (SHA-3/SHAKE, ML-KEM, ML-DSA, Falcon) and the FFI-backed concrete instances that reach them. No proof library may import it; the backing `extern_lib`s become empty stubs when `third_party/` submodules are absent.
 - `LatticeCrypto/`: lattice-specific algebra, hardness assumptions, scheme definitions, security theorems, and concrete implementations.
 - `HashSig/`: hash-based signatures — SLH-DSA (SPHINCS+, FIPS 205) proof-level specs,
-  component-level FIPS conformance results, and an EUF-CMA bound in the classical random-oracle
-  model with three oracles (the tweakable hash, `Hmsg`, `PRFmsg`): `securityTarget_two_one`,
-  per public seed and averaged over seed distributions. A model of the SHAKE parameter sets over a
-  single SHAKE256 random oracle on byte strings is stated (`shakeRomScheme`); answering its oracle
-  with SHAKE256 gives the library's FIPS 205 SHAKE internal algorithms
-  (`shakeRomScheme_map_shakeAnswer`), which are checked against pinned NIST ACVP vectors at
-  SLH-DSA-SHAKE-128f; the EUF-CMA bound in that model, the three-oracle bound plus
-  `(q_s + 1) / 2^{8n}` and a weak-key term (at `n = 32` only the weak seeds' share of the bound at
-  every seed), is `shakeAdvantage_le_securityBound` (per public seed:
-  `shakeAdvantage_pure_le_securityBound`); in hedged signing `(q_s + 1) / 2^{8n}` becomes
-  `1 / 2^{8n} + q_s (q_h + q_s + 1) / 2^{16n}` (`shakeAdvantage_le_securityBound_hedged`). There
-  is no SUF-CMA bound and no complete FIPS conformance result.
+  component-level FIPS conformance results, and an SUF-CMA bound (strong unforgeability, which
+  gives EUF-CMA at the same bound) in the classical random-oracle model with three oracles (the
+  tweakable hash, `Hmsg`, `PRFmsg`): `securityTarget_two_one`, per public seed and averaged over
+  seed distributions. A model of the SHAKE parameter sets over a single SHAKE256 random oracle on
+  byte strings is stated (`shakeRomScheme`); answering its oracle with SHAKE256 gives the library's
+  FIPS 205 SHAKE internal algorithms (`shakeRomScheme_map_shakeAnswer`), which are checked against
+  pinned NIST ACVP vectors at SLH-DSA-SHAKE-128f; the SUF-CMA bound in that model, the three-oracle
+  bound plus `(q_s + 1) / 2^{8n}` and a weak-key term (at `n = 32` only the weak seeds' share of
+  the bound at every seed), is `shakeStrongAdvantage_le_securityBound` (per public seed:
+  `shakeStrongAdvantage_pure_le_securityBound`); in hedged signing `(q_s + 1) / 2^{8n}` becomes
+  `1 / 2^{8n} + q_s (q_h + q_s + 1) / 2^{16n}` (`shakeStrongAdvantage_le_securityBound_hedged`).
+  The EUF-CMA forms are `shakeAdvantage_le_securityBound`, `shakeAdvantage_pure_le_securityBound`
+  and `shakeAdvantage_le_securityBound_hedged`. The bounds are over the structured signatures of
+  the internal functions; SUF-CMA over byte strings at the external API, which also needs the
+  signature encoding to parse one-to-one, and a complete FIPS conformance result are not proved.
   Peer of `LatticeCrypto/`; depends on `VCVio`/`ToMathlib` but nothing in those imports it back.
 - `LatticeCryptoTest/`: ACVP vectors, executable regression tests, and cross-checks against native backends.
 - `VCVioTest/`: framework smoke tests and test support modules.

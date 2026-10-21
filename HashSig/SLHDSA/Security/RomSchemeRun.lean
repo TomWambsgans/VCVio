@@ -15,8 +15,8 @@ public import VCVio.CryptoFoundations.SignatureAlg.Transcript
 `romScheme`, returning its transcript (`SignatureAlg.unforgeableTranscriptExperiment`) under one
 lazy random oracle for every hash, `PRF` and `PRF_msg` query, from the empty cache, together with
 the final cache.  The transcript is a `RomOutcome`, the type the events of
-`HashSig.SLHDSA.Security.RomDescentSecret` are stated over, and the success bit of the experiment
-of the strong unforgeability experiment against the same program is its `strongWins`, so the strong
+`HashSig.SLHDSA.Security.RomDescentSecret` are stated over, and the success bit of the strong
+unforgeability experiment against the same program is its `strongWins`, so the strong
 forging advantage in the random-oracle runtime is the probability that the run's transcript wins
 strongly (`strongUnforgeableAdvantage_romScheme_eq`).
 

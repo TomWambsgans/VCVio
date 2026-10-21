@@ -36,7 +36,7 @@ import VCVio.OracleComp.QueryTracking.SubSpec
 * *Consequences.* Every point of class `signer` is the `H_msg` point of a logged signature
   (`exists_mem_log_of_cls_eq_signer`), and the `H_msg` point of every logged signature is of
   class `signer` or in the hit set (`cls_eq_signer_or_mem_hits_of_mem_log`).
-* *The event mapping.* Coverage of a fresh forgery (`RunItsrCovered`) on a run over a family
+* *The event mapping.* Coverage at a fresh `H_msg` point (`RunItsrCovered`) on a run over a family
   drawn at the lengths `tapeLength qh qs` yields a witness `(n, f)`: the forger-tape position `n`
   of the forgery's `H_msg` point and a coverer slot `f i` for every FORS tree
   (`exists_witness_of_runItsrCovered`). Its tape event `TapeMatch` holds of the family, and the

@@ -7,11 +7,16 @@ with the 127-bit proof for a SPHINCS variant in
 this work draws on. The development is in pull request #766; the implementation status of `main`
 is in [`slh-dsa-status-and-roadmap.md`](slh-dsa-status-and-roadmap.md).
 
-**What is proved.** The three-oracle bound `securityBound` at `c = 2` and `r = 1` is proved in Lean
-for each fixed public seed, in both signing modes: `securityTarget_two_one`
+**What is proved.** Every bound below is a bound on the strong forging advantage (SUF-CMA): the
+forger wins with a valid pair of message and signature that the signing oracle never returned, so
+a second signature on a signed message counts. Each holds at the right-hand side of the
+corresponding existential (EUF-CMA) bound, which follows from it under its own name
+(`unforgeableAdvantage_le_strongUnforgeableAdvantage`, `shakeAdvantage_le_shakeStrongAdvantage`);
+so the levels below are the same for both notions. The three-oracle bound `securityBound` at
+`c = 2` and `r = 1` is proved in Lean for each fixed public seed, in both signing modes: `securityTarget_two_one`
 (`HashSig/SLHDSA/Security/CoverageBound.lean`) proves `SecurityTarget core e optRand 2 1` under the
 byte laws, the key discipline and `|Y| ≤ |SK.prf|`, all three discharged at every FIPS 205 bundle,
-with `optRand` arbitrary. `unforgeableAdvantage_romScheme_le_securityBound` averages it over any
+with `optRand` arbitrary. `strongUnforgeableAdvantage_romScheme_le_securityBound` averages it over any
 distribution of the public seed, the uniform one of FIPS 205 included. The bound is stated over
 `|Y|`, which is `2^{8n}` at the FIPS 205 bundles, and is the sum of two proved terms:
 
@@ -19,7 +24,7 @@ distribution of the public seed, the uniform one of FIPS 205 included. The bound
   query bound `verifyInternalQueryBound` and the seed guess charged inside it
   (`prEvent_romSchemeRun_runTargetCollision_or_runHiddenHit_le`,
   `HashSig/SLHDSA/Security/JointBound.lean`). With the union bound split after the first game hop,
-  the forging advantage is at most that term plus the probability of interleaved-target coverage in
+  the strong forging advantage is at most that term plus the probability of interleaved-target coverage in
   the ideal hidden-seed game (`strongUnforgeableAdvantage_romScheme_pure_le_add_idealDraw`), in which
   every secret value and randomizer is sampled independently of the public answers;
 - the coverage term `(q_h + 1) · weightedTargetCoverBound h a k q_s q_h (q_s / 2^{8n})`, which
@@ -39,40 +44,40 @@ at `n = 32` also across `ByteRedirect`, `ByteLinkedRun`, `ByteLinkedView`, `Hone
 in both signing modes, for `16 ≤ n ≤ 32`,
 `n ≤ m` and address fields within their FIPS 205 widths (`CanonicalAddressBounds`):
 
-- per public seed, `shakeAdvantage ≤ securityBound p 2^{8n} 2 1 q_h q_s + (q_s + 1) / 2^{8n} +
-  weakKeyMass vp PK.seed` (`shakeAdvantage_pure_le_securityBound`), where `weakKeyMass` is the
+- per public seed, `shakeStrongAdvantage ≤ securityBound p 2^{8n} 2 1 q_h q_s + (q_s + 1) / 2^{8n} +
+  weakKeyMass vp PK.seed` (`shakeStrongAdvantage_pure_le_securityBound`), where `weakKeyMass` is the
   probability over the uniform public root that the public key is weak
   ([The 256-bit sets](#the-256-bit-sets));
 - per public seed of weak-key mass zero, the same without a weak-key term
-  (`shakeAdvantage_pure_le_securityBound_of_weakKeyMass_eq_zero`); at `n = 32` these are the
-  seeds outside the weak set (`shakeAdvantage_pure_le_securityBound_of_n_eq_32`);
+  (`shakeStrongAdvantage_pure_le_securityBound_of_weakKeyMass_eq_zero`); at `n = 32` these are the
+  seeds outside the weak set (`shakeStrongAdvantage_pure_le_securityBound_of_n_eq_32`);
 - at `n = 32`, at every public seed, weak seeds included,
-  `shakeAdvantage ≤ securityBound p 2^256 2 1 (q_h + V) q_s + 2 (q_s + 1) / 2^256`, with `V` the
-  verifier's query bound (`shakeAdvantage_pure_le_securityBound_add_of_n_eq_32`,
+  `shakeStrongAdvantage ≤ securityBound p 2^256 2 1 (q_h + V) q_s + 2 (q_s + 1) / 2^256`, with `V` the
+  verifier's query bound (`shakeStrongAdvantage_pure_le_securityBound_add_of_n_eq_32`,
   `HashSig/SLHDSA/Security/LinkedHazards.lean`), so per seed the smaller of the two bounds
-  (`shakeAdvantage_pure_le_min_of_n_eq_32`);
+  (`shakeStrongAdvantage_pure_le_min_of_n_eq_32`);
 - over the uniform `PK.seed` of FIPS 205, the per-seed bound with the weak-key term replaced by
   `|A_hon| / 2^256 · weakSeedFactor vp ε`, `|A_hon| = honestAdrsCount vp`, where `ε` is the bound
   at every seed of the previous item and the factor is `min 1 ε` at `n = 32` and `1` otherwise
-  (`shakeAdvantage_le_securityBound`). At `n < 32` the weak-key term is `|A_hon| / 2^256`; at
+  (`shakeStrongAdvantage_le_securityBound`). At `n < 32` the weak-key term is `|A_hon| / 2^256`; at
   `n = 32` it is the weak seeds' share `|A_hon| / 2^256 · min 1 ε`, about `2^{−362}` at
   `q_h = q_s = 2^64`, and the averaged level equals the per-seed level outside the weak set to two
   decimals;
 - in hedged signing (`opt_rand` uniform), the per-seed, averaged and `n = 32` forms with
   `1 / 2^{8n} + q_s (q_h + q_s + 1) / 2^{16n}` in place of `(q_s + 1) / 2^{8n}`
-  (`shakeAdvantage_pure_le_securityBound_hedged`, `shakeAdvantage_le_securityBound_hedged`,
-  `shakeAdvantage_pure_le_securityBound_hedged_of_n_eq_32`,
-  `shakeAdvantage_pure_le_min_hedged_of_n_eq_32`). Per public seed of weak-key mass zero and over
+  (`shakeStrongAdvantage_pure_le_securityBound_hedged`, `shakeStrongAdvantage_le_securityBound_hedged`,
+  `shakeStrongAdvantage_pure_le_securityBound_hedged_of_n_eq_32`,
+  `shakeStrongAdvantage_pure_le_min_hedged_of_n_eq_32`). Per public seed of weak-key mass zero and over
   the uniform public seed they reach the three-oracle level
   ([How the bound is accounted](#how-the-bound-is-accounted)).
 
 At the six SHAKE parameter sets every side condition is discharged and the adversary's budget is
-the only hypothesis (`shakeAdvantage_pure_le_securityBound_validatedParams`,
-`shakeAdvantage_pure_le_securityBound_add_validatedParams`,
-`shakeAdvantage_le_securityBound_validatedParams`, and in hedged signing
-`shakeAdvantage_pure_le_securityBound_hedged_validatedParams`,
-`shakeAdvantage_pure_le_securityBound_add_hedged_validatedParams`,
-`shakeAdvantage_le_securityBound_hedged_validatedParams`). These theorems are stated over all twelve
+the only hypothesis (`shakeStrongAdvantage_pure_le_securityBound_validatedParams`,
+`shakeStrongAdvantage_pure_le_securityBound_add_validatedParams`,
+`shakeStrongAdvantage_le_securityBound_validatedParams`, and in hedged signing
+`shakeStrongAdvantage_pure_le_securityBound_hedged_validatedParams`,
+`shakeStrongAdvantage_pure_le_securityBound_add_hedged_validatedParams`,
+`shakeStrongAdvantage_le_securityBound_hedged_validatedParams`). These theorems are stated over all twelve
 `FipsParameterSet` values, a SHA-2 value contributing only its parameters, which equal its SHAKE
 twin's. The `(q_s + 1) / 2^{8n}` term is the
 faithfulness hook, charged jointly with the three-oracle events
@@ -89,7 +94,10 @@ string sees only bytes no SLH-DSA evaluation reads. Such a forger is simulated a
 oracle, query for query, by sampling those bytes itself, so the choice loses nothing. That
 simulation is not formalised.
 
-**What is not proved.** The SHA-2 parameter sets have no byte-level model. Of the levels below,
+**What is not proved.** The SHA-2 parameter sets have no byte-level model. Strong unforgeability
+is stated over the structured signatures of the internal functions; over byte strings at the
+external API it also needs the fixed-length signature encoding to parse one-to-one, which is not
+proved. Of the levels below,
 "Three-oracle", the two "Byte level" and the two "Hedged" columns evaluate proved bounds; the other
 columns evaluate formulas that are not Lean results.
 
@@ -102,7 +110,7 @@ columns evaluate formulas that are not Lean results.
   this three-oracle model to the byte-level scheme over a single SHAKE256
   (`shakeRomScheme`, `HashSig/SLHDSA/Security/ByteBound.lean`); the byte-level statement is the
   result for the SHAKE parameter sets.
-- **Budgets.** `UnforgeableAdversary.RomQueryBound adv q_h q_s` bounds, on every path of the
+- **Budgets.** `StrongUnforgeableAdversary.RomQueryBound adv q_h q_s` bounds, on every path of the
   forger's own program, its hash queries `q_h` (`PRF_msg` included, repeated queries counted) and
   its signing queries `q_s`. Key generation, signing and verification are not charged to `q_h`. The
   bound is stated for each fixed public seed.
@@ -112,9 +120,14 @@ columns evaluate formulas that are not Lean results.
 
 ## How the bound is accounted
 
-A winning forgery fires one of three events (`bad_event_of_wins_romSchemeRun`): a same-key target
-collision with an honest entry, a hit on a hidden chain value or unopened FORS secret, or coverage
-of every FORS coordinate of the forgery's digest by logged signatures. Two further losses come from
+A strong forgery fires one of three events (`bad_event_of_strongWins_romSchemeRun`): a same-key
+target collision with an honest entry, a hit on a hidden chain value or unopened FORS secret, or
+coverage of every FORS coordinate of the forgery's digest by logged signatures while the forgery's
+`H_msg` point (randomizer and message) is that of no logged signature. A forgery at a logged
+point has the logged digest, so the descent from the cached root runs through the logged
+signature's own trees, and each layer and the FORS signature either equal the logged ones or
+give a target collision (`bad_event_or_logged_of_settled`); coverage is not needed there, and the
+same-message case adds no term. Two further losses come from
 the proof itself: the forger guessing a secret seed (the hidden-seed coupling,
 `VCVio/OracleComp/QueryTracking/RandomOracle/HiddenSeed.lean`) and, in the faithfulness step,
 forger and signer strings that begin with `SK.prf`.
@@ -183,7 +196,7 @@ hits one of the at most `q_h + q_s + 1` cached `H_msg` points with probability a
 (`prEvent_idealDraw_hmsgAtPrfKey_and_randDerivedAt_le`), added outside the potential; the
 `1 / 2^{8n}` for `SK.prf = PK.seed` stays inside it. For a uniform `opt_rand`, `ε = 2^{−8n}` and
 `q_s / 2^{8n}` becomes `q_s (q_h + q_s + 1) / 2^{16n}`, which reaches the three-oracle level per
-public seed of weak-key mass zero (`shakeAdvantage_pure_le_securityBound_hedged`). Deterministic
+public seed of weak-key mass zero (`shakeStrongAdvantage_pure_le_securityBound_hedged`). Deterministic
 signing has `ε = 1` and keeps the mode-independent statement.
 
 ### Coverage after the seed hop
@@ -219,23 +232,23 @@ three-oracle bound `securityBound` at `c = 2`, `r = 1`, which is proved per publ
 in both signing modes (`securityTarget_two_one`); with the weighted coverage term these levels are
 those of the unweighted term to four decimals at every set. It is the level of the three-oracle
 model, not of the byte-level scheme. The two "Byte level" columns are levels of proved bounds on
-`shakeAdvantage`, in hedged and deterministic signing alike. "Byte level, per seed" adds to the
+`shakeStrongAdvantage`, in hedged and deterministic signing alike. "Byte level, per seed" adds to the
 three-oracle bound the terms `1 / 2^{8n}` (`SK.prf = PK.seed`) and `q_s / 2^{8n}` (the signer's
 faithfulness event) and omits the weak-key term: it is the level of
-`shakeAdvantage_pure_le_securityBound_of_weakKeyMass_eq_zero`, at every public seed of weak-key
+`shakeStrongAdvantage_pure_le_securityBound_of_weakKeyMass_eq_zero`, at every public seed of weak-key
 mass zero, which at `n = 32` is every seed outside the weak set
-(`shakeAdvantage_pure_le_securityBound_of_n_eq_32`; [The 256-bit sets](#the-256-bit-sets)).
+(`shakeStrongAdvantage_pure_le_securityBound_of_n_eq_32`; [The 256-bit sets](#the-256-bit-sets)).
 "Byte level, averaged" adds the weak seeds' share
 `|A_hon| / 2^256 · weakSeedFactor vp ε`, with `|A_hon| = honestAdrsCount vp` evaluated in
-`HashSigTest/SLHDSA/WeakKeyBound.lean`: it is the level of `shakeAdvantage_le_securityBound` over
+`HashSigTest/SLHDSA/WeakKeyBound.lean`: it is the level of `shakeStrongAdvantage_le_securityBound` over
 the uniform public seed. At `n < 32` the share is `|A_hon| / 2^256`; at `n = 32` it is
 `|A_hon| / 2^256 · min 1 ε`, at most `2^{−171.6}` times the per-seed bound at
 `q_h = q_s = 2^64`, so the two columns agree at every set. The two "Hedged"
 columns are the same two bounds for hedged signing, with `1 / 2^{8n} + q_s (q_h + q_s + 1) /
 2^{16n}` in place of `(q_s + 1) / 2^{8n}`: the levels of
-`shakeAdvantage_pure_le_securityBound_hedged` at a seed of weak-key mass zero (at `n = 32`,
-`shakeAdvantage_pure_le_securityBound_hedged_of_n_eq_32`) and of
-`shakeAdvantage_le_securityBound_hedged`. They equal the three-oracle levels to two decimals.
+`shakeStrongAdvantage_pure_le_securityBound_hedged` at a seed of weak-key mass zero (at `n = 32`,
+`shakeStrongAdvantage_pure_le_securityBound_hedged_of_n_eq_32`) and of
+`shakeStrongAdvantage_le_securityBound_hedged`. They equal the three-oracle levels to two decimals.
 The levels at the weak seeds themselves are in [The 256-bit sets](#the-256-bit-sets). The remaining
 columns are evaluations of formulas, not Lean results. "Losses added separately" charges the
 losses of "Byte level, per seed" as separate `q_h`-bounded terms, the constant 4 above, and also
@@ -293,26 +306,26 @@ the first `n` bytes of a cached `H_msg` answer at a linked reading, and an hones
 point. The first is charged `1 / 2^{8n}` per cached `H_msg` entry at a linked reading and the
 second `1 / 2^{8n}` once, which widens the joint budget by `(q_s + 1) / 2^{8n}` (`LinkedHazards`).
 The bound at every seed is `securityBound p 2^256 2 1 (q_h + V) q_s + 2 (q_s + 1) / 2^256`
-(`shakeAdvantage_pure_le_securityBound_add_of_n_eq_32`; in hedged signing
-`shakeAdvantage_pure_le_securityBound_add_of_n_eq_32_hedged`).
+(`shakeStrongAdvantage_pure_le_securityBound_add_of_n_eq_32`; in hedged signing
+`shakeStrongAdvantage_pure_le_securityBound_add_of_n_eq_32_hedged`).
 
 Per seed the advantage is at most the smaller of the two bounds
-(`shakeAdvantage_pure_le_min_of_n_eq_32`): the first outside the weak set, the second at a weak
+(`shakeStrongAdvantage_pure_le_min_of_n_eq_32`): the first outside the weak set, the second at a weak
 seed. As the weak-key mass is zero or one, that minimum is at most the first bound with the
 weak-key mass multiplied by `min 1 ε`, `ε` the second bound (`min_add_weakKeyMass_le_of_n_eq_32`),
 and its average over the uniform `PK.seed` is the first bound plus `|A_hon| / 2^256 · min 1 ε`
-(`shakeAdvantage_le_securityBound`, `shakeAdvantage_le_securityBound_of_n_eq_32`). At
+(`shakeStrongAdvantage_le_securityBound`, `shakeStrongAdvantage_le_securityBound_of_n_eq_32`). At
 `q_h = q_s = 2^64` the byte-level levels are:
 
 - per seed, outside the weak set: 254.00 (256s) and 253.89 (256f)
-  (`shakeAdvantage_pure_le_securityBound_of_n_eq_32`), and in hedged signing 254.41 (256s) and
-  254.27 (256f) (`shakeAdvantage_pure_le_securityBound_hedged_of_n_eq_32`);
+  (`shakeStrongAdvantage_pure_le_securityBound_of_n_eq_32`), and in hedged signing 254.41 (256s) and
+  254.27 (256f) (`shakeStrongAdvantage_pure_le_securityBound_hedged_of_n_eq_32`);
 - per seed, at every seed, weak seeds included: 253.68 (256s) and 253.59 (256f)
-  (`shakeAdvantage_pure_le_securityBound_add_validatedParams`), and in hedged signing 254.00 (256s)
-  and 253.89 (256f) (`shakeAdvantage_pure_le_securityBound_add_hedged_validatedParams`);
+  (`shakeStrongAdvantage_pure_le_securityBound_add_validatedParams`), and in hedged signing 254.00 (256s)
+  and 253.89 (256f) (`shakeStrongAdvantage_pure_le_securityBound_add_hedged_validatedParams`);
 - averaged over the uniform `PK.seed`: 254.00 (256s) and 253.89 (256f)
-  (`shakeAdvantage_le_securityBound_validatedParams`), and in hedged signing 254.41 (256s) and
-  254.27 (256f) (`shakeAdvantage_le_securityBound_hedged_validatedParams`).
+  (`shakeStrongAdvantage_le_securityBound_validatedParams`), and in hedged signing 254.41 (256s) and
+  254.27 (256f) (`shakeStrongAdvantage_le_securityBound_hedged_validatedParams`).
 
 At `q_h = q_s = 2^40` the averaged levels are 254.42 at both sets, and 255.00 at both in hedged
 signing; the bound at every seed is at 254.00, and 254.42 in hedged signing.
@@ -352,7 +365,7 @@ How it reaches 127, from its `PROOF.md`:
 | Signatures per key | Evaluated at `2^64` | At most `2^24`, enforced by the game |
 | Secret seeds | `SK.seed`, `SK.prf` of `n` bytes: guessing costs `q_h / 2^{8n}` (inside the constant 2) | 256-bit master seed |
 | Signing | Never fails; hedged or deterministic randomizer | Can fail (randomizer and counter searches); a completeness theorem bounds failure |
-| Unforgeability | EUF-CMA first, then SUF-CMA | SUF-CMA |
+| Unforgeability | SUF-CMA, EUF-CMA as its corollary at the same bound | SUF-CMA |
 | Bound | `2·q_h / 2^{8n}` plus coverage and verifier terms; byte level adds `(q_s + 1) / 2^{8n}` and the weak-key term, averaged `\|A_hon\| / 2^256` at `n < 32` and at `n = 32` a weak-seed share `\|A_hon\| / 2^256 · min 1 ε`, binding at no set | `q / 2^127` |
 
 Counting the whole experiment suits a scheme capped at `2^24` signatures. At FIPS 205's `2^64`,
