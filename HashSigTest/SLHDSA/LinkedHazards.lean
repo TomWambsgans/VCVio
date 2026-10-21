@@ -22,10 +22,10 @@ it at SLH-DSA-SHAKE-256s and SLH-DSA-SHAKE-256f for an adversary making `2 ^ 64`
 
 * **The bound at both parameter sets**, in the deterministic and the hedged form, at every
   public seed, with no condition on the seed.
-* **The bound is below one.** With `V = 8444` at 256s and `V = 17522` at 256f, the right-hand
-  side is below one (`rhs_256s_lt_one`, `rhs_256f_lt_one`), so the advantage is below one at
-  every public seed (`shakeAdvantage_lt_one_256s`, `shakeAdvantage_lt_one_256f`); the coverage
-  term is bounded crudely here, by about `2 ^ -140` at 256s and `2 ^ -65` at 256f.
+* **The bound is below one.** With `V = 8444` at 256s and `V = 17522` at 256f, the right-hand side
+  is below one (`rhs_256s_lt_one`, `rhs_256f_lt_one`), so the advantage is below one at every public
+  seed (`shakeStrongAdvantage_lt_one_256s`, `shakeStrongAdvantage_lt_one_256f`); the coverage term
+  is bounded crudely here, by about `2 ^ -140` at 256s and `2 ^ -65` at 256f.
 * **The levels.** Per query, `-log₂ (bound / qh)` at `qh = qs = 2 ^ 64` is `253.68` at 256s and
   `253.59` at 256f; at `qh = qs = 2 ^ 40` it is `254.00` at both. In the hedged form with uniform
   `opt_rand` (`ε = 2 ^ -256`) it is `254.00` at 256s and `253.89` at 256f at `2 ^ 64`, and `254.42`
@@ -63,62 +63,62 @@ theorem verifyInternalQueryBound_256f :
 /-- **The bound at SLH-DSA-SHAKE-256s**, at every public seed. -/
 example {optRand : PublicKeyCore (shakeCore vp256s) → ProbComp (shakeCore vp256s).Y}
     {pkSeed : (shakeCore vp256s).PkSeed}
-    (adv : UnforgeableAdversary (shakeRomScheme vp256s optRand (pure pkSeed)))
+    (adv : StrongUnforgeableAdversary (shakeRomScheme vp256s optRand (pure pkSeed)))
     (hadv : adv.RomQueryBound (2 ^ 64) (2 ^ 64)) :
-    shakeAdvantage vp256s adv ≤
+    shakeStrongAdvantage vp256s adv ≤
       securityBound vp256s.params (Nat.card (shakeCore vp256s).Y) 2 1 (2 ^ 64 + 8444) (2 ^ 64) +
         (((2 ^ 64 : ℕ) : ℝ≥0∞) + 1) / Nat.card (shakeCore vp256s).Y +
         (((2 ^ 64 : ℕ) : ℝ≥0∞) + 1) / Nat.card (shakeCore vp256s).Y := by
   simpa only [verifyInternalQueryBound_256s] using
-    shakeAdvantage_pure_le_securityBound_add_of_n_eq_32
+    shakeStrongAdvantage_pure_le_securityBound_add_of_n_eq_32
       (fipsApprovedAddressBounds .SLHDSA_SHAKE_256s).toCanonicalAddressBounds rfl (by decide) adv
       hadv
 
 /-- **The bound at SLH-DSA-SHAKE-256f**, at every public seed. -/
 example {optRand : PublicKeyCore (shakeCore vp256f) → ProbComp (shakeCore vp256f).Y}
     {pkSeed : (shakeCore vp256f).PkSeed}
-    (adv : UnforgeableAdversary (shakeRomScheme vp256f optRand (pure pkSeed)))
+    (adv : StrongUnforgeableAdversary (shakeRomScheme vp256f optRand (pure pkSeed)))
     (hadv : adv.RomQueryBound (2 ^ 64) (2 ^ 64)) :
-    shakeAdvantage vp256f adv ≤
+    shakeStrongAdvantage vp256f adv ≤
       securityBound vp256f.params (Nat.card (shakeCore vp256f).Y) 2 1 (2 ^ 64 + 17522) (2 ^ 64) +
         (((2 ^ 64 : ℕ) : ℝ≥0∞) + 1) / Nat.card (shakeCore vp256f).Y +
         (((2 ^ 64 : ℕ) : ℝ≥0∞) + 1) / Nat.card (shakeCore vp256f).Y := by
   simpa only [verifyInternalQueryBound_256f] using
-    shakeAdvantage_pure_le_securityBound_add_of_n_eq_32
+    shakeStrongAdvantage_pure_le_securityBound_add_of_n_eq_32
       (fipsApprovedAddressBounds .SLHDSA_SHAKE_256f).toCanonicalAddressBounds rfl (by decide) adv
       hadv
 
 /-- **The hedged bound at SLH-DSA-SHAKE-256s**, at every public seed. -/
 example {optRand : PublicKeyCore (shakeCore vp256s) → ProbComp (shakeCore vp256s).Y}
     {pkSeed : (shakeCore vp256s).PkSeed}
-    (adv : UnforgeableAdversary (shakeRomScheme vp256s optRand (pure pkSeed)))
+    (adv : StrongUnforgeableAdversary (shakeRomScheme vp256s optRand (pure pkSeed)))
     (hadv : adv.RomQueryBound (2 ^ 64) (2 ^ 64)) {ε : ℝ≥0∞}
     (hε : ∀ pk, Pr{let r ← optRand pk}[r = pkSeed] ≤ ε) :
-    shakeAdvantage vp256s adv ≤
+    shakeStrongAdvantage vp256s adv ≤
       securityBound vp256s.params (Nat.card (shakeCore vp256s).Y) 2 1 (2 ^ 64 + 8444) (2 ^ 64) +
         1 / Nat.card (shakeCore vp256s).Y +
         ((2 ^ 64 : ℕ) : ℝ≥0∞) * ε * (((2 ^ 64 + 8444 : ℕ) : ℝ≥0∞) + ((2 ^ 64 : ℕ) : ℝ≥0∞) + 1) /
           Nat.card (shakeCore vp256s).Y +
         (((2 ^ 64 : ℕ) : ℝ≥0∞) + 1) / Nat.card (shakeCore vp256s).Y := by
   simpa only [verifyInternalQueryBound_256s] using
-    shakeAdvantage_pure_le_securityBound_add_of_n_eq_32_hedged
+    shakeStrongAdvantage_pure_le_securityBound_add_of_n_eq_32_hedged
       (fipsApprovedAddressBounds .SLHDSA_SHAKE_256s).toCanonicalAddressBounds rfl (by decide) adv
       hadv hε
 
 /-- **The hedged bound at SLH-DSA-SHAKE-256f**, at every public seed. -/
 example {optRand : PublicKeyCore (shakeCore vp256f) → ProbComp (shakeCore vp256f).Y}
     {pkSeed : (shakeCore vp256f).PkSeed}
-    (adv : UnforgeableAdversary (shakeRomScheme vp256f optRand (pure pkSeed)))
+    (adv : StrongUnforgeableAdversary (shakeRomScheme vp256f optRand (pure pkSeed)))
     (hadv : adv.RomQueryBound (2 ^ 64) (2 ^ 64)) {ε : ℝ≥0∞}
     (hε : ∀ pk, Pr{let r ← optRand pk}[r = pkSeed] ≤ ε) :
-    shakeAdvantage vp256f adv ≤
+    shakeStrongAdvantage vp256f adv ≤
       securityBound vp256f.params (Nat.card (shakeCore vp256f).Y) 2 1 (2 ^ 64 + 17522) (2 ^ 64) +
         1 / Nat.card (shakeCore vp256f).Y +
         ((2 ^ 64 : ℕ) : ℝ≥0∞) * ε * (((2 ^ 64 + 17522 : ℕ) : ℝ≥0∞) + ((2 ^ 64 : ℕ) : ℝ≥0∞) + 1) /
           Nat.card (shakeCore vp256f).Y +
         (((2 ^ 64 : ℕ) : ℝ≥0∞) + 1) / Nat.card (shakeCore vp256f).Y := by
   simpa only [verifyInternalQueryBound_256f] using
-    shakeAdvantage_pure_le_securityBound_add_of_n_eq_32_hedged
+    shakeStrongAdvantage_pure_le_securityBound_add_of_n_eq_32_hedged
       (fipsApprovedAddressBounds .SLHDSA_SHAKE_256f).toCanonicalAddressBounds rfl (by decide) adv
       hadv hε
 
@@ -222,27 +222,27 @@ theorem natCard_y_256f : Nat.card (shakeCore vp256f).Y = 2 ^ 256 :=
 
 /-- **The advantage at SLH-DSA-SHAKE-256s is below one** at every public seed, for `2 ^ 64` hash
 and `2 ^ 64` signing queries. -/
-theorem shakeAdvantage_lt_one_256s
+theorem shakeStrongAdvantage_lt_one_256s
     {optRand : PublicKeyCore (shakeCore vp256s) → ProbComp (shakeCore vp256s).Y}
     {pkSeed : (shakeCore vp256s).PkSeed}
-    (adv : UnforgeableAdversary (shakeRomScheme vp256s optRand (pure pkSeed)))
-    (hadv : adv.RomQueryBound (2 ^ 64) (2 ^ 64)) : shakeAdvantage vp256s adv < 1 := by
+    (adv : StrongUnforgeableAdversary (shakeRomScheme vp256s optRand (pure pkSeed)))
+    (hadv : adv.RomQueryBound (2 ^ 64) (2 ^ 64)) : shakeStrongAdvantage vp256s adv < 1 := by
   refine lt_of_le_of_lt ?_ rhs_256s_lt_one
   simpa only [verifyInternalQueryBound_256s, natCard_y_256s] using
-    shakeAdvantage_pure_le_securityBound_add_of_n_eq_32
+    shakeStrongAdvantage_pure_le_securityBound_add_of_n_eq_32
       (fipsApprovedAddressBounds .SLHDSA_SHAKE_256s).toCanonicalAddressBounds rfl (by decide) adv
       hadv
 
 /-- **The advantage at SLH-DSA-SHAKE-256f is below one** at every public seed, for `2 ^ 64` hash
 and `2 ^ 64` signing queries. -/
-theorem shakeAdvantage_lt_one_256f
+theorem shakeStrongAdvantage_lt_one_256f
     {optRand : PublicKeyCore (shakeCore vp256f) → ProbComp (shakeCore vp256f).Y}
     {pkSeed : (shakeCore vp256f).PkSeed}
-    (adv : UnforgeableAdversary (shakeRomScheme vp256f optRand (pure pkSeed)))
-    (hadv : adv.RomQueryBound (2 ^ 64) (2 ^ 64)) : shakeAdvantage vp256f adv < 1 := by
+    (adv : StrongUnforgeableAdversary (shakeRomScheme vp256f optRand (pure pkSeed)))
+    (hadv : adv.RomQueryBound (2 ^ 64) (2 ^ 64)) : shakeStrongAdvantage vp256f adv < 1 := by
   refine lt_of_le_of_lt ?_ rhs_256f_lt_one
   simpa only [verifyInternalQueryBound_256f, natCard_y_256f] using
-    shakeAdvantage_pure_le_securityBound_add_of_n_eq_32
+    shakeStrongAdvantage_pure_le_securityBound_add_of_n_eq_32
       (fipsApprovedAddressBounds .SLHDSA_SHAKE_256f).toCanonicalAddressBounds rfl (by decide) adv
       hadv
 

@@ -415,40 +415,6 @@ theorem shakeStrongAdvantage_pure_le_securityBound_add_of_n_eq_32_hedged
     _ = _ := by ring
 
 
-/-! ## Existential unforgeability -/
-
-/-- The existential form of `shakeStrongAdvantage_pure_le_securityBound_add_of_n_eq_32`: the forging
-advantage against the same scheme has the same bound. -/
-theorem shakeAdvantage_pure_le_securityBound_add_of_n_eq_32
-    (hb : CanonicalAddressBounds vp.params) (h32 : vp.params.n = 32)
-    (hnm : vp.params.n ≤ vp.params.m)
-    (adv : UnforgeableAdversary (shakeRomScheme vp optRand (pure pkSeed))) {qh qs : ℕ}
-    (hadv : adv.RomQueryBound qh qs) :
-    shakeAdvantage vp adv ≤
-      securityBound vp.params (Nat.card (shakeCore vp).Y) 2 1
-          (qh + GeneralScheme.verifyInternalQueryBound vp.params) qs +
-        ((qs : ℝ≥0∞) + 1) / Nat.card (shakeCore vp).Y +
-        ((qs : ℝ≥0∞) + 1) / Nat.card (shakeCore vp).Y :=
-  (shakeAdvantage_le_shakeStrongAdvantage adv).trans
-    (shakeStrongAdvantage_pure_le_securityBound_add_of_n_eq_32 hb h32 hnm ⟨adv.main⟩ hadv)
-
-/-- The existential form of `shakeStrongAdvantage_pure_le_securityBound_add_of_n_eq_32_hedged`: the
-forging advantage against the same scheme has the same bound. -/
-theorem shakeAdvantage_pure_le_securityBound_add_of_n_eq_32_hedged
-    (hb : CanonicalAddressBounds vp.params) (h32 : vp.params.n = 32)
-    (hnm : vp.params.n ≤ vp.params.m)
-    (adv : UnforgeableAdversary (shakeRomScheme vp optRand (pure pkSeed))) {qh qs : ℕ}
-    (hadv : adv.RomQueryBound qh qs) {ε : ℝ≥0∞}
-    (hε : ∀ pk, Pr{let r ← optRand pk}[r = pkSeed] ≤ ε) :
-    shakeAdvantage vp adv ≤
-      securityBound vp.params (Nat.card (shakeCore vp).Y) 2 1
-          (qh + GeneralScheme.verifyInternalQueryBound vp.params) qs +
-        1 / Nat.card (shakeCore vp).Y +
-        qs * ε * (((qh + GeneralScheme.verifyInternalQueryBound vp.params : ℕ) : ℝ≥0∞) + qs +
-          1) / Nat.card (shakeCore vp).Y + ((qs : ℝ≥0∞) + 1) / Nat.card (shakeCore vp).Y :=
-  (shakeAdvantage_le_shakeStrongAdvantage adv).trans
-    (shakeStrongAdvantage_pure_le_securityBound_add_of_n_eq_32_hedged hb h32 hnm ⟨adv.main⟩ hadv hε)
-
 end Shake
 
 end SLHDSA.Security

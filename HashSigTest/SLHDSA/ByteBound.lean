@@ -30,11 +30,11 @@ random oracle on byte strings. This file instantiates it at the parameters of FI
   key of no honest address, the bound at that seed has no weak-key term.
 * **At `n = 32`, a weak public seed**: at the all-zero seed of SLH-DSA-SHAKE-256s, the weak-key
   term of the per-seed bound is one, and the bound at every public seed applies instead.
-* **Non-vacuity**: with `qh = qs = 2^64`, the right-hand side of the averaged bound is below one
-  at SLH-DSA-SHAKE-128s (`byteRhs_128s_lt_one`) and at SLH-DSA-SHAKE-256s and SLH-DSA-SHAKE-256f
+* **Non-vacuity**: with `qh = qs = 2^64`, the right-hand side of the averaged bound is below one at
+  SLH-DSA-SHAKE-128s (`byteRhs_128s_lt_one`) and at SLH-DSA-SHAKE-256s and SLH-DSA-SHAKE-256f
   (`averagedByteRhs_256s_lt_one`, `averagedByteRhs_256f_lt_one`, with the sets' numbers in
-  `shakeAdvantage_le_256s`, `shakeAdvantage_le_256f`). At those two sets the bound at every
-  seed is below one (`everySeedRhs_256s_lt_one`, `everySeedRhs_256f_lt_one`), so the averaged
+  `shakeStrongAdvantage_le_256s`, `shakeStrongAdvantage_le_256f`). At those two sets the bound at
+  every seed is below one (`everySeedRhs_256s_lt_one`, `everySeedRhs_256f_lt_one`), so the averaged
   right-hand side is strictly below the one with the weak-key term `|A_hon| / 2^256`
   (`averagedByteRhs_256s_lt_byteRhs_256s`, `averagedByteRhs_256f_lt_byteRhs_256f`).
 * **Negative control**: the pointwise step behind the factor fails at a weak-key mass of `1 / 2`
@@ -63,13 +63,13 @@ example (set : FipsParameterSet)
     (optRand : PublicKeyCore (shakeCore set.validatedParams) →
       ProbComp (shakeCore set.validatedParams).Y)
     (pkSeed : (shakeCore set.validatedParams).PkSeed)
-    (adv : UnforgeableAdversary (shakeRomScheme set.validatedParams optRand (pure pkSeed)))
+    (adv : StrongUnforgeableAdversary (shakeRomScheme set.validatedParams optRand (pure pkSeed)))
     {qh qs : ℕ} (hadv : adv.RomQueryBound qh qs) :
-    shakeAdvantage set.validatedParams adv ≤
+    shakeStrongAdvantage set.validatedParams adv ≤
       securityBound set.validatedParams.params (256 ^ set.validatedParams.params.n) 2 1 qh qs +
         ((qs : ℝ≥0∞) + 1) / (256 ^ set.validatedParams.params.n : ℕ) +
         weakKeyMass set.validatedParams pkSeed :=
-  shakeAdvantage_pure_le_securityBound_validatedParams set pkSeed adv hadv
+  shakeStrongAdvantage_pure_le_securityBound_validatedParams set pkSeed adv hadv
 
 /-- The weak seeds' share is at most the weak-key term `|A_hon| / 2^256`: the factor of the weak
 seeds is at most one. -/
@@ -83,86 +83,87 @@ the weak seeds' share is `|A_hon| / 2^256` times the factor of the weak seeds. -
 example (set : FipsParameterSet)
     (optRand : PublicKeyCore (shakeCore set.validatedParams) →
       ProbComp (shakeCore set.validatedParams).Y)
-    (adv : UnforgeableAdversary (shakeRomScheme set.validatedParams optRand
+    (adv : StrongUnforgeableAdversary (shakeRomScheme set.validatedParams optRand
       ($ᵗ (shakeCore set.validatedParams).PkSeed)))
     {qh qs : ℕ} (hadv : adv.RomQueryBound qh qs) :
-    shakeAdvantage set.validatedParams adv ≤
+    shakeStrongAdvantage set.validatedParams adv ≤
       securityBound set.validatedParams.params (256 ^ set.validatedParams.params.n) 2 1 qh qs +
         ((qs : ℝ≥0∞) + 1) / (256 ^ set.validatedParams.params.n : ℕ) +
         honestAdrsCount set.validatedParams / 2 ^ 256 * weakSeedFactor set.validatedParams
           (securityBound set.validatedParams.params (256 ^ set.validatedParams.params.n) 2 1
               (qh + GeneralScheme.verifyInternalQueryBound set.validatedParams.params) qs +
             2 * ((qs : ℝ≥0∞) + 1) / (256 ^ set.validatedParams.params.n : ℕ)) :=
-  shakeAdvantage_le_securityBound_validatedParams set adv hadv
+  shakeStrongAdvantage_le_securityBound_validatedParams set adv hadv
 
 /-- The bound over the uniform public seed implies the bound with the weak-key term
 `|A_hon| / 2^256`, at every parameter set and every `opt_rand` source. -/
 example (set : FipsParameterSet)
     (optRand : PublicKeyCore (shakeCore set.validatedParams) →
       ProbComp (shakeCore set.validatedParams).Y)
-    (adv : UnforgeableAdversary (shakeRomScheme set.validatedParams optRand
+    (adv : StrongUnforgeableAdversary (shakeRomScheme set.validatedParams optRand
       ($ᵗ (shakeCore set.validatedParams).PkSeed)))
     {qh qs : ℕ} (hadv : adv.RomQueryBound qh qs) :
-    shakeAdvantage set.validatedParams adv ≤
+    shakeStrongAdvantage set.validatedParams adv ≤
       securityBound set.validatedParams.params (256 ^ set.validatedParams.params.n) 2 1 qh qs +
         ((qs : ℝ≥0∞) + 1) / (256 ^ set.validatedParams.params.n : ℕ) +
         honestAdrsCount set.validatedParams / 2 ^ 256 :=
-  (shakeAdvantage_le_securityBound_validatedParams set adv hadv).trans
+  (shakeStrongAdvantage_le_securityBound_validatedParams set adv hadv).trans
     (add_mul_weakSeedFactor_le _ _ _)
 
 /-- The same implication for every validated parameter bundle, in either signing mode. -/
 example {vp : ValidatedParams} (hb : CanonicalAddressBounds vp.params) (hn16 : 16 ≤ vp.params.n)
     (hn : vp.params.n ≤ 32) (hnm : vp.params.n ≤ vp.params.m)
     {optRand : PublicKeyCore (shakeCore vp) → ProbComp (shakeCore vp).Y}
-    (adv : UnforgeableAdversary (shakeRomScheme vp optRand ($ᵗ (shakeCore vp).PkSeed)))
+    (adv : StrongUnforgeableAdversary (shakeRomScheme vp optRand ($ᵗ (shakeCore vp).PkSeed)))
     {qh qs : ℕ} (hadv : adv.RomQueryBound qh qs) :
-    shakeAdvantage vp adv ≤
+    shakeStrongAdvantage vp adv ≤
       securityBound vp.params (256 ^ vp.params.n) 2 1 qh qs +
         ((qs : ℝ≥0∞) + 1) / (256 ^ vp.params.n : ℕ) + honestAdrsCount vp / 2 ^ 256 :=
-  (shakeAdvantage_le_securityBound hb hn16 hn hnm adv hadv).trans
+  (shakeStrongAdvantage_le_securityBound hb hn16 hn hnm adv hadv).trans
     (add_mul_weakSeedFactor_le _ _ _)
 
 /-- The hedged implication for every validated parameter bundle. -/
 example {vp : ValidatedParams} (hb : CanonicalAddressBounds vp.params) (hn16 : 16 ≤ vp.params.n)
     (hn : vp.params.n ≤ 32) (hnm : vp.params.n ≤ vp.params.m)
-    (adv : UnforgeableAdversary (shakeRomScheme vp (fun _ ↦ $ᵗ (shakeCore vp).Y)
+    (adv : StrongUnforgeableAdversary (shakeRomScheme vp (fun _ ↦ $ᵗ (shakeCore vp).Y)
       ($ᵗ (shakeCore vp).PkSeed)))
     {qh qs : ℕ} (hadv : adv.RomQueryBound qh qs) :
-    shakeAdvantage vp adv ≤
+    shakeStrongAdvantage vp adv ≤
       securityBound vp.params (256 ^ vp.params.n) 2 1 qh qs + 1 / (256 ^ vp.params.n : ℕ) +
         qs * ((qh : ℝ≥0∞) + qs + 1) / ((256 ^ vp.params.n : ℕ) : ℝ≥0∞) ^ 2 +
         honestAdrsCount vp / 2 ^ 256 :=
-  (shakeAdvantage_le_securityBound_hedged hb hn16 hn hnm adv hadv).trans
+  (shakeStrongAdvantage_le_securityBound_hedged hb hn16 hn hnm adv hadv).trans
     (add_mul_weakSeedFactor_le _ _ _)
 
 /-! ## Both signing modes, with the weak-key term evaluated -/
 
 /-- SLH-DSA-SHAKE-128s in deterministic signing (`opt_rand = PK.seed`) over the uniform public
 seed: `|Y| = 256 ^ 16` and `|A_hon| = 1591788895347057694892543 ≈ 2^80.40`. -/
-example (adv : UnforgeableAdversary (shakeRomScheme vp128s
+example (adv : StrongUnforgeableAdversary (shakeRomScheme vp128s
       (fun pk => pure (shakeRandomizerOfPkSeed _ pk.pkSeed)) ($ᵗ (shakeCore vp128s).PkSeed)))
     {qh qs : ℕ} (hadv : adv.RomQueryBound qh qs) :
-    shakeAdvantage vp128s adv ≤
+    shakeStrongAdvantage vp128s adv ≤
       securityBound vp128s.params (256 ^ 16) 2 1 qh qs + ((qs : ℝ≥0∞) + 1) / (256 ^ 16 : ℕ) +
         (1591788895347057694892543 : ℕ) / 2 ^ 256 := by
-  have h := shakeAdvantage_le_securityBound_validatedParams .SLHDSA_SHAKE_128s adv hadv
+  have h := shakeStrongAdvantage_le_securityBound_validatedParams .SLHDSA_SHAKE_128s adv hadv
   rwa [weakSeedFactor_of_ne (by decide), mul_one, show honestAdrsCount vp128s =
     1591788895347057694892543 by rw [honestAdrsCount_eq]; decide] at h
 
 /-- SLH-DSA-SHAKE-256f in hedged signing (`opt_rand` uniform) over the uniform public seed, by
 the bound for every `opt_rand` source: `|Y| = 256 ^ 32`, `V = 17522` and
 `|A_hon| = 16195218117312364562383887 ≈ 2^83.74`, the weak seeds weighted by `min 1 ε`. -/
-example (adv : UnforgeableAdversary (shakeRomScheme vp256f
+example (adv : StrongUnforgeableAdversary (shakeRomScheme vp256f
       (fun _ => $ᵗ (shakeCore vp256f).Y) ($ᵗ (shakeCore vp256f).PkSeed)))
     {qh qs : ℕ} (hadv : adv.RomQueryBound qh qs) :
-    shakeAdvantage vp256f adv ≤
+    shakeStrongAdvantage vp256f adv ≤
       securityBound vp256f.params (256 ^ 32) 2 1 qh qs + ((qs : ℝ≥0∞) + 1) / (256 ^ 32 : ℕ) +
         (16195218117312364562383887 : ℕ) / 2 ^ 256 *
           min 1 (securityBound vp256f.params (256 ^ 32) 2 1 (qh + 17522) qs +
             2 * ((qs : ℝ≥0∞) + 1) / (256 ^ 32 : ℕ)) := by
-  have h := shakeAdvantage_le_securityBound_of_n_eq_32
+  have h := shakeStrongAdvantage_le_securityBound_of_n_eq_32
     (fipsApprovedAddressBounds .SLHDSA_SHAKE_256f).toCanonicalAddressBounds rfl (by decide) adv
     hadv
+  simp only [byteBound, everySeedBound, show vp256f.params.n = 32 from rfl] at h
   rwa [LinkedHazardsTest.verifyInternalQueryBound_256f, show honestAdrsCount vp256f =
     16195218117312364562383887 by rw [honestAdrsCount_eq]; decide] at h
 
@@ -171,38 +172,40 @@ example (adv : UnforgeableAdversary (shakeRomScheme vp256f
 /-- **A strong seed.** At SLH-DSA-SHAKE-256s, at the type-`7` public seed, which is the key of no
 honest address, the bound has no weak-key term, in either signing mode. -/
 example (optRand : PublicKeyCore (shakeCore vp256s) → ProbComp (shakeCore vp256s).Y)
-    (adv : UnforgeableAdversary (shakeRomScheme vp256s optRand (pure typeSevenSeed)))
+    (adv : StrongUnforgeableAdversary (shakeRomScheme vp256s optRand (pure typeSevenSeed)))
     {qh qs : ℕ} (hadv : adv.RomQueryBound qh qs) :
-    shakeAdvantage vp256s adv ≤
+    shakeStrongAdvantage vp256s adv ≤
       securityBound vp256s.params (256 ^ 32) 2 1 qh qs + ((qs : ℝ≥0∞) + 1) / (256 ^ 32 : ℕ) :=
-  shakeAdvantage_pure_le_securityBound_of_n_eq_32
+  shakeStrongAdvantage_pure_le_securityBound_of_n_eq_32
     (fipsApprovedAddressBounds .SLHDSA_SHAKE_256s).toCanonicalAddressBounds rfl
     FipsParameterSet.SLHDSA_SHAKE_256s.n_le_m not_isHonestKey_typeSevenSeed adv hadv
 
 /-- **A weak seed.** At SLH-DSA-SHAKE-256s, the weak-key term of the bound at the all-zero public
 seed is one: at a weak seed the bound at that seed is trivial. -/
 example (optRand : PublicKeyCore (shakeCore vp256s) → ProbComp (shakeCore vp256s).Y)
-    (adv : UnforgeableAdversary (shakeRomScheme vp256s optRand (pure zeroSeed)))
+    (adv : StrongUnforgeableAdversary (shakeRomScheme vp256s optRand (pure zeroSeed)))
     {qh qs : ℕ} (hadv : adv.RomQueryBound qh qs) :
-    shakeAdvantage vp256s adv ≤
+    shakeStrongAdvantage vp256s adv ≤
       securityBound vp256s.params (256 ^ 32) 2 1 qh qs + ((qs : ℝ≥0∞) + 1) / (256 ^ 32 : ℕ) +
         1 := by
-  have h := shakeAdvantage_pure_le_securityBound_validatedParams .SLHDSA_SHAKE_256s zeroSeed adv
-    hadv
+  have h := shakeStrongAdvantage_pure_le_securityBound_validatedParams .SLHDSA_SHAKE_256s zeroSeed
+    adv hadv
   have h1 : weakKeyMass vp256s zeroSeed = 1 :=
     (SampleableType.prEvent_uniformSample_eq_one_iff _).2 isWeakKey_zeroSeed
+  simp only [byteBound, show vp256s.params.n = 32 from rfl] at h
   rwa [h1] at h
 
 /-- **A weak seed, bounded.** At SLH-DSA-SHAKE-256s, at the all-zero public seed, the bound at
 every public seed applies, with `V = 8444`, in either signing mode. -/
 example (optRand : PublicKeyCore (shakeCore vp256s) → ProbComp (shakeCore vp256s).Y)
-    (adv : UnforgeableAdversary (shakeRomScheme vp256s optRand (pure zeroSeed)))
+    (adv : StrongUnforgeableAdversary (shakeRomScheme vp256s optRand (pure zeroSeed)))
     {qh qs : ℕ} (hadv : adv.RomQueryBound qh qs) :
-    shakeAdvantage vp256s adv ≤
+    shakeStrongAdvantage vp256s adv ≤
       securityBound vp256s.params (256 ^ 32) 2 1 (qh + 8444) qs +
         2 * ((qs : ℝ≥0∞) + 1) / (256 ^ 32 : ℕ) := by
-  have h := shakeAdvantage_pure_le_securityBound_add_validatedParams .SLHDSA_SHAKE_256s rfl
+  have h := shakeStrongAdvantage_pure_le_securityBound_add_validatedParams .SLHDSA_SHAKE_256s rfl
     zeroSeed adv hadv
+  simp only [everySeedBound, show vp256s.params.n = 32 from rfl] at h
   rwa [LinkedHazardsTest.verifyInternalQueryBound_256s] at h
 
 /-- The factor of the weak seeds is one at SLH-DSA-SHAKE-128s and `min 1 ε` at
@@ -223,37 +226,41 @@ theorem not_min_add_le_of_mass_half :
 
 /-- **The averaged bound at SLH-DSA-SHAKE-256s**, at `qh = qs = 2 ^ 64`, with `V = 8444` and
 `|A_hon| = 19966778066156452796772607 ≈ 2^84.05`, in either signing mode. -/
-theorem shakeAdvantage_le_256s
+theorem shakeStrongAdvantage_le_256s
     {optRand : PublicKeyCore (shakeCore vp256s) → ProbComp (shakeCore vp256s).Y}
-    (adv : UnforgeableAdversary (shakeRomScheme vp256s optRand ($ᵗ (shakeCore vp256s).PkSeed)))
+    (adv : StrongUnforgeableAdversary
+      (shakeRomScheme vp256s optRand ($ᵗ (shakeCore vp256s).PkSeed)))
     (hadv : adv.RomQueryBound (2 ^ 64) (2 ^ 64)) :
-    shakeAdvantage vp256s adv ≤
+    shakeStrongAdvantage vp256s adv ≤
       securityBound vp256s.params (256 ^ 32) 2 1 (2 ^ 64) (2 ^ 64) +
           (((2 ^ 64 : ℕ) : ℝ≥0∞) + 1) / (256 ^ 32 : ℕ) +
         (19966778066156452796772607 : ℕ) / 2 ^ 256 *
           min 1 (securityBound vp256s.params (256 ^ 32) 2 1 (2 ^ 64 + 8444) (2 ^ 64) +
             2 * (((2 ^ 64 : ℕ) : ℝ≥0∞) + 1) / (256 ^ 32 : ℕ)) := by
-  have h := shakeAdvantage_le_securityBound_of_n_eq_32
+  have h := shakeStrongAdvantage_le_securityBound_of_n_eq_32
     (fipsApprovedAddressBounds .SLHDSA_SHAKE_256s).toCanonicalAddressBounds rfl (by decide) adv
     hadv
+  simp only [byteBound, everySeedBound, show vp256s.params.n = 32 from rfl] at h
   rwa [LinkedHazardsTest.verifyInternalQueryBound_256s, show honestAdrsCount vp256s =
     19966778066156452796772607 by rw [honestAdrsCount_eq]; decide] at h
 
 /-- **The averaged bound at SLH-DSA-SHAKE-256f**, at `qh = qs = 2 ^ 64`, with `V = 17522` and
 `|A_hon| = 16195218117312364562383887 ≈ 2^83.74`, in either signing mode. -/
-theorem shakeAdvantage_le_256f
+theorem shakeStrongAdvantage_le_256f
     {optRand : PublicKeyCore (shakeCore vp256f) → ProbComp (shakeCore vp256f).Y}
-    (adv : UnforgeableAdversary (shakeRomScheme vp256f optRand ($ᵗ (shakeCore vp256f).PkSeed)))
+    (adv : StrongUnforgeableAdversary
+      (shakeRomScheme vp256f optRand ($ᵗ (shakeCore vp256f).PkSeed)))
     (hadv : adv.RomQueryBound (2 ^ 64) (2 ^ 64)) :
-    shakeAdvantage vp256f adv ≤
+    shakeStrongAdvantage vp256f adv ≤
       securityBound vp256f.params (256 ^ 32) 2 1 (2 ^ 64) (2 ^ 64) +
           (((2 ^ 64 : ℕ) : ℝ≥0∞) + 1) / (256 ^ 32 : ℕ) +
         (16195218117312364562383887 : ℕ) / 2 ^ 256 *
           min 1 (securityBound vp256f.params (256 ^ 32) 2 1 (2 ^ 64 + 17522) (2 ^ 64) +
             2 * (((2 ^ 64 : ℕ) : ℝ≥0∞) + 1) / (256 ^ 32 : ℕ)) := by
-  have h := shakeAdvantage_le_securityBound_of_n_eq_32
+  have h := shakeStrongAdvantage_le_securityBound_of_n_eq_32
     (fipsApprovedAddressBounds .SLHDSA_SHAKE_256f).toCanonicalAddressBounds rfl (by decide) adv
     hadv
+  simp only [byteBound, everySeedBound, show vp256f.params.n = 32 from rfl] at h
   rwa [LinkedHazardsTest.verifyInternalQueryBound_256f, show honestAdrsCount vp256f =
     16195218117312364562383887 by rw [honestAdrsCount_eq]; decide] at h
 
@@ -374,11 +381,12 @@ theorem averagedByteRhs_256s_lt_one :
 
 /-- **The advantage at SLH-DSA-SHAKE-256s over the uniform public seed is below one**, for
 `2 ^ 64` hash and `2 ^ 64` signing queries. -/
-theorem shakeAdvantage_lt_one_256s_averaged
+theorem shakeStrongAdvantage_lt_one_256s_averaged
     {optRand : PublicKeyCore (shakeCore vp256s) → ProbComp (shakeCore vp256s).Y}
-    (adv : UnforgeableAdversary (shakeRomScheme vp256s optRand ($ᵗ (shakeCore vp256s).PkSeed)))
-    (hadv : adv.RomQueryBound (2 ^ 64) (2 ^ 64)) : shakeAdvantage vp256s adv < 1 := by
-  have h := shakeAdvantage_le_256s adv hadv
+    (adv : StrongUnforgeableAdversary
+      (shakeRomScheme vp256s optRand ($ᵗ (shakeCore vp256s).PkSeed)))
+    (hadv : adv.RomQueryBound (2 ^ 64) (2 ^ 64)) : shakeStrongAdvantage vp256s adv < 1 := by
+  have h := shakeStrongAdvantage_le_256s adv hadv
   rw [show (256 ^ 32 : ℕ) = 2 ^ 256 by norm_num] at h
   exact lt_of_le_of_lt h averagedByteRhs_256s_lt_one
 
@@ -449,11 +457,12 @@ theorem averagedByteRhs_256f_lt_one :
 
 /-- **The advantage at SLH-DSA-SHAKE-256f over the uniform public seed is below one**, for
 `2 ^ 64` hash and `2 ^ 64` signing queries. -/
-theorem shakeAdvantage_lt_one_256f_averaged
+theorem shakeStrongAdvantage_lt_one_256f_averaged
     {optRand : PublicKeyCore (shakeCore vp256f) → ProbComp (shakeCore vp256f).Y}
-    (adv : UnforgeableAdversary (shakeRomScheme vp256f optRand ($ᵗ (shakeCore vp256f).PkSeed)))
-    (hadv : adv.RomQueryBound (2 ^ 64) (2 ^ 64)) : shakeAdvantage vp256f adv < 1 := by
-  have h := shakeAdvantage_le_256f adv hadv
+    (adv : StrongUnforgeableAdversary
+      (shakeRomScheme vp256f optRand ($ᵗ (shakeCore vp256f).PkSeed)))
+    (hadv : adv.RomQueryBound (2 ^ 64) (2 ^ 64)) : shakeStrongAdvantage vp256f adv < 1 := by
+  have h := shakeStrongAdvantage_le_256f adv hadv
   rw [show (256 ^ 32 : ℕ) = 2 ^ 256 by norm_num] at h
   exact lt_of_le_of_lt h averagedByteRhs_256f_lt_one
 
@@ -461,52 +470,52 @@ theorem shakeAdvantage_lt_one_256f_averaged
 
 /-- The hedged bound at a public seed, at every parameter set. -/
 example (set : FipsParameterSet) (pkSeed : (shakeCore set.validatedParams).PkSeed)
-    (adv : UnforgeableAdversary (shakeRomScheme set.validatedParams
+    (adv : StrongUnforgeableAdversary (shakeRomScheme set.validatedParams
       (fun _ => $ᵗ (shakeCore set.validatedParams).Y) (pure pkSeed)))
     {qh qs : ℕ} (hadv : adv.RomQueryBound qh qs) :
-    shakeAdvantage set.validatedParams adv ≤
+    shakeStrongAdvantage set.validatedParams adv ≤
       securityBound set.validatedParams.params (256 ^ set.validatedParams.params.n) 2 1 qh qs +
         1 / (256 ^ set.validatedParams.params.n : ℕ) +
         qs * ((qh : ℝ≥0∞) + qs + 1) / ((256 ^ set.validatedParams.params.n : ℕ) : ℝ≥0∞) ^ 2 +
         weakKeyMass set.validatedParams pkSeed :=
-  shakeAdvantage_pure_le_securityBound_hedged_validatedParams set pkSeed adv hadv
+  shakeStrongAdvantage_pure_le_securityBound_hedged_validatedParams set pkSeed adv hadv
 
 /-- The hedged bound over the uniform public seed, at every parameter set, implies the hedged
 bound with the weak-key term `|A_hon| / 2^256`. -/
 example (set : FipsParameterSet)
-    (adv : UnforgeableAdversary (shakeRomScheme set.validatedParams
+    (adv : StrongUnforgeableAdversary (shakeRomScheme set.validatedParams
       (fun _ => $ᵗ (shakeCore set.validatedParams).Y) ($ᵗ (shakeCore set.validatedParams).PkSeed)))
     {qh qs : ℕ} (hadv : adv.RomQueryBound qh qs) :
-    shakeAdvantage set.validatedParams adv ≤
+    shakeStrongAdvantage set.validatedParams adv ≤
       securityBound set.validatedParams.params (256 ^ set.validatedParams.params.n) 2 1 qh qs +
         1 / (256 ^ set.validatedParams.params.n : ℕ) +
         qs * ((qh : ℝ≥0∞) + qs + 1) / ((256 ^ set.validatedParams.params.n : ℕ) : ℝ≥0∞) ^ 2 +
         honestAdrsCount set.validatedParams / 2 ^ 256 :=
-  (shakeAdvantage_le_securityBound_hedged_validatedParams set adv hadv).trans
+  (shakeStrongAdvantage_le_securityBound_hedged_validatedParams set adv hadv).trans
     (add_mul_weakSeedFactor_le _ _ _)
 
 /-- SLH-DSA-SHAKE-128s in hedged signing over the uniform public seed, with the weak-key term
 evaluated: `|Y| = 256 ^ 16`. -/
-example (adv : UnforgeableAdversary (shakeRomScheme vp128s
+example (adv : StrongUnforgeableAdversary (shakeRomScheme vp128s
       (fun _ => $ᵗ (shakeCore vp128s).Y) ($ᵗ (shakeCore vp128s).PkSeed)))
     {qh qs : ℕ} (hadv : adv.RomQueryBound qh qs) :
-    shakeAdvantage vp128s adv ≤
+    shakeStrongAdvantage vp128s adv ≤
       securityBound vp128s.params (256 ^ 16) 2 1 qh qs + 1 / (256 ^ 16 : ℕ) +
         qs * ((qh : ℝ≥0∞) + qs + 1) / ((256 ^ 16 : ℕ) : ℝ≥0∞) ^ 2 +
         (1591788895347057694892543 : ℕ) / 2 ^ 256 := by
-  have h := shakeAdvantage_le_securityBound_hedged_validatedParams .SLHDSA_SHAKE_128s adv hadv
+  have h := shakeStrongAdvantage_le_securityBound_hedged_validatedParams .SLHDSA_SHAKE_128s adv hadv
   rwa [weakSeedFactor_of_ne (by decide), mul_one, show honestAdrsCount vp128s =
     1591788895347057694892543 by rw [honestAdrsCount_eq]; decide] at h
 
 /-- **A strong seed in hedged signing.** At SLH-DSA-SHAKE-256s, at the type-`7` public seed, the
 hedged bound has no weak-key term. -/
-example (adv : UnforgeableAdversary (shakeRomScheme vp256s
+example (adv : StrongUnforgeableAdversary (shakeRomScheme vp256s
       (fun _ => $ᵗ (shakeCore vp256s).Y) (pure typeSevenSeed)))
     {qh qs : ℕ} (hadv : adv.RomQueryBound qh qs) :
-    shakeAdvantage vp256s adv ≤
+    shakeStrongAdvantage vp256s adv ≤
       securityBound vp256s.params (256 ^ 32) 2 1 qh qs + 1 / (256 ^ 32 : ℕ) +
         qs * ((qh : ℝ≥0∞) + qs + 1) / ((256 ^ 32 : ℕ) : ℝ≥0∞) ^ 2 :=
-  shakeAdvantage_pure_le_securityBound_hedged_of_n_eq_32
+  shakeStrongAdvantage_pure_le_securityBound_hedged_of_n_eq_32
     (fipsApprovedAddressBounds .SLHDSA_SHAKE_256s).toCanonicalAddressBounds rfl
     FipsParameterSet.SLHDSA_SHAKE_256s.n_le_m not_isHonestKey_typeSevenSeed adv hadv
 

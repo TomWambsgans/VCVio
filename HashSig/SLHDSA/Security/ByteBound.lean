@@ -111,6 +111,9 @@ the one of the existential bound.
 
 ## Main statements
 
+The right-hand sides are named: `byteBound` and `byteBoundHedged` at a public seed without the
+weak-key term, `everySeedBound` and `everySeedBoundHedged` at every public seed at `n = 32`.
+
 * `shakeStrongAdvantage_pure_le_securityBound`: the bound at a public seed.
 * `shakeStrongAdvantage_pure_le_securityBound_of_weakKeyMass_eq_zero`: the bound at a public seed of
   weak-key mass zero, without the weak-key term.
@@ -128,8 +131,9 @@ the one of the existential bound.
   contributing only its parameters, which are those of its SHAKE twin.
 * The `_hedged` forms of each: the same in hedged signing, with
   `1 / |Y| + qs (qh + qs + 1) / |Y|^2` in place of `(qs + 1) / |Y|`.
-* The existential forms, `shakeAdvantage_*` for each `shakeStrongAdvantage_*` above: the forging
-  advantage at the same bound, through `shakeAdvantage_le_shakeStrongAdvantage`.
+* The existential forms of the bound at a public seed, of the averaged bounds and of the bounds at
+  the parameter sets, `shakeAdvantage_*` for the corresponding `shakeStrongAdvantage_*`: the
+  forging advantage at the same bound, through `shakeAdvantage_le_shakeStrongAdvantage`.
 
 ## Scope
 
@@ -157,65 +161,84 @@ open Concrete
 variable {vp : ValidatedParams}
   {optRand : PublicKeyCore (shakeCore vp) → ProbComp (shakeCore vp).Y}
 
+/-! ## The bounds -/
+
+variable (vp) in
+/-- The bound of the single-SHAKE256 model at a public seed, without its weak-key term:
+`securityBound vp.params (256 ^ n) 2 1 qh qs + (qs + 1) / 256 ^ n`. -/
+noncomputable abbrev byteBound (qh qs : ℕ) : ℝ≥0∞ :=
+  securityBound vp.params (256 ^ vp.params.n) 2 1 qh qs +
+    ((qs : ℝ≥0∞) + 1) / (256 ^ vp.params.n : ℕ)
+
+variable (vp) in
+/-- The bound of the single-SHAKE256 model in hedged signing at a public seed, without its weak-key
+term: `securityBound vp.params (256 ^ n) 2 1 qh qs + 1 / 256 ^ n + qs (qh + qs + 1) / 256 ^ (2 n)`.
+-/
+noncomputable abbrev byteBoundHedged (qh qs : ℕ) : ℝ≥0∞ :=
+  securityBound vp.params (256 ^ vp.params.n) 2 1 qh qs + 1 / (256 ^ vp.params.n : ℕ) +
+    qs * ((qh : ℝ≥0∞) + qs + 1) / ((256 ^ vp.params.n : ℕ) : ℝ≥0∞) ^ 2
+
+variable (vp) in
+/-- The bound of the single-SHAKE256 model at every public seed at `n = 32`:
+`securityBound vp.params (256 ^ n) 2 1 (qh + V) qs + 2 (qs + 1) / 256 ^ n`, with `V` the verifier's
+query bound. -/
+noncomputable abbrev everySeedBound (qh qs : ℕ) : ℝ≥0∞ :=
+  securityBound vp.params (256 ^ vp.params.n) 2 1
+      (qh + GeneralScheme.verifyInternalQueryBound vp.params) qs +
+    2 * ((qs : ℝ≥0∞) + 1) / (256 ^ vp.params.n : ℕ)
+
+variable (vp) in
+/-- The bound of the single-SHAKE256 model in hedged signing at every public seed at `n = 32`:
+`byteBoundHedged vp (qh + V) qs + (qs + 1) / 256 ^ n`, with `V` the verifier's query bound. -/
+noncomputable abbrev everySeedBoundHedged (qh qs : ℕ) : ℝ≥0∞ :=
+  byteBoundHedged vp (qh + GeneralScheme.verifyInternalQueryBound vp.params) qs +
+    ((qs : ℝ≥0∞) + 1) / (256 ^ vp.params.n : ℕ)
+
+/-! ## At a public seed -/
+
 /-- **SLH-DSA over one SHAKE256 oracle, at a public seed.** For `16 ≤ n ≤ 32`, `n ≤ m` and address
 fields within their FIPS 205 widths, an adversary against `shakeRomScheme` at the public seed
 `pkSeed` making at most `qh` queries of the single oracle and `qs` signing queries makes a strong
-forgery with probability at most `securityBound vp.params (256 ^ n) 2 1 qh qs + (qs + 1) / 256 ^ n`
-plus the weak-key mass of `pkSeed`. `optRand` is arbitrary: the bound holds in hedged and
-deterministic signing. -/
+forgery with probability at most `byteBound vp qh qs` plus the weak-key mass of `pkSeed`.
+`optRand` is arbitrary: the bound holds in hedged and deterministic signing. -/
 theorem shakeStrongAdvantage_pure_le_securityBound (hb : CanonicalAddressBounds vp.params)
     (hn16 : 16 ≤ vp.params.n) (hn : vp.params.n ≤ 32) (hnm : vp.params.n ≤ vp.params.m)
     (pkSeed : (shakeCore vp).PkSeed)
     (adv : StrongUnforgeableAdversary (shakeRomScheme vp optRand (pure pkSeed))) {qh qs : ℕ}
     (hadv : adv.RomQueryBound qh qs) :
-    shakeStrongAdvantage vp adv ≤
-      securityBound vp.params (256 ^ vp.params.n) 2 1 qh qs +
-        ((qs : ℝ≥0∞) + 1) / (256 ^ vp.params.n : ℕ) + weakKeyMass vp pkSeed := by
-  rw [← natCard_shakePrimitives_y]
+    shakeStrongAdvantage vp adv ≤ byteBound vp qh qs + weakKeyMass vp pkSeed := by
+  rw [byteBound, ← natCard_shakePrimitives_y]
   exact (shakeStrongAdvantage_pure_le_strongWins_or_runPrfKeyHit_or_isWeakKey hn hnm hn16 pkSeed
-    adv).trans <|
-    (prEvent_or_le _ _ _).trans <| add_le_add
+    adv).trans <| (prEvent_or_le _ _ _).trans <| add_le_add
       (prEvent_romSchemeRun_strongWins_or_runPrfKeyHit_le (shakePrimitives_byteLaws vp.params)
         (keyDiscipline_shakePrimitives vp hb) le_rfl _ optRand pkSeed Function.injective_id
         pkSeed (romQueryBound_routeAdv hn hnm hadv))
       (prEvent_romSchemeRun_isWeakKey_le hb _ optRand pkSeed _)
 
-/-- **SLH-DSA over one SHAKE256 oracle, at a seed of weak-key mass zero.** For `16 ≤ n ≤ 32`,
-`n ≤ m` and address fields within their FIPS 205 widths, an adversary against `shakeRomScheme` at a
-public seed `pkSeed` of weak-key mass zero, making at most `qh` queries of the single oracle and
-`qs` signing queries, makes a strong forgery with probability at most
-`securityBound vp.params (256 ^ n) 2 1 qh qs + (qs + 1) / 256 ^ n`. `optRand` is arbitrary: the
-bound holds in hedged and deterministic signing. -/
+/-- **SLH-DSA over one SHAKE256 oracle, at a seed of weak-key mass zero.** Under the hypotheses of
+`shakeStrongAdvantage_pure_le_securityBound`, at a public seed of weak-key mass zero the strong
+advantage is at most `byteBound vp qh qs`. -/
 theorem shakeStrongAdvantage_pure_le_securityBound_of_weakKeyMass_eq_zero
     (hb : CanonicalAddressBounds vp.params) (hn16 : 16 ≤ vp.params.n) (hn : vp.params.n ≤ 32)
     (hnm : vp.params.n ≤ vp.params.m) {pkSeed : (shakeCore vp).PkSeed}
     (hs : weakKeyMass vp pkSeed = 0)
     (adv : StrongUnforgeableAdversary (shakeRomScheme vp optRand (pure pkSeed))) {qh qs : ℕ}
-    (hadv : adv.RomQueryBound qh qs) :
-    shakeStrongAdvantage vp adv ≤
-      securityBound vp.params (256 ^ vp.params.n) 2 1 qh qs +
-        ((qs : ℝ≥0∞) + 1) / (256 ^ vp.params.n : ℕ) := by
+    (hadv : adv.RomQueryBound qh qs) : shakeStrongAdvantage vp adv ≤ byteBound vp qh qs := by
   simpa [hs] using shakeStrongAdvantage_pure_le_securityBound hb hn16 hn hnm pkSeed adv hadv
 
 /-- **SLH-DSA over one SHAKE256 oracle at `n = 32`, at a strong public seed.** At `n = 32`,
-`n ≤ m` and address fields within their FIPS 205 widths, an adversary against `shakeRomScheme` at
-a public seed `pkSeed` that is not the key of an honest address, making at most `qh` queries of the
-single oracle and `qs` signing queries, makes a strong forgery with probability at most
-`securityBound vp.params (256 ^ 32) 2 1 qh qs + (qs + 1) / 256 ^ 32`. `optRand` is arbitrary: the
-bound holds in hedged and deterministic signing. -/
+`n ≤ m` and address fields within their FIPS 205 widths, at a public seed that is not the key of
+an honest address, an adversary making at most `qh` queries of the single oracle and `qs` signing
+queries makes a strong forgery with probability at most `byteBound vp qh qs`, in hedged and
+deterministic signing. -/
 theorem shakeStrongAdvantage_pure_le_securityBound_of_n_eq_32
     (hb : CanonicalAddressBounds vp.params) (hn : vp.params.n = 32)
     (hnm : vp.params.n ≤ vp.params.m) {pkSeed : (shakeCore vp).PkSeed}
     (hs : ¬IsHonestKey vp (shakeCore vp) (adrsKeyOfList vp (Vector.toList (pkSeed : Bytes _))))
     (adv : StrongUnforgeableAdversary (shakeRomScheme vp optRand (pure pkSeed))) {qh qs : ℕ}
-    (hadv : adv.RomQueryBound qh qs) :
-    shakeStrongAdvantage vp adv ≤
-      securityBound vp.params (256 ^ 32) 2 1 qh qs + ((qs : ℝ≥0∞) + 1) / (256 ^ 32 : ℕ) := by
-  rw [← hn]
-  exact shakeStrongAdvantage_pure_le_securityBound_of_weakKeyMass_eq_zero hb (by omega) hn.le hnm
+    (hadv : adv.RomQueryBound qh qs) : shakeStrongAdvantage vp adv ≤ byteBound vp qh qs :=
+  shakeStrongAdvantage_pure_le_securityBound_of_weakKeyMass_eq_zero hb (by omega) hn.le hnm
     ((weakKeyMass_eq_zero_iff_of_n_eq_32 hn pkSeed).2 hs) adv hadv
-
-/-! ## Hedged signing -/
 
 /-- **SLH-DSA over one SHAKE256 oracle, at a public seed, when `opt_rand` rarely equals it.** For
 `16 ≤ n ≤ 32`, `n ≤ m` and address fields within their FIPS 205 widths, if `optRand pk` equals
@@ -245,32 +268,27 @@ theorem shakeStrongAdvantage_pure_le_securityBound_of_prEvent_optRand_le
 `n ≤ m` and address fields within their FIPS 205 widths, with `opt_rand` drawn uniformly at each
 signature, an adversary against `shakeRomScheme` at the public seed `pkSeed` making at most `qh`
 queries of the single oracle and `qs` signing queries makes a strong forgery with probability at
-most `securityBound vp.params (256 ^ n) 2 1 qh qs + 1 / 256 ^ n + qs * (qh + qs + 1) / 256 ^ (2 n)`
-plus the weak-key mass of `pkSeed`. -/
+most `byteBoundHedged vp qh qs` plus the weak-key mass of `pkSeed`. -/
 theorem shakeStrongAdvantage_pure_le_securityBound_hedged (hb : CanonicalAddressBounds vp.params)
     (hn16 : 16 ≤ vp.params.n) (hn : vp.params.n ≤ 32) (hnm : vp.params.n ≤ vp.params.m)
     (pkSeed : (shakeCore vp).PkSeed)
     (adv : StrongUnforgeableAdversary
       (shakeRomScheme vp (fun _ ↦ $ᵗ (shakeCore vp).Y) (pure pkSeed)))
     {qh qs : ℕ} (hadv : adv.RomQueryBound qh qs) :
-    shakeStrongAdvantage vp adv ≤
-      securityBound vp.params (256 ^ vp.params.n) 2 1 qh qs + 1 / (256 ^ vp.params.n : ℕ) +
-        qs * ((qh : ℝ≥0∞) + qs + 1) / ((256 ^ vp.params.n : ℕ) : ℝ≥0∞) ^ 2 +
-        weakKeyMass vp pkSeed := by
+    shakeStrongAdvantage vp adv ≤ byteBoundHedged vp qh qs + weakKeyMass vp pkSeed := by
   refine (shakeStrongAdvantage_pure_le_securityBound_of_prEvent_optRand_le hb hn16 hn hnm pkSeed
     (ε := (Nat.card (shakeCore vp).Y : ℝ≥0∞)⁻¹)
     (fun _ ↦ (SampleableType.prEvent_uniformSample_eq_singleton_natCard _).le) adv hadv).trans
     (le_of_eq ?_)
   rw [natCard_shakePrimitives_y]
-  simp only [ENNReal.div_eq_inv_mul, ENNReal.inv_pow]
+  simp only [byteBoundHedged, ENNReal.div_eq_inv_mul, ENNReal.inv_pow]
   ring
 
 /-- **SLH-DSA over one SHAKE256 oracle at `n = 32` with hedged signing, at a strong public seed.**
 At `n = 32`, `n ≤ m` and address fields within their FIPS 205 widths, with `opt_rand` drawn
-uniformly at each signature, an adversary against `shakeRomScheme` at a public seed `pkSeed` that
-is not the key of an honest address, making at most `qh` queries of the single oracle and `qs`
-signing queries, makes a strong forgery with probability at most
-`securityBound vp.params (256 ^ 32) 2 1 qh qs + 1 / 256 ^ 32 + qs * (qh + qs + 1) / 256 ^ 64`. -/
+uniformly at each signature, at a public seed that is not the key of an honest address, the strong
+advantage of an adversary making at most `qh` queries of the single oracle and `qs` signing
+queries is at most `byteBoundHedged vp qh qs`. -/
 theorem shakeStrongAdvantage_pure_le_securityBound_hedged_of_n_eq_32
     (hb : CanonicalAddressBounds vp.params) (hn : vp.params.n = 32)
     (hnm : vp.params.n ≤ vp.params.m) {pkSeed : (shakeCore vp).PkSeed}
@@ -278,10 +296,7 @@ theorem shakeStrongAdvantage_pure_le_securityBound_hedged_of_n_eq_32
     (adv : StrongUnforgeableAdversary
       (shakeRomScheme vp (fun _ ↦ $ᵗ (shakeCore vp).Y) (pure pkSeed)))
     {qh qs : ℕ} (hadv : adv.RomQueryBound qh qs) :
-    shakeStrongAdvantage vp adv ≤
-      securityBound vp.params (256 ^ 32) 2 1 qh qs + 1 / (256 ^ 32 : ℕ) +
-        qs * ((qh : ℝ≥0∞) + qs + 1) / ((256 ^ 32 : ℕ) : ℝ≥0∞) ^ 2 := by
-  rw [← hn]
+    shakeStrongAdvantage vp adv ≤ byteBoundHedged vp qh qs := by
   simpa [weakKeyMass_eq_zero_of_n_eq_32 hn hs] using
     shakeStrongAdvantage_pure_le_securityBound_hedged hb (by omega) hn.le hnm pkSeed adv hadv
 
@@ -311,117 +326,77 @@ theorem weakSeedFactor_of_ne (hn : vp.params.n ≠ 32) (ε : ℝ≥0∞) : weakS
 `n = 32`, `n ≤ m` and address fields within their FIPS 205 widths, an adversary against
 `shakeRomScheme` at the public seed `pkSeed` making at most `qh` queries of the single oracle and
 `qs` signing queries makes a strong forgery with probability at most the smaller of
-`securityBound vp.params (256 ^ 32) 2 1 qh qs + (qs + 1) / 256 ^ 32` plus the weak-key mass of
-`pkSeed`, and `securityBound vp.params (256 ^ 32) 2 1 (qh + V) qs + 2 (qs + 1) / 256 ^ 32`, with
-`V` the verifier's query bound. `optRand` is arbitrary: the bound holds in hedged and
-deterministic signing. -/
+`byteBound vp qh qs` plus the weak-key mass of `pkSeed` and `everySeedBound vp qh qs`. `optRand`
+is arbitrary: the bound holds in hedged and deterministic signing. -/
 theorem shakeStrongAdvantage_pure_le_min_of_n_eq_32 (hb : CanonicalAddressBounds vp.params)
     (hn : vp.params.n = 32) (hnm : vp.params.n ≤ vp.params.m) (pkSeed : (shakeCore vp).PkSeed)
     (adv : StrongUnforgeableAdversary (shakeRomScheme vp optRand (pure pkSeed))) {qh qs : ℕ}
     (hadv : adv.RomQueryBound qh qs) :
     shakeStrongAdvantage vp adv ≤
-      min (securityBound vp.params (256 ^ 32) 2 1 qh qs + ((qs : ℝ≥0∞) + 1) / (256 ^ 32 : ℕ) +
-          weakKeyMass vp pkSeed)
-        (securityBound vp.params (256 ^ 32) 2 1
-            (qh + GeneralScheme.verifyInternalQueryBound vp.params) qs +
-          2 * ((qs : ℝ≥0∞) + 1) / (256 ^ 32 : ℕ)) := by
-  rw [← hn]
+      min (byteBound vp qh qs + weakKeyMass vp pkSeed) (everySeedBound vp qh qs) := by
   refine le_min (shakeStrongAdvantage_pure_le_securityBound hb (by omega) hn.le hnm pkSeed adv hadv)
     ((shakeStrongAdvantage_pure_le_securityBound_add_of_n_eq_32 hb hn hnm adv hadv).trans_eq ?_)
   rw [natCard_shakePrimitives_y]
-  simp only [ENNReal.div_eq_inv_mul]
+  simp only [everySeedBound, ENNReal.div_eq_inv_mul]
   ring
 
 /-- **SLH-DSA over one SHAKE256 oracle at `n = 32` with hedged signing, at a public seed: the
 smaller bound.** At `n = 32`, `n ≤ m` and address fields within their FIPS 205 widths, with
-`opt_rand` drawn uniformly at each signature, an adversary against `shakeRomScheme` at the public
-seed `pkSeed` making at most `qh` queries of the single oracle and `qs` signing queries makes a
-strong forgery with probability at most the smaller of
-`securityBound vp.params (256 ^ 32) 2 1 qh qs + 1 / 256 ^ 32 + qs (qh + qs + 1) / 256 ^ 64` plus the
-weak-key mass of `pkSeed`, and `securityBound vp.params (256 ^ 32) 2 1 (qh + V) qs +`
-`1 / 256 ^ 32 + qs (qh + V + qs + 1) / 256 ^ 64 + (qs + 1) / 256 ^ 32`, with `V` the verifier's
-query bound. -/
+`opt_rand` drawn uniformly at each signature, the strong advantage at the public seed `pkSeed` of
+an adversary making at most `qh` queries of the single oracle and `qs` signing queries is at most
+the smaller of `byteBoundHedged vp qh qs` plus the weak-key mass of `pkSeed` and
+`everySeedBoundHedged vp qh qs`. -/
 theorem shakeStrongAdvantage_pure_le_min_hedged_of_n_eq_32 (hb : CanonicalAddressBounds vp.params)
     (hn : vp.params.n = 32) (hnm : vp.params.n ≤ vp.params.m) (pkSeed : (shakeCore vp).PkSeed)
     (adv : StrongUnforgeableAdversary
       (shakeRomScheme vp (fun _ ↦ $ᵗ (shakeCore vp).Y) (pure pkSeed)))
     {qh qs : ℕ} (hadv : adv.RomQueryBound qh qs) :
     shakeStrongAdvantage vp adv ≤
-      min (securityBound vp.params (256 ^ 32) 2 1 qh qs + 1 / (256 ^ 32 : ℕ) +
-          qs * ((qh : ℝ≥0∞) + qs + 1) / ((256 ^ 32 : ℕ) : ℝ≥0∞) ^ 2 + weakKeyMass vp pkSeed)
-        (securityBound vp.params (256 ^ 32) 2 1
-            (qh + GeneralScheme.verifyInternalQueryBound vp.params) qs + 1 / (256 ^ 32 : ℕ) +
-          qs * (((qh + GeneralScheme.verifyInternalQueryBound vp.params : ℕ) : ℝ≥0∞) + qs + 1) /
-            ((256 ^ 32 : ℕ) : ℝ≥0∞) ^ 2 +
-          ((qs : ℝ≥0∞) + 1) / (256 ^ 32 : ℕ)) := by
-  have h := shakeStrongAdvantage_pure_le_securityBound_add_of_n_eq_32_hedged hb hn hnm adv hadv
-    (ε := (Nat.card (shakeCore vp).Y : ℝ≥0∞)⁻¹)
-    (fun _ ↦ (SampleableType.prEvent_uniformSample_eq_singleton_natCard _).le)
-  rw [← hn]
+      min (byteBoundHedged vp qh qs + weakKeyMass vp pkSeed) (everySeedBoundHedged vp qh qs) := by
   refine le_min (shakeStrongAdvantage_pure_le_securityBound_hedged hb (by omega) hn.le hnm pkSeed
-    adv     hadv) (h.trans_eq ?_)
+    adv hadv) ((shakeStrongAdvantage_pure_le_securityBound_add_of_n_eq_32_hedged hb hn hnm adv hadv
+      (ε := (Nat.card (shakeCore vp).Y : ℝ≥0∞)⁻¹)
+      (fun _ ↦ (SampleableType.prEvent_uniformSample_eq_singleton_natCard _).le)).trans_eq ?_)
   rw [natCard_shakePrimitives_y]
-  simp only [ENNReal.div_eq_inv_mul, ENNReal.inv_pow]
+  simp only [everySeedBoundHedged, byteBoundHedged, ENNReal.div_eq_inv_mul, ENNReal.inv_pow]
   ring
 
 /-- **SLH-DSA over one SHAKE256 oracle, at a public seed, with the weak seeds' factor.** For
-`16 ≤ n ≤ 32`, `n ≤ m` and address fields within their FIPS 205 widths, an adversary against
-`shakeRomScheme` at the public seed `pkSeed` making at most `qh` queries of the single oracle and
-`qs` signing queries makes a strong forgery with probability at most
-`securityBound vp.params (256 ^ n) 2 1 qh qs + (qs + 1) / 256 ^ n` plus the weak-key mass of
-`pkSeed` times `weakSeedFactor vp ε`, with
-`ε = securityBound vp.params (256 ^ n) 2 1 (qh + V) qs + 2 (qs + 1) / 256 ^ n` and `V` the
-verifier's query bound. `optRand` is arbitrary. -/
+`16 ≤ n ≤ 32`, `n ≤ m` and address fields within their FIPS 205 widths, the strong advantage at
+the public seed `pkSeed` of an adversary making at most `qh` queries of the single oracle and `qs`
+signing queries is at most `byteBound vp qh qs` plus the weak-key mass of `pkSeed` times
+`weakSeedFactor vp (everySeedBound vp qh qs)`. `optRand` is arbitrary. -/
 theorem shakeStrongAdvantage_pure_le_securityBound_add_weakKeyMass_mul
     (hb : CanonicalAddressBounds vp.params) (hn16 : 16 ≤ vp.params.n) (hn : vp.params.n ≤ 32)
     (hnm : vp.params.n ≤ vp.params.m) (pkSeed : (shakeCore vp).PkSeed)
     (adv : StrongUnforgeableAdversary (shakeRomScheme vp optRand (pure pkSeed))) {qh qs : ℕ}
     (hadv : adv.RomQueryBound qh qs) :
     shakeStrongAdvantage vp adv ≤
-      securityBound vp.params (256 ^ vp.params.n) 2 1 qh qs +
-        ((qs : ℝ≥0∞) + 1) / (256 ^ vp.params.n : ℕ) +
-        weakKeyMass vp pkSeed * weakSeedFactor vp
-          (securityBound vp.params (256 ^ vp.params.n) 2 1
-              (qh + GeneralScheme.verifyInternalQueryBound vp.params) qs +
-            2 * ((qs : ℝ≥0∞) + 1) / (256 ^ vp.params.n : ℕ)) := by
+      byteBound vp qh qs + weakKeyMass vp pkSeed * weakSeedFactor vp (everySeedBound vp qh qs) := by
   by_cases h32 : vp.params.n = 32
   · rw [weakSeedFactor_of_n_eq_32 h32]
-    have h := (shakeStrongAdvantage_pure_le_min_of_n_eq_32 hb h32 hnm pkSeed adv hadv).trans
+    exact (shakeStrongAdvantage_pure_le_min_of_n_eq_32 hb h32 hnm pkSeed adv hadv).trans
       (min_add_weakKeyMass_le_of_n_eq_32 h32 pkSeed _ _)
-    rwa [← h32] at h
   · rw [weakSeedFactor_of_ne h32, mul_one]
     exact shakeStrongAdvantage_pure_le_securityBound hb hn16 hn hnm pkSeed adv hadv
 
-/-- **SLH-DSA over one SHAKE256 oracle with hedged signing, at a public seed, with the weak seeds'
-factor.** For `16 ≤ n ≤ 32`, `n ≤ m` and address fields within their FIPS 205 widths, with
-`opt_rand` drawn uniformly at each signature, an adversary against `shakeRomScheme` at the public
-seed `pkSeed` making at most `qh` queries of the single oracle and `qs` signing queries makes a
-strong forgery with probability at most
-`securityBound vp.params (256 ^ n) 2 1 qh qs + 1 / 256 ^ n + qs * (qh + qs + 1) / 256 ^ (2 n)` plus
-the weak-key mass of `pkSeed` times `weakSeedFactor vp ε`, with
-`ε = securityBound vp.params (256 ^ n) 2 1 (qh + V) qs + 1 / 256 ^ n +`
-`qs (qh + V + qs + 1) / 256 ^ (2 n) + (qs + 1) / 256 ^ n` and `V` the verifier's query bound. -/
+/-- **SLH-DSA over one SHAKE256 oracle with hedged signing, at a public seed, with the weak
+seeds' factor.** For `16 ≤ n ≤ 32`, `n ≤ m` and address fields within their FIPS 205 widths, with
+`opt_rand` drawn uniformly at each signature, the strong advantage at the public seed `pkSeed` is
+at most `byteBoundHedged vp qh qs` plus the weak-key mass of `pkSeed` times
+`weakSeedFactor vp (everySeedBoundHedged vp qh qs)`. -/
 theorem shakeStrongAdvantage_pure_le_securityBound_hedged_add_weakKeyMass_mul
     (hb : CanonicalAddressBounds vp.params) (hn16 : 16 ≤ vp.params.n) (hn : vp.params.n ≤ 32)
     (hnm : vp.params.n ≤ vp.params.m) (pkSeed : (shakeCore vp).PkSeed)
     (adv : StrongUnforgeableAdversary
       (shakeRomScheme vp (fun _ ↦ $ᵗ (shakeCore vp).Y) (pure pkSeed)))
     {qh qs : ℕ} (hadv : adv.RomQueryBound qh qs) :
-    shakeStrongAdvantage vp adv ≤
-      securityBound vp.params (256 ^ vp.params.n) 2 1 qh qs + 1 / (256 ^ vp.params.n : ℕ) +
-        qs * ((qh : ℝ≥0∞) + qs + 1) / ((256 ^ vp.params.n : ℕ) : ℝ≥0∞) ^ 2 +
-        weakKeyMass vp pkSeed * weakSeedFactor vp
-          (securityBound vp.params (256 ^ vp.params.n) 2 1
-              (qh + GeneralScheme.verifyInternalQueryBound vp.params) qs +
-            1 / (256 ^ vp.params.n : ℕ) +
-            qs * (((qh + GeneralScheme.verifyInternalQueryBound vp.params : ℕ) : ℝ≥0∞) + qs + 1) /
-              ((256 ^ vp.params.n : ℕ) : ℝ≥0∞) ^ 2 +
-            ((qs : ℝ≥0∞) + 1) / (256 ^ vp.params.n : ℕ)) := by
+    shakeStrongAdvantage vp adv ≤ byteBoundHedged vp qh qs +
+      weakKeyMass vp pkSeed * weakSeedFactor vp (everySeedBoundHedged vp qh qs) := by
   by_cases h32 : vp.params.n = 32
   · rw [weakSeedFactor_of_n_eq_32 h32]
-    have h := (shakeStrongAdvantage_pure_le_min_hedged_of_n_eq_32 hb h32 hnm pkSeed adv hadv).trans
+    exact (shakeStrongAdvantage_pure_le_min_hedged_of_n_eq_32 hb h32 hnm pkSeed adv hadv).trans
       (min_add_weakKeyMass_le_of_n_eq_32 h32 pkSeed _ _)
-    rwa [← h32] at h
   · rw [weakSeedFactor_of_ne h32, mul_one]
     exact shakeStrongAdvantage_pure_le_securityBound_hedged hb hn16 hn hnm pkSeed adv hadv
 
@@ -431,114 +406,83 @@ theorem shakeStrongAdvantage_pure_le_securityBound_hedged_add_weakKeyMass_mul
 their FIPS 205 widths, an adversary against `shakeRomScheme` with the public seed drawn uniformly,
 as FIPS 205 prescribes, making at most `qh` queries of the single oracle and `qs` signing queries
 makes a strong forgery with probability at most
-`securityBound vp.params (256 ^ n) 2 1 qh qs + (qs + 1) / 256 ^ n + |A_hon| / 2^256 ·`
-`weakSeedFactor vp ε`, with `|A_hon| = honestAdrsCount vp` bounding the honest addresses,
-`ε = securityBound vp.params (256 ^ n) 2 1 (qh + V) qs + 2 (qs + 1) / 256 ^ n` and `V` the
-verifier's query bound. The factor is at most one, and `min 1 ε` at `n = 32`. `optRand` is
-arbitrary: the bound holds in hedged and deterministic signing. -/
+`byteBound vp qh qs + |A_hon| / 2^256 · weakSeedFactor vp (everySeedBound vp qh qs)`, with
+`|A_hon| = honestAdrsCount vp` bounding the honest addresses. The factor is at most one, and
+`min 1 (everySeedBound vp qh qs)` at `n = 32`. `optRand` is arbitrary: the bound holds in hedged
+and deterministic signing. -/
 theorem shakeStrongAdvantage_le_securityBound (hb : CanonicalAddressBounds vp.params)
     (hn16 : 16 ≤ vp.params.n) (hn : vp.params.n ≤ 32) (hnm : vp.params.n ≤ vp.params.m)
     (adv : StrongUnforgeableAdversary (shakeRomScheme vp optRand ($ᵗ (shakeCore vp).PkSeed)))
     {qh qs : ℕ} (hadv : adv.RomQueryBound qh qs) :
-    shakeStrongAdvantage vp adv ≤
-      securityBound vp.params (256 ^ vp.params.n) 2 1 qh qs +
-        ((qs : ℝ≥0∞) + 1) / (256 ^ vp.params.n : ℕ) +
-        honestAdrsCount vp / 2 ^ 256 * weakSeedFactor vp
-          (securityBound vp.params (256 ^ vp.params.n) 2 1
-              (qh + GeneralScheme.verifyInternalQueryBound vp.params) qs +
-            2 * ((qs : ℝ≥0∞) + 1) / (256 ^ vp.params.n : ℕ)) := by
+    shakeStrongAdvantage vp adv ≤ byteBound vp qh qs +
+      honestAdrsCount vp / 2 ^ 256 * weakSeedFactor vp (everySeedBound vp qh qs) := by
   let _ : MeasurableSpace (shakeCore vp).PkSeed := ⊤
   have _ : DiscreteMeasurableSpace (shakeCore vp).PkSeed := ⟨fun _ => trivial⟩
   exact (shakeStrongAdvantage_le_lintegral _ _ (fun pkSeed _ hadv' =>
     shakeStrongAdvantage_pure_le_securityBound_add_weakKeyMass_mul hb hn16 hn hnm pkSeed _ hadv')
-      adv
-      hadv).trans (lintegral_add_weakKeyMass_mul_le hn16 _ _)
+      adv hadv).trans (lintegral_add_weakKeyMass_mul_le hn16 _ _)
 
-/-- **SLH-DSA over one SHAKE256 oracle with hedged signing.** For `16 ≤ n ≤ 32`, `n ≤ m` and address
-fields within their FIPS 205 widths, with `opt_rand` drawn uniformly at each signature and the
-public seed drawn uniformly, as FIPS 205 prescribes, an adversary against `shakeRomScheme` making at
-most `qh` queries of the single oracle and `qs` signing queries makes a strong forgery with
-probability at most
-`securityBound vp.params (256 ^ n) 2 1 qh qs + 1 / 256 ^ n + qs * (qh + qs + 1) / 256 ^ (2 n)`
-`+ |A_hon| / 2^256 · weakSeedFactor vp ε`, with `|A_hon| = honestAdrsCount vp` bounding the honest
-addresses, `ε = securityBound vp.params (256 ^ n) 2 1 (qh + V) qs + 1 / 256 ^ n +`
-`qs (qh + V + qs + 1) / 256 ^ (2 n) + (qs + 1) / 256 ^ n` and `V` the verifier's query bound. -/
+/-- **SLH-DSA over one SHAKE256 oracle with hedged signing.** For `16 ≤ n ≤ 32`, `n ≤ m` and
+address fields within their FIPS 205 widths, with `opt_rand` drawn uniformly at each signature
+and the public seed drawn uniformly, as FIPS 205 prescribes, the strong advantage of an adversary
+making at most `qh` queries of the single oracle and `qs` signing queries is at most
+`byteBoundHedged vp qh qs + |A_hon| / 2^256 · weakSeedFactor vp (everySeedBoundHedged vp qh qs)`,
+with `|A_hon| = honestAdrsCount vp` bounding the honest addresses. -/
 theorem shakeStrongAdvantage_le_securityBound_hedged (hb : CanonicalAddressBounds vp.params)
     (hn16 : 16 ≤ vp.params.n) (hn : vp.params.n ≤ 32) (hnm : vp.params.n ≤ vp.params.m)
     (adv : StrongUnforgeableAdversary (shakeRomScheme vp (fun _ ↦ $ᵗ (shakeCore vp).Y)
       ($ᵗ (shakeCore vp).PkSeed)))
     {qh qs : ℕ} (hadv : adv.RomQueryBound qh qs) :
-    shakeStrongAdvantage vp adv ≤
-      securityBound vp.params (256 ^ vp.params.n) 2 1 qh qs + 1 / (256 ^ vp.params.n : ℕ) +
-        qs * ((qh : ℝ≥0∞) + qs + 1) / ((256 ^ vp.params.n : ℕ) : ℝ≥0∞) ^ 2 +
-        honestAdrsCount vp / 2 ^ 256 * weakSeedFactor vp
-          (securityBound vp.params (256 ^ vp.params.n) 2 1
-              (qh + GeneralScheme.verifyInternalQueryBound vp.params) qs +
-            1 / (256 ^ vp.params.n : ℕ) +
-            qs * (((qh + GeneralScheme.verifyInternalQueryBound vp.params : ℕ) : ℝ≥0∞) + qs + 1) /
-              ((256 ^ vp.params.n : ℕ) : ℝ≥0∞) ^ 2 +
-            ((qs : ℝ≥0∞) + 1) / (256 ^ vp.params.n : ℕ)) := by
+    shakeStrongAdvantage vp adv ≤ byteBoundHedged vp qh qs +
+      honestAdrsCount vp / 2 ^ 256 * weakSeedFactor vp (everySeedBoundHedged vp qh qs) := by
   let _ : MeasurableSpace (shakeCore vp).PkSeed := ⊤
   have _ : DiscreteMeasurableSpace (shakeCore vp).PkSeed := ⟨fun _ => trivial⟩
   exact (shakeStrongAdvantage_le_lintegral _ _ (fun pkSeed _ hadv' =>
     shakeStrongAdvantage_pure_le_securityBound_hedged_add_weakKeyMass_mul hb hn16 hn hnm pkSeed _
       hadv') adv hadv).trans (lintegral_add_weakKeyMass_mul_le hn16 _ _)
 
-/-- **SLH-DSA over one SHAKE256 oracle at `n = 32`.** At `n = 32`, `n ≤ m` and address fields within
-their FIPS 205 widths, an adversary against `shakeRomScheme` with the public seed drawn uniformly,
-making at most `qh` queries of the single oracle and `qs` signing queries, makes a strong forgery
-with probability at most `securityBound vp.params (256 ^ 32) 2 1 qh qs + (qs + 1) / 256 ^ 32 +`
-`|A_hon| / 2^256 · min 1 (securityBound vp.params (256 ^ 32) 2 1 (qh + V) qs +`
-`2 (qs + 1) / 256 ^ 32)`, with `|A_hon| = honestAdrsCount vp` and `V` the verifier's query bound.
-`optRand` is arbitrary. -/
+/-- **SLH-DSA over one SHAKE256 oracle at `n = 32`.** At `n = 32`, `n ≤ m` and address fields
+within their FIPS 205 widths, the strong advantage of an adversary against `shakeRomScheme` with
+the public seed drawn uniformly, making at most `qh` queries of the single oracle and `qs` signing
+queries, is at most
+`byteBound vp qh qs + |A_hon| / 2^256 · min 1 (everySeedBound vp qh qs)`, with
+`|A_hon| = honestAdrsCount vp`. `optRand` is arbitrary. -/
 theorem shakeStrongAdvantage_le_securityBound_of_n_eq_32 (hb : CanonicalAddressBounds vp.params)
     (hn : vp.params.n = 32) (hnm : vp.params.n ≤ vp.params.m)
     (adv : StrongUnforgeableAdversary (shakeRomScheme vp optRand ($ᵗ (shakeCore vp).PkSeed)))
     {qh qs : ℕ} (hadv : adv.RomQueryBound qh qs) :
     shakeStrongAdvantage vp adv ≤
-      securityBound vp.params (256 ^ 32) 2 1 qh qs + ((qs : ℝ≥0∞) + 1) / (256 ^ 32 : ℕ) +
-        honestAdrsCount vp / 2 ^ 256 *
-          min 1 (securityBound vp.params (256 ^ 32) 2 1
-              (qh + GeneralScheme.verifyInternalQueryBound vp.params) qs +
-            2 * ((qs : ℝ≥0∞) + 1) / (256 ^ 32 : ℕ)) := by
-  have h := shakeStrongAdvantage_le_securityBound hb (by omega) hn.le hnm adv hadv
-  rwa [weakSeedFactor_of_n_eq_32 hn, hn] at h
+      byteBound vp qh qs + honestAdrsCount vp / 2 ^ 256 * min 1 (everySeedBound vp qh qs) := by
+  rw [← weakSeedFactor_of_n_eq_32 hn]
+  exact shakeStrongAdvantage_le_securityBound hb (by omega) hn.le hnm adv hadv
 
 /-- **SLH-DSA over one SHAKE256 oracle at `n = 32` with hedged signing.** At `n = 32`, `n ≤ m` and
-address fields within their FIPS 205 widths, with `opt_rand` drawn uniformly at each signature and
-the public seed drawn uniformly, an adversary against `shakeRomScheme` making at most `qh` queries
-of the single oracle and `qs` signing queries makes a strong forgery with probability at most
-`securityBound vp.params (256 ^ 32) 2 1 qh qs + 1 / 256 ^ 32 + qs (qh + qs + 1) / 256 ^ 64 +`
-`|A_hon| / 2^256 · min 1 (securityBound vp.params (256 ^ 32) 2 1 (qh + V) qs + 1 / 256 ^ 32 +`
-`qs (qh + V + qs + 1) / 256 ^ 64 + (qs + 1) / 256 ^ 32)`, with `|A_hon| = honestAdrsCount vp` and
-`V` the verifier's query bound. -/
+address fields within their FIPS 205 widths, with `opt_rand` drawn uniformly at each signature
+and the public seed drawn uniformly, the strong advantage of an adversary making at most `qh`
+queries of the single oracle and `qs` signing queries is at most
+`byteBoundHedged vp qh qs + |A_hon| / 2^256 · min 1 (everySeedBoundHedged vp qh qs)`, with
+`|A_hon| = honestAdrsCount vp`. -/
 theorem shakeStrongAdvantage_le_securityBound_hedged_of_n_eq_32
     (hb : CanonicalAddressBounds vp.params) (hn : vp.params.n = 32)
     (hnm : vp.params.n ≤ vp.params.m)
     (adv : StrongUnforgeableAdversary (shakeRomScheme vp (fun _ ↦ $ᵗ (shakeCore vp).Y)
       ($ᵗ (shakeCore vp).PkSeed)))
     {qh qs : ℕ} (hadv : adv.RomQueryBound qh qs) :
-    shakeStrongAdvantage vp adv ≤
-      securityBound vp.params (256 ^ 32) 2 1 qh qs + 1 / (256 ^ 32 : ℕ) +
-        qs * ((qh : ℝ≥0∞) + qs + 1) / ((256 ^ 32 : ℕ) : ℝ≥0∞) ^ 2 +
-        honestAdrsCount vp / 2 ^ 256 *
-          min 1 (securityBound vp.params (256 ^ 32) 2 1
-              (qh + GeneralScheme.verifyInternalQueryBound vp.params) qs + 1 / (256 ^ 32 : ℕ) +
-            qs * (((qh + GeneralScheme.verifyInternalQueryBound vp.params : ℕ) : ℝ≥0∞) + qs + 1) /
-              ((256 ^ 32 : ℕ) : ℝ≥0∞) ^ 2 +
-            ((qs : ℝ≥0∞) + 1) / (256 ^ 32 : ℕ)) := by
-  have h := shakeStrongAdvantage_le_securityBound_hedged hb (by omega) hn.le hnm adv hadv
-  rwa [weakSeedFactor_of_n_eq_32 hn, hn] at h
+    shakeStrongAdvantage vp adv ≤ byteBoundHedged vp qh qs +
+      honestAdrsCount vp / 2 ^ 256 * min 1 (everySeedBoundHedged vp qh qs) := by
+  rw [← weakSeedFactor_of_n_eq_32 hn]
+  exact shakeStrongAdvantage_le_securityBound_hedged hb (by omega) hn.le hnm adv hadv
 
-/-! ## At the FIPS 205 parameter sets -/
+/-! ## At the FIPS 205 parameter sets
+
+Each statement depends on the parameter set only through its parameters, which each SHA-2 set
+shares with its SHAKE twin: the SHAKE parameter sets are what they cover. -/
 
 /-- **SLH-DSA over one SHAKE256 oracle at the FIPS 205 parameter sets, at a public seed.** At the
-parameters of every FIPS 205 parameter set, an adversary against `shakeRomScheme` at the public seed
-`pkSeed` making at most `qh` queries of the single oracle and `qs` signing queries makes a strong
-forgery with probability at most `securityBound p (256 ^ n) 2 1 qh qs + (qs + 1) / 256 ^ n` plus the
-weak-key mass of `pkSeed`, in hedged and deterministic signing. The statement depends on `set` only
-through its parameters, which each SHA-2 set shares with its SHAKE twin: the SHAKE parameter sets
-are what it covers. -/
+parameters of every FIPS 205 parameter set, the strong advantage of an adversary against
+`shakeRomScheme` at the public seed `pkSeed` making at most `qh` queries of the single oracle and
+`qs` signing queries is at most `byteBound p qh qs` plus the weak-key mass of `pkSeed`, in hedged
+and deterministic signing. -/
 theorem shakeStrongAdvantage_pure_le_securityBound_validatedParams (set : FipsParameterSet)
     {optRand : PublicKeyCore (shakeCore set.validatedParams) →
       ProbComp (shakeCore set.validatedParams).Y}
@@ -546,40 +490,30 @@ theorem shakeStrongAdvantage_pure_le_securityBound_validatedParams (set : FipsPa
     (adv : StrongUnforgeableAdversary (shakeRomScheme set.validatedParams optRand (pure pkSeed)))
     {qh qs : ℕ} (hadv : adv.RomQueryBound qh qs) :
     shakeStrongAdvantage set.validatedParams adv ≤
-      securityBound set.validatedParams.params (256 ^ set.validatedParams.params.n) 2 1 qh qs +
-        ((qs : ℝ≥0∞) + 1) / (256 ^ set.validatedParams.params.n : ℕ) +
-        weakKeyMass set.validatedParams pkSeed :=
+      byteBound set.validatedParams qh qs + weakKeyMass set.validatedParams pkSeed :=
   shakeStrongAdvantage_pure_le_securityBound
     (fipsApprovedAddressBounds set).toCanonicalAddressBounds
     set.sixteen_le_n set.n_le_32 set.n_le_m pkSeed adv hadv
 
 /-- **SLH-DSA over one SHAKE256 oracle at the FIPS 205 parameter sets with hedged signing, at a
-public seed.** At the parameters of every FIPS 205 parameter set, with `opt_rand` drawn uniformly at
-each signature, an adversary against `shakeRomScheme` at the public seed `pkSeed` making at most
-`qh` queries of the single oracle and `qs` signing queries makes a strong forgery with probability
-at most `securityBound p (256 ^ n) 2 1 qh qs + 1 / 256 ^ n + qs * (qh + qs + 1) / 256 ^ (2 n)` plus
-the weak-key mass of `pkSeed`. The statement depends on `set` only through its parameters, which
-each SHA-2 set shares with its SHAKE twin: the SHAKE parameter sets are what it covers. -/
+public seed.** At the parameters of every FIPS 205 parameter set, with `opt_rand` drawn uniformly
+at each signature, the strong advantage at the public seed `pkSeed` is at most
+`byteBoundHedged p qh qs` plus the weak-key mass of `pkSeed`. -/
 theorem shakeStrongAdvantage_pure_le_securityBound_hedged_validatedParams (set : FipsParameterSet)
     (pkSeed : (shakeCore set.validatedParams).PkSeed)
     (adv : StrongUnforgeableAdversary (shakeRomScheme set.validatedParams
       (fun _ ↦ $ᵗ (shakeCore set.validatedParams).Y) (pure pkSeed)))
     {qh qs : ℕ} (hadv : adv.RomQueryBound qh qs) :
     shakeStrongAdvantage set.validatedParams adv ≤
-      securityBound set.validatedParams.params (256 ^ set.validatedParams.params.n) 2 1 qh qs +
-        1 / (256 ^ set.validatedParams.params.n : ℕ) +
-        qs * ((qh : ℝ≥0∞) + qs + 1) / ((256 ^ set.validatedParams.params.n : ℕ) : ℝ≥0∞) ^ 2 +
-        weakKeyMass set.validatedParams pkSeed :=
+      byteBoundHedged set.validatedParams qh qs + weakKeyMass set.validatedParams pkSeed :=
   shakeStrongAdvantage_pure_le_securityBound_hedged
     (fipsApprovedAddressBounds set).toCanonicalAddressBounds set.sixteen_le_n set.n_le_32
     set.n_le_m pkSeed adv hadv
 
 /-- **SLH-DSA over one SHAKE256 oracle at the FIPS 205 parameter sets with `n = 32`, at every
-public seed.** At the parameters of every FIPS 205 parameter set with `n = 32`, an adversary
-against `shakeRomScheme` at the public seed `pkSeed` making at most `qh` queries of the single
-oracle and `qs` signing queries makes a strong forgery with probability at most
-`securityBound p (256 ^ 32) 2 1 (qh + V) qs + 2 (qs + 1) / 256 ^ 32`, with `V` the verifier's
-query bound, in hedged and deterministic signing. -/
+public seed.** At the parameters of every FIPS 205 parameter set with `n = 32`, the strong
+advantage at any public seed `pkSeed` is at most `everySeedBound p qh qs`, in hedged and
+deterministic signing. -/
 theorem shakeStrongAdvantage_pure_le_securityBound_add_validatedParams (set : FipsParameterSet)
     (hn : set.validatedParams.params.n = 32)
     {optRand : PublicKeyCore (shakeCore set.validatedParams) →
@@ -587,321 +521,99 @@ theorem shakeStrongAdvantage_pure_le_securityBound_add_validatedParams (set : Fi
     (pkSeed : (shakeCore set.validatedParams).PkSeed)
     (adv : StrongUnforgeableAdversary (shakeRomScheme set.validatedParams optRand (pure pkSeed)))
     {qh qs : ℕ} (hadv : adv.RomQueryBound qh qs) :
-    shakeStrongAdvantage set.validatedParams adv ≤
-      securityBound set.validatedParams.params (256 ^ 32) 2 1
-          (qh + GeneralScheme.verifyInternalQueryBound set.validatedParams.params) qs +
-        2 * ((qs : ℝ≥0∞) + 1) / (256 ^ 32 : ℕ) :=
+    shakeStrongAdvantage set.validatedParams adv ≤ everySeedBound set.validatedParams qh qs :=
   (shakeStrongAdvantage_pure_le_min_of_n_eq_32
     (fipsApprovedAddressBounds set).toCanonicalAddressBounds
     hn set.n_le_m pkSeed adv hadv).trans (min_le_right _ _)
 
 /-- **SLH-DSA over one SHAKE256 oracle at the FIPS 205 parameter sets with `n = 32` and hedged
 signing, at every public seed.** At the parameters of every FIPS 205 parameter set with `n = 32`,
-with `opt_rand` drawn uniformly at each signature, an adversary against `shakeRomScheme` at the
-public seed `pkSeed` making at most `qh` queries of the single oracle and `qs` signing queries makes
-a strong forgery with probability at most
-`securityBound p (256 ^ 32) 2 1 (qh + V) qs + 1 / 256 ^ 32 +`
-`qs (qh + V + qs + 1) / 256 ^ 64 + (qs + 1) / 256 ^ 32`, with `V` the verifier's query bound. -/
+with `opt_rand` drawn uniformly at each signature, the strong advantage at any public seed
+`pkSeed` is at most `everySeedBoundHedged p qh qs`. -/
 theorem shakeStrongAdvantage_pure_le_securityBound_add_hedged_validatedParams
     (set : FipsParameterSet) (hn : set.validatedParams.params.n = 32)
     (pkSeed : (shakeCore set.validatedParams).PkSeed)
     (adv : StrongUnforgeableAdversary (shakeRomScheme set.validatedParams
       (fun _ ↦ $ᵗ (shakeCore set.validatedParams).Y) (pure pkSeed)))
     {qh qs : ℕ} (hadv : adv.RomQueryBound qh qs) :
-    shakeStrongAdvantage set.validatedParams adv ≤
-      securityBound set.validatedParams.params (256 ^ 32) 2 1
-          (qh + GeneralScheme.verifyInternalQueryBound set.validatedParams.params) qs +
-        1 / (256 ^ 32 : ℕ) +
-        qs * (((qh + GeneralScheme.verifyInternalQueryBound set.validatedParams.params : ℕ) :
-          ℝ≥0∞) + qs + 1) / ((256 ^ 32 : ℕ) : ℝ≥0∞) ^ 2 +
-        ((qs : ℝ≥0∞) + 1) / (256 ^ 32 : ℕ) :=
+    shakeStrongAdvantage set.validatedParams adv ≤ everySeedBoundHedged set.validatedParams qh qs :=
   (shakeStrongAdvantage_pure_le_min_hedged_of_n_eq_32
     (fipsApprovedAddressBounds set).toCanonicalAddressBounds hn set.n_le_m pkSeed adv
     hadv).trans (min_le_right _ _)
 
-/-- **SLH-DSA over one SHAKE256 oracle at the FIPS 205 parameter sets.** At the parameters of every
-FIPS 205 parameter set, an adversary against `shakeRomScheme` with the public seed drawn uniformly,
-making at most `qh` queries of the single oracle and `qs` signing queries, makes a strong forgery
-with probability at most `securityBound p (256 ^ n) 2 1 qh qs + (qs + 1) / 256 ^ n +`
-`|A_hon| / 2^256 · weakSeedFactor ε`, with `|A_hon| = honestAdrsCount`,
-`ε = securityBound p (256 ^ n) 2 1 (qh + V) qs + 2 (qs + 1) / 256 ^ n` and `V` the verifier's query
-bound, in hedged and deterministic signing. The factor is one at `n ≠ 32` and `min 1 ε` at `n = 32`.
-The statement depends on `set` only through its parameters, which each SHA-2 set shares with its
-SHAKE twin: the SHAKE parameter sets are what it covers. -/
+/-- **SLH-DSA over one SHAKE256 oracle at the FIPS 205 parameter sets.** At the parameters of
+every FIPS 205 parameter set, the strong advantage of an adversary against `shakeRomScheme` with
+the public seed drawn uniformly, making at most `qh` queries of the single oracle and `qs` signing
+queries, is at most `byteBound p qh qs + |A_hon| / 2^256 · weakSeedFactor (everySeedBound p qh qs)`,
+in hedged and deterministic signing. The factor is one at `n ≠ 32` and `min 1 ε` at `n = 32`. -/
 theorem shakeStrongAdvantage_le_securityBound_validatedParams (set : FipsParameterSet)
     {optRand : PublicKeyCore (shakeCore set.validatedParams) →
       ProbComp (shakeCore set.validatedParams).Y}
     (adv : StrongUnforgeableAdversary (shakeRomScheme set.validatedParams optRand
       ($ᵗ (shakeCore set.validatedParams).PkSeed)))
     {qh qs : ℕ} (hadv : adv.RomQueryBound qh qs) :
-    shakeStrongAdvantage set.validatedParams adv ≤
-      securityBound set.validatedParams.params (256 ^ set.validatedParams.params.n) 2 1 qh qs +
-        ((qs : ℝ≥0∞) + 1) / (256 ^ set.validatedParams.params.n : ℕ) +
-        honestAdrsCount set.validatedParams / 2 ^ 256 * weakSeedFactor set.validatedParams
-          (securityBound set.validatedParams.params (256 ^ set.validatedParams.params.n) 2 1
-              (qh + GeneralScheme.verifyInternalQueryBound set.validatedParams.params) qs +
-            2 * ((qs : ℝ≥0∞) + 1) / (256 ^ set.validatedParams.params.n : ℕ)) :=
+    shakeStrongAdvantage set.validatedParams adv ≤ byteBound set.validatedParams qh qs +
+      honestAdrsCount set.validatedParams / 2 ^ 256 *
+        weakSeedFactor set.validatedParams (everySeedBound set.validatedParams qh qs) :=
   shakeStrongAdvantage_le_securityBound (fipsApprovedAddressBounds set).toCanonicalAddressBounds
     set.sixteen_le_n set.n_le_32 set.n_le_m adv hadv
 
-/-- **SLH-DSA over one SHAKE256 oracle at the FIPS 205 parameter sets with hedged signing.** At the
-parameters of every FIPS 205 parameter set, with `opt_rand` drawn uniformly at each signature and
-the public seed drawn uniformly, an adversary against `shakeRomScheme` making at most `qh` queries
-of the single oracle and `qs` signing queries makes a strong forgery with probability at most
-`securityBound p (256 ^ n) 2 1 qh qs + 1 / 256 ^ n + qs * (qh + qs + 1) / 256 ^ (2 n)`
-`+ |A_hon| / 2^256 · weakSeedFactor ε`, with `|A_hon| = honestAdrsCount`,
-`ε = securityBound p (256 ^ n) 2 1 (qh + V) qs + 1 / 256 ^ n + qs (qh + V + qs + 1) / 256 ^ (2 n)`
-`+ (qs + 1) / 256 ^ n` and `V` the verifier's query bound. The factor is one at `n ≠ 32` and
-`min 1 ε` at `n = 32`. The statement depends on `set` only through its parameters, which each SHA-2
-set shares with its SHAKE twin: the SHAKE parameter sets are what it covers. -/
+/-- **SLH-DSA over one SHAKE256 oracle at the FIPS 205 parameter sets with hedged signing.** At
+the parameters of every FIPS 205 parameter set, with `opt_rand` drawn uniformly at each signature
+and the public seed drawn uniformly, the strong advantage of an adversary making at most `qh`
+queries of the single oracle and `qs` signing queries is at most
+`byteBoundHedged p qh qs + |A_hon| / 2^256 · weakSeedFactor (everySeedBoundHedged p qh qs)`. The
+factor is one at `n ≠ 32` and `min 1 ε` at `n = 32`. -/
 theorem shakeStrongAdvantage_le_securityBound_hedged_validatedParams (set : FipsParameterSet)
     (adv : StrongUnforgeableAdversary (shakeRomScheme set.validatedParams
       (fun _ ↦ $ᵗ (shakeCore set.validatedParams).Y) ($ᵗ (shakeCore set.validatedParams).PkSeed)))
     {qh qs : ℕ} (hadv : adv.RomQueryBound qh qs) :
-    shakeStrongAdvantage set.validatedParams adv ≤
-      securityBound set.validatedParams.params (256 ^ set.validatedParams.params.n) 2 1 qh qs +
-        1 / (256 ^ set.validatedParams.params.n : ℕ) +
-        qs * ((qh : ℝ≥0∞) + qs + 1) / ((256 ^ set.validatedParams.params.n : ℕ) : ℝ≥0∞) ^ 2 +
-        honestAdrsCount set.validatedParams / 2 ^ 256 * weakSeedFactor set.validatedParams
-          (securityBound set.validatedParams.params (256 ^ set.validatedParams.params.n) 2 1
-              (qh + GeneralScheme.verifyInternalQueryBound set.validatedParams.params) qs +
-            1 / (256 ^ set.validatedParams.params.n : ℕ) +
-            qs * (((qh + GeneralScheme.verifyInternalQueryBound set.validatedParams.params : ℕ) :
-                ℝ≥0∞) + qs + 1) / ((256 ^ set.validatedParams.params.n : ℕ) : ℝ≥0∞) ^ 2 +
-            ((qs : ℝ≥0∞) + 1) / (256 ^ set.validatedParams.params.n : ℕ)) :=
+    shakeStrongAdvantage set.validatedParams adv ≤ byteBoundHedged set.validatedParams qh qs +
+      honestAdrsCount set.validatedParams / 2 ^ 256 *
+        weakSeedFactor set.validatedParams (everySeedBoundHedged set.validatedParams qh qs) :=
   shakeStrongAdvantage_le_securityBound_hedged
     (fipsApprovedAddressBounds set).toCanonicalAddressBounds
     set.sixteen_le_n set.n_le_32 set.n_le_m adv hadv
 
+/-! ## Existential unforgeability
 
-/-! ## Existential unforgeability -/
+The forging advantage, a valid signature on a message never signed, is at most the strong one of
+the same program (`shakeAdvantage_le_shakeStrongAdvantage`), so each strong bound above is also an
+existential one. These are the existential forms of the averaged bounds and of the bounds at the
+FIPS 205 parameter sets. -/
 
-/-- The existential form of `shakeStrongAdvantage_pure_le_securityBound`: the forging advantage
-against the same scheme has the same bound. -/
+/-- The existential form of `shakeStrongAdvantage_pure_le_securityBound`. -/
 theorem shakeAdvantage_pure_le_securityBound (hb : CanonicalAddressBounds vp.params)
     (hn16 : 16 ≤ vp.params.n) (hn : vp.params.n ≤ 32) (hnm : vp.params.n ≤ vp.params.m)
     (pkSeed : (shakeCore vp).PkSeed)
     (adv : UnforgeableAdversary (shakeRomScheme vp optRand (pure pkSeed))) {qh qs : ℕ}
     (hadv : adv.RomQueryBound qh qs) :
-    shakeAdvantage vp adv ≤
-      securityBound vp.params (256 ^ vp.params.n) 2 1 qh qs +
-        ((qs : ℝ≥0∞) + 1) / (256 ^ vp.params.n : ℕ) + weakKeyMass vp pkSeed :=
-  (shakeAdvantage_le_shakeStrongAdvantage adv).trans (shakeStrongAdvantage_pure_le_securityBound hb
-    hn16 hn hnm pkSeed ⟨adv.main⟩ hadv)
-
-/-- The existential form of `shakeStrongAdvantage_pure_le_securityBound_of_weakKeyMass_eq_zero`: the
-forging advantage against the same scheme has the same bound. -/
-theorem shakeAdvantage_pure_le_securityBound_of_weakKeyMass_eq_zero
-    (hb : CanonicalAddressBounds vp.params) (hn16 : 16 ≤ vp.params.n) (hn : vp.params.n ≤ 32)
-    (hnm : vp.params.n ≤ vp.params.m) {pkSeed : (shakeCore vp).PkSeed}
-    (hs : weakKeyMass vp pkSeed = 0)
-    (adv : UnforgeableAdversary (shakeRomScheme vp optRand (pure pkSeed))) {qh qs : ℕ}
-    (hadv : adv.RomQueryBound qh qs) :
-    shakeAdvantage vp adv ≤
-      securityBound vp.params (256 ^ vp.params.n) 2 1 qh qs +
-        ((qs : ℝ≥0∞) + 1) / (256 ^ vp.params.n : ℕ) :=
+    shakeAdvantage vp adv ≤ byteBound vp qh qs + weakKeyMass vp pkSeed :=
   (shakeAdvantage_le_shakeStrongAdvantage adv).trans
-    (shakeStrongAdvantage_pure_le_securityBound_of_weakKeyMass_eq_zero hb hn16 hn hnm hs ⟨adv.main⟩
-    hadv)
+    (shakeStrongAdvantage_pure_le_securityBound hb hn16 hn hnm pkSeed ⟨adv.main⟩ hadv)
 
-/-- The existential form of `shakeStrongAdvantage_pure_le_securityBound_of_n_eq_32`: the forging
-advantage against the same scheme has the same bound. -/
-theorem shakeAdvantage_pure_le_securityBound_of_n_eq_32 (hb : CanonicalAddressBounds vp.params)
-    (hn : vp.params.n = 32) (hnm : vp.params.n ≤ vp.params.m) {pkSeed : (shakeCore vp).PkSeed}
-    (hs : ¬IsHonestKey vp (shakeCore vp) (adrsKeyOfList vp (Vector.toList (pkSeed : Bytes _))))
-    (adv : UnforgeableAdversary (shakeRomScheme vp optRand (pure pkSeed))) {qh qs : ℕ}
-    (hadv : adv.RomQueryBound qh qs) :
-    shakeAdvantage vp adv ≤
-      securityBound vp.params (256 ^ 32) 2 1 qh qs + ((qs : ℝ≥0∞) + 1) / (256 ^ 32 : ℕ) :=
-  (shakeAdvantage_le_shakeStrongAdvantage adv).trans
-    (shakeStrongAdvantage_pure_le_securityBound_of_n_eq_32 hb hn hnm hs ⟨adv.main⟩ hadv)
-
-/-- The existential form of `shakeStrongAdvantage_pure_le_securityBound_of_prEvent_optRand_le`: the
-forging advantage against the same scheme has the same bound. -/
-theorem shakeAdvantage_pure_le_securityBound_of_prEvent_optRand_le
-    (hb : CanonicalAddressBounds vp.params) (hn16 : 16 ≤ vp.params.n) (hn : vp.params.n ≤ 32)
-    (hnm : vp.params.n ≤ vp.params.m) (pkSeed : (shakeCore vp).PkSeed) {ε : ℝ≥0∞}
-    (hε : ∀ pk, Pr{let r ← optRand pk}[r = pkSeed] ≤ ε)
-    (adv : UnforgeableAdversary (shakeRomScheme vp optRand (pure pkSeed))) {qh qs : ℕ}
-    (hadv : adv.RomQueryBound qh qs) :
-    shakeAdvantage vp adv ≤
-      securityBound vp.params (256 ^ vp.params.n) 2 1 qh qs + 1 / (256 ^ vp.params.n : ℕ) +
-        qs * ε * (((qh : ℝ≥0∞) + qs + 1) / (256 ^ vp.params.n : ℕ)) + weakKeyMass vp pkSeed :=
-  (shakeAdvantage_le_shakeStrongAdvantage adv).trans
-    (shakeStrongAdvantage_pure_le_securityBound_of_prEvent_optRand_le hb hn16 hn hnm pkSeed hε
-    ⟨adv.main⟩ hadv)
-
-/-- The existential form of `shakeStrongAdvantage_pure_le_securityBound_hedged`: the forging
-advantage against the same scheme has the same bound. -/
-theorem shakeAdvantage_pure_le_securityBound_hedged (hb : CanonicalAddressBounds vp.params)
-    (hn16 : 16 ≤ vp.params.n) (hn : vp.params.n ≤ 32) (hnm : vp.params.n ≤ vp.params.m)
-    (pkSeed : (shakeCore vp).PkSeed)
-    (adv : UnforgeableAdversary (shakeRomScheme vp (fun _ ↦ $ᵗ (shakeCore vp).Y) (pure pkSeed)))
-    {qh qs : ℕ} (hadv : adv.RomQueryBound qh qs) :
-    shakeAdvantage vp adv ≤
-      securityBound vp.params (256 ^ vp.params.n) 2 1 qh qs + 1 / (256 ^ vp.params.n : ℕ) +
-        qs * ((qh : ℝ≥0∞) + qs + 1) / ((256 ^ vp.params.n : ℕ) : ℝ≥0∞) ^ 2 +
-        weakKeyMass vp pkSeed :=
-  (shakeAdvantage_le_shakeStrongAdvantage adv).trans
-    (shakeStrongAdvantage_pure_le_securityBound_hedged hb hn16 hn hnm pkSeed ⟨adv.main⟩ hadv)
-
-/-- The existential form of `shakeStrongAdvantage_pure_le_securityBound_hedged_of_n_eq_32`: the
-forging advantage against the same scheme has the same bound. -/
-theorem shakeAdvantage_pure_le_securityBound_hedged_of_n_eq_32
-    (hb : CanonicalAddressBounds vp.params) (hn : vp.params.n = 32)
-    (hnm : vp.params.n ≤ vp.params.m) {pkSeed : (shakeCore vp).PkSeed}
-    (hs : ¬IsHonestKey vp (shakeCore vp) (adrsKeyOfList vp (Vector.toList (pkSeed : Bytes _))))
-    (adv : UnforgeableAdversary (shakeRomScheme vp (fun _ ↦ $ᵗ (shakeCore vp).Y) (pure pkSeed)))
-    {qh qs : ℕ} (hadv : adv.RomQueryBound qh qs) :
-    shakeAdvantage vp adv ≤
-      securityBound vp.params (256 ^ 32) 2 1 qh qs + 1 / (256 ^ 32 : ℕ) +
-        qs * ((qh : ℝ≥0∞) + qs + 1) / ((256 ^ 32 : ℕ) : ℝ≥0∞) ^ 2 :=
-  (shakeAdvantage_le_shakeStrongAdvantage adv).trans
-    (shakeStrongAdvantage_pure_le_securityBound_hedged_of_n_eq_32 hb hn hnm hs ⟨adv.main⟩ hadv)
-
-/-- The existential form of `shakeStrongAdvantage_pure_le_min_of_n_eq_32`: the forging advantage
-against the same scheme has the same bound. -/
-theorem shakeAdvantage_pure_le_min_of_n_eq_32 (hb : CanonicalAddressBounds vp.params)
-    (hn : vp.params.n = 32) (hnm : vp.params.n ≤ vp.params.m) (pkSeed : (shakeCore vp).PkSeed)
-    (adv : UnforgeableAdversary (shakeRomScheme vp optRand (pure pkSeed))) {qh qs : ℕ}
-    (hadv : adv.RomQueryBound qh qs) :
-    shakeAdvantage vp adv ≤
-      min (securityBound vp.params (256 ^ 32) 2 1 qh qs + ((qs : ℝ≥0∞) + 1) / (256 ^ 32 : ℕ) +
-          weakKeyMass vp pkSeed)
-        (securityBound vp.params (256 ^ 32) 2 1
-            (qh + GeneralScheme.verifyInternalQueryBound vp.params) qs +
-          2 * ((qs : ℝ≥0∞) + 1) / (256 ^ 32 : ℕ)) :=
-  (shakeAdvantage_le_shakeStrongAdvantage adv).trans (shakeStrongAdvantage_pure_le_min_of_n_eq_32 hb
-    hn hnm pkSeed ⟨adv.main⟩ hadv)
-
-/-- The existential form of `shakeStrongAdvantage_pure_le_min_hedged_of_n_eq_32`: the forging
-advantage against the same scheme has the same bound. -/
-theorem shakeAdvantage_pure_le_min_hedged_of_n_eq_32 (hb : CanonicalAddressBounds vp.params)
-    (hn : vp.params.n = 32) (hnm : vp.params.n ≤ vp.params.m) (pkSeed : (shakeCore vp).PkSeed)
-    (adv : UnforgeableAdversary (shakeRomScheme vp (fun _ ↦ $ᵗ (shakeCore vp).Y) (pure pkSeed)))
-    {qh qs : ℕ} (hadv : adv.RomQueryBound qh qs) :
-    shakeAdvantage vp adv ≤
-      min (securityBound vp.params (256 ^ 32) 2 1 qh qs + 1 / (256 ^ 32 : ℕ) +
-          qs * ((qh : ℝ≥0∞) + qs + 1) / ((256 ^ 32 : ℕ) : ℝ≥0∞) ^ 2 + weakKeyMass vp pkSeed)
-        (securityBound vp.params (256 ^ 32) 2 1
-            (qh + GeneralScheme.verifyInternalQueryBound vp.params) qs + 1 / (256 ^ 32 : ℕ) +
-          qs * (((qh + GeneralScheme.verifyInternalQueryBound vp.params : ℕ) : ℝ≥0∞) + qs + 1) /
-            ((256 ^ 32 : ℕ) : ℝ≥0∞) ^ 2 +
-          ((qs : ℝ≥0∞) + 1) / (256 ^ 32 : ℕ)) :=
-  (shakeAdvantage_le_shakeStrongAdvantage adv).trans
-    (shakeStrongAdvantage_pure_le_min_hedged_of_n_eq_32 hb hn hnm pkSeed ⟨adv.main⟩ hadv)
-
-/-- The existential form of `shakeStrongAdvantage_pure_le_securityBound_add_weakKeyMass_mul`: the
-forging advantage against the same scheme has the same bound. -/
-theorem shakeAdvantage_pure_le_securityBound_add_weakKeyMass_mul
-    (hb : CanonicalAddressBounds vp.params) (hn16 : 16 ≤ vp.params.n) (hn : vp.params.n ≤ 32)
-    (hnm : vp.params.n ≤ vp.params.m) (pkSeed : (shakeCore vp).PkSeed)
-    (adv : UnforgeableAdversary (shakeRomScheme vp optRand (pure pkSeed))) {qh qs : ℕ}
-    (hadv : adv.RomQueryBound qh qs) :
-    shakeAdvantage vp adv ≤
-      securityBound vp.params (256 ^ vp.params.n) 2 1 qh qs +
-        ((qs : ℝ≥0∞) + 1) / (256 ^ vp.params.n : ℕ) +
-        weakKeyMass vp pkSeed * weakSeedFactor vp
-          (securityBound vp.params (256 ^ vp.params.n) 2 1
-              (qh + GeneralScheme.verifyInternalQueryBound vp.params) qs +
-            2 * ((qs : ℝ≥0∞) + 1) / (256 ^ vp.params.n : ℕ)) :=
-  (shakeAdvantage_le_shakeStrongAdvantage adv).trans
-    (shakeStrongAdvantage_pure_le_securityBound_add_weakKeyMass_mul hb hn16 hn hnm pkSeed ⟨adv.main⟩
-    hadv)
-
-/-- The existential form of `shakeStrongAdvantage_pure_le_securityBound_hedged_add_weakKeyMass_mul`:
-the forging advantage against the same scheme has the same bound. -/
-theorem shakeAdvantage_pure_le_securityBound_hedged_add_weakKeyMass_mul
-    (hb : CanonicalAddressBounds vp.params) (hn16 : 16 ≤ vp.params.n) (hn : vp.params.n ≤ 32)
-    (hnm : vp.params.n ≤ vp.params.m) (pkSeed : (shakeCore vp).PkSeed)
-    (adv : UnforgeableAdversary (shakeRomScheme vp (fun _ ↦ $ᵗ (shakeCore vp).Y) (pure pkSeed)))
-    {qh qs : ℕ} (hadv : adv.RomQueryBound qh qs) :
-    shakeAdvantage vp adv ≤
-      securityBound vp.params (256 ^ vp.params.n) 2 1 qh qs + 1 / (256 ^ vp.params.n : ℕ) +
-        qs * ((qh : ℝ≥0∞) + qs + 1) / ((256 ^ vp.params.n : ℕ) : ℝ≥0∞) ^ 2 +
-        weakKeyMass vp pkSeed * weakSeedFactor vp
-          (securityBound vp.params (256 ^ vp.params.n) 2 1
-              (qh + GeneralScheme.verifyInternalQueryBound vp.params) qs +
-            1 / (256 ^ vp.params.n : ℕ) +
-            qs * (((qh + GeneralScheme.verifyInternalQueryBound vp.params : ℕ) : ℝ≥0∞) + qs + 1) /
-              ((256 ^ vp.params.n : ℕ) : ℝ≥0∞) ^ 2 +
-            ((qs : ℝ≥0∞) + 1) / (256 ^ vp.params.n : ℕ)) :=
-  (shakeAdvantage_le_shakeStrongAdvantage adv).trans
-    (shakeStrongAdvantage_pure_le_securityBound_hedged_add_weakKeyMass_mul hb hn16 hn hnm pkSeed
-    ⟨adv.main⟩ hadv)
-
-/-- The existential form of `shakeStrongAdvantage_le_securityBound`: the forging advantage against
-the same scheme has the same bound. -/
+/-- The existential form of `shakeStrongAdvantage_le_securityBound`. -/
 theorem shakeAdvantage_le_securityBound (hb : CanonicalAddressBounds vp.params)
     (hn16 : 16 ≤ vp.params.n) (hn : vp.params.n ≤ 32) (hnm : vp.params.n ≤ vp.params.m)
     (adv : UnforgeableAdversary (shakeRomScheme vp optRand ($ᵗ (shakeCore vp).PkSeed)))
     {qh qs : ℕ} (hadv : adv.RomQueryBound qh qs) :
-    shakeAdvantage vp adv ≤
-      securityBound vp.params (256 ^ vp.params.n) 2 1 qh qs +
-        ((qs : ℝ≥0∞) + 1) / (256 ^ vp.params.n : ℕ) +
-        honestAdrsCount vp / 2 ^ 256 * weakSeedFactor vp
-          (securityBound vp.params (256 ^ vp.params.n) 2 1
-              (qh + GeneralScheme.verifyInternalQueryBound vp.params) qs +
-            2 * ((qs : ℝ≥0∞) + 1) / (256 ^ vp.params.n : ℕ)) :=
-  (shakeAdvantage_le_shakeStrongAdvantage adv).trans (shakeStrongAdvantage_le_securityBound hb hn16
-    hn hnm ⟨adv.main⟩ hadv)
+    shakeAdvantage vp adv ≤ byteBound vp qh qs +
+      honestAdrsCount vp / 2 ^ 256 * weakSeedFactor vp (everySeedBound vp qh qs) :=
+  (shakeAdvantage_le_shakeStrongAdvantage adv).trans
+    (shakeStrongAdvantage_le_securityBound hb hn16 hn hnm ⟨adv.main⟩ hadv)
 
-/-- The existential form of `shakeStrongAdvantage_le_securityBound_hedged`: the forging advantage
-against the same scheme has the same bound. -/
+/-- The existential form of `shakeStrongAdvantage_le_securityBound_hedged`. -/
 theorem shakeAdvantage_le_securityBound_hedged (hb : CanonicalAddressBounds vp.params)
     (hn16 : 16 ≤ vp.params.n) (hn : vp.params.n ≤ 32) (hnm : vp.params.n ≤ vp.params.m)
     (adv : UnforgeableAdversary (shakeRomScheme vp (fun _ ↦ $ᵗ (shakeCore vp).Y)
       ($ᵗ (shakeCore vp).PkSeed)))
     {qh qs : ℕ} (hadv : adv.RomQueryBound qh qs) :
-    shakeAdvantage vp adv ≤
-      securityBound vp.params (256 ^ vp.params.n) 2 1 qh qs + 1 / (256 ^ vp.params.n : ℕ) +
-        qs * ((qh : ℝ≥0∞) + qs + 1) / ((256 ^ vp.params.n : ℕ) : ℝ≥0∞) ^ 2 +
-        honestAdrsCount vp / 2 ^ 256 * weakSeedFactor vp
-          (securityBound vp.params (256 ^ vp.params.n) 2 1
-              (qh + GeneralScheme.verifyInternalQueryBound vp.params) qs +
-            1 / (256 ^ vp.params.n : ℕ) +
-            qs * (((qh + GeneralScheme.verifyInternalQueryBound vp.params : ℕ) : ℝ≥0∞) + qs + 1) /
-              ((256 ^ vp.params.n : ℕ) : ℝ≥0∞) ^ 2 +
-            ((qs : ℝ≥0∞) + 1) / (256 ^ vp.params.n : ℕ)) :=
-  (shakeAdvantage_le_shakeStrongAdvantage adv).trans (shakeStrongAdvantage_le_securityBound_hedged
-    hb hn16 hn hnm ⟨adv.main⟩ hadv)
-
-/-- The existential form of `shakeStrongAdvantage_le_securityBound_of_n_eq_32`: the forging
-advantage against the same scheme has the same bound. -/
-theorem shakeAdvantage_le_securityBound_of_n_eq_32 (hb : CanonicalAddressBounds vp.params)
-    (hn : vp.params.n = 32) (hnm : vp.params.n ≤ vp.params.m)
-    (adv : UnforgeableAdversary (shakeRomScheme vp optRand ($ᵗ (shakeCore vp).PkSeed)))
-    {qh qs : ℕ} (hadv : adv.RomQueryBound qh qs) :
-    shakeAdvantage vp adv ≤
-      securityBound vp.params (256 ^ 32) 2 1 qh qs + ((qs : ℝ≥0∞) + 1) / (256 ^ 32 : ℕ) +
-        honestAdrsCount vp / 2 ^ 256 *
-          min 1 (securityBound vp.params (256 ^ 32) 2 1
-              (qh + GeneralScheme.verifyInternalQueryBound vp.params) qs +
-            2 * ((qs : ℝ≥0∞) + 1) / (256 ^ 32 : ℕ)) :=
+    shakeAdvantage vp adv ≤ byteBoundHedged vp qh qs +
+      honestAdrsCount vp / 2 ^ 256 * weakSeedFactor vp (everySeedBoundHedged vp qh qs) :=
   (shakeAdvantage_le_shakeStrongAdvantage adv).trans
-    (shakeStrongAdvantage_le_securityBound_of_n_eq_32 hb hn hnm ⟨adv.main⟩ hadv)
+    (shakeStrongAdvantage_le_securityBound_hedged hb hn16 hn hnm ⟨adv.main⟩ hadv)
 
-/-- The existential form of `shakeStrongAdvantage_le_securityBound_hedged_of_n_eq_32`: the forging
-advantage against the same scheme has the same bound. -/
-theorem shakeAdvantage_le_securityBound_hedged_of_n_eq_32 (hb : CanonicalAddressBounds vp.params)
-    (hn : vp.params.n = 32) (hnm : vp.params.n ≤ vp.params.m)
-    (adv : UnforgeableAdversary (shakeRomScheme vp (fun _ ↦ $ᵗ (shakeCore vp).Y)
-      ($ᵗ (shakeCore vp).PkSeed)))
-    {qh qs : ℕ} (hadv : adv.RomQueryBound qh qs) :
-    shakeAdvantage vp adv ≤
-      securityBound vp.params (256 ^ 32) 2 1 qh qs + 1 / (256 ^ 32 : ℕ) +
-        qs * ((qh : ℝ≥0∞) + qs + 1) / ((256 ^ 32 : ℕ) : ℝ≥0∞) ^ 2 +
-        honestAdrsCount vp / 2 ^ 256 *
-          min 1 (securityBound vp.params (256 ^ 32) 2 1
-              (qh + GeneralScheme.verifyInternalQueryBound vp.params) qs + 1 / (256 ^ 32 : ℕ) +
-            qs * (((qh + GeneralScheme.verifyInternalQueryBound vp.params : ℕ) : ℝ≥0∞) + qs + 1) /
-              ((256 ^ 32 : ℕ) : ℝ≥0∞) ^ 2 +
-            ((qs : ℝ≥0∞) + 1) / (256 ^ 32 : ℕ)) :=
-  (shakeAdvantage_le_shakeStrongAdvantage adv).trans
-    (shakeStrongAdvantage_le_securityBound_hedged_of_n_eq_32 hb hn hnm ⟨adv.main⟩ hadv)
-
-/-- The existential form of `shakeStrongAdvantage_pure_le_securityBound_validatedParams`: the
-forging advantage against the same scheme has the same bound. -/
+/-- The existential form of `shakeStrongAdvantage_pure_le_securityBound_validatedParams`. -/
 theorem shakeAdvantage_pure_le_securityBound_validatedParams (set : FipsParameterSet)
     {optRand : PublicKeyCore (shakeCore set.validatedParams) →
       ProbComp (shakeCore set.validatedParams).Y}
@@ -909,29 +621,22 @@ theorem shakeAdvantage_pure_le_securityBound_validatedParams (set : FipsParamete
     (adv : UnforgeableAdversary (shakeRomScheme set.validatedParams optRand (pure pkSeed)))
     {qh qs : ℕ} (hadv : adv.RomQueryBound qh qs) :
     shakeAdvantage set.validatedParams adv ≤
-      securityBound set.validatedParams.params (256 ^ set.validatedParams.params.n) 2 1 qh qs +
-        ((qs : ℝ≥0∞) + 1) / (256 ^ set.validatedParams.params.n : ℕ) +
-        weakKeyMass set.validatedParams pkSeed :=
+      byteBound set.validatedParams qh qs + weakKeyMass set.validatedParams pkSeed :=
   (shakeAdvantage_le_shakeStrongAdvantage adv).trans
     (shakeStrongAdvantage_pure_le_securityBound_validatedParams set pkSeed ⟨adv.main⟩ hadv)
 
-/-- The existential form of `shakeStrongAdvantage_pure_le_securityBound_hedged_validatedParams`: the
-forging advantage against the same scheme has the same bound. -/
+/-- The existential form of `shakeStrongAdvantage_pure_le_securityBound_hedged_validatedParams`. -/
 theorem shakeAdvantage_pure_le_securityBound_hedged_validatedParams (set : FipsParameterSet)
     (pkSeed : (shakeCore set.validatedParams).PkSeed)
     (adv : UnforgeableAdversary (shakeRomScheme set.validatedParams
       (fun _ ↦ $ᵗ (shakeCore set.validatedParams).Y) (pure pkSeed)))
     {qh qs : ℕ} (hadv : adv.RomQueryBound qh qs) :
     shakeAdvantage set.validatedParams adv ≤
-      securityBound set.validatedParams.params (256 ^ set.validatedParams.params.n) 2 1 qh qs +
-        1 / (256 ^ set.validatedParams.params.n : ℕ) +
-        qs * ((qh : ℝ≥0∞) + qs + 1) / ((256 ^ set.validatedParams.params.n : ℕ) : ℝ≥0∞) ^ 2 +
-        weakKeyMass set.validatedParams pkSeed :=
+      byteBoundHedged set.validatedParams qh qs + weakKeyMass set.validatedParams pkSeed :=
   (shakeAdvantage_le_shakeStrongAdvantage adv).trans
     (shakeStrongAdvantage_pure_le_securityBound_hedged_validatedParams set pkSeed ⟨adv.main⟩ hadv)
 
-/-- The existential form of `shakeStrongAdvantage_pure_le_securityBound_add_validatedParams`: the
-forging advantage against the same scheme has the same bound. -/
+/-- The existential form of `shakeStrongAdvantage_pure_le_securityBound_add_validatedParams`. -/
 theorem shakeAdvantage_pure_le_securityBound_add_validatedParams (set : FipsParameterSet)
     (hn : set.validatedParams.params.n = 32)
     {optRand : PublicKeyCore (shakeCore set.validatedParams) →
@@ -939,66 +644,43 @@ theorem shakeAdvantage_pure_le_securityBound_add_validatedParams (set : FipsPara
     (pkSeed : (shakeCore set.validatedParams).PkSeed)
     (adv : UnforgeableAdversary (shakeRomScheme set.validatedParams optRand (pure pkSeed)))
     {qh qs : ℕ} (hadv : adv.RomQueryBound qh qs) :
-    shakeAdvantage set.validatedParams adv ≤
-      securityBound set.validatedParams.params (256 ^ 32) 2 1
-          (qh + GeneralScheme.verifyInternalQueryBound set.validatedParams.params) qs +
-        2 * ((qs : ℝ≥0∞) + 1) / (256 ^ 32 : ℕ) :=
+    shakeAdvantage set.validatedParams adv ≤ everySeedBound set.validatedParams qh qs :=
   (shakeAdvantage_le_shakeStrongAdvantage adv).trans
     (shakeStrongAdvantage_pure_le_securityBound_add_validatedParams set hn pkSeed ⟨adv.main⟩ hadv)
 
-/-- The existential form of `shakeStrongAdvantage_pure_le_securityBound_add_hedged_validatedParams`:
-the forging advantage against the same scheme has the same bound. -/
+/-- The existential form of
+`shakeStrongAdvantage_pure_le_securityBound_add_hedged_validatedParams`. -/
 theorem shakeAdvantage_pure_le_securityBound_add_hedged_validatedParams (set : FipsParameterSet)
     (hn : set.validatedParams.params.n = 32) (pkSeed : (shakeCore set.validatedParams).PkSeed)
     (adv : UnforgeableAdversary (shakeRomScheme set.validatedParams
       (fun _ ↦ $ᵗ (shakeCore set.validatedParams).Y) (pure pkSeed)))
     {qh qs : ℕ} (hadv : adv.RomQueryBound qh qs) :
-    shakeAdvantage set.validatedParams adv ≤
-      securityBound set.validatedParams.params (256 ^ 32) 2 1
-          (qh + GeneralScheme.verifyInternalQueryBound set.validatedParams.params) qs +
-        1 / (256 ^ 32 : ℕ) +
-        qs * (((qh + GeneralScheme.verifyInternalQueryBound set.validatedParams.params : ℕ) :
-          ℝ≥0∞) + qs + 1) / ((256 ^ 32 : ℕ) : ℝ≥0∞) ^ 2 +
-        ((qs : ℝ≥0∞) + 1) / (256 ^ 32 : ℕ) :=
+    shakeAdvantage set.validatedParams adv ≤ everySeedBoundHedged set.validatedParams qh qs :=
   (shakeAdvantage_le_shakeStrongAdvantage adv).trans
-    (shakeStrongAdvantage_pure_le_securityBound_add_hedged_validatedParams set hn pkSeed ⟨adv.main⟩
-    hadv)
+    (shakeStrongAdvantage_pure_le_securityBound_add_hedged_validatedParams set hn pkSeed
+      ⟨adv.main⟩ hadv)
 
-/-- The existential form of `shakeStrongAdvantage_le_securityBound_validatedParams`: the forging
-advantage against the same scheme has the same bound. -/
+/-- The existential form of `shakeStrongAdvantage_le_securityBound_validatedParams`. -/
 theorem shakeAdvantage_le_securityBound_validatedParams (set : FipsParameterSet)
     {optRand : PublicKeyCore (shakeCore set.validatedParams) →
       ProbComp (shakeCore set.validatedParams).Y}
     (adv : UnforgeableAdversary (shakeRomScheme set.validatedParams optRand
       ($ᵗ (shakeCore set.validatedParams).PkSeed)))
     {qh qs : ℕ} (hadv : adv.RomQueryBound qh qs) :
-    shakeAdvantage set.validatedParams adv ≤
-      securityBound set.validatedParams.params (256 ^ set.validatedParams.params.n) 2 1 qh qs +
-        ((qs : ℝ≥0∞) + 1) / (256 ^ set.validatedParams.params.n : ℕ) +
-        honestAdrsCount set.validatedParams / 2 ^ 256 * weakSeedFactor set.validatedParams
-          (securityBound set.validatedParams.params (256 ^ set.validatedParams.params.n) 2 1
-              (qh + GeneralScheme.verifyInternalQueryBound set.validatedParams.params) qs +
-            2 * ((qs : ℝ≥0∞) + 1) / (256 ^ set.validatedParams.params.n : ℕ)) :=
+    shakeAdvantage set.validatedParams adv ≤ byteBound set.validatedParams qh qs +
+      honestAdrsCount set.validatedParams / 2 ^ 256 *
+        weakSeedFactor set.validatedParams (everySeedBound set.validatedParams qh qs) :=
   (shakeAdvantage_le_shakeStrongAdvantage adv).trans
     (shakeStrongAdvantage_le_securityBound_validatedParams set ⟨adv.main⟩ hadv)
 
-/-- The existential form of `shakeStrongAdvantage_le_securityBound_hedged_validatedParams`: the
-forging advantage against the same scheme has the same bound. -/
+/-- The existential form of `shakeStrongAdvantage_le_securityBound_hedged_validatedParams`. -/
 theorem shakeAdvantage_le_securityBound_hedged_validatedParams (set : FipsParameterSet)
     (adv : UnforgeableAdversary (shakeRomScheme set.validatedParams
       (fun _ ↦ $ᵗ (shakeCore set.validatedParams).Y) ($ᵗ (shakeCore set.validatedParams).PkSeed)))
     {qh qs : ℕ} (hadv : adv.RomQueryBound qh qs) :
-    shakeAdvantage set.validatedParams adv ≤
-      securityBound set.validatedParams.params (256 ^ set.validatedParams.params.n) 2 1 qh qs +
-        1 / (256 ^ set.validatedParams.params.n : ℕ) +
-        qs * ((qh : ℝ≥0∞) + qs + 1) / ((256 ^ set.validatedParams.params.n : ℕ) : ℝ≥0∞) ^ 2 +
-        honestAdrsCount set.validatedParams / 2 ^ 256 * weakSeedFactor set.validatedParams
-          (securityBound set.validatedParams.params (256 ^ set.validatedParams.params.n) 2 1
-              (qh + GeneralScheme.verifyInternalQueryBound set.validatedParams.params) qs +
-            1 / (256 ^ set.validatedParams.params.n : ℕ) +
-            qs * (((qh + GeneralScheme.verifyInternalQueryBound set.validatedParams.params : ℕ) :
-                ℝ≥0∞) + qs + 1) / ((256 ^ set.validatedParams.params.n : ℕ) : ℝ≥0∞) ^ 2 +
-            ((qs : ℝ≥0∞) + 1) / (256 ^ set.validatedParams.params.n : ℕ)) :=
+    shakeAdvantage set.validatedParams adv ≤ byteBoundHedged set.validatedParams qh qs +
+      honestAdrsCount set.validatedParams / 2 ^ 256 *
+        weakSeedFactor set.validatedParams (everySeedBoundHedged set.validatedParams qh qs) :=
   (shakeAdvantage_le_shakeStrongAdvantage adv).trans
     (shakeStrongAdvantage_le_securityBound_hedged_validatedParams set ⟨adv.main⟩ hadv)
 

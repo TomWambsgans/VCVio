@@ -56,10 +56,8 @@ digest of a logged signature (`RunItsrCovered`) with probability at most
 advantage (SUF-CMA) by `securityBound` at `c = 2` and `r = 1`. `securityTarget_two_one` restates
 it as `SecurityTarget core e optRand 2 1`, and
 `strongUnforgeableAdvantage_romScheme_le_securityBound` averages it over any distribution of the
-public seed, the uniform one of FIPS 205 included. The existential forms at the same bound,
-`unforgeableAdvantage_romScheme_pure_le_securityBound` and
-`unforgeableAdvantage_romScheme_le_securityBound`, follow through
-`unforgeableAdvantage_le_strongUnforgeableAdvantage`.
+public seed, the uniform one of FIPS 205 included. The existential form of the target is
+`unforgeableAdvantage_romScheme_le`, through `unforgeableAdvantage_le_strongUnforgeableAdvantage`.
 
 ## Scope
 
@@ -342,21 +340,6 @@ theorem strongUnforgeableAdvantage_romScheme_pure_le_securityBound (laws : core.
   push_cast
   ring
 
-/-- **SLH-DSA meets the security target at `c = 2` and `r = 1`, per public seed, existentially.**
-Under the hypotheses of `strongUnforgeableAdvantage_romScheme_pure_le_securityBound`, the forging
-advantage against `romScheme` at public seed `pkSeed` is at most
-`securityBound vp.params |Y| 2 1 qh qs`. -/
-theorem unforgeableAdvantage_romScheme_pure_le_securityBound (laws : core.ByteLaws)
-    (hd : core.KeyDiscipline vp) (hcard : Nat.card core.Y ≤ Nat.card core.SkPrf)
-    (e : core.SkSeed ≃ core.Y) (optRand : PublicKeyCore core → ProbComp core.Y)
-    (pkSeed : core.PkSeed) {adv : UnforgeableAdversary (romScheme core e optRand (pure pkSeed))}
-    {qh qs : ℕ} (hadv : adv.RomQueryBound qh qs) :
-    unforgeableAdvantage (ProbCompRuntime.rom (hashSpec core)) adv ≤
-      securityBound vp.params (Nat.card core.Y) 2 1 qh qs :=
-  (unforgeableAdvantage_le_strongUnforgeableAdvantage _ adv).trans
-    (strongUnforgeableAdvantage_romScheme_pure_le_securityBound laws hd hcard e optRand pkSeed
-      (adv := ⟨adv.main⟩) hadv)
-
 /-- **The security target of SLH-DSA at `c = 2` and `r = 1`.** In the classical random-oracle
 model with three oracles (the tweakable hash, `H_msg` and `PRF_msg`), under the byte laws, the key
 discipline and `|Y| ≤ |SK.prf|`, for every public seed, every forger against `romScheme` at that
@@ -385,21 +368,6 @@ theorem strongUnforgeableAdvantage_romScheme_le_securityBound (laws : core.ByteL
     strongUnforgeableAdvantage (ProbCompRuntime.rom (hashSpec core)) adv ≤
       securityBound vp.params (Nat.card core.Y) 2 1 qh qs :=
   strongUnforgeableAdvantage_romScheme_le core (securityTarget_two_one laws hd hcard e optRand)
-    pkSeedDist adv hadv
-
-/-- **The security bound for every distribution of the public seed, existentially.** Under the
-hypotheses of `strongUnforgeableAdvantage_romScheme_le_securityBound`, the forging advantage
-against `romScheme` with the public seed drawn from `pkSeedDist` is at most
-`securityBound vp.params |Y| 2 1 qh qs`. -/
-theorem unforgeableAdvantage_romScheme_le_securityBound (laws : core.ByteLaws)
-    (hd : core.KeyDiscipline vp) (hcard : Nat.card core.Y ≤ Nat.card core.SkPrf)
-    (e : core.SkSeed ≃ core.Y) (optRand : PublicKeyCore core → ProbComp core.Y)
-    (pkSeedDist : ProbComp core.PkSeed)
-    (adv : UnforgeableAdversary (romScheme core e optRand pkSeedDist)) {qh qs : ℕ}
-    (hadv : adv.RomQueryBound qh qs) :
-    unforgeableAdvantage (ProbCompRuntime.rom (hashSpec core)) adv ≤
-      securityBound vp.params (Nat.card core.Y) 2 1 qh qs :=
-  unforgeableAdvantage_romScheme_le core (securityTarget_two_one laws hd hcard e optRand)
     pkSeedDist adv hadv
 
 end SLHDSA.Security

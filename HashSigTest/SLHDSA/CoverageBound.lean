@@ -23,7 +23,7 @@ equality, and `|Y| = 256 ^ n`.
 * `securityTarget_shake_fips`, `securityTarget_sha2_fips`: the target at all twelve FIPS 205
   parameter sets, six per family.
 * The target at any uniform sampler of the `H_msg` answers, not only the global one.
-* `unforgeableAdvantage_shake_le`, `unforgeableAdvantage_sha2_le`: the bound for every
+* `strongUnforgeableAdvantage_shake_le`, `strongUnforgeableAdvantage_sha2_le`: the bound for every
   distribution of the public seed, with `|Y|` evaluated as `256 ^ n`.
 * At SLH-DSA-SHAKE-128s, the bound for the uniform public seed of FIPS 205, in deterministic
   signing (`opt_rand = PK.seed`) and in hedged signing.
@@ -91,31 +91,31 @@ example (inst : SampleableType (Bytes FipsParameterSet.SLHDSA_SHAKE_128s.validat
 /-- At every SHAKE bundle whose address fields fit their widths, a forger making at most `qh` hash
 queries and `qs` signing queries, with the public seed drawn from any distribution, forges with
 probability at most `securityBound vp.params (256 ^ n) 2 1 qh qs`. -/
-theorem unforgeableAdvantage_shake_le (vp : ValidatedParams)
+theorem strongUnforgeableAdvantage_shake_le (vp : ValidatedParams)
     (hb : CanonicalAddressBounds vp.params) (e : (shakeCore vp).SkSeed ≃ (shakeCore vp).Y)
     (optRand : PublicKeyCore (shakeCore vp) → ProbComp (shakeCore vp).Y)
     (pkSeedDist : ProbComp (shakeCore vp).PkSeed)
-    (adv : UnforgeableAdversary (romScheme (shakeCore vp) e optRand pkSeedDist)) {qh qs : ℕ}
+    (adv : StrongUnforgeableAdversary (romScheme (shakeCore vp) e optRand pkSeedDist)) {qh qs : ℕ}
     (hadv : adv.RomQueryBound qh qs) :
-    unforgeableAdvantage (ProbCompRuntime.rom (hashSpec (shakeCore vp))) adv ≤
+    strongUnforgeableAdvantage (ProbCompRuntime.rom (hashSpec (shakeCore vp))) adv ≤
       securityBound vp.params (256 ^ vp.params.n) 2 1 qh qs := by
   rw [← natCard_shakePrimitives_y]
-  exact unforgeableAdvantage_romScheme_le_securityBound (shakePrimitives_byteLaws vp.params)
+  exact strongUnforgeableAdvantage_romScheme_le_securityBound (shakePrimitives_byteLaws vp.params)
     (keyDiscipline_shakePrimitives vp hb) le_rfl e optRand pkSeedDist adv hadv
 
 /-- At every FIPS SHA-2 bundle whose address fields fit their widths, a forger making at most `qh`
 hash queries and `qs` signing queries, with the public seed drawn from any distribution, forges
 with probability at most `securityBound vp.params (256 ^ n) 2 1 qh qs`. -/
-theorem unforgeableAdvantage_sha2_le (vp : ValidatedParams)
+theorem strongUnforgeableAdvantage_sha2_le (vp : ValidatedParams)
     (hb : ApprovedAddressBounds vp.params) (e : (sha2Core vp).SkSeed ≃ (sha2Core vp).Y)
     (optRand : PublicKeyCore (sha2Core vp) → ProbComp (sha2Core vp).Y)
     (pkSeedDist : ProbComp (sha2Core vp).PkSeed)
-    (adv : UnforgeableAdversary (romScheme (sha2Core vp) e optRand pkSeedDist)) {qh qs : ℕ}
+    (adv : StrongUnforgeableAdversary (romScheme (sha2Core vp) e optRand pkSeedDist)) {qh qs : ℕ}
     (hadv : adv.RomQueryBound qh qs) :
-    unforgeableAdvantage (ProbCompRuntime.rom (hashSpec (sha2Core vp))) adv ≤
+    strongUnforgeableAdvantage (ProbCompRuntime.rom (hashSpec (sha2Core vp))) adv ≤
       securityBound vp.params (256 ^ vp.params.n) 2 1 qh qs := by
   rw [← natCard_sha2Primitives_y]
-  exact unforgeableAdvantage_romScheme_le_securityBound (sha2Primitives_byteLaws vp.params)
+  exact strongUnforgeableAdvantage_romScheme_le_securityBound (sha2Primitives_byteLaws vp.params)
     (keyDiscipline_sha2Primitives vp hb) le_rfl e optRand pkSeedDist adv hadv
 
 /-- At SLH-DSA-SHAKE-128s, in deterministic signing (`opt_rand = PK.seed`) with the public seed
@@ -124,32 +124,32 @@ queries forges with probability at most `securityBound` at `|Y| = 256 ^ 16`, `c 
 `r = 1`. -/
 example (e : (shakeCore FipsParameterSet.SLHDSA_SHAKE_128s.validatedParams).SkSeed ≃
       (shakeCore FipsParameterSet.SLHDSA_SHAKE_128s.validatedParams).Y)
-    (adv : UnforgeableAdversary (romScheme (shakeCore
+    (adv : StrongUnforgeableAdversary (romScheme (shakeCore
       FipsParameterSet.SLHDSA_SHAKE_128s.validatedParams) e
         (fun pk => pure (shakeRandomizerOfPkSeed _ pk.pkSeed))
         ($ᵗ (shakeCore FipsParameterSet.SLHDSA_SHAKE_128s.validatedParams).PkSeed)))
     {qh qs : ℕ} (hadv : adv.RomQueryBound qh qs) :
-    unforgeableAdvantage (ProbCompRuntime.rom (hashSpec (shakeCore
+    strongUnforgeableAdvantage (ProbCompRuntime.rom (hashSpec (shakeCore
         FipsParameterSet.SLHDSA_SHAKE_128s.validatedParams))) adv ≤
       securityBound FipsParameterSet.SLHDSA_SHAKE_128s.validatedParams.params (256 ^ 16) 2 1 qh
         qs :=
-  unforgeableAdvantage_shake_le _
+  strongUnforgeableAdvantage_shake_le _
     (fipsApprovedAddressBounds .SLHDSA_SHAKE_128s).toCanonicalAddressBounds e _ _ adv hadv
 
 /-- At SLH-DSA-SHA2-256f, in hedged signing (`opt_rand` uniform) with the public seed drawn
 uniformly, the same bound holds at `|Y| = 256 ^ 32`. -/
 example (e : (sha2Core FipsParameterSet.SLHDSA_SHA2_256f.validatedParams).SkSeed ≃
       (sha2Core FipsParameterSet.SLHDSA_SHA2_256f.validatedParams).Y)
-    (adv : UnforgeableAdversary (romScheme (sha2Core
+    (adv : StrongUnforgeableAdversary (romScheme (sha2Core
       FipsParameterSet.SLHDSA_SHA2_256f.validatedParams) e
         (fun _ => $ᵗ (sha2Core FipsParameterSet.SLHDSA_SHA2_256f.validatedParams).Y)
         ($ᵗ (sha2Core FipsParameterSet.SLHDSA_SHA2_256f.validatedParams).PkSeed)))
     {qh qs : ℕ} (hadv : adv.RomQueryBound qh qs) :
-    unforgeableAdvantage (ProbCompRuntime.rom (hashSpec (sha2Core
+    strongUnforgeableAdvantage (ProbCompRuntime.rom (hashSpec (sha2Core
         FipsParameterSet.SLHDSA_SHA2_256f.validatedParams))) adv ≤
       securityBound FipsParameterSet.SLHDSA_SHA2_256f.validatedParams.params (256 ^ 32) 2 1 qh
         qs :=
-  unforgeableAdvantage_sha2_le _ (fipsApprovedAddressBounds .SLHDSA_SHA2_256f) e _ _ adv hadv
+  strongUnforgeableAdvantage_sha2_le _ (fipsApprovedAddressBounds .SLHDSA_SHA2_256f) e _ _ adv hadv
 
 /-- At every SHAKE bundle, the coverage term of the ideal hidden-seed game at a fixed public seed
 is at most `(qh + 1) · weightedTargetCoverBound h a k qs qh (qs / 256 ^ n)`. -/
