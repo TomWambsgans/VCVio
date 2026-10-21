@@ -32,7 +32,8 @@ those ingredients. In the classical random-oracle model, with the tweakable hash
 `PRF_msg` as three oracles, the EUF-CMA bound is `HashSig.SLHDSA.Security.CoverageBound`
 (`securityTarget_two_one`); over a single SHAKE256 random oracle on byte strings it is
 `HashSig.SLHDSA.Security.ByteBound` (`shakeAdvantage_le_securityBound`; in hedged signing,
-`shakeAdvantage_le_securityBound_hedged`).
+`shakeAdvantage_le_securityBound_hedged`; per public seed at `n = 32`, the smaller of the two
+per-seed bounds, `shakeAdvantage_pure_le_min_of_n_eq_32`).
 
 ## References
 

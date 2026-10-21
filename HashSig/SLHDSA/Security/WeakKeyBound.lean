@@ -51,11 +51,14 @@ At a public seed `PK.seed`, the weak-key event has probability at most
 (`prEvent_romSchemeRun_isWeakKey_le`), independently of the adversary. Averaged over a uniform
 public seed, for `16 ≤ n`, `PK.seed ‖ r` is a uniform string of `2n` bytes and its first `32`
 bytes a uniform address key, so the average is at most `|A_hon| / 2^256` with
-`|A_hon| = honestAdrsCount vp` (`lintegral_weakKeyMass_le`, and `lintegral_add_weakKeyMass_le`
-for a per-seed bound `C + weakKeyMass vp PK.seed`). At `n = 32` the key read is `PK.seed` itself,
-so the event is a property of the public seed: a seed that is not an honest key has weak-key mass
-zero and the run at it has no weak public key (`weakKeyMass_eq_zero_of_n_eq_32`,
-`prEvent_romSchemeRun_isWeakKey_eq_zero_of_n_eq_32`). At `n = 16` and `n = 24` the root is
+`|A_hon| = honestAdrsCount vp` (`lintegral_weakKeyMass_le`, and `lintegral_add_weakKeyMass_mul_le`
+for a per-seed bound `C + weakKeyMass vp PK.seed * D`). At `n = 32` the key read is `PK.seed`
+itself, so the event is a property of the public seed: a seed that is not an honest key has
+weak-key mass zero and the run at it has no weak public key (`weakKeyMass_eq_zero_of_n_eq_32`,
+`prEvent_romSchemeRun_isWeakKey_eq_zero_of_n_eq_32`), and every other seed has mass one
+(`weakKeyMass_eq_zero_or_eq_one_of_n_eq_32`). So at `n = 32` the smaller of a bound
+`C + weakKeyMass vp PK.seed` and a bound `D` is at most `C + weakKeyMass vp PK.seed * min 1 D`
+(`min_add_weakKeyMass_le_of_n_eq_32`). At `n = 16` and `n = 24` the root is
 needed: the first `32` bytes of `PK.seed ‖ PK.root` include `32 - n` bytes of `PK.root`.
 
 ## Main statements
@@ -63,7 +66,9 @@ needed: the first `32` bytes of `PK.seed ‖ PK.root` include `32 - n` bytes of 
 * `encard_setOf_isHonestKey_le`: `|{k | IsHonestKey vp core k}| ≤ honestAdrsCount vp`.
 * `prEvent_romSchemeRun_pk_le`: the public key of the run is `(PK.seed, uniform)`.
 * `prEvent_romSchemeRun_isWeakKey_le`: the weak-key event at a public seed.
-* `lintegral_weakKeyMass_le`, `lintegral_add_weakKeyMass_le`: the average over the seed.
+* `lintegral_weakKeyMass_le`, `lintegral_add_weakKeyMass_mul_le`: the average over the seed.
+* `weakKeyMass_eq_zero_or_eq_one_of_n_eq_32`, `min_add_weakKeyMass_le_of_n_eq_32`: the weak seeds
+  at `n = 32`.
 
 ## References
 
@@ -448,17 +453,28 @@ theorem lintegral_weakKeyMass_le (hn : 16 ≤ vp.params.n)
   exact_mod_cast encard_setOf_isHonestKey_le (shakeCore vp)
 
 /-- **The averaged bound with a seed-independent part.** For `16 ≤ n`, averaging `C` plus the
-weak-key mass over a uniform public seed gives at most `C + |A_hon| / 2^256`. This is the shape in
-which a per-seed bound `C + weakKeyMass vp pkSeed` averages through
+weak-key mass times `D` over a uniform public seed gives at most `C + |A_hon| / 2^256 · D`. This is
+the shape in which a per-seed bound `C + weakKeyMass vp pkSeed * D` averages through
 `shakeAdvantage_le_lintegral`. -/
+theorem lintegral_add_weakKeyMass_mul_le (hn : 16 ≤ vp.params.n)
+    [MeasurableSpace (shakeCore vp).PkSeed] [DiscreteMeasurableSpace (shakeCore vp).PkSeed]
+    (C D : ℝ≥0∞) :
+    ∫⁻ pkSeed, (C + weakKeyMass vp pkSeed * D) ∂𝒟[($ᵗ (shakeCore vp).PkSeed : ProbComp _)] ≤
+      C + honestAdrsCount vp / 2 ^ 256 * D := by
+  rw [lintegral_add_left measurable_const, lintegral_const,
+    lintegral_mul_const _ Measurable.of_discrete]
+  gcongr
+  · exact mul_le_of_le_one_right' (evalDist_apply_univ_le_one _)
+  · exact lintegral_weakKeyMass_le hn
+
+/-- For `16 ≤ n`, averaging `C` plus the weak-key mass over a uniform public seed gives at most
+`C + |A_hon| / 2^256`. -/
 theorem lintegral_add_weakKeyMass_le (hn : 16 ≤ vp.params.n)
     [MeasurableSpace (shakeCore vp).PkSeed] [DiscreteMeasurableSpace (shakeCore vp).PkSeed]
     (C : ℝ≥0∞) :
     ∫⁻ pkSeed, (C + weakKeyMass vp pkSeed) ∂𝒟[($ᵗ (shakeCore vp).PkSeed : ProbComp _)] ≤
       C + honestAdrsCount vp / 2 ^ 256 := by
-  rw [lintegral_add_left measurable_const, lintegral_const]
-  exact add_le_add (mul_le_of_le_one_right' (evalDist_apply_univ_le_one _))
-    (lintegral_weakKeyMass_le hn)
+  simpa only [mul_one] using lintegral_add_weakKeyMass_mul_le hn C 1
 
 /-! ### At `n = 32` -/
 
@@ -477,18 +493,40 @@ theorem weakKeyMass_eq_zero_of_n_eq_32 (hn : vp.params.n = 32) {pkSeed : (shakeC
     weakKeyMass vp pkSeed = 0 :=
   prEvent_eq_zero_of_forall_not _ _ fun r hr => h ((isWeakKey_iff_of_n_eq_32 hn ⟨pkSeed, r⟩).1 hr)
 
+/-- At `n = 32`, a public seed that is an honest address key has weak-key mass one. -/
+theorem weakKeyMass_eq_one_of_n_eq_32 (hn : vp.params.n = 32) {pkSeed : (shakeCore vp).PkSeed}
+    (h : IsHonestKey vp (shakeCore vp) (adrsKeyOfList vp (Vector.toList (pkSeed : Bytes _)))) :
+    weakKeyMass vp pkSeed = 1 :=
+  (SampleableType.prEvent_uniformSample_eq_one_iff _).2 fun r =>
+    (isWeakKey_iff_of_n_eq_32 hn ⟨pkSeed, r⟩).2 h
+
 /-- At `n = 32`, a public seed has weak-key mass zero exactly when it is not an honest address key;
 otherwise its mass is one. -/
 theorem weakKeyMass_eq_zero_iff_of_n_eq_32 (hn : vp.params.n = 32)
     (pkSeed : (shakeCore vp).PkSeed) :
     weakKeyMass vp pkSeed = 0 ↔
-      ¬IsHonestKey vp (shakeCore vp) (adrsKeyOfList vp (Vector.toList (pkSeed : Bytes _))) := by
-  refine ⟨fun h0 hk => ?_, weakKeyMass_eq_zero_of_n_eq_32 hn⟩
-  have h1 : weakKeyMass vp pkSeed = 1 :=
-    (SampleableType.prEvent_uniformSample_eq_one_iff _).2 fun r =>
-      (isWeakKey_iff_of_n_eq_32 hn ⟨pkSeed, r⟩).2 hk
-  rw [h0] at h1
-  exact zero_ne_one h1
+      ¬IsHonestKey vp (shakeCore vp) (adrsKeyOfList vp (Vector.toList (pkSeed : Bytes _))) :=
+  ⟨fun h0 hk => zero_ne_one (h0.symm.trans (weakKeyMass_eq_one_of_n_eq_32 hn hk)),
+    weakKeyMass_eq_zero_of_n_eq_32 hn⟩
+
+/-- At `n = 32`, the weak-key mass of every public seed is zero or one. -/
+theorem weakKeyMass_eq_zero_or_eq_one_of_n_eq_32 (hn : vp.params.n = 32)
+    (pkSeed : (shakeCore vp).PkSeed) :
+    weakKeyMass vp pkSeed = 0 ∨ weakKeyMass vp pkSeed = 1 := by
+  by_cases hk : IsHonestKey vp (shakeCore vp) (adrsKeyOfList vp (Vector.toList (pkSeed : Bytes _)))
+  · exact .inr (weakKeyMass_eq_one_of_n_eq_32 hn hk)
+  · exact .inl (weakKeyMass_eq_zero_of_n_eq_32 hn hk)
+
+/-- **The weak seeds, pointwise, at `n = 32`.** At `n = 32`, for every public seed, the smaller of
+`C` plus the weak-key mass and `D` is at most `C` plus the weak-key mass times `min 1 D`: the mass
+is zero or one. -/
+theorem min_add_weakKeyMass_le_of_n_eq_32 (hn : vp.params.n = 32)
+    (pkSeed : (shakeCore vp).PkSeed) (C D : ℝ≥0∞) :
+    min (C + weakKeyMass vp pkSeed) D ≤ C + weakKeyMass vp pkSeed * min 1 D := by
+  rcases weakKeyMass_eq_zero_or_eq_one_of_n_eq_32 hn pkSeed with h | h <;> rw [h]
+  · simp
+  · rw [one_mul, ← min_add_add_left]
+    exact min_le_min le_rfl le_add_self
 
 /-- **No weak-key term off the weak seeds at `n = 32`.** At `n = 32`, in the run at a public seed
 that is not an honest address key, the public key is never weak. -/
