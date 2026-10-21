@@ -26,7 +26,7 @@ variable {k : ℕ} {X Y Msg Cm Z : Type} [Fintype X] [DecidableEq X] [Fintype Y]
   [DecidableEq Y] {ℓ : Fin k → ℕ} {Td Pf : Fin k → Type}
   [∀ i, DecidableEq (DmOf ℓ Msg Td i)]
   {VC : ∀ i, VectorCommitment X Y Msg Cm (Td i) (Pf i) (ℓ i)}
-  (io : ∀ i, (VC i).CheckIOForm)
+  (io : ∀ i, (VC i).NonadaptiveCheck)
   (ME : MultiExtractor k Cm (DmOf ℓ Msg Td) (Fin k → Database X Y))
   (tdBot : ∀ i, Td i) (Pgood : Set (Database X Y)) [DecidablePred (· ∈ Pgood)]
 
@@ -299,7 +299,7 @@ variable {k : ℕ} {X Y Msg Cm Z : Type} [Fintype X] [DecidableEq X] [Fintype Y]
   [DecidableEq Z] [AddGroup Z] {ℓ : Fin k → ℕ} {Td Pf : Fin k → Type}
   [∀ i, DecidableEq (DmOf ℓ Msg Td i)] [DecidableEq Msg] [∀ i, DecidableEq (Pf i)]
   {VC : ∀ i, VectorCommitment X Y Msg Cm (Td i) (Pf i) (ℓ i)}
-  (io : ∀ i, (VC i).CheckIOForm)
+  (io : ∀ i, (VC i).NonadaptiveCheck)
   (ME : MultiExtractor k Cm (DmOf ℓ Msg Td) (Fin k → Database X Y))
   (tdBot : ∀ i, Td i) (Pgood : Set (Database X Y)) [DecidablePred (· ∈ Pgood)]
 

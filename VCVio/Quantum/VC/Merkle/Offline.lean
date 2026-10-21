@@ -78,10 +78,11 @@ private theorem offline_instability_le {X Y : Type} [DecidableEq X]
   exact QueryCache.instability_cacheHasCollision_le (fun _ ↦ le_rfl) t
 
 private theorem q1_le {X Y Msg Salt : Type} [DecidableEq X] [DecidableEq Y]
-    [SampleableType Salt] (enc : Encoding X Y Msg Salt) {k : ℕ} (d : Fin k → ℕ)
+    [SampleableType Salt]
+    (enc : MerkleTreeHashing.QueryEncoding X Unit Unit (Msg × Salt) Y) {k : ℕ} (d : Fin k → ℕ)
     (dmax qs : ℕ) (hd : ∀ i, d i ≤ dmax) :
-    q1 (fun i ↦ checkIOForm enc (d i)) qs ≤ qs * (dmax + 1) := by
-  obtain ⟨v, hv, he⟩ := exists_sum_qVC_eq_q1 (fun i ↦ checkIOForm enc (d i)) qs
+    q1 (fun i ↦ nonadaptiveCheck enc (d i)) qs ≤ qs * (dmax + 1) := by
+  obtain ⟨v, hv, he⟩ := exists_sum_qVC_eq_q1 (fun i ↦ nonadaptiveCheck enc (d i)) qs
   rw [← he]
   calc
     _ = ∑ i, v i * (d i + 1) := rfl
@@ -91,7 +92,8 @@ private theorem q1_le {X Y Msg Salt : Type} [DecidableEq X] [DecidableEq Y]
 
 variable {X Y Msg Salt : Type} [Fintype X] [DecidableEq X] [LinearOrder Y] [Fintype Y]
   [AddCommGroup Y] [Fintype Msg] [LinearOrder Msg] [Fintype Salt] [LinearOrder Salt]
-  [SampleableType Salt] (enc : Encoding X Y Msg Salt) {k : ℕ} (d : Fin k → ℕ)
+  [SampleableType Salt]
+  (enc : MerkleTreeHashing.QueryEncoding X Unit Unit (Msg × Salt) Y) {k : ℕ} (d : Fin k → ℕ)
   {Z : Type} [Fintype Z] [DecidableEq Z] [AddGroup Z]
 
 universe v w
@@ -106,7 +108,7 @@ theorem merkle_offline_amplitude
   classical
   let : UniformAnswerMeasure (X →ₒ Y) := UniformAnswerMeasure.ofFiniteNonempty _
   have h := offlineExtractable_compressedVCOracle_of_badEvent
-    (fun i ↦ checkIOForm enc (d i)) (multiExtract enc d) (fun _ ↦ tdBot) collisionFree
+    (fun i ↦ nonadaptiveCheck enc (d i)) (multiExtract enc d) (fun _ ↦ tdBot) collisionFree
     (conditions enc d) code (merkleOfflineBadError (Fintype.card Y)) ?_
   · apply h.mono
     intro t wVC wME qs

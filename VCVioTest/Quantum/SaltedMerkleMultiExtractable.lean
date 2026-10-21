@@ -21,11 +21,12 @@ open scoped ENNReal
 
 universe v w
 
+open scoped Classical in
 example {X Y Msg Salt Z : Type} {k : ℕ} [Fintype X] [DecidableEq X]
     [Fintype Y] [LinearOrder Y] [AddCommGroup Y]
     [Fintype Msg] [LinearOrder Msg] [Fintype Salt] [LinearOrder Salt]
     [SampleableType Salt] [Fintype Z] [DecidableEq Z] [AddGroup Z]
-    (enc : Encoding X Y Msg Salt) (d : Fin k → ℕ)
+    (enc : MerkleTreeHashing.QueryEncoding X Unit Unit (Msg × Salt) Y) (d : Fin k → ℕ)
     (code : TpDCode k (DmOf (fun i ↦ 2 ^ d i) Msg (fun i ↦ Td Y Salt (d i))) Z)
     (dmax : ℕ) (hd : ∀ i, d i ≤ dmax) :
     IsMultiExtractableWith.{v, w} (fun i ↦ (scheme enc (d i)).toVectorCommitment)

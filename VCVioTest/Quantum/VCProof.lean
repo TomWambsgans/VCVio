@@ -140,7 +140,7 @@ section lemma93
 
 variable {Msg : Type} {ℓ : Fin 2 → ℕ} {Td Pf : Fin 2 → Type}
   {VC : ∀ i, VectorCommitment Bool (ZMod 3) Msg Bool (Td i) (Pf i) (ℓ i)}
-  (io : ∀ i, (VC i).CheckIOForm)
+  (io : ∀ i, (VC i).NonadaptiveCheck)
   (ME : MultiExtractor 2 Bool (DmOf ℓ Msg Td) (compressedVCOracle 2 Bool (ZMod 3)).S)
   (code : TpDCode 2 (DmOf ℓ Msg Td) (ZMod 2)) {tdBot : ∀ i, Td i}
   {Pgood : Set (Database Bool (ZMod 3))}

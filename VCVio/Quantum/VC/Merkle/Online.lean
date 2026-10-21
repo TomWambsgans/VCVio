@@ -61,7 +61,7 @@ theorem card_biUnion_onlineRoots_le {n : ℕ} (tics : Fin n → TpIC k Y) (j : F
 
 variable {X Msg Salt : Type} [DecidableEq X] [Fintype Y]
   [Fintype Msg] [LinearOrder Msg] [Fintype Salt] [LinearOrder Salt]
-  (enc : Encoding X Y Msg Salt) (d : Fin k → ℕ)
+  (enc : MerkleTreeHashing.QueryEncoding X Unit Unit (Msg × Salt) Y) (d : Fin k → ℕ)
 
 /-- A fresh answer outside the relevant roots and shared half-preimages preserves every
 extraction in a list, including tuples with repeated indices. -/
@@ -349,7 +349,8 @@ variable {X Y Msg Salt : Type} {k : ℕ} [DecidableEq X] [Finite X] [LinearOrder
   [UniformAnswerMeasure (X →ₒ Y)]
 /-- Finite occupied-key sets satisfy the joint-budget instability bound. The coefficient
 24 multiplies the odd schedule obtained from the shared database and recording budget. -/
-theorem instability_online_keys_le (enc : Encoding X Y Msg Salt) (d : Fin k → ℕ)
+theorem instability_online_keys_le
+    (enc : MerkleTreeHashing.QueryEncoding X Unit Unit (Msg × Salt) Y) (d : Fin k → ℕ)
     (keys : Finset (TpIC k Y)) (Dfix : Fin k → Database X Y) (i : Fin k)
     (t : ℕ) (hn : 1 ≤ keys.card) (ht : keys.card ≤ t) :
     24 * (Database.instability
@@ -385,7 +386,8 @@ open scoped Classical in
 Ordinary queries and checked reads contribute to the same source mass. This instantiates
 Chiesa, Di, Hu and Zheng, ePrint 2025/2166, Definition 7.3, P5, and Lemma 9.7,
 for mixed adaptive programs and subnormalized states. -/
-theorem merkle_online (enc : Encoding X Y Msg Salt) (d : Fin k → ℕ)
+theorem merkle_online
+    (enc : MerkleTreeHashing.QueryEncoding X Unit Unit (Msg × Salt) Y) (d : Fin k → ℕ)
     (code : TpDCode k (DmOf (fun i ↦ 2 ^ d i) Msg fun i ↦ Td Y Salt (d i)) Z) :
     OnlineIndistinguishable.{v, w} (compressedVCOracle k X Y) (multiExtract enc d) code
       (fun t wVC _ _ ↦ merkleOnlineError (Fintype.card Y) t wVC) := by

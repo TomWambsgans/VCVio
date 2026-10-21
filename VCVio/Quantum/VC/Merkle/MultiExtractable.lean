@@ -49,13 +49,14 @@ theorem merkleErrors_monotone (N dmax : ℕ) : (merkleErrors N dmax).Monotone :=
 
 universe v w
 
+open scoped Classical in
 /-- Concrete witnesses for finite-query multi-extractability, with arbitrary tuple encoding. -/
 theorem isMultiExtractableWith
     {X Y Msg Salt Z : Type} {k : ℕ} [Fintype X] [DecidableEq X]
     [Fintype Y] [LinearOrder Y] [AddCommGroup Y]
     [Fintype Msg] [LinearOrder Msg] [Fintype Salt] [LinearOrder Salt]
     [SampleableType Salt] [Fintype Z] [DecidableEq Z] [AddGroup Z]
-    (enc : Encoding X Y Msg Salt) (d : Fin k → ℕ)
+    (enc : MerkleTreeHashing.QueryEncoding X Unit Unit (Msg × Salt) Y) (d : Fin k → ℕ)
     (code : TpDCode k (DmOf (fun i ↦ 2 ^ d i) Msg (fun i ↦ Td Y Salt (d i))) Z)
     (dmax : ℕ) (hd : ∀ i, d i ≤ dmax) :
     IsMultiExtractableWith.{v, w} (fun i ↦ (scheme enc (d i)).toVectorCommitment)
@@ -88,11 +89,6 @@ theorem isMultiExtractableWith
     exact extractionCorrect enc d code (2 ^ dmax)
       (fun i ↦ Nat.pow_le_pow_right (by omega) (hd i))
   · dsimp only [merkleErrors]
-    have he : (fun i ↦ (instDecidableEqProd :
-        DecidableEq (DmOf (fun i ↦ 2 ^ d i) Msg (fun i ↦ Td Y Salt (d i)) i))) =
-        (fun i ↦ Classical.decEq (DmOf (fun i ↦ 2 ^ d i) Msg
-          (fun i ↦ Td Y Salt (d i)) i)) := Subsingleton.elim _ _
-    rw [he]
-    exact merkle_online enc d code
+    convert merkle_online enc d code using 1
 
 end SaltedMerkle

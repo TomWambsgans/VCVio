@@ -486,7 +486,7 @@ example (ρ : SubState (B × (Fin k → Database X Y)))
 
 open scoped Classical in
 /-- Every supported randomized opening is retained in the good-database zero identity. -/
-example (io : ∀ i, (VC i).CheckIOForm) (tdBot : ∀ i, Td i)
+example (io : ∀ i, (VC i).NonadaptiveCheck) (tdBot : ∀ i, Td i)
     (Pgood : Set (Database X Y)) [DecidablePred (· ∈ Pgood)]
     (hC : Conditions VC io ME tdBot Pgood)
     (tdm : TpDLen k (DmOf ℓ Msg Td) (TupleLen.full hk)) :
@@ -504,7 +504,7 @@ example (io : ∀ i, (VC i).CheckIOForm) (tdBot : ∀ i, Td i)
 open scoped Classical in
 /-- The generic offline endpoint is available through ordinary public imports. -/
 example [OracleSpec.UniformAnswerMeasure (X →ₒ Y)]
-    (io : ∀ i, (VC i).CheckIOForm) (tdBot : ∀ i, Td i)
+    (io : ∀ i, (VC i).NonadaptiveCheck) (tdBot : ∀ i, Td i)
     (Pgood : Set (Database X Y)) [DecidablePred (· ∈ Pgood)]
     (hC : Conditions VC io ME tdBot Pgood) :
     OfflineExtractable VC (compressedVCOracle k X Y) ME code
