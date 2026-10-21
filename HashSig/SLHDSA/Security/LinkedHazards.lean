@@ -13,12 +13,12 @@ import VCVio.OracleComp.Constructions.SampleableType.Measure
 /-!
 # The virtual hit and the honest input at a linked point, charged
 
-At `n = 32`, `HashSig.SLHDSA.Security.ByteLinkedBound` bounds the advantage against SLH-DSA over
-one SHAKE256 oracle, at a public seed, by the events of the verifying run plus the cost `κ` of a
-further charge (`DeferredCharge`) to which the virtual hit (`VirtualHit`) and the honest input at a
-linked point (`LinkedHonestInput`) are charged. This module supplies that charge, `linkedCharge`,
-at every public seed, with `κ = (qs + 1) / |Y|`. It is a classical random-oracle statement;
-nothing here is quantum.
+At `n = 32`, `HashSig.SLHDSA.Security.ByteLinkedBound` bounds the strong advantage against SLH-DSA
+over one SHAKE256 oracle, at a public seed, by the events of the verifying run plus the cost `κ` of
+a further charge (`DeferredCharge`) to which the virtual hit (`VirtualHit`) and the honest input at
+a linked point (`LinkedHonestInput`) are charged. This module supplies that charge, `linkedCharge`,
+at every public seed, with `κ = (qs + 1) / |Y|`. It is a classical random-oracle statement; nothing
+here is quantum.
 
 ## The charge
 
@@ -48,10 +48,10 @@ message-`PRF` key and with the fixed-key charge alike.
 
 ## Main statements
 
-- `shakeAdvantage_pure_le_securityBound_add_of_n_eq_32`: at `n = 32`, at every public seed and
-  every `opt_rand` distribution, the advantage is at most
+- `shakeStrongAdvantage_pure_le_securityBound_add_of_n_eq_32`: at `n = 32`, at every public seed and
+  every `opt_rand` distribution, the strong advantage is at most
   `securityBound vp.params |Y| 2 1 (qh + V) qs + (qs + 1) / |Y| + (qs + 1) / |Y|`.
-- `shakeAdvantage_pure_le_securityBound_add_of_n_eq_32_hedged`: the hedged form, with
+- `shakeStrongAdvantage_pure_le_securityBound_add_of_n_eq_32_hedged`: the hedged form, with
   `(qs + 1) / |Y|` added to the hedged bound of `HashSig.SLHDSA.Security.ByteLinkedBound`.
 -/
 
@@ -347,23 +347,23 @@ private theorem budget_linkedCharge_le (hd : (shakeCore vp).KeyDiscipline vp)
 
 /-! ## The advantage -/
 
-/-- **SLH-DSA over one SHAKE256 oracle at `n = 32`, at every public seed.** At `n = 32` and
-`n ≤ m`, under the canonical address bounds, for every public seed `pkSeed`, every `opt_rand`
-distribution and an adversary with hash budget `qh` and signing budget `qs`, the advantage of the
+/-- **SLH-DSA over one SHAKE256 oracle at `n = 32`, at every public seed.** At `n = 32` and `n ≤ m`,
+under the canonical address bounds, for every public seed `pkSeed`, every `opt_rand` distribution
+and an adversary with hash budget `qh` and signing budget `qs`, the strong advantage of the
 adversary against `shakeRomScheme` at `pkSeed` is at most
 `securityBound vp.params |Y| 2 1 (qh + V) qs + (qs + 1) / |Y| + (qs + 1) / |Y|`, with `V` the
 verifier's query bound. -/
-theorem shakeAdvantage_pure_le_securityBound_add_of_n_eq_32
+theorem shakeStrongAdvantage_pure_le_securityBound_add_of_n_eq_32
     (hb : CanonicalAddressBounds vp.params) (h32 : vp.params.n = 32)
     (hnm : vp.params.n ≤ vp.params.m)
-    (adv : UnforgeableAdversary (shakeRomScheme vp optRand (pure pkSeed))) {qh qs : ℕ}
+    (adv : StrongUnforgeableAdversary (shakeRomScheme vp optRand (pure pkSeed))) {qh qs : ℕ}
     (hadv : adv.RomQueryBound qh qs) :
-    shakeAdvantage vp adv ≤
+    shakeStrongAdvantage vp adv ≤
       securityBound vp.params (Nat.card (shakeCore vp).Y) 2 1
           (qh + GeneralScheme.verifyInternalQueryBound vp.params) qs +
         ((qs : ℝ≥0∞) + 1) / Nat.card (shakeCore vp).Y +
         ((qs : ℝ≥0∞) + 1) / Nat.card (shakeCore vp).Y := by
-  refine shakeAdvantage_pure_le_securityBound_add hb h32 hnm adv hadv
+  refine shakeStrongAdvantage_pure_le_securityBound_add hb h32 hnm adv hadv
     (linkedCharge pkSeed (keyDiscipline_shakePrimitives vp hb) hnm) _
     (div_natCard_ne_top (by simp)) (charges_linkedCharge _ hnm _) fun z hz ↦ ?_
   have hA := romQueryBound_verifyingAdv h32.le hnm hadv
@@ -381,23 +381,23 @@ theorem shakeAdvantage_pure_le_securityBound_add_of_n_eq_32
     _ = _ := by ring
 
 /-- **SLH-DSA over one SHAKE256 oracle at `n = 32`, at every public seed, hedged form.** As
-`shakeAdvantage_pure_le_securityBound_add_of_n_eq_32`, with `optRand pk` equal to `PK.seed` with
-probability at most `ε` at every public key: the advantage is at most
-`securityBound vp.params |Y| 2 1 (qh + V) qs + 1 / |Y| + qs · ε · (qh + V + qs + 1) / |Y| +
-(qs + 1) / |Y|`. -/
-theorem shakeAdvantage_pure_le_securityBound_add_of_n_eq_32_hedged
+`shakeStrongAdvantage_pure_le_securityBound_add_of_n_eq_32`, with `optRand pk` equal to `PK.seed`
+with probability at most `ε` at every public key: the strong advantage is at most
+`securityBound vp.params |Y| 2 1 (qh + V) qs + 1 / |Y| + qs · ε · (qh + V + qs + 1) / |Y|`
+`+ (qs + 1) / |Y|`. -/
+theorem shakeStrongAdvantage_pure_le_securityBound_add_of_n_eq_32_hedged
     (hb : CanonicalAddressBounds vp.params) (h32 : vp.params.n = 32)
     (hnm : vp.params.n ≤ vp.params.m)
-    (adv : UnforgeableAdversary (shakeRomScheme vp optRand (pure pkSeed))) {qh qs : ℕ}
+    (adv : StrongUnforgeableAdversary (shakeRomScheme vp optRand (pure pkSeed))) {qh qs : ℕ}
     (hadv : adv.RomQueryBound qh qs) {ε : ℝ≥0∞}
     (hε : ∀ pk, Pr{let r ← optRand pk}[r = pkSeed] ≤ ε) :
-    shakeAdvantage vp adv ≤
+    shakeStrongAdvantage vp adv ≤
       securityBound vp.params (Nat.card (shakeCore vp).Y) 2 1
           (qh + GeneralScheme.verifyInternalQueryBound vp.params) qs +
         1 / Nat.card (shakeCore vp).Y +
         qs * ε * (((qh + GeneralScheme.verifyInternalQueryBound vp.params : ℕ) : ℝ≥0∞) + qs +
           1) / Nat.card (shakeCore vp).Y + ((qs : ℝ≥0∞) + 1) / Nat.card (shakeCore vp).Y := by
-  refine shakeAdvantage_pure_le_securityBound_add_hedged hb h32 hnm adv hadv hε
+  refine shakeStrongAdvantage_pure_le_securityBound_add_hedged hb h32 hnm adv hadv hε
     (linkedCharge pkSeed (keyDiscipline_shakePrimitives vp hb) hnm) _
     (div_natCard_ne_top (by simp)) (charges_linkedCharge _ hnm _) fun z hz ↦ ?_
   have hA := romQueryBound_verifyingAdv h32.le hnm hadv
@@ -413,6 +413,41 @@ theorem shakeAdvantage_pure_le_securityBound_add_of_n_eq_32_hedged
   calc _ = _ + 2 := by ring
     _ ≤ _ + 2 := add_le_add_left hR 2
     _ = _ := by ring
+
+
+/-! ## Existential unforgeability -/
+
+/-- The existential form of `shakeStrongAdvantage_pure_le_securityBound_add_of_n_eq_32`: the forging
+advantage against the same scheme has the same bound. -/
+theorem shakeAdvantage_pure_le_securityBound_add_of_n_eq_32
+    (hb : CanonicalAddressBounds vp.params) (h32 : vp.params.n = 32)
+    (hnm : vp.params.n ≤ vp.params.m)
+    (adv : UnforgeableAdversary (shakeRomScheme vp optRand (pure pkSeed))) {qh qs : ℕ}
+    (hadv : adv.RomQueryBound qh qs) :
+    shakeAdvantage vp adv ≤
+      securityBound vp.params (Nat.card (shakeCore vp).Y) 2 1
+          (qh + GeneralScheme.verifyInternalQueryBound vp.params) qs +
+        ((qs : ℝ≥0∞) + 1) / Nat.card (shakeCore vp).Y +
+        ((qs : ℝ≥0∞) + 1) / Nat.card (shakeCore vp).Y :=
+  (shakeAdvantage_le_shakeStrongAdvantage adv).trans
+    (shakeStrongAdvantage_pure_le_securityBound_add_of_n_eq_32 hb h32 hnm ⟨adv.main⟩ hadv)
+
+/-- The existential form of `shakeStrongAdvantage_pure_le_securityBound_add_of_n_eq_32_hedged`: the
+forging advantage against the same scheme has the same bound. -/
+theorem shakeAdvantage_pure_le_securityBound_add_of_n_eq_32_hedged
+    (hb : CanonicalAddressBounds vp.params) (h32 : vp.params.n = 32)
+    (hnm : vp.params.n ≤ vp.params.m)
+    (adv : UnforgeableAdversary (shakeRomScheme vp optRand (pure pkSeed))) {qh qs : ℕ}
+    (hadv : adv.RomQueryBound qh qs) {ε : ℝ≥0∞}
+    (hε : ∀ pk, Pr{let r ← optRand pk}[r = pkSeed] ≤ ε) :
+    shakeAdvantage vp adv ≤
+      securityBound vp.params (Nat.card (shakeCore vp).Y) 2 1
+          (qh + GeneralScheme.verifyInternalQueryBound vp.params) qs +
+        1 / Nat.card (shakeCore vp).Y +
+        qs * ε * (((qh + GeneralScheme.verifyInternalQueryBound vp.params : ℕ) : ℝ≥0∞) + qs +
+          1) / Nat.card (shakeCore vp).Y + ((qs : ℝ≥0∞) + 1) / Nat.card (shakeCore vp).Y :=
+  (shakeAdvantage_le_shakeStrongAdvantage adv).trans
+    (shakeStrongAdvantage_pure_le_securityBound_add_of_n_eq_32_hedged hb h32 hnm ⟨adv.main⟩ hadv hε)
 
 end Shake
 

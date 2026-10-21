@@ -19,7 +19,7 @@ and routes an adversary against the single-oracle scheme `shakeRomScheme` into o
 * **The encoding and the bound at all 12 FIPS 205 parameter sets** (`FipsParameterSet`, whose
   SHA-2 sets share their parameters with the SHAKE sets), with the side conditions `n ≤ 32` and
   `n ≤ m` discharged: the encoding, its agreement with `encImpl`, the routed adversary's budget,
-  the per-seed bound `shakeAdvantage_pure_le`, and route-fixedness at the honest keys of every
+  the per-seed bound `shakeStrongAdvantage_pure_le`, and route-fixedness at the honest keys of every
   node of the SLH-DSA graph.
 * **Each rule at SLH-DSA-SHAKE-128s** on concrete strings, with the address-key predicate
   everywhere true or everywhere false. Which rule fires is decided by evaluation; the query read
@@ -72,12 +72,12 @@ example (set : FipsParameterSet)
     (optRand : PublicKeyCore (shakeCore set.validatedParams) →
       ProbComp (shakeCore set.validatedParams).Y)
     (pkSeed : (shakeCore set.validatedParams).PkSeed)
-    (adv : UnforgeableAdversary (shakeRomScheme set.validatedParams optRand (pure pkSeed))) :
-    shakeAdvantage _ adv ≤
+    (adv : StrongUnforgeableAdversary (shakeRomScheme set.validatedParams optRand (pure pkSeed))) :
+    shakeStrongAdvantage _ adv ≤
       Pr{let z ← romSchemeRun (shakeCore set.validatedParams) (Equiv.refl _) optRand
-          (pure pkSeed) (routeAdv _ set.n_le_32 set.n_le_m adv)}[
-        z.1.wins = true ∨ (shakeEncoding _ set.n_le_32 set.n_le_m pkSeed).Clash z.2] :=
-  shakeAdvantage_pure_le set.n_le_32 set.n_le_m pkSeed adv
+          (pure pkSeed) (routeAdv _ set.n_le_32 set.n_le_m adv.toUnforgeableAdversary)}[
+        z.1.strongWins = true ∨ (shakeEncoding _ set.n_le_32 set.n_le_m pkSeed).Clash z.2] :=
+  shakeStrongAdvantage_pure_le set.n_le_32 set.n_le_m pkSeed adv
 
 /-- At the honest keys, the tweakable-hash query at the key of every node of the SLH-DSA graph is
 route-fixed in the encoding. -/

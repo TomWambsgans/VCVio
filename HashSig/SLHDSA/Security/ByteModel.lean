@@ -29,9 +29,10 @@ modelling choice: a forger against a variable-length extendable-output oracle th
 `m` bytes at a string sees only bytes no SLH-DSA evaluation reads, and is simulated against this
 oracle, query for query, by sampling those bytes itself; that simulation is not formalised. The
 runtime `shakeRuntime vp` is VCVio's lazy random
-oracle `ProbCompRuntime.rom (shakeSpec vp)` from the empty cache, the advantage is
-`shakeAdvantage vp`, and an adversary's budget is the generic
-`UnforgeableAdversary.RomQueryBound`, one count per query of the single oracle.
+oracle `ProbCompRuntime.rom (shakeSpec vp)` from the empty cache, the strong forging advantage is
+`shakeStrongAdvantage vp`, the existential one `shakeAdvantage vp`, at most the strong one
+(`shakeAdvantage_le_shakeStrongAdvantage`), and an adversary's budget is the generic
+`RomQueryBound`, one count per query of the single oracle.
 
 ## The scheme
 
@@ -51,8 +52,8 @@ seed read as a node by the identity.
 
 ## Main statements
 
-* `unforgeableExperiment_shakeRomScheme`, `shakeAdvantage_le_lintegral`: the experiment draws the
-  public seed first, so a bound at each public seed averages to a bound at every seed
+* `strongUnforgeableExperiment_shakeRomScheme`, `shakeStrongAdvantage_le_lintegral`: the experiment
+  draws the public seed first, so a bound at each public seed averages to a bound at every seed
   distribution.
 * `length_encode_thash`, `length_encode_hmsg`, `length_encode_prfMsg`,
   `two_mul_le_length_encode`; the `take_*` and `drop_*` equations reading each field of a layout
@@ -272,6 +273,34 @@ theorem shakeAdvantage_def
     (adv : UnforgeableAdversary (shakeRomScheme vp optRand pkSeedDist)) :
     shakeAdvantage vp adv = unforgeableAdvantage (shakeRuntime vp) adv := by
   rw [shakeAdvantage]
+
+/-- The strong forging advantage against `shakeRomScheme` under `shakeRuntime`: the probability of
+a valid pair of message and signature that the signing oracle never returned. -/
+noncomputable def shakeStrongAdvantage
+    {optRand : PublicKeyCore (shakeCore vp) → ProbComp (shakeCore vp).Y}
+    {pkSeedDist : ProbComp (shakeCore vp).PkSeed}
+    (adv : StrongUnforgeableAdversary (shakeRomScheme vp optRand pkSeedDist)) : ℝ≥0∞ :=
+  strongUnforgeableAdvantage (shakeRuntime vp) adv
+
+/-- The strong forging advantage against `shakeRomScheme` is the strong unforgeability advantage
+under `shakeRuntime`. -/
+theorem shakeStrongAdvantage_def
+    {optRand : PublicKeyCore (shakeCore vp) → ProbComp (shakeCore vp).Y}
+    {pkSeedDist : ProbComp (shakeCore vp).PkSeed}
+    (adv : StrongUnforgeableAdversary (shakeRomScheme vp optRand pkSeedDist)) :
+    shakeStrongAdvantage vp adv = strongUnforgeableAdvantage (shakeRuntime vp) adv := by
+  rw [shakeStrongAdvantage]
+
+variable {vp} in
+/-- The forging advantage against `shakeRomScheme` is at most the strong forging advantage of the
+same adversary program. -/
+theorem shakeAdvantage_le_shakeStrongAdvantage
+    {optRand : PublicKeyCore (shakeCore vp) → ProbComp (shakeCore vp).Y}
+    {pkSeedDist : ProbComp (shakeCore vp).PkSeed}
+    (adv : UnforgeableAdversary (shakeRomScheme vp optRand pkSeedDist)) :
+    shakeAdvantage vp adv ≤ shakeStrongAdvantage vp
+      (⟨adv.main⟩ : StrongUnforgeableAdversary (shakeRomScheme vp optRand pkSeedDist)) :=
+  unforgeableAdvantage_le_strongUnforgeableAdvantage _ adv
 
 /-! ## The shape of each layout -/
 
@@ -534,34 +563,35 @@ theorem simulateQ_encImpl_liftM {α : Type} (oa : ProbComp α) :
   rw [encImpl, QueryImpl.simulateQ_add_liftM_left, ← OracleComp.liftComp_eq_liftM]
   rfl
 
-/-- The unforgeability experiment of `shakeRomScheme` draws the public seed and then runs the
-experiment of `shakeRomScheme` at that seed, against the same adversary program. -/
-theorem unforgeableExperiment_shakeRomScheme
+/-- The strong unforgeability experiment of `shakeRomScheme` draws the public seed and then runs
+the experiment of `shakeRomScheme` at that seed, against the same adversary program. -/
+theorem strongUnforgeableExperiment_shakeRomScheme
     (optRand : PublicKeyCore (shakeCore vp) → ProbComp (shakeCore vp).Y)
     (pkSeedDist : ProbComp (shakeCore vp).PkSeed)
-    (adv : UnforgeableAdversary (shakeRomScheme vp optRand pkSeedDist)) :
-    unforgeableExperiment adv =
+    (adv : StrongUnforgeableAdversary (shakeRomScheme vp optRand pkSeedDist)) :
+    strongUnforgeableExperiment adv =
       liftM pkSeedDist >>= fun pkSeed =>
-        unforgeableExperiment
-          (⟨adv.main⟩ : UnforgeableAdversary (shakeRomScheme vp optRand (pure pkSeed))) := by
-  simp only [unforgeableExperiment, shakeRomScheme, SignatureAlg.map_keygen, romScheme,
+        strongUnforgeableExperiment
+          (⟨adv.main⟩ : StrongUnforgeableAdversary (shakeRomScheme vp optRand (pure pkSeed))) := by
+  simp only [strongUnforgeableExperiment, shakeRomScheme, SignatureAlg.map_keygen, romScheme,
     simulateQ_bind, simulateQ_encImpl_liftM, bind_assoc, liftM_pure,
     pure_bind]
   rfl
 
-/-- **Averaging over the public seed.** A bound `β pkSeed` on the advantage of every adversary
-against `shakeRomScheme` at each public seed, under a query budget, bounds the advantage at the
-seed distribution `pkSeedDist` by the average of `β`. -/
-theorem shakeAdvantage_le_lintegral [MeasurableSpace (shakeCore vp).PkSeed]
+/-- **Averaging over the public seed.** A bound `β pkSeed` on the strong advantage of every
+adversary against `shakeRomScheme` at each public seed, under a query budget, bounds the strong
+advantage at the seed distribution `pkSeedDist` by the average of `β`. -/
+theorem shakeStrongAdvantage_le_lintegral [MeasurableSpace (shakeCore vp).PkSeed]
     [DiscreteMeasurableSpace (shakeCore vp).PkSeed]
     {optRand : PublicKeyCore (shakeCore vp) → ProbComp (shakeCore vp).Y}
     (pkSeedDist : ProbComp (shakeCore vp).PkSeed) (β : (shakeCore vp).PkSeed → ℝ≥0∞) {qh qs : ℕ}
-    (h : ∀ pkSeed (adv : UnforgeableAdversary (shakeRomScheme vp optRand (pure pkSeed))),
-      adv.RomQueryBound qh qs → shakeAdvantage vp adv ≤ β pkSeed)
-    (adv : UnforgeableAdversary (shakeRomScheme vp optRand pkSeedDist))
+    (h : ∀ pkSeed (adv : StrongUnforgeableAdversary (shakeRomScheme vp optRand (pure pkSeed))),
+      adv.RomQueryBound qh qs → shakeStrongAdvantage vp adv ≤ β pkSeed)
+    (adv : StrongUnforgeableAdversary (shakeRomScheme vp optRand pkSeedDist))
     (hb : adv.RomQueryBound qh qs) :
-    shakeAdvantage vp adv ≤ ∫⁻ pkSeed, β pkSeed ∂𝒟[pkSeedDist] := by
-  rw [shakeAdvantage, unforgeableAdvantage, unforgeableExperiment_shakeRomScheme,
+    shakeStrongAdvantage vp adv ≤ ∫⁻ pkSeed, β pkSeed ∂𝒟[pkSeedDist] := by
+  rw [shakeStrongAdvantage, strongUnforgeableAdvantage,
+    strongUnforgeableExperiment_shakeRomScheme,
     ProbCompRuntime.rom_evalDist_bind_liftM,
     Measure.bind_apply (measurableSet_singleton true) Measurable.of_discrete.aemeasurable]
   exact lintegral_mono fun pkSeed => h pkSeed ⟨adv.main⟩ hb

@@ -14,10 +14,10 @@ public import HashSig.SLHDSA.Security.RomSchemeRun
 # The single-SHAKE256 run as a prefix of the run of the verifying adversary
 
 At `n = 32` a tweakable-hash query at a *linked* point (`IsLinked`) and its `H_msg` reading share
-one SHAKE256 string. At a fixed public seed and for every `opt_rand` distribution, the advantage
-against SLH-DSA over one SHAKE256 oracle is at most the probability of an event of the
+one SHAKE256 string. At a fixed public seed and for every `opt_rand` distribution, the strong
+advantage against SLH-DSA over one SHAKE256 oracle is at most the probability of an event of the
 three-oracle run of `romScheme` against the verifying adversary `verifyingAdv`
-(`shakeAdvantage_pure_le_verifyingAdv`):
+(`shakeStrongAdvantage_pure_le_verifyingAdv`):
 
 * `RedirectedWins`: the forged pair of message and signature is fresh and the redirected
   verification `redirectedVerify` accepts on the public-hash part of the final cache;
@@ -28,10 +28,10 @@ three-oracle run of `romScheme` against the verifying adversary `verifyingAdv`
 ## The argument
 
 The linked scheme `linkedRomScheme`, `romScheme` verifying by `redirectedVerify`, encodes to
-`shakeRomScheme` (`shakeRomScheme_eq_map_linkedRomScheme`), so the single-oracle coupling bounds
-the advantage by its run against `linkedRouteAdv` winning or ending with a clash
-(`shakeAdvantage_pure_le_linkedRomScheme`). That run is the run against `verifyingAdv` up to its
-final, non-redirected verification (`SignatureAlg.unforgeableTranscriptExperiment_withPost`),
+`shakeRomScheme` (`shakeRomScheme_eq_map_linkedRomScheme`), so the single-oracle coupling bounds the
+advantage by its run against `linkedRouteAdv` winning or ending with a clash
+(`shakeStrongAdvantage_pure_le_linkedRomScheme`). That run is the run against `verifyingAdv` up to
+its final, non-redirected verification (`SignatureAlg.unforgeableTranscriptExperiment_withPost`),
 which only adds cache entries. A clash is not carried to the larger cache by that verification
 alone, since it caches linked points whose `H_msg` readings the redirected one has cached, so the
 clash is classified on the linked run, where only the honest algorithms cache linked points
@@ -82,25 +82,27 @@ theorem shakeRomScheme_eq_map_linkedRomScheme :
   · rfl
   · exact shakeRomScheme_verify_eq optRand pkSeedDist _ _
 
-/-- **The per-seed coupling on the linked run.** At a fixed public seed, the advantage against
-`shakeRomScheme` is at most the probability that the run of the linked scheme against the routed
-adversary with linked strings wins or ends with a clash. -/
-theorem shakeAdvantage_pure_le_linkedRomScheme (hn : vp.params.n ≤ 32)
+/-- **The per-seed coupling on the linked run.** At a fixed public seed, the strong advantage
+against `shakeRomScheme` is at most the probability that the run of the linked scheme against the
+routed adversary with linked strings wins strongly or ends with a clash. -/
+theorem shakeStrongAdvantage_pure_le_linkedRomScheme (hn : vp.params.n ≤ 32)
     (hnm : vp.params.n ≤ vp.params.m) (pkSeed : (shakeCore vp).PkSeed)
-    (adv : UnforgeableAdversary (shakeRomScheme vp optRand (pure pkSeed))) :
-    shakeAdvantage vp adv ≤
+    (adv : StrongUnforgeableAdversary (shakeRomScheme vp optRand (pure pkSeed))) :
+    shakeStrongAdvantage vp adv ≤
       Pr{let z ← (simulateQ (hashSpec (shakeCore vp)).romImpl (unforgeableTranscriptExperiment
           (sigAlg := linkedRomScheme vp optRand (pure pkSeed))
-          ⟨(linkedRouteAdv vp hn hnm adv).main⟩)).run ∅}[
-        z.1.wins = true ∨ (shakeEncoding vp hn hnm pkSeed).Clash z.2] := by
+          ⟨(linkedRouteAdv vp hn hnm adv.toUnforgeableAdversary).main⟩)).run ∅}[
+        z.1.strongWins = true ∨ (shakeEncoding vp hn hnm pkSeed).Clash z.2] := by
   have hE : ∀ z ∈ support (linkedRomScheme vp optRand (pure pkSeed)).keygen,
       shakeEncoding vp hn hnm z.1.pkSeed = shakeEncoding vp hn hnm pkSeed := fun _ hz => by
     rw [linkedRomScheme, withVerify_keygen] at hz
     exact congrArg _ (pkSeed_eq_of_mem_support_romScheme_keygen _ _ hz)
   let A : UnforgeableAdversary ((linkedRomScheme vp optRand (pure pkSeed)).map
-      (simulateQ' (liftTypedImpl (ext := shakeSpec vp)))) := ⟨(linkedAdv vp adv).main⟩
+      (simulateQ' (liftTypedImpl (ext := shakeSpec vp)))) :=
+    ⟨(linkedAdv vp adv.toUnforgeableAdversary).main⟩
   refine le_of_eq_of_le ?_ ((shakeEncoding vp hn hnm pkSeed)
-    |>.prEvent_simulateQ_singleImpl_run_unforgeableTranscriptExperiment_le A hE (·.wins = true))
+    |>.prEvent_simulateQ_singleImpl_run_unforgeableTranscriptExperiment_le A hE
+      (·.strongWins = true))
   have hnat :=
     simulateQ_unforgeableTranscriptExperiment (shakeEncoding vp hn hnm pkSeed).encodeImpl A
   rw [map_simulateQ'_map_simulateQ', encodeImpl_shakeEncoding_compose_liftTypedImpl] at hnat
@@ -108,10 +110,14 @@ theorem shakeAdvantage_pure_le_linkedRomScheme (hn : vp.params.n ≤ 32)
       (sigAlg' := (linkedRomScheme vp optRand (pure pkSeed)).map (simulateQ' (encImpl vp))) =
       ⟨adv.main⟩ := by
     refine congrArg UnforgeableAdversary.mk (funext fun pk => ?_)
-    rw [UnforgeableAdversary.mapOracles_main, ← mapOracles_encodeImpl_linkedAdv hn hnm pkSeed adv,
+    change _ = adv.toUnforgeableAdversary.main pk
+    rw [UnforgeableAdversary.mapOracles_main,
+      ← mapOracles_encodeImpl_linkedAdv hn hnm pkSeed adv.toUnforgeableAdversary,
       UnforgeableAdversary.mapOracles_main]
-  rw [shakeAdvantage_eq, ← RandomOracleEncoding.simulateQ_romImpl_simulateQ_encodeImpl, hnat,
-    unforgeableTranscriptExperiment_congr shakeRomScheme_eq_map_linkedRomScheme adv, hA]
+  rw [shakeStrongAdvantage_eq, ← RandomOracleEncoding.simulateQ_romImpl_simulateQ_encodeImpl, hnat,
+    unforgeableTranscriptExperiment_congr shakeRomScheme_eq_map_linkedRomScheme
+      adv.toUnforgeableAdversary, hA]
+  rfl
 
 end Coupling
 
@@ -470,26 +476,26 @@ variable {optRand : PublicKeyCore (shakeCore vp) → ProbComp (shakeCore vp).Y}
 
 /-- **SLH-DSA over one SHAKE256 oracle at `n = 32`, per public seed, against the verifying
 adversary.** At `n = 32` and `n ≤ m`, for every public seed `pkSeed` and every `opt_rand`
-distribution, the advantage of an adversary against `shakeRomScheme` at `pkSeed` is at most the
-probability that, in the three-oracle run of `romScheme` against the verifying adversary
+distribution, the strong advantage of an adversary against `shakeRomScheme` at `pkSeed` is at most
+the probability that, in the three-oracle run of `romScheme` against the verifying adversary
 `verifyingAdv`, the forgery wins on the redirected verification (`RedirectedWins`), the
 message-`PRF` key is hit at `opt_rand = PK.seed` (`RunPrfKeyClash id pkSeed pkSeed`), or an
 honest replay fails off the linked points (`¬HonestOffLinked`). -/
-theorem shakeAdvantage_pure_le_verifyingAdv (h32 : vp.params.n = 32)
+theorem shakeStrongAdvantage_pure_le_verifyingAdv (h32 : vp.params.n = 32)
     (hnm : vp.params.n ≤ vp.params.m) (pkSeed : (shakeCore vp).PkSeed)
-    (adv : UnforgeableAdversary (shakeRomScheme vp optRand (pure pkSeed))) :
-    shakeAdvantage vp adv ≤
+    (adv : StrongUnforgeableAdversary (shakeRomScheme vp optRand (pure pkSeed))) :
+    shakeStrongAdvantage vp adv ≤
       Pr{let z ← romSchemeRun (shakeCore vp) (Equiv.refl _) optRand (pure pkSeed)
-          (verifyingAdv vp h32.le hnm adv)}[
+          (verifyingAdv vp h32.le hnm adv.toUnforgeableAdversary)}[
         (RedirectedWins vp z ∨ RunPrfKeyClash id pkSeed pkSeed z) ∨ ¬HonestOffLinked vp z] := by
-  refine (shakeAdvantage_pure_le_linkedRomScheme h32.le hnm pkSeed adv).trans ?_
+  refine (shakeStrongAdvantage_pure_le_linkedRomScheme h32.le hnm pkSeed adv).trans ?_
   refine prEvent_run_withVerify_le_prEvent_run_withPost (hashSpec (shakeCore vp)).romImpl
     (romScheme (shakeCore vp) (Equiv.refl _) optRand (pure pkSeed))
-    (linkedRouteAdv vp h32.le hnm adv)
+    (linkedRouteAdv vp h32.le hnm adv.toUnforgeableAdversary)
     (fun pk out => liftPub (redirectedVerify vp pk out.1 out.2)) ∅ _ _ fun z hz hP r hr => ?_
   obtain ⟨hseed, hprov, hset, hlink, hver⟩ := honestReplays_of_mem_support_run_linkedRomScheme
     _ (fun _ q h t ht => by rcases h with ⟨-, h⟩ | ⟨M, rfl⟩; exacts [h t ht, by cases ht; exact id])
-    (allQueriesSatisfy_linkedRouteAdv_main h32.le hnm adv) hz
+    (allQueriesSatisfy_linkedRouteAdv_main h32.le hnm _) hz
   replace hseed : z.1.pk.pkSeed = pkSeed := by simpa using hseed
   have hshape : ∀ q, (z.2 q).isSome →
       shakeRoute vp (IsHonestKey vp (shakeCore vp)) z.1.pk.pkSeed (encode vp q) = some q ∨
@@ -502,8 +508,7 @@ theorem shakeAdvantage_pure_le_verifyingAdv (h32 : vp.params.n = 32)
   have hle : z.2 ≤ r.2 :=
     le_snd_of_mem_support_run_unifFwdImpl_add_withCaching uniformSampleImpl _ hr
   rcases hP with hw | hcl
-  · obtain ⟨hfresh, hv⟩ := (UnforgeableTranscript.strongWins_eq_true_iff _).1
-      (UnforgeableTranscript.strongWins_of_wins hw)
+  · obtain ⟨hfresh, hv⟩ := (UnforgeableTranscript.strongWins_eq_true_iff _).1 hw
     rw [hv] at hver
     exact Or.inl (Or.inl ⟨hfresh, QueryCache.simulateQ_toPartialImpl_mono
       (QueryCache.fst_mono hle) _ hver⟩)

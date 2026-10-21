@@ -153,7 +153,7 @@ and bounds the forging advantage in it:
 
 | Result | Theorem | Module |
 |---|---|---|
-| SLH-DSA over one SHAKE256 random oracle on byte strings with `m`-byte answers, every hash a query at its FIPS 205 §11.1 layout; the advantage, and its averaging over the public seed | `shakeRomScheme`, `shakeAdvantage`, `shakeAdvantage_le_lintegral` | `Security/ByteModel.lean` |
+| SLH-DSA over one SHAKE256 random oracle on byte strings with `m`-byte answers, every hash a query at its FIPS 205 §11.1 layout; the advantage, and its averaging over the public seed | `shakeRomScheme`, `shakeAdvantage`, `shakeStrongAdvantage_le_lintegral` | `Security/ByteModel.lean` |
 | Answering that oracle with SHAKE256 gives the library's FIPS 205 SHAKE internal algorithms, in both signing modes and for every public-seed distribution | `shakeRomScheme_map_shakeAnswer`, `shakeRomScheme_map_shakeAnswer_validatedParams` | `Security/ByteConformance.lean` |
 | Those internal algorithms reproduce NIST ACVP-Server vectors (commit `975de31e`) at SLH-DSA-SHAKE-128f: keyGen test case 31, internal-interface sigGen test cases 137 (deterministic) and 448 (hedged), sigVer test cases 223 and 219 | `slhdsa_byte_model_tests` | `HashSigTest/SLHDSA/ByteModel.lean`, `ByteModelVectors/vectors.json` |
 | The forging advantage over one SHAKE256 oracle, per public seed, for `16 ≤ n ≤ 32`, `n ≤ m` and address fields within their FIPS 205 widths (`CanonicalAddressBounds`): at most `securityBound p 2^{8n} 2 1 q_h q_s + (q_s + 1) / 2^{8n} + weakKeyMass vp PK.seed`, in both signing modes | `shakeAdvantage_pure_le_securityBound` | `Security/ByteBound.lean` |

@@ -12,8 +12,9 @@ public import HashSig.SLHDSA.Security.ByteConformance
 /-!
 # The single-SHAKE256 run as a prefix of the verifying run, checked
 
-`HashSig.SLHDSA.Security.ByteLinkedRun` bounds the advantage against SLH-DSA over one SHAKE256
-oracle at `n = 32` by an event of the run against the verifying adversary. This file checks it.
+`HashSig.SLHDSA.Security.ByteLinkedRun` bounds the strong advantage against SLH-DSA over one
+SHAKE256 oracle at `n = 32` by an event of the run against the verifying adversary. This file checks
+it.
 
 * **At SLH-DSA-SHAKE-256s** the bound holds at every public seed, for any `opt_rand`, with the
   verifying adversary of an adversary making `2 ^ 64` hash and `2 ^ 64` signing queries making
@@ -43,16 +44,16 @@ abbrev vp256s : ValidatedParams := FipsParameterSet.validatedParams .SLHDSA_SHAK
 /-- **The headline with a concrete budget.** -/
 example {optRand : PublicKeyCore (shakeCore vp256s) → ProbComp (shakeCore vp256s).Y}
     (pkSeed : (shakeCore vp256s).PkSeed)
-    (adv : UnforgeableAdversary (shakeRomScheme vp256s optRand (pure pkSeed)))
+    (adv : StrongUnforgeableAdversary (shakeRomScheme vp256s optRand (pure pkSeed)))
     (hadv : adv.RomQueryBound (2 ^ 64) (2 ^ 64)) :
-    shakeAdvantage vp256s adv ≤
+    shakeStrongAdvantage vp256s adv ≤
         Pr{let z ← romSchemeRun (shakeCore vp256s) (Equiv.refl _) optRand (pure pkSeed)
-            (verifyingAdv vp256s (by decide) (by decide) adv)}[
+            (verifyingAdv vp256s (by decide) (by decide) adv.toUnforgeableAdversary)}[
           (RedirectedWins vp256s z ∨ RunPrfKeyClash id pkSeed pkSeed z) ∨
             ¬HonestOffLinked vp256s z] ∧
-      (verifyingAdv vp256s (by decide) (by decide) adv).RomQueryBound
+      (verifyingAdv vp256s (by decide) (by decide) adv.toUnforgeableAdversary).RomQueryBound
         (2 ^ 64 + GeneralScheme.verifyInternalQueryBound vp256s.params) (2 ^ 64) :=
-  ⟨shakeAdvantage_pure_le_verifyingAdv rfl (by decide) pkSeed adv,
+  ⟨shakeStrongAdvantage_pure_le_verifyingAdv rfl (by decide) pkSeed adv,
     romQueryBound_verifyingAdv _ _ hadv⟩
 
 /-- **The root event needs a weak seed.** -/

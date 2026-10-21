@@ -455,7 +455,7 @@ theorem lintegral_weakKeyMass_le (hn : 16 ≤ vp.params.n)
 /-- **The averaged bound with a seed-independent part.** For `16 ≤ n`, averaging `C` plus the
 weak-key mass times `D` over a uniform public seed gives at most `C + |A_hon| / 2^256 · D`. This is
 the shape in which a per-seed bound `C + weakKeyMass vp pkSeed * D` averages through
-`shakeAdvantage_le_lintegral`. -/
+`shakeStrongAdvantage_le_lintegral`. -/
 theorem lintegral_add_weakKeyMass_mul_le (hn : 16 ≤ vp.params.n)
     [MeasurableSpace (shakeCore vp).PkSeed] [DiscreteMeasurableSpace (shakeCore vp).PkSeed]
     (C D : ℝ≥0∞) :

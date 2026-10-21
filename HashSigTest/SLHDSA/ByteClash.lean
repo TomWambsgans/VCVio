@@ -20,7 +20,7 @@ FIPS 205.
 * **At the parameters of the 12 FIPS 205 parameter sets**, with `n ≤ 32`, `n ≤ m` and `16 ≤ n`
   discharged: the honest key generation, the routed forger's route-fixedness, the provenance of
   the tweakable-hash points, the classification, the weak-key `H_msg` event as a property of the
-  public key, and the bound on the advantage.
+  public key, and the bound on the strong advantage.
 * **The shape consumed downstream**: the bound splits into the probability of a win or a hit of
   the message-`PRF` key, `RunPrfKeyHit id pkSeed`, and the probability of BK.
 * **The ledger-indexed traces at another predicate**: the construction predicate
@@ -113,35 +113,36 @@ example (set : FipsParameterSet) {pkSeed : (shakeCore set.validatedParams).PkSee
     (h : HmsgAtWeakKey pkSeed pkRoot c) : IsWeakKey _ ⟨pkSeed, pkRoot⟩ :=
   isWeakKey_of_hmsgAtWeakKey set.sixteen_le_n h
 
-/-- The bound on the advantage, both signing modes. -/
+/-- The bound on the strong advantage, both signing modes. -/
 example (set : FipsParameterSet)
     (optRand : PublicKeyCore (shakeCore set.validatedParams) →
       ProbComp (shakeCore set.validatedParams).Y)
     (pkSeed : (shakeCore set.validatedParams).PkSeed)
-    (adv : UnforgeableAdversary (shakeRomScheme set.validatedParams optRand (pure pkSeed))) :
-    shakeAdvantage _ adv ≤
+    (adv : StrongUnforgeableAdversary (shakeRomScheme set.validatedParams optRand (pure pkSeed))) :
+    shakeStrongAdvantage _ adv ≤
       Pr{let z ← romSchemeRun (shakeCore set.validatedParams) (Equiv.refl _) optRand
-          (pure pkSeed) (routeAdv _ set.n_le_32 set.n_le_m adv)}[
-        (z.1.wins = true ∨ RunPrfKeyHit id pkSeed z) ∨ IsWeakKey _ z.1.pk] :=
-  shakeAdvantage_pure_le_wins_or_runPrfKeyHit_or_isWeakKey set.n_le_32 set.n_le_m
+          (pure pkSeed) (routeAdv _ set.n_le_32 set.n_le_m adv.toUnforgeableAdversary)}[
+        (z.1.strongWins = true ∨ RunPrfKeyHit id pkSeed z) ∨ IsWeakKey _ z.1.pk] :=
+  shakeStrongAdvantage_pure_le_strongWins_or_runPrfKeyHit_or_isWeakKey set.n_le_32 set.n_le_m
     set.sixteen_le_n pkSeed adv
 
 /-! ## The shape consumed downstream -/
 
-/-- The bound splits into the probability that the routed run wins or hits the message-`PRF` key,
-and the probability of BK. -/
+/-- The bound splits into the probability that the routed run wins strongly or hits the
+message-`PRF` key, and the probability of BK. -/
 example (set : FipsParameterSet)
     (optRand : PublicKeyCore (shakeCore set.validatedParams) →
       ProbComp (shakeCore set.validatedParams).Y)
     (pkSeed : (shakeCore set.validatedParams).PkSeed)
-    (adv : UnforgeableAdversary (shakeRomScheme set.validatedParams optRand (pure pkSeed))) :
-    shakeAdvantage _ adv ≤
+    (adv : StrongUnforgeableAdversary (shakeRomScheme set.validatedParams optRand (pure pkSeed))) :
+    shakeStrongAdvantage _ adv ≤
       Pr{let z ← romSchemeRun (shakeCore set.validatedParams) (Equiv.refl _) optRand
-          (pure pkSeed) (routeAdv _ set.n_le_32 set.n_le_m adv)}[
-        z.1.wins = true ∨ RunPrfKeyHit id pkSeed z] +
+          (pure pkSeed) (routeAdv _ set.n_le_32 set.n_le_m adv.toUnforgeableAdversary)}[
+        z.1.strongWins = true ∨ RunPrfKeyHit id pkSeed z] +
       Pr{let z ← romSchemeRun (shakeCore set.validatedParams) (Equiv.refl _) optRand
-          (pure pkSeed) (routeAdv _ set.n_le_32 set.n_le_m adv)}[IsWeakKey _ z.1.pk] :=
-  (shakeAdvantage_pure_le_wins_or_runPrfKeyHit_or_isWeakKey set.n_le_32 set.n_le_m
+          (pure pkSeed) (routeAdv _ set.n_le_32 set.n_le_m adv.toUnforgeableAdversary)}[
+        IsWeakKey _ z.1.pk] :=
+  (shakeStrongAdvantage_pure_le_strongWins_or_runPrfKeyHit_or_isWeakKey set.n_le_32 set.n_le_m
     set.sixteen_le_n pkSeed adv).trans (prEvent_or_le _ _ _)
 
 /-! ## The ledger-indexed traces at another predicate -/

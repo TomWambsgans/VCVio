@@ -25,8 +25,8 @@ with a further charge. This file checks it at SLH-DSA-SHAKE-256s, for an adversa
   with the trivial charge is
   `securityBound (2, 1) (qh + V) qs + 1 / |Y| + qs · ε · (qh + V + qs + 1) / |Y|`
   (`prEvent_romSchemeRun_verifyingAdv_le_hedged`).
-* **The hook.** With a further charge whose transport and budget hold, the advantage is at most
-  that bound plus the cost `κ`, here `(2 ^ 64 + 1) / |Y|`, in the deterministic form, and the
+* **The hook.** With a further charge whose transport and budget hold, the strong advantage is at
+  most that bound plus the cost `κ`, here `(2 ^ 64 + 1) / |Y|`, in the deterministic form, and the
   hedged form takes the same hook.
 * **The run point.** The run point of a deferred point is the rebuilt transcript on the merged
   cache, by definition.
@@ -187,45 +187,45 @@ theorem prEvent_romSchemeRun_verifyingAdv_le_hedged {vp : ValidatedParams}
 `(2 ^ 64 + 1) / |Y|` covering a further charge whose transport and budget hold. -/
 example {optRand : PublicKeyCore (shakeCore vp256s) → ProbComp (shakeCore vp256s).Y}
     {pkSeed : (shakeCore vp256s).PkSeed}
-    (adv : UnforgeableAdversary (shakeRomScheme vp256s optRand (pure pkSeed)))
+    (adv : StrongUnforgeableAdversary (shakeRomScheme vp256s optRand (pure pkSeed)))
     (hadv : adv.RomQueryBound (2 ^ 64) (2 ^ 64)) (χ : DeferredCharge (shakeCore vp256s) pkSeed)
-    (hX : χ.Charges (verifyingAdv vp256s (by decide) (by decide) adv)
+    (hX : χ.Charges (verifyingAdv vp256s (by decide) (by decide) adv.toUnforgeableAdversary)
       fun z ↦ VirtualHit vp256s z ∨ LinkedHonestInput vp256s z)
-    (hbud : χ.WithinBudget (verifyingAdv vp256s (by decide) (by decide) adv)
+    (hbud : χ.WithinBudget (verifyingAdv vp256s (by decide) (by decide) adv.toUnforgeableAdversary)
       (fun C ↦ hmsgCharge (shakeCore vp256s) C + (Nat.card (shakeCore vp256s).Y : ℝ≥0∞)⁻¹)
       ((2 * (((2 ^ 64 : ℕ) : ℝ≥0∞) + 2 * GeneralScheme.verifyInternalQueryBound vp256s.params) +
           ((2 ^ 64 : ℕ) : ℝ≥0∞) + 1) / Nat.card (shakeCore vp256s).Y +
         (((2 ^ 64 : ℕ) : ℝ≥0∞) + 1) / Nat.card (shakeCore vp256s).Y)) :
-    shakeAdvantage vp256s adv ≤
+    shakeStrongAdvantage vp256s adv ≤
       securityBound vp256s.params (Nat.card (shakeCore vp256s).Y) 2 1
           (2 ^ 64 + GeneralScheme.verifyInternalQueryBound vp256s.params) (2 ^ 64) +
         (((2 ^ 64 : ℕ) : ℝ≥0∞) + 1) / Nat.card (shakeCore vp256s).Y +
         (((2 ^ 64 : ℕ) : ℝ≥0∞) + 1) / Nat.card (shakeCore vp256s).Y :=
-  shakeAdvantage_pure_le_securityBound_add
+  shakeStrongAdvantage_pure_le_securityBound_add
     (fipsApprovedAddressBounds .SLHDSA_SHAKE_256s).toCanonicalAddressBounds rfl (by decide) adv
     hadv χ _ (div_natCard_ne_top (by simp)) hX hbud
 
 /-- **The hedged form takes the same hook.** -/
 example {optRand : PublicKeyCore (shakeCore vp256s) → ProbComp (shakeCore vp256s).Y}
     {pkSeed : (shakeCore vp256s).PkSeed}
-    (adv : UnforgeableAdversary (shakeRomScheme vp256s optRand (pure pkSeed)))
+    (adv : StrongUnforgeableAdversary (shakeRomScheme vp256s optRand (pure pkSeed)))
     (hadv : adv.RomQueryBound (2 ^ 64) (2 ^ 64)) {ε : ℝ≥0∞}
     (hε : ∀ pk, Pr{let r ← optRand pk}[r = pkSeed] ≤ ε)
     (χ : DeferredCharge (shakeCore vp256s) pkSeed) (κ : ℝ≥0∞) (hκ : κ ≠ ⊤)
-    (hX : χ.Charges (verifyingAdv vp256s (by decide) (by decide) adv)
+    (hX : χ.Charges (verifyingAdv vp256s (by decide) (by decide) adv.toUnforgeableAdversary)
       fun z ↦ VirtualHit vp256s z ∨ LinkedHonestInput vp256s z)
-    (hbud : χ.WithinBudget (verifyingAdv vp256s (by decide) (by decide) adv)
+    (hbud : χ.WithinBudget (verifyingAdv vp256s (by decide) (by decide) adv.toUnforgeableAdversary)
       (fun _ ↦ (Nat.card (shakeCore vp256s).Y : ℝ≥0∞)⁻¹)
       ((2 * (((2 ^ 64 : ℕ) : ℝ≥0∞) + 2 * GeneralScheme.verifyInternalQueryBound vp256s.params) +
           1) / Nat.card (shakeCore vp256s).Y + κ)) :
-    shakeAdvantage vp256s adv ≤
+    shakeStrongAdvantage vp256s adv ≤
       securityBound vp256s.params (Nat.card (shakeCore vp256s).Y) 2 1
           (2 ^ 64 + GeneralScheme.verifyInternalQueryBound vp256s.params) (2 ^ 64) +
         1 / Nat.card (shakeCore vp256s).Y +
         ((2 ^ 64 : ℕ) : ℝ≥0∞) * ε * (((2 ^ 64 + GeneralScheme.verifyInternalQueryBound
           vp256s.params : ℕ) : ℝ≥0∞) + ((2 ^ 64 : ℕ) : ℝ≥0∞) + 1) /
           Nat.card (shakeCore vp256s).Y + κ :=
-  shakeAdvantage_pure_le_securityBound_add_hedged
+  shakeStrongAdvantage_pure_le_securityBound_add_hedged
     (fipsApprovedAddressBounds .SLHDSA_SHAKE_256s).toCanonicalAddressBounds rfl (by decide) adv
     hadv hε χ κ hκ hX hbud
 

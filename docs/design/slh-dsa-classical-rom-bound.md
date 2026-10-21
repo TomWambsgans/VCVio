@@ -139,7 +139,7 @@ derivable point is at an honest key, so the kinds are disjoint for the target co
 hidden-value hit and the seed guess. The faithfulness theorem states its loss as an event of the
 typed run: a clash of two byte strings is a hit of the message-`PRF` key, joined into the
 potential, or a weak public key, charged separately
-(`shakeAdvantage_pure_le_wins_or_runPrfKeyHit_or_isWeakKey`,
+(`shakeStrongAdvantage_pure_le_strongWins_or_runPrfKeyHit_or_isWeakKey`,
 `HashSig/SLHDSA/Security/ByteClash.lean`). The forger's
 queries then cost at most `2·q_h / 2^{8n}`, and the verifier's are charged in the same potential
 (below). Both hazards are reachable at that rate, so an accounting that charges hazards rather than
@@ -172,7 +172,7 @@ for hedged and deterministic signing.
 For hedged signing a sharper statement is proved. A signer's `PRF_msg` string
 `SK.prf ‖ opt_rand ‖ M` clashes with an `H_msg` string only if its `opt_rand` equals `PK.seed`, so
 the clash classification keeps that condition (`RunPrfKeyClash`,
-`shakeAdvantage_pure_le_wins_or_runPrfKeyClash_or_isWeakKey`). After the seed hop the condition
+`shakeStrongAdvantage_pure_le_strongWins_or_runPrfKeyClash_or_isWeakKey`). After the seed hop the condition
 is a randomizer derivation at `opt_rand = PK.seed` in the ideal game, which depends on the run
 only: each signing query draws its `opt_rand` and makes one derivation with it, so the condition
 has probability at most `q_s · ε` when `Pr[opt_rand = PK.seed] ≤ ε`

@@ -12,11 +12,12 @@ public import HashSig.SLHDSA.Security.RunProvenance
 /-!
 # Classifying the SHAKE256 clashes of the routed run
 
-`HashSig.SLHDSA.Security.ByteRouter` bounds the advantage of an adversary against SLH-DSA over one
-SHAKE256 random oracle, at a fixed public seed `pkSeed`, by the probability that the run of the
-three-oracle scheme against the routed adversary wins or ends with a *clash*: two distinct cached
-typed queries with the same FIPS 205 §11.1 byte string (`shakeAdvantage_pure_le`). This module
-shows that on the support of that run a clash is one of three events:
+`HashSig.SLHDSA.Security.ByteRouter` bounds the strong advantage of an adversary against SLH-DSA
+over one SHAKE256 random oracle, at a fixed public seed `pkSeed`, by the probability that the run of
+the three-oracle scheme against the routed adversary wins strongly or ends with a *clash*: two
+distinct cached typed queries with the same FIPS 205 §11.1 byte string
+(`shakeStrongAdvantage_pure_le`). This module shows that on the support of that run a clash is one
+of three events:
 
 * **Fev with O**: the cache holds an `H_msg` point whose randomizer is `SK.prf` (Fev) and a
   `PRF_msg` point keyed by `SK.prf` whose `opt_rand` is `PK.seed` (O, `PrfMsgAt`);
@@ -62,11 +63,10 @@ clash has a point `q` that is not route-fixed, an honest `H_msg` or `PRF_msg` qu
 * `hmsgAtPrfKey_and_prfMsgAt_or_eq_or_hmsgAtWeakKey_of_clash`: the classification on a cache of
   known provenance;
 * `runPrfKeyClash_or_isWeakKey_of_clash`: the classification on the routed run;
-* `shakeAdvantage_pure_le_wins_or_runPrfKeyClash_or_isWeakKey`,
-  `shakeAdvantage_pure_le_wins_or_runPrfKeyHit_or_isWeakKey`: the advantage against the
-  single-oracle scheme is at most the probability that the routed run wins or fires Fev with O,
-  K1 or BK, and so Fev, K1 or BK.
--/
+* `shakeStrongAdvantage_pure_le_strongWins_or_runPrfKeyClash_or_isWeakKey`,
+  `shakeStrongAdvantage_pure_le_strongWins_or_runPrfKeyHit_or_isWeakKey`: the strong advantage
+  against the single-oracle scheme is at most the probability that the routed run wins or fires Fev
+  with O, K1 or BK, and so Fev, K1 or BK. -/
 
 public section
 
@@ -313,33 +313,34 @@ theorem runPrfKeyClash_or_isWeakKey_of_clash (hn16 : 16 ≤ vp.params.n)
   exact isWeakKey_of_hmsgAtWeakKey hn16 hw
 
 /-- **SLH-DSA over one SHAKE256 oracle: the faithfulness events, with the `opt_rand` of a
-`PRF_msg` clash.** At a fixed public seed and `16 ≤ n`, the forging advantage against
+`PRF_msg` clash.** At a fixed public seed and `16 ≤ n`, the strong forging advantage against
 `shakeRomScheme` is at most the probability that the run of the three-oracle scheme against the
-routed adversary wins or hits the message-`PRF` key at `opt_rand = PK.seed`
+routed adversary wins strongly or hits the message-`PRF` key at `opt_rand = PK.seed`
 (`RunPrfKeyClash id pkSeed pkSeed`: Fev with O, or K1), or has a weak public key (BK). -/
-theorem shakeAdvantage_pure_le_wins_or_runPrfKeyClash_or_isWeakKey (hn16 : 16 ≤ vp.params.n)
-    (pkSeed : (shakeCore vp).PkSeed)
-    (adv : UnforgeableAdversary (shakeRomScheme vp optRand (pure pkSeed))) :
-    shakeAdvantage vp adv ≤
+theorem shakeStrongAdvantage_pure_le_strongWins_or_runPrfKeyClash_or_isWeakKey
+    (hn16 : 16 ≤ vp.params.n) (pkSeed : (shakeCore vp).PkSeed)
+    (adv : StrongUnforgeableAdversary (shakeRomScheme vp optRand (pure pkSeed))) :
+    shakeStrongAdvantage vp adv ≤
       Pr{let z ← romSchemeRun (shakeCore vp) (Equiv.refl _) optRand (pure pkSeed)
-          (routeAdv vp hn hnm adv)}[
-        (z.1.wins = true ∨ RunPrfKeyClash id pkSeed pkSeed z) ∨ IsWeakKey vp z.1.pk] :=
-  (shakeAdvantage_pure_le hn hnm pkSeed adv).trans <| prEvent_mono_of_support _ _ _
+          (routeAdv vp hn hnm adv.toUnforgeableAdversary)}[
+        (z.1.strongWins = true ∨ RunPrfKeyClash id pkSeed pkSeed z) ∨ IsWeakKey vp z.1.pk] :=
+  (shakeStrongAdvantage_pure_le hn hnm pkSeed adv).trans <| prEvent_mono_of_support _ _ _
     fun _ hz h => h.elim (fun h => Or.inl (Or.inl h)) fun h =>
-      (runPrfKeyClash_or_isWeakKey_of_clash hn hnm hn16 pkSeed adv hz h).imp_left Or.inr
+      (runPrfKeyClash_or_isWeakKey_of_clash hn hnm hn16 pkSeed _ hz h).imp_left Or.inr
 
 /-- **SLH-DSA over one SHAKE256 oracle: the faithfulness events.** At a fixed public seed and
-`16 ≤ n`, the forging advantage against `shakeRomScheme` is at most the probability that the run of
-the three-oracle scheme against the routed adversary wins or hits the message-`PRF` key
-(`RunPrfKeyHit id pkSeed`: Fev or K1), or has a weak public key (BK). -/
-theorem shakeAdvantage_pure_le_wins_or_runPrfKeyHit_or_isWeakKey (hn16 : 16 ≤ vp.params.n)
-    (pkSeed : (shakeCore vp).PkSeed)
-    (adv : UnforgeableAdversary (shakeRomScheme vp optRand (pure pkSeed))) :
-    shakeAdvantage vp adv ≤
+`16 ≤ n`, the strong forging advantage against `shakeRomScheme` is at most the probability that the
+run of the three-oracle scheme against the routed adversary wins strongly or hits the message-`PRF`
+key (`RunPrfKeyHit id pkSeed`: Fev or K1), or has a weak public key (BK). -/
+theorem shakeStrongAdvantage_pure_le_strongWins_or_runPrfKeyHit_or_isWeakKey
+    (hn16 : 16 ≤ vp.params.n) (pkSeed : (shakeCore vp).PkSeed)
+    (adv : StrongUnforgeableAdversary (shakeRomScheme vp optRand (pure pkSeed))) :
+    shakeStrongAdvantage vp adv ≤
       Pr{let z ← romSchemeRun (shakeCore vp) (Equiv.refl _) optRand (pure pkSeed)
-          (routeAdv vp hn hnm adv)}[
-        (z.1.wins = true ∨ RunPrfKeyHit id pkSeed z) ∨ IsWeakKey vp z.1.pk] :=
-  (shakeAdvantage_pure_le_wins_or_runPrfKeyClash_or_isWeakKey hn hnm hn16 pkSeed adv).trans <|
+          (routeAdv vp hn hnm adv.toUnforgeableAdversary)}[
+        (z.1.strongWins = true ∨ RunPrfKeyHit id pkSeed z) ∨ IsWeakKey vp z.1.pk] :=
+  (shakeStrongAdvantage_pure_le_strongWins_or_runPrfKeyClash_or_isWeakKey hn hnm hn16 pkSeed
+    adv).trans <|
     prEvent_mono _ _ _ fun _ => Or.imp_left (Or.imp_right (Or.imp_left And.left))
 
 end Run

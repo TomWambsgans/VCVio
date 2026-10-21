@@ -12,10 +12,10 @@ public import HashSig.SLHDSA.Security.HonestTransfer
 /-!
 # The bad events of the verifying run, read through the linked redirect
 
-At `n = 32`, for a fixed public seed and every `opt_rand` distribution, the advantage against
+At `n = 32`, for a fixed public seed and every `opt_rand` distribution, the strong advantage against
 SLH-DSA over one SHAKE256 oracle is at most the probability of an event of the three-oracle run
 of `romScheme` against the verifying adversary `verifyingAdv`
-(`shakeAdvantage_pure_le_viewEvents`), a disjunction of
+(`shakeStrongAdvantage_pure_le_viewEvents`), a disjunction of
 
 * `RunTargetCollision`: a same-address target collision on the run's public-hash cache `C`;
 * `RunHiddenHitMixed`: a hidden-value hit whose forger replay is read on the view
@@ -53,7 +53,7 @@ honestly to `C` off the linked points (`HonestTransfer`), which splits the bridg
 *The splits*: `targetCollision_or_virtualHit_of_viewBy`, `bad_event_of_redirectedWins`,
 `linkedHonestInput_of_not_honestOffLinked`.
 
-*The headline*: `shakeAdvantage_pure_le_viewEvents`.
+*The headline*: `shakeStrongAdvantage_pure_le_viewEvents`.
 
 *Weak seeds*: `not_virtualHit_and_not_linkedHonestInput`.
 -/
@@ -186,25 +186,24 @@ theorem linkedHonestInput_of_not_honestOffLinked
 
 /-! ## The headline -/
 
-/-- **SLH-DSA over one SHAKE256 oracle at `n = 32`, per public seed, by the events of the
-verifying run.** At `n = 32` and `n ≤ m`, for every public seed `pkSeed` and every `opt_rand`
-distribution, the advantage of an adversary against `shakeRomScheme` at `pkSeed` is at most the
-probability that, in the three-oracle run of `romScheme` against the verifying adversary
-`verifyingAdv`, there is a target collision on the public-hash cache or a mixed hidden-value hit
-on its view through the linked redirect, the message-`PRF` key is hit at `opt_rand = PK.seed`, a
-virtual hit, an honest input at a linked point, or interleaved-target coverage at a fresh `H_msg`
-point. -/
-theorem shakeAdvantage_pure_le_viewEvents
+/-- **SLH-DSA over one SHAKE256 oracle at `n = 32`, per public seed, by the events of the verifying
+run.** At `n = 32` and `n ≤ m`, for every public seed `pkSeed` and every `opt_rand` distribution,
+the strong advantage of an adversary against `shakeRomScheme` at `pkSeed` is at most the probability
+that, in the three-oracle run of `romScheme` against the verifying adversary `verifyingAdv`, there
+is a target collision on the public-hash cache or a mixed hidden-value hit on its view through the
+linked redirect, the message-`PRF` key is hit at `opt_rand = PK.seed`, a virtual hit, an honest
+input at a linked point, or interleaved-target coverage at a fresh `H_msg` point. -/
+theorem shakeStrongAdvantage_pure_le_viewEvents
     {optRand : PublicKeyCore (shakeCore vp) → ProbComp (shakeCore vp).Y}
     (h32 : vp.params.n = 32) (hnm : vp.params.n ≤ vp.params.m) (pkSeed : (shakeCore vp).PkSeed)
-    (adv : UnforgeableAdversary (shakeRomScheme vp optRand (pure pkSeed))) :
-    shakeAdvantage vp adv ≤
+    (adv : StrongUnforgeableAdversary (shakeRomScheme vp optRand (pure pkSeed))) :
+    shakeStrongAdvantage vp adv ≤
       Pr{let z ← romSchemeRun (shakeCore vp) (Equiv.refl _) optRand (pure pkSeed)
-          (verifyingAdv vp h32.le hnm adv)}[
+          (verifyingAdv vp h32.le hnm adv.toUnforgeableAdversary)}[
         ((RunTargetCollision (shakeCore vp) (Equiv.refl _) z ∨ RunHiddenHitMixed vp z) ∨
           (RunPrfKeyClash id pkSeed pkSeed z ∨ VirtualHit vp z ∨ LinkedHonestInput vp z)) ∨
         RunItsrCovered (shakeCore vp) z] := by
-  refine (shakeAdvantage_pure_le_verifyingAdv h32 hnm pkSeed adv).trans
+  refine (shakeStrongAdvantage_pure_le_verifyingAdv h32 hnm pkSeed adv).trans
     (prEvent_mono_of_support _ _ _ fun z hz h => ?_)
   by_cases ho : HonestOffLinked vp z
   · rcases h with (hw | hk) | hn

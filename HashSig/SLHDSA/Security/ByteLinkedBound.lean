@@ -14,14 +14,14 @@ public import HashSig.SLHDSA.Security.HedgedKeyBound
 # The events of the verifying run, bounded with a further charge
 
 At `n = 32`, for a fixed public seed and every `opt_rand` distribution,
-`HashSig.SLHDSA.Security.ByteLinkedView` bounds the advantage against SLH-DSA over one SHAKE256
-oracle by the probability of an event of the three-oracle run of `romScheme` against the verifying
-adversary `verifyingAdv`: a target collision or a mixed hidden-value hit (`RunHiddenHitMixed`), a
-clash of the message-`PRF` key at `opt_rand = PK.seed` (`RunPrfKeyClash`), a virtual hit
-(`VirtualHit`), an honest input at a linked point (`LinkedHonestInput`), or interleaved-target
-coverage. This module bounds that event in one game hop and one potential, in both signing modes,
-with the virtual hit and the honest input at a linked point charged by a further charge that the
-caller supplies. It is a classical random-oracle statement; nothing here is quantum.
+`HashSig.SLHDSA.Security.ByteLinkedView` bounds the strong advantage against SLH-DSA over one
+SHAKE256 oracle by the probability of an event of the three-oracle run of `romScheme` against the
+verifying adversary `verifyingAdv`: a target collision or a mixed hidden-value hit
+(`RunHiddenHitMixed`), a clash of the message-`PRF` key at `opt_rand = PK.seed` (`RunPrfKeyClash`),
+a virtual hit (`VirtualHit`), an honest input at a linked point (`LinkedHonestInput`), or
+interleaved-target coverage. This module bounds that event in one game hop and one potential, in
+both signing modes, with the virtual hit and the honest input at a linked point charged by a further
+charge that the caller supplies. It is a classical random-oracle statement; nothing here is quantum.
 
 ## The bound
 
@@ -49,10 +49,11 @@ the key clash, `X` or coverage with probability at most
   when `optRand pk = PK.seed` with probability at most `ε` at every public key
   (`prEvent_romSchemeRun_verifyingAdv_le_add_hedged`),
 
-and with `X` the virtual hit or the honest input at a linked point, so does the advantage
-(`shakeAdvantage_pure_le_securityBound_add`, `shakeAdvantage_pure_le_securityBound_add_hedged`).
-With no further event or charge, the first is `securityBound vp.params |Y| 2 1 (qh + V) qs +
-(qs + 1) / |Y|` (`prEvent_romSchemeRun_verifyingAdv_le`).
+and with `X` the virtual hit or the honest input at a linked point, so does the strong advantage
+(`shakeStrongAdvantage_pure_le_securityBound_add`,
+`shakeStrongAdvantage_pure_le_securityBound_add_hedged`). With no further event or charge, the first
+is `securityBound vp.params |Y| 2 1 (qh + V) qs + (qs + 1) / |Y|`
+(`prEvent_romSchemeRun_verifyingAdv_le`).
 
 The first game hop is applied once, to the whole event, and the joint potential is spent once:
 the mixed hidden-value hit is a conflict or a seed hazard of the deferred run
@@ -380,53 +381,54 @@ theorem prEvent_romSchemeRun_verifyingAdv_le (hd : (shakeCore vp).KeyDiscipline 
 virtual hit or the honest input at a linked point, off the seed hazard, imply at every point of
 the deferred lab run against the verifying adversary, its end fill and drawn seeds, a conflict, a
 target collision at a node key or a hazard of a further charge `χ`, and let `κ` cover `χ` on top
-of the joint budget of the message-`PRF` key. Then the advantage of the adversary against
+of the joint budget of the message-`PRF` key. Then the strong advantage of the adversary against
 `shakeRomScheme` at `pkSeed` is at most
 `securityBound vp.params |Y| 2 1 (qh + V) qs + (qs + 1) / |Y| + κ`. -/
-theorem shakeAdvantage_pure_le_securityBound_add (hb : CanonicalAddressBounds vp.params)
+theorem shakeStrongAdvantage_pure_le_securityBound_add (hb : CanonicalAddressBounds vp.params)
     (h32 : vp.params.n = 32) (hnm : vp.params.n ≤ vp.params.m)
-    (adv : UnforgeableAdversary (shakeRomScheme vp optRand (pure pkSeed))) {qh qs : ℕ}
+    (adv : StrongUnforgeableAdversary (shakeRomScheme vp optRand (pure pkSeed))) {qh qs : ℕ}
     (hadv : adv.RomQueryBound qh qs) (χ : DeferredCharge (shakeCore vp) pkSeed) (κ : ℝ≥0∞)
     (hκ : κ ≠ ⊤)
-    (hX : χ.Charges (verifyingAdv vp h32.le hnm adv)
+    (hX : χ.Charges (verifyingAdv vp h32.le hnm adv.toUnforgeableAdversary)
       fun z ↦ VirtualHit vp z ∨ LinkedHonestInput vp z)
-    (hbud : χ.WithinBudget (verifyingAdv vp h32.le hnm adv)
+    (hbud : χ.WithinBudget (verifyingAdv vp h32.le hnm adv.toUnforgeableAdversary)
       (fun C ↦ hmsgCharge (shakeCore vp) C + (Nat.card (shakeCore vp).Y : ℝ≥0∞)⁻¹)
       ((2 * ((qh : ℝ≥0∞) + 2 * GeneralScheme.verifyInternalQueryBound vp.params) + qs + 1) /
         Nat.card (shakeCore vp).Y + κ)) :
-    shakeAdvantage vp adv ≤
+    shakeStrongAdvantage vp adv ≤
       securityBound vp.params (Nat.card (shakeCore vp).Y) 2 1
           (qh + GeneralScheme.verifyInternalQueryBound vp.params) qs +
         ((qs : ℝ≥0∞) + 1) / Nat.card (shakeCore vp).Y + κ :=
-  (shakeAdvantage_pure_le_viewEvents h32 hnm pkSeed adv).trans
-    (prEvent_romSchemeRun_verifyingAdv_le_add (keyDiscipline_shakePrimitives vp hb) h32 hnm adv
-      hadv _ χ κ hκ hX hbud)
+  (shakeStrongAdvantage_pure_le_viewEvents h32 hnm pkSeed adv).trans
+    (prEvent_romSchemeRun_verifyingAdv_le_add (keyDiscipline_shakePrimitives vp hb) h32 hnm
+      adv.toUnforgeableAdversary hadv _ χ κ hκ hX hbud)
 
 /-- **SLH-DSA over one SHAKE256 oracle at `n = 32`, per public seed, with a further charge, hedged
-form.** As `shakeAdvantage_pure_le_securityBound_add`, with `optRand pk` equal to `PK.seed` with
-probability at most `ε` at every public key and `κ` covering `χ` on top of the joint budget of the
-fixed key: the advantage is at most
+form.** As `shakeStrongAdvantage_pure_le_securityBound_add`, with `optRand pk` equal to `PK.seed`
+with probability at most `ε` at every public key and `κ` covering `χ` on top of the joint budget of
+the fixed key: the strong advantage is at most
 `securityBound vp.params |Y| 2 1 (qh + V) qs + 1 / |Y| + qs · ε · (qh + V + qs + 1) / |Y| + κ`. -/
-theorem shakeAdvantage_pure_le_securityBound_add_hedged (hb : CanonicalAddressBounds vp.params)
-    (h32 : vp.params.n = 32) (hnm : vp.params.n ≤ vp.params.m)
-    (adv : UnforgeableAdversary (shakeRomScheme vp optRand (pure pkSeed))) {qh qs : ℕ}
+theorem shakeStrongAdvantage_pure_le_securityBound_add_hedged
+    (hb : CanonicalAddressBounds vp.params) (h32 : vp.params.n = 32)
+    (hnm : vp.params.n ≤ vp.params.m)
+    (adv : StrongUnforgeableAdversary (shakeRomScheme vp optRand (pure pkSeed))) {qh qs : ℕ}
     (hadv : adv.RomQueryBound qh qs) {ε : ℝ≥0∞}
     (hε : ∀ pk, Pr{let r ← optRand pk}[r = pkSeed] ≤ ε)
     (χ : DeferredCharge (shakeCore vp) pkSeed) (κ : ℝ≥0∞) (hκ : κ ≠ ⊤)
-    (hX : χ.Charges (verifyingAdv vp h32.le hnm adv)
+    (hX : χ.Charges (verifyingAdv vp h32.le hnm adv.toUnforgeableAdversary)
       fun z ↦ VirtualHit vp z ∨ LinkedHonestInput vp z)
-    (hbud : χ.WithinBudget (verifyingAdv vp h32.le hnm adv)
+    (hbud : χ.WithinBudget (verifyingAdv vp h32.le hnm adv.toUnforgeableAdversary)
       (fun _ ↦ (Nat.card (shakeCore vp).Y : ℝ≥0∞)⁻¹)
       ((2 * ((qh : ℝ≥0∞) + 2 * GeneralScheme.verifyInternalQueryBound vp.params) + 1) /
         Nat.card (shakeCore vp).Y + κ)) :
-    shakeAdvantage vp adv ≤
+    shakeStrongAdvantage vp adv ≤
       securityBound vp.params (Nat.card (shakeCore vp).Y) 2 1
           (qh + GeneralScheme.verifyInternalQueryBound vp.params) qs +
         1 / Nat.card (shakeCore vp).Y +
         qs * ε * (((qh + GeneralScheme.verifyInternalQueryBound vp.params : ℕ) : ℝ≥0∞) + qs +
           1) / Nat.card (shakeCore vp).Y + κ :=
-  (shakeAdvantage_pure_le_viewEvents h32 hnm pkSeed adv).trans
+  (shakeStrongAdvantage_pure_le_viewEvents h32 hnm pkSeed adv).trans
     (prEvent_romSchemeRun_verifyingAdv_le_add_hedged (keyDiscipline_shakePrimitives vp hb) h32 hnm
-      adv hadv hε _ χ κ hκ hX hbud)
+      adv.toUnforgeableAdversary hadv hε _ χ κ hκ hX hbud)
 
 end SLHDSA.Security

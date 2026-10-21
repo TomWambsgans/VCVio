@@ -13,8 +13,9 @@ import all HashSigTest.SLHDSA.ByteLinkedRun
 /-!
 # The bad events of the verifying run, read through the linked redirect, checked
 
-`HashSig.SLHDSA.Security.ByteLinkedView` bounds the advantage against SLH-DSA over one SHAKE256
-oracle at `n = 32` by the events of the run against the verifying adversary. This file checks it.
+`HashSig.SLHDSA.Security.ByteLinkedView` bounds the strong advantage against SLH-DSA over one
+SHAKE256 oracle at `n = 32` by the events of the run against the verifying adversary. This file
+checks it.
 
 * **At SLH-DSA-SHAKE-256s** the bound holds at every public seed, for any `opt_rand`; when the
   adversary makes `2 ^ 64` hash and `2 ^ 64` signing queries, the verifying adversary makes
@@ -43,18 +44,18 @@ open Concrete Security WeakKeyBoundTest
 /-- **The headline with a concrete budget.** -/
 example {optRand : PublicKeyCore (shakeCore vp256s) → ProbComp (shakeCore vp256s).Y}
     (pkSeed : (shakeCore vp256s).PkSeed)
-    (adv : UnforgeableAdversary (shakeRomScheme vp256s optRand (pure pkSeed)))
+    (adv : StrongUnforgeableAdversary (shakeRomScheme vp256s optRand (pure pkSeed)))
     (hadv : adv.RomQueryBound (2 ^ 64) (2 ^ 64)) :
-    shakeAdvantage vp256s adv ≤
+    shakeStrongAdvantage vp256s adv ≤
         Pr{let z ← romSchemeRun (shakeCore vp256s) (Equiv.refl _) optRand (pure pkSeed)
-            (verifyingAdv vp256s (by decide) (by decide) adv)}[
+            (verifyingAdv vp256s (by decide) (by decide) adv.toUnforgeableAdversary)}[
           ((RunTargetCollision (shakeCore vp256s) (Equiv.refl _) z ∨ RunHiddenHitMixed vp256s z) ∨
             (RunPrfKeyClash id pkSeed pkSeed z ∨ VirtualHit vp256s z ∨
               LinkedHonestInput vp256s z)) ∨
           RunItsrCovered (shakeCore vp256s) z] ∧
-      (verifyingAdv vp256s (by decide) (by decide) adv).RomQueryBound
+      (verifyingAdv vp256s (by decide) (by decide) adv.toUnforgeableAdversary).RomQueryBound
         (2 ^ 64 + GeneralScheme.verifyInternalQueryBound vp256s.params) (2 ^ 64) :=
-  ⟨shakeAdvantage_pure_le_viewEvents rfl (by decide) pkSeed adv,
+  ⟨shakeStrongAdvantage_pure_le_viewEvents rfl (by decide) pkSeed adv,
     romQueryBound_verifyingAdv _ _ hadv⟩
 
 /-! ## Off a weak seed -/

@@ -79,9 +79,9 @@ keeps the budget of `adv` (`romQueryBound_routeAdv`).
 
 ## Main statements
 
-* `shakeAdvantage_pure_le`: at a fixed public seed, the advantage of an adversary against
-  `shakeRomScheme` is at most the probability that the run of `romScheme` against the routed
-  adversary wins or ends with two distinct cached typed queries of the same encoding.
+* `shakeStrongAdvantage_pure_le`: at a fixed public seed, the strong advantage of an adversary
+  against `shakeRomScheme` is at most the probability that the run of `romScheme` against the routed
+  adversary wins strongly or ends with two distinct cached typed queries of the same encoding.
 * `romQueryBound_routeAdv`: the routed adversary keeps the budget.
 * `encode_eq_of_shakeRoute_eq_some`, `isSome_shakeRoute_encode`, and the route-fixedness lemmas,
   for the router at any key predicate (`shakeRoute_encode_thash`, `shakeRoute_encode_hmsg`,
@@ -562,29 +562,31 @@ section Bound
 
 variable {optRand : PublicKeyCore (shakeCore vp) → ProbComp (shakeCore vp).Y}
 
-/-- The advantage against `shakeRomScheme` is the probability that the transcript of its
-experiment, run in the random oracle model of the single oracle from the empty cache, wins. -/
-theorem shakeAdvantage_eq {pkSeedDist : ProbComp (shakeCore vp).PkSeed}
-    (adv : UnforgeableAdversary (shakeRomScheme vp optRand pkSeedDist)) :
-    shakeAdvantage vp adv = Pr{let z ← (simulateQ (shakeSpec vp).romImpl
-      (unforgeableTranscriptExperiment adv)).run ∅}[z.1.wins = true] := by
-  rw [prEvent_eq_evalDist_decide, shakeAdvantage_def, unforgeableAdvantage,
-    ProbCompRuntime.rom_evalDist, ← map_wins_unforgeableTranscriptExperiment]
+/-- The strong advantage against `shakeRomScheme` is the probability that the transcript of its
+experiment, run in the random oracle model of the single oracle from the empty cache, wins
+strongly. -/
+theorem shakeStrongAdvantage_eq {pkSeedDist : ProbComp (shakeCore vp).PkSeed}
+    (adv : StrongUnforgeableAdversary (shakeRomScheme vp optRand pkSeedDist)) :
+    shakeStrongAdvantage vp adv = Pr{let z ← (simulateQ (shakeSpec vp).romImpl
+      (unforgeableTranscriptExperiment adv.toUnforgeableAdversary)).run ∅}[
+        z.1.strongWins = true] := by
+  rw [prEvent_eq_evalDist_decide, shakeStrongAdvantage_def, strongUnforgeableAdvantage,
+    ProbCompRuntime.rom_evalDist, ← map_strongWins_unforgeableTranscriptExperiment]
   congr 1
   simp only [simulateQ_map, StateT.run'_eq, StateT.run_map, Functor.map_map, bind_pure_comp,
     Bool.decide_eq_true]
 
-/-- **SLH-DSA over one SHAKE256 oracle, routed.** At a fixed public seed, the forging advantage of
-an adversary against `shakeRomScheme` is at most the probability that, in the run of the
-three-oracle scheme against the routed adversary, the transcript wins or two distinct cached typed
-queries have the same SHAKE256 input string (`RandomOracleEncoding.Clash`). -/
-theorem shakeAdvantage_pure_le (hn : vp.params.n ≤ 32) (hnm : vp.params.n ≤ vp.params.m)
+/-- **SLH-DSA over one SHAKE256 oracle, routed.** At a fixed public seed, the strong forging
+advantage of an adversary against `shakeRomScheme` is at most the probability that, in the run of
+the three-oracle scheme against the routed adversary, the transcript wins strongly or two distinct
+cached typed queries have the same SHAKE256 input string (`RandomOracleEncoding.Clash`). -/
+theorem shakeStrongAdvantage_pure_le (hn : vp.params.n ≤ 32) (hnm : vp.params.n ≤ vp.params.m)
     (pkSeed : (shakeCore vp).PkSeed)
-    (adv : UnforgeableAdversary (shakeRomScheme vp optRand (pure pkSeed))) :
-    shakeAdvantage vp adv ≤
+    (adv : StrongUnforgeableAdversary (shakeRomScheme vp optRand (pure pkSeed))) :
+    shakeStrongAdvantage vp adv ≤
       Pr{let z ← romSchemeRun (shakeCore vp) (Equiv.refl _) optRand (pure pkSeed)
-          (routeAdv vp hn hnm adv)}[
-        z.1.wins = true ∨ (shakeEncoding vp hn hnm pkSeed).Clash z.2] := by
+          (routeAdv vp hn hnm adv.toUnforgeableAdversary)}[
+        z.1.strongWins = true ∨ (shakeEncoding vp hn hnm pkSeed).Clash z.2] := by
   have hE : ∀ z ∈ support (romScheme (shakeCore vp) (Equiv.refl _) optRand (pure pkSeed)).keygen,
       shakeEncoding vp hn hnm z.1.pkSeed = shakeEncoding vp hn hnm pkSeed := fun _ hz =>
     congrArg (shakeEncoding vp hn hnm) (pkSeed_eq_of_mem_support_romScheme_keygen _ _ hz)
@@ -594,10 +596,10 @@ theorem shakeAdvantage_pure_le (hn : vp.params.n ≤ 32) (hnm : vp.params.n ≤ 
     RandomOracleEncoding.prEvent_simulateQ_romImpl_run_unforgeableTranscriptExperiment_le
       (shakeEncoding vp hn hnm pkSeed) a
       (Ek := fun pk : PublicKeyCore (shakeCore vp) => shakeEncoding vp hn hnm pk.pkSeed) hE
-      (fun o => o.wins = true)
+      (fun o => o.strongWins = true)
   rw [encodeImpl_shakeEncoding_compose_liftTypedImpl] at h
-  rw [shakeAdvantage_eq]
-  exact h adv
+  rw [shakeStrongAdvantage_eq]
+  exact h adv.toUnforgeableAdversary
 
 end Bound
 
