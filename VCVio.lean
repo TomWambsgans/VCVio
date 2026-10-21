@@ -125,6 +125,7 @@ public import VCVio.CryptoFoundations.MerkleTree.HashForest.Binary
 public import VCVio.CryptoFoundations.MerkleTree.HashForest.Defs
 public import VCVio.CryptoFoundations.MerkleTree.Hashing.Binding
 public import VCVio.CryptoFoundations.MerkleTree.Hashing.Defs
+public import VCVio.CryptoFoundations.MerkleTree.Hashing.Encoding
 public import VCVio.CryptoFoundations.MerkleTree.Inductive.Batch.Addressed
 public import VCVio.CryptoFoundations.MerkleTree.Inductive.Batch.Completeness
 public import VCVio.CryptoFoundations.MerkleTree.Inductive.Batch.Defs
@@ -143,6 +144,7 @@ public import VCVio.CryptoFoundations.MerkleTree.Inductive.Extractor
 public import VCVio.CryptoFoundations.MerkleTree.Inductive.QueryBound
 public import VCVio.CryptoFoundations.MerkleTree.Inductive.Uniqueness
 public import VCVio.CryptoFoundations.MerkleTree.Instability
+public import VCVio.CryptoFoundations.MerkleTree.LabelledPath
 public import VCVio.CryptoFoundations.MerkleTree.MultiExtractability.DelayedObservation
 public import VCVio.CryptoFoundations.MerkleTree.MultiExtractability.Endgame
 public import VCVio.CryptoFoundations.MerkleTree.MultiExtractability.Evolution
@@ -159,6 +161,8 @@ public import VCVio.CryptoFoundations.MerkleTree.MultiExtractability.SequentialB
 public import VCVio.CryptoFoundations.MerkleTree.MultiExtractability.Stateful
 public import VCVio.CryptoFoundations.MerkleTree.MultiExtractability.StrongBound
 public import VCVio.CryptoFoundations.MerkleTree.MultiExtractability.Targets
+public import VCVio.CryptoFoundations.MerkleTree.OrderedResolver
+public import VCVio.CryptoFoundations.MerkleTree.Recovery
 public import VCVio.CryptoFoundations.MerkleTree.Salted.Commutativity
 public import VCVio.CryptoFoundations.MerkleTree.Salted.Conditions
 public import VCVio.CryptoFoundations.MerkleTree.Salted.Defs
