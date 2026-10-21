@@ -20,13 +20,13 @@ distribution of the public seed, the uniform one of FIPS 205 included. The bound
   (`prEvent_romSchemeRun_runTargetCollision_or_runHiddenHit_le`,
   `HashSig/SLHDSA/Security/JointBound.lean`). With the union bound split after the first game hop,
   the forging advantage is at most that term plus the probability of interleaved-target coverage in
-  the ideal hidden-seed game (`unforgeableAdvantage_romScheme_pure_le_add_idealDraw`), in which
+  the ideal hidden-seed game (`strongUnforgeableAdvantage_romScheme_pure_le_add_idealDraw`), in which
   every secret value and randomizer is sampled independently of the public answers;
 - the coverage term `(q_h + 1) · weightedTargetCoverBound h a k q_s q_h (q_s / 2^{8n})`, which
   bounds that coverage probability (`prEvent_idealDraw_runItsrCovered_le`).
 
 The same bound with the coverage probability of the run in place of the ideal one
-(`unforgeableAdvantage_romScheme_pure_le_add`) also holds, but for deterministic signing its
+(`strongUnforgeableAdvantage_romScheme_pure_le_add`) also holds, but for deterministic signing its
 coverage term is not bounded at the size of the target's coverage term
 ([Coverage after the seed hop](#coverage-after-the-seed-hop)).
 
@@ -76,10 +76,10 @@ the only hypothesis (`shakeAdvantage_pure_le_securityBound_validatedParams`,
 `FipsParameterSet` values, a SHA-2 value contributing only its parameters, which equal its SHAKE
 twin's. The `(q_s + 1) / 2^{8n}` term is the
 faithfulness hook, charged jointly with the three-oracle events
-(`prEvent_romSchemeRun_wins_or_runPrfKeyHit_le`, `HashSig/SLHDSA/Security/PrfKeyBound.lean`); the
+(`prEvent_romSchemeRun_strongWins_or_runPrfKeyHit_le`, `HashSig/SLHDSA/Security/PrfKeyBound.lean`); the
 weak-key term is bounded per seed and averaged in `HashSig/SLHDSA/Security/WeakKeyBound.lean`, and
 at `n = 32` replaced at the weak seeds by the bound at every seed.
-The hedged terms are `prEvent_romSchemeRun_wins_or_runPrfKeyClash_le`
+The hedged terms are `prEvent_romSchemeRun_strongWins_or_runPrfKeyClash_le`
 (`HashSig/SLHDSA/Security/HedgedKeyBound.lean`).
 
 **Oracle output length (modelling choice).** The oracle answers every string with `m` bytes, the
@@ -128,7 +128,7 @@ verifier query charged by its kind. The generic joint potential is
 instantiation for the target collision, the hidden-value hit and the seed guess is proved
 (`HashSig/SLHDSA/Security/JointBound.lean`, through the event transport of
 `HashSig/SLHDSA/Security/Transport.lean`), and so is the faithfulness hook (`Fev`), which joins
-the faithfulness event into the same potential (`prEvent_romSchemeRun_wins_or_runPrfKeyHit_le`,
+the faithfulness event into the same potential (`prEvent_romSchemeRun_strongWins_or_runPrfKeyHit_le`,
 `HashSig/SLHDSA/Security/PrfKeyBound.lean`). A query at an honest (ledger) key under `PK.seed`
 causes at most two unit hazards: its input can equal a hidden value, or its fresh answer can
 equal the honest answer. A query at a secret-derivable point (a `PRF` key or `PRF_msg`) causes
@@ -198,7 +198,7 @@ the coverage probability of the run is not bounded by the coverage term of `secu
 guess itself is a seed guess, which the joint term already charges.
 
 A proof that bounds coverage as a separate summand therefore takes it after the seed hop, in the
-ideal hidden-seed game, as `unforgeableAdvantage_romScheme_pure_le_add_idealDraw` does. There the
+ideal hidden-seed game, as `strongUnforgeableAdvantage_romScheme_pure_le_add_idealDraw` does. There the
 coverage event reads only the `H_msg` answers of the public cache, and its probability does not
 depend on the secret seeds (`prEvent_idealDraw_runItsrCovered_eq`). A forger can still query a
 signer's `H_msg` point before the signer does, by guessing the signer's fresh randomizer, so the

@@ -17,7 +17,7 @@ At every SHAKE bundle whose address fields fit their FIPS 205 widths, the node t
 message-`PRF` key type and the public-seed type are all `n`-byte strings, and a uniform `opt_rand`
 equals the public seed with probability `1 / 256 ^ n`.
 
-* With `opt_rand` uniform, the run of a forger wins, or caches an `H_msg` point at `SK.prf`
+* With `opt_rand` uniform, the run of a forger wins strongly, or caches an `H_msg` point at `SK.prf`
   together with a `PRF_msg` point keyed by `SK.prf` at `opt_rand = PK.seed`, or has
   `SK.prf = PK.seed`, with probability at most
   `securityBound vp.params (256 ^ n) 2 1 qh qs + 1 / 256 ^ n + qs (qh + qs + 1) / 256 ^ (2 n)`.
@@ -36,7 +36,7 @@ namespace SLHDSA.HedgedKeyBoundTest
 open Concrete Security BundleTest
 
 /-- At every SHAKE bundle whose address fields fit their widths, with `opt_rand` uniform, a forger
-with budgets `qh` and `qs` wins or hits the message-`PRF` key at `opt_rand = PK.seed` with
+with budgets `qh` and `qs` wins strongly or hits the message-`PRF` key at `opt_rand = PK.seed` with
 probability at most
 `securityBound vp.params (256 ^ n) 2 1 qh qs + 1 / 256 ^ n + qs (qh + qs + 1) / 256 ^ (2 n)`. -/
 example (vp : ValidatedParams) (hb : CanonicalAddressBounds vp.params)
@@ -44,12 +44,12 @@ example (vp : ValidatedParams) (hb : CanonicalAddressBounds vp.params)
     {adv : UnforgeableAdversary (romScheme (shakeCore vp) e (fun _ => $ᵗ (shakeCore vp).Y)
       (pure pkSeed))} {qh qs : ℕ} (hadv : adv.RomQueryBound qh qs) :
     Pr{let z ← romSchemeRun (shakeCore vp) e (fun _ => $ᵗ (shakeCore vp).Y) (pure pkSeed) adv}[
-      z.1.wins = true ∨ RunPrfKeyClash id pkSeed pkSeed z] ≤
+      z.1.strongWins = true ∨ RunPrfKeyClash id pkSeed pkSeed z] ≤
     securityBound vp.params (256 ^ vp.params.n) 2 1 qh qs + 1 / (256 ^ vp.params.n : ℕ) +
       qs * ((256 ^ vp.params.n : ℕ) : ℝ≥0∞)⁻¹ *
         (((qh : ℝ≥0∞) + qs + 1) / ((256 ^ vp.params.n : ℕ) : ℝ≥0∞)) := by
   rw [← natCard_shakePrimitives_y]
-  exact prEvent_romSchemeRun_wins_or_runPrfKeyClash_le (shakePrimitives_byteLaws vp.params)
+  exact prEvent_romSchemeRun_strongWins_or_runPrfKeyClash_le (shakePrimitives_byteLaws vp.params)
     (keyDiscipline_shakePrimitives vp hb) le_rfl e _ pkSeed Function.injective_id pkSeed
     (fun _ => (SampleableType.prEvent_uniformSample_eq_singleton_natCard _).le) hadv
 

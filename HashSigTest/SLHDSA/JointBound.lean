@@ -67,41 +67,42 @@ theorem prEvent_romSchemeRun_sha2_le (vp : ValidatedParams)
   exact prEvent_romSchemeRun_runTargetCollision_or_runHiddenHit_le
     (keyDiscipline_sha2Primitives vp hb) le_rfl e optRand pkSeed hadv
 
-/-- At every SHAKE bundle whose address fields fit their widths, the forging advantage at a fixed
-public seed is at most `2 (qh + V) / 256 ^ n` plus the probability of interleaved-target coverage
-in the ideal hidden-seed game, read on the rebuilt transcript and the merged cache. -/
+/-- At every SHAKE bundle whose address fields fit their widths, the strong forging advantage at a
+fixed public seed is at most `2 (qh + V) / 256 ^ n` plus the probability of interleaved-target
+coverage in the ideal hidden-seed game, read on the rebuilt transcript and the merged cache. -/
 example (vp : ValidatedParams) (hb : CanonicalAddressBounds vp.params)
     (e : (shakeCore vp).SkSeed ≃ (shakeCore vp).Y)
     (optRand : PublicKeyCore (shakeCore vp) → ProbComp (shakeCore vp).Y)
     (pkSeed : (shakeCore vp).PkSeed)
-    {adv : UnforgeableAdversary (romScheme (shakeCore vp) e optRand (pure pkSeed))} {qh qs : ℕ}
-    (hadv : adv.RomQueryBound qh qs) :
-    unforgeableAdvantage (ProbCompRuntime.rom (hashSpec (shakeCore vp))) adv ≤
+    {adv : StrongUnforgeableAdversary (romScheme (shakeCore vp) e optRand (pure pkSeed))}
+    {qh qs : ℕ} (hadv : adv.RomQueryBound qh qs) :
+    strongUnforgeableAdvantage (ProbCompRuntime.rom (hashSpec (shakeCore vp))) adv ≤
       2 * ((qh : ℝ≥0∞) + GeneralScheme.verifyInternalQueryBound vp.params) /
         ((256 ^ vp.params.n : ℕ) : ℝ≥0∞) +
-      Pr{let w ← idealDraw e optRand pkSeed adv}[
+      Pr{let w ← idealDraw e optRand pkSeed adv.toUnforgeableAdversary}[
         RunItsrCovered (shakeCore vp) (DeriveOutcome.fill (shakeCore vp) w.1 w.2.1,
           (secretEncoding (shakeCore vp) e pkSeed).merge w.1 w.2.2)] := by
   rw [← natCard_shakePrimitives_y]
-  exact unforgeableAdvantage_romScheme_pure_le_add_idealDraw (shakePrimitives_byteLaws vp.params)
-    (keyDiscipline_shakePrimitives vp hb) le_rfl e optRand pkSeed hadv
+  exact strongUnforgeableAdvantage_romScheme_pure_le_add_idealDraw
+    (shakePrimitives_byteLaws vp.params) (keyDiscipline_shakePrimitives vp hb) le_rfl e optRand
+    pkSeed hadv
 
-/-- At every SHAKE bundle whose address fields fit their widths, the forging advantage at a fixed
-public seed is at most `2 (qh + V) / 256 ^ n` plus the probability of interleaved-target
+/-- At every SHAKE bundle whose address fields fit their widths, the strong forging advantage at a
+fixed public seed is at most `2 (qh + V) / 256 ^ n` plus the probability of interleaved-target
 coverage. -/
 example (vp : ValidatedParams) (hb : CanonicalAddressBounds vp.params)
     (e : (shakeCore vp).SkSeed ≃ (shakeCore vp).Y)
     (optRand : PublicKeyCore (shakeCore vp) → ProbComp (shakeCore vp).Y)
     (pkSeed : (shakeCore vp).PkSeed)
-    {adv : UnforgeableAdversary (romScheme (shakeCore vp) e optRand (pure pkSeed))} {qh qs : ℕ}
-    (hadv : adv.RomQueryBound qh qs) :
-    unforgeableAdvantage (ProbCompRuntime.rom (hashSpec (shakeCore vp))) adv ≤
+    {adv : StrongUnforgeableAdversary (romScheme (shakeCore vp) e optRand (pure pkSeed))}
+    {qh qs : ℕ} (hadv : adv.RomQueryBound qh qs) :
+    strongUnforgeableAdvantage (ProbCompRuntime.rom (hashSpec (shakeCore vp))) adv ≤
       2 * ((qh : ℝ≥0∞) + GeneralScheme.verifyInternalQueryBound vp.params) /
         ((256 ^ vp.params.n : ℕ) : ℝ≥0∞) +
-      Pr{let z ← romSchemeRun (shakeCore vp) e optRand (pure pkSeed) adv}[
+      Pr{let z ← romSchemeRun (shakeCore vp) e optRand (pure pkSeed) adv.toUnforgeableAdversary}[
         RunItsrCovered (shakeCore vp) z] := by
   rw [← natCard_shakePrimitives_y]
-  exact unforgeableAdvantage_romScheme_pure_le_add (shakePrimitives_byteLaws vp.params)
+  exact strongUnforgeableAdvantage_romScheme_pure_le_add (shakePrimitives_byteLaws vp.params)
     (keyDiscipline_shakePrimitives vp hb) le_rfl e optRand pkSeed hadv
 
 /-- At SLH-DSA-SHAKE-128s, a target collision or a hidden-value hit of the run at a fixed public

@@ -38,12 +38,16 @@ bundle), queries `PRF_msg` for the randomizer and signs with every secret drawn 
 every secret value from `oracleSecret`, and signing draws its randomizer from the `PRF_msg` oracle,
 so an adversary learns a secret value only by querying the oracle at a secret seed.
 
-The advantage is VCVio's own `unforgeableAdvantage` under VCVio's own random-oracle runtime
-`ProbCompRuntime.rom (hashSpec core)`, from the empty cache. The adversary's budget is
-`UnforgeableAdversary.RomQueryBound adv qh qs`: at most `qh` hash queries, `PRF_msg` included, and
-at most `qs` signing queries on every path of its own program. The queries key generation, signing
-and verification make are not charged; `SignatureAlg.forgerCount_le_of_mem_support_run` counts the
-adversary's hash queries on every run of the experiment all the same. `RomOutcome` is the
+The advantage is VCVio's own strong unforgeability advantage `strongUnforgeableAdvantage` under
+VCVio's own random-oracle runtime `ProbCompRuntime.rom (hashSpec core)`, from the empty cache: the
+adversary wins with a valid pair of message and signature that the signing oracle never returned, so
+a second signature on a signed message counts. Existential unforgeability, a valid signature on a
+message never signed, is the weaker notion, and its advantage `unforgeableAdvantage` is at most the
+strong one (`unforgeableAdvantage_le_strongUnforgeableAdvantage`). The adversary's budget is
+`StrongUnforgeableAdversary.RomQueryBound adv qh qs`: at most `qh` hash queries, `PRF_msg` included,
+and at most `qs` signing queries on every path of its own program. The queries key generation,
+signing and verification make are not charged; `SignatureAlg.forgerCount_le_of_mem_support_run`
+counts the adversary's hash queries on every run of the experiment all the same. `RomOutcome` is the
 transcript of one execution, `SignatureAlg.UnforgeableTranscript` at the SLH-DSA types.
 
 ## The target
@@ -75,8 +79,9 @@ bundle with the constants fixed, since at a degenerate core — one whose node t
 element, say — the right-hand side reaches one and the target holds trivially.
 
 The target is stated **for each public seed**: its adversaries are those of `romScheme` at
-`pkSeedDist := pure pkSeed`. `unforgeableAdvantage_romScheme_le` recovers the bound for every
-distribution of the public seed, the uniform one of FIPS 205 included, by averaging over the seed.
+`pkSeedDist := pure pkSeed`. `strongUnforgeableAdvantage_romScheme_le` recovers the bound for every
+distribution of the public seed, the uniform one of FIPS 205 included, by averaging over the seed,
+and `unforgeableAdvantage_romScheme_le` is its existential form.
 The per-seed form is the one a comparison with a single-hash instantiation needs, since whether a
 forger-chosen string can also be read as a query of another oracle depends on the public seed.
 
@@ -219,16 +224,16 @@ theorem romScheme_verify (e : core.SkSeed ≃ core.Y)
     (romScheme core e optRand pkSeedDist).verify pk msg sig =
       GeneralScheme.verifyInternalM vp core msg sig pk := rfl
 
-/-- The unforgeability experiment of `romScheme` draws the public seed and then runs the
+/-- The strong unforgeability experiment of `romScheme` draws the public seed and then runs the
 experiment of `romScheme` at that seed, against the same adversary program. -/
-theorem unforgeableExperiment_romScheme (e : core.SkSeed ≃ core.Y)
+theorem strongUnforgeableExperiment_romScheme (e : core.SkSeed ≃ core.Y)
     (optRand : PublicKeyCore core → ProbComp core.Y) (pkSeedDist : ProbComp core.PkSeed)
-    (adv : UnforgeableAdversary (romScheme core e optRand pkSeedDist)) :
-    unforgeableExperiment adv =
+    (adv : StrongUnforgeableAdversary (romScheme core e optRand pkSeedDist)) :
+    strongUnforgeableExperiment adv =
       liftM pkSeedDist >>= fun pkSeed =>
-        unforgeableExperiment
-          (⟨adv.main⟩ : UnforgeableAdversary (romScheme core e optRand (pure pkSeed))) := by
-  simp only [unforgeableExperiment, romScheme, bind_assoc, liftM_pure, pure_bind]
+        strongUnforgeableExperiment
+          (⟨adv.main⟩ : StrongUnforgeableAdversary (romScheme core e optRand (pure pkSeed))) := by
+  simp only [strongUnforgeableExperiment, romScheme, bind_assoc, liftM_pure, pure_bind]
   rfl
 
 /-- The right-hand side of the security target for a node type of `card` elements: the coverage
@@ -244,22 +249,50 @@ values counting as coverers at weight `qs / card`, and `c / card` per adversary 
 variable [SampleableType core.Y] [SampleableType (Bytes vp.params.m)] [DecidableEq core.PkSeed]
   [DecidableEq core.AdrsKey] [DecidableEq core.SkPrf]
 
-/-- **The security target** at the constants `c` and `r`: for each public seed, every adversary
-against `romScheme` at that seed making at most `qh` hash queries and `qs` signing queries forges
-with probability at most `securityBound vp.params |Y| c r qh qs`: the weighted coverage term
-`(qh + 1) · weightedTargetCoverBound h a k qs qh (qs / |Y|)`, in which the digests of the `qs`
-signatures cover the target at weight one and the adversary's own `H_msg` values at weight
-`qs / |Y|`, plus `c / |Y|` per hash query and `(r + 1) / |Y|` per query of the verifier. -/
+/-- **The security target** at the constants `c` and `r`: for each public seed, every strong
+unforgeability adversary against `romScheme` at that seed making at most `qh` hash queries and `qs`
+signing queries outputs a valid pair of message and signature that the signing oracle never returned
+with probability at most `securityBound vp.params |Y| c r qh qs`: the weighted coverage term `(qh +
+1) · weightedTargetCoverBound h a k qs qh (qs / |Y|)`, in which the digests of the `qs` signatures
+cover the target at weight one and the adversary's own `H_msg` values at weight `qs / |Y|`, plus `c
+/ |Y|` per hash query and `(r + 1) / |Y|` per query of the verifier. -/
 @[expose] def SecurityTarget (e : core.SkSeed ≃ core.Y)
     (optRand : PublicKeyCore core → ProbComp core.Y) (c r : ℕ) : Prop :=
-  ∀ (pkSeed : core.PkSeed) (adv : UnforgeableAdversary (romScheme core e optRand (pure pkSeed)))
-    (qh qs : ℕ), adv.RomQueryBound qh qs →
-      unforgeableAdvantage (ProbCompRuntime.rom (hashSpec core)) adv ≤
+  ∀ (pkSeed : core.PkSeed)
+    (adv : StrongUnforgeableAdversary (romScheme core e optRand (pure pkSeed))) (qh qs : ℕ),
+    adv.RomQueryBound qh qs →
+      strongUnforgeableAdvantage (ProbCompRuntime.rom (hashSpec core)) adv ≤
         securityBound vp.params (Nat.card core.Y) c r qh qs
 
 /-- **The target for every distribution of the public seed.** Averaging the per-seed bound over
-the seed: an adversary against `romScheme` with the public seed drawn from `pkSeedDist` making at
-most `qh` hash queries and `qs` signing queries forges with probability at most
+the seed: a strong unforgeability adversary against `romScheme` with the public seed drawn from
+`pkSeedDist` making at most `qh` hash queries and `qs` signing queries outputs a valid pair the
+signing oracle never returned with probability at most `securityBound vp.params |Y| c r qh qs`. -/
+theorem strongUnforgeableAdvantage_romScheme_le {e : core.SkSeed ≃ core.Y}
+    {optRand : PublicKeyCore core → ProbComp core.Y} {c r : ℕ}
+    (h : SecurityTarget core e optRand c r) (pkSeedDist : ProbComp core.PkSeed)
+    (adv : StrongUnforgeableAdversary (romScheme core e optRand pkSeedDist)) {qh qs : ℕ}
+    (hb : adv.RomQueryBound qh qs) :
+    strongUnforgeableAdvantage (ProbCompRuntime.rom (hashSpec core)) adv ≤
+      securityBound vp.params (Nat.card core.Y) c r qh qs := by
+  let _ : MeasurableSpace core.PkSeed := ⊤
+  rw [strongUnforgeableAdvantage, strongUnforgeableExperiment_romScheme,
+    ProbCompRuntime.rom_evalDist_bind_liftM,
+    Measure.bind_apply (measurableSet_singleton true) Measurable.of_discrete.aemeasurable]
+  calc ∫⁻ pkSeed, (ProbCompRuntime.rom (hashSpec core)).evalDist
+          (strongUnforgeableExperiment
+            (⟨adv.main⟩ : StrongUnforgeableAdversary (romScheme core e optRand (pure pkSeed))))
+            {true} ∂𝒟[pkSeedDist]
+      ≤ ∫⁻ _, securityBound vp.params (Nat.card core.Y) c r qh qs ∂𝒟[pkSeedDist] :=
+        lintegral_mono fun pkSeed => h pkSeed ⟨adv.main⟩ qh qs hb
+    _ = securityBound vp.params (Nat.card core.Y) c r qh qs * 𝒟[pkSeedDist] Set.univ :=
+        lintegral_const _
+    _ ≤ securityBound vp.params (Nat.card core.Y) c r qh qs :=
+        mul_le_of_le_one_right' (evalDist_apply_univ_le_one pkSeedDist)
+
+/-- **The target for every distribution of the public seed, existentially.** An adversary against
+`romScheme` with the public seed drawn from `pkSeedDist` making at most `qh` hash queries and `qs`
+signing queries forges a signature on a message never signed with probability at most
 `securityBound vp.params |Y| c r qh qs`. -/
 theorem unforgeableAdvantage_romScheme_le {e : core.SkSeed ≃ core.Y}
     {optRand : PublicKeyCore core → ProbComp core.Y} {c r : ℕ}
@@ -267,21 +300,9 @@ theorem unforgeableAdvantage_romScheme_le {e : core.SkSeed ≃ core.Y}
     (adv : UnforgeableAdversary (romScheme core e optRand pkSeedDist)) {qh qs : ℕ}
     (hb : adv.RomQueryBound qh qs) :
     unforgeableAdvantage (ProbCompRuntime.rom (hashSpec core)) adv ≤
-      securityBound vp.params (Nat.card core.Y) c r qh qs := by
-  let _ : MeasurableSpace core.PkSeed := ⊤
-  rw [unforgeableAdvantage, unforgeableExperiment_romScheme,
-    ProbCompRuntime.rom_evalDist_bind_liftM,
-    Measure.bind_apply (measurableSet_singleton true) Measurable.of_discrete.aemeasurable]
-  calc ∫⁻ pkSeed, (ProbCompRuntime.rom (hashSpec core)).evalDist
-          (unforgeableExperiment
-            (⟨adv.main⟩ : UnforgeableAdversary (romScheme core e optRand (pure pkSeed)))) {true}
-          ∂𝒟[pkSeedDist]
-      ≤ ∫⁻ _, securityBound vp.params (Nat.card core.Y) c r qh qs ∂𝒟[pkSeedDist] :=
-        lintegral_mono fun pkSeed => h pkSeed ⟨adv.main⟩ qh qs hb
-    _ = securityBound vp.params (Nat.card core.Y) c r qh qs * 𝒟[pkSeedDist] Set.univ :=
-        lintegral_const _
-    _ ≤ securityBound vp.params (Nat.card core.Y) c r qh qs :=
-        mul_le_of_le_one_right' (evalDist_apply_univ_le_one pkSeedDist)
+      securityBound vp.params (Nat.card core.Y) c r qh qs :=
+  (unforgeableAdvantage_le_strongUnforgeableAdvantage _ adv).trans
+    (strongUnforgeableAdvantage_romScheme_le core h pkSeedDist ⟨adv.main⟩ hb)
 
 end Security
 

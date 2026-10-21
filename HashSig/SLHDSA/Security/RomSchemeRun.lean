@@ -16,8 +16,9 @@ public import VCVio.CryptoFoundations.SignatureAlg.Transcript
 lazy random oracle for every hash, `PRF` and `PRF_msg` query, from the empty cache, together with
 the final cache.  The transcript is a `RomOutcome`, the type the events of
 `HashSig.SLHDSA.Security.RomDescentSecret` are stated over, and the success bit of the experiment
-is its `wins`, so the forging advantage in the random-oracle runtime is the probability that the
-run's transcript wins (`unforgeableAdvantage_romScheme_eq`).
+of the strong unforgeability experiment against the same program is its `strongWins`, so the strong
+forging advantage in the random-oracle runtime is the probability that the run's transcript wins
+strongly (`strongUnforgeableAdvantage_romScheme_eq`).
 
 `settled_of_mem_support_romSchemeRun` reads every honest computation of the run off the public-hash
 part of the final cache (`QueryCache.fst`): key generation at the oracle-backed provider settles
@@ -30,13 +31,13 @@ lemmas of `HashSig.SLHDSA.Security.CacheSecret`.
 ## Scope
 
 * The settled transcript is a statement about the support of `romSchemeRun`;
-  `unforgeableAdvantage_romScheme_eq` is an equality of masses. No probability is bounded.
+  `strongUnforgeableAdvantage_romScheme_eq` is an equality of masses. No probability is bounded.
 * The forger's own queries are not described; the final cache also holds them.
 * Nothing here is quantum.
 
 ## Labels
 
-*The run*: `romSchemeRun`, `unforgeableAdvantage_romScheme_eq`.
+*The run*: `romSchemeRun`, `strongUnforgeableAdvantage_romScheme_eq`.
 
 *Runs under the lazy oracle* (private): `simulateQ_fst_of_mem_support_run_romI`.
 
@@ -65,15 +66,16 @@ cache. -/
   (simulateQ (hashSpec core).romImpl
     (unforgeableTranscriptExperiment adv)).run ∅
 
-/-- The forging advantage against `romScheme` in the random-oracle runtime is the probability that
-the transcript of `romSchemeRun` wins. -/
-theorem unforgeableAdvantage_romScheme_eq (e : core.SkSeed ≃ core.Y)
+/-- The strong forging advantage against `romScheme` in the random-oracle runtime is the
+probability that the transcript of `romSchemeRun` against the same program wins strongly. -/
+theorem strongUnforgeableAdvantage_romScheme_eq (e : core.SkSeed ≃ core.Y)
     (optRand : PublicKeyCore core → ProbComp core.Y) (pkSeedDist : ProbComp core.PkSeed)
-    (adv : UnforgeableAdversary (romScheme core e optRand pkSeedDist)) :
-    unforgeableAdvantage (ProbCompRuntime.rom (hashSpec core)) adv =
-      Pr{let z ← romSchemeRun core e optRand pkSeedDist adv}[z.1.wins = true] := by
-  rw [prEvent_eq_evalDist_decide, unforgeableAdvantage, ProbCompRuntime.rom_evalDist,
-    ← map_wins_unforgeableTranscriptExperiment, romSchemeRun]
+    (adv : StrongUnforgeableAdversary (romScheme core e optRand pkSeedDist)) :
+    strongUnforgeableAdvantage (ProbCompRuntime.rom (hashSpec core)) adv =
+      Pr{let z ← romSchemeRun core e optRand pkSeedDist adv.toUnforgeableAdversary}[
+        z.1.strongWins = true] := by
+  rw [prEvent_eq_evalDist_decide, strongUnforgeableAdvantage, ProbCompRuntime.rom_evalDist,
+    ← map_strongWins_unforgeableTranscriptExperiment, romSchemeRun]
   congr 1
   simp only [simulateQ_map, StateT.run'_eq, StateT.run_map, Functor.map_map, bind_pure_comp,
     Bool.decide_eq_true]

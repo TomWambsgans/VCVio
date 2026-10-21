@@ -49,13 +49,17 @@ digest of a logged signature (`RunItsrCovered`) with probability at most
 
 ## The security target
 
-`prEvent_romSchemeRun_wins_or_le_add` adds the coverage bound to an ideal-game joint bound `B` on
-a forgery or a further event of the run. At the joint bound `2 (qh + V) / |Y|` of
+`prEvent_romSchemeRun_strongWins_or_le_add` adds the coverage bound to an ideal-game joint bound
+`B` on a strong win or a further event of the run. At the joint bound `2 (qh + V) / |Y|` of
 `prEvent_idealDraw_runTargetCollision_or_runHiddenHit_or_exists_isSome_le` this is
-`unforgeableAdvantage_romScheme_pure_le_securityBound`, which is `securityBound` at `c = 2` and
-`r = 1`. `securityTarget_two_one` restates it as
-`SecurityTarget core e optRand 2 1`, and `unforgeableAdvantage_romScheme_le_securityBound` averages
-it over any distribution of the public seed, the uniform one of FIPS 205 included.
+`strongUnforgeableAdvantage_romScheme_pure_le_securityBound`, which bounds the strong forging
+advantage (SUF-CMA) by `securityBound` at `c = 2` and `r = 1`. `securityTarget_two_one` restates
+it as `SecurityTarget core e optRand 2 1`, and
+`strongUnforgeableAdvantage_romScheme_le_securityBound` averages it over any distribution of the
+public seed, the uniform one of FIPS 205 included. The existential forms at the same bound,
+`unforgeableAdvantage_romScheme_pure_le_securityBound` and
+`unforgeableAdvantage_romScheme_le_securityBound`, follow through
+`unforgeableAdvantage_le_strongUnforgeableAdvantage`.
 
 ## Scope
 
@@ -292,9 +296,9 @@ theorem prEvent_idealDraw_runItsrCovered_le (e : core.SkSeed ≃ core.Y)
 public seed `pkSeed` fires, on the transcript rebuilt with the drawn seeds and the cache merged
 under them, a same-key target collision, a hidden-value hit or `P`, or holds a point encoding a
 derivation in its final public cache, with probability at most `B`, then the run of a forger with
-hash budget `qh` and signing budget `qs` wins or fires `P` with probability at most
+hash budget `qh` and signing budget `qs` wins strongly or fires `P` with probability at most
 `(qh + 1) · weightedTargetCoverBound h a k qs qh (qs / |Y|) + B`. -/
-theorem prEvent_romSchemeRun_wins_or_le_add (laws : core.ByteLaws)
+theorem prEvent_romSchemeRun_strongWins_or_le_add (laws : core.ByteLaws)
     (e : core.SkSeed ≃ core.Y) (optRand : PublicKeyCore core → ProbComp core.Y)
     (pkSeed : core.PkSeed) {adv : UnforgeableAdversary (romScheme core e optRand (pure pkSeed))}
     {qh qs : ℕ} (hadv : adv.RomQueryBound qh qs)
@@ -305,31 +309,32 @@ theorem prEvent_romSchemeRun_wins_or_le_add (laws : core.ByteLaws)
           (secretEncoding core e pkSeed).merge w.1 w.2.2)) ∨
         P (DeriveOutcome.fill core w.1 w.2.1, (secretEncoding core e pkSeed).merge w.1 w.2.2)) ∨
       ∃ x, (w.2.2.1 ((secretEncoding core e pkSeed).enc w.1 x)).isSome] ≤ B) :
-    Pr{let z ← romSchemeRun core e optRand (pure pkSeed) adv}[z.1.wins = true ∨ P z] ≤
+    Pr{let z ← romSchemeRun core e optRand (pure pkSeed) adv}[z.1.strongWins = true ∨ P z] ≤
       ((qh : ℝ≥0∞) + 1) * KeyedHash.Covering.weightedTargetCoverBound vp.params.h vp.params.a
         vp.params.k qs qh ((qs : ℝ≥0∞) / Nat.card core.Y) + B := by
   rw [add_comm]
-  exact (prEvent_romSchemeRun_wins_or_le_add_idealDraw laws e optRand pkSeed adv P hB).trans
+  exact (prEvent_romSchemeRun_strongWins_or_le_add_idealDraw laws e optRand pkSeed adv P hB).trans
     (add_le_add le_rfl (prEvent_idealDraw_runItsrCovered_le e optRand pkSeed hadv))
 
 /-- **SLH-DSA meets the security target at `c = 2` and `r = 1`, per public seed.** In the
 classical random-oracle model with three oracles (the tweakable hash, `H_msg` and `PRF_msg`),
-under the byte laws, the key discipline and `|Y| ≤ |SK.prf|`, the forging advantage against
+under the byte laws, the key discipline and `|Y| ≤ |SK.prf|`, the strong forging advantage against
 `romScheme` at public seed `pkSeed` of a forger making at most `qh` hash queries and `qs` signing
 queries is at most `securityBound vp.params |Y| 2 1 qh qs`:
 `(qh + 1) · weightedTargetCoverBound h a k qs qh (qs / |Y|) + 2 (qh + V) / |Y|`, with `V` the
 verifier's query bound. `optRand` is arbitrary, so this holds for hedged and deterministic
 signing, and the `H_msg` answers may be drawn by any uniform sampler of `Bytes m`. -/
-theorem unforgeableAdvantage_romScheme_pure_le_securityBound (laws : core.ByteLaws)
+theorem strongUnforgeableAdvantage_romScheme_pure_le_securityBound (laws : core.ByteLaws)
     (hd : core.KeyDiscipline vp) (hcard : Nat.card core.Y ≤ Nat.card core.SkPrf)
     (e : core.SkSeed ≃ core.Y) (optRand : PublicKeyCore core → ProbComp core.Y)
-    (pkSeed : core.PkSeed) {adv : UnforgeableAdversary (romScheme core e optRand (pure pkSeed))}
+    (pkSeed : core.PkSeed)
+    {adv : StrongUnforgeableAdversary (romScheme core e optRand (pure pkSeed))}
     {qh qs : ℕ} (hadv : adv.RomQueryBound qh qs) :
-    unforgeableAdvantage (ProbCompRuntime.rom (hashSpec core)) adv ≤
+    strongUnforgeableAdvantage (ProbCompRuntime.rom (hashSpec core)) adv ≤
       securityBound vp.params (Nat.card core.Y) 2 1 qh qs := by
-  rw [unforgeableAdvantage_romScheme_eq]
+  rw [strongUnforgeableAdvantage_romScheme_eq]
   refine (prEvent_mono _ _ _ fun _ ↦ Or.inl).trans
-    ((prEvent_romSchemeRun_wins_or_le_add laws e optRand pkSeed hadv (fun _ ↦ False)
+    ((prEvent_romSchemeRun_strongWins_or_le_add laws e optRand pkSeed hadv (fun _ ↦ False)
       ((prEvent_mono _ _ _ fun _ h ↦ h.imp_left fun h ↦ h.resolve_right id).trans
         (prEvent_idealDraw_runTargetCollision_or_runHiddenHit_or_exists_isSome_le hd hcard e
           optRand pkSeed hadv))).trans (le_of_eq ?_))
@@ -337,23 +342,55 @@ theorem unforgeableAdvantage_romScheme_pure_le_securityBound (laws : core.ByteLa
   push_cast
   ring
 
+/-- **SLH-DSA meets the security target at `c = 2` and `r = 1`, per public seed, existentially.**
+Under the hypotheses of `strongUnforgeableAdvantage_romScheme_pure_le_securityBound`, the forging
+advantage against `romScheme` at public seed `pkSeed` is at most
+`securityBound vp.params |Y| 2 1 qh qs`. -/
+theorem unforgeableAdvantage_romScheme_pure_le_securityBound (laws : core.ByteLaws)
+    (hd : core.KeyDiscipline vp) (hcard : Nat.card core.Y ≤ Nat.card core.SkPrf)
+    (e : core.SkSeed ≃ core.Y) (optRand : PublicKeyCore core → ProbComp core.Y)
+    (pkSeed : core.PkSeed) {adv : UnforgeableAdversary (romScheme core e optRand (pure pkSeed))}
+    {qh qs : ℕ} (hadv : adv.RomQueryBound qh qs) :
+    unforgeableAdvantage (ProbCompRuntime.rom (hashSpec core)) adv ≤
+      securityBound vp.params (Nat.card core.Y) 2 1 qh qs :=
+  (unforgeableAdvantage_le_strongUnforgeableAdvantage _ adv).trans
+    (strongUnforgeableAdvantage_romScheme_pure_le_securityBound laws hd hcard e optRand pkSeed
+      (adv := ⟨adv.main⟩) hadv)
+
 /-- **The security target of SLH-DSA at `c = 2` and `r = 1`.** In the classical random-oracle
 model with three oracles (the tweakable hash, `H_msg` and `PRF_msg`), under the byte laws, the key
 discipline and `|Y| ≤ |SK.prf|`, for every public seed, every forger against `romScheme` at that
-seed making at most `qh` hash queries and `qs` signing queries has forging advantage at most
+seed making at most `qh` hash queries and `qs` signing queries outputs a valid pair of message and
+signature that the signing oracle never returned with probability at most
 `securityBound vp.params |Y| 2 1 qh qs`, in both signing modes and at every uniform sampler of
 `Bytes m`. -/
 theorem securityTarget_two_one (laws : core.ByteLaws) (hd : core.KeyDiscipline vp)
     (hcard : Nat.card core.Y ≤ Nat.card core.SkPrf) (e : core.SkSeed ≃ core.Y)
     (optRand : PublicKeyCore core → ProbComp core.Y) :
     SecurityTarget core e optRand 2 1 := fun pkSeed _ _ _ hadv =>
-  unforgeableAdvantage_romScheme_pure_le_securityBound laws hd hcard e optRand pkSeed hadv
+  strongUnforgeableAdvantage_romScheme_pure_le_securityBound laws hd hcard e optRand pkSeed hadv
 
 /-- **The security bound for every distribution of the public seed.** In the classical
 random-oracle model with three oracles, under the byte laws, the key discipline and
-`|Y| ≤ |SK.prf|`, every forger against `romScheme` with the public seed drawn from `pkSeedDist`,
-the uniform draw of FIPS 205 included, making at most `qh` hash queries and `qs` signing queries
-has forging advantage at most `securityBound vp.params |Y| 2 1 qh qs`, in both signing modes. -/
+`|Y| ≤ |SK.prf|`, the strong forging advantage of every forger against `romScheme` with the public
+seed drawn from `pkSeedDist`, the uniform draw of FIPS 205 included, making at most `qh` hash
+queries and `qs` signing queries is at most `securityBound vp.params |Y| 2 1 qh qs`, in both
+signing modes. -/
+theorem strongUnforgeableAdvantage_romScheme_le_securityBound (laws : core.ByteLaws)
+    (hd : core.KeyDiscipline vp) (hcard : Nat.card core.Y ≤ Nat.card core.SkPrf)
+    (e : core.SkSeed ≃ core.Y) (optRand : PublicKeyCore core → ProbComp core.Y)
+    (pkSeedDist : ProbComp core.PkSeed)
+    (adv : StrongUnforgeableAdversary (romScheme core e optRand pkSeedDist)) {qh qs : ℕ}
+    (hadv : adv.RomQueryBound qh qs) :
+    strongUnforgeableAdvantage (ProbCompRuntime.rom (hashSpec core)) adv ≤
+      securityBound vp.params (Nat.card core.Y) 2 1 qh qs :=
+  strongUnforgeableAdvantage_romScheme_le core (securityTarget_two_one laws hd hcard e optRand)
+    pkSeedDist adv hadv
+
+/-- **The security bound for every distribution of the public seed, existentially.** Under the
+hypotheses of `strongUnforgeableAdvantage_romScheme_le_securityBound`, the forging advantage
+against `romScheme` with the public seed drawn from `pkSeedDist` is at most
+`securityBound vp.params |Y| 2 1 qh qs`. -/
 theorem unforgeableAdvantage_romScheme_le_securityBound (laws : core.ByteLaws)
     (hd : core.KeyDiscipline vp) (hcard : Nat.card core.Y ≤ Nat.card core.SkPrf)
     (e : core.SkSeed ≃ core.Y) (optRand : PublicKeyCore core → ProbComp core.Y)

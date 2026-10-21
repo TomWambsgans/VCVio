@@ -81,28 +81,28 @@ uniformly at each signature, as in FIPS 205's hedged signing, the second term be
 (`shakeAdvantage_pure_le_securityBound_hedged`, averaged `shakeAdvantage_le_securityBound_hedged`):
 a clash through a signer's `PRF_msg` string needs both some `opt_rand` equal to `PK.seed`, of
 probability at most `qs / |Y|`, and, independently, `SK.prf` equal to the randomizer of one of the
-at most `qh + qs + 1` `H_msg` points (`prEvent_romSchemeRun_wins_or_runPrfKeyClash_le`). For any
-`opt_rand` source that equals the public seed with probability at most `ε`, the second term is
-`1 / |Y| + qs ε (qh + qs + 1) / |Y|`
-(`shakeAdvantage_pure_le_securityBound_of_prEvent_optRand_le`). In hedged signing the bound at every
-seed at `n = 32` is `securityBound p |Y| 2 1 (qh + V) qs + 1 / |Y| + qs (qh + V + qs + 1) / |Y|^2 +`
-`(qs + 1) / |Y|`, and the averaged hedged bound has it as `ε` in the weak seeds' factor.
+at most `qh + qs + 1` `H_msg` points (`prEvent_romSchemeRun_strongWins_or_runPrfKeyClash_le`). For
+any `opt_rand` source that equals the public seed with probability at most `ε`, the second term is
+`1 / |Y| + qs ε (qh + qs + 1) / |Y|` (`shakeAdvantage_pure_le_securityBound_of_prEvent_optRand_le`).
+In hedged signing the bound at every seed at `n = 32` is `securityBound p |Y| 2 1 (qh + V) qs + 1 /
+|Y| + qs (qh + V + qs + 1) / |Y|^2 +` `(qs + 1) / |Y|`, and the averaged hedged bound has it as `ε`
+in the weak seeds' factor.
 
 ## The argument
 
-The routed adversary reads each byte string as a typed query of the three oracles and makes at
-most as many typed queries (`routeAdv`, `romQueryBound_routeAdv`). The advantage is at most the
+The routed adversary reads each byte string as a typed query of the three oracles and makes at most
+as many typed queries (`routeAdv`, `romQueryBound_routeAdv`). The advantage is at most the
 probability that its run against the three-oracle scheme wins, hits the message-`PRF` key
 (`RunPrfKeyHit`) or has a weak public key
 (`shakeAdvantage_pure_le_wins_or_runPrfKeyHit_or_isWeakKey`). The first two are bounded jointly
-(`prEvent_romSchemeRun_wins_or_runPrfKeyHit_le`); in hedged signing the hit carries the
+(`prEvent_romSchemeRun_strongWins_or_runPrfKeyHit_le`); in hedged signing the hit carries the
 `opt_rand = PK.seed` of the clashing `PRF_msg` string (`RunPrfKeyClash`,
-`shakeAdvantage_pure_le_wins_or_runPrfKeyClash_or_isWeakKey`) and is bounded with the product
-term instead (`prEvent_romSchemeRun_wins_or_runPrfKeyClash_le`). The weak key is bounded by the
-uniformity of the public root (`prEvent_romSchemeRun_isWeakKey_le`), and the average over the
-seed by `lintegral_add_weakKeyMass_mul_le`. Every side condition of the three-oracle bound holds
-for the SHAKE carriers: the byte laws, the key discipline under the FIPS 205 address widths, and
-`|Y| = |SK.prf|`.
+`shakeAdvantage_pure_le_wins_or_runPrfKeyClash_or_isWeakKey`) and is bounded with the product term
+instead (`prEvent_romSchemeRun_strongWins_or_runPrfKeyClash_le`). The weak key is bounded by the
+uniformity of the public root (`prEvent_romSchemeRun_isWeakKey_le`), and the average over the seed
+by `lintegral_add_weakKeyMass_mul_le`. Every side condition of the three-oracle bound holds for the
+SHAKE carriers: the byte laws, the key discipline under the FIPS 205 address widths, and `|Y| =
+|SK.prf|`.
 
 ## Main statements
 
@@ -164,9 +164,10 @@ theorem shakeAdvantage_pure_le_securityBound (hb : CanonicalAddressBounds vp.par
   rw [← natCard_shakePrimitives_y]
   exact (shakeAdvantage_pure_le_wins_or_runPrfKeyHit_or_isWeakKey hn hnm hn16 pkSeed adv).trans <|
     (prEvent_or_le _ _ _).trans <| add_le_add
-      (prEvent_romSchemeRun_wins_or_runPrfKeyHit_le (shakePrimitives_byteLaws vp.params)
+      ((prEvent_mono _ _ _ fun _ ↦ Or.imp_left UnforgeableTranscript.strongWins_of_wins).trans
+      (prEvent_romSchemeRun_strongWins_or_runPrfKeyHit_le (shakePrimitives_byteLaws vp.params)
         (keyDiscipline_shakePrimitives vp hb) le_rfl _ optRand pkSeed Function.injective_id
-        pkSeed (romQueryBound_routeAdv hn hnm hadv))
+        pkSeed (romQueryBound_routeAdv hn hnm hadv)))
       (prEvent_romSchemeRun_isWeakKey_le hb _ optRand pkSeed _)
 
 /-- **SLH-DSA over one SHAKE256 oracle, at a seed of weak-key mass zero.** For `16 ≤ n ≤ 32`,
@@ -224,9 +225,10 @@ theorem shakeAdvantage_pure_le_securityBound_of_prEvent_optRand_le
   rw [← natCard_shakePrimitives_y]
   exact (shakeAdvantage_pure_le_wins_or_runPrfKeyClash_or_isWeakKey hn hnm hn16 pkSeed
     adv).trans <| (prEvent_or_le _ _ _).trans <| add_le_add
-      (prEvent_romSchemeRun_wins_or_runPrfKeyClash_le (shakePrimitives_byteLaws vp.params)
+      ((prEvent_mono _ _ _ fun _ ↦ Or.imp_left UnforgeableTranscript.strongWins_of_wins).trans
+      (prEvent_romSchemeRun_strongWins_or_runPrfKeyClash_le (shakePrimitives_byteLaws vp.params)
         (keyDiscipline_shakePrimitives vp hb) le_rfl _ optRand pkSeed Function.injective_id
-        pkSeed hε (romQueryBound_routeAdv hn hnm hadv))
+        pkSeed hε (romQueryBound_routeAdv hn hnm hadv)))
       (prEvent_romSchemeRun_isWeakKey_le hb _ optRand pkSeed _)
 
 /-- **SLH-DSA over one SHAKE256 oracle with hedged signing, at a public seed.** For

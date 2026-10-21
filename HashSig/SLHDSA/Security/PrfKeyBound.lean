@@ -31,9 +31,9 @@ For a forger with hash budget `qh` and signing budget `qs`, under the key discip
 `|Y| ≤ |SK.prf|`, the joint term becomes `(2 (qh + V) + qs + 1) / |Y|`, with `V` the verifier's
 query bound, in the ideal hidden-seed game
 (`prEvent_idealDraw_runTargetCollision_or_runHiddenHit_or_runPrfKeyHit_or_exists_isSome_le`), and
-the run wins or fires `RunPrfKeyHit` with probability at most
+the run wins strongly or fires `RunPrfKeyHit` with probability at most
 `securityBound vp.params |Y| 2 1 qh qs + (qs + 1) / |Y|`
-(`prEvent_romSchemeRun_wins_or_runPrfKeyHit_le`).
+(`prEvent_romSchemeRun_strongWins_or_runPrfKeyHit_le`).
 
 The event transports along the landed chain of games to a hazard of the drawn secret seeds and the
 final public cache of the deferred lab run (`hmsgAtPrfKey_or_eq_of_runPrfKeyHit`; no merge changes
@@ -242,24 +242,23 @@ theorem prEvent_idealDraw_runTargetCollision_or_runHiddenHit_or_runPrfKeyHit_or_
     fun _ hz ↦ two_mul_encard_keyEntries_div_add_seedCharge_add_hmsgCharge_le_of_mem_support
       hd.keySeparated hadv hz
 
-/-- **The forging bound with a hit of the message-`PRF` key, per public seed.** Under the byte
-laws, the key discipline and `|Y| ≤ |SK.prf|`, for injective `toY`, a fixed key `k` and a forger
-with hash budget `qh` and signing budget `qs`, the run of SLH-DSA in the random-oracle model at
-public seed `pkSeed` wins or hits the message-`PRF` key (`RunPrfKeyHit`: an `H_msg` point at
-`SK.prf`, or `SK.prf = k`) with probability at most
-`securityBound vp.params |Y| 2 1 qh qs + (qs + 1) / |Y|`. The union is split after the first game
-hop, so the hit and a seed guess are charged once, inside the joint term
-`(2 (qh + V) + qs + 1) / |Y|`. -/
-theorem prEvent_romSchemeRun_wins_or_runPrfKeyHit_le (laws : core.ByteLaws)
+/-- **The forging bound with a hit of the message-`PRF` key, per public seed.** Under the byte laws,
+the key discipline and `|Y| ≤ |SK.prf|`, for injective `toY`, a fixed key `k` and a forger with hash
+budget `qh` and signing budget `qs`, the run of SLH-DSA in the random-oracle model at public seed
+`pkSeed` wins strongly or hits the message-`PRF` key (`RunPrfKeyHit`: an `H_msg` point at `SK.prf`,
+or `SK.prf = k`) with probability at most `securityBound vp.params |Y| 2 1 qh qs + (qs + 1) / |Y|`.
+The union is split after the first game hop, so the hit and a seed guess are charged once, inside
+the joint term `(2 (qh + V) + qs + 1) / |Y|`. -/
+theorem prEvent_romSchemeRun_strongWins_or_runPrfKeyHit_le (laws : core.ByteLaws)
     (hd : core.KeyDiscipline vp) (hcard : Nat.card core.Y ≤ Nat.card core.SkPrf)
     (e : core.SkSeed ≃ core.Y) (optRand : PublicKeyCore core → ProbComp core.Y)
     (pkSeed : core.PkSeed) {toY : core.SkPrf → core.Y} (htoY : Function.Injective toY)
     (k : core.SkPrf) {adv : UnforgeableAdversary (romScheme core e optRand (pure pkSeed))}
     {qh qs : ℕ} (hadv : adv.RomQueryBound qh qs) :
     Pr{let z ← romSchemeRun core e optRand (pure pkSeed) adv}[
-      z.1.wins = true ∨ RunPrfKeyHit toY k z] ≤
+      z.1.strongWins = true ∨ RunPrfKeyHit toY k z] ≤
     securityBound vp.params (Nat.card core.Y) 2 1 qh qs + ((qs : ℝ≥0∞) + 1) / Nat.card core.Y := by
-  refine (prEvent_romSchemeRun_wins_or_le_add laws e optRand pkSeed hadv _
+  refine (prEvent_romSchemeRun_strongWins_or_le_add laws e optRand pkSeed hadv _
     (prEvent_idealDraw_runTargetCollision_or_runHiddenHit_or_runPrfKeyHit_or_exists_isSome_le hd
       hcard e optRand pkSeed htoY k hadv)).trans (le_of_eq ?_)
   simp only [securityBound, ENNReal.div_eq_inv_mul]

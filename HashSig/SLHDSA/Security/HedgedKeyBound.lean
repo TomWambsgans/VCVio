@@ -26,21 +26,21 @@ and `k` are the public seed.
 ## The bound
 
 If `optRand pk` equals `o` with probability at most `ε` at every public key, a forger with hash
-budget `qh` and signing budget `qs` wins or fires `RunPrfKeyClash` with probability at most
+budget `qh` and signing budget `qs` wins strongly or fires `RunPrfKeyClash` with probability at most
 
 `securityBound vp.params |Y| 2 1 qh qs + 1 / |Y| + qs * ε * (qh + qs + 1) / |Y|`
 
-(`prEvent_romSchemeRun_wins_or_runPrfKeyClash_le`). For a uniform `opt_rand`, `ε = 1 / |Y|` and
-the last term is `qs (qh + qs + 1) / |Y|^2`, in place of the `qs / |Y|` that `RunPrfKeyHit`
+(`prEvent_romSchemeRun_strongWins_or_runPrfKeyClash_le`). For a uniform `opt_rand`, `ε = 1 / |Y|`
+and the last term is `qs (qh + qs + 1) / |Y|^2`, in place of the `qs / |Y|` that `RunPrfKeyHit`
 costs for the signer's `H_msg` points in every signing mode.
 
 ## The argument
 
 The event is moved to the ideal hidden-seed game `idealDraw` by the chain of games of
-`prEvent_romSchemeRun_wins_or_le_add`. There the merged cache reads a `PRF_msg` point keyed by the
-drawn key from the derivation table, so the event is a cached `H_msg` point at the drawn key
-together with a randomizer derivation at `opt_rand = o` (`RandDerivedAt`), or the drawn key is
-`k` (`hmsgAtPrfKey_and_randDerivedAt_or_eq_of_runPrfKeyClash`).
+`prEvent_romSchemeRun_strongWins_or_le_add`. There the merged cache reads a `PRF_msg` point keyed by
+the drawn key from the derivation table, so the event is a cached `H_msg` point at the drawn key
+together with a randomizer derivation at `opt_rand = o` (`RandDerivedAt`), or the drawn key is `k`
+(`hmsgAtPrfKey_and_randDerivedAt_or_eq_of_runPrfKeyClash`).
 
 * The fixed key is a hazard of the drawn seeds, charged `1 / |Y|` inside the joint potential of
   `prEvent_idealDraw_runTargetCollision_or_runHiddenHit_or_le_of_budget`, whose budget becomes
@@ -358,13 +358,12 @@ theorem prEvent_idealDraw_runTargetCollision_or_runHiddenHit_or_runPrfKeyClash_o
       (two_mul_encard_keyEntries_div_add_seedCharge_le_of_mem_support hd.keySeparated hadv hz) _
 
 /-- **The forging bound with a hedged hit of the message-`PRF` key, per public seed.** Under the
-byte laws, the key discipline and `|Y| ≤ |SK.prf|`, for injective `toY`, a fixed key `k`,
-`optRand pk` equal to `o` with probability at most `ε` at every public key, and a forger with hash
-budget `qh` and signing budget `qs`, the run of SLH-DSA in the random-oracle model at public seed
-`pkSeed` wins or hits the message-`PRF` key at `opt_rand = o` (`RunPrfKeyClash`) with probability
-at most
-`securityBound vp.params |Y| 2 1 qh qs + 1 / |Y| + qs * ε * (qh + qs + 1) / |Y|`. -/
-theorem prEvent_romSchemeRun_wins_or_runPrfKeyClash_le (laws : core.ByteLaws)
+byte laws, the key discipline and `|Y| ≤ |SK.prf|`, for injective `toY`, a fixed key `k`, `optRand
+pk` equal to `o` with probability at most `ε` at every public key, and a forger with hash budget
+`qh` and signing budget `qs`, the run of SLH-DSA in the random-oracle model at public seed `pkSeed`
+wins strongly or hits the message-`PRF` key at `opt_rand = o` (`RunPrfKeyClash`) with probability at
+most `securityBound vp.params |Y| 2 1 qh qs + 1 / |Y| + qs * ε * (qh + qs + 1) / |Y|`. -/
+theorem prEvent_romSchemeRun_strongWins_or_runPrfKeyClash_le (laws : core.ByteLaws)
     (hd : core.KeyDiscipline vp) (hcard : Nat.card core.Y ≤ Nat.card core.SkPrf)
     (e : core.SkSeed ≃ core.Y) (optRand : PublicKeyCore core → ProbComp core.Y)
     (pkSeed : core.PkSeed) {toY : core.SkPrf → core.Y} (htoY : Function.Injective toY)
@@ -372,10 +371,10 @@ theorem prEvent_romSchemeRun_wins_or_runPrfKeyClash_le (laws : core.ByteLaws)
     {adv : UnforgeableAdversary (romScheme core e optRand (pure pkSeed))} {qh qs : ℕ}
     (hadv : adv.RomQueryBound qh qs) :
     Pr{let z ← romSchemeRun core e optRand (pure pkSeed) adv}[
-      z.1.wins = true ∨ RunPrfKeyClash toY k o z] ≤
+      z.1.strongWins = true ∨ RunPrfKeyClash toY k o z] ≤
     securityBound vp.params (Nat.card core.Y) 2 1 qh qs + 1 / Nat.card core.Y +
       qs * ε * (((qh : ℝ≥0∞) + qs + 1) / Nat.card core.Y) := by
-  refine (prEvent_romSchemeRun_wins_or_le_add laws e optRand pkSeed hadv _
+  refine (prEvent_romSchemeRun_strongWins_or_le_add laws e optRand pkSeed hadv _
     (prEvent_idealDraw_runTargetCollision_or_runHiddenHit_or_runPrfKeyClash_or_exists_isSome_le hd
       hcard e optRand pkSeed htoY k hε hadv)).trans (le_of_eq ?_)
   simp only [securityBound, ENNReal.div_eq_inv_mul]

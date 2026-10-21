@@ -23,7 +23,7 @@ secret seed is inside this bound: it is charged by the same potential, not added
 
 The forging advantage is then bounded in two forms, both per public seed:
 
-* `unforgeableAdvantage_romScheme_pure_le_add_idealDraw`: at most `2 (qh + V) / |Y|` plus the
+* `strongUnforgeableAdvantage_romScheme_pure_le_add_idealDraw`: at most `2 (qh + V) / |Y|` plus the
   probability of interleaved-target coverage (`RunItsrCovered`) in the ideal hidden-seed game
   `idealDraw` (`HashSig.SLHDSA.Security.SeedCouplingBound`), read on the rebuilt transcript and
   the merged cache. The first game hop is applied to the whole bad event before the union is
@@ -33,9 +33,9 @@ The forging advantage is then bounded in two forms, both per public seed:
   leaves as they are in the ideal run's public cache, so the coverage term is the probability of
   coverage in the secret-free ideal run alone, read at any fixed seeds
   (`prEvent_idealDraw_runItsrCovered_eq`).
-* `unforgeableAdvantage_romScheme_pure_le_add`: at most `2 (qh + V) / |Y|` plus the probability of
-  `RunItsrCovered` in the run itself. For deterministic signing at the FIPS 205 parameter sets,
-  this run-level coverage term cannot be bounded at the size of the coverage term of
+* `strongUnforgeableAdvantage_romScheme_pure_le_add`: at most `2 (qh + V) / |Y|` plus the
+  probability of `RunItsrCovered` in the run itself. For deterministic signing at the FIPS 205
+  parameter sets, this run-level coverage term cannot be bounded at the size of the coverage term of
   `securityBound`: a forger that guesses `SK.prf` through its `PRF_msg` queries predicts every
   randomizer and grinds `H_msg` until the digests it gets signed cover its target, so coverage in
   the run is at least about as likely as that guess (≈ `qh / |SK.prf|`), which the joint term
@@ -73,23 +73,23 @@ lab experiment
 bound for the run and the ideal-game form of the advantage bound follow.
 
 The joint bound and the advantage bound in the ideal-game form both take a further event.
-`prEvent_idealDraw_runTargetCollision_or_runHiddenHit_or_le_of_charged` joins an event of the
-ideal game that transports to a hazard of a further charge (`DeferredCharge`): a hazard of
-relabelled states charged inside the joint potential (`CanonicalGraph.IsCharged`), and a hazard
-of the drawn seeds and the filled state charged alongside the seed charge, under one widened
-pathwise budget. Charges combine (`DeferredCharge.add`); a hazard of the drawn seeds and the
-final public cache alone is one (`DeferredCharge.ofSeed`), and so is a charged hazard of
-relabelled states alone (`DeferredCharge.ofCharged`). The first case is
+`prEvent_idealDraw_runTargetCollision_or_runHiddenHit_or_le_of_charged` joins an event of the ideal
+game that transports to a hazard of a further charge (`DeferredCharge`): a hazard of relabelled
+states charged inside the joint potential (`CanonicalGraph.IsCharged`), and a hazard of the drawn
+seeds and the filled state charged alongside the seed charge, under one widened pathwise budget.
+Charges combine (`DeferredCharge.add`); a hazard of the drawn seeds and the final public cache alone
+is one (`DeferredCharge.ofSeed`), and so is a charged hazard of relabelled states alone
+(`DeferredCharge.ofCharged`). The first case is
 `prEvent_idealDraw_runTargetCollision_or_runHiddenHit_or_le_of_budget`.
-`prEvent_romSchemeRun_wins_or_le_add_idealDraw` bounds a forgery or a further event `P` of the run
-by such an ideal-game bound plus the coverage term.
+`prEvent_romSchemeRun_strongWins_or_le_add_idealDraw` bounds a forgery or a further event `P` of the
+run by such an ideal-game bound plus the coverage term.
 
 ## Scope
 
 * The bounds are per public seed: the scheme is `romScheme core e optRand (pure pkSeed)`.
 * Interleaved-target coverage is not bounded here; it remains a probability, in the ideal
-  hidden-seed game in `unforgeableAdvantage_romScheme_pure_le_add_idealDraw` and in the run in
-  `unforgeableAdvantage_romScheme_pure_le_add`. `HashSig.SLHDSA.Security.CoverageBound` bounds
+  hidden-seed game in `strongUnforgeableAdvantage_romScheme_pure_le_add_idealDraw` and in the run in
+  `strongUnforgeableAdvantage_romScheme_pure_le_add`. `HashSig.SLHDSA.Security.CoverageBound` bounds
   the ideal-game term (`prEvent_idealDraw_runItsrCovered_le`).
 * The losses of the faithfulness step relating the three-oracle model to the byte-level scheme
   over a single SHAKE256 are not included; that scheme is bounded in
@@ -420,15 +420,15 @@ theorem prEvent_romSchemeRun_runTargetCollision_or_runHiddenHit_le (hd : core.Ke
     (prEvent_idealDraw_runTargetCollision_or_runHiddenHit_or_exists_isSome_le hd hcard e optRand
       pkSeed hadv)
 
-/-- **A forgery or a further event, up to coverage in the ideal hidden-seed game.** Under the
-byte laws, if `idealDraw` at public seed `pkSeed` fires, on the transcript rebuilt with the drawn
-seeds and the cache merged under them, a same-key target collision, a hidden-value hit or `P`, or
-holds a point encoding a derivation in its final public cache, with probability at most `B`, then
-the run of SLH-DSA in the random-oracle model at `pkSeed` wins or fires `P` with probability at
-most `B` plus the probability that `idealDraw` fires interleaved-target coverage at a fresh
-`H_msg` point (`RunItsrCovered`) there. The first game hop is applied to the whole event before
-the union is split, so a seed guess is charged once, inside `B`. -/
-theorem prEvent_romSchemeRun_wins_or_le_add_idealDraw (laws : core.ByteLaws)
+/-- **A forgery or a further event, up to coverage in the ideal hidden-seed game.** Under the byte
+laws, if `idealDraw` at public seed `pkSeed` fires, on the transcript rebuilt with the drawn seeds
+and the cache merged under them, a same-key target collision, a hidden-value hit or `P`, or holds a
+point encoding a derivation in its final public cache, with probability at most `B`, then the run of
+SLH-DSA in the random-oracle model at `pkSeed` wins strongly or fires `P` with probability at most
+`B` plus the probability that `idealDraw` fires interleaved-target coverage at a fresh `H_msg` point
+(`RunItsrCovered`) there. The first game hop is applied to the whole event before the union is
+split, so a seed guess is charged once, inside `B`. -/
+theorem prEvent_romSchemeRun_strongWins_or_le_add_idealDraw (laws : core.ByteLaws)
     (e : core.SkSeed ≃ core.Y) (optRand : PublicKeyCore core → ProbComp core.Y)
     (pkSeed : core.PkSeed) (adv : UnforgeableAdversary (romScheme core e optRand (pure pkSeed)))
     (P : RomOutcome vp core × (hashSpec core).QueryCache → Prop) {B : ℝ≥0∞}
@@ -438,7 +438,7 @@ theorem prEvent_romSchemeRun_wins_or_le_add_idealDraw (laws : core.ByteLaws)
           (secretEncoding core e pkSeed).merge w.1 w.2.2)) ∨
         P (DeriveOutcome.fill core w.1 w.2.1, (secretEncoding core e pkSeed).merge w.1 w.2.2)) ∨
       ∃ x, (w.2.2.1 ((secretEncoding core e pkSeed).enc w.1 x)).isSome] ≤ B) :
-    Pr{let z ← romSchemeRun core e optRand (pure pkSeed) adv}[z.1.wins = true ∨ P z] ≤
+    Pr{let z ← romSchemeRun core e optRand (pure pkSeed) adv}[z.1.strongWins = true ∨ P z] ≤
       B + Pr{let w ← idealDraw e optRand pkSeed adv}[
         RunItsrCovered core (DeriveOutcome.fill core w.1 w.2.1,
           (secretEncoding core e pkSeed).merge w.1 w.2.2)] := by
@@ -447,36 +447,36 @@ theorem prEvent_romSchemeRun_wins_or_le_add_idealDraw (laws : core.ByteLaws)
     fun z hz h ↦ ?_).trans
     ((prEvent_romSchemeRun_pure_le_prEvent_idealDraw_or e optRand pkSeed adv _).trans ?_)
   · rcases h with hw | h
-    · rcases bad_event_of_strongWins_romSchemeRun laws e optRand _ adv hz
-        (UnforgeableTranscript.strongWins_of_wins hw) with h | h | h
+    · rcases bad_event_of_strongWins_romSchemeRun laws e optRand _ adv hz hw with h | h | h
       exacts [Or.inl (Or.inl (Or.inl h)), Or.inl (Or.inl (Or.inr h)), Or.inr h]
     · exact Or.inl (Or.inr h)
   exact (prEvent_mono _ _ _ fun _ h ↦ or_right_comm.1 h).trans
     ((prEvent_or_le _ _ _).trans (add_le_add hB le_rfl))
 
-/-- **The forging advantage per public seed, up to coverage in the ideal hidden-seed game.**
-Under the byte laws, the key discipline and `|Y| ≤ |SK.prf|`, the forging advantage against
+/-- **The strong forging advantage per public seed, up to coverage in the ideal hidden-seed game.**
+Under the byte laws, the key discipline and `|Y| ≤ |SK.prf|`, the strong forging advantage against
 SLH-DSA in the random-oracle model at public seed `pkSeed`, of a forger with hash budget `qh`, is at
-most `2 (qh + V) / |Y|`, with `V` the verifier's query bound, plus the probability that
-`idealDraw` at `pkSeed` fires interleaved-target coverage at a fresh `H_msg` point
-(`RunItsrCovered`) on the transcript rebuilt with the drawn seeds and the cache merged under them.
-The forger guessing a secret seed is charged once, inside the first term. The statement is per
-public seed; the coverage term remains a probability in the ideal hidden-seed game and is not
-bounded here; the faithfulness step relating the three-oracle model to the byte-level scheme is not
-included (it is bounded in `HashSig.SLHDSA.Security.ByteBound`). -/
-theorem unforgeableAdvantage_romScheme_pure_le_add_idealDraw (laws : core.ByteLaws)
+most `2 (qh + V) / |Y|`, with `V` the verifier's query bound, plus the probability that `idealDraw`
+at `pkSeed` fires interleaved-target coverage at a fresh `H_msg` point (`RunItsrCovered`) on the
+transcript rebuilt with the drawn seeds and the cache merged under them. The forger guessing a
+secret seed is charged once, inside the first term. The statement is per public seed; the coverage
+term remains a probability in the ideal hidden-seed game and is not bounded here; the faithfulness
+step relating the three-oracle model to the byte-level scheme is not included (it is bounded in
+`HashSig.SLHDSA.Security.ByteBound`). -/
+theorem strongUnforgeableAdvantage_romScheme_pure_le_add_idealDraw (laws : core.ByteLaws)
     (hd : core.KeyDiscipline vp) (hcard : Nat.card core.Y ≤ Nat.card core.SkPrf)
     (e : core.SkSeed ≃ core.Y) (optRand : PublicKeyCore core → ProbComp core.Y)
-    (pkSeed : core.PkSeed) {adv : UnforgeableAdversary (romScheme core e optRand (pure pkSeed))}
+    (pkSeed : core.PkSeed)
+    {adv : StrongUnforgeableAdversary (romScheme core e optRand (pure pkSeed))}
     {qh qs : ℕ} (hadv : adv.RomQueryBound qh qs) :
-    unforgeableAdvantage (ProbCompRuntime.rom (hashSpec core)) adv ≤
+    strongUnforgeableAdvantage (ProbCompRuntime.rom (hashSpec core)) adv ≤
       2 * ((qh : ℝ≥0∞) + GeneralScheme.verifyInternalQueryBound vp.params) / Nat.card core.Y +
-      Pr{let w ← idealDraw e optRand pkSeed adv}[
+      Pr{let w ← idealDraw e optRand pkSeed adv.toUnforgeableAdversary}[
         RunItsrCovered core (DeriveOutcome.fill core w.1 w.2.1,
           (secretEncoding core e pkSeed).merge w.1 w.2.2)] := by
-  rw [unforgeableAdvantage_romScheme_eq]
+  rw [strongUnforgeableAdvantage_romScheme_eq]
   refine (prEvent_mono _ _ _ fun _ ↦ Or.inl).trans
-    (prEvent_romSchemeRun_wins_or_le_add_idealDraw laws e optRand pkSeed adv (fun _ ↦ False)
+    (prEvent_romSchemeRun_strongWins_or_le_add_idealDraw laws e optRand pkSeed _ (fun _ ↦ False)
       ((prEvent_mono _ _ _ fun _ h ↦ h.imp_left fun h ↦ h.resolve_right id).trans
         (prEvent_idealDraw_runTargetCollision_or_runHiddenHit_or_exists_isSome_le hd hcard e
           optRand pkSeed hadv)))
@@ -528,30 +528,31 @@ theorem prEvent_idealDraw_runItsrCovered_eq (e : core.SkSeed ≃ core.Y)
   rw [prEvent_bind_bind_eq_lintegral_of_discrete, lintegral_const,
     OracleComp.evalDist_apply_univ_eq_one, mul_one]
 
-/-- **The forging advantage per public seed, up to coverage in the run.** Under the byte laws, the
-key discipline and `|Y| ≤ |SK.prf|`, the forging advantage against SLH-DSA in the random-oracle
-model at public seed `pkSeed`, of a forger with hash budget `qh`, is at most `2 (qh + V) / |Y|`,
-with `V` the verifier's query bound, plus the probability that the run fires interleaved-target
-coverage at a fresh `H_msg` point (`RunItsrCovered`). The statement is per public seed; the
-coverage term remains a probability of the run and is not bounded here; the faithfulness step
-relating the three-oracle model to the byte-level scheme is not included (it is bounded in
-`HashSig.SLHDSA.Security.ByteBound`). For deterministic
-signing at the FIPS 205 parameter sets, this run-level coverage term cannot be bounded at the size
-of the coverage term of `securityBound`: a forger that guesses `SK.prf` through its `PRF_msg`
-queries predicts every randomizer and grinds `H_msg` until the digests it gets signed cover its
-target, so coverage in the run is at least about as likely as that guess (≈ `qh / |SK.prf|`),
-which the first term already charges. The coverage term of
-`unforgeableAdvantage_romScheme_pure_le_add_idealDraw` is free of that guess: there every
+/-- **The strong forging advantage per public seed, up to coverage in the run.** Under the byte
+laws, the key discipline and `|Y| ≤ |SK.prf|`, the strong forging advantage against SLH-DSA in the
+random-oracle model at public seed `pkSeed`, of a forger with hash budget `qh`, is at most `2 (qh +
+V) / |Y|`, with `V` the verifier's query bound, plus the probability that the run fires
+interleaved-target coverage at a fresh `H_msg` point (`RunItsrCovered`). The statement is per public
+seed; the coverage term remains a probability of the run and is not bounded here; the faithfulness
+step relating the three-oracle model to the byte-level scheme is not included (it is bounded in
+`HashSig.SLHDSA.Security.ByteBound`). For deterministic signing at the FIPS 205 parameter sets, this
+run-level coverage term cannot be bounded at the size of the coverage term of `securityBound`: a
+forger that guesses `SK.prf` through its `PRF_msg` queries predicts every randomizer and grinds
+`H_msg` until the digests it gets signed cover its target, so coverage in the run is at least about
+as likely as that guess (≈ `qh / |SK.prf|`), which the first term already charges. The coverage term
+of `strongUnforgeableAdvantage_romScheme_pure_le_add_idealDraw` is free of that guess: there every
 randomizer is sampled independently of the public answers. -/
-theorem unforgeableAdvantage_romScheme_pure_le_add (laws : core.ByteLaws)
+theorem strongUnforgeableAdvantage_romScheme_pure_le_add (laws : core.ByteLaws)
     (hd : core.KeyDiscipline vp) (hcard : Nat.card core.Y ≤ Nat.card core.SkPrf)
     (e : core.SkSeed ≃ core.Y) (optRand : PublicKeyCore core → ProbComp core.Y)
-    (pkSeed : core.PkSeed) {adv : UnforgeableAdversary (romScheme core e optRand (pure pkSeed))}
+    (pkSeed : core.PkSeed)
+    {adv : StrongUnforgeableAdversary (romScheme core e optRand (pure pkSeed))}
     {qh qs : ℕ} (hadv : adv.RomQueryBound qh qs) :
-    unforgeableAdvantage (ProbCompRuntime.rom (hashSpec core)) adv ≤
+    strongUnforgeableAdvantage (ProbCompRuntime.rom (hashSpec core)) adv ≤
       2 * ((qh : ℝ≥0∞) + GeneralScheme.verifyInternalQueryBound vp.params) / Nat.card core.Y +
-      Pr{let z ← romSchemeRun core e optRand (pure pkSeed) adv}[RunItsrCovered core z] := by
-  calc _ ≤ _ := unforgeableAdvantage_romScheme_le_or_add core laws e optRand (pure pkSeed) adv
+      Pr{let z ← romSchemeRun core e optRand (pure pkSeed) adv.toUnforgeableAdversary}[
+        RunItsrCovered core z] := by
+  calc _ ≤ _ := strongUnforgeableAdvantage_romScheme_le_or_add core laws e optRand (pure pkSeed) adv
     _ ≤ _ := by
       gcongr
       exact prEvent_romSchemeRun_runTargetCollision_or_runHiddenHit_le hd hcard e optRand pkSeed
