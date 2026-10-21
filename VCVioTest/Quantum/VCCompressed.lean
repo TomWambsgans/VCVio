@@ -231,11 +231,12 @@ variable {X Y Msg Salt : Type} [DecidableEq X] [LinearOrder Y] [Fintype Y]
 
 /-- **The salted Merkle scheme satisfies the conditions of Theorem 8.4** (ePrint 2025/2166, §8.3,
 p. 55): `MTMultiExtract` with the collision-free databases as `P_good` and the trees of
-depths `d i`. Condition 1 is `SaltedMerkle.checkIOForm`; the opening is deterministic, so the
+depths `d i`. Condition 1 is `SaltedMerkle.nonadaptiveCheck`; the opening is deterministic, so the
 support conditions reduce to the deterministic binding and validity of `MTMultiExtract`. -/
-theorem merkle_conditions (enc : Encoding X Y Msg Salt) {k : ℕ} (d : Fin k → ℕ) :
+theorem merkle_conditions (enc : MerkleTreeHashing.QueryEncoding X Unit Unit (Msg × Salt) Y)
+    {k : ℕ} (d : Fin k → ℕ) :
     Conditions (fun i ↦ (scheme (Msg := Msg) enc (d i)).toVectorCommitment)
-      (fun i ↦ checkIOForm enc (d i)) (multiExtract enc d) (fun _ ↦ tdBot) collisionFree where
+      (fun i ↦ nonadaptiveCheck enc (d i)) (multiExtract enc d) (fun _ ↦ tdBot) collisionFree where
   admissible := multiExtract_admissible enc d
   empty_mem := empty_mem_collisionFree
   binding hk idx hidx cm ans pf Ds hD h i := by
@@ -249,21 +250,23 @@ theorem merkle_conditions (enc : Encoding X Y Msg Salt) {k : ℕ} (d : Fin k →
 
 /-- The query counts of the salted Merkle scheme: a check of `q` positions in a tree of depth
 `d i` makes `q * (d i + 1)` queries, so `q2` is the largest `2 ^ d i * (d i + 1)`. -/
-example (enc : Encoding X Y Msg Salt) {k : ℕ} (d : Fin k → ℕ) (i : Fin k) :
+example (enc : MerkleTreeHashing.QueryEncoding X Unit Unit (Msg × Salt) Y)
+    {k : ℕ} (d : Fin k → ℕ) (i : Fin k) :
     2 ^ d i * (d i + 1) ≤ q2 (VC := fun i ↦ (scheme (Msg := Msg) enc (d i)).toVectorCommitment)
-      (fun i ↦ checkIOForm enc (d i)) :=
-  qVC_le_q2 (fun i ↦ checkIOForm enc (d i)) i
+      (fun i ↦ nonadaptiveCheck enc (d i)) :=
+  qVC_le_q2 (fun i ↦ nonadaptiveCheck enc (d i)) i
 
 /-- `q1` of the salted Merkle scheme is at least the count of a single check of the whole
 budget. -/
-example (enc : Encoding X Y Msg Salt) {k : ℕ} (d : Fin k → ℕ) (i : Fin k) (qs : ℕ) :
+example (enc : MerkleTreeHashing.QueryEncoding X Unit Unit (Msg × Salt) Y)
+    {k : ℕ} (d : Fin k → ℕ) (i : Fin k) (qs : ℕ) :
     qs * (d i + 1) ≤ q1 (VC := fun i ↦ (scheme (Msg := Msg) enc (d i)).toVectorCommitment)
-      (fun i ↦ checkIOForm enc (d i)) qs := by
-  have h := sum_qVC_le_q1 (fun i ↦ checkIOForm enc (d i)) (qs := qs) (Pi.single i qs)
+      (fun i ↦ nonadaptiveCheck enc (d i)) qs := by
+  have h := sum_qVC_le_q1 (fun i ↦ nonadaptiveCheck enc (d i)) (qs := qs) (Pi.single i qs)
     (by simp)
   refine le_trans ?_ h
-  rw [Finset.sum_eq_single i (fun j _ hj ↦ by simp [hj, checkIOForm]) (by simp)]
-  simp [checkIOForm]
+  rw [Finset.sum_eq_single i (fun j _ hj ↦ by simp [hj, nonadaptiveCheck]) (by simp)]
+  simp [nonadaptiveCheck]
 
 /-- The offline label of the salted Merkle scheme marks the collision-free databases. -/
 example [Fintype X] [DecidablePred (· ∈ (collisionFree : Set (Database X Y)))]

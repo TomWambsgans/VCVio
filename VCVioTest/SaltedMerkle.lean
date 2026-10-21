@@ -68,25 +68,26 @@ example (rt : Bool) (ans : PartialVec 1 Bool) (td : Td Bool Bool 0) (io : List (
 
 /-- The sufficient conditions elaborate for two trees of depths one and two. -/
 example : Conditions (fun i : Fin 2 ↦ (scheme enc (![1, 2] i)).toVectorCommitment)
-    (fun i ↦ checkIOForm enc (![1, 2] i)) (multiExtract enc ![1, 2])
+    (fun i ↦ nonadaptiveCheck enc (![1, 2] i)) (multiExtract enc ![1, 2])
     (fun _ ↦ tdBot) collisionFree := conditions enc ![1, 2]
 
 /-- The depth-two extraction bound is seven cells, while arbitrary paths allow twelve. -/
-example : 2 * 2 ^ 2 - 1 = 7 ∧ (checkIOForm enc 2).qVC 4 = 12 := by decide
+example : 2 * 2 ^ 2 - 1 = 7 ∧ (nonadaptiveCheck enc 2).qVC 4 = 12 := by decide
 
 /-- The seven-cell bound applies to every proof read from one depth-two trapdoor. -/
 example (rt : Bool) (ans : PartialVec 4 Bool) (td : Td Bool Bool 2) (io : List (X × Bool))
-    (h : outputIO enc 2 rt ans (opening 2 ans.dom td) = some io) : io.length ≤ 7 :=
-  length_outputIO_opening_le enc rt ans _ td io h
+    (h : pairs enc 2 rt ans (opening 2 ans.dom td) = some io) : io.length ≤ 7 :=
+  length_pairs_opening_le enc rt ans _ td io h
 
 /-! ## Concrete P2 -/
 
 /-- A tagged encoding with three possible hash outputs. -/
-def enc3 : Encoding ((ZMod 3 × ZMod 3) ⊕ (Bool × Bool)) (ZMod 3) Bool Bool where
-  node := Sum.inl
-  leaf := Sum.inr
-  node_injective := Sum.inl_injective
-  leaf_injective := Sum.inr_injective
+def enc3 :
+    QueryEncoding ((ZMod 3 × ZMod 3) ⊕ (Bool × Bool)) Unit Unit (Bool × Bool) (ZMod 3) where
+  node _ := Sum.inl
+  leaf _ := Sum.inr
+  node_injective _ := Sum.inl_injective
+  leaf_injective _ := Sum.inr_injective
 
 noncomputable local instance :
     OracleSpec.UniformAnswerMeasure (((ZMod 3 × ZMod 3) ⊕ (Bool × Bool)) →ₒ ZMod 3) :=

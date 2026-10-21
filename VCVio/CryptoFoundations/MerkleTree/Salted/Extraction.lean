@@ -13,7 +13,7 @@ public import VCVio.Quantum.VC.Proof.Extraction
 
 Opening one trapdoor produces at most `2L - 1` distinct pairs for a tree with at most `L` leaves.
 Applying the opening-specific P3 theorem gives error `1 - (1 - 1/N)^(2 n (2L - 1))`, with
-`N = |Y|`. The arbitrary-proof query bound in `checkIOForm` remains `q * (d + 1)`.
+`N = |Y|`. The arbitrary-proof query bound in `nonadaptiveCheck` remains `q * (d + 1)`.
 
 The statement uses the named salted Merkle multi-extractor and the compressed oracle, with
 checked acceptance by the challenger and ordinary oracle access for the adversary.
@@ -38,16 +38,16 @@ universe v w
 namespace SaltedMerkle
 
 variable {X Y Msg Salt : Type} [DecidableEq X] [LinearOrder Y] [SampleableType Salt]
-  (enc : Encoding X Y Msg Salt) {k : ℕ} (d : Fin k → ℕ)
+  (enc : MerkleTreeHashing.QueryEncoding X Unit Unit (Msg × Salt) Y) {k : ℕ} (d : Fin k → ℕ)
 
 /-- Opening a single trapdoor for a tree of at most `L` leaves uses at most `2L - 1` pairs. -/
 theorem openingQueryBound (L : ℕ) (hL : ∀ i, 2 ^ d i ≤ L) :
-    OpeningQueryBound (fun i ↦ checkIOForm enc (d i)) (2 * L - 1) := by
+    OpeningQueryBound (fun i ↦ nonadaptiveCheck enc (d i)) (2 * L - 1) := by
   intro i rt ans td pf hpf pairs hpairs
   have heq : pf = opening (d i) ans.dom td := by
     simpa [scheme, DetVectorCommitment.toVectorCommitment] using hpf
   subst pf
-  have h := length_outputIO_opening_le enc rt ans ans.dom td pairs hpairs
+  have h := length_pairs_opening_le enc rt ans ans.dom td pairs hpairs
   have hi := hL i
   omega
 
@@ -69,7 +69,7 @@ theorem extractionCorrect (L : ℕ) (hL : ∀ i, 2 ^ d i ≤ L) :
       (compressedVCOracle k X Y) (multiExtract enc d) code
       (fun _ _ _ n ↦ extractErrorBound (Y := Y) L n) :=
   extractionCorrect_compressedVCOracle_of_openingQueryBound
-    (fun i ↦ checkIOForm enc (d i)) (multiExtract enc d) code (2 * L - 1)
+    (fun i ↦ nonadaptiveCheck enc (d i)) (multiExtract enc d) code (2 * L - 1)
     (openingQueryBound enc d L hL) (conditions enc d)
 
 /-- Sharp P3 for a family of trees of a common depth `depth`, with `L = 2 ^ depth`. -/

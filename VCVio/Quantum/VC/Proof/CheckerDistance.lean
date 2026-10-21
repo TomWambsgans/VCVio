@@ -157,7 +157,7 @@ namespace Quantum
 
 variable {k : ℕ} {X Y Msg Cm : Type} [DecidableEq Y] {ℓ : Fin k → ℕ} {Td Pf : Fin k → Type}
   {VC : ∀ i, VectorCommitment X Y Msg Cm (Td i) (Pf i) (ℓ i)}
-  (io : ∀ i, (VC i).CheckIOForm)
+  (io : ∀ i, (VC i).NonadaptiveCheck)
 
 /-- Concatenation of the indexed prescriptions of a batch, in increasing position order.
 Malformed component lists are empty here; the identification lemmas require well-formedness. -/
@@ -165,13 +165,13 @@ Malformed component lists are empty here; the identification lemmas require well
 noncomputable def batchIO (W : Finset (Fin k)) (c : OpeningClaim k Cm Msg ℓ Pf) :
     List ((Fin k × X) × Y) :=
   (List.finRange k).flatMap fun i ↦ if i ∈ W then
-    (((io i).outputIO (c.cm i) (c.ans i) (c.pf i)).getD []).map
+    (((io i).pairs (c.cm i) (c.ans i) (c.pf i)).getD []).map
       (fun p ↦ ((c.idx i, p.1), p.2)) else []
 
 /-- The concatenated list preserves the exact sum of component query counts. -/
 theorem length_batchIO (W : Finset (Fin k)) (c : OpeningClaim k Cm Msg ℓ Pf) :
     (batchIO io W c).length =
-      ∑ i ∈ W, (((io i).outputIO (c.cm i) (c.ans i) (c.pf i)).getD []).length := by
+      ∑ i ∈ W, (((io i).pairs (c.cm i) (c.ans i) (c.pf i)).getD []).length := by
   simp only [batchIO, List.length_flatMap, ← Fin.sum_univ_def, apply_ite List.length,
     List.length_map, List.length_nil, Finset.sum_ite_mem, Finset.univ_inter]
 
@@ -179,7 +179,7 @@ theorem length_batchIO (W : Finset (Fin k)) (c : OpeningClaim k Cm Msg ℓ Pf) :
 theorem mem_batchIO (W : Finset (Fin k)) (c : OpeningClaim k Cm Msg ℓ Pf)
     (p : (Fin k × X) × Y) :
     p ∈ batchIO io W c ↔ ∃ i ∈ W, ∃ z ∈
-      ((io i).outputIO (c.cm i) (c.ans i) (c.pf i)).getD [],
+      ((io i).pairs (c.cm i) (c.ans i) (c.pf i)).getD [],
         ((c.idx i, z.1), z.2) = p := by
   simp only [batchIO, List.mem_flatMap, List.mem_finRange, true_and]
   refine exists_congr fun i ↦ ?_
@@ -187,16 +187,16 @@ theorem mem_batchIO (W : Finset (Fin k)) (c : OpeningClaim k Cm Msg ℓ Pf)
 
 /-- A well-formed batch is exactly the consistency predicate of its concatenated list. -/
 theorem checkOn_batchIO (W : Finset (Fin k)) (c : OpeningClaim k Cm Msg ℓ Pf)
-    (hform : ∀ i ∈ W, ((io i).outputIO (c.cm i) (c.ans i) (c.pf i)).isSome)
+    (hform : ∀ i ∈ W, ((io i).pairs (c.cm i) (c.ans i) (c.pf i)).isSome)
     (D : Fin k → Database X Y) :
     (∀ i ∈ W, (io i).checkOn (D (c.idx i)) (c.cm i) (c.ans i) (c.pf i) = true) ↔
       ∀ p ∈ batchIO io W c, D p.1.1 p.1.2 = some p.2 := by
   have hc (i : Fin k) (hi : i ∈ W) :
       (io i).checkOn (D (c.idx i)) (c.cm i) (c.ans i) (c.pf i) = true ↔
-        ∀ p ∈ ((io i).outputIO (c.cm i) (c.ans i) (c.pf i)).getD [],
+        ∀ p ∈ ((io i).pairs (c.cm i) (c.ans i) (c.pf i)).getD [],
           D (c.idx i) p.1 = some p.2 := by
     obtain ⟨L, hL⟩ := Option.isSome_iff_exists.mp (hform i hi)
-    simp [VectorCommitment.CheckIOForm.checkOn, hL, checkIOOn_eq_true_iff]
+    simp [VectorCommitment.NonadaptiveCheck.checkOn, hL, checkIOOn_eq_true_iff]
   constructor
   · intro h p hp
     obtain ⟨i, hi, z, hz, rfl⟩ := (mem_batchIO io W c p).mp hp
@@ -211,7 +211,7 @@ variable [Fintype X] [DecidableEq X] [Fintype Y]
 /-- Identification of the partial-database batch with its concrete indexed IO projector. -/
 theorem checkPassProjector_eq_partialCheck (W : Finset (Fin k))
     (c : OpeningClaim k Cm Msg ℓ Pf)
-    (hform : ∀ i ∈ W, ((io i).outputIO (c.cm i) (c.ans i) (c.pf i)).isSome) :
+    (hform : ∀ i ∈ W, ((io i).pairs (c.cm i) (c.ans i) (c.pf i)).isSome) :
     checkPassProjector io W c.idx c.cm c.ans c.pf =
       CompressedReplay.partialCheck (batchIO io W c) := by
   unfold checkPassProjector CompressedReplay.partialCheck
@@ -223,13 +223,13 @@ omit [DecidableEq X] [Fintype Y] in
 /-- A malformed component makes the partial batch reject. -/
 theorem checkPassProjector_eq_zero_of_malformed (W : Finset (Fin k))
     (c : OpeningClaim k Cm Msg ℓ Pf) (i : Fin k) (hi : i ∈ W)
-    (hbad : (io i).outputIO (c.cm i) (c.ans i) (c.pf i) = none) :
+    (hbad : (io i).pairs (c.cm i) (c.ans i) (c.pf i) = none) :
     checkPassProjector io W c.idx c.cm c.ans c.pf = 0 := by
   have hn (D : Fin k → Database X Y) :
       ¬ ∀ j ∈ W, (io j).checkOn (D (c.idx j)) (c.cm j) (c.ans j) (c.pf j) = true := by
     intro h
     have hh := h i hi
-    simp [VectorCommitment.CheckIOForm.checkOn, hbad] at hh
+    simp [VectorCommitment.NonadaptiveCheck.checkOn, hbad] at hh
   simp [checkPassProjector, hn]
 
 variable [AddCommGroup Y]
@@ -260,7 +260,7 @@ theorem filledBatch_partial_distance (W : Finset (Fin k)) (c : OpeningClaim k Cm
     ‖filledBatch io W c - checkPassProjector io W c.idx c.cm c.ans c.pf‖ ≤
       Real.sqrt (2 * (batchIO io W c).length / (Fintype.card Y : ℝ)) := by
   classical
-  by_cases hf : ∀ i ∈ W, ((io i).outputIO (c.cm i) (c.ans i) (c.pf i)).isSome
+  by_cases hf : ∀ i ∈ W, ((io i).pairs (c.cm i) (c.ans i) (c.pf i)).isSome
   · have he : filledBatch io W c = CompressedReplay.filledCheck (batchIO io W c) := by
       rw [filledBatch, checkPassProjector_eq_partialCheck io W c hf]
       rfl
@@ -268,8 +268,8 @@ theorem filledBatch_partial_distance (W : Finset (Fin k)) (c : OpeningClaim k Cm
     exact CompressedReplay.filled_partial_distance_le_sqrt _
   · obtain ⟨i, hn⟩ := not_forall.mp hf
     obtain ⟨hi, hn⟩ := not_imp.mp hn
-    have hz : (io i).outputIO (c.cm i) (c.ans i) (c.pf i) = none := by
-      cases h : (io i).outputIO (c.cm i) (c.ans i) (c.pf i) <;> simp_all
+    have hz : (io i).pairs (c.cm i) (c.ans i) (c.pf i) = none := by
+      cases h : (io i).pairs (c.cm i) (c.ans i) (c.pf i) <;> simp_all
     have hp := checkPassProjector_eq_zero_of_malformed io W c i hi hz
     rw [filledBatch, hp, Matrix.mul_zero, Matrix.zero_mul, sub_zero, norm_zero]
     exact Real.sqrt_nonneg _
@@ -339,7 +339,7 @@ theorem length_two_batches_le (qs : ℕ) (c : OpeningClaim k Cm Msg ℓ Pf)
     _ ≤ ∑ i, (io i).qVC (c.ans i).dom.card := by
       apply Finset.sum_le_sum
       intro i _
-      cases h : (io i).outputIO (c.cm i) (c.ans i) (c.pf i) with
+      cases h : (io i).pairs (c.cm i) (c.ans i) (c.pf i) with
       | none => simp
       | some L => exact (io i).length_le _ _ _ _ h
     _ ≤ q1 io qs := sum_qVC_le_q1 io _ hq

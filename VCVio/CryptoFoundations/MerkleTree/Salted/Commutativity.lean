@@ -43,7 +43,7 @@ noncomputable def comErrorBound (s : ℕ) : ℝ≥0∞ :=
 variable {X Msg Salt Z : Type} [DecidableEq X] [LinearOrder Y]
   [Fintype Msg] [LinearOrder Msg] [Fintype Salt] [LinearOrder Salt]
   [Fintype Z] [DecidableEq Z] [AddGroup Z]
-  (enc : Encoding X Y Msg Salt) {k : ℕ} (d : Fin k → ℕ)
+  (enc : MerkleTreeHashing.QueryEncoding X Unit Unit (Msg × Salt) Y) {k : ℕ} (d : Fin k → ℕ)
   (code : TpDCode k (DmOf (fun i ↦ 2 ^ d i) Msg fun i ↦ Td Y Salt (d i)) Z)
 
 /-- The instability contribution to P2 is at most `24 min (1, (2s + 1) / |Y|)`. -/

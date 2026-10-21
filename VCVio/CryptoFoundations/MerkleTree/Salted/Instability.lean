@@ -42,7 +42,7 @@ theorem ncard_support_eq_size [Fintype X] (D : Database X Y) : {x | D x ≠ none
 
 variable {X Y Msg Salt : Type} [Fintype X] [DecidableEq X] [LinearOrder Y] [Fintype Y]
   [Fintype Msg] [LinearOrder Msg] [Fintype Salt] [LinearOrder Salt]
-  (enc : Encoding X Y Msg Salt) {k : ℕ} (d : Fin k → ℕ)
+  (enc : MerkleTreeHashing.QueryEncoding X Unit Unit (Msg × Salt) Y) {k : ℕ} (d : Fin k → ℕ)
 
 open scoped Classical in
 /-- A singleton online extraction has at most one root at any selected oracle. -/
