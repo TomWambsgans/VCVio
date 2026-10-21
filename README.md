@@ -83,8 +83,11 @@ build boundaries and the staged consolidation.
   (`shakeStrongAdvantage_pure_le_securityBound_hedged_validatedParams`,
   `shakeStrongAdvantage_le_securityBound_hedged_validatedParams`), which reaches the three-oracle
   level per public seed (at `n = 32`, for every seed outside the weak set) and over the uniform
-  public seed. The EUF-CMA forms keep the names `shakeAdvantage_*`
-  (`shakeAdvantage_le_securityBound_validatedParams`). The bounds are over the structured
+  public seed. Every EUF-CMA form follows from its SUF-CMA one through
+  `shakeAdvantage_le_shakeStrongAdvantage`; the named EUF-CMA forms are the six
+  `shakeAdvantage_*_validatedParams` theorems (`shakeAdvantage_le_securityBound_validatedParams`)
+  and `shakeAdvantage_le_securityBound`, `shakeAdvantage_pure_le_securityBound` and
+  `shakeAdvantage_le_securityBound_hedged`. The bounds are over the structured
   signatures of FIPS 205's internal functions; SUF-CMA over byte strings at the external API, which
   also needs the signature encoding to parse one-to-one, is not proved. The SHA-2 parameter sets
   have no single-oracle model. A complete FIPS conformance result is not proved; see

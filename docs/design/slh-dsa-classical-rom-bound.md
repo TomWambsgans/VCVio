@@ -10,9 +10,13 @@ is in [`slh-dsa-status-and-roadmap.md`](slh-dsa-status-and-roadmap.md).
 **What is proved.** Every bound below is a bound on the strong forging advantage (SUF-CMA): the
 forger wins with a valid pair of message and signature that the signing oracle never returned, so
 a second signature on a signed message counts. Each holds at the right-hand side of the
-corresponding existential (EUF-CMA) bound, which follows from it under its own name
-(`unforgeableAdvantage_le_strongUnforgeableAdvantage`, `shakeAdvantage_le_shakeStrongAdvantage`);
-so the levels below are the same for both notions. The three-oracle bound `securityBound` at
+corresponding existential (EUF-CMA) bound, and every existential bound follows from its strong one
+through `shakeAdvantage_le_shakeStrongAdvantage` (three-oracle model:
+`unforgeableAdvantage_le_strongUnforgeableAdvantage`), so the levels below are the same for both
+notions. Existential forms are stated under their own names only for the target
+(`unforgeableAdvantage_romScheme_le`), the bounds the guides cite
+(`shakeAdvantage_pure_le_securityBound`, `shakeAdvantage_le_securityBound`,
+`shakeAdvantage_le_securityBound_hedged`) and the six `shakeAdvantage_*_validatedParams` forms. The three-oracle bound `securityBound` at
 `c = 2` and `r = 1` is proved in Lean for each fixed public seed, in both signing modes: `securityTarget_two_one`
 (`HashSig/SLHDSA/Security/CoverageBound.lean`) proves `SecurityTarget core e optRand 2 1` under the
 byte laws, the key discipline and `|Y| ≤ |SK.prf|`, all three discharged at every FIPS 205 bundle,

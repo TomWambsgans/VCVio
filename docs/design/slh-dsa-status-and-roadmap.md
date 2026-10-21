@@ -136,8 +136,13 @@ tweakable hash (with `PRF` as the tweakable hash at the PRF address types), `H_m
 are three independent oracles (`hashSpec`, `romScheme` in `Security/Target.lean`), for every
 validated parameter set and both signing modes. A strong forgery is a valid pair of message and
 signature that the signing oracle never returned. Every bound below is on the strong advantage at
-the right-hand side of the corresponding existential bound, which follows from it under its
-`shakeAdvantage_*` or `unforgeableAdvantage_*` name, so the levels are those of EUF-CMA. The
+the right-hand side of the corresponding existential bound, and every existential bound follows
+from its strong one through `shakeAdvantage_le_shakeStrongAdvantage` (three-oracle model:
+`unforgeableAdvantage_le_strongUnforgeableAdvantage`), so the levels are those of EUF-CMA. Named
+existential forms exist only for the target (`unforgeableAdvantage_romScheme_le`), for
+`shakeAdvantage_pure_le_securityBound`, `shakeAdvantage_le_securityBound` and
+`shakeAdvantage_le_securityBound_hedged`, and for the six `shakeAdvantage_*_validatedParams`
+forms. The
 bounds are over the structured signatures of the internal functions: strong unforgeability over
 byte strings at the external API also needs the signature encoding to parse one-to-one, which is
 not proved. The accounting and the levels it reaches are in
