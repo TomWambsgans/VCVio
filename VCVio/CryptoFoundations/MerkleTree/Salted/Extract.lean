@@ -150,7 +150,8 @@ theorem extract_path_of_checkOn {d : ℕ} {rt : Y} {D : Database X Y} (hD : D �
   obtain ⟨hp, label, hl, hleaf⟩ := readPath_treeWith_of_checks (enc.node ()) D
     (fun _ : Unit => resolvePair (enc.node ()) D)
     (fun _ _ h => resolvePair_eq_of_injective (enc.node_injective ()) hD h)
-    (SkeletonLeafIndex.perfectEquiv d i) rt (pp.at _) (enc.leaf () (a, pp.salt)) hchecks
+    (SkeletonLeafIndex.perfectEquiv d i) rt (pp.at _) (enc.leaf () (a, pp.salt))
+    (by simpa only [leafIO, List.mem_rotate] using hchecks)
   refine ⟨?_, hp⟩
   rw [extLeaf, recoverLeaf, hl, Option.bind_some]
   exact resolvePair_eq_of_injective (enc.leaf_injective ()) hD hleaf

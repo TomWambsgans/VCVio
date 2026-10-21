@@ -8,6 +8,7 @@ module
 public import VCVio.CryptoFoundations.MerkleTree.LabelledPath
 public import VCVio.CryptoFoundations.VectorCommitment
 public import VCVio.OracleComp.Constructions.SampleableType.Basic
+public import Mathlib.Data.List.Rotate
 
 /-!
 # Salted Merkle commitments
@@ -64,12 +65,13 @@ def opening (d : ℕ) (Q : Finset (Fin (2 ^ d))) (td : Td Y Salt d) : Pf Y Salt 
       fun p => ⟨salt, ⟨p.toList, by simp⟩⟩
   else none
 
-/-- The prescribed checks for one labelled leaf opening. -/
+/-- The leaf check followed by the prescribed node checks in root-to-leaf order.
+Rotating the depth-many node pairs places the final leaf pair first. -/
 @[expose]
 def leafIO (enc : QueryEncoding X Unit Unit (Msg × Salt) Y) (rt : Y)
     (i : Fin (2 ^ d)) (a : Msg) (pp : PathProof Y Salt d) : List (X × Y) :=
-  pathIO (enc.node ()) (enc.leaf () (a, pp.salt)) (SkeletonLeafIndex.perfectEquiv d i)
-    rt (pp.at _)
+  (pathIO (enc.node ()) (enc.leaf () (a, pp.salt)) (SkeletonLeafIndex.perfectEquiv d i)
+    rt (pp.at _)).rotate d
 
 /-- The prescribed checks at an answered and opened position. -/
 @[expose]
@@ -164,8 +166,10 @@ theorem opening_eq_some (hc : Consistent G enc rt ans td) {i : Fin (2 ^ d)} {a :
   obtain ⟨root, p, hr, hp, hg⟩ := hc.closed.readPath _ hl hg
   rw [hc.root] at hr
   cases hr
-  refine ⟨⟨salt, ⟨p.toList, by simp⟩⟩, ?_, hg⟩
-  simp [opening, PartialVec.mem_dom, ha, hs, hp]
+  refine ⟨⟨salt, ⟨p.toList, by simp⟩⟩, ?_, ?_⟩
+  · simp [opening, PartialVec.mem_dom, ha, hs, hp]
+  · intro q hq
+    exact hg q (List.mem_rotate.mp hq)
 
 /-- Openings of a consistent trapdoor parse, and all their prescribed relations hold. -/
 theorem outputIO_opening [DecidableEq X] [DecidableEq Y] (hc : Consistent G enc rt ans td) :
@@ -207,7 +211,8 @@ theorem length_outputIO_opening_le [DecidableEq X] [DecidableEq Y] (rt : Y)
     rename_i a pp
     obtain ⟨hs, ht⟩ := path_of_opening_eq_some hp
     exact pathIO_subset_treeIO (enc.node ()) td.2 inputs rt _ _ ht
-      (by simp [inputs, ha, hs]) q hq
+      (leaf := enc.leaf () (a, pp.salt))
+      (by simp [inputs, ha, hs]) q (by simpa only [leafIO, List.mem_rotate] using hq)
   have hn : io.Nodup := by
     unfold outputIO at h
     split_ifs at h

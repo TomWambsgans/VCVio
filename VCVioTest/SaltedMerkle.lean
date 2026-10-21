@@ -183,11 +183,28 @@ example : checkOn enc 1 (fun x => some (H x)) true (PartialVec.restrict msg {0})
 example : outputIO enc 1 true (PartialVec.restrict msg {0})
     (opening 1 Finset.univ (honestTree enc 1 H msg salts).2) = none := by decide
 
+/-- A singleton opening queries the leaf before its parent. -/
+example : outputIO enc 1 true (PartialVec.restrict msg {0})
+    (opening 1 {0} (honestTree enc 1 H msg salts).2) =
+    some [(enc.leaf () (true, false), true), (enc.node () (true, false), true)] := by decide
+
+/-- At depth two the leaf comes first, followed by the root and then its child. -/
+example : leafIO enc true (0 : Fin 4) false
+    ⟨false, ⟨[(true, false), (false, true)], rfl⟩⟩ =
+    [(enc.leaf () (false, false), false), (enc.node () (true, false), true),
+      (enc.node () (false, true), true)] := by decide
+
+/-- Right edges preserve sibling orientation after placing the leaf first. -/
+example : leafIO enc true (3 : Fin 4) false
+    ⟨false, ⟨[(true, false), (false, true)], rfl⟩⟩ =
+    [(enc.leaf () (false, false), false), (enc.node () (false, true), true),
+      (enc.node () (true, false), true)] := by decide
+
 /-- Two openings share the root pair; deduplication keeps it only once. -/
 example : outputIO enc 1 true (PartialVec.restrict msg Finset.univ)
     (opening 1 Finset.univ (honestTree enc 1 H msg salts).2) =
-    some [(enc.leaf () (true, false), true), (enc.node () (true, false), true),
-      (enc.leaf () (false, false), false)] := by decide
+    some [(enc.leaf () (true, false), true), (enc.leaf () (false, false), false),
+      (enc.node () (true, false), true)] := by decide
 
 /-- An extracted empty table knows the claimed root, unlike the repeated-index bottom. -/
 example : (extract enc 0 true Database.empty).2.2.getRootValue = some true ∧
