@@ -82,7 +82,8 @@ build boundaries and the staged consolidation.
   (`shakeAdvantage_pure_le_securityBound_hedged_validatedParams`,
   `shakeAdvantage_le_securityBound_hedged_validatedParams`), which reaches the three-oracle level
   per public seed (at `n = 32`, for every seed outside the weak set) and over the uniform public
-  seed. The SHA-2 parameter sets have no single-oracle model. An SUF-CMA bound and a complete FIPS conformance result are not proved; see
+  seed. The SHA-2 parameter sets have no single-oracle model. An SUF-CMA bound and a complete
+  FIPS conformance result are not proved; see
   `docs/design/slh-dsa-status-and-roadmap.md` and, for the accounting and levels,
   `docs/design/slh-dsa-classical-rom-bound.md`.
 - `LatticeCryptoTest/` contains ACVP vectors, regression tests, and differential checks against native backends.

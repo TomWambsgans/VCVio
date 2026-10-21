@@ -56,7 +56,8 @@ in both signing modes, for `16 ≤ n ≤ 32`,
   at every seed of the previous item and the factor is `min 1 ε` at `n = 32` and `1` otherwise
   (`shakeAdvantage_le_securityBound`). At `n < 32` the weak-key term is `|A_hon| / 2^256`; at
   `n = 32` it is the weak seeds' share `|A_hon| / 2^256 · min 1 ε`, about `2^{−362}` at
-  `q_h = q_s = 2^64`, and the averaged level equals the per-seed level outside the weak set;
+  `q_h = q_s = 2^64`, and the averaged level equals the per-seed level outside the weak set to two
+  decimals;
 - in hedged signing (`opt_rand` uniform), the per-seed, averaged and `n = 32` forms with
   `1 / 2^{8n} + q_s (q_h + q_s + 1) / 2^{16n}` in place of `(q_s + 1) / 2^{8n}`
   (`shakeAdvantage_pure_le_securityBound_hedged`, `shakeAdvantage_le_securityBound_hedged`,

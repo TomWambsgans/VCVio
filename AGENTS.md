@@ -81,7 +81,8 @@ build boundaries and the staged consolidation.
   with SHAKE256 gives the library's FIPS 205 SHAKE internal algorithms
   (`shakeRomScheme_map_shakeAnswer`), which are checked against pinned NIST ACVP vectors at
   SLH-DSA-SHAKE-128f; the EUF-CMA bound in that model, the three-oracle bound plus
-  `(q_s + 1) / 2^{8n}` and a weak-key term, is `shakeAdvantage_le_securityBound` (per public seed:
+  `(q_s + 1) / 2^{8n}` and a weak-key term (at `n = 32` only the weak seeds' share of the bound at
+  every seed), is `shakeAdvantage_le_securityBound` (per public seed:
   `shakeAdvantage_pure_le_securityBound`); in hedged signing `(q_s + 1) / 2^{8n}` becomes
   `1 / 2^{8n} + q_s (q_h + q_s + 1) / 2^{16n}` (`shakeAdvantage_le_securityBound_hedged`). There
   is no SUF-CMA bound and no complete FIPS conformance result.

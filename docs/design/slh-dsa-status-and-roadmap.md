@@ -183,8 +183,9 @@ This is a modelling choice: a forger against a variable-length extendable-output
 more than `m` bytes sees only bytes no SLH-DSA evaluation reads, and is simulated against this
 oracle, query for query, by sampling those bytes itself; that simulation is not formalised. At
 `q_h = q_s = 2^64` the averaged byte-level levels of the 256-bit sets are 254.00 (256s) and 253.89
-(256f), 254.41 and 254.27 in hedged signing, equal to the per-seed levels outside the weak set; at
-every seed, weak seeds included, they are 253.68 and 253.59, 254.00 and 253.89 in hedged signing.
+(256f), 254.41 and 254.27 in hedged signing, equal, to two decimals, to the per-seed levels
+outside the weak set; the bound at every seed, weak seeds included, is at 253.68 and 253.59, and
+at 254.00 and 253.89 in hedged signing.
 Not proved: any byte-level model of the SHA-2 sets; a strong-unforgeability bound; and
 the external interfaces (Algorithms 21–25), which the theorem does not reach. There is no complete
 FIPS conformance result.
