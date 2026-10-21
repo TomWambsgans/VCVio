@@ -31,8 +31,12 @@ random oracle on byte strings. This file instantiates it at the parameters of FI
 * **At `n = 32`, a weak public seed**: at the all-zero seed of SLH-DSA-SHAKE-256s, the weak-key
   term of the per-seed bound is one, and the bound at every public seed applies instead.
 * **Non-vacuity**: with `qh = qs = 2^64`, the right-hand side of the averaged bound is below one
-  at SLH-DSA-SHAKE-128s (`byteRhs_128s_lt_one`) and at SLH-DSA-SHAKE-256s
-  (`averagedByteRhs_256s_lt_one`, with the set's numbers in `shakeAdvantage_le_256s`).
+  at SLH-DSA-SHAKE-128s (`byteRhs_128s_lt_one`) and at SLH-DSA-SHAKE-256s and SLH-DSA-SHAKE-256f
+  (`averagedByteRhs_256s_lt_one`, `averagedByteRhs_256f_lt_one`, with the sets' numbers in
+  `shakeAdvantage_le_256s`, `shakeAdvantage_le_256f`). At those two sets the bound at every
+  seed is below one (`everySeedRhs_256s_lt_one`, `everySeedRhs_256f_lt_one`), so the averaged
+  right-hand side is strictly below the one with the weak-key term `|A_hon| / 2^256`
+  (`averagedByteRhs_256s_lt_byteRhs_256s`, `averagedByteRhs_256f_lt_byteRhs_256f`).
 * **Negative control**: the pointwise step behind the factor fails at a weak-key mass of `1 / 2`
   (`not_min_add_le_of_mass_half`), so it needs the mass to be `0` or `1`, as at `n = 32`.
 * **Hedged signing** (`opt_rand` uniform): the hedged bounds at a public seed and over the uniform
@@ -235,6 +239,24 @@ theorem shakeAdvantage_le_256s
   rwa [LinkedHazardsTest.verifyInternalQueryBound_256s, show honestAdrsCount vp256s =
     19966778066156452796772607 by rw [honestAdrsCount_eq]; decide] at h
 
+/-- **The averaged bound at SLH-DSA-SHAKE-256f**, at `qh = qs = 2 ^ 64`, with `V = 17522` and
+`|A_hon| = 16195218117312364562383887 ≈ 2^83.74`, in either signing mode. -/
+theorem shakeAdvantage_le_256f
+    {optRand : PublicKeyCore (shakeCore vp256f) → ProbComp (shakeCore vp256f).Y}
+    (adv : UnforgeableAdversary (shakeRomScheme vp256f optRand ($ᵗ (shakeCore vp256f).PkSeed)))
+    (hadv : adv.RomQueryBound (2 ^ 64) (2 ^ 64)) :
+    shakeAdvantage vp256f adv ≤
+      securityBound vp256f.params (256 ^ 32) 2 1 (2 ^ 64) (2 ^ 64) +
+          (((2 ^ 64 : ℕ) : ℝ≥0∞) + 1) / (256 ^ 32 : ℕ) +
+        (16195218117312364562383887 : ℕ) / 2 ^ 256 *
+          min 1 (securityBound vp256f.params (256 ^ 32) 2 1 (2 ^ 64 + 17522) (2 ^ 64) +
+            2 * (((2 ^ 64 : ℕ) : ℝ≥0∞) + 1) / (256 ^ 32 : ℕ)) := by
+  have h := shakeAdvantage_le_securityBound_of_n_eq_32
+    (fipsApprovedAddressBounds .SLHDSA_SHAKE_256f).toCanonicalAddressBounds rfl (by decide) adv
+    hadv
+  rwa [LinkedHazardsTest.verifyInternalQueryBound_256f, show honestAdrsCount vp256f =
+    16195218117312364562383887 by rw [honestAdrsCount_eq]; decide] at h
+
 /-! ## Non-vacuity -/
 
 open TargetTest KeyedHash.Covering in
@@ -275,18 +297,25 @@ theorem byteRhs_128s_lt_one :
   refine lt_of_le_of_lt ?_ key
   gcongr
 
+/-- With the bound at every seed below one, the weak seeds' share weighted by it is below the
+share in full. -/
+theorem add_mul_min_lt_add {F w ε : ℝ≥0∞} (hF : F ≠ ⊤) (hw0 : w ≠ 0) (hwt : w ≠ ⊤)
+    (hε : ε < 1) : F + w * min 1 ε < F + w := by
+  refine ENNReal.add_lt_add_left hF ?_
+  rw [min_eq_right hε.le]
+  calc w * ε = ε * w := mul_comm _ _
+    _ < 1 * w := ENNReal.mul_lt_mul_left hw0 hwt hε
+    _ = w := one_mul w
+
 open TargetTest LinkedHazardsTest KeyedHash.Covering in
-/-- At SLH-DSA-SHAKE-256s with `qh = qs = 2^64`, the right-hand side of the averaged bound is
-below one. -/
-theorem averagedByteRhs_256s_lt_one :
+/-- At SLH-DSA-SHAKE-256s with `qh = qs = 2^64`, the averaged bound with the weak seeds' share
+`|A_hon| / 2^256` in full is below one. -/
+theorem byteRhs_256s_lt_one :
     securityBound vp256s.params (2 ^ 256) 2 1 (2 ^ 64) (2 ^ 64) +
           (((2 ^ 64 : ℕ) : ℝ≥0∞) + 1) / ((2 ^ 256 : ℕ) : ℝ≥0∞) +
-        ((19966778066156452796772607 : ℕ) : ℝ≥0∞) / 2 ^ 256 *
-          min 1 (securityBound vp256s.params (2 ^ 256) 2 1 (2 ^ 64 + 8444) (2 ^ 64) +
-            2 * (((2 ^ 64 : ℕ) : ℝ≥0∞) + 1) / ((2 ^ 256 : ℕ) : ℝ≥0∞)) < 1 := by
-  refine lt_of_le_of_lt (add_le_add le_rfl (mul_le_of_le_one_right' (min_le_left _ _))) ?_
+        (((19966778066156452796772607 : ℕ) : ℝ≥0∞)) / 2 ^ 256 < 1 := by
   have hp : vp256s.params.h = 64 ∧ vp256s.params.a = 14 ∧ vp256s.params.k = 22 := by decide
-  rw [securityBound, hp.1, hp.2.1, hp.2.2, verifyInternalQueryBound_256s]
+  rw [securityBound, hp.1, hp.2.1, hp.2.2, LinkedHazardsTest.verifyInternalQueryBound_256s]
   have hN : (∑ r ∈ Finset.range 23, (r + 1) * r ^ 22 : ℕ) < 2 ^ 104 := by decide
   have hw : ((2 ^ 64 : ℕ) : ℝ≥0∞) * (((2 ^ 64 : ℕ) : ℝ≥0∞) / ((2 ^ 256 : ℕ) : ℝ≥0∞)) ≤ 1 := by
     rw [← mul_div_assoc, ← Nat.cast_mul]
@@ -310,15 +339,123 @@ theorem averagedByteRhs_256s_lt_one :
   gcongr
   exact hI.trans (by gcongr)
 
+open LinkedHazardsTest in
+/-- At SLH-DSA-SHAKE-256s with `qh = qs = 2^64`, the bound at every public seed is below one. -/
+theorem everySeedRhs_256s_lt_one :
+    securityBound vp256s.params (2 ^ 256) 2 1 (2 ^ 64 + 8444) (2 ^ 64) +
+      2 * (((2 ^ 64 : ℕ) : ℝ≥0∞) + 1) / ((2 ^ 256 : ℕ) : ℝ≥0∞) < 1 := by
+  rw [two_mul, ENNReal.add_div, ← add_assoc]
+  exact rhs_256s_lt_one
+
+/-- At SLH-DSA-SHAKE-256s with `qh = qs = 2^64`, the right-hand side of the averaged bound is
+below that of the bound with the weak seeds' share `|A_hon| / 2^256` in full: the factor of the
+weak seeds is the bound at every seed, which is below one. -/
+theorem averagedByteRhs_256s_lt_byteRhs_256s :
+    securityBound vp256s.params (2 ^ 256) 2 1 (2 ^ 64) (2 ^ 64) +
+          (((2 ^ 64 : ℕ) : ℝ≥0∞) + 1) / ((2 ^ 256 : ℕ) : ℝ≥0∞) +
+        (((19966778066156452796772607 : ℕ) : ℝ≥0∞)) / 2 ^ 256 *
+          min 1 (securityBound vp256s.params (2 ^ 256) 2 1 (2 ^ 64 + 8444) (2 ^ 64) +
+            2 * (((2 ^ 64 : ℕ) : ℝ≥0∞) + 1) / ((2 ^ 256 : ℕ) : ℝ≥0∞)) <
+      securityBound vp256s.params (2 ^ 256) 2 1 (2 ^ 64) (2 ^ 64) +
+          (((2 ^ 64 : ℕ) : ℝ≥0∞) + 1) / ((2 ^ 256 : ℕ) : ℝ≥0∞) +
+        (((19966778066156452796772607 : ℕ) : ℝ≥0∞)) / 2 ^ 256 :=
+  add_mul_min_lt_add (lt_of_le_of_lt le_self_add byteRhs_256s_lt_one).ne_top (by simp)
+    (by finiteness) everySeedRhs_256s_lt_one
+
+/-- At SLH-DSA-SHAKE-256s with `qh = qs = 2^64`, the right-hand side of the averaged bound is
+below one. -/
+theorem averagedByteRhs_256s_lt_one :
+    securityBound vp256s.params (2 ^ 256) 2 1 (2 ^ 64) (2 ^ 64) +
+          (((2 ^ 64 : ℕ) : ℝ≥0∞) + 1) / ((2 ^ 256 : ℕ) : ℝ≥0∞) +
+        (((19966778066156452796772607 : ℕ) : ℝ≥0∞)) / 2 ^ 256 *
+          min 1 (securityBound vp256s.params (2 ^ 256) 2 1 (2 ^ 64 + 8444) (2 ^ 64) +
+            2 * (((2 ^ 64 : ℕ) : ℝ≥0∞) + 1) / ((2 ^ 256 : ℕ) : ℝ≥0∞)) < 1 :=
+  averagedByteRhs_256s_lt_byteRhs_256s.trans byteRhs_256s_lt_one
+
 /-- **The advantage at SLH-DSA-SHAKE-256s over the uniform public seed is below one**, for
 `2 ^ 64` hash and `2 ^ 64` signing queries. -/
-theorem shakeAdvantage_lt_one_256s
+theorem shakeAdvantage_lt_one_256s_averaged
     {optRand : PublicKeyCore (shakeCore vp256s) → ProbComp (shakeCore vp256s).Y}
     (adv : UnforgeableAdversary (shakeRomScheme vp256s optRand ($ᵗ (shakeCore vp256s).PkSeed)))
     (hadv : adv.RomQueryBound (2 ^ 64) (2 ^ 64)) : shakeAdvantage vp256s adv < 1 := by
   have h := shakeAdvantage_le_256s adv hadv
   rw [show (256 ^ 32 : ℕ) = 2 ^ 256 by norm_num] at h
   exact lt_of_le_of_lt h averagedByteRhs_256s_lt_one
+
+open TargetTest LinkedHazardsTest KeyedHash.Covering in
+/-- At SLH-DSA-SHAKE-256f with `qh = qs = 2^64`, the averaged bound with the weak seeds' share
+`|A_hon| / 2^256` in full is below one. -/
+theorem byteRhs_256f_lt_one :
+    securityBound vp256f.params (2 ^ 256) 2 1 (2 ^ 64) (2 ^ 64) +
+          (((2 ^ 64 : ℕ) : ℝ≥0∞) + 1) / ((2 ^ 256 : ℕ) : ℝ≥0∞) +
+        (((16195218117312364562383887 : ℕ) : ℝ≥0∞)) / 2 ^ 256 < 1 := by
+  have hp : vp256f.params.h = 68 ∧ vp256f.params.a = 9 ∧ vp256f.params.k = 35 := by decide
+  rw [securityBound, hp.1, hp.2.1, hp.2.2, LinkedHazardsTest.verifyInternalQueryBound_256f]
+  have hN : (∑ r ∈ Finset.range 36, (r + 1) * r ^ 35 : ℕ) < 2 ^ 186 := by decide
+  have hw : ((2 ^ 64 : ℕ) : ℝ≥0∞) * (((2 ^ 64 : ℕ) : ℝ≥0∞) / ((2 ^ 256 : ℕ) : ℝ≥0∞)) ≤ 1 := by
+    rw [← mul_div_assoc, ← Nat.cast_mul]
+    exact ENNReal.div_le_of_le_mul (by rw [one_mul]; exact_mod_cast (by norm_num))
+  have hI := weightedTargetCoverBound_le_of_le_h (h := 68) (a := 9) (k := 35) (by norm_num) hw
+  have key : ((2 ^ 64 : ℕ) + 1 : ℝ≥0∞) * (((2 ^ 186 : ℕ) : ℝ≥0∞) *
+        (((2 : ℝ≥0∞) ^ 9)⁻¹) ^ 35) +
+      ((2 : ℕ) * ((2 ^ 64 : ℕ) : ℝ≥0∞) + (((1 + 1) * 17522 : ℕ) : ℝ≥0∞)) *
+        (((2 ^ 256 : ℕ) : ℝ≥0∞))⁻¹ +
+      (((2 ^ 64 : ℕ) : ℝ≥0∞) + 1) / ((2 ^ 256 : ℕ) : ℝ≥0∞) +
+      ((16195218117312364562383887 : ℕ) : ℝ≥0∞) / 2 ^ 256 < 1 := by
+    rw [← ENNReal.toReal_lt_toReal (by finiteness) ENNReal.one_ne_top]
+    rw [ENNReal.toReal_add (by finiteness) (by finiteness),
+      ENNReal.toReal_add (by finiteness) (by finiteness),
+      ENNReal.toReal_add (by finiteness) (by finiteness)]
+    simp only [ENNReal.toReal_mul, ENNReal.toReal_div, ENNReal.toReal_inv, ENNReal.toReal_pow,
+      ENNReal.toReal_ofNat, ENNReal.toReal_one, Nat.cast_pow, Nat.cast_ofNat, Nat.cast_mul,
+      Nat.cast_add, Nat.cast_one]
+    norm_num
+  refine lt_of_le_of_lt ?_ key
+  gcongr
+  exact hI.trans (by gcongr)
+
+open LinkedHazardsTest in
+/-- At SLH-DSA-SHAKE-256f with `qh = qs = 2^64`, the bound at every public seed is below one. -/
+theorem everySeedRhs_256f_lt_one :
+    securityBound vp256f.params (2 ^ 256) 2 1 (2 ^ 64 + 17522) (2 ^ 64) +
+      2 * (((2 ^ 64 : ℕ) : ℝ≥0∞) + 1) / ((2 ^ 256 : ℕ) : ℝ≥0∞) < 1 := by
+  rw [two_mul, ENNReal.add_div, ← add_assoc]
+  exact rhs_256f_lt_one
+
+/-- At SLH-DSA-SHAKE-256f with `qh = qs = 2^64`, the right-hand side of the averaged bound is
+below that of the bound with the weak seeds' share `|A_hon| / 2^256` in full: the factor of the
+weak seeds is the bound at every seed, which is below one. -/
+theorem averagedByteRhs_256f_lt_byteRhs_256f :
+    securityBound vp256f.params (2 ^ 256) 2 1 (2 ^ 64) (2 ^ 64) +
+          (((2 ^ 64 : ℕ) : ℝ≥0∞) + 1) / ((2 ^ 256 : ℕ) : ℝ≥0∞) +
+        (((16195218117312364562383887 : ℕ) : ℝ≥0∞)) / 2 ^ 256 *
+          min 1 (securityBound vp256f.params (2 ^ 256) 2 1 (2 ^ 64 + 17522) (2 ^ 64) +
+            2 * (((2 ^ 64 : ℕ) : ℝ≥0∞) + 1) / ((2 ^ 256 : ℕ) : ℝ≥0∞)) <
+      securityBound vp256f.params (2 ^ 256) 2 1 (2 ^ 64) (2 ^ 64) +
+          (((2 ^ 64 : ℕ) : ℝ≥0∞) + 1) / ((2 ^ 256 : ℕ) : ℝ≥0∞) +
+        (((16195218117312364562383887 : ℕ) : ℝ≥0∞)) / 2 ^ 256 :=
+  add_mul_min_lt_add (lt_of_le_of_lt le_self_add byteRhs_256f_lt_one).ne_top (by simp)
+    (by finiteness) everySeedRhs_256f_lt_one
+
+/-- At SLH-DSA-SHAKE-256f with `qh = qs = 2^64`, the right-hand side of the averaged bound is
+below one. -/
+theorem averagedByteRhs_256f_lt_one :
+    securityBound vp256f.params (2 ^ 256) 2 1 (2 ^ 64) (2 ^ 64) +
+          (((2 ^ 64 : ℕ) : ℝ≥0∞) + 1) / ((2 ^ 256 : ℕ) : ℝ≥0∞) +
+        (((16195218117312364562383887 : ℕ) : ℝ≥0∞)) / 2 ^ 256 *
+          min 1 (securityBound vp256f.params (2 ^ 256) 2 1 (2 ^ 64 + 17522) (2 ^ 64) +
+            2 * (((2 ^ 64 : ℕ) : ℝ≥0∞) + 1) / ((2 ^ 256 : ℕ) : ℝ≥0∞)) < 1 :=
+  averagedByteRhs_256f_lt_byteRhs_256f.trans byteRhs_256f_lt_one
+
+/-- **The advantage at SLH-DSA-SHAKE-256f over the uniform public seed is below one**, for
+`2 ^ 64` hash and `2 ^ 64` signing queries. -/
+theorem shakeAdvantage_lt_one_256f_averaged
+    {optRand : PublicKeyCore (shakeCore vp256f) → ProbComp (shakeCore vp256f).Y}
+    (adv : UnforgeableAdversary (shakeRomScheme vp256f optRand ($ᵗ (shakeCore vp256f).PkSeed)))
+    (hadv : adv.RomQueryBound (2 ^ 64) (2 ^ 64)) : shakeAdvantage vp256f adv < 1 := by
+  have h := shakeAdvantage_le_256f adv hadv
+  rw [show (256 ^ 32 : ℕ) = 2 ^ 256 by norm_num] at h
+  exact lt_of_le_of_lt h averagedByteRhs_256f_lt_one
 
 /-! ## Hedged signing -/
 
