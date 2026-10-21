@@ -17,8 +17,9 @@ A signature scheme in the random oracle model runs over `unifSpec + hs`: private
 and a hash oracle `hs`. Its unforgeability adversary additionally holds a signing oracle, so its
 queries are private samples, hash queries (`IsHashQuery`) and signing queries (`IsSignQuery`).
 `UnforgeableAdversary.RomQueryBound adv qh qs` bounds the last two on every path of the
-adversary's own program, for every public key. It says nothing about the queries key generation,
-signing and verification make on the adversary's behalf.
+adversary's own program, for every public key; `StrongUnforgeableAdversary.RomQueryBound` is the
+same budget for a strong unforgeability adversary. It says nothing about the queries key
+generation, signing and verification make on the adversary's behalf.
 
 The adversary's hash queries are nonetheless counted on every run of the experiment. The
 *tagged experiment* `taggedUnforgeableExperiment adv` runs the scheme tagged `false` and the
@@ -63,6 +64,13 @@ hash queries and at most `qs` signing queries. -/
     (adv : UnforgeableAdversary sigAlg) (qh qs : ℕ) : Prop :=
   ∀ pk, IsQueryBoundP (adv.main pk) (IsHashQuery (hs := hs) (M := M) (S := S)) qh ∧
     IsQueryBoundP (adv.main pk) (IsSignQuery (hs := hs) (M := M) (S := S)) qs
+
+/-- The strong unforgeability adversary makes, on every path of its program and for every public
+key, at most `qh` hash queries and at most `qs` signing queries. -/
+abbrev StrongUnforgeableAdversary.RomQueryBound
+    {sigAlg : SignatureAlg (OracleComp (unifSpec + hs)) M PK SK S}
+    (adv : StrongUnforgeableAdversary sigAlg) (qh qs : ℕ) : Prop :=
+  adv.toUnforgeableAdversary.RomQueryBound qh qs
 
 /-- A tagged query that is a hash query issued by the adversary, tagged `true`. -/
 @[expose] def IsForgerHashQuery : Bool × (unifSpec + hs).Domain → Prop

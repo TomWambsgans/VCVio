@@ -444,8 +444,8 @@ theorem xmssPkFromSig?_cases (pk : core.PkSeed) (c : PublicHash.Cache core) (adr
   obtain ⟨leaf', ⟨tops', htops', hTl'⟩, hclimb⟩ :=
     (simulateQ_toPartialImpl_xmssPkFromSigM_eq_some_iff core c idx sig msg pk adrs).mp hforge
   rcases PerfectMerkleTree.climbM_merkleRootM_cases c.toPartialImpl _ _ idx vp.params.hp 0
-      (Nat.div_eq_of_lt hidx) leaf' sig.auth.toList (by simp) hclimb hhonest with
-    hleaf | ⟨h, l, rr, l', r', v, hh, hhp, hne, hl, hr, hq, hq'⟩
+      (Nat.div_eq_of_lt hidx) leaf' sig.auth hclimb hhonest with
+    ⟨hleaf, -⟩ | ⟨h, l, rr, l', r', v, hh, hhp, hne, hl, hr, hq, hq'⟩
   · simp only [xmssLeafWithSecret, wotsPkGenWithSecret, simulateQ_bind_eq_some_iff,
       simulateQ_toPartialImpl_tl] at hleaf
     obtain ⟨tops, htops, hTl⟩ := hleaf
@@ -645,8 +645,8 @@ theorem fors_cases (o : RomOutcome vp core) (c : PublicHash.Cache core)
   rcases PerfectMerkleTree.climbM_merkleRootM_cases c.toPartialImpl _ _
       (i.val * 2 ^ vp.params.a + forsIdx vp.params md i.val) vp.params.a i.val
       (by rw [← forsSigLeafIndex_eq]; exact forsSigLeafIndex_div_pow_a vp.params md i.val) leaf'
-      (o.sig.fors[i.val]).auth.toList (by simp) hclimb (hper i) with
-    hleaf | ⟨h, l, rr, l', r', v, hh, hha, hne, hl, hr, hq, hq'⟩
+      (o.sig.fors[i.val]).auth hclimb (hper i) with
+    ⟨hleaf, -⟩ | ⟨h, l, rr, l', r', v, hh, hha, hne, hl, hr, hq, hq'⟩
   · simp only [forsLeafWithSecret, simulateQ_bind_eq_some_iff, simulateQ_toPartialImpl_f]
       at hleaf
     obtain ⟨x, hx, hleaf⟩ := hleaf

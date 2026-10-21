@@ -468,6 +468,16 @@ lemma strongUnforgeableAdvantage_le_euf_add_sameMessage
         sameMessageStrongUnforgeableAdvantage runtime adv :=
   (strongUnforgeableAdvantage_eq_euf_add_sameMessage runtime adv).le
 
+/-- Strong unforgeability is at least as demanding as unforgeability: the forging advantage of an
+adversary is at most the strong forging advantage of the same program. -/
+lemma unforgeableAdvantage_le_strongUnforgeableAdvantage
+    {sigAlg : SignatureAlg (OracleComp spec) M PK SK S}
+    (runtime : ProbCompRuntime (OracleComp spec)) (adv : UnforgeableAdversary sigAlg) :
+    unforgeableAdvantage runtime adv ≤
+      strongUnforgeableAdvantage runtime (⟨adv.main⟩ : StrongUnforgeableAdversary sigAlg) := by
+  rw [strongUnforgeableAdvantage_eq_euf_add_sameMessage]
+  exact le_self_add
+
 /-- SUF-CMA from EUF-CMA plus a quantitative same-message binding property. -/
 lemma strongUnforgeableAdvantage_le_euf_add_of_sameMessageBinding
     {sigAlg : SignatureAlg (OracleComp spec) M PK SK S}

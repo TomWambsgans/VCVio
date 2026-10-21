@@ -14,8 +14,11 @@ public import VCVio.CryptoFoundations.SignatureAlg.Naturality
 `unforgeableTranscriptExperiment` runs the body of `unforgeableExperiment` and returns its whole
 transcript (`UnforgeableTranscript`): the key pair, the signing oracle's log, the forgery and the
 verification verdict.  The experiment's success bit is `UnforgeableTranscript.wins` of the
-transcript (`map_wins_unforgeableTranscriptExperiment`), so any event of the experiment is an
-event of the transcript, and a proof about the adversary's success may read off the transcript
+transcript (`map_wins_unforgeableTranscriptExperiment`), and the success bit of the strong
+unforgeability experiment against the same program is `UnforgeableTranscript.strongWins`
+(`map_strongWins_unforgeableTranscriptExperiment`), which a win implies
+(`UnforgeableTranscript.strongWins_of_wins`). So any event of either experiment is an event of the
+transcript, and a proof about the adversary's success may read off the transcript
 everything the experiment computed.
 
 The transcript experiment commutes with oracle interpretation: interpreting the ambient oracles
@@ -80,6 +83,26 @@ theorem UnforgeableTranscript.wins_eq_true_iff (o : UnforgeableTranscript M PK S
   rw [← QueryLog.getQ_ne_nil_iff_mem_map_fst]
   simp only [UnforgeableTranscript.wins, QueryLog.wasQueried, Bool.and_eq_true, Bool.not_eq_true',
     decide_eq_false_iff_not]
+
+open scoped Classical in
+/-- The strong success bit of a transcript: the forgery verifies and the exact pair of message and
+signature was never returned by the signing oracle. -/
+noncomputable def UnforgeableTranscript.strongWins (o : UnforgeableTranscript M PK SK S) : Bool :=
+  !signingLogContains o.log o.msg o.sig && o.verified
+
+/-- A transcript wins strongly exactly when its pair of message and signature is absent from the
+signing log and the forgery verifies. -/
+theorem UnforgeableTranscript.strongWins_eq_true_iff (o : UnforgeableTranscript M PK SK S) :
+    o.strongWins = true ↔ ⟨o.msg, o.sig⟩ ∉ o.log ∧ o.verified = true := by
+  classical
+  simp only [UnforgeableTranscript.strongWins, signingLogContains, Bool.and_eq_true,
+    Bool.not_eq_true', decide_eq_false_iff_not]
+
+/-- A winning transcript wins strongly. -/
+theorem UnforgeableTranscript.strongWins_of_wins {o : UnforgeableTranscript M PK SK S}
+    (h : o.wins = true) : o.strongWins = true := by
+  rw [UnforgeableTranscript.wins_eq_true_iff] at h
+  exact (o.strongWins_eq_true_iff).2 ⟨fun hm => h.1 (List.mem_map.2 ⟨_, hm, rfl⟩), h.2⟩
 
 /-- The unforgeability experiment returning its whole transcript. -/
 noncomputable def unforgeableTranscriptExperiment
@@ -146,6 +169,17 @@ theorem map_wins_unforgeableTranscriptExperiment
     UnforgeableTranscript.wins <$> unforgeableTranscriptExperiment adv =
       unforgeableExperiment adv := by
   simp only [unforgeableTranscriptExperiment, unforgeableExperiment, map_bind, map_pure]
+  rfl
+
+/-- The strong unforgeability experiment is the strong success bit of the transcript of the same
+adversary program. -/
+theorem map_strongWins_unforgeableTranscriptExperiment
+    {sigAlg : SignatureAlg (OracleComp spec) M PK SK S} (adv : StrongUnforgeableAdversary sigAlg) :
+    UnforgeableTranscript.strongWins <$>
+        unforgeableTranscriptExperiment adv.toUnforgeableAdversary =
+      strongUnforgeableExperiment adv := by
+  simp only [unforgeableTranscriptExperiment, strongUnforgeableExperiment, map_bind, map_pure,
+    StrongUnforgeableAdversary.toUnforgeableAdversary]
   rfl
 
 /-- Interpreting the ambient oracles of the transcript experiment through `G` gives the
