@@ -14,7 +14,7 @@ public import VCVio.CryptoFoundations.MerkleTree.Salted.HalfPreimage
 Toy instances of Chiesa, Di, Hu and Zheng, ePrint 2025/2166, Definition 8.2, with one-bit labels,
 messages and salts and tagged oracle inputs:
 
-* depths `d = 0` and `d = 1`, with their `CheckIO` forms and perfect completeness;
+* depths `d = 0` and `d = 1`, with their non-adaptive checks and perfect completeness;
 * an honest commitment for an explicit hash function, opened and checked by evaluation;
 * `MTExtract` evaluated on a small explicit database, its validity, and Lemma 8.6 on it.
 -/
@@ -52,15 +52,15 @@ example (D : MeasureTheory.Measure (X → Bool)) [MeasureTheory.IsProbabilityMea
   perfectlyComplete_toVectorCommitment enc 1 D
 
 /-- The query complexity is non-decreasing, so `qVC 2` also bounds an opening of one position. -/
-example : Monotone (checkIOForm (Msg := Bool) enc 1).qVC := (checkIOForm enc 1).qVC_mono
+example : Monotone (nonadaptiveCheck (Msg := Bool) enc 1).qVC := (nonadaptiveCheck enc 1).qVC_mono
 
 /-- At depth `1`, an opening of both positions makes at most `2 · 2 = 4` checks. -/
-example : (checkIOForm (Msg := Bool) enc 1).qVC 2 = 4 := rfl
+example : (nonadaptiveCheck (Msg := Bool) enc 1).qVC 2 = 4 := rfl
 
 /-- At depth `0`, the one opening lists at most `2 · 1 - 1 = 1` distinct pair. -/
 example (rt : Bool) (ans : PartialVec 1 Bool) (td : Td Bool Bool 0) (io : List (X × Bool))
-    (h : outputIO enc 0 rt ans (opening 0 ans.dom td) = some io) : io.length ≤ 1 :=
-  length_outputIO_opening_le enc rt ans _ td io h
+    (h : pairs enc 0 rt ans (opening 0 ans.dom td) = some io) : io.length ≤ 1 :=
+  length_pairs_opening_le enc rt ans _ td io h
 
 /-! ## An honest commitment, opened and checked -/
 
@@ -81,17 +81,17 @@ example : (honestTree enc 1 H msg salts).1 = true := by decide
 
 /-- Opening both positions lists three distinct pairs: the two leaf pairs, and the root pair,
 which both paths share, once. -/
-example : (outputIO enc 1 (honestTree enc 1 H msg salts).1 (PartialVec.restrict msg Finset.univ)
+example : (pairs enc 1 (honestTree enc 1 H msg salts).1 (PartialVec.restrict msg Finset.univ)
     (opening 1 Finset.univ (honestTree enc 1 H msg salts).2)).map List.length = some 3 := by
   decide
 
 /-- The honest opening of both positions passes the check. -/
-example : (checkIOForm enc 1).checkOn (fun x ↦ some (H x)) (honestTree enc 1 H msg salts).1
+example : (nonadaptiveCheck enc 1).checkOn (fun x ↦ some (H x)) (honestTree enc 1 H msg salts).1
     (PartialVec.restrict msg Finset.univ)
     (opening 1 Finset.univ (honestTree enc 1 H msg salts).2) = true := by decide
 
 /-- A wrong answer is rejected. -/
-example : (checkIOForm enc 1).checkOn (fun x ↦ some (H x)) (honestTree enc 1 H msg salts).1
+example : (nonadaptiveCheck enc 1).checkOn (fun x ↦ some (H x)) (honestTree enc 1 H msg salts).1
     (PartialVec.restrict ![false, false] Finset.univ)
     (opening 1 Finset.univ (honestTree enc 1 H msg salts).2) = false := by decide
 
@@ -121,7 +121,7 @@ input `(false, false)`), nothing is extracted. -/
 example : (extract enc 1 false D).1 = fun _ ↦ none := by decide
 
 /-- The extracted message passes the check on its domain (Thm 8.4 condition 3). -/
-example : (checkIOForm enc 1).checkOn D true (extract enc 1 true D).1
+example : (nonadaptiveCheck enc 1).checkOn D true (extract enc 1 true D).1
     (opening 1 (extract enc 1 true D).1.dom (extract enc 1 true D).2) = true :=
   extract_valid enc 1 true D
 
@@ -180,11 +180,11 @@ example : checkOn enc 1 (fun x => some (H x)) true (PartialVec.restrict msg {0})
     ![some ⟨false, ⟨[(false, true)], rfl⟩⟩, none] = false := by decide
 
 /-- An entry outside the answer domain is rejected even when its hash checks are honest. -/
-example : outputIO enc 1 true (PartialVec.restrict msg {0})
+example : pairs enc 1 true (PartialVec.restrict msg {0})
     (opening 1 Finset.univ (honestTree enc 1 H msg salts).2) = none := by decide
 
 /-- A singleton opening queries the leaf before its parent. -/
-example : outputIO enc 1 true (PartialVec.restrict msg {0})
+example : pairs enc 1 true (PartialVec.restrict msg {0})
     (opening 1 {0} (honestTree enc 1 H msg salts).2) =
     some [(enc.leaf () (true, false), true), (enc.node () (true, false), true)] := by decide
 
@@ -201,7 +201,7 @@ example : leafIO enc true (3 : Fin 4) false
       (enc.node () (true, false), true)] := by decide
 
 /-- Two openings share the root pair; deduplication keeps it only once. -/
-example : outputIO enc 1 true (PartialVec.restrict msg Finset.univ)
+example : pairs enc 1 true (PartialVec.restrict msg Finset.univ)
     (opening 1 Finset.univ (honestTree enc 1 H msg salts).2) =
     some [(enc.leaf () (true, false), true), (enc.leaf () (false, false), false),
       (enc.node () (true, false), true)] := by decide
@@ -211,7 +211,7 @@ example : (extract enc 0 true Database.empty).2.2.getRootValue = some true ∧
     (tdBot : Td Bool Bool 0).2.getRootValue = none := ⟨rfl, rfl⟩
 
 /-- With an empty answer domain, the empty opening has no checks. -/
-example : outputIO enc 0 true (fun _ => none) (opening 0 ∅ tdBot) = some [] := by decide
+example : pairs enc 0 true (fun _ => none) (opening 0 ∅ tdBot) = some [] := by decide
 
 /-! ## Overlapping oracle roles and ordered collisions -/
 

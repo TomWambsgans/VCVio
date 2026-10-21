@@ -67,8 +67,8 @@ theorem leafIO_sub_of_checkOn {d : ℕ} {rt : Y} {ans : PartialVec (2 ^ d) Msg} 
     {D : Database X Y} (h : checkOn enc d D rt ans pf = true) :
     (∀ ι, (pf ι).isSome = (ans ι).isSome) ∧ ∀ ι a pp, ans ι = some a → pf ι = some pp →
       ∀ p ∈ leafIO enc rt ι a pp, D p.1 = some p.2 := by
-  change (outputIO enc d rt ans pf).elim false (checkIOOn D) = true at h
-  unfold outputIO at h
+  change (pairs enc d rt ans pf).elim false (checkIOOn D) = true at h
+  unfold pairs at h
   split_ifs at h with hpf
   · rw [Option.elim_some, checkIOOn_eq_true_iff] at h
     refine ⟨hpf, fun ι a pp ha hpp p hp ↦ h p ?_⟩
@@ -137,8 +137,8 @@ theorem consistent_extract (d : ℕ) (rt : Y) (D : Database X Y) :
 theorem extract_valid [DecidableEq X] (d : ℕ) (rt : Y) (D : Database X Y) :
     checkOn enc d D rt (extract enc d rt D).1
       (opening d (extract enc d rt D).1.dom (extract enc d rt D).2) = true := by
-  obtain ⟨io, hio, hG⟩ := (consistent_extract enc d rt D).outputIO_opening
-  change (outputIO enc d rt _ _).elim false (checkIOOn D) = true
+  obtain ⟨io, hio, hG⟩ := (consistent_extract enc d rt D).pairs_opening
+  change (pairs enc d rt _ _).elim false (checkIOOn D) = true
   rw [hio, Option.elim_some, checkIOOn_eq_true_iff]
   exact hG
 /-- Collision-free accepted checks recover the exact salt, message and labelled path. -/
