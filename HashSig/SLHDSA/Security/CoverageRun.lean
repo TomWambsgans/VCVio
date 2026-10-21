@@ -551,7 +551,7 @@ theorem exists_witness_of_runItsrCovered {e : core.SkSeed ≃ core.Y}
   rw [UnforgeableTranscript.mapSk_pk] at hdig hidx
   rw [UnforgeableTranscript.mapSk_sig, UnforgeableTranscript.mapSk_msg] at hdig
   rw [UnforgeableTranscript.mapSk_log] at hidx
-  simp only [RunFresh, DeriveOutcome.fill, UnforgeableTranscript.mapSk_msg,
+  simp only [RunPointFresh, DeriveOutcome.fill, UnforgeableTranscript.mapSk_msg,
     UnforgeableTranscript.mapSk_log, UnforgeableTranscript.mapSk_sig] at hfresh
   have hlen := length_of_mem_support_tapeFamily (tapeLength qh qs) hL
   have hF := cnt_le_of_isQueryBoundP (tapeClass core) (range_eq_tapeClassRange core)

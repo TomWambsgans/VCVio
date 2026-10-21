@@ -22,7 +22,7 @@ and signature was never returned by the signing oracle exhibits a target collisi
 hit, or coverage at a fresh `H_msg` point there (`bad_event_of_strongWins_romSchemeRun`).  The
 provider and the seed are fixed by the run, not chosen by the caller.
 
-The descent runs top-down from the cached public root (`bad_event_or_honestDescent_of_settled`):
+The descent runs top-down from the cached public root (`bad_event_or_honest_descent_of_settled`):
 key generation settles the honest root of the top tree at the value the forgery's verification
 recovers there, `xmssLayer_cases` moves the descent one layer down for as long as the used leaf's
 honest message is the one the verification presents, and at layer `0` it reaches the honest FORS
@@ -56,7 +56,7 @@ signature used.
 *The layers of a logged signature*: `exists_honestMessage?_xmssSignWithSecret_of_loggedDigest`,
 `exists_honestMessage?_eq_some_of_usedLeaf`.
 
-*The descent*: `bad_event_or_honestDescent_of_settled`.
+*The descent*: `bad_event_or_honest_descent_of_settled`.
 
 *The bridges on a settled cache*: `bad_event_of_settled`, `bad_event_or_logged_of_settled`.
 
@@ -238,7 +238,7 @@ verification of the forgery replays on `c` to `true`, then `c` exhibits a same-a
 collision or a hidden-value hit, or the forgery's digest and recovered FORS public key are settled
 and at every layer the message the verification presents is the settled honest message at the
 layer's position, and the forgery's XMSS signature there recovers the settled honest root. -/
-theorem bad_event_or_honestDescent_of_settled [DecidableEq core.Y] (laws : core.ByteLaws)
+theorem bad_event_or_honest_descent_of_settled [DecidableEq core.Y] (laws : core.ByteLaws)
     (secret : Adrs → OracleComp (publicHashSpec core) core.Y) (o : RomOutcome vp core)
     (c : PublicHash.Cache core)
     (hroot : simulateQ c.toPartialImpl
@@ -334,7 +334,7 @@ theorem bad_event_of_settled [DecidableEq core.Y] (laws : core.ByteLaws)
     (hver : simulateQ c.toPartialImpl
       (GeneralScheme.verifyInternalM vp core o.msg o.sig o.pk) = some true) :
     TargetCollision secret o.pk.pkSeed c ∨ HiddenHit secret o c ∨ ItsrCovered o c := by
-  rcases bad_event_or_honestDescent_of_settled laws secret o c hroot hlog hver with
+  rcases bad_event_or_honest_descent_of_settled laws secret o c hroot hlog hver with
     h | h | ⟨digest, forsPk, hd, hfors, hall⟩
   · exact Or.inl h
   · exact Or.inr (Or.inl h)
@@ -368,7 +368,7 @@ theorem bad_event_or_logged_of_settled [DecidableEq core.Y] (laws : core.ByteLaw
       (Or.imp id fun h => Or.inl ⟨h, hpt⟩)
   obtain ⟨x, hx, hxe⟩ := List.mem_map.1 hpt
   obtain ⟨hR, hM⟩ := Prod.mk.inj hxe
-  rcases bad_event_or_honestDescent_of_settled laws secret o c hroot hlog hver with
+  rcases bad_event_or_honest_descent_of_settled laws secret o c hroot hlog hver with
     h | h | ⟨digest, forsPk, hd, hfors, hall⟩
   · exact Or.inl h
   · exact Or.inr (Or.inl h)

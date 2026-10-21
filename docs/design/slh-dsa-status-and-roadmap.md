@@ -194,8 +194,9 @@ oracle, query for query, by sampling those bytes itself; that simulation is not 
 (256f), 254.41 and 254.27 in hedged signing, equal, to two decimals, to the per-seed levels
 outside the weak set; the bound at every seed, weak seeds included, is at 253.68 and 253.59, and
 at 254.00 and 253.89 in hedged signing.
-Not proved: any byte-level model of the SHA-2 sets; a strong-unforgeability bound; and
-the external interfaces (Algorithms 21–25), which the theorem does not reach. There is no complete
+Not proved: any byte-level model of the SHA-2 sets; and the external interfaces
+(Algorithms 21–25), which the theorem does not reach, so strong unforgeability over byte strings,
+which also needs the signature encoding to parse one-to-one, is not proved. There is no complete
 FIPS conformance result.
 
 ## Security lane: slices, status, and source correspondence
@@ -248,7 +249,8 @@ hypotheses and resource/domain conditions not encoded by the current theorem:
   and neither bounds the transcript, so the Lean advantage is the supplied adversary's success
   probability with no transcript bound, where the source's term is bounded through its reduction;
 - the same-randomizer half of the strong-unforgeability residual, which has no counterpart in the
-  source at all and no bound anywhere in this repository.
+  source at all and no bound in the standard-model lane of this repository (the random-oracle
+  bound of #766 closes that case through its strong bridge, at no extra term).
 
 Reduction traps recorded in issue #629 apply to every slice from 6 onward: the zero fallback of
 `checkedNodeOrZero` aliases reachable values, and the type-tagged fallback of `sha2AdrsKey` is the

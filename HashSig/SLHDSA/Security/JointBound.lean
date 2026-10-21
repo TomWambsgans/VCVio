@@ -21,7 +21,7 @@ with hash budget `qh` makes the run (`romSchemeRun`) fire a same-key target coll
 queries (`prEvent_romSchemeRun_runTargetCollision_or_runHiddenHit_le`). The forger guessing a
 secret seed is inside this bound: it is charged by the same potential, not added.
 
-The forging advantage is then bounded in two forms, both per public seed:
+The strong forging advantage is then bounded in two forms, both per public seed:
 
 * `strongUnforgeableAdvantage_romScheme_pure_le_add_idealDraw`: at most `2 (qh + V) / |Y|` plus the
   probability of interleaved-target coverage (`RunItsrCovered`) in the ideal hidden-seed game
@@ -521,7 +521,7 @@ theorem prEvent_idealDraw_runItsrCovered_eq (e : core.SkSeed ≃ core.Y)
       (by simp only [DeriveOutcome.fill, UnforgeableTranscript.mapSk_log])
       (by simp only [DeriveOutcome.fill, UnforgeableTranscript.mapSk_msg])
       (by simp only [DeriveOutcome.fill, UnforgeableTranscript.mapSk_sig])]
-    simp only [RunItsrCovered, ItsrCovered, ForgerDigest, LoggedDigest, RunFresh, hm]
+    simp only [RunItsrCovered, ItsrCovered, ForgerDigest, LoggedDigest, RunPointFresh, hm]
   rw [prEvent_congr _ _ _ hev, prEvent_idealDraw_eq e optRand pkSeed adv
     fun _ z ↦ RunItsrCovered core (DeriveOutcome.fill core s₀ z.1, z.2.1)]
   let _ : MeasurableSpace (core.SkSeed × core.SkPrf) := ⊤

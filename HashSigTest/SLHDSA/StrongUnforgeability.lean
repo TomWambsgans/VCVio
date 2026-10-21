@@ -360,8 +360,7 @@ example {vp : ValidatedParams} (hb : CanonicalAddressBounds vp.params)
     (strongUnforgeableAdvantage_romScheme_le _ (CoverageBoundTest.securityTarget_shake vp hb e
       optRand) pkSeedDist ⟨adv.main⟩ hadv)
 
-/-- The existential per-seed target, the statement `SecurityTarget` made before it bounded the
-strong advantage, from `securityTarget_two_one`. -/
+/-- The existential per-seed target at `c = 2`, `r = 1`, from `securityTarget_two_one`. -/
 example {vp : ValidatedParams} (hb : CanonicalAddressBounds vp.params)
     (e : (shakeCore vp).SkSeed ≃ (shakeCore vp).Y)
     (optRand : PublicKeyCore (shakeCore vp) → ProbComp (shakeCore vp).Y) :

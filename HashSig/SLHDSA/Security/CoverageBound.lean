@@ -251,7 +251,7 @@ theorem prEvent_idealDraw_runItsrCovered_le (e : core.SkSeed ≃ core.Y)
       RunItsrCovered core (DeriveOutcome.fill core (s, z).1 (s, z).2.1,
           (secretEncoding core e pkSeed).merge (s, z).1 (s, z).2.2) ↔
         RunItsrCovered core (DeriveOutcome.fill core s z.1, z.2.1) := fun z => by
-    simp only [RunItsrCovered, ItsrCovered, ForgerDigest, LoggedDigest, RunFresh, hm]
+    simp only [RunItsrCovered, ItsrCovered, ForgerDigest, LoggedDigest, RunPointFresh, hm]
   rw [prEvent_congr _ _ _ hev, ← simulateQ_collapseFwd_roleExperiment core adv pkSeed]
   have hbr := SecretEncoding.map_run_simulateQ_idealImpl_collapseFwd
     (roleExperiment core adv pkSeed)

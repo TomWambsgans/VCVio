@@ -13,9 +13,9 @@ public import VCVio.EvalDist.ProbabilityBounds
 
 The three events of `HashSig.SLHDSA.Security.RomDescentSecret`, read at a point of `romSchemeRun`
 (an outcome and the final cache) at the run's own oracle-backed provider and public seed, coverage
-conjoined with freshness of the forged `H_msg` point (`RunFresh`: its randomizer and message are
-those of no logged signature): `RunTargetCollision`, `RunHiddenHit` and `RunItsrCovered`. They are
-exactly the disjuncts of `bad_event_of_strongWins_romSchemeRun`, so the strong forging advantage
+conjoined with freshness of the forged `H_msg` point (`RunPointFresh`: its randomizer and message
+are those of no logged signature): `RunTargetCollision`, `RunHiddenHit` and `RunItsrCovered`. They
+are exactly the disjuncts of `bad_event_of_strongWins_romSchemeRun`, so the strong forging advantage
 against `romScheme` in the random-oracle runtime is at most the sum of their probabilities under
 `romSchemeRun` (`strongUnforgeableAdvantage_romScheme_le_add`), and at most the probability of a
 target collision or a hidden-value hit plus that of interleaved-target coverage
@@ -32,7 +32,7 @@ public seed, the shape of `SecurityTarget`.
 
 ## Labels
 
-*The events*: `RunFresh`, `RunTargetCollision`, `RunHiddenHit`, `RunItsrCovered`.
+*The events*: `RunPointFresh`, `RunTargetCollision`, `RunHiddenHit`, `RunItsrCovered`.
 
 *The union bound*: `strongUnforgeableAdvantage_romScheme_le_prEvent_or`,
 `strongUnforgeableAdvantage_romScheme_le_or_add`, `strongUnforgeableAdvantage_romScheme_le_add`.
@@ -50,7 +50,7 @@ variable {vp : ValidatedParams} (core : CorePrimitives vp.params)
 
 /-- The forged `H_msg` point of a run point, its randomizer and message, is not the point of any
 logged signature. -/
-@[expose] def RunFresh (z : RomOutcome vp core × (hashSpec core).QueryCache) : Prop :=
+@[expose] def RunPointFresh (z : RomOutcome vp core × (hashSpec core).QueryCache) : Prop :=
   (z.1.sig.randomness, z.1.msg) ∉ z.1.log.map (fun e => (e.2.randomness, e.1))
 
 /-- A run point exhibits a same-address target collision at its own oracle-backed provider and
@@ -68,7 +68,7 @@ part of its cache. -/
 /-- A run point exhibits interleaved-target coverage in the public-hash part of its cache, and
 its forged `H_msg` point is fresh. -/
 @[expose] def RunItsrCovered (z : RomOutcome vp core × (hashSpec core).QueryCache) : Prop :=
-  ItsrCovered z.1 z.2.fst ∧ RunFresh core z
+  ItsrCovered z.1 z.2.fst ∧ RunPointFresh core z
 
 /-! ## The union bound -/
 
