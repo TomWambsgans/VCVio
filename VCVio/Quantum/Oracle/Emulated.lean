@@ -5,6 +5,7 @@ Authors: Quang Dao
 -/
 
 module
+public import PolyFun.IPFunctor.Free.Bound.Substitution
 public import VCVio.Quantum.Comp.Combinators
 public import VCVio.Quantum.Comp.HybridIndex
 public import VCVio.Quantum.Comp.QueryMass
@@ -759,21 +760,20 @@ namespace QuantumComp
 
 variable {Q : Type u} {J : Q → QReg} {T : QReg} {W : QReg → Type w}
 
-/-- Recursion for `Quantum.QuantumComp.embedCalls` on the underlying trees. -/
+/-- Replace each command by local operations or a call through its basis embedding. -/
 @[expose]
-noncomputable def embedCallsAux (ι : PortEmbedding J T) : {A : QReg} →
-    IPFunctor.IFreeM (QuantumComp.toIPFunctor LocalSig.instruments.{v} (uSpec Q J)) W A →
-      QuantumComp LocalSig.instruments.{v} (uSpec Unit fun _ ↦ T) W A
-  | _, .pure y => QuantumComp.pure y
-  | _, .liftBind (.prim o) k => QuantumComp.primBind o fun b ↦ embedCallsAux ι (k (ULift.up b))
-  | _, .liftBind (.query q F ℓ) k =>
+noncomputable def embedCallsSubstitution (ι : PortEmbedding J T) :
+    IPFunctor.CommandSubstitution (toIPFunctor LocalSig.instruments.{v} (uSpec Q J))
+      (toIPFunctor LocalSig.instruments.{v} (uSpec Unit fun _ ↦ T))
+  | _, .prim o => QuantumComp.primBind o fun b ↦ QuantumComp.pure ⟨ULift.up b, rfl⟩
+  | _, .query q F ℓ =>
       QuantumComp.primBind (L := LocalSig.instruments.{v})
         ⟨PUnit, fun _ ↦ QReg.of (T × QReg.of (ι.G q × F)), (ι.embed q F ℓ)⟩
         fun _ ↦ QuantumComp.queryBind (A := QReg.of (T × QReg.of (ι.G q × F))) ()
           (QReg.of (ι.G q × F)) (Equiv.refl _) fun _ ↦
           QuantumComp.primBind (L := LocalSig.instruments.{v})
             ⟨PUnit, fun _ ↦ QReg.of (J q × F), (ι.project q F)⟩ fun _ ↦
-            embedCallsAux ι (k (ULift.up ()))
+            QuantumComp.pure ⟨ULift.up (), rfl⟩
 
 /-- **Calls through a basis embedding.** A call of the port `q` on `J q × F` becomes a call of the
 single port on `T` with the remainder `G q × F`: before it, the isometry
@@ -783,7 +783,7 @@ single port on `T` with the remainder `G q × F`: before it, the isometry
 noncomputable def embedCalls (ι : PortEmbedding J T) {A : QReg}
     (x : QuantumComp LocalSig.instruments.{v} (uSpec Q J) W A) :
     QuantumComp LocalSig.instruments.{v} (uSpec Unit fun _ ↦ T) W A :=
-  embedCallsAux ι x
+  IPFunctor.IFreeM.substitute (embedCallsSubstitution ι) x
 
 variable (ι : PortEmbedding J T)
 
@@ -821,28 +821,20 @@ total budget `∑ q, b q` of calls to the port on `T`. -/
 theorem isQueryBound_embedCalls [Fintype Q] {A : QReg}
     {x : QuantumComp LocalSig.instruments.{v} (uSpec Q J) W A} {b : Q → ℕ}
     (hx : x.IsQueryBound b) : (x.embedCalls ι).IsQueryBound fun _ ↦ ∑ q, b q := by
-  have := Classical.decEq Q
-  induction x using QuantumComp.inductionOn generalizing b with
-  | pure _ _ => exact isQueryBound_pure _ _
-  | primBind _ o k ih =>
-    rw [embedCalls_primBind, isQueryBound_primBind_iff]
-    exact fun c ↦ ih c ((isQueryBound_primBind_iff o k b).mp hx c)
-  | queryBind _ q F ℓ k ih =>
-    obtain ⟨hpos, hk⟩ := (isQueryBound_queryBind_iff q F ℓ k b).mp hx
-    rw [embedCalls_queryBind, isQueryBound_primBind_iff]
-    intro _
-    rw [isQueryBound_queryBind_iff]
-    refine ⟨Finset.sum_pos' (fun _ _ ↦ Nat.zero_le _) ⟨q, Finset.mem_univ q, hpos⟩, fun _ ↦ ?_⟩
-    rw [isQueryBound_primBind_iff]
-    intro _
-    have hsum : ∑ j, Function.update b q (b q - 1) j = ∑ j, b j - 1 := by
-      rw [Finset.sum_update_of_mem (Finset.mem_univ q), ← Finset.add_sum_erase _ _
-        (Finset.mem_univ q), Finset.sdiff_singleton_eq_erase]
-      omega
-    have h := ih () (hk ())
-    convert h using 1
-    funext u
-    rw [Function.update_self, hsum]
+  classical
+  intro i
+  apply IPFunctor.IFreeM.IsChargeBound.substitute (embedCallsSubstitution ι)
+    (c := fun A c ↦ ∑ q, queryCharge q A c) ?_
+    (IPFunctor.IFreeM.isChargeBound_sum _ b hx)
+  intro A c
+  change IsQueryBoundAt (embedCallsSubstitution ι A c) i _
+  cases c with
+  | prim o =>
+    simp [embedCallsSubstitution, queryCharge, isQueryBoundAt_primBind_iff]
+  | query q F ℓ =>
+    cases i
+    simp [embedCallsSubstitution, queryCharge, isQueryBoundAt_primBind_iff,
+      isQueryBoundAt_queryBind_iff]
 
 end QuantumComp
 
