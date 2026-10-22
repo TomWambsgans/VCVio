@@ -109,12 +109,6 @@ theorem tableOracle_mul_one_kronecker_comm (read : T → X → Y) {K : Matrix T 
   · rw [hK t t' h]
     simp only [Equiv.symm_apply_eq]
 
-/-- Products of operators on the second factor beside an identity. -/
-theorem one_kronecker_mul_one_kronecker {A B C E : Type*} [Fintype A] [DecidableEq A] [Fintype C]
-    (K : Matrix B C ℂ) (L : Matrix C E ℂ) :
-    ((1 : Matrix A A ℂ) ⊗ₖ K) * ((1 : Matrix A A ℂ) ⊗ₖ L) = (1 : Matrix A A ℂ) ⊗ₖ (K * L) := by
-  rw [← mul_kronecker_mul, Matrix.one_mul]
-
 end table
 
 /-! ## k compressed oracles -/
@@ -206,12 +200,12 @@ private theorem compressedPort_eq_conj (i : Fin k) :
   set T := tableOracle fun D : Fin k → Database X Y ↦ (D i).lookup
   set I := (1 : Matrix (X × Y) (X × Y) ℂ)
   calc (I ⊗ₖ Ci) * T * (I ⊗ₖ Ci) = (I ⊗ₖ Ci) * T * ((I ⊗ₖ R) * (I ⊗ₖ R)) * (I ⊗ₖ Ci) := by
-        rw [one_kronecker_mul_one_kronecker, hRR, one_kronecker_one, Matrix.mul_one]
+        rw [← mul_kronecker_mul, Matrix.one_mul, hRR, one_kronecker_one, Matrix.mul_one]
     _ = (I ⊗ₖ Ci) * ((I ⊗ₖ R) * T) * ((I ⊗ₖ R) * (I ⊗ₖ Ci)) := by
         rw [← hT]
         simp only [Matrix.mul_assoc]
     _ = (I ⊗ₖ (Ci * R)) * T * (I ⊗ₖ (R * Ci)) := by
-        rw [← one_kronecker_mul_one_kronecker, ← one_kronecker_mul_one_kronecker]
+        rw [← Hybrid.one_kronecker_mul_one_kronecker, ← Hybrid.one_kronecker_mul_one_kronecker]
         simp only [Matrix.mul_assoc]
         rfl
     _ = _ := by rw [← hCR, ← hRC]
@@ -294,10 +288,10 @@ theorem compressedReadProjector_commute_ordinary (i : Fin k) (c : Fin k × X) (a
         exact h (by simp [P, hn])
       rw [he])
   rw [compressedPort_eq_conj, compressedReadProjector]
-  simp only [← one_kronecker_mul_one_kronecker]
+  simp only [← Hybrid.one_kronecker_mul_one_kronecker]
   have hC : ((1 : Matrix (X × Y) (X × Y) ℂ) ⊗ₖ compressDatabases k X Y) *
       (1 ⊗ₖ compressDatabases k X Y) = 1 := by
-    rw [one_kronecker_mul_one_kronecker, compressDatabases_mul_self, one_kronecker_one]
+    rw [← mul_kronecker_mul, Matrix.one_mul, compressDatabases_mul_self, one_kronecker_one]
   rw [compressed_conjugate_mul _ hC, compressed_conjugate_mul _ hC, hP]
 
 /-- **k compressed oracles** (Chiesa, Di, Hu and Zheng, ePrint 2025/2166, Lemma 9.2, p. 58):
@@ -432,7 +426,7 @@ theorem compressedVCOracle_commute (i j : Fin k) :
   rw [compressedVCOracle_U_eq_conj, compressedVCOracle_U_eq_conj]
   simp only [onFactor_mul, onFactor_slotFst_one_kronecker, onFactor_slotSnd_one_kronecker]
   refine conj_mul_conj_comm ?_ (tableOracle_slotSnd_mul_slotFst_comm _ _)
-  rw [one_kronecker_mul_one_kronecker, compressDatabases_mul_self, one_kronecker_one]
+  rw [← mul_kronecker_mul, Matrix.one_mul, compressDatabases_mul_self, one_kronecker_one]
 
 end commute
 
@@ -697,7 +691,8 @@ theorem compressedVCOracle_U_mul_one_kronecker (i : Fin k) :
       ((1 : Matrix (X × Y) (X × Y) ℂ) ⊗ₖ basisMatrix (ofFunDatabases k X Y)) *
         tableOracle fun H : Fin k → X → Y ↦ H i :=
     tableOracle_mul_one_kronecker_basisMatrix fun H ↦ Database.lookup_ofFun (H i)
-  rw [← compressedVCOracle_U, compressedVCOracle_U_eq_conj, ← one_kronecker_mul_one_kronecker]
+  rw [← compressedVCOracle_U, compressedVCOracle_U_eq_conj,
+    ← Hybrid.one_kronecker_mul_one_kronecker]
   calc _ = ((1 : Matrix (X × Y) (X × Y) ℂ) ⊗ₖ compressDatabases k X Y) *
         tableOracle (fun D : Fin k → Database X Y ↦ (D i).lookup) *
         (((1 : Matrix (X × Y) (X × Y) ℂ) ⊗ₖ compressDatabases k X Y) *
@@ -705,7 +700,7 @@ theorem compressedVCOracle_U_mul_one_kronecker (i : Fin k) :
         ((1 : Matrix (X × Y) (X × Y) ℂ) ⊗ₖ basisMatrix (ofFunDatabases k X Y)) := by
           simp only [Matrix.mul_assoc]
     _ = _ := by
-          rw [one_kronecker_mul_one_kronecker, compressDatabases_mul_self_of_nonempty,
+          rw [← mul_kronecker_mul, Matrix.one_mul, compressDatabases_mul_self_of_nonempty,
             one_kronecker_one, Matrix.mul_one, Matrix.mul_assoc, hE, Matrix.mul_assoc]
 
 omit [AddCommGroup Y] in
@@ -874,7 +869,7 @@ theorem mixed_step_intertwine (E F : VCOracle k X Y) (M : Matrix F.S E.S ℂ)
       (MatrixMap.conj M).amplifyLeft Unit ∘ₗ (E.classicalRead.step c).branch r
     rw [ProjectiveClassicalAnswers.step_branch, ProjectiveClassicalAnswers.step_branch,
       MatrixMap.amplifyLeft_conj, ← MatrixMap.conj_mul, ← MatrixMap.conj_mul,
-      one_kronecker_mul_one_kronecker, one_kronecker_mul_one_kronecker, hA]
+      ← mul_kronecker_mul, Matrix.one_mul, ← mul_kronecker_mul, Matrix.one_mul, hA]
 
 /-- An isometry intertwining both capabilities preserves every observed law. -/
 theorem evalDistMap_eq_of_mixed_intertwine (E F : VCOracle k X Y) (M : Matrix F.S E.S ℂ)
