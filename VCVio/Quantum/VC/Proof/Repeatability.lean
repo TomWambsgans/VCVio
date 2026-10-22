@@ -190,19 +190,6 @@ end ProjectiveClassicalAnswers
 
 namespace CompressedReplay
 
-section conjugation
-
-variable {S : Type*} [Fintype S] [DecidableEq S]
-
-/-- Multiplication of operators conjugated by an involution. -/
-theorem conjugate_mul (C : Matrix S S ℂ) (hC : C * C = 1) (D F : Matrix S S ℂ) :
-    (C * D * C) * (C * F * C) = C * (D * F) * C := by
-  calc
-    _ = C * D * (C * C) * F * C := by simp only [Matrix.mul_assoc]
-    _ = _ := by rw [hC, Matrix.mul_one]; simp only [Matrix.mul_assoc]
-
-end conjugation
-
 variable {k : ℕ} {X Y : Type} [Fintype X] [DecidableEq X]
   [Fintype Y] [DecidableEq Y] [AddCommGroup Y]
 
@@ -268,7 +255,7 @@ theorem answer_hermitian (x : Fin k × X) (y : Y) : (answer x y)ᴴ = answer x y
 /-- Orthogonality of distinct old answers, with idempotency for equal answers. -/
 theorem answer_orthogonal (x : Fin k × X) (z y : Y) :
     answer x z * answer x y = if z = y then answer x y else 0 := by
-  rw [answer, answer, conjugate_mul _ (compressDatabases_mul_self ..),
+  rw [answer, answer, compressed_conjugate_mul _ (compressDatabases_mul_self k X Y),
     diagonal_ite_mul_diagonal_ite]
   by_cases h : z = y
   · subst z
@@ -298,7 +285,7 @@ theorem answer_complete (x : Fin k × X) : ∑ y : Y, answer x y = 1 := by
 /-- All old answer projectors commute, including at different oracle indices. -/
 theorem answer_commute (x x' : Fin k × X) (y y' : Y) :
     answer x y * answer x' y' = answer x' y' * answer x y := by
-  simp only [answer, conjugate_mul _ (compressDatabases_mul_self ..),
+  simp only [answer, compressed_conjugate_mul _ (compressDatabases_mul_self k X Y),
     diagonal_ite_mul_diagonal_ite]
   simp only [and_comm]
 
@@ -307,7 +294,7 @@ theorem answer_commute_checked (x x' : Fin k × X) (y : Y) (a : Option Y) :
     answer x y * compressedReadProjector k X Y x' a =
       compressedReadProjector k X Y x' a * answer x y := by
   simp only [answer, compressedReadProjector,
-    conjugate_mul _ (compressDatabases_mul_self ..), diagonal_ite_mul_diagonal_ite]
+    compressed_conjugate_mul _ (compressDatabases_mul_self k X Y), diagonal_ite_mul_diagonal_ite]
   simp only [and_comm]
 
 /-- The classical basis-call branch of the old oracle on an arbitrary reference register. -/
@@ -373,7 +360,7 @@ theorem answer_commute_ordinary (p : Fin k) (x : Fin k × X) (y : Y) :
     simp [C, D, answer, ← mul_kronecker_mul]
   rw [compressedVCOracle_U_eq_conj, hA]
   change (C * _ * C) * (C * _ * C) = (C * _ * C) * (C * _ * C)
-  rw [conjugate_mul C hCC, conjugate_mul C hCC, hT]
+  rw [compressed_conjugate_mul C hCC, compressed_conjugate_mul C hCC, hT]
 
 /-- The old compressed oracle has complete projective classical answers on all states.
 The generic API supplies fixed-coin adaptive replay and rejection of contradictory lists. -/
