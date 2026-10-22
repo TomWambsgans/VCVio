@@ -55,6 +55,21 @@ instance (α : Type u) : LawfulAppend (List α) where
 
 end LawfulAppend
 
+namespace WriterT.AppendWP
+
+/-- Append associativity supplies the core law used by the writer interpretation. -/
+scoped instance instAssociativeOfLawfulAppend {ω : Type u} [EmptyCollection ω] [Append ω]
+    [LawfulAppend ω] : Std.Associative (α := ω) (· ++ ·) where
+  assoc a b c := (LawfulAppend.append_assoc a b c).symm
+
+/-- The empty append log is a two-sided identity for the writer interpretation. -/
+scoped instance instLawfulIdentityOfLawfulAppend {ω : Type u} [EmptyCollection ω] [Append ω]
+    [LawfulAppend ω] : Std.LawfulIdentity (α := ω) (· ++ ·) ∅ where
+  left_id := LawfulAppend.empty_append
+  right_id := LawfulAppend.append_empty
+
+end WriterT.AppendWP
+
 namespace WriterT
 
 /-- A direct core monad lift writes the empty multiplicative log. -/
