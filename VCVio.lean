@@ -416,9 +416,14 @@ public import VCVio.ProgramLogic.Unary.WP.Probabilistic
 public import VCVio.ProgramLogic.Unary.WP.Probabilistic.Measure
 public import VCVio.ProgramLogic.Unary.WriterTBridge
 public import VCVio.Quantum.Comp.Basic
+public import VCVio.Quantum.Comp.Hybrid
+public import VCVio.Quantum.Comp.HybridIndex
+public import VCVio.Quantum.Comp.HybridMeasure
+public import VCVio.Quantum.Comp.HybridProjected
 public import VCVio.Quantum.Comp.Lift
 public import VCVio.Quantum.Comp.LocalSig
 public import VCVio.Quantum.Comp.QueryBound
+public import VCVio.Quantum.Comp.QueryMass
 public import VCVio.Quantum.Comp.Runtime
 public import VCVio.Quantum.Comp.Simulation
 public import VCVio.Quantum.Comp.Subsystem
@@ -428,6 +433,7 @@ public import VCVio.Quantum.MatrixMap.Commutant
 public import VCVio.Quantum.MatrixMap.Completion
 public import VCVio.Quantum.MatrixMap.Family
 public import VCVio.Quantum.MatrixMap.Kraus
+public import VCVio.Quantum.MatrixMap.Norm
 public import VCVio.Quantum.MatrixMap.OpNorm
 public import VCVio.Quantum.MatrixMap.Pinching
 public import VCVio.Quantum.MatrixMap.ProjectorEvent
