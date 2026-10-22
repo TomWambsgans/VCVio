@@ -415,11 +415,6 @@ theorem rotateSteps_simulation (i : spec.Port) (r : spec.Result i) :
   rw [LinearMap.comp_assoc, LinearMap.comp_assoc, ← MatrixMap.conj_mul, ← mul_kronecker_mul,
     Matrix.one_mul, hV, one_kronecker_one, MatrixMap.conj_one, LinearMap.comp_id]
 
-/-- Squaring a bound by a square root in `ℝ≥0∞`: if `a ≤ √c` then `a² ≤ c`. -/
-theorem sq_le_of_le_rpow_inv_two {a c : ℝ≥0∞} (h : a ≤ c ^ (2⁻¹ : ℝ)) : a ^ 2 ≤ c :=
-  calc a ^ 2 ≤ (c ^ (2⁻¹ : ℝ)) ^ 2 := pow_le_pow_left₀ zero_le h 2
-    _ = c := by simpa using ENNReal.rpow_inv_natCast_pow (n := 2) two_ne_zero c
-
 end Hybrid
 
 /-! ## The bound -/
@@ -862,8 +857,9 @@ theorem max_tsub_rpow_inv_two_outcomeLawWith_sq_le_of_inImage_of_isQueryBound {�
         (QuantumRuntime.mk D σ₀ s₀).evalDistMap I x ρ f s ^ (2⁻¹ : ℝ)) ^ 2 ≤
       ((∑ i ∈ t, b i : ℕ) : ℝ≥0∞) *
         ∑' i, (∑' r, ENNReal.ofReal (‖projDiff P V U W i r‖ ^ 2)) *
-          (QuantumRuntime.mk D σ₀ s₀).queryMass I x (ρ.matrix ⊗ₖ σ₀.matrix) i :=
-  sq_le_of_le_rpow_inv_two
+          (QuantumRuntime.mk D σ₀ s₀).queryMass I x (ρ.matrix ⊗ₖ σ₀.matrix) i := by
+  rw [← ENNReal.rpow_two]
+  exact (ENNReal.le_rpow_inv_iff (by norm_num : (0 : ℝ) < 2)).mp
     (max_tsub_rpow_inv_two_outcomeLawWith_le_of_inImage_of_isQueryBound I hU hW hP hV hx t ht ρ f
       hs hVσ hPV h₀ h₁)
 
