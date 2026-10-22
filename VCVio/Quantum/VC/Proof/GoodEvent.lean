@@ -354,14 +354,6 @@ private theorem forall_split {B : Type*} (P : B → Prop) (i : Fin k)
     · subst j; simpa using hd
     · simpa [h] using hr ⟨j, h⟩
 
-private theorem gram_bound {A : Type*} [Fintype A] [DecidableEq A]
-    (K : Matrix A A ℂ) {r : ℝ} (h : ‖K‖ ^ 2 ≤ r) :
-    (r • (1 : Matrix A A ℂ) - Kᴴ * K).PosSemidef := by
-  have h₁ := MatrixMap.posSemidef_l2_opNorm_sq_smul_one_sub K
-  have h₂ := (PosSemidef.one (n := A) (R := ℂ)).smul (sub_nonneg.mpr h)
-  convert h₁.add h₂ using 1
-  module
-
 variable [DecidableEq X] [Fintype Y] [DecidableEq Y] [Fintype Cm] [DecidableEq Cm]
   [Fintype Z] [DecidableEq Z] [AddGroup Z]
   (ME : MultiExtractor k Cm Dm (Fin k → Database X Y)) (code : TpDCode k Dm Z)
@@ -431,7 +423,7 @@ private theorem good_port_bound (n : ℕ) (p : Fin k ⊕ Unit) :
         ((24 * (Database.instability (offlineLabel Pgood) (n + 1)).toReal) •
           (1 : Matrix ((X × Y) × Database X Y) ((X × Y) × Database X Y) ℂ) -
           ((Q r * U r - U r * Q r) * P r)ᴴ * ((Q r * U r - U r * Q r) * P r)).PosSemidef := by
-      apply gram_bound
+      apply MatrixMap.posSemidef_scalar_sub_gram_of_norm_sq_le
       dsimp only [P]
       split_ifs with hr
       · have hi : Database.instability (π r) (n + 1) ≤
