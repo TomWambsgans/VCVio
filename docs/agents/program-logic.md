@@ -137,9 +137,13 @@ classes of probability goals:
 1. **`Pr{...}[...] = 1` lowering** → rewrites into `Triple` form for structural decomposition:
    - `Pr{let x ← oa}[p x] = 1` → `Triple 1 oa (fun x => 𝟙⟦p x⟧)`; a singleton output
      `Pr{let y ← oa}[y = x]` is the event `p := (· = x)`
+   - an event over several draws, `Pr{let x ← oa; let y ← ob x}[p x y] = 1`, is the probability
+     `prEvent mx` of a proposition-valued computation and lowers to
+     `Triple 1 mx (fun P => 𝟙⟦P⟧)` (`triple_propInd_self_iff_prEvent_eq_one`)
 
 2. **Lower-bound event goals** → stay inside unary VCGen by reusing the same `Triple` shell:
-   - `r ≤ Pr{let x ← oa}[p x]` / `Pr{let x ← oa}[p x] ≥ r` → `Triple r oa (fun x => 𝟙⟦p x⟧)`
+   - `r ≤ Pr{let x ← oa}[p x]` / `Pr{let x ← oa}[p x] ≥ r` → `Triple r oa (fun x => 𝟙⟦p x⟧)`,
+     and over several draws `Triple r mx (fun P => 𝟙⟦P⟧)` (`triple_propInd_self_iff_le_prEvent`)
 
 3. **Probability equalities** (`Pr{...}[...]`, applied `𝒟[...]` masses, or output measures):
    - Plain `vcstep` first normalizes common `map`/`bind` surface syntax (`map_eq_bind_pure_comp`,
