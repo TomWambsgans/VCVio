@@ -562,6 +562,7 @@ theorem queryMass_le_of_isQueryBoundAt {x : QuantumComp L spec X A} {i : spec.Po
   induction x using QuantumComp.inductionOn generalizing n with
   | pure _ _ => simp
   | primBind _ o k ih =>
+    rw [QuantumComp.isQueryBoundAt_primBind_iff] at hx
     rw [queryMass_primBind]
     refine (ENNReal.tsum_le_tsum fun b ↦
       ih b (hx b) (((I o).frame R.D).posSemidef_branch_apply b hρ)).trans ?_
