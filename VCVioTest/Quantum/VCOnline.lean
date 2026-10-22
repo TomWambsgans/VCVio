@@ -139,7 +139,7 @@ section ReadMass
 open Matrix
 
 private abbrev readSpec := classicalReadSpec Unit Bool
-private abbrev workReg := QReg.of (Unit × Unit)
+private noncomputable abbrev workReg := QReg.of (Unit × Unit)
 
 private noncomputable def readOnce :
     QuantumComp LocalSig.instruments readSpec (fun _ ↦ Unit) workReg :=
