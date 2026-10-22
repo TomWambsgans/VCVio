@@ -615,8 +615,9 @@ theorem max_tsub_rpow_inv_two_outcomeLawWith_sq_le_of_inImage_indexMass_of_isQue
         (QuantumRuntime.mk D σ₀ s₀).evalDistMap I x ρ f s ^ (2⁻¹ : ℝ)) ^ 2 ≤
       ((∑ i ∈ t, b i : ℕ) : ℝ≥0∞) * ∑' c, (∑' r, ENNReal.ofReal
           (‖projDiff P V U W c.1 r * (B c.1 c.2 ⊗ₖ (1 : Matrix D D ℂ))‖ ^ 2)) *
-            (QuantumRuntime.mk D σ₀ s₀).indexMass I B x (ρ.matrix ⊗ₖ σ₀.matrix) c :=
-  sq_le_of_le_rpow_inv_two
+            (QuantumRuntime.mk D σ₀ s₀).indexMass I B x (ρ.matrix ⊗ₖ σ₀.matrix) c := by
+  rw [← ENNReal.rpow_two]
+  exact (ENNReal.le_rpow_inv_iff (by norm_num : (0 : ℝ) < 2)).mp
     (max_tsub_rpow_inv_two_outcomeLawWith_le_of_inImage_indexMass_of_isQueryBound I hU hW hP hV hB
       hx t ht ρ f hs hVσ hPV hK h₀ h₁)
 
