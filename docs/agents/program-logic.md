@@ -621,11 +621,9 @@ is a thin wrapper over `Lean.Meta.DiscrTree` whose insertion keys come from
 those preprocessed patterns and whose lookup is the pure structural
 `getMatch`. Core also ships a `Sym.Simp.Theorems` bundle (discrimination-tree
 + `Sym.Simp.Theorem` records) that core's own Sym-based `vcgen` consumes
-(`Lean.Elab.Tactic.VCGen`); we do not consume it today (see *Future
-`vcgen` bridge (deferred)* below) but
-`Sym.Simp.mkTheoremFromDecl` lets us reconstruct it on demand from the
-`@[wpStep]` registry when VCVio's symbolic proof-application bridge is
-implemented and validated.
+(`Lean.Elab.Tactic.VCGen`). The `@[wpStep]` dispatcher builds one
+`Sym.Simp.Theorem` per rule with `Sym.Simp.mkTheoremFromDecl`, caches it, and
+rewrites with `Sym.simpGoal`.
 
 Building on `Sym.Pattern` + `Sym.DiscrTree` means our registries share the
 same pattern preprocessing and lookup cost profile as future core tactics,
@@ -650,7 +648,7 @@ rewrite works).
 | File | Attribute | Role |
 |------|-----------|------|
 | `VCVio/ProgramLogic/Tactics/Common/Registry.lean` | `@[vcspec]` | Unary and relational `Triple` / `RelTriple` / `RelWP` / quantitative `VCVio.ProgramLogic.RelTriple` rules, indexed by a `Sym.Pattern` on the computation slot (`oa` for unary, `oa` with a secondary `rightHead?` filter for relational) |
-| `VCVio/ProgramLogic/Tactics/Common/WpStepRegistry.lean` | `@[wpStep]` | Equational `wp comp post = …` rewrites, indexed by a `Sym.Pattern` on `oa` and consulted by `runWpStepRules` via `TacticM` rewriting (`rw` then `simp only`). The `Sym.Simp.Theorem` bundle for an eventual `SymM`-side rewriter is *not* eagerly built; `Sym.Simp.mkTheoremFromDecl` can rebuild it on demand from `getAllWpStepEntries` |
+| `VCVio/ProgramLogic/Tactics/Common/WpStepRegistry.lean` | `@[wpStep]` | Equational `wp comp post = …` rewrites, indexed by a `Sym.Pattern` on `oa`. `runWpStepRules` (`WpStepDispatch.lean`) builds each candidate's `Sym.Simp.Theorem` on first use (`Sym.Simp.mkTheoremFromDecl`, cached per declaration) and rewrites with `Sym.simpGoal`; core's `registerSymSimpAttr` would hold the same rules as a simp set |
 
 Each entry carries a `SpecProof` (reusing the core-Lean type from
 `Lean.Elab.Tactic.Do.SpecAttr`) so origins can be distinguished between a
@@ -710,11 +708,9 @@ time we bump the toolchain:
   (`headIsOneOf`, `tripleBodyParts?`, `relTripleBodyParts?`, etc. in
   `Registry.lean`) may need to grow new cases. All of these live in a
   clearly-marked `Preprocessed-body head matchers` section.
-- **`Sym.Simp.Theorem` field renames / `mkTheoremFromDecl` moves**. We do
-  *not* call `mkTheoremFromDecl` today (the dispatcher works off the
-  `Sym.DiscrTree` alone). When the deferred `vcgen`/`SymM` bridge lands,
-  this is where we'll need to pick the bundle back up; until then this
-  churn class is no-op for us.
+- **`Sym.Simp.Theorem` field renames / `mkTheoremFromDecl` moves**. The
+  `@[wpStep]` dispatcher calls `mkTheoremFromDecl` and `Sym.simpGoal`
+  (`WpStepDispatch.lean`); a change to either shows up there.
 - **`SpecProof` variants**. We only use `.global` today. If core splits or
   merges variants, `VCSpecEntry.declName?` / `WpStepEntry.declName?` plus
   the matching `MetaM` inserts need to be adjusted.
@@ -763,8 +759,6 @@ uses multiplication; `WriterT.AppendWP` handles append-based logs.
 The handler catalogue uses core lattice-generic triples under the necessary interpretation
 and core `vcgen`; it does not require Loom. The small `Std.Do` adapter remains for its legacy
 SPred consumers.
-Likewise, replacing the probability tactic's `rw` dispatcher with `Sym.Simp` needs a
-separate proof-application adapter and evidence from the existing automation tests.
 
 #### Core `vcgen` rules for oracle computations
 
