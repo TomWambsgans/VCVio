@@ -569,7 +569,7 @@ example (p : (withReadSpec (EmulatedOracle.cohSpec (fun _ : Unit ↦ Qubit)) Boo
   readOracle.lossless_withClassicalReads_step qubitAnswers p
 
 /-- Two distinct classical addresses consume two calls. -/
-def twoReads : QuantumComp LocalSig.instruments
+noncomputable def twoReads : QuantumComp LocalSig.instruments
     (withReadSpec (EmulatedOracle.cohSpec (fun _ : Unit ↦ Qubit)) Bool (Fin 2))
     (fun _ ↦ Unit) (QReg.of (Unit × Unit)) :=
   QuantumComp.queryBind (.inr false) (QReg.of Unit) (Equiv.refl _) fun _ ↦
