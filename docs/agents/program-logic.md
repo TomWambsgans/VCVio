@@ -751,11 +751,22 @@ separate proof-application adapter and evidence from the existing automation tes
 
 #### Core `vcgen` rules for oracle computations
 
-`Unary/WP/NecessarySpecs.lean` registers `@[spec]` rules for the primitives of `OracleComp`
-(`$ᵗ β`, `$[0..n]` through the `ProbComp.uniformFin` unfolding, `replicate`, `liftComp`), so core
-`vcgen` steps through oracle programs in the necessary reading, where a draw may return any value
-and `vcgen` descends through every draw. `Spec.ofSupport` is passed explicitly for an opaque
-sub-program. `VCVioTest/ProgramLogic/CoreVCGen.lean` exercises the rules.
+`Unary/WP/NecessarySpecs.lean` and `Unary/WP/LowerSpecs.lean` register `@[spec]` rules for the
+primitives of `OracleComp` (queries, `$ᵗ β`, `$[0..n]` through the `ProbComp.uniformFin`
+unfolding, `replicate`, `liftComp`), so core `vcgen` steps through oracle programs in both
+readings; `VCVioTest/ProgramLogic/CoreVCGen.lean` exercises them.
+
+- Under `OracleComp.Necessary`, a draw may return any value and `vcgen` descends through every
+  draw.
+- Under `OracleComp.Lower`, the registered rules are exact: a query integrates the postcondition
+  against its answer measure and `$ᵗ β` averages it (`OracleComp.Lower.wp_uniformSample_eq_tsum`).
+  Fractional events keep their value, but `vcgen` does not descend under the integral or sum, so
+  a draw followed by more program leaves `r ≤ ∫⁻ u, wp (rest u) post ∂μ`; the `wp` equations
+  of `Unary/HoareTriple.lean` compute the inner expectations.
+- `open scoped OracleComp.Lower.Pointwise` registers the pointwise rules above the exact ones:
+  a bound at every answer, as core's indexed infimum, which `vcgen` splits per answer. They serve
+  for bounds that hold on every path, such as events of probability one.
+- `Spec.ofSupport` (in both readings) is passed explicitly for an opaque sub-program.
 
 The v4.35 port adopts the public `Std.WP` namespace and exception stacks (`EStack⟨⟩`,
 `EStack⟨ε → L⟩`). An optional failure postcondition is a function from `Unit`; core's
