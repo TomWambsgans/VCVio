@@ -73,6 +73,7 @@ public import ToMathlib.MeasureTheory.Measure.Prop
 public import ToMathlib.MeasureTheory.Measure.Subprobability
 public import ToMathlib.MeasureTheory.Measure.TotalVariation
 public import ToMathlib.MeasureTheory.Measure.TotalVariation.Bind
+public import ToMathlib.MeasureTheory.Measure.TotalVariation.Variation
 public import ToMathlib.MeasureTheory.Measure.UniformTable
 public import ToMathlib.OrderEnrichedCategory
 public import ToMathlib.Probability.Divergence.Renyi
