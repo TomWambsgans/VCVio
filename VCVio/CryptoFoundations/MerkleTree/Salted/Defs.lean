@@ -26,6 +26,24 @@ open OracleComp OracleSpec BinaryTree MerkleTreeHashing
 
 universe uX uY uM uS
 
+/-- A fixed tree shape has finitely many decorations by finite labels. -/
+instance BinaryTree.FullData.instFinite {α : Type*} [Finite α] (s : Skeleton) :
+    Finite (FullData α s) := by
+  induction s with
+  | leaf =>
+      exact Finite.of_surjective FullData.leaf
+        (by intro t; cases t; exact ⟨_, rfl⟩)
+  | internal left right ihLeft ihRight =>
+      let := ihLeft
+      let := ihRight
+      exact Finite.of_surjective
+        (fun p : α × FullData α left × FullData α right =>
+          FullData.internal p.1 p.2.1 p.2.2)
+        (by
+          intro t
+          cases t with
+          | internal value left right => exact ⟨(value, left, right), rfl⟩)
+
 namespace SaltedMerkle
 
 /-- Optional salts and a typed partial tree of digest labels. -/
@@ -36,28 +54,6 @@ abbrev Td (Y : Type uY) (Salt : Type uS) (d : ℕ) :=
 @[expose]
 def tdBot {Y : Type uY} {Salt : Type uS} {d : ℕ} : Td Y Salt d :=
   (fun _ => none, populateDown _ (fun _ => (none, none)) none)
-
-/-- Finite labels and salts give finitely many typed trapdoors. -/
-instance instFiniteTd {Y : Type uY} {Salt : Type uS} [Finite Y] [Finite Salt] (d : ℕ) :
-    Finite (Td Y Salt d) := by
-  have htree (n : ℕ) : Finite (FullData (Option Y) (Skeleton.perfect n)) := by
-    induction n with
-    | zero =>
-        exact Finite.of_surjective FullData.leaf
-          (by intro t; cases t; exact ⟨_, rfl⟩)
-    | succ n ih =>
-        let := ih
-        exact Finite.of_surjective
-          (fun p : Option Y × FullData (Option Y) (Skeleton.perfect n) ×
-              FullData (Option Y) (Skeleton.perfect n) =>
-            FullData.internal p.1 p.2.1 p.2.2)
-          (by
-            intro t
-            cases t with
-            | internal value left right => exact ⟨(value, left, right), rfl⟩)
-  let := htree d
-  exact inferInstanceAs (Finite ((Fin (2 ^ d) → Option Salt) ×
-    FullData (Option Y) (Skeleton.perfect d)))
 
 /-- Optional salts and typed perfect trees form a finite trapdoor register. -/
 noncomputable instance instFintypeTd {Y : Type uY} {Salt : Type uS} [Fintype Y] [Fintype Salt]

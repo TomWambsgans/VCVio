@@ -26,22 +26,14 @@ variable {X : Type u} {Y : Type v}
 /-- The least element of a finite set, if it is nonempty. -/
 @[expose]
 def leastOf {α : Type*} [LinearOrder α] (s : Finset α) : Option α :=
-  if h : s.Nonempty then some (s.min' h) else none
-
-/-- The least element of a set belongs to it. -/
-theorem mem_of_leastOf_eq_some {α : Type*} [LinearOrder α] {s : Finset α} {a : α}
-    (h : leastOf s = some a) : a ∈ s := by
-  unfold leastOf at h
-  split_ifs at h with hs
-  cases h
-  exact s.min'_mem hs
+  s.min
 
 /-- The least element of a set with only one element is that element. -/
 theorem leastOf_eq_some {α : Type*} [LinearOrder α] {s : Finset α} {a : α} (ha : a ∈ s)
     (huniq : ∀ b ∈ s, b = a) : leastOf s = some a := by
-  unfold leastOf
-  rw [dite_eq_left ⟨a, ha⟩]
-  exact congrArg some (huniq _ (s.min'_mem _))
+  have hs : s = {a} := Finset.eq_singleton_iff_unique_mem.mpr ⟨ha, huniq⟩
+  change s.min = (a : WithTop α)
+  rw [hs, Finset.min_singleton]
 
 /-- The least `a` with `D (f a) = some u`, if there is one. -/
 @[expose]
@@ -56,7 +48,7 @@ variable {α : Type*} [Fintype α] [LinearOrder α] [DecidableEq Y] {f : α → 
 
 /-- The least preimage is a preimage. -/
 theorem leastPre_spec (h : leastPre f D u = some a) : D (f a) = some u := by
-  simpa using mem_of_leastOf_eq_some h
+  simpa using Finset.mem_of_min h
 
 /-- A unique preimage is the least preimage. -/
 theorem leastPre_eq_some (h : D (f a) = some u) (huniq : ∀ b, D (f b) = some u → b = a) :

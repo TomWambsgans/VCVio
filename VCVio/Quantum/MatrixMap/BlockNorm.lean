@@ -6,7 +6,7 @@ Authors: Quang Dao
 
 module
 
-public import VCVio.Quantum.MatrixMap.OpNorm
+public import VCVio.Quantum.MatrixMap.Norm
 
 /-!
 # The operator norm of a classically controlled operator
@@ -124,3 +124,19 @@ theorem l2_opNorm_sum_single_kronecker [DecidableEq n] (A : C → Matrix m n �
         (fun _ _ h ↦ (Prod.mk.inj h).2)
 
 end Matrix
+
+namespace Quantum.MatrixMap
+
+open Matrix
+open scoped ComplexOrder
+
+/-- A squared operator-norm bound gives positive Gram slack for a rectangular matrix. -/
+theorem posSemidef_scalar_sub_gram_of_norm_sq_le {m n : Type*} [Fintype m] [Fintype n]
+    [DecidableEq n] (K : Matrix m n ℂ) {r : ℝ} (h : ‖K‖ ^ 2 ≤ r) :
+    (r • (1 : Matrix n n ℂ) - Kᴴ * K).PosSemidef := by
+  have h₁ := posSemidef_l2_opNorm_sq_smul_one_sub K
+  have h₂ := (PosSemidef.one (n := n) (R := ℂ)).smul (sub_nonneg.mpr h)
+  convert h₁.add h₂ using 1
+  module
+
+end Quantum.MatrixMap
