@@ -579,21 +579,31 @@ noncomputable def twoReads : QuantumComp LocalSig.instruments
 /-- A per-port budget of one permits the two reads. -/
 example : twoReads.IsQueryBound (fun _ ↦ 1) := by
   intro p
-  rcases p with p | p
-  · cases p
-    simp [twoReads, QuantumComp.IsQueryBoundAt, QuantumComp.isQueryBoundAtAux,
-      QuantumComp.queryBind, QuantumComp.onDown, QuantumComp.pure]
-  · cases p <;> simp [twoReads, QuantumComp.IsQueryBoundAt, QuantumComp.isQueryBoundAtAux,
-      QuantumComp.queryBind, QuantumComp.onDown, QuantumComp.pure]
+  apply (QuantumComp.isQueryBoundAt_queryBind_iff _ _ _ _ _ _).mpr
+  constructor
+  · intro h
+    subst p
+    refine ⟨by decide, fun _ ↦ ?_⟩
+    apply (QuantumComp.isQueryBoundAt_queryBind_iff _ _ _ _ _ _).mpr
+    simp
+  · intro _ _
+    apply (QuantumComp.isQueryBoundAt_queryBind_iff _ _ _ _ _ _).mpr
+    exact ⟨fun _ ↦ ⟨Nat.one_pos, fun _ ↦ QuantumComp.isQueryBoundAt_pure _ _ _⟩,
+      fun _ _ ↦ QuantumComp.isQueryBoundAt_pure _ _ _⟩
 
 /-- The total budget rejects those two reads at budget one. -/
 example : ¬ twoReads.IsTotalQueryBound 1 := by
   intro h
-  exact (h.2 (0 : Fin 2)).1.false
+  have h₁ := (QuantumComp.isTotalQueryBound_queryBind_iff _ _ _ _ _).mp h
+  have h₂ := (QuantumComp.isTotalQueryBound_queryBind_iff _ _ _ _ _).mp (h₁.2 (0 : Fin 2))
+  exact h₂.1.false
 
 /-- The exact total budget accepts them at budget two. -/
-example : twoReads.IsTotalQueryBound 2 :=
-  ⟨by decide, fun _ ↦ ⟨by decide, fun _ ↦ trivial⟩⟩
+example : twoReads.IsTotalQueryBound 2 := by
+  apply (QuantumComp.isTotalQueryBound_queryBind_iff _ _ _ _ _).mpr
+  refine ⟨by decide, fun _ ↦ ?_⟩
+  apply (QuantumComp.isTotalQueryBound_queryBind_iff _ _ _ _ _).mpr
+  exact ⟨by decide, fun _ ↦ QuantumComp.isTotalQueryBound_pure _ _⟩
 
 /-- Left injection preserves execution of any ordinary program in the concrete mixed runtime. -/
 example {X : QReg → Type} {A : QReg}
