@@ -77,7 +77,6 @@ def SkeletonInternalIndex.natAddr :
   | _ + 1, t, .ofLeft a => natAddr (2 * t) a
   | _ + 1, t, .ofRight a => natAddr (2 * t + 1) a
 
-@[simp]
 theorem SkeletonLeafIndex.depth_ofNat (z i : ℕ) : (SkeletonLeafIndex.ofNat z i).depth = z := by
   induction z with
   | zero => rfl
