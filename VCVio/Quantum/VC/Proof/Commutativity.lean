@@ -140,6 +140,7 @@ theorem run_of_total_step
     · rw [DSubInstrument.branch_ret_of_ne _ hp]
       exact querySupportedOn_zero _ _
   | primBind _ o k ih =>
+    rw [QuantumComp.isTotalQueryBound_primBind_iff] at hx
     rw [QuantumRuntime.run_primBind, DSubInstrument.branch_bind_apply]
     exact QuerySupportedOn.tsum fun c ↦ ih c (hx c) (QuerySupportedOn.amplify_snd (q := g) hρ _)
   | queryBind _ i E ℓ k ih =>

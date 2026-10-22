@@ -185,7 +185,8 @@ example {κ : ℕ → ℝ≥0∞ → ℝ≥0∞ → ℝ≥0∞ → ℝ≥0∞}
     (A := QReg.of (Unit × Unit)) (W := fun _ ↦ Bool)
     (QuantumComp.queryBind (.inr c) (QReg.of Unit) (Equiv.refl _) fun a ↦
       QuantumComp.pure a.isSome) Sigma.snd ρ
-    (by change 0 < 1 ∧ ∀ _ : Option Y, True; simp) le_top le_top le_top).1
+    ((QuantumComp.isTotalQueryBound_queryBind_iff _ _ _ _ _).mpr
+      ⟨by decide, fun _ ↦ QuantumComp.isTotalQueryBound_pure _ _⟩) le_top le_top le_top).1
 
 /-- A read wrapper charges its full incoming trace to the source-world oracle mass. -/
 example (c : Fin k × X)
