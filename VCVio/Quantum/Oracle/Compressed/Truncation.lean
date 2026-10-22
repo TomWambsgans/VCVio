@@ -97,22 +97,13 @@ theorem amplify_conj_diagonal_eq_self {q : M → Z} {S : Set Z} {d : M → ℂ}
 
 end QuerySupportedOn
 
-/-- The complement `1 - P` of a Hermitian projector `P` is positive semidefinite, since it is
-`(1 - P)ᴴ (1 - P)`. -/
-theorem posSemidef_one_sub_of_projector {n : Type*} [Fintype n] [DecidableEq n]
-    {P : Matrix n n ℂ} (hP : Pᴴ = P) (hPP : P * P = P) : (1 - P).PosSemidef := by
-  have e : (1 - P)ᴴ * (1 - P) = 1 - P := by
-    rw [conjTranspose_sub, conjTranspose_one, hP, Matrix.sub_mul, Matrix.mul_sub,
-      Matrix.mul_sub, Matrix.one_mul, Matrix.mul_one, Matrix.one_mul, hPP, sub_self, sub_zero]
-  rw [← e]
-  exact posSemidef_conjTranspose_mul_self (1 - P)
-
+open scoped MatrixOrder in
 /-- If `P` is a Hermitian projector and `U` is an isometry, then `P U P` is a contraction:
 `1 - (P U P)ᴴ (P U P)` is positive semidefinite. -/
 theorem posSemidef_one_sub_conjTranspose_mul_self_of_projector {n : Type*} [Fintype n]
     [DecidableEq n] {P U : Matrix n n ℂ} (hP : Pᴴ = P) (hPP : P * P = P) (hU : Uᴴ * U = 1) :
     (1 - (P * U * P)ᴴ * (P * U * P)).PosSemidef := by
-  have hP₁ := posSemidef_one_sub_of_projector hP hPP
+  have hP₁ := (show IsStarProjection P from ⟨hPP, hP⟩).one_sub_nonneg.posSemidef
   have e : 1 - (P * U * P)ᴴ * (P * U * P) = (1 - P) + Pᴴ * (Uᴴ * (1 - P) * U) * P := by
     rw [conjTranspose_mul, conjTranspose_mul, hP]
     simp only [Matrix.mul_sub, Matrix.sub_mul, Matrix.mul_one, Matrix.mul_assoc]
