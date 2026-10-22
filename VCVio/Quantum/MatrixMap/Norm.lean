@@ -56,9 +56,8 @@ section Minkowski
 variable {K : Type*}
 
 /-- Squaring undoes the square root in `ℝ≥0∞`. -/
-theorem rpow_inv_two_rpow_two (x : ℝ≥0∞) : (x ^ (2⁻¹ : ℝ)) ^ (2 : ℝ) = x := by
-  rw [← ENNReal.rpow_mul]
-  norm_num
+theorem rpow_inv_two_rpow_two (x : ℝ≥0∞) : (x ^ (2⁻¹ : ℝ)) ^ (2 : ℝ) = x :=
+  ENNReal.rpow_inv_rpow two_ne_zero x
 
 /-- Finite `ℓ²` Minkowski inequality for a sum of `n + 1` families over a finite set. -/
 theorem rpow_inv_two_sum_add_sum_le (s : Finset K) (c : K → ℝ≥0∞) (d : ℕ → K → ℝ≥0∞) (n : ℕ) :
