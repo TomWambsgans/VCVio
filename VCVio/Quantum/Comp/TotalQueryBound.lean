@@ -5,12 +5,14 @@ Authors: Quang Dao
 -/
 
 module
+public import PolyFun.IPFunctor.Free.Lens
 public import VCVio.Quantum.Oracle.Emulated
 
 /-!
 # Total call budgets
 
-Every oracle call consumes one unit, independently of its port. Local operations consume none.
+The budget is PolyFun's `IPFunctor.IFreeM.IsChargeBound`: every oracle call consumes one unit,
+independently of its port. Local operations consume none.
 Left injection into a sum signature preserves the tree and its execution weights.
 -/
 
@@ -27,59 +29,60 @@ namespace QuantumComp
 variable {L : LocalSig.{u, v}} {s : QuantumOracleSpec.{u₁, v₁}}
   {t : QuantumOracleSpec.{u₂, v₁}} {X : QReg → Type w} {Y : QReg → Type w₁} {A : QReg}
 
-/-- The recursive total call budget, counting every query node. -/
+/-- The charge of a command: one for a query and zero for a local operation. -/
 @[expose]
-def isTotalQueryBoundAux : {A : QReg} → IFreeM (toIPFunctor L s) X A → ℕ → Prop
-  | _, .pure _, _ => True
-  | _, .liftBind (.prim _) k, n => ∀ b, isTotalQueryBoundAux (k (ULift.up b)) n
-  | _, .liftBind (.query _ _ _) k, n =>
-      0 < n ∧ ∀ r, isTotalQueryBoundAux (k (ULift.up r)) (n - 1)
+def Cmd.queryCharge : {A : QReg} → Cmd L s A → ℕ
+  | _, .prim _ => 0
+  | _, .query _ _ _ => 1
 
 /-- Every path makes at most `n` oracle calls in total, including zero-weight paths. -/
 @[expose]
 def IsTotalQueryBound (x : QuantumComp L s X A) (n : ℕ) : Prop :=
-  isTotalQueryBoundAux x n
+  IFreeM.IsChargeBound x (fun _ c ↦ c.queryCharge) n
 
 /-- Returning consumes no calls. -/
 @[simp]
 theorem isTotalQueryBound_pure (a : X A) (n : ℕ) :
-    (QuantumComp.pure a : QuantumComp L s X A).IsTotalQueryBound n := trivial
+    (QuantumComp.pure a : QuantumComp L s X A).IsTotalQueryBound n :=
+  IFreeM.isChargeBound_pure a n
 
 /-- Local operations preserve the available budget. -/
 @[simp]
 theorem isTotalQueryBound_primBind_iff (o : L.Op A)
     (k : (b : L.Outcome o) → QuantumComp L s X (L.next o b)) (n : ℕ) :
-    (primBind o k).IsTotalQueryBound n ↔ ∀ b, (k b).IsTotalQueryBound n := Iff.rfl
+    (primBind o k).IsTotalQueryBound n ↔ ∀ b, (k b).IsTotalQueryBound n := by
+  refine (IFreeM.isChargeBound_liftBind_iff (P := toIPFunctor L s)
+    (c := fun _ c ↦ c.queryCharge) (.prim o) (onDown k) n).trans ?_
+  simp only [Cmd.queryCharge, Nat.zero_le, Nat.sub_zero, true_and]
+  exact ULift.forall
 
 /-- Every query consumes one call, regardless of its port. -/
 @[simp]
 theorem isTotalQueryBound_queryBind_iff (i : s.Port) (B : QReg) (e : A ≃ s.In i × B)
     (k : s.Result i → QuantumComp L s X (QReg.of (s.Out i × B))) (n : ℕ) :
     (queryBind i B e k).IsTotalQueryBound n ↔
-      0 < n ∧ ∀ r, (k r).IsTotalQueryBound (n - 1) := Iff.rfl
+      0 < n ∧ ∀ r, (k r).IsTotalQueryBound (n - 1) := by
+  refine (IFreeM.isChargeBound_liftBind_iff (P := toIPFunctor L s)
+    (c := fun _ c ↦ c.queryCharge) (.query i B e) (onDown k) n).trans ?_
+  exact and_congr Nat.succ_le_iff ULift.forall
 
 /-- Increasing a total call budget preserves the bound. -/
 theorem IsTotalQueryBound.mono {x : QuantumComp L s X A} {n m : ℕ}
-    (hx : x.IsTotalQueryBound n) (h : n ≤ m) : x.IsTotalQueryBound m := by
-  induction x using QuantumComp.inductionOn generalizing n m with
-  | pure _ _ => trivial
-  | primBind _ o k ih => exact fun b ↦ ih b (hx b) h
-  | queryBind _ i B e k ih =>
-    exact ⟨lt_of_lt_of_le hx.1 h, fun r ↦ ih r (hx.2 r) (Nat.sub_le_sub_right h 1)⟩
+    (hx : x.IsTotalQueryBound n) (h : n ≤ m) : x.IsTotalQueryBound m :=
+  IFreeM.IsChargeBound.mono hx h
 
 /-- Total call budgets add under sequencing. -/
 theorem IsTotalQueryBound.bind {x : QuantumComp L s X A}
     {k : ∀ B, X B → QuantumComp L s Y B} {n m : ℕ}
     (hx : x.IsTotalQueryBound n) (hk : ∀ B a, (k B a).IsTotalQueryBound m) :
     (x.bind k).IsTotalQueryBound (n + m) := by
-  induction x using QuantumComp.inductionOn generalizing n with
-  | pure _ a => exact (hk _ a).mono (Nat.le_add_left m n)
-  | primBind _ o k' ih => exact fun b ↦ ih b (hx b)
-  | queryBind _ i B e k' ih =>
-    rw [queryBind_bind, isTotalQueryBound_queryBind_iff]
-    refine ⟨Nat.add_pos_left hx.1 m, fun r ↦ ?_⟩
-    rw [Nat.sub_add_comm hx.1]
-    exact ih r (hx.2 r)
+  have hbind : x.bind k = IFreeM.bind x k := by
+    clear hx
+    induction x using IFreeM.inductionOn with
+    | pure _ _ => rfl
+    | liftBind _ c r ih => exact congrArg (IFreeM.liftBind c) (funext ih)
+  rw [hbind]
+  exact IFreeM.isChargeBound_bind hx hk
 
 /-- On a single port, the per-port and total budgets coincide. -/
 theorem isTotalQueryBound_iff_isQueryBound [Unique s.Port] (x : QuantumComp L s X A) (n : ℕ) :
@@ -88,20 +91,28 @@ theorem isTotalQueryBound_iff_isQueryBound [Unique s.Port] (x : QuantumComp L s 
     intro i
     induction x using QuantumComp.inductionOn generalizing n with
     | pure _ _ => exact Iff.rfl
-    | primBind _ o k ih => exact forall_congr' fun b ↦ ih b n
+    | primBind _ o k ih =>
+      rw [isTotalQueryBound_primBind_iff, isQueryBoundAt_primBind_iff]
+      exact forall_congr' fun b ↦ ih b n
     | queryBind _ j B e k ih =>
       rw [isTotalQueryBound_queryBind_iff, isQueryBoundAt_queryBind_iff]
       simp only [Subsingleton.elim j i, true_implies, ne_self_iff_false, false_implies, and_true]
       exact and_congr Iff.rfl (forall_congr' fun r ↦ ih r (n - 1))
   exact ⟨fun hx i ↦ (h i).mp hx, fun hx ↦ (h default).mpr (hx default)⟩
 
+/-- The command lens embedding ordinary ports on the left of a sum signature. -/
+@[expose]
+def ordinaryLens : Lens (toIPFunctor L s) (toIPFunctor L (s.sum t)) where
+  toFunA _
+    | .prim o => .prim o
+    | .query i B e => .query (.inl i) B e
+  toFunB _ c := by cases c <;> exact id
+  src_eq _ c _ := by cases c <;> rfl
+
 /-- Inject a program into the left ports without adding operations or changing outcomes. -/
 @[expose]
-def liftOrdinary : {A : QReg} → QuantumComp L s X A → QuantumComp L (s.sum t) X A
-  | _, .pure a => .pure a
-  | _, .liftBind (.prim o) k => primBind o fun b ↦ liftOrdinary (k (ULift.up b))
-  | _, .liftBind (.query i B e) k => queryBind (.inl i) B e fun r ↦
-      liftOrdinary (k (ULift.up r))
+def liftOrdinary : {A : QReg} → QuantumComp L s X A → QuantumComp L (s.sum t) X A :=
+  fun {_} x ↦ IFreeM.mapLens ordinaryLens x
 
 /-- Left injection preserves return values. -/
 @[simp]
@@ -125,10 +136,11 @@ theorem liftOrdinary_queryBind (i : s.Port) (B : QReg) (e : A ≃ s.In i × B)
 @[simp]
 theorem isTotalQueryBound_liftOrdinary_iff (x : QuantumComp L s X A) (n : ℕ) :
     (x.liftOrdinary (t := t)).IsTotalQueryBound n ↔ x.IsTotalQueryBound n := by
-  induction x using QuantumComp.inductionOn generalizing n with
-  | pure _ _ => exact Iff.rfl
-  | primBind _ o k ih => exact forall_congr' fun b ↦ ih b n
-  | queryBind _ i B e k ih => exact and_congr Iff.rfl (forall_congr' fun r ↦ ih r (n - 1))
+  unfold IsTotalQueryBound IFreeM.IsChargeBound liftOrdinary IFreeM.mapLens
+  refine (IFreeM.isRollBound_reindex_iff ordinaryLens.toReindexing (fun _ value ↦ value)
+    (fun _ c ↦ by cases c <;> exact fun answer ↦ ⟨answer, rfl⟩) x n).trans ?_
+  exact IFreeM.isRollBound_congr (fun _ c _ ↦ by cases c <;> rfl)
+    (fun _ c _ ↦ by cases c <;> rfl)
 
 /-- Per-port call counts on the left are preserved as well. -/
 @[simp]
@@ -215,8 +227,11 @@ theorem queryWeight_eq_zero_of_isTotalQueryBound {x : QuantumComp L s X A} {n j 
     R.queryWeight I w x ρ j = 0 := by
   induction x using QuantumComp.inductionOn generalizing n j with
   | pure _ _ => rfl
-  | primBind _ o k ih => exact ENNReal.tsum_eq_zero.mpr fun b ↦ ih b (hx b) hj _
+  | primBind _ o k ih =>
+    rw [QuantumComp.isTotalQueryBound_primBind_iff] at hx
+    exact ENNReal.tsum_eq_zero.mpr fun b ↦ ih b (hx b) hj _
   | queryBind _ i B e k ih =>
+    rw [QuantumComp.isTotalQueryBound_queryBind_iff] at hx
     cases j with
     | zero => have := hx.1; omega
     | succ j => exact ENNReal.tsum_eq_zero.mpr fun r ↦ ih r (hx.2 r) (by omega) _

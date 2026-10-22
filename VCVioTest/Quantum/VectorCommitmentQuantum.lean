@@ -341,12 +341,16 @@ noncomputable def twoReads : QuantumComp LocalSig.instruments mixedSpec (fun _ �
       QuantumComp.pure ()
 
 example : ¬ twoReads.IsTotalQueryBound 1 := by
-  change ¬ (0 < 1 ∧ ∀ _ : Option (Fin 2), 0 < 0 ∧ ∀ _ : Option (Fin 2), True)
-  simp
+  intro h
+  have h₁ := (QuantumComp.isTotalQueryBound_queryBind_iff _ _ _ _ _).mp h
+  have h₂ := (QuantumComp.isTotalQueryBound_queryBind_iff _ _ _ _ _).mp (h₁.2 none)
+  exact h₂.1.false
 
 example : twoReads.IsTotalQueryBound 2 := by
-  change 0 < 2 ∧ ∀ _ : Option (Fin 2), 0 < 1 ∧ ∀ _ : Option (Fin 2), True
-  simp
+  apply (QuantumComp.isTotalQueryBound_queryBind_iff _ _ _ _ _).mpr
+  refine ⟨by decide, fun _ ↦ ?_⟩
+  apply (QuantumComp.isTotalQueryBound_queryBind_iff _ _ _ _ _).mpr
+  exact ⟨by decide, fun _ ↦ QuantumComp.isTotalQueryBound_pure _ _⟩
 
 example : ComBound.{0, 0} zeroOracle toyME code0 (fun _ ↦ 4) :=
   comBound_four zeroOracle toyME code0
