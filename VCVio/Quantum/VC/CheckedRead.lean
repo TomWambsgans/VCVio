@@ -165,7 +165,7 @@ private theorem checked_fold_branch (R : QuantumRuntime (mixedExtSpec k X Y Cm Z
       · simp
       · simp only [↓reduceIte]
         rw [hRead, ← MatrixMap.conj_mul,
-          one_kronecker_mul_one_kronecker, hCons]
+          ← mul_kronecker_mul, Matrix.one_mul, hCons]
     · intro a _ ha
       cases a with
       | none => simp
