@@ -97,12 +97,35 @@ example (Env : QReg) (tic : TpIC 2 Bool) (ρ : SubState (ReadComOut 2 Bool (ZMod
     readComError (compressedVCOracle 2 Bool (ZMod 3)) ME code
       (extractionReadPrefix code Env tic) ρ (fun a ↦ (1, a.isSome)) ≤ comBoundError ME 2 := by
   apply (comBound_compressedVCOracle ME code).2
-  simp [extractionReadPrefix, extractQuery, QComp.callBasis, checkedRead,
-    QComp.act, QuantumComp₂.bind, QuantumComp₂.primBind, QuantumComp₂.query,
-    QuantumComp.bind, QuantumComp.bindAux, QuantumComp.primBind, QuantumComp.query,
-    QuantumComp.queryBind, QuantumComp.liftOrdinary, QuantumComp.onDown,
-    QuantumComp₂.pure, QuantumComp.pure,
-    QuantumComp.IsTotalQueryBound, QuantumComp.isTotalQueryBoundAux]
+  unfold extractionReadPrefix QuantumComp₂.bind
+  apply QuantumComp.IsTotalQueryBound.bind (n := 1) (m := 1)
+  · apply (QuantumComp.isTotalQueryBound_liftOrdinary_iff _ _).mpr
+    simp only [extractQuery, QComp.callBasis, QComp.act_bind, QuantumComp₂.primBind]
+    apply (QuantumComp.isTotalQueryBound_primBind_iff _ _ _).mpr
+    intro _
+    unfold QuantumComp₂.bind
+    apply QuantumComp.IsTotalQueryBound.bind (n := 1) (m := 0)
+    · unfold QuantumComp₂.query QuantumComp.query
+      exact (QuantumComp.isTotalQueryBound_queryBind_iff _ _ _ _ _).mpr
+        ⟨Nat.one_pos, fun _ ↦ QuantumComp.isTotalQueryBound_pure _ _⟩
+    · rintro _ ⟨h, r⟩
+      subst h
+      apply (QuantumComp.isTotalQueryBound_primBind_iff _ _ _).mpr
+      exact fun _ ↦ QuantumComp.isTotalQueryBound_pure _ _
+  · rintro _ ⟨h, a⟩
+    subst h
+    simp only [checkedRead, QComp.act_bind, QuantumComp₂.primBind]
+    apply (QuantumComp.isTotalQueryBound_primBind_iff _ _ _).mpr
+    intro _
+    unfold QuantumComp₂.bind
+    apply QuantumComp.IsTotalQueryBound.bind (n := 1) (m := 0)
+    · unfold QuantumComp₂.query QuantumComp.query
+      exact (QuantumComp.isTotalQueryBound_queryBind_iff _ _ _ _ _).mpr
+        ⟨Nat.one_pos, fun _ ↦ QuantumComp.isTotalQueryBound_pure _ _⟩
+    · rintro _ ⟨h, r⟩
+      subst h
+      apply (QuantumComp.isTotalQueryBound_primBind_iff _ _ _).mpr
+      exact fun _ ↦ QuantumComp.isTotalQueryBound_pure _ _
 
 end lemma92
 
