@@ -148,13 +148,13 @@ theorem isQueryBoundAt_liftOrdinary_inl_iff (x : QuantumComp L s X A) (i : s.Por
     (x.liftOrdinary (t := t)).IsQueryBoundAt (.inl i) n ↔ x.IsQueryBoundAt i n := by
   induction x using QuantumComp.inductionOn generalizing n with
   | pure _ _ => exact Iff.rfl
-  | primBind _ o k ih => exact forall_congr' fun b ↦ ih b n
+  | primBind _ o k ih =>
+    rw [liftOrdinary_primBind, isQueryBoundAt_primBind_iff, isQueryBoundAt_primBind_iff]
+    exact forall_congr' fun b ↦ ih b n
   | queryBind _ j B e k ih =>
-    change (((Sum.inl j : s.Port ⊕ t.Port) = Sum.inl i →
-      0 < n ∧ ∀ r, (k r).liftOrdinary.IsQueryBoundAt (Sum.inl i : s.Port ⊕ t.Port) (n - 1)) ∧
-      ((Sum.inl j : s.Port ⊕ t.Port) ≠ Sum.inl i →
-        ∀ r, (k r).liftOrdinary.IsQueryBoundAt (Sum.inl i : s.Port ⊕ t.Port) n)) ↔ _
-    rw [isQueryBoundAt_queryBind_iff]
+    rw [liftOrdinary_queryBind, isQueryBoundAt_queryBind_iff j]
+    refine (isQueryBoundAt_queryBind_iff (spec := s.sum t) (.inl j) B e
+      (fun r ↦ (k r).liftOrdinary) (.inl i) n).trans ?_
     simp only [ne_eq, _root_.Sum.inl.injEq]
     exact and_congr
       (imp_congr_right fun _ ↦ and_congr Iff.rfl (forall_congr' fun r ↦ ih r (n - 1)))
@@ -165,12 +165,15 @@ theorem isQueryBoundAt_liftOrdinary_inl_iff (x : QuantumComp L s X A) (i : s.Por
 theorem isQueryBoundAt_liftOrdinary_inr (x : QuantumComp L s X A) (i : t.Port) (n : ℕ) :
     (x.liftOrdinary (t := t)).IsQueryBoundAt (.inr i) n := by
   induction x using QuantumComp.inductionOn with
-  | pure _ _ => trivial
-  | primBind _ o k ih => exact fun b ↦ ih b
+  | pure _ _ => exact isQueryBoundAt_pure _ _ _
+  | primBind _ o k ih =>
+    rw [liftOrdinary_primBind, isQueryBoundAt_primBind_iff]
+    exact fun b ↦ ih b
   | queryBind _ j B e k ih =>
-    refine ⟨fun h ↦ ?_, fun _ r ↦ ih r⟩
-    change (Sum.inl j : s.Port ⊕ t.Port) = Sum.inr i at h
-    cases h
+    rw [liftOrdinary_queryBind]
+    refine (isQueryBoundAt_queryBind_iff (spec := s.sum t) (.inl j) B e
+      (fun r ↦ (k r).liftOrdinary) (.inr i) n).2 ?_
+    exact ⟨fun h ↦ (Sum.inl_ne_inr h).elim, fun _ r ↦ ih r⟩
 
 end QuantumComp
 

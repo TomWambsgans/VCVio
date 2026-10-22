@@ -78,17 +78,10 @@ variable {X : Type u} {Payload : Type v} {encode : Payload → X}
 
 /-- An injective role encoding has a partial inverse; no efficient parsing claim is required. -/
 noncomputable def ofInjective (encode : Payload → X) (hinj : Function.Injective encode) :
-    RoleDecoder encode := by
-  classical
-  refine ⟨fun x => if h : ∃ p, encode p = x then some (Classical.choose h) else none, ?_, ?_⟩
-  · intro p
-    rw [dite_eq_left ⟨p, rfl⟩]
-    exact congrArg some (hinj (Classical.choose_spec (show ∃ q, encode q = encode p from
-      ⟨p, rfl⟩)))
-  · intro x p h
-    split_ifs at h with hx
-    cases h
-    exact Classical.choose_spec hx
+    RoleDecoder encode where
+  decode := Function.partialInv encode
+  decode_encode := hinj.isPartialInv.eq
+  encode_decode x p h := (hinj.isPartialInv p x).mp h
 
 /-- Decoding succeeds exactly at the encoded payload. -/
 theorem decode_eq_some_iff (decoder : RoleDecoder encode) (x : X) (p : Payload) :
