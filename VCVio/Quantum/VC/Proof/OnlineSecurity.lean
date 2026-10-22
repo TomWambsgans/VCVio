@@ -344,7 +344,7 @@ theorem read_rotated_sum_gram (e : S → Equiv.Perm R) (M : A → Matrix S S ℂ
     rcases i with ⟨s, v⟩
     rcases j with ⟨s', w⟩
     dsimp only [V]
-    rw [Matrix.sub_apply, basisMatrix_perm_mul_apply, mul_basisMatrix_perm_apply]
+    rw [Matrix.sub_apply, basisMatrix_equiv_mul_apply, mul_basisMatrix_perm_apply]
     simp only [Equiv.prodCongrRight_symm, Equiv.prodCongrRight_apply, Function.comp_apply,
       kroneckerMap_apply, Matrix.one_apply, Equiv.symm_apply_eq, mul_sub]
   have hk : MatrixMap.stinespring (fun a ↦
@@ -355,10 +355,8 @@ theorem read_rotated_sum_gram (e : S → Equiv.Perm R) (M : A → Matrix S S ℂ
   simp_rw [source_rotated_difference_gram _ _ _ (mem_unitaryGroup_iff'.mp hv)
     (mem_unitaryGroup_iff.mp hv)]
   rw [← MatrixMap.conjTranspose_stinespring_mul_stinespring, hk]
-  have h₁ := MatrixMap.posSemidef_l2_opNorm_sq_smul_one_sub (readPermutationDefect e M * P)
-  have h₂ := (PosSemidef.one (n := S × R) (R := ℂ)).smul (sub_nonneg.mpr h)
-  convert h₁.add h₂ using 1
-  module
+  exact MatrixMap.posSemidef_scalar_sub_gram_of_norm_sq_le _ h
+
 private theorem one_kronecker_sub {J D : Type*} [DecidableEq J]
     (C B : Matrix D D ℂ) : (1 : Matrix J J ℂ) ⊗ₖ (C - B) = 1 ⊗ₖ C - 1 ⊗ₖ B := by
   ext i j

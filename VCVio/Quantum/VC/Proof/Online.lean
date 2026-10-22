@@ -411,17 +411,6 @@ end
 
 section
 variable {A B : Type*}
-/-- Left multiplication by a permutation matrix relabels rows. -/
-theorem basisMatrix_perm_mul_apply [Fintype A] [DecidableEq A] (e : Equiv.Perm A) (M : Matrix A B ℂ)
-    (a : A) (b : B) :
-    (basisMatrix e * M) a b = M (e.symm a) b := by
-  simp only [mul_apply, basisMatrix_apply, ite_mul, zero_mul]
-  rw [Finset.sum_eq_single (e.symm a)]
-  · simp
-  · intro x _ hx
-    have h : a ≠ e x := fun he ↦ hx (by rw [he]; simp)
-    simp [h]
-  · simp
 /-- Right multiplication by a permutation matrix relabels columns. -/
 theorem mul_basisMatrix_perm_apply [Fintype B] [DecidableEq B] (M : Matrix A B ℂ) (e : Equiv.Perm B)
     (a : A) (b : B) :
@@ -441,7 +430,7 @@ theorem controlledPermutation_commutator_apply
     (V * O - O * V) (q, s, v) (p, r, w) =
       M (q, s) (p, r) * ((if v = e s w then 1 else 0) - if v = e r w then 1 else 0) := by
   dsimp only
-  rw [Matrix.sub_apply, basisMatrix_perm_mul_apply, mul_basisMatrix_perm_apply]
+  rw [Matrix.sub_apply, basisMatrix_equiv_mul_apply, mul_basisMatrix_perm_apply]
   simp only [reindex_apply, submatrix_apply, Equiv.prodCongr_symm, Equiv.refl_symm,
     Equiv.prodCongr_apply, Prod.map_apply, Equiv.refl_apply, Equiv.prodCongrRight_symm,
     Equiv.prodCongrRight_apply, Function.comp_apply, Equiv.prodAssoc_symm_apply,
@@ -538,7 +527,7 @@ theorem labelControlled_permutation_commutator_apply (π : S → ι)
       simp
     · simp [h]
   dsimp only
-  rw [hl, Matrix.sub_apply, basisMatrix_perm_mul_apply, mul_basisMatrix_perm_apply]
+  rw [hl, Matrix.sub_apply, basisMatrix_equiv_mul_apply, mul_basisMatrix_perm_apply]
   simp only [Equiv.prodCongrRight_symm, Equiv.prodCongrRight_apply, Function.comp_apply,
     kroneckerMap_apply, one_apply, Equiv.symm_apply_eq, mul_sub]
 end
@@ -809,14 +798,6 @@ end
 
 section
 variable {A : Type*} [Fintype A] [DecidableEq A]
-/-- A squared operator-norm bound gives the corresponding positive Gram slack. -/
-theorem posSemidef_scalar_sub_gram_of_norm_sq_le (K : Matrix A A ℂ) {r : ℝ}
-    (h : ‖K‖ ^ 2 ≤ r) : (r • (1 : Matrix A A ℂ) - Kᴴ * K).PosSemidef := by
-  have h₁ := MatrixMap.posSemidef_l2_opNorm_sq_smul_one_sub K
-  have h₂ := (PosSemidef.one (n := A) (R := ℂ)).smul (sub_nonneg.mpr h)
-  convert h₁.add h₂ using 1
-  module
-
 /-- A unitary change of frame identifies the source Gram matrices of a difference and commutator. -/
 theorem source_rotated_difference_gram (U V P : Matrix A A ℂ)
     (hV : Vᴴ * V = 1) (hV' : V * Vᴴ = 1) :
@@ -881,7 +862,7 @@ theorem posSemidef_rotated_port_difference_of_source_bound
     rw [← diagonal_one, diagonal_kronecker_diagonal]
     simp only [one_mul]
   rw [hp]
-  exact posSemidef_scalar_sub_gram_of_norm_sq_le _ h
+  exact MatrixMap.posSemidef_scalar_sub_gram_of_norm_sq_le _ h
 end
 
 namespace Database
