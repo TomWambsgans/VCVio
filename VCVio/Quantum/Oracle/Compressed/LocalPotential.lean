@@ -120,31 +120,24 @@ theorem norm_dotProduct_star_sq_add_le {e₁ e₂ : n → ℂ} (h₁ : e₁ ⬝�
   simpa [Fin.sum_univ_two, v, EuclideanSpace.inner_toLp_toLp, EuclideanSpace.norm_sq_eq]
     using this
 
-/-- Weighted Cauchy–Schwarz for the three terms of the leak of a flipped cell. -/
-theorem sq_add_two_mul_add_le {p q : ℝ} (hp : 0 < p) (hq : 0 < q) (x y z : ℝ) :
-    (x + 2 * y + z) ^ 2 ≤ (p⁻¹ + 5 * q⁻¹) * (p * x ^ 2 + q * (y ^ 2 + z ^ 2)) := by
-  have key : (p⁻¹ + 5 * q⁻¹) * (p * x ^ 2 + q * (y ^ 2 + z ^ 2)) - (x + 2 * y + z) ^ 2 =
-      q / p * (y - 2 * p / q * x) ^ 2 + q / p * (z - p / q * x) ^ 2 + (y - 2 * z) ^ 2 := by
-    field_simp
-    ring
-  have : 0 ≤ q / p * (y - 2 * p / q * x) ^ 2 + q / p * (z - p / q * x) ^ 2 + (y - 2 * z) ^ 2 := by
-    positivity
-  linarith
-
 /-- Weighted Cauchy–Schwarz for three real source components with coefficients `1, 2, 1`. -/
 theorem sq_add_two_mul_add_le_three {p q r : ℝ} (hp : 0 < p) (hq : 0 < q)
     (hr : 0 < r) (x y z : ℝ) :
     (x + 2 * y + z) ^ 2 ≤
       (p⁻¹ + 4 * q⁻¹ + r⁻¹) * (p * x ^ 2 + q * y ^ 2 + r * z ^ 2) := by
-  have key : (p⁻¹ + 4 * q⁻¹ + r⁻¹) * (p * x ^ 2 + q * y ^ 2 + r * z ^ 2) -
-      (x + 2 * y + z) ^ 2 =
-      q / p * (y - 2 * p / q * x) ^ 2 + r / p * (z - p / r * x) ^ 2 +
-        r / q * (2 * z - q / r * y) ^ 2 := by
-    field_simp
-    ring
-  have : 0 ≤ q / p * (y - 2 * p / q * x) ^ 2 + r / p * (z - p / r * x) ^ 2 +
-      r / q * (2 * z - q / r * y) ^ 2 := by positivity
-  linarith
+  have h := Finset.sum_sq_le_sum_mul_sum_of_sq_le_mul Finset.univ
+    (r := ![x, 2 * y, z]) (f := ![p⁻¹, 4 * q⁻¹, r⁻¹])
+    (g := ![p * x ^ 2, q * y ^ 2, r * z ^ 2])
+    (by intro i _; fin_cases i <;> dsimp <;> positivity)
+    (by intro i _; fin_cases i <;> dsimp <;> positivity)
+    (by intro i _; fin_cases i <;> simp <;> field_simp <;> ring_nf <;> rfl)
+  simpa [Fin.sum_univ_three] using h
+
+/-- Weighted Cauchy–Schwarz for the three terms of the leak of a flipped cell. -/
+theorem sq_add_two_mul_add_le {p q : ℝ} (hp : 0 < p) (hq : 0 < q) (x y z : ℝ) :
+    (x + 2 * y + z) ^ 2 ≤ (p⁻¹ + 5 * q⁻¹) * (p * x ^ 2 + q * (y ^ 2 + z ^ 2)) := by
+  convert sq_add_two_mul_add_le_three hp hq hq x y z using 1
+  ring
 
 /-- A unitary conjugate of a two-level potential is bounded by its larger scalar value.
 This is the local population transition inequality (78), with no restriction on the unitary. -/

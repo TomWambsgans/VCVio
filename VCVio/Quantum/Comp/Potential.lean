@@ -733,8 +733,8 @@ theorem eventWeight_le_of_potential (x : QuantumComp L spec X A)
   simp only [h0, ENNReal.zero_rpow_of_pos (by norm_num : (0 : ℝ) < 2⁻¹), Finset.sum_const_zero,
     add_zero] at h
   rw [← ENNReal.mul_rpow_of_nonneg _ _ (by norm_num)] at h
-  have := ENNReal.rpow_le_rpow h (by norm_num : (0 : ℝ) ≤ 2)
-  simpa only [rpow_inv_two_rpow_two] using this
+  simpa only [rpow_inv_two_rpow_two] using
+    (ENNReal.le_rpow_inv_iff (by norm_num : (0 : ℝ) < 2)).mp h
 
 omit [Fintype Z] in
 /-- The weight on `1 ⊗ Q` is at most the trace of the initial operator. -/
