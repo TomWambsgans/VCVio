@@ -161,6 +161,19 @@ classes of probability goals:
    when a `wp` rule applies. On an already-lowered raw-`wp` goal, `vcstep?` / `vcgen?`
    will explicitly note that they are continuing in raw `wp` mode.
 
+**Core `vcgen` steps**: in each exhaustive `vcgen` pass, a quantitative `Triple` goal first goes
+to core `vcgen` (`tryCoreVCGen`) with the `@[spec]` rules of `Unary/WP/LowerSpecs.lean`. Core
+steps through binds, conditionals, matchers and transformer layers and uses the triples in the
+local context as rules. A triple with precondition `1` takes the pointwise rules
+(`OracleComp.Lower.Pointwise`) and descends through every draw; any other takes the exact rules,
+and the expectations of the rest of the program are computed under the averages of the draws.
+Core's verification conditions are read back to `≤`, and those `simp` closes are closed. The step
+is skipped when core makes no progress or leaves a loop to an invariant, so the loop steps below
+and VCVio's own structural steps continue. `vcstep` and the `?` replays do not take it;
+`set_option vcvio.vcgen.core false` switches it off.
+`VCVioTest/ProgramLogic/VCGenCoreDelegation.lean` exercises it.
+
+
 **Loop invariants**: `vcgen` auto-detects `replicate`, `List.foldlM`, and `List.mapM`
 in `Triple` goals and applies matching invariant hypotheses from context.
 Use `vcstep inv I` to provide an explicit invariant.

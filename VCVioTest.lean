@@ -87,6 +87,7 @@ public import VCVioTest.ProgramLogic.MeasureRelWP
 public import VCVioTest.ProgramLogic.MeasureWP
 public import VCVioTest.ProgramLogic.OracleWP
 public import VCVioTest.ProgramLogic.UntilBad
+public import VCVioTest.ProgramLogic.VCGenCoreDelegation
 public import VCVioTest.Quantum.Basic
 public import VCVioTest.Quantum.CheckedReadAlgebra
 public import VCVioTest.Quantum.Compressed
