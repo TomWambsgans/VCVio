@@ -409,6 +409,7 @@ public import VCVio.ProgramLogic.Unary.StdDoBridge
 public import VCVio.ProgramLogic.Unary.StdDoExamples
 public import VCVio.ProgramLogic.Unary.WP.Coherence
 public import VCVio.ProgramLogic.Unary.WP.Lower
+public import VCVio.ProgramLogic.Unary.WP.LowerSpecs
 public import VCVio.ProgramLogic.Unary.WP.Measure
 public import VCVio.ProgramLogic.Unary.WP.Necessary
 public import VCVio.ProgramLogic.Unary.WP.NecessarySpecs
