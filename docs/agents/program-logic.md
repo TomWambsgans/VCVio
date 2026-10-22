@@ -749,6 +749,14 @@ SPred consumers.
 Likewise, replacing the probability tactic's `rw` dispatcher with `Sym.Simp` needs a
 separate proof-application adapter and evidence from the existing automation tests.
 
+#### Core `vcgen` rules for oracle computations
+
+`Unary/WP/NecessarySpecs.lean` registers `@[spec]` rules for the primitives of `OracleComp`
+(`$ᵗ β`, `$[0..n]` through the `ProbComp.uniformFin` unfolding, `replicate`, `liftComp`), so core
+`vcgen` steps through oracle programs in the necessary reading, where a draw may return any value
+and `vcgen` descends through every draw. `Spec.ofSupport` is passed explicitly for an opaque
+sub-program. `VCVioTest/ProgramLogic/CoreVCGen.lean` exercises the rules.
+
 The v4.35 port adopts the public `Std.WP` namespace and exception stacks (`EStack⟨⟩`,
 `EStack⟨ε → L⟩`). An optional failure postcondition is a function from `Unit`; core's
 `Lean.Order.pushOption` and `pushExcept` combine success and failure assertions. Direct

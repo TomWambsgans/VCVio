@@ -411,6 +411,7 @@ public import VCVio.ProgramLogic.Unary.WP.Coherence
 public import VCVio.ProgramLogic.Unary.WP.Lower
 public import VCVio.ProgramLogic.Unary.WP.Measure
 public import VCVio.ProgramLogic.Unary.WP.Necessary
+public import VCVio.ProgramLogic.Unary.WP.NecessarySpecs
 public import VCVio.ProgramLogic.Unary.WP.OracleMeasure
 public import VCVio.ProgramLogic.Unary.WP.Probabilistic
 public import VCVio.ProgramLogic.Unary.WP.Probabilistic.Measure
