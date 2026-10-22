@@ -120,7 +120,7 @@ theorem triple_iff_le_wp
     (pre : ℝ≥0∞) (oa : OracleComp spec α) (post : α → ℝ≥0∞) :
     Triple pre oa post ↔
       pre ≤ wp oa post :=
-  Std.WP.Triple.iff
+  Std.WP.Triple.iff (epost := Lean.Order.bot)
 
 /-- Construct a quantitative triple from an expectation inequality. -/
 theorem triple_ofLE
@@ -357,6 +357,12 @@ lemma prEvent_eq_wp_propInd {ι : Type u} {spec : OracleSpec ι}
     Pr{let x ← oa}[p x] = wp oa (fun x => propInd (p x)) := by
   classical
   simpa only [propInd_eq_ite] using prEvent_eq_wp_indicator oa p
+
+/-- The probability of a proposition-valued computation is the expectation of its indicator.
+An event over several draws, `Pr{let x ← oa; let y ← ob x}[p x y]`, is of this form. -/
+lemma prEvent_eq_wp {ι : Type u} {spec : OracleSpec ι} [OracleSpec.AnswerMeasure spec]
+    (mx : OracleComp spec Prop) : prEvent mx = wp mx (fun P => propInd P) := by
+  simpa using prEvent_eq_wp_propInd mx id
 
 /-- Assertions agreeing on possible outputs have equal quantitative WP. -/
 lemma wp_congr_of_support (oa : OracleComp spec α) {f g : α → ℝ≥0∞}
