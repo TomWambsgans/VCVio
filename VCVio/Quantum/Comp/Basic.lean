@@ -239,8 +239,8 @@ def queryBind (i : spec.Port) (E : QReg) (ℓ : A ≃ spec.In i × E)
     QuantumComp L spec X A :=
   IFreeM.liftBind (P := toIPFunctor L spec) (.query i E ℓ) (onDown k)
 
-/-- Sequencing on the underlying trees, by recursion on the first tree. Unlike PolyFun's
-`IPFunctor.IFreeM.bind`, the two leaf families may lie in different universes. -/
+/-- Sequencing on the underlying trees, by recursion on the first tree. The two leaf families
+may lie in different universes. -/
 @[expose]
 def bindAux (k : ∀ u, X u → QuantumComp L spec Y u) :
     {A : QReg} → IFreeM (toIPFunctor L spec) X A → QuantumComp L spec Y A
@@ -253,6 +253,13 @@ def bindAux (k : ∀ u, X u → QuantumComp L spec Y u) :
 protected def bind (x : QuantumComp L spec X A) (k : ∀ u, X u → QuantumComp L spec Y u) :
     QuantumComp L spec Y A :=
   bindAux k x
+
+/-- Sequencing is PolyFun's `IPFunctor.IFreeM.bind`, also across leaf universes. -/
+theorem bind_eq_iFreeM_bind (x : QuantumComp L spec X A)
+    (k : ∀ u, X u → QuantumComp L spec Y u) : x.bind k = IFreeM.bind x k := by
+  induction x using IFreeM.inductionOn with
+  | pure _ _ => rfl
+  | liftBind _ c r ih => exact congrArg (IFreeM.liftBind c) (funext ih)
 
 /-- The local operation `o`, stopping with its outcome on the register it leaves. -/
 @[expose]
@@ -318,14 +325,6 @@ protected theorem inductionOn {motive : ∀ A : QReg, QuantumComp L spec X A →
       | prim o => exact primBind s o (fun b ↦ r (ULift.up b)) fun b ↦ ih (ULift.up b)
       | query i E ℓ => exact queryBind s i E ℓ (fun b ↦ r (ULift.up b)) fun b ↦ ih (ULift.up b))
     x
-
-/-- On programs whose leaf families share a universe, sequencing is PolyFun's
-`IPFunctor.IFreeM.bind`. -/
-theorem bind_eq_iFreeM_bind {Y : QReg → Type w} (x : QuantumComp L spec X A)
-    (k : ∀ u, X u → QuantumComp L spec Y u) : x.bind k = IFreeM.bind x k := by
-  induction x using IFreeM.inductionOn with
-  | pure _ _ => rfl
-  | liftBind _ c r ih => exact congrArg (IFreeM.liftBind c) (funext ih)
 
 /-! ## Monad laws -/
 

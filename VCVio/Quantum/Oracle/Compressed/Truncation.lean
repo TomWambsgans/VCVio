@@ -62,7 +62,9 @@ theorem QuantumRuntime.forallQueries_of_isQueryBound_zero {L : LocalSig.{u, v}}
     (ρ : Matrix (A × R.D) (A × R.D) ℂ) : R.ForallQueries I P x ρ := by
   induction x using QuantumComp.inductionOn with
   | pure _ _ => trivial
-  | primBind _ o k ih => exact fun b ↦ ih b (fun i ↦ hx i b) _
+  | primBind _ o k ih =>
+    rw [QuantumComp.isQueryBound_primBind_iff] at hx
+    exact fun b ↦ ih b (hx b) _
   | queryBind _ i E ℓ k ih => exact absurd hx.of_queryBind.1 (lt_irrefl 0)
 
 /-! ## Projectors onto a support -/
