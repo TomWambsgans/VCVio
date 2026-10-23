@@ -121,7 +121,7 @@ needs an instance-synthesis check, not a grep.
 | `VCVio/OracleComp/Constructions/SampleableType.lean:300–308` `FinEnum (ZMod n)`, `FinEnum USize`, `FinEnum ISize`; `arrayVectorEquivFin`, `instFintypeVector` | `Mathlib/Data/FinEnum.lean`; `Mathlib/Data/Fintype/Vector.lean` (which covers `List.Vector` only, `:27`) | grep of core/Batteries/Mathlib for `Vector α n ≃ (Fin n → α)` forms empty |
 | `ToMathlib/General.lean` core-`Vector` `cases`/`induction`/`cases₂`/`induction₂` | core `Init/Data/Vector/` | core has only `elimAsArray`/`elimAsList` (`Init/Data/Vector/Basic.lean:71,78`) |
 | `ToMathlib/Control/WriterT.lean:30` `LawfulAppend` | core (or just use `Monoid`) | no `LawfulAppend` in core/Batteries/Mathlib |
-| `ToMathlib/Control/Lawful/MonadFunctor.lean:20,31`, `MonadControl.lean:23,39` `LawfulMonadFunctor(T)`, `LawfulMonadControl(T)` | core `Init/Control/Lawful/` next to `LawfulMonadLift(T)` (`Init/Control/Lawful/MonadLift/Basic.lean:29,44`, the exact template) | class-keyword grep across five trees |
+| `LawfulMonadFunctor(T)`, `LawfulMonadControl(T)`, now in PolyFun's `PolyFun/Control/Lawful/MonadFunctor.lean` and `MonadControl.lean` | core `Init/Control/Lawful/` next to `LawfulMonadLift(T)` (`Init/Control/Lawful/MonadLift/Basic.lean:29,44`, the exact template) | class-keyword grep across five trees |
 | `HashSig/SLHDSA/WotsChecksum.lean` `Forall₂.eq_of_sum_eq` | `Mathlib/Data/List/Forall2.lean` | no statement of this shape upstream |
 | `ToMathlib/Data/Set/Functor.lean` `SetM.run_*`; `BitVec.xor_self_xor` | Mathlib / core | see Keep |
 
@@ -468,7 +468,7 @@ Batteries' `LawfulAlternativeLift` and `LawfulMonadStateOf` (`B:Control/LawfulMo
 exist, the latter with 0 VCVio uses. `support` (a monad morphism into `SetM`) corresponds to core's
 `MonadAttach.CanReturn` (`C:Init/Control/MonadAttach.lean:30`, lawful instances for
 `ReaderT/StateT/ExceptT/OptionT`) and to `Functor.Liftp`/`Functor.supp` (`M:Control/Functor.lean:238,251`);
-no bridge exists in either direction. `OrderedMonad` (`V:ToMathlib/Control/Monad/Ordered.lean:52`,
+no bridge exists in either direction. `OrderedMonad` (PolyFun's `PolyFun/Control/Monad/Ordered.lean`,
 Mathlib `Preorder`) is the twin of core's `MonoBind` (`C:Init/Internal/Order/Basic.lean:879`,
 `Lean.Order`), likewise unbridged.
 
@@ -925,7 +925,7 @@ audit before deletion (see Method).
 | Surface | Verdict |
 |---|---|
 | `ToMathlib/Control/Monad/Commutative.lean` (whole file, ~200 lines) | no consumer; either restate over `CommApplicative` or delete |
-| `ToMathlib/Control/Monad/Ordered.lean` `pointwiseRelation`, `Proper` | delete |
+| `ToMathlib/Control/Monad/Ordered.lean` `pointwiseRelation`, `Proper` | **done** — deleted, and the file moved to PolyFun (see *PolyFun repin*) |
 | `ToMathlib/General.lean:419,156,165,280` | delete (see Adopt) |
 | `Examples/Regev.lean`, `Examples/FrankingProtocol.lean` | delete (fully commented out) |
 | `Examples/OneTimePad/Basic.lean:12` `public import Mathlib.Data.Vector.Zip` | no `Vector` use in the file; delete |
@@ -1154,10 +1154,12 @@ lower reading leave the expectation of the rest of the program in the verificati
 **Recorded as upstream candidates, prepared as Mathlib patches.**
 - `basify`'s `isAtom` keeps metadata, so a `no_index` numeral is generalized as an atom.
 - A `finiteness` rule for finite `ENNReal` sums.
-- `CommApplicative` instances for `Option`, `Except`, `ReaderT`.
+- `CommApplicative` instances for `Option`, `Except`, `ReaderT`. Not proposed: nothing in VCVio,
+  PolyFun or cslib uses them.
 - `FinEnum` instances for `ZMod n`, `USize`, `ISize` and the safe ones of
   `ToMathlib/Data/FinEnum.lean`.
-- An `IsZeroApply` instance for `Measure`.
+- An `IsZeroApply` instance for `Measure`. Not proposed: Mathlib #41177 adds the `Is*Apply`
+  instances for `Measure` and deprecates the type-specific lemmas.
 - The core-`Vector` equivalence with `Fin n → α` (`arrayVectorEquivFin`, duplicated by
   `HashSig/SLHDSA/Codec.lean`'s `WireCodec.vectorEquivFin`).
 
@@ -1169,3 +1171,23 @@ lower reading leave the expectation of the rest of the program in the verificati
 - cslib: `PFunctor.add` stays implicit-reducible, so the coproduct answer-type workarounds of the
   v4.35 port stay.
 
+## PolyFun repin (2026-10-22)
+
+PolyFun `ef4c157b` → `c3a40daf` (`main`, through PolyFun #348). Mathlib, cslib and Batteries are
+unchanged.
+
+- **Monad theory moved to PolyFun (#333).** The consumer-less files are deleted here:
+  `ToMathlib/Control/AlternativeMonad.lean`, `Lawful/{MonadControl,MonadFunctor,MonadState}.lean`
+  and `Monad/{Dijkstra,Graded,Ordered,Relation,Relative}.lean`, now under PolyFun's
+  `PolyFun/Control/{Lawful,Monad}/`. Their 71 `scripts/nolints.json` rows go with them.
+- **`Fin.mOfFn` (#330).** It is PolyFun's `ToCslib/Data/Fin/MOfFn.lean`, with the same equations
+  as the deleted copy. `ToMathlib/Control/Monad/Fold.lean` keeps `Fintype.mPi` and its lemmas.
+- **`WriterT.AppendWP` (#332).** It is PolyFun's `PolyFun/Control/Monad/WriterT/WP.lean`, and
+  `ToMathlib/Control/WriterT/WP.lean` is deleted. PolyFun states the append laws with core's
+  `Std.Associative` and `Std.LawfulIdentity`, so `LawfulAppend` provides both instances
+  (`ToMathlib/Control/WriterT.lean`). The `LawfulAppend` row above stays deferred.
+- **Not yet used in VCVio:**
+  - PolyFun's `@[spec] Std.WP.Spec.mOfFn_fin` (#330);
+  - the ranked `liftM` triples `PFunctor.FreeM.triple_liftM_of_isRollBound` and
+    `IsRollBound.prod`/`pi` (#331), of which `IsQueryBound` and the per-index bounds are
+    instances.

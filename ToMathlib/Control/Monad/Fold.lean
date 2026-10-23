@@ -10,30 +10,18 @@ public import Mathlib.Data.Fin.Basic
 public import Mathlib.Data.Fin.Tuple.Basic
 public import Mathlib.Data.Fintype.EquivFin
 public import Mathlib.Control.Basic
+public import ToCslib.Data.Fin.MOfFn
 
 /-!
 # `Fin`-indexed monadic sequencing
 
-`Fin.mOfFn`: run a `Fin n`-indexed family of monadic computations in order and collect the
-results as a function.
-`Fintype.mPi` transports this construction to any finite index type.
+`Fintype.mPi` transports `Fin.mOfFn`, which runs a `Fin n`-indexed family of monadic computations
+in order and collects the results as a function, to any finite index type.
 -/
 
 public section
 
 universe u v w
-
-/-- Monadic analog of `Fin.ofFn`: given `f : Fin n → m α`, runs each computation
-in order and collects the results as a function `Fin n → α`. This is the
-`Fin n → α` counterpart of Mathlib's `Vector.mOfFn`. -/
-@[expose]
-def Fin.mOfFn {m : Type u → Type v} [Monad m] {α : Type u} :
-    (n : ℕ) → (Fin n → m α) → m (Fin n → α)
-  | 0, _ => return Fin.elim0
-  | n + 1, f => do
-    let a ← f 0
-    let rest ← Fin.mOfFn n (fun i ↦ f i.succ)
-    return Fin.cons a rest
 
 /-- Run a finite family of monadic computations and collect their results as a function. -/
 @[expose]

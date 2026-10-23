@@ -40,6 +40,19 @@ attribute [simp] LawfulAppend.empty_append LawfulAppend.append_empty
 attribute [grind =] LawfulAppend.empty_append
   LawfulAppend.append_empty LawfulAppend.append_assoc
 
+/-- The `LawfulAppend` laws are core's associativity law for `++`, so PolyFun's
+`WriterT.AppendWP` reading applies to every lawful-append log. -/
+instance instAssociative {α : Type u} [EmptyCollection α] [Append α] [LawfulAppend α] :
+    Std.Associative (α := α) (· ++ ·) :=
+  ⟨fun x y z => (LawfulAppend.append_assoc x y z).symm⟩
+
+/-- The `LawfulAppend` laws make `∅` a two-sided identity for `++`, as core's
+`Std.LawfulIdentity` states it. -/
+instance instLawfulIdentity {α : Type u} [EmptyCollection α] [Append α] [LawfulAppend α] :
+    Std.LawfulIdentity (α := α) (· ++ ·) ∅ where
+  left_id := LawfulAppend.empty_append
+  right_id := LawfulAppend.append_empty
+
 instance {M : Type u → Type v} {ω : Type u} [Monad M]
     [EmptyCollection ω] [Append ω] [LawfulAppend ω] [LawfulMonad M] :
     LawfulMonad (WriterT ω M) := LawfulMonad.mk'
