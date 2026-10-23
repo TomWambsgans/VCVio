@@ -9,3 +9,4 @@ require VCVio from "../../.." with
   | none => {}
 @[default_target] lean_lib Consumer
 @[default_target] lean_lib Foundation
+@[default_target] lean_lib Demo
