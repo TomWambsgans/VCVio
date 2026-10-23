@@ -28,7 +28,7 @@ the imported Cryptol definitions or a bitvector implementation of `pmod`.
 
 public section
 
-namespace Interop.Cryptol.Bridge.CRC
+namespace Cryptol.Bridge.CRC
 
 open Polynomial
 
@@ -117,4 +117,4 @@ theorem finalize_update_append {α : Type*} (finalize : BinaryPolynomial → α)
       finalize (update generator width reflected initial (xs ++ ys)) := by
   rw [update_append generator monic]
 
-end Interop.Cryptol.Bridge.CRC
+end Cryptol.Bridge.CRC

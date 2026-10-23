@@ -15,7 +15,7 @@ import VCVio.Algorithms.CRC
 
 /-! # Foundation certificates through ordinary imports in an independent package -/
 
-open Interop.Cryptol Interop.Cryptol.Bridge
+open Cryptol Cryptol.Bridge
 
 example : ImperativeSource.bundle.elaborate ImperativeSource.source.provenance.name 32 =
     .ok Imperative.imported := Imperative.import_accepted

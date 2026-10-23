@@ -152,7 +152,7 @@ def main():
         "specialization": {"pass": specialization["pass"],
             "primitive_policy": specialization["primitive_policy"],
             "bundle_sha256": digest(specialized_data), "lean_sha256": digest(specialized_lean),
-            "evidence": "Interop.Cryptol.Bridge.ImportedSpecialization.correct"},
+            "evidence": "Cryptol.Bridge.ImportedSpecialization.correct"},
         "canaries": {"roots": len(canaries["roots"]), "bundle_sha256": digest(canary_data),
             "lean_sha256": digest(canary_lean), "source_sha256": digest(canary_source.read_bytes())},
         "entries": [{"id": e["id"], "root": root} for e, root in zip(entries, roots)],

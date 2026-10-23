@@ -19,9 +19,9 @@ source normalization independent of the concrete representation of the CPOs.
 
 public section
 
-namespace Interop.Cryptol.Bridge
+namespace Cryptol.Bridge
 
-open Interop.Cryptol
+open Cryptol
 
 set_option maxRecDepth 4096
 
@@ -128,4 +128,4 @@ theorem tableSource1In_correct {Γ : List ClosedTy} (ρ : Environment Γ) :
   change Fin 64 at i
   fin_cases i <;> rfl
 
-end Interop.Cryptol.Bridge
+end Cryptol.Bridge

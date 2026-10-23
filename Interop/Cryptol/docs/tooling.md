@@ -259,10 +259,11 @@ definition remains debt-free, and an admitted definition is rejected even if
 listed in the local ledger. These fixtures stay outside the library aggregates.
 
 On VCVio main with the published PolyFun revision
-`e7f46e5f18fa4230d09b0cc35f67bc74b1ed3e3f`, optional build/lint/tests/axioms pass.
-The optional axiom sweep covers 4,692 declarations across 129 modules with no
-admissions or nonstandard-axiom taint, and the companion PolyFun suite covers
-18,209 declarations across 477 modules with the same zero-debt result. Pinned
+`a4d80f7841766345aa9a7280a426020b11d7a043`, optional build/lint/tests/axioms pass.
+The optional Bridge axiom sweep covers 495 declarations across 31 modules with no
+admissions or nonstandard-axiom taint. The language model is swept by PolyFun's
+suite, which covers 22,405 declarations across 574 modules with the same zero-debt
+result. Pinned
 external validation, including byte-identical regeneration of the 31-root
 export, 135-file census and whole-module corpus, last passed with PolyFun
 `3fc600b1cec58a1272d8ac404c064c48eb5e5bef` and has not been rerun at this pin.

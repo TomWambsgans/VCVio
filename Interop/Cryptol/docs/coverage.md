@@ -47,7 +47,7 @@ without an independently verified native implementation. New source features
 must first pass partial-value and binder regressions, rather than being erased
 by the importer to make a particular algorithm compile.
 
-The [audited milestone plan](model.md#audited-next-milestones) gives the full
+The [audited milestone plan](https://github.com/Verified-zkEVM/PolyFun/blob/main/PolyFunCryptol/docs/model.md#audited-next-milestones) gives the full
 order and acceptance gates. Whole-term parameter/value algebra and general
 semantic preservation are complete for the current syntax. Next come a pinned
 checked elaboration of the typed-AST bundles and an explicit reference-core

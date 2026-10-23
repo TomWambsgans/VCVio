@@ -6,7 +6,7 @@ Authors: Devon Tuma
 
 module
 
-public import Interop.Cryptol.Model.ResolvedLaws
+public import PolyFunCryptol.Model.ResolvedLaws
 public import Mathlib.Data.Fin.VecNotation
 import Mathlib.Tactic.FinCases
 
@@ -20,9 +20,9 @@ The artifact manifest records the trusted frontend and specialization boundary.
 
 public section
 
-namespace Interop.Cryptol.Bridge.Foundation
+namespace Cryptol.Bridge.Foundation
 
-open Interop.Cryptol Interop.Cryptol.Resolved
+open Cryptol Cryptol.Resolved
 
 /-- Preserved source unit `tableSource0In`, with its captured input explicit. -/
 @[expose] def tableSource0In {Γ : List ClosedTy} : Term Γ (.seq (.finite 64) .integer) :=
@@ -160,4 +160,4 @@ open Interop.Cryptol Interop.Cryptol.Resolved
     (.app (.app (.primitive (.wordArrayArithmetic 8 32 .add)) (.var (.succ (.succ (.succ
     (.zero)))))) (.var (.zero)))))) (.var (.succ (.zero))))) (.var (.succ (.zero)))))
 
-end Interop.Cryptol.Bridge.Foundation
+end Cryptol.Bridge.Foundation

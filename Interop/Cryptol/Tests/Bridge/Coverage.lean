@@ -13,15 +13,15 @@ import VCVio.Algorithms.Keccak
 
 /-! # Public declarations named by the Foundation coverage catalogue -/
 
-example := Interop.Cryptol.Bridge.compiledCompress_eq
-example := Interop.Cryptol.Bridge.compression_byte_contract_iff
-example := @Interop.Cryptol.Bridge.KeccakCodec.offset_val
-example := @Interop.Cryptol.Bridge.KeccakCodec.toString_toState
-example := @Interop.Cryptol.Bridge.KeccakCodec.toState_toString
-example := Interop.Cryptol.Bridge.CRC.encode_append
-example := Interop.Cryptol.Bridge.CRC.pack_append
-example := Interop.Cryptol.Bridge.CRC.update_append
-example := @Interop.Cryptol.Bridge.CRC.finalize_update_append
+example := Cryptol.Bridge.compiledCompress_eq
+example := Cryptol.Bridge.compression_byte_contract_iff
+example := @Cryptol.Bridge.KeccakCodec.offset_val
+example := @Cryptol.Bridge.KeccakCodec.toString_toState
+example := @Cryptol.Bridge.KeccakCodec.toState_toString
+example := Cryptol.Bridge.CRC.encode_append
+example := Cryptol.Bridge.CRC.pack_append
+example := Cryptol.Bridge.CRC.update_append
+example := @Cryptol.Bridge.CRC.finalize_update_append
 example := VCVio.Algorithms.Keccak.sha3Digest224
 example := VCVio.Algorithms.Keccak.sha3Digest256
 example := VCVio.Algorithms.Keccak.sha3Digest384

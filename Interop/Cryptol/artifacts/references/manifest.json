@@ -13,18 +13,18 @@
   "numeric_sha256": "9c0a5c4df4474003545422686a7fa9ab401d309e097f2dba7eedc403da9ee5c8",
   "class_sha256": "06addcaf599dacc61f7b15fc2cbd3fd26203f0ed958c674dc25ba0942eed45c4",
   "scalar_bundle_sha256": "f55b811250ecb86f076b1f75206525f8821a9d2410cef3c1727533a98210cc03",
-  "scalar_lean_sha256": "1b5fef67199075dfa7af9789e0dc39ccd8081d8011edd9c710f4da74e16990f0",
+  "scalar_lean_sha256": "a04082ac92c8bbb56494d3debad1c1087b62efd093dd69a5b5ff64b191cc0c6f",
   "specialization": {
     "pass": "Cryptol.Transform.Specialize.specializeEWhere",
     "primitive_policy": "retain-explicit-instantiations",
     "bundle_sha256": "4db0badd02ff62f61a25d4cb4b4060486d0cd2ba610573f0d3837c63a51c471d",
-    "lean_sha256": "20e884cc36c50d4704822c6435a3c5f521607c611339c432b6bf02a655c75344",
-    "evidence": "Interop.Cryptol.Bridge.ImportedSpecialization.correct"
+    "lean_sha256": "b02511bb67d345909065826a859d1de8d4e59c997e8606daab61b9eeb4bbd592",
+    "evidence": "Cryptol.Bridge.ImportedSpecialization.correct"
   },
   "canaries": {
     "roots": 9,
     "bundle_sha256": "3cf88e52d22e449ccbc6541197cc11b52085134fd24e902074e9ddcd6996ddcc",
-    "lean_sha256": "dcef790e9913b079dc3ec674131c1fd87353de601820550f9a7b233e1c96c633",
+    "lean_sha256": "04f785481383439b6c73b0a892c0793eac5ffbe040e9bdc6f3a61123f3af356e",
     "source_sha256": "597d95a499c6f1156fad67431e2f0a5d6cabb7f0768d2313394b0a0980c6f8a4"
   },
   "entries": [

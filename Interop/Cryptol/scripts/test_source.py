@@ -92,16 +92,16 @@ def extension_checks(artifacts, manifest):
         code, report = run(path, "elaborate")
         assert code == 0, report
         source = quote_bundle(mutant, namespace="MutatedSpecialization").decode()
-        source = source.replace("public import Interop.Cryptol.Translation.SourceBundle", """
+        source = source.replace("public import PolyFunCryptol.Translation.SourceBundle", """
 public import Interop.Cryptol.Bridge.ImportedSpecialization
-import all Interop.Cryptol.Translation.SourceElaboration
-import all Interop.Cryptol.Translation.SourceScope
-import all Interop.Cryptol.Model.Reference.Kinds
-import all Interop.Cryptol.Model.Reference.Types
-import all Interop.Cryptol.Model.Reference.Syntax
-import all Interop.Cryptol.Model.Types""".strip())
+import PolyFunCryptol.Translation.SourceElaboration
+import PolyFunCryptol.Translation.SourceScope
+import PolyFunCryptol.Model.Reference.Kinds
+import PolyFunCryptol.Model.Reference.Types
+import PolyFunCryptol.Model.Reference.Syntax
+import PolyFunCryptol.Model.Types""".strip())
         source += """
-open Interop.Cryptol Translation SourceElaboration Bridge.MutatedSpecialization
+open Cryptol Translation SourceElaboration Bridge.MutatedSpecialization
 set_option maxRecDepth 10000 in
 example : check bundle root = .ok ⟨_, Bridge.ImportedSpecialization.source⟩ := by
   with_unfolding_all rfl

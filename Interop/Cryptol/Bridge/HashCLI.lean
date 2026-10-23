@@ -19,7 +19,7 @@ Foundation definitions. These comparisons are executable evidence, separate
 from the compression correspondence and the codec component theorems.
 -/
 
-namespace Interop.Cryptol.Bridge.HashCLI
+namespace Cryptol.Bridge.HashCLI
 
 open VCVio.Algorithms
 
@@ -53,4 +53,4 @@ public def run (algorithm bytesText lengthText : String) : IO UInt32 := do
       out.putStrLn (Lean.toJson (digest.data.map UInt8.toNat)).compress
       return 0
 
-end Interop.Cryptol.Bridge.HashCLI
+end Cryptol.Bridge.HashCLI

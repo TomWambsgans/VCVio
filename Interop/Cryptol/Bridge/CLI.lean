@@ -9,8 +9,8 @@ module
 import Interop.Cryptol.Bridge.Specifications
 import Interop.Cryptol.Bridge.ByteCompression
 import Interop.Cryptol.Bridge.SourceFoundation
-import Interop.Cryptol.Translation.Export
-import Interop.Cryptol.Model.Inspect
+import PolyFunCryptol.Translation.Export
+import PolyFunCryptol.Model.Inspect
 import Interop.Cryptol.Bridge.HashCLI
 import VCVio.Algorithms.CRC
 public import Lean.Data.Json
@@ -23,9 +23,9 @@ core execution. Compression accepts arbitrary eight-word states and a valid
 64-byte window at any offset, including unaligned offsets.
 -/
 
-open Interop.Cryptol Interop.Cryptol.Bridge Lean
+open Cryptol Cryptol.Bridge Lean
 
-namespace Interop.Cryptol.Bridge.CLI
+namespace Cryptol.Bridge.CLI
 
 /-- Execute a word observation while retaining a finite cutoff as a distinct result. -/
 public def sampleReport (input : Nat) : Json := Id.run do
@@ -162,4 +162,4 @@ public def run (args : List String) : IO UInt32 := do
         compress BASE STATE_JSON BYTES_JSON | …}"
       return 1
 
-end Interop.Cryptol.Bridge.CLI
+end Cryptol.Bridge.CLI

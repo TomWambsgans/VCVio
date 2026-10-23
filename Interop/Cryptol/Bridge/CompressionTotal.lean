@@ -20,9 +20,9 @@ over the finite fold. No evaluator fuel or solver result is assumed.
 
 public section
 
-namespace Interop.Cryptol.Bridge
+namespace Cryptol.Bridge
 
-open OmegaCompletePartialOrder Interop.Cryptol Interop.Cryptol.Finite
+open OmegaCompletePartialOrder Cryptol Cryptol.Finite
 
 /-- Canonical complete representation of an array of 32-bit words. -/
 @[expose] noncomputable def wordsMeaning {n : Nat} (xs : Fin n → BitVec 32) :
@@ -139,4 +139,4 @@ theorem compressionMeaning_value (s : Fin 8 → BitVec 32) (m : Fin 16 → BitVe
   rw [Semantics.wordAdd_values]
   rfl
 
-end Interop.Cryptol.Bridge
+end Cryptol.Bridge

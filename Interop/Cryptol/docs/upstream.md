@@ -8,9 +8,9 @@ correspondences belong in VCVio #840.
 
 
 The optional [Cryptol model](../README.md) pins the published PolyFun companion
-at `e7f46e5f18fa4230d09b0cc35f67bc74b1ed3e3f`, the head of
-[PR 290](https://github.com/Verified-zkEVM/PolyFun/pull/290) with PolyFun main merged
-through [#349](https://github.com/Verified-zkEVM/PolyFun/pull/349). The shared toolchain
+at `a4d80f7841766345aa9a7280a426020b11d7a043`, the head of
+[PR 356](https://github.com/Verified-zkEVM/PolyFun/pull/356), which hosts the language
+model as `PolyFunCryptol` above the stacked generic substrate PRs #352–#355. The shared toolchain
 is Lean `v4.35.0`, Mathlib `56a005855ea17e0b0958f73ec801ae140b0a1679`, and CSLib
 `5b56df99362532c46e1175381fbbdd755bd56030`. Exact weakest preconditions are
 exercised for finite executions; they are not a substitute for domain-theoretic
@@ -97,6 +97,6 @@ position-based `ScopedDomain.Env.Pointwise`, strict transport of simultaneous
 fixed points, and pointed-domain heterogeneous equality lemmas to PolyFun.
 Cryptol-specific binder squares, scheme transport, constructor compatibility
 and both semantic substitution theorems remain in VCVio Model. The
-[scoped roadmap](model.md#audited-next-milestones) assigns future frontend,
+[scoped roadmap](https://github.com/Verified-zkEVM/PolyFun/blob/main/PolyFunCryptol/docs/model.md#audited-next-milestones) assigns future frontend,
 reference-correspondence, compiler and export work without introducing a second
 syntax carrier, CPO class or probability interpretation.

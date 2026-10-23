@@ -6,7 +6,7 @@ Authors: Devon Tuma
 
 module
 
-public import Interop.Cryptol.Translation.SourceBundle
+public import PolyFunCryptol.Translation.SourceBundle
 
 /-!
 # Quoted importer canaries
@@ -18,9 +18,9 @@ checks byte-for-byte reproduction from the pinned official frontend.
 
 public section
 
-namespace Interop.Cryptol.Bridge.ImportedCanariesSource
+namespace Cryptol.Bridge.ImportedCanariesSource
 
-open Interop.Cryptol Translation
+open Cryptol Translation
 
 /-- Source declaration 1 in dependency order. -/
 @[expose] def declaration0 : Reference.Decl :=
@@ -274,4 +274,4 @@ open Interop.Cryptol Translation
   "597d95a499c6f1156fad67431e2f0a5d6cabb7f0768d2313394b0a0980c6f8a4" [])] [] [
   "cffd4082d3347aba60c131d2e7d33f8b8fdfaf6afa4aedd52d8d2fff7bb30a2e" ])
 
-end Interop.Cryptol.Bridge.ImportedCanariesSource
+end Cryptol.Bridge.ImportedCanariesSource

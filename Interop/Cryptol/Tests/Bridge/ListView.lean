@@ -12,9 +12,9 @@ public import Interop.Cryptol.Bridge.ListView
 
 public section
 
-open Interop.Cryptol Interop.Cryptol.Bridge.ListView
+open Cryptol Cryptol.Bridge.ListView
 
-namespace Interop.Cryptol.Tests.ListView
+namespace Cryptol.Tests.ListView
 
 /-- A returned Boolean element. -/
 def bit (b : Bool) : Computation .bit := DomainResult.value ⟨b⟩
@@ -47,4 +47,4 @@ example : ¬ Relator.RightUnique (Represents bitRelation) := by
   have streams := congrArg Prod.fst (DomainResult.value_inj.mp h)
   exact DomainResult.error_ne_bot (EvalError.user "unused") streams.symm
 
-end Interop.Cryptol.Tests.ListView
+end Cryptol.Tests.ListView

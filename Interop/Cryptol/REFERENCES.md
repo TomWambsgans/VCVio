@@ -15,7 +15,7 @@ The optional model implements and proves adequacy for a selected resolved
 fragment. Its external tests distinguish the reference evaluator from the
 normal evaluator, including their negative-integer division discrepancy.
 
-Used in: `Model/`, [model guide](docs/model.md).
+Used in: PolyFun's `PolyFunCryptol/Model/` and its model guide; the [evaluator audit](docs/evaluators.md).
 
 The partial numeric functions and their differential cases follow
 [`TypeCheck/Solver/InfNat.hs`](https://github.com/GaloisInc/cryptol/blob/61dd17b0c45ddf8c5c1e952afd5e789c4dc4ec4b/src/Cryptol/TypeCheck/Solver/InfNat.hs).

@@ -8,13 +8,13 @@ module
 
 public import Interop.Cryptol.Bridge.ImportedScalar
 public import Interop.Cryptol.Bridge.ImportedSpecializationSource
-public import Interop.Cryptol.Model.ResolvedLaws
-import all Interop.Cryptol.Translation.SourceElaboration
-import all Interop.Cryptol.Translation.SourceScope
-import all Interop.Cryptol.Model.Reference.Kinds
-import all Interop.Cryptol.Model.Reference.Types
-import all Interop.Cryptol.Model.Reference.Syntax
-import all Interop.Cryptol.Model.Types
+public import PolyFunCryptol.Model.ResolvedLaws
+import PolyFunCryptol.Translation.SourceElaboration
+import PolyFunCryptol.Translation.SourceScope
+import PolyFunCryptol.Model.Reference.Kinds
+import PolyFunCryptol.Model.Reference.Types
+import PolyFunCryptol.Model.Reference.Syntax
+import PolyFunCryptol.Model.Types
 
 /-!
 # Checking an official Cryptol specialization candidate
@@ -27,7 +27,7 @@ The ordinary native implementation and its contracts use the existing certified-
 
 public section
 
-namespace Interop.Cryptol.Bridge.ImportedSpecialization
+namespace Cryptol.Bridge.ImportedSpecialization
 
 open Translation SourceElaboration ImportedSpecializationSource
 
@@ -72,4 +72,4 @@ theorem core_correct (x : UInt32) :
   rw [correct]
   exact ImportedScalar.core_correct x
 
-end Interop.Cryptol.Bridge.ImportedSpecialization
+end Cryptol.Bridge.ImportedSpecialization

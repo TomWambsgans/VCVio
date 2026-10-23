@@ -8,8 +8,8 @@ module
 
 public import Interop.Cryptol.Bridge.Compression
 public import Interop.Cryptol.Bridge.SourceFoundation
-public import Interop.Cryptol.Model.Recurrence
-public import Interop.Cryptol.Translation.Certified
+public import PolyFunCryptol.Model.Recurrence
+public import PolyFunCryptol.Translation.Certified
 
 /-!
 # Partial semantics of the preserved compression source
@@ -23,9 +23,9 @@ public section
 
 open OmegaCompletePartialOrder
 
-namespace Interop.Cryptol.Bridge
+namespace Cryptol.Bridge
 
-open Interop.Cryptol
+open Cryptol
 
 /-- The partial word carrier of the instantiated source. -/
 abbrev PartialWord := Computation (wordTy 32)
@@ -140,4 +140,4 @@ set_option maxRecDepth 2048 in
     (Semantics.foldlPrefix 64 64 (Semantics.function₂ (roundMeaning (scheduleMeaning m)))
       s roundIndices)
 
-end Interop.Cryptol.Bridge
+end Cryptol.Bridge

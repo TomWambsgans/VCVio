@@ -6,7 +6,7 @@ Authors: Devon Tuma
 
 module
 
-public import Interop.Cryptol.Translation.SourceBundle
+public import PolyFunCryptol.Translation.SourceBundle
 
 /-!
 # Quoted Foundation scalar source
@@ -18,9 +18,9 @@ checks byte-for-byte reproduction from the pinned official frontend.
 
 public section
 
-namespace Interop.Cryptol.Bridge.ImportedSpecializationSource
+namespace Cryptol.Bridge.ImportedSpecializationSource
 
-open Interop.Cryptol Translation
+open Cryptol Translation
 
 /-- Source declaration 1 in dependency order. -/
 @[expose] def declaration0 : Reference.Decl :=
@@ -222,4 +222,4 @@ open Interop.Cryptol Translation
   "caf0e9fae38d70d0cdc915cd45b8be918e0ba9b95b95b0fada22d5c8941c9a40" [])] [] [
   "cffd4082d3347aba60c131d2e7d33f8b8fdfaf6afa4aedd52d8d2fff7bb30a2e" ])
 
-end Interop.Cryptol.Bridge.ImportedSpecializationSource
+end Cryptol.Bridge.ImportedSpecializationSource

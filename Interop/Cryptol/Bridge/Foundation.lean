@@ -6,7 +6,7 @@ Authors: Devon Tuma
 
 module
 
-public import Interop.Cryptol.Translation.FiniteSource
+public import PolyFunCryptol.Translation.FiniteSource
 public import Mathlib.Data.Fin.VecNotation
 import Mathlib.Tactic.FinCases
 
@@ -20,9 +20,9 @@ The artifact manifest records the trusted frontend and specialization boundary.
 
 public section
 
-namespace Interop.Cryptol.Bridge.Foundation
+namespace Cryptol.Bridge.Foundation
 
-open Interop.Cryptol.Finite
+open Cryptol.Finite
 
 /-- Extracted `SIGMA_256_0` at [32]. -/
 @[expose] def sigma256ZeroIn {Γ : List Finite.Ty} : Term Γ (.arrow (.word 32) (.word 32)) :=
@@ -232,4 +232,4 @@ theorem round256_denote (input : (Fin 8 → BitVec 32) × BitVec 32 × BitVec 32
     (1747873779#32), (1955562222#32), (2024104815#32), (2227730452#32), (2361852424#32),
     (2428436474#32), (2756734187#32), (3204031479#32), (3329325298#32)]
 
-end Interop.Cryptol.Bridge.Foundation
+end Cryptol.Bridge.Foundation

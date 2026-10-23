@@ -1,10 +1,10 @@
 # Interop with language and verification frontends
 
 `Interop/Cryptol` is an active, optional development within the root project.
-Its model, translation, bridge, and test targets share the root toolchain and
-manifest. See [the Cryptol guide](../../Interop/Cryptol/README.md) for commands,
-coverage, and the trusted extraction boundary. Imports flow from Bridge through
-Translation to Model; only Bridge imports VCVio and HashSig. Core libraries and
+Its bridge and test targets share the root toolchain and manifest and build on
+PolyFun's optional `PolyFunCryptol` language case study. See
+[the Cryptol guide](../../Interop/Cryptol/README.md) for commands, coverage, and the
+trusted extraction boundary. Only Bridge imports VCVio and HashSig. Core libraries and
 tests, including HashSig, never import an interoperability layer.
 
 The remaining material describes the dormant Rust backends. Their separate

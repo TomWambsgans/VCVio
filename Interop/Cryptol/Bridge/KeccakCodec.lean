@@ -24,7 +24,7 @@ no correspondence from the imported source AST is assumed.
 
 public section
 
-namespace Interop.Cryptol.Bridge.KeccakCodec
+namespace Cryptol.Bridge.KeccakCodec
 
 /-- The nonnegative theta predecessor agrees with Euclidean wraparound on all five lanes.
 `tmod` models reference remainder; `%` on `Int` is Lean's Euclidean remainder. -/
@@ -80,4 +80,4 @@ theorem offset_val {w : Nat} (x y : Fin 5) (z : Fin w) :
   left_inv := toString_toState
   right_inv := toState_toString
 
-end Interop.Cryptol.Bridge.KeccakCodec
+end Cryptol.Bridge.KeccakCodec

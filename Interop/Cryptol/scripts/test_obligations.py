@@ -11,8 +11,8 @@ import tempfile
 from pathlib import Path
 from audit_obligations import audit, audit_warnings
 
-ROOT = "Interop.Cryptol.Tests.Obligations.sourceLaw"
-CLIENT = "Interop.Cryptol.Tests.Obligations.clientLaw"
+ROOT = "Cryptol.Tests.Obligations.sourceLaw"
+CLIENT = "Cryptol.Tests.Obligations.clientLaw"
 TYPE = "True"
 LEDGER = {"version": 1, "obligations": [{"declaration": ROOT, "proposition": TYPE,
     "type_sha256": hashlib.sha256(TYPE.encode()).hexdigest(), "source": "test fixture",
@@ -47,12 +47,13 @@ def compiled_policy():
         root = Path(temporary)
         environment = dict(os.environ, LEAN_PATH=str(root) + os.pathsep + config["path"])
         module = "Interop.Cryptol.Tests.ObligationFixture"
+        namespace = "Cryptol.Tests.ObligationFixture"
         source = root / (module.replace(".", "/") + ".lean")
         source.parent.mkdir(parents=True)
-        source.write_text("module\npublic import Init\npublic section\nnamespace " + module +
+        source.write_text("module\npublic import Init\npublic section\nnamespace " + namespace +
             "\ntheorem sourceLaw : True := by sorry\n"
             "theorem clientLaw : True := sourceLaw\n"
-            "def implementation (n : Nat) : Nat := n + 1\nend " + module + "\n")
+            "def implementation (n : Nat) : Nat := n + 1\nend " + namespace + "\n")
         warnings = run([config["lean"], "--root=" + str(root), str(source),
                         "-o", str(source.with_suffix(".olean")),
                         "-i", str(source.with_suffix(".ilean"))], env=environment)
@@ -60,14 +61,14 @@ def compiled_policy():
         run([config["sweep"], "--root", module, "--out", str(path)], env=environment)
         report = json.loads(path.read_text())
         direct = [e for e in report["sorryGraph"] if e["direct"]]
-        assert len(direct) == 1 and direct[0]["name"] == module + ".sourceLaw"
+        assert len(direct) == 1 and direct[0]["name"] == namespace + ".sourceLaw"
         proposition = direct[0]["type"]
         ledger = {"version": 1, "obligations": [{"declaration": direct[0]["name"],
             "proposition": proposition, "type_sha256": hashlib.sha256(proposition.encode()).hexdigest(),
             "source": "temporary compiled fixture", "owner": "test", "reason": "policy regression"}]}
         results = {d["declaration"]: d for d in audit(report, ledger)["declarations"]}
-        assert results[module + ".clientLaw"]["obligations"] == [module + ".sourceLaw"]
-        assert results[module + ".implementation"]["obligations"] == []
+        assert results[namespace + ".clientLaw"]["obligations"] == [namespace + ".sourceLaw"]
+        assert results[namespace + ".implementation"]["obligations"] == []
         assert "declaration uses `sorry`" in warnings
         audit_warnings(warnings, report, ledger, root)
         # Same compiled report must fail without the explicit local admission.
@@ -84,7 +85,7 @@ def compiled_policy():
         run([config["sweep"], "--root", module, "--out", str(path)], env=environment)
         admitted = json.loads(path.read_text())
         definition = next(e for e in admitted["sorryGraph"]
-                          if e["name"] == module + ".implementation")
+                          if e["name"] == namespace + ".implementation")
         assert definition["direct"]
         illegal = deepcopy(ledger)
         illegal["obligations"].append(dict(ledger["obligations"][0],

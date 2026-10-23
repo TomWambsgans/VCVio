@@ -10,14 +10,14 @@ public import Interop.Cryptol.Bridge.ImportedScalarSource
 public import Interop.Cryptol.Bridge.SourceScalars
 public import Interop.Cryptol.Bridge.CompressionTotal
 public import Interop.Cryptol.Bridge.Round
-public import Interop.Cryptol.Translation.SourceElaboration
-public import Interop.Cryptol.Translation.Certified
-import all Interop.Cryptol.Translation.SourceElaboration
-import all Interop.Cryptol.Translation.SourceScope
-import all Interop.Cryptol.Model.Reference.Kinds
-import all Interop.Cryptol.Model.Reference.Types
-import all Interop.Cryptol.Model.Reference.Syntax
-import all Interop.Cryptol.Model.Types
+public import PolyFunCryptol.Translation.SourceElaboration
+public import PolyFunCryptol.Translation.Certified
+import PolyFunCryptol.Translation.SourceElaboration
+import PolyFunCryptol.Translation.SourceScope
+import PolyFunCryptol.Model.Reference.Kinds
+import PolyFunCryptol.Model.Reference.Types
+import PolyFunCryptol.Model.Reference.Syntax
+import PolyFunCryptol.Model.Types
 
 /-!
 # A checked Foundation scalar import
@@ -31,7 +31,7 @@ regeneration checks tie the quotation to the exported JSON and source digests.
 
 public section
 
-namespace Interop.Cryptol.Bridge.ImportedScalar
+namespace Cryptol.Bridge.ImportedScalar
 
 open Translation SourceElaboration ImportedScalarSource
 
@@ -76,4 +76,4 @@ theorem core_contract_iff (pre : BitVec 32 → Prop) (post : BitVec 32 → BitVe
   simpa only [compiled, UInt32.toBitVec_ofBitVec] using
     smallSigma256Zero_eq (UInt32.ofBitVec x)
 
-end Interop.Cryptol.Bridge.ImportedScalar
+end Cryptol.Bridge.ImportedScalar

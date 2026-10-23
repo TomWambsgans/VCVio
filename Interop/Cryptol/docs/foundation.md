@@ -54,7 +54,7 @@ preserved full source. Hashes and dependency identities live in
 The source printer is tested against both Cryptol evaluators. Neither the
 printer/parser round trip nor the Haskell implementation is proved in Lean.
 The target for partial behavior is Cryptol's pinned reference evaluator;
-[documented evaluator differences](model.md#external-evidence-and-evaluator-discrepancies)
+[documented evaluator differences](https://github.com/Verified-zkEVM/PolyFun/blob/main/PolyFunCryptol/docs/model.md#external-evidence-and-evaluator-discrepancies)
 still apply. No SAW proof artifact, solver certificate, FFI assumption,
 `native_decide` axiom or admitted proof is used by the bridge certificate.
 

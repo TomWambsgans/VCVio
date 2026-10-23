@@ -24,8 +24,7 @@ mkdir -p "$report_dir"
 lake_cmd=(lake)
 if [[ -n "${POLYFUN_PATH:-}" ]]; then lake_cmd+=(-R -K "polyfunPath=$POLYFUN_PATH"); fi
 audit_obligations() {
-  "${lake_cmd[@]}" exe polyfun-axiomsweep --root Interop.Cryptol.Model \
-    --root Interop.Cryptol.Translation --root Interop.Cryptol.Bridge \
+  "${lake_cmd[@]}" exe polyfun-axiomsweep --root Interop.Cryptol.Bridge \
     --root VCVio.Algorithms.Sha2 --root VCVio.Algorithms.Keccak --root VCVio.Algorithms.Encoding \
     --root VCVio.Algorithms.CRC --out "$report_dir/axioms.json"
   python3 Interop/Cryptol/scripts/audit_obligations.py --report "$report_dir/axioms.json" \
@@ -34,11 +33,11 @@ audit_obligations() {
 if python3 -c 'import json; exit(not json.load(open("Interop/Cryptol/obligations.json"))["obligations"])'; then
   # Every other warning still fails, and every admission is checked against the
   # compiled proposition and dependency graph before any test is reported green.
-  "${lake_cmd[@]}" build CryptolModel CryptolTranslation CryptolBridge CryptolTests --iofail \
+  "${lake_cmd[@]}" build CryptolBridge CryptolTests --iofail \
     2>&1 | tee "$report_dir/build.log"
   audit_obligations --warnings "$report_dir/build.log"
 else
-  "${lake_cmd[@]}" build CryptolModel CryptolTranslation CryptolBridge CryptolTests --wfail --iofail
+  "${lake_cmd[@]}" build CryptolBridge CryptolTests --wfail --iofail
 fi
 bash scripts/check-interop-isolation.sh
 python3 scripts/test-interop-isolation.py
@@ -58,13 +57,12 @@ for source in sources:
         raise SystemExit(f'Import shadowed: {source}: {actual}; expected {expected}')
 print(f'Import ownership: {len(sources)} Cryptol modules resolve to this package')
 PY
-for component in Model Translation Bridge; do
+for component in Bridge; do
   "${lake_cmd[@]}" exe mk_all --lib "Interop/Cryptol/$component" --module --git --check
 done
 if (( run_lint )); then
   "${lake_cmd[@]}" lint -- --style-only
-  "${lake_cmd[@]}" exe batteries/runLinter Interop.Cryptol.Model Interop.Cryptol.Translation \
-    Interop.Cryptol.Bridge
+  "${lake_cmd[@]}" exe batteries/runLinter Interop.Cryptol.Bridge
 fi
 if (( run_test )); then
   # The repository's optional native FFI archives may report that they use stubs.

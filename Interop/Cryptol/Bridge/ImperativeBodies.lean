@@ -7,8 +7,8 @@ Authors: Devon Tuma
 module
 
 public import Interop.Cryptol.Bridge.ImperativeSource
-public import Interop.Cryptol.Translation.ModuleElaboration
-public import Interop.Cryptol.Model.PolyExamples
+public import PolyFunCryptol.Translation.ModuleElaboration
+public import PolyFunCryptol.Model.PolyExamples
 
 /-!
 # Checked bodies of the complete Imperative module
@@ -20,41 +20,37 @@ whole-module elaboration; consumers can use these explicit bodies directly.
 
 public section
 
-namespace Interop.Cryptol.Bridge.Imperative
+namespace Cryptol.Bridge.Imperative
 
 open Polymorphic Translation
 
 /-- The common polymorphic loop interface. -/
 @[expose, reducible] def loopScheme : Scheme 0 0 :=
-  Interop.Cryptol.Polymorphic.Scheme.allType (Interop.Cryptol.Polymorphic.Scheme.mono
-  (Interop.Cryptol.Ty.arrow (Interop.Cryptol.Ty.arrow (Interop.Cryptol.Ty.var 0)
-  (Interop.Cryptol.Ty.bit)) (Interop.Cryptol.Ty.arrow (Interop.Cryptol.Ty.arrow
-  (Interop.Cryptol.Ty.var 0) (Interop.Cryptol.Ty.var 0)) (Interop.Cryptol.Ty.arrow
-  (Interop.Cryptol.Ty.var 0) (Interop.Cryptol.Ty.var 0)))))
+  Cryptol.Polymorphic.Scheme.allType (Cryptol.Polymorphic.Scheme.mono (Cryptol.Ty.arrow
+  (Cryptol.Ty.arrow (Cryptol.Ty.var 0) (Cryptol.Ty.bit)) (Cryptol.Ty.arrow (Cryptol.Ty.arrow
+  (Cryptol.Ty.var 0) (Cryptol.Ty.var 0)) (Cryptol.Ty.arrow (Cryptol.Ty.var 0) (Cryptol.Ty.var
+  0)))))
 
 /-- The complete retained body of `shared::common::utils::Imperative::while`. -/
 @[expose] def body0 : Term Scope.empty [loopScheme] loopScheme :=
   (Term.typeAbs (Term.lam (Term.lam (Term.lam (Term.ite (Term.app (Term.var (.succ (.succ
   .zero))) (Term.var .zero)) (Term.app (Term.app (Term.app (Term.typeApp (s :=
-  Interop.Cryptol.Polymorphic.Scheme.mono (Interop.Cryptol.Ty.arrow (Interop.Cryptol.Ty.arrow
-  (Interop.Cryptol.Ty.var 0) (Interop.Cryptol.Ty.bit)) (Interop.Cryptol.Ty.arrow
-  (Interop.Cryptol.Ty.arrow (Interop.Cryptol.Ty.var 0) (Interop.Cryptol.Ty.var 0))
-  (Interop.Cryptol.Ty.arrow (Interop.Cryptol.Ty.var 0) (Interop.Cryptol.Ty.var 0))))) (Term.var
-  (.succ (.succ (.succ .zero)))) (Interop.Cryptol.Ty.var 0)) (Term.var (.succ (.succ .zero))))
-  (Term.var (.succ .zero))) (Term.app (Term.var (.succ .zero)) (Term.var .zero))) (Term.var
-  .zero))))))
+  Cryptol.Polymorphic.Scheme.mono (Cryptol.Ty.arrow (Cryptol.Ty.arrow (Cryptol.Ty.var 0)
+  (Cryptol.Ty.bit)) (Cryptol.Ty.arrow (Cryptol.Ty.arrow (Cryptol.Ty.var 0) (Cryptol.Ty.var 0))
+  (Cryptol.Ty.arrow (Cryptol.Ty.var 0) (Cryptol.Ty.var 0))))) (Term.var (.succ (.succ (.succ
+  .zero)))) (Cryptol.Ty.var 0)) (Term.var (.succ (.succ .zero)))) (Term.var (.succ .zero)))
+  (Term.app (Term.var (.succ .zero)) (Term.var .zero))) (Term.var .zero))))))
 
 /-- The complete retained body of `shared::common::utils::Imperative::dowhile`. -/
 @[expose] def body1 : Term Scope.empty [loopScheme] loopScheme :=
   (Term.typeAbs (Term.lam (Term.lam (Term.lam (Term.letE (Term.app (Term.var (.succ .zero))
   (Term.var .zero)) (Term.ite (Term.app (Term.var (.succ (.succ (.succ .zero)))) (Term.var
-  .zero)) (Term.app (Term.app (Term.app (Term.typeApp (s :=
-  Interop.Cryptol.Polymorphic.Scheme.mono (Interop.Cryptol.Ty.arrow (Interop.Cryptol.Ty.arrow
-  (Interop.Cryptol.Ty.var 0) (Interop.Cryptol.Ty.bit)) (Interop.Cryptol.Ty.arrow
-  (Interop.Cryptol.Ty.arrow (Interop.Cryptol.Ty.var 0) (Interop.Cryptol.Ty.var 0))
-  (Interop.Cryptol.Ty.arrow (Interop.Cryptol.Ty.var 0) (Interop.Cryptol.Ty.var 0))))) (Term.var
-  (.succ (.succ (.succ (.succ .zero))))) (Interop.Cryptol.Ty.var 0)) (Term.var (.succ (.succ
-  (.succ .zero))))) (Term.var (.succ (.succ .zero)))) (Term.var .zero)) (Term.var .zero)))))))
+  .zero)) (Term.app (Term.app (Term.app (Term.typeApp (s := Cryptol.Polymorphic.Scheme.mono
+  (Cryptol.Ty.arrow (Cryptol.Ty.arrow (Cryptol.Ty.var 0) (Cryptol.Ty.bit)) (Cryptol.Ty.arrow
+  (Cryptol.Ty.arrow (Cryptol.Ty.var 0) (Cryptol.Ty.var 0)) (Cryptol.Ty.arrow (Cryptol.Ty.var 0)
+  (Cryptol.Ty.var 0))))) (Term.var (.succ (.succ (.succ (.succ .zero))))) (Cryptol.Ty.var 0))
+  (Term.var (.succ (.succ (.succ .zero))))) (Term.var (.succ (.succ .zero)))) (Term.var .zero))
+  (Term.var .zero)))))))
 
 /-- The candidate checked module with explicit, shared finite bodies. -/
 @[expose, reducible] def imported : ElaboratedModule where
@@ -70,4 +66,4 @@ open Polymorphic Translation
   loopScheme)] (Fin.cases body0 (fun i => nomatch i)) (.nonrecursive (Reference.Name.mk 4684
   "dowhile" "shared::common::utils::Imperative::dowhile" ) loopScheme body1 (.nil _))
 
-end Interop.Cryptol.Bridge.Imperative
+end Cryptol.Bridge.Imperative

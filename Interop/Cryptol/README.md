@@ -1,10 +1,14 @@
 # Cryptol interoperability
 
-This optional development connects resolved Cryptol descriptions, a lazy Lean
-semantics, total native implementations, and VCVio specifications. It shares
-VCVio's root toolchain and dependency manifest. The existing partial model follows
-Cryptol **3.6.0's reference semantics** for its supported fragment; it is not a
-verification of the Haskell evaluator. The [semantic survey](docs/evaluators.md)
+This optional development connects Cryptol definitions to native Lean
+implementations and VCVio specifications. The Cryptol language model and the
+checked typed-AST importer are PolyFun's optional
+[`PolyFunCryptol` case study](https://github.com/Verified-zkEVM/PolyFun/blob/main/PolyFunCryptol/README.md).
+That case study follows Cryptol **3.6.0's reference semantics** for its
+supported fragment and is not a verification of the Haskell evaluator. This
+directory owns the Foundation correspondences, the VCVio specification and
+oracle-client theorems, the typed-AST exporter, the Foundation census and corpus
+reports, and the evaluator audit. The [semantic survey](docs/evaluators.md)
 recommends the documented lazy language semantics as the anchor for broader
 imports, with versioned backend compatibility claims and explicit proof gaps.
 The [tooling integration report](docs/tooling.md) records the implemented route,
@@ -15,29 +19,21 @@ coordinates whole-Foundation import and the companion PolyFun work. Its
 workstream sections own assignments, dependencies and progress; the
 [delivery contract](docs/tooling.md#coordinated-development-contract) records
 the canonical architecture, completion criteria and consumer proof obligations.
-The body-retention, scope-checking, representation and obligation-reporting
-infrastructure is implemented. An open-module elaborator now targets the canonical
-scoped polynomial syntax; the complete Imperative module has a kernel-checked
-import and public partial-loop equations. All 135 files now pass structural checking using the explicitly identified
-compatibility frontend, and all 155 owned module instances are attempted by the
-typed importer. Ordered module semantics and proof-producing constraints now
-support ten typed module instances, including four without value definitions;
-145 still reject explicitly. The [compatibility report](docs/compatibility.md) records the
-remaining numeric/type boundaries and explicit primitive requirements. The tracker distinguishes this progress
-from complete language import and source-semantic preservation.
+The [compatibility report](docs/compatibility.md) records the current corpus
+results and the remaining numeric/type boundaries.
 
 Run commands from the VCVio repository root:
 
 ```bash
-lake build CryptolModel CryptolTranslation CryptolBridge CryptolTests --wfail
+lake build CryptolBridge CryptolTests --wfail
 lake build cryptol-interop
 lake exe cryptol-interop model run productive_stream
 lake exe cryptol-interop model arx-native 32 8
 ./scripts/validate.sh --cryptol --lint --test --axioms
 ```
 
-The root manifest pins the companion PolyFun development at
-`e7f46e5f18fa4230d09b0cc35f67bc74b1ed3e3f`. The commands above and the separate
+The root manifest pins the companion PolyFun development, which hosts `PolyFunCryptol`, at
+`a4d80f7841766345aa9a7280a426020b11d7a043`. The commands above and the separate
 `Consumer` use that published dependency; no sibling checkout is required.
 For local development against a different PolyFun checkout:
 
@@ -54,29 +50,26 @@ comparisons remain an explicit local validation option.
 
 | Directory | Responsibility | Imports |
 |---|---|---|
-| `Model` | Types, resolved and ordered polymorphic syntax, lazy domains, monomorphic operational semantics and adequacy, primitive demand rules | PolyFun, CSLib, Mathlib |
-| `Translation` | Native scoped IR, representation relation, source translation, certificates, quotation and export | Model |
-| `Bridge` | Foundation source artifacts, SHA-256 correspondence, byte encoding and VCVio probability theorems | Model, Translation, VCVio |
-| `Tests` | Public API, semantic and rejection regressions | The three optional libraries |
+| `Bridge` | Foundation source artifacts and imports, SHA-256 correspondence, byte encoding, CRC updates and VCVio probability theorems | PolyFunCryptol, VCVio |
+| `Tests` | Foundation, imported-source, API and executable regressions | Bridge, PolyFunCryptol |
 | `Consumer` | A separate ordinary-import consumer using the root toolchain and dependencies | The public APIs |
+| `exporter`, `scripts`, `artifacts` | The linked typed-AST exporter, generators, census and corpus reports | External Cryptol and Foundation checkouts |
 
 Default VCVio libraries and tests do not import Cryptol. The dormant Rust/hax/aeneas
 aggregate remains separate. The isolation checker enforces the core/interop, native-FFI
-and pure-algorithm boundaries; the internal Model/Translation/Bridge direction guides review.
-The three generated umbrellas are maintained by `scripts/update-lib.sh` after
+and pure-algorithm boundaries.
+The generated `Bridge` umbrella is maintained by `scripts/update-lib.sh` after
 new modules have been staged.
 
 Both resolved source and the native IR are PolyFun scoped polynomial trees.
 Variables are leaves; operations describe child types and their binders.
-Renaming, substitution, interpretation and their general laws live upstream.
-PolyFun also owns represented-data correspondence and deterministic transition
-execution, including the adapter to resumable machines. Its strict scoped
-arithmetic/let/loop example exercises these interfaces independently of Cryptol.
-Cryptol typing, demand rules, adequacy and Foundation specialization stay here.
+Cryptol typing, demand rules and adequacy live in the `PolyFunCryptol` case study,
+together with the generic renaming, substitution, interpretation,
+represented-data and transition APIs it uses. Foundation specialization stays here.
 Native lowering has one semantic route: native IR → resolved source → core.
 A source certificate then transports arbitrary pre/postconditions, and the bridge
 connects the certified compression function to VCVio's byte implementation and
-adaptive oracle clients. See the [model guide](docs/model.md) and
+adaptive oracle clients. See the [model guide](https://github.com/Verified-zkEVM/PolyFun/blob/main/PolyFunCryptol/docs/model.md) and
 [Foundation guide](docs/foundation.md) for the precise claims.
 
 The native prefix builder binds both the prefix and the newly computed entry,
@@ -96,7 +89,7 @@ value-substitution composition and general semantic preservation of both
 substitutions are proved. These laws cover all current constructors and partial
 environments, including simultaneous recursion. Polymorphic operational adequacy,
 syntax-producing specialization and official frontend correspondence remain
-open. The [next milestones](docs/model.md#audited-next-milestones) give their
+open. The [next milestones](https://github.com/Verified-zkEVM/PolyFun/blob/main/PolyFunCryptol/docs/model.md#audited-next-milestones) give their
 scope and acceptance criteria; monomorphic adequacy keeps its original scope.
 
 External evidence uses clean, pinned checkouts:
@@ -112,7 +105,7 @@ manifest records files, identities and hashes. Validation does not download or
 install these tools.
 
 The current fragment is intentionally narrower than full resolved Cryptol.
-The [coverage and gap ledger](docs/model.md#coverage-and-gap-ledger) separates
+The [coverage and gap ledger](https://github.com/Verified-zkEVM/PolyFun/blob/main/PolyFunCryptol/docs/model.md#coverage-and-gap-ledger) separates
 proved capabilities, semantic spikes, and missing language features. In particular,
 the certified importer still targets the Foundation SHA-256 subset. The
 [pinned typed-AST exporter](exporter/README.md) additionally retains complete

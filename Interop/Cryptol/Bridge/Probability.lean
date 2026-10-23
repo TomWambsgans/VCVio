@@ -20,7 +20,7 @@ The explicit word-level two-call experiment additionally samples its first input
 
 public section
 
-namespace Interop.Cryptol.Bridge
+namespace Cryptol.Bridge
 
 open OracleComp OracleSpec
 
@@ -75,15 +75,15 @@ abbrev roundSpec : OracleSpec RoundInput.Native := fun _ => RoundOutput.Native
 
 /-- The extracted and VCVio rounds agree jointly on response and retained state. -/
 theorem roundHandler_joint_eq (x : RoundInput.Native) (state : Nat) :
-    (roundHandler (Foundation.round256.denote Interop.Cryptol.Finite.Env.empty) x).run state =ᵈ
+    (roundHandler (Foundation.round256.denote Cryptol.Finite.Env.empty) x).run state =ᵈ
       (roundHandler nativeRound x).run state := by
-  change (pure (Foundation.round256.denote Interop.Cryptol.Finite.Env.empty x, state + 1) :
+  change (pure (Foundation.round256.denote Cryptol.Finite.Env.empty x, state + 1) :
     ProbComp (RoundOutput.Native × Nat)) =ᵈ pure (nativeRound x, state + 1)
   rw [round256_native_eq]
 
 /-- Every adaptive client may substitute one round implementation for the other. -/
 theorem simulate_roundHandler_eq {α : Type} (program : OracleComp roundSpec α) (state : Nat) :
-    (simulateQ (roundHandler (Foundation.round256.denote Interop.Cryptol.Finite.Env.empty))
+    (simulateQ (roundHandler (Foundation.round256.denote Cryptol.Finite.Env.empty))
       program).run state =ᵈ (simulateQ (roundHandler nativeRound) program).run state :=
   evalDistEq_simulateQ_run _ _ roundHandler_joint_eq program state
 
@@ -142,4 +142,4 @@ theorem second_response_ne :
   change false ≠ true
   decide
 
-end Interop.Cryptol.Bridge
+end Cryptol.Bridge

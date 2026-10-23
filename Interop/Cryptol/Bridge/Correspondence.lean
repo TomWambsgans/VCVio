@@ -19,9 +19,9 @@ existing pure VCVio implementation. They assume no probability or hash security.
 
 public section
 
-namespace Interop.Cryptol.Bridge
+namespace Cryptol.Bridge
 
-open Interop.Cryptol Interop.Cryptol.Finite
+open Cryptol Cryptol.Finite
 
 /-- The extracted function, executed through the independent source interpreter. -/
 @[expose] def foundationSigma (x : UInt32) : UInt32 :=
@@ -61,4 +61,4 @@ theorem rotateLaw22_true (x : BitVec 32) : Foundation.rotateLaw22.denote Env.emp
   change (x.rotateRight 22 == ((x >>> 22) ||| (x <<< 10))) = true
   simp [BitVec.rotateRight_def]
 
-end Interop.Cryptol.Bridge
+end Cryptol.Bridge

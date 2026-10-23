@@ -7,14 +7,14 @@ Authors: Devon Tuma
 module
 
 public import Interop.Cryptol.Tests.Translation.ImportedSource
-public import Interop.Cryptol.Model.ResolvedLaws
-public import Interop.Cryptol.Translation.SourceElaboration
-import all Interop.Cryptol.Translation.SourceElaboration
-import all Interop.Cryptol.Translation.SourceScope
-import all Interop.Cryptol.Model.Reference.Kinds
-import all Interop.Cryptol.Model.Reference.Types
-import all Interop.Cryptol.Model.Reference.Syntax
-import all Interop.Cryptol.Model.Types
+public import PolyFunCryptol.Model.ResolvedLaws
+public import PolyFunCryptol.Translation.SourceElaboration
+import PolyFunCryptol.Translation.SourceElaboration
+import PolyFunCryptol.Translation.SourceScope
+import PolyFunCryptol.Model.Reference.Kinds
+import PolyFunCryptol.Model.Reference.Types
+import PolyFunCryptol.Model.Reference.Syntax
+import PolyFunCryptol.Model.Types
 
 /-!
 # Official frontend import canaries
@@ -26,9 +26,9 @@ These equations describe the current partial model; normal-evaluator demand equi
 
 public section
 
-open Interop.Cryptol Translation SourceElaboration Bridge.ImportedCanariesSource
+open Cryptol Translation SourceElaboration Bridge.ImportedCanariesSource
 
-namespace Interop.Cryptol.Tests.Imports
+namespace Cryptol.Tests.Imports
 
 /-- The checked integer addition primitive. -/
 @[expose] def add {Γ : List ClosedTy} : Resolved.Term Γ
@@ -118,4 +118,4 @@ example (xs : Nat → Int) (i : Nat) :
   simp only [mapped]
   rfl
 
-end Interop.Cryptol.Tests.Imports
+end Cryptol.Tests.Imports

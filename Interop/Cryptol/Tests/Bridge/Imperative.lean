@@ -12,7 +12,7 @@ public import Interop.Cryptol.Bridge.Imperative
 
 public section
 
-namespace Interop.Cryptol.Tests.Imperative
+namespace Cryptol.Tests.Imperative
 
 open Bridge.Imperative
 
@@ -42,4 +42,4 @@ example (initial : Computation .bit) :
     whileLoop (.error (.user "condition")) ⊥ initial = .error (.user "condition") :=
   whileLoop_error _ _ _
 
-end Interop.Cryptol.Tests.Imperative
+end Cryptol.Tests.Imperative

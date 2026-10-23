@@ -20,9 +20,9 @@ explicit size and bounds hypotheses. Both directions quantify arbitrary predicat
 
 public section
 
-namespace Interop.Cryptol.Bridge
+namespace Cryptol.Bridge
 
-open Interop.Cryptol Interop.Cryptol.Finite
+open Cryptol Cryptol.Finite
 
 /-- Tupled interface to the preserved curried source, with the source itself retained. -/
 @[expose] def compressionSourceTupled : Resolved.Term []
@@ -120,4 +120,4 @@ theorem compression_byte_contract_iff (pre : CompressionRequest → Prop)
     rw [compiledCompress_eq]
     exact h r hp
 
-end Interop.Cryptol.Bridge
+end Cryptol.Bridge

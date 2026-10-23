@@ -20,7 +20,7 @@ this module makes no claim about an extracted Keccak implementation.
 
 public section
 
-namespace Interop.Cryptol.Bridge.KeccakStatement
+namespace Cryptol.Bridge.KeccakStatement
 
 /-- Big-endian observations after reversing the bits within each input byte. -/
 @[expose] def h2bPrefix {m n : Nat} (input : BitVec (8 * m)) : Fin n → Bool :=
@@ -31,4 +31,4 @@ theorem h2bTest : h2bPrefix (m := 2) (n := 14) (BitVec.ofNat 16 0xA32E) =
     fun i => (BitVec.ofNat 14 0b11000101011101).getMsbD i.val := by
   decide
 
-end Interop.Cryptol.Bridge.KeccakStatement
+end Cryptol.Bridge.KeccakStatement

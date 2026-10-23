@@ -36,6 +36,7 @@ class IsolationTests(unittest.TestCase):
                  ("Interop/Cryptol/Bridge/X.lean", "HashSig"),
                  ("HashSig/X.lean", "Interop.Rust"),
                  ("VCVio.lean", "Interop"),
+                 ("VCVio/X.lean", "PolyFunCryptol.Model.Types"),
                  ("VCVioTest/X.lean", "Hax"),
                  ("Interop/Hax/X.lean", "HashSig")]
         for source, target in edges:

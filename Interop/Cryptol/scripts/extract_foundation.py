@@ -623,7 +623,7 @@ Authors: Devon Tuma
 
 module
 
-public import Interop.Cryptol.Translation.FiniteSource
+public import PolyFunCryptol.Translation.FiniteSource
 public import Mathlib.Data.Fin.VecNotation
 import Mathlib.Tactic.FinCases
 
@@ -637,11 +637,11 @@ The artifact manifest records the trusted frontend and specialization boundary.
 
 public section
 
-namespace Interop.Cryptol.Bridge.Foundation
+namespace Cryptol.Bridge.Foundation
 
-open Interop.Cryptol.Finite
+open Cryptol.Finite
 
-""" + "\n".join(definitions) + "\nend Interop.Cryptol.Bridge.Foundation\n"
+""" + "\n".join(definitions) + "\nend Cryptol.Bridge.Foundation\n"
     source = "\n".join(textwrap.fill(line, width=96, subsequent_indent="    ",
         break_long_words=False, break_on_hyphens=False) if len(line) > 96 else line
         for line in source.splitlines()) + "\n"
@@ -656,22 +656,22 @@ open Interop.Cryptol.Finite
     source_value = source_decoder.quote(source_decoder.global_value(step_ids[0]),
                                         ("arrow", state, ("arrow", block, state)))
     source_helpers, source_code = source_declarations(source_value)
-    source_header = source[:source.index("namespace Interop.Cryptol.Bridge.Foundation")]
-    source_header = source_header.replace("Interop.Cryptol.Translation.FiniteSource", "Interop.Cryptol.Model.ResolvedLaws")
+    source_header = source[:source.index("namespace Cryptol.Bridge.Foundation")]
+    source_header = source_header.replace("PolyFunCryptol.Translation.FiniteSource", "PolyFunCryptol.Model.ResolvedLaws")
     source_header = source_header.replace("# Extracted Foundation descriptions", "# Preserved Foundation compression source")
     source_header = source_header.replace(
         "The declarations are checked finite descriptions, not manually copied algorithms.",
         "Recursion, folds, integer indices, branches, and lexical bindings remain in the source.")
-    resolved_source = source_header + """namespace Interop.Cryptol.Bridge.Foundation
+    resolved_source = source_header + """namespace Cryptol.Bridge.Foundation
 
-open Interop.Cryptol Interop.Cryptol.Resolved
+open Cryptol Cryptol.Resolved
 
 """ + source_helpers + """
 /-- Concrete `Main::step`, reified before recurrence or fold compilation. -/
 @[expose] def compressionSource : Term []
     (.arrow (.seq (.finite 8) (wordTy 32))
       (.arrow (.seq (.finite 16) (wordTy 32)) (.seq (.finite 8) (wordTy 32)))) :=
-  """ + source_code + "\n\nend Interop.Cryptol.Bridge.Foundation\n"
+  """ + source_code + "\n\nend Cryptol.Bridge.Foundation\n"
     resolved_source = "\n".join(textwrap.fill(line, width=96, subsequent_indent="    ",
         break_long_words=False, break_on_hyphens=False) if len(line) > 96 else line
         for line in resolved_source.splitlines()) + "\n"

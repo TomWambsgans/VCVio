@@ -16,13 +16,13 @@ from test_source import nodes
 def check_materialized(checked):
     """Kernel-check all emitted bodies, including constraint-proof replay."""
     source = """module
-public import Interop.Cryptol.Translation.ModuleElaboration
-import all Interop.Cryptol.Model.Types
-import all Interop.Cryptol.Model.Numeric
-import all Interop.Cryptol.Model.Length
-import all Interop.Cryptol.Model.Scheme
+public import PolyFunCryptol.Translation.ModuleElaboration
+import PolyFunCryptol.Model.Types
+import PolyFunCryptol.Model.Numeric
+import PolyFunCryptol.Model.Length
+import PolyFunCryptol.Model.Scheme
 public section
-open Interop.Cryptol Interop.Cryptol.Polymorphic Interop.Cryptol.Translation
+open Cryptol Cryptol.Polymorphic Cryptol.Translation
 """
     for index, body in enumerate(checked["bodies"]):
         source += (f"def body{index} : Term {body['scope']} ({body['context_schemes']}) "

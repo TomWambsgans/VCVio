@@ -171,7 +171,7 @@
     "LICENSE": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
   },
   "normalized_ast_sha256": "79c11eee1c414f22f6ae7a772e96288ed92c0e67546c98ee81717d6d9f6b7571",
-  "lean_sha256": "42cc6f6b61c128b4883a00cc4e9efa9f827e7cf9cb0aa060517815cd120ced0c",
+  "lean_sha256": "1205cbdbe71729434520d2e473e518fbb273238a861898ea2c90b0df581e1af2",
   "round_normalized_ast_sha256": "d94ed3374aa2990c19f2a96db94ddd97ee08510e821baca2a2915be5f25e517b",
   "round": {
     "step_identity": 5418,
@@ -206,7 +206,7 @@
       "T2"
     ]
   },
-  "compression_source_sha256": "fe81b085e879b8131948235df0f7a011a725caf591c7da2d275feef5d0df9ccb",
+  "compression_source_sha256": "ef8dc3e6c4d2ac419b13f75a00a977cea548e59f0730a3392c583541778dcd71",
   "recursive_arrays": [
     [
       5388,

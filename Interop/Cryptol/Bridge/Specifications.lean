@@ -7,7 +7,7 @@ Authors: Devon Tuma
 module
 
 public import Interop.Cryptol.Bridge.Correspondence
-public import Interop.Cryptol.Translation.Contracts
+public import PolyFunCryptol.Translation.Contracts
 
 /-!
 # Pulling rotation specifications and pushing linearity
@@ -19,9 +19,9 @@ through the contract API; the exported linearity statement is finite syntax.
 
 public section
 
-namespace Interop.Cryptol.Bridge
+namespace Cryptol.Bridge
 
-open Interop.Cryptol Interop.Cryptol.Finite
+open Cryptol Cryptol.Finite
 
 /-- The existing pure VCVio implementation distributes over exclusive-or. -/
 theorem bsig0_xor (x y : UInt32) :
@@ -84,4 +84,4 @@ theorem sigma_contract_iff (pre : BitVec 32 → Prop) (post : BitVec 32 → BitV
   intro x
   exact congrArg UInt32.toBitVec (foundationSigma_eq (UInt32.ofBitVec x))
 
-end Interop.Cryptol.Bridge
+end Cryptol.Bridge

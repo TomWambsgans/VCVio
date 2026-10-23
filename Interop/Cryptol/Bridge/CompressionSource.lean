@@ -18,9 +18,9 @@ fixed point and lazy fold before any recurrence is compiled.
 
 public section
 
-namespace Interop.Cryptol.Bridge
+namespace Cryptol.Bridge
 
-open OmegaCompletePartialOrder Interop.Cryptol
+open OmegaCompletePartialOrder Cryptol
 
 set_option maxRecDepth 4096 in
 /-- Source beta reduction and comprehension lowering preserve the recursive schedule. -/
@@ -117,4 +117,4 @@ theorem compressionSource_correct (s : PartialState) (m : PartialBlock) :
     Semantics.apply_function₂, Semantics.apply_function₃]
   rfl
 
-end Interop.Cryptol.Bridge
+end Cryptol.Bridge

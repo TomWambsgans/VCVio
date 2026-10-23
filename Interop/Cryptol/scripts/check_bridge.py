@@ -244,8 +244,8 @@ def check_boundaries():
 
 def certificate_rejection(temporary):
     probe = temporary / "BadCertificate.lean"
-    probe.write_text("""import Interop.Cryptol.Translation.Certified
-open Interop.Cryptol Interop.Cryptol.Finite
+    probe.write_text("""import PolyFunCryptol.Translation.Certified
+open Cryptol Cryptol.Finite
 noncomputable def bad : CertifiedFunction (.word 8) (.word 8) where
   source := .lam (.var .zero)
   implementation := .lam (.word 0)

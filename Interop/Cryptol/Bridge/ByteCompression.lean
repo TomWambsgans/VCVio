@@ -20,10 +20,10 @@ starting at any offset; no alignment condition is imposed.
 
 public section
 
-namespace Interop.Cryptol.Bridge
+namespace Cryptol.Bridge
 
 open VCVio.Algorithms.Sha2
-open Interop.Cryptol.Finite
+open Cryptol.Finite
 
 private theorem pure_forIn_eq_foldl {A B : Type} (xs : List A) (step : B → A → B) (z : B) :
     (forIn xs z (fun i acc => pure (.yield (step acc i))) : Id B) = xs.foldl step z := by
@@ -226,4 +226,4 @@ theorem compress_eq_decoded (st : Array UInt32) (m : ByteArray) (base : Nat)
       (compressionNative (decodedState st hst, decodedBlock m base hbytes) i)) := by
   rw [compress_eq_native, stateBits_arrayState st hst, loadedBlock_eq_decodedBlock m base hbytes]
 
-end Interop.Cryptol.Bridge
+end Cryptol.Bridge

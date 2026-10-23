@@ -93,8 +93,8 @@
       "status": "certified",
       "implementation": "VCVio.Algorithms.Sha2.compress",
       "theorems": [
-        "Interop.Cryptol.Bridge.compiledCompress_eq",
-        "Interop.Cryptol.Bridge.compression_byte_contract_iff"
+        "Cryptol.Bridge.compiledCompress_eq",
+        "Cryptol.Bridge.compression_byte_contract_iff"
       ],
       "evidence": [
         "artifacts/manifest.json",
@@ -2202,9 +2202,9 @@
         "Manual transcription of lane order; no imported-AST correspondence"
       ],
       "theorems": [
-        "Interop.Cryptol.Bridge.KeccakCodec.offset_val",
-        "Interop.Cryptol.Bridge.KeccakCodec.toString_toState",
-        "Interop.Cryptol.Bridge.KeccakCodec.toState_toString"
+        "Cryptol.Bridge.KeccakCodec.offset_val",
+        "Cryptol.Bridge.KeccakCodec.toString_toState",
+        "Cryptol.Bridge.KeccakCodec.toState_toString"
       ]
     },
     {
@@ -2218,10 +2218,10 @@
         "Manual transcription of expandedData and remainder equations; no pmod bitvector correspondence"
       ],
       "theorems": [
-        "Interop.Cryptol.Bridge.CRC.encode_append",
-        "Interop.Cryptol.Bridge.CRC.pack_append",
-        "Interop.Cryptol.Bridge.CRC.update_append",
-        "Interop.Cryptol.Bridge.CRC.finalize_update_append"
+        "Cryptol.Bridge.CRC.encode_append",
+        "Cryptol.Bridge.CRC.pack_append",
+        "Cryptol.Bridge.CRC.update_append",
+        "Cryptol.Bridge.CRC.finalize_update_append"
       ]
     }
   ]

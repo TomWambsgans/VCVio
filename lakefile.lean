@@ -79,7 +79,7 @@ idempotent.
   src? := some <| match get_config? polyfunPath with
     | some path => .path (System.FilePath.mk path) false
     | none => .git "https://github.com/Verified-zkEVM/PolyFun"
-        (some "e7f46e5f18fa4230d09b0cc35f67bc74b1ed3e3f") none
+        (some "a4d80f7841766345aa9a7280a426020b11d7a043") none
 }
 
 require "leanprover-community" / "mathlib" @ git "v4.35.0"
@@ -123,22 +123,13 @@ lean_lib Interop where
   globs := #[.one `Interop, .submodules `Interop.Hax, .submodules `Interop.Rust,
     .submodules `Interop.Aeneas]
 
-/-- Optional resolved Cryptol semantics, independent of cryptographic libraries. -/
-lean_lib CryptolModel where
-  roots := #[`Interop.Cryptol.Model]
-  globs := #[.one `Interop.Cryptol.Model, .submodules `Interop.Cryptol.Model]
-
-/-- Checked descriptions, compilation, and source export. -/
-lean_lib CryptolTranslation where
-  roots := #[`Interop.Cryptol.Translation]
-  globs := #[.one `Interop.Cryptol.Translation, .submodules `Interop.Cryptol.Translation]
-
-/-- Foundation correspondence and VCVio specification transfer. -/
+/-- Foundation correspondence and VCVio specification transfer over PolyFun's optional
+`PolyFunCryptol` language case study. -/
 lean_lib CryptolBridge where
   roots := #[`Interop.Cryptol.Bridge]
   globs := #[.one `Interop.Cryptol.Bridge, .submodules `Interop.Cryptol.Bridge]
 
-/-- Independent semantic, API, and executable regression cases. -/
+/-- Foundation, imported-source and executable regression cases. -/
 lean_lib CryptolTests where
   globs := #[.submodules `Interop.Cryptol.Tests]
 

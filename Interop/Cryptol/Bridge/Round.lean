@@ -7,8 +7,8 @@ Authors: Devon Tuma
 module
 
 public import Interop.Cryptol.Bridge.Correspondence
-public import Interop.Cryptol.Translation.Contracts
-public import Interop.Cryptol.Model.Laws
+public import PolyFunCryptol.Translation.Contracts
+public import PolyFunCryptol.Model.Laws
 import Mathlib.Tactic.FinCases
 
 /-!
@@ -22,9 +22,9 @@ on the values of `K @ t` and `W @ t`; it does not verify schedule generation.
 
 public section
 
-namespace Interop.Cryptol.Bridge
+namespace Cryptol.Bridge
 
-open Interop.Cryptol Interop.Cryptol.Finite
+open Cryptol Cryptol.Finite
 open VCVio.Algorithms.Sha2
 
 /-- Big sigma one agrees on every input. -/
@@ -171,4 +171,4 @@ theorem roundCaptured_correct (state : ClosedExpr [] RoundOutput.core)
   rw [hi, Term.denote_apply_data roundInputShape roundOutputShape,
     round256_native_eq]
 
-end Interop.Cryptol.Bridge
+end Cryptol.Bridge

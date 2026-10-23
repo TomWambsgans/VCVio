@@ -14,7 +14,7 @@ public section
 
 open VCVio.Algorithms.Crc
 
-namespace Interop.Cryptol.Tests.CRC
+namespace Cryptol.Tests.CRC
 
 /-- The ASCII check string `123456789`. -/
 def message : List (BitVec 8) := [49, 50, 51, 52, 53, 54, 55, 56, 57]
@@ -41,4 +41,4 @@ example : finalize (⟨7, 0, false, true, 1⟩ : Parameters 8) 0 = 128 := by dec
 example : update ethernet (updateResult ethernet ethernet.initial [49]).state [50] ≠
     update ethernet (updateResult ethernet ethernet.initial [49]).crc [50] := by decide
 
-end Interop.Cryptol.Tests.CRC
+end Cryptol.Tests.CRC

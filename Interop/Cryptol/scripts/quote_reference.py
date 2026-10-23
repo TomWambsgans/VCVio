@@ -179,7 +179,7 @@ Authors: Devon Tuma
 
 module
 
-public import Interop.Cryptol.Translation.SourceBundle
+public import PolyFunCryptol.Translation.SourceBundle
 
 /-!
 # Quoted Foundation scalar source
@@ -191,9 +191,9 @@ checks byte-for-byte reproduction from the pinned official frontend.
 
 public section
 
-namespace Interop.Cryptol.Bridge.ImportedScalarSource
+namespace Cryptol.Bridge.ImportedScalarSource
 
-open Interop.Cryptol Translation
+open Cryptol Translation
 
 '''
     for i, d in enumerate(declarations):
@@ -210,7 +210,7 @@ open Interop.Cryptol Translation
     source += '/-- The exact exported scalar bundle, retaining its provenance metadata. -/\n'
     source += '@[expose] def bundle : SourceBundle :=\n' + wrap(app(
         'SourceBundle.mk', string(bundle['cryptol_revision']), array(roots), groups,
-        array(modules), '[]', array(map(string, bundle.get('frontend_patches', []))))) + '\n\nend Interop.Cryptol.Bridge.ImportedScalarSource\n'
+        array(modules), '[]', array(map(string, bundle.get('frontend_patches', []))))) + '\n\nend Cryptol.Bridge.ImportedScalarSource\n'
     source = source.replace("ImportedScalarSource", namespace)
     source = source.replace("scalar-bundle.json", artifact)
     source = source.replace("Quoted Foundation scalar source", title)
@@ -263,7 +263,7 @@ Authors: Devon Tuma
 
 module
 
-public import Interop.Cryptol.Translation.SourceBundle
+public import PolyFunCryptol.Translation.SourceBundle
 
 /-!
 # Retained Foundation imperative utilities
@@ -276,7 +276,7 @@ from the pinned official frontend export.
 
 public section
 
-namespace Interop.Cryptol.Bridge.ImperativeSource
+namespace Cryptol.Bridge.ImperativeSource
 
 open Translation
 
@@ -290,7 +290,7 @@ open Translation
     ''' +
         array(map(string, bundle.get('frontend_patches', []))) + '''⟩
 
-end Interop.Cryptol.Bridge.ImperativeSource
+end Cryptol.Bridge.ImperativeSource
 ''').encode()
 
 
@@ -317,8 +317,8 @@ Authors: Devon Tuma
 module
 
 public import Interop.Cryptol.Bridge.ImperativeSource
-public import Interop.Cryptol.Translation.ModuleElaboration
-public import Interop.Cryptol.Model.PolyExamples
+public import PolyFunCryptol.Translation.ModuleElaboration
+public import PolyFunCryptol.Model.PolyExamples
 
 /-!
 # Checked bodies of the complete Imperative module
@@ -330,7 +330,7 @@ whole-module elaboration; consumers can use these explicit bodies directly.
 
 public section
 
-namespace Interop.Cryptol.Bridge.Imperative
+namespace Cryptol.Bridge.Imperative
 
 open Polymorphic Translation
 
@@ -354,6 +354,6 @@ open Polymorphic Translation
         '(.nonrecursive ' + name(ds[1]['name']) + ' loopScheme body1 (.nil _))')
     source += '''
 
-end Interop.Cryptol.Bridge.Imperative
+end Cryptol.Bridge.Imperative
 '''
     return source.encode()

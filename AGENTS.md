@@ -84,10 +84,10 @@ build boundaries and the staged consolidation.
   It stays outside the default library graph but participates in repository validation.
 - `VCVioComplexity/`: optional isolated Lake package for the complexitylib-backed exact-machine
   substrate; it is not part of VCVio's default dependency graph.
-- `Interop/Cryptol/`: one optional root-project development. Model owns language
-  semantics; Translation owns native IR, certificates, and export; Bridge owns
-  Foundation, core-algorithm, and probability correspondences. Imports flow from Bridge
-  through Translation to Model. Core libraries never import these modules.
+- `Interop/Cryptol/`: one optional root-project development. Bridge owns Foundation,
+  core-algorithm, and probability correspondences over PolyFun's optional `PolyFunCryptol`
+  case study, which owns the language semantics, native IR, certificates, and export.
+  Core libraries never import these modules.
   Use `./scripts/validate.sh --cryptol --lint --test --axioms`; add
   `--cryptol-external` with `CRYPTOL_BINARY=…` and `FOUNDATION_PATH=…` for pinned checks.
   Set `POLYFUN_PATH=…` when using the companion local PolyFun checkout.

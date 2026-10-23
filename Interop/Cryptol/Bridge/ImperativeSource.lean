@@ -6,7 +6,7 @@ Authors: Devon Tuma
 
 module
 
-public import Interop.Cryptol.Translation.SourceBundle
+public import PolyFunCryptol.Translation.SourceBundle
 
 /-!
 # Retained Foundation imperative utilities
@@ -19,7 +19,7 @@ from the pinned official frontend export.
 
 public section
 
-namespace Interop.Cryptol.Bridge.ImperativeSource
+namespace Cryptol.Bridge.ImperativeSource
 
 open Translation
 
@@ -84,4 +84,4 @@ open Translation
   ⟨SourceBundle.expectedCryptolRevision, [source], [], [],
     ["cffd4082d3347aba60c131d2e7d33f8b8fdfaf6afa4aedd52d8d2fff7bb30a2e"]⟩
 
-end Interop.Cryptol.Bridge.ImperativeSource
+end Cryptol.Bridge.ImperativeSource

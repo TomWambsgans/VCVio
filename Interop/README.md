@@ -8,13 +8,13 @@ default build; their source checks still run.
 ## Import boundaries
 
 Core proof and test libraries, including `HashSig`, never import `Interop`,
-`Hax`, or `Aeneas`. Cryptol has separate optional `CryptolModel`,
-`CryptolTranslation`, `CryptolBridge`, and `CryptolTests` Lake targets.
+`Hax`, or `Aeneas`. Cryptol has separate optional `CryptolBridge` and `CryptolTests`
+Lake targets.
 `Interop.lean` aggregates only the dormant Rust backends.
 
-Inside Cryptol, imports flow `Bridge → Translation → Model → PolyFun/CSLib`.
-Only Bridge may use VCVio, ToMathlib, and HashSig. Model and Translation carry
-no probability semantics. Rust backends do not import Cryptol, and Cryptol
+Bridge imports PolyFun's optional `PolyFunCryptol` case study, which owns the
+language model and importer, and is the only Cryptol layer that may use VCVio,
+ToMathlib, and HashSig. The case study carries no probability semantics. Rust backends do not import Cryptol, and Cryptol
 does not import them. `scripts/check-interop-isolation.sh` uses Lean's source
 parser to check ordinary, public, meta, and `import all` forms; its negative
 fixtures cover each boundary.

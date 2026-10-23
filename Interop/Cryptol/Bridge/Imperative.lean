@@ -7,22 +7,22 @@ Authors: Devon Tuma
 module
 
 public import Interop.Cryptol.Bridge.ImperativeBodies
-import all Interop.Cryptol.Translation.SourceScope
-import all Interop.Cryptol.Translation.SourceLink
-import all Interop.Cryptol.Model.Reference.Dependencies
+import PolyFunCryptol.Translation.SourceScope
+import PolyFunCryptol.Translation.SourceLink
+import PolyFunCryptol.Model.Reference.Dependencies
 import all Mathlib.Data.List.Sort
-import all Interop.Cryptol.Translation.OpenTypes
-import all Interop.Cryptol.Translation.OpenElaboration
-import all Interop.Cryptol.Translation.ModuleElaboration
-import all Interop.Cryptol.Translation.Declarations
-import all Interop.Cryptol.Model.Reference.Kinds
-import all Interop.Cryptol.Model.Reference.Types
-import all Interop.Cryptol.Model.Reference.Syntax
-import all Interop.Cryptol.Model.Types
-import all Interop.Cryptol.Model.Scheme
-import all Interop.Cryptol.Model.Length
-import all Interop.Cryptol.Model.Parameters
-import all Interop.Cryptol.Model.PolyScope
+import PolyFunCryptol.Translation.OpenTypes
+import PolyFunCryptol.Translation.OpenElaboration
+import PolyFunCryptol.Translation.ModuleElaboration
+import PolyFunCryptol.Translation.Declarations
+import PolyFunCryptol.Model.Reference.Kinds
+import PolyFunCryptol.Model.Reference.Types
+import PolyFunCryptol.Model.Reference.Syntax
+import PolyFunCryptol.Model.Types
+import PolyFunCryptol.Model.Scheme
+import PolyFunCryptol.Model.Length
+import PolyFunCryptol.Model.Parameters
+import PolyFunCryptol.Model.PolyScope
 
 /-!
 # Imported Foundation imperative utilities
@@ -36,7 +36,7 @@ public section
 
 open OmegaCompletePartialOrder
 
-namespace Interop.Cryptol.Bridge.Imperative
+namespace Cryptol.Bridge.Imperative
 
 open Polymorphic Translation
 
@@ -239,4 +239,4 @@ theorem whileLoop_error {a : ClosedTy} (error : EvalError)
   rw [whileLoop_unfold]
   rfl
 
-end Interop.Cryptol.Bridge.Imperative
+end Cryptol.Bridge.Imperative

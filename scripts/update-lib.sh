@@ -23,7 +23,7 @@ for library in ToMathlib VCVio VCVioCslib LatticeCrypto Extern HashSig Examples 
   regenerate --lib "$library" --module
 done
 
-for component in Model Translation Bridge; do
+for component in Bridge; do
   regenerate --lib "Interop/Cryptol/$component" --module --git
 done
 

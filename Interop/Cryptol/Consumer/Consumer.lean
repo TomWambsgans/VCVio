@@ -6,17 +6,17 @@ Authors: Devon Tuma
 
 module
 
-import Interop.Cryptol.Translation.Certified
-import Interop.Cryptol.Translation.Finite.Loop
-import Interop.Cryptol.Model.ResolvedSequences
-import Interop.Cryptol.Model.Recurrence
-import Interop.Cryptol.Translation.PolymorphicExamples
-import Interop.Cryptol.Model.PolySubstitutionSemantics
-import Interop.Cryptol.Model.Numeric
-import Interop.Cryptol.Model.Records
-import Interop.Cryptol.Model.Comprehensions
-import Interop.Cryptol.Model.StructuralLogic
-import Interop.Cryptol.Model.StructuralRing
+import PolyFunCryptol.Translation.Certified
+import PolyFunCryptol.Translation.Finite.Loop
+import PolyFunCryptol.Model.ResolvedSequences
+import PolyFunCryptol.Model.Recurrence
+import PolyFunCryptol.Translation.PolymorphicExamples
+import PolyFunCryptol.Model.PolySubstitutionSemantics
+import PolyFunCryptol.Model.Numeric
+import PolyFunCryptol.Model.Records
+import PolyFunCryptol.Model.Comprehensions
+import PolyFunCryptol.Model.StructuralLogic
+import PolyFunCryptol.Model.StructuralRing
 
 /-!
 # Independent public API consumer
@@ -25,7 +25,7 @@ A separate package supplies its own specification without opening implementation
 bodies or importing any cryptographic interpretation.
 -/
 
-open Interop.Cryptol Interop.Cryptol.Finite
+open Cryptol Cryptol.Finite
 
 example {n m : Nat} (e : NumericExpr n) (σ : Fin n → NumericExpr m)
     (ρ : Fin m → Option Length) :

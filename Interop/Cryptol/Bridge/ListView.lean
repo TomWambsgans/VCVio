@@ -6,8 +6,8 @@ Authors: Devon Tuma
 
 module
 
-public import Interop.Cryptol.Model.SequenceLaws
-public import Interop.Cryptol.Translation.SourceElaboration
+public import PolyFunCryptol.Model.SequenceLaws
+public import PolyFunCryptol.Translation.SourceElaboration
 public import PolyFun.Control.Semantics.Correspondence
 
 /-!
@@ -23,7 +23,7 @@ of Foundation's list functions.
 
 public section
 
-namespace Interop.Cryptol.Bridge.ListView
+namespace Cryptol.Bridge.ListView
 
 open OmegaCompletePartialOrder
 
@@ -109,4 +109,4 @@ theorem contract_iff {A B : Type} {a b : ClosedTy}
   Control.Semantics.RelationalContract.iff_of_liftFun pre post correct available
     (represents_leftUnique unique)
 
-end Interop.Cryptol.Bridge.ListView
+end Cryptol.Bridge.ListView

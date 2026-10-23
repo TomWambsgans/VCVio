@@ -32,7 +32,7 @@ def audit(report, ledger):
                          f"stale obligations: {sorted(obligations.keys() - direct)}")
     for name, obligation in obligations.items():
         entry = graph[name]
-        if entry["kind"] != "theorem" or not name.startswith("Interop.Cryptol."):
+        if entry["kind"] != "theorem" or not name.startswith("Cryptol."):
             raise ValueError(f"only named Cryptol proof admissions are eligible: {name}")
         if hashlib.sha256(entry["type"].encode()).hexdigest() != obligation["type_sha256"]:
             raise ValueError(f"changed obligation proposition: {name}")

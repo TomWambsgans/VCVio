@@ -12,7 +12,7 @@ import Interop.Cryptol.Bridge
 # Ordinary-import bridge canaries
 -/
 
-open Interop.Cryptol.Bridge Interop.Cryptol OracleComp
+open Cryptol.Bridge Cryptol OracleComp
 
 example (x : UInt32) : foundationSigma x = VCVio.Algorithms.Sha2.bsig0 x :=
   foundationSigma_eq x

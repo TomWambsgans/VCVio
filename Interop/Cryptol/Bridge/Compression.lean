@@ -7,7 +7,7 @@ Authors: Devon Tuma
 module
 
 public import Interop.Cryptol.Bridge.Round
-public import Interop.Cryptol.Translation.Finite.Loop
+public import PolyFunCryptol.Translation.Finite.Loop
 
 /-!
 # Finite SHA-256 compression implementation
@@ -19,9 +19,9 @@ The preserved recursive source is certified separately.
 
 public section
 
-namespace Interop.Cryptol.Bridge
+namespace Cryptol.Bridge
 
-open Interop.Cryptol.Finite
+open Cryptol.Finite
 
 /-- One arbitrary chaining state and one arbitrary 512-bit block. -/
 abbrev CompressionInput : Finite.Ty := .prod RoundOutput (.seq 16 (.word 32))
@@ -148,4 +148,4 @@ theorem compressionTerm_denote (input : CompressionInput.Native) :
     ArithOp.eval, compressionNative]
   rfl
 
-end Interop.Cryptol.Bridge
+end Cryptol.Bridge
