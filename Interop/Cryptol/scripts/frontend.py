@@ -15,8 +15,10 @@ PATCH = ROOT / "exporter/patches/case-binder-types.patch"
 
 def frontend_patches(source):
     def git(*args):
-        return subprocess.run(["git", "-C", str(source), *args], check=True,
-                              capture_output=True, text=True).stdout
+        # The canonical diff abbreviates object names to seven characters; a large
+        # clone would otherwise choose a longer abbreviation and change the identity.
+        return subprocess.run(["git", "-C", str(source), "-c", "core.abbrev=7", *args],
+                              check=True, capture_output=True, text=True).stdout
 
     if git("rev-parse", "HEAD").strip() != CRYPTOL:
         raise ValueError("wrong Cryptol base revision")

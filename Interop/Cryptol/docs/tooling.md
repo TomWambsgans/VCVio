@@ -264,9 +264,12 @@ The optional Bridge axiom sweep covers 495 declarations across 31 modules with n
 admissions or nonstandard-axiom taint. The language model is swept by PolyFun's
 suite, which covers 22,405 declarations across 574 modules with the same zero-debt
 result. Pinned
-external validation, including byte-identical regeneration of the 31-root
-export, 135-file census and whole-module corpus, last passed with PolyFun
-`3fc600b1cec58a1272d8ac404c064c48eb5e5bef` and has not been rerun at this pin.
+external validation also passes at this pin. That covers byte-identical
+regeneration of the 31-root export, the 135-file census and the whole-module
+corpus, the 152-observation evaluator audit, and the Foundation bridge
+comparisons. The Cryptol 3.6.0 release supplied the binary. The exporter was
+built against the identified compatibility frontend, and the upstream evaluator
+`51405420cb90cf9959ca4349eea0ae8b77487855` was built without FFI.
 
 `inventory_foundation.py` calls `--module` for every tracked `.cry` file at
 Foundation `7d0528bd998682788f4e23661f2829298f9e47db`. All **135 files** load and
