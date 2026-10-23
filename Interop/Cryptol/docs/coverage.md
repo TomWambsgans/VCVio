@@ -15,7 +15,7 @@ the versioned typed-AST bundle separately retains a complete shared dependency
 graph for 31 entries. `reference_import.stage = scoped` records only successful
 decoding, scope and kind validation. It does not change the certificate status.
 
-The [exporter](../exporter/README.md) retains 280 declarations from 49 loaded
+The [exporter](https://github.com/Verified-zkEVM/PolyFun/blob/main/PolyFunCryptol/exporter/README.md) retains 280 declarations from 49 loaded
 modules, including the official `Cryptol::Reference` primitive fallbacks. Its
 manifest identifies all 31 roots and hashes every input module. The committed
 numeric and class cases are replayed locally; external regeneration checks them

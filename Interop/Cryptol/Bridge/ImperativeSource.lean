@@ -13,7 +13,7 @@ public import PolyFunCryptol.Translation.SourceBundle
 
 Exact constructor quotation of the complete `Imperative` module in
 `artifacts/modules/list.json`. The module has no external value dependencies.
-`Interop/Cryptol/scripts/import_modules.py` reproduces every retained field
+`Interop/Cryptol/scripts/import_imperative.py` reproduces every retained field
 from the pinned official frontend export.
 -/
 

@@ -1,6 +1,6 @@
 # Dependency and source provenance
 
-The [evaluator audit](evaluators.md) records the current production/reference
+PolyFun's [evaluator audit](https://github.com/Verified-zkEVM/PolyFun/blob/main/PolyFunCryptol/docs/evaluators.md) records the current production/reference
 decision, exact upstream issue #2060, related demand discussions and the
 Foundation theta consequence. Generic interop work belongs in PolyFun #290;
 Cryptol semantics, checked source specialization and Foundation/core
@@ -8,7 +8,7 @@ correspondences belong in VCVio #840.
 
 
 The optional [Cryptol model](../README.md) pins the published PolyFun companion
-at `a4d80f7841766345aa9a7280a426020b11d7a043`, the head of
+at `bcd30b8e086309708377ecd917de7b1c95910a43`, the head of
 [PR 356](https://github.com/Verified-zkEVM/PolyFun/pull/356), which hosts the language
 model as `PolyFunCryptol` above the stacked generic substrate PRs #352–#355. The shared toolchain
 is Lean `v4.35.0`, Mathlib `56a005855ea17e0b0958f73ec801ae140b0a1679`, and CSLib

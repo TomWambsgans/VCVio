@@ -7,10 +7,12 @@ checked typed-AST importer are PolyFun's optional
 That case study follows Cryptol **3.6.0's reference semantics** for its
 supported fragment and is not a verification of the Haskell evaluator. This
 directory owns the Foundation correspondences, the VCVio specification and
-oracle-client theorems, the typed-AST exporter, the Foundation census and corpus
-reports, and the evaluator audit. The [semantic survey](docs/evaluators.md)
-recommends the documented lazy language semantics as the anchor for broader
-imports, with versioned backend compatibility claims and explicit proof gaps.
+oracle-client theorems, and the Foundation algorithm artifacts they are built
+from. PolyFun owns the typed-AST exporter, the Foundation census and status, and
+the evaluator audit; see its [tooling guide](https://github.com/Verified-zkEVM/PolyFun/blob/main/PolyFunCryptol/docs/tooling.md). Its
+[semantic survey](https://github.com/Verified-zkEVM/PolyFun/blob/main/PolyFunCryptol/docs/evaluators.md) recommends the documented lazy
+language semantics as the anchor for broader imports, with versioned backend
+compatibility claims and explicit proof gaps.
 The [tooling integration report](docs/tooling.md) records the implemented route,
 architecture decisions, literature ancestry and remaining gates.
 
@@ -19,8 +21,8 @@ coordinates whole-Foundation import and the companion PolyFun work. Its
 workstream sections own assignments, dependencies and progress; the
 [delivery contract](docs/tooling.md#coordinated-development-contract) records
 the canonical architecture, completion criteria and consumer proof obligations.
-The [compatibility report](docs/compatibility.md) records the current corpus
-results and the remaining numeric/type boundaries.
+PolyFun's [Foundation status](https://github.com/Verified-zkEVM/PolyFun/blob/main/PolyFunCryptol/docs/compatibility.md) records, for every
+module instance, the independent blockers and the language features they need.
 
 Run commands from the VCVio repository root:
 
@@ -33,7 +35,7 @@ lake exe cryptol-interop model arx-native 32 8
 ```
 
 The root manifest pins the companion PolyFun development, which hosts `PolyFunCryptol`, at
-`a4d80f7841766345aa9a7280a426020b11d7a043`. The commands above and the separate
+`bcd30b8e086309708377ecd917de7b1c95910a43`. The commands above and the separate
 `Consumer` use that published dependency; no sibling checkout is required.
 For local development against a different PolyFun checkout:
 
@@ -53,7 +55,7 @@ comparisons remain an explicit local validation option.
 | `Bridge` | Foundation source artifacts and imports, SHA-256 correspondence, byte encoding, CRC updates and VCVio probability theorems | PolyFunCryptol, VCVio |
 | `Tests` | Foundation, imported-source, API and executable regressions | Bridge, PolyFunCryptol |
 | `Consumer` | A separate ordinary-import consumer using the root toolchain and dependencies | The public APIs |
-| `exporter`, `scripts`, `artifacts` | The linked typed-AST exporter, generators, census and corpus reports | External Cryptol and Foundation checkouts |
+| `scripts`, `artifacts` | Generators and committed exports for the Foundation algorithm artifacts, using PolyFun's exporter and shared helpers | External Cryptol and Foundation checkouts, PolyFun's `PolyFunCryptol/scripts` |
 
 Default VCVio libraries and tests do not import Cryptol. The dormant Rust/hax/aeneas
 aggregate remains separate. The isolation checker enforces the core/interop, native-FFI
@@ -108,7 +110,7 @@ The current fragment is intentionally narrower than full resolved Cryptol.
 The [coverage and gap ledger](https://github.com/Verified-zkEVM/PolyFun/blob/main/PolyFunCryptol/docs/model.md#coverage-and-gap-ledger) separates
 proved capabilities, semantic spikes, and missing language features. In particular,
 the certified importer still targets the Foundation SHA-256 subset. The
-[pinned typed-AST exporter](exporter/README.md) additionally retains complete
+[pinned typed-AST exporter](https://github.com/Verified-zkEVM/PolyFun/blob/main/PolyFunCryptol/exporter/README.md) additionally retains complete
 definitions for 31 SHA2/SHA3/SHAKE, Keccak, AES and CRC entries. Lean checks their
 scope and kinds, and separately checks closed numeric and class constraints.
 The scalar `(sigma_256_0 : [32] -> [32])` additionally has checked expression
@@ -118,7 +120,7 @@ with `VCVio.Algorithms.Sha2.ssig0` for every input. This gate also supports lexi
 sequence literals, projections, closed guards and single-generator comprehensions.
 The official specializer supplies a candidate for the scalar; a Lean proof checks
 its partial meaning before `CertifiedFunction.congrSource` reuses the native
-implementation. Nine importer canaries cover higher-order composition, folds,
+implementation. PolyFun's nine importer canaries cover higher-order composition, folds,
 captured locals and finite observations of infinite sequences. The broader graph
 still needs general elaboration and source correspondence. Component theorems
 cover Keccak coordinate inverses and byte-aligned
@@ -128,41 +130,28 @@ reference evaluator's negative-index failure in Foundation Keccak separately
 from normal-evaluator agreement. No full Cryptol soundness theorem or imported
 CRC implementation certificate is claimed.
 
-The [evaluator audit](docs/evaluators.md) compares the release with upstream
-`51405420cb90cf9959ca4349eea0ae8b77487855`, maps the integer discrepancy to
-Cryptol #2060, and distinguishes language intent from backend compatibility.
-Set `CRYPTOL_UPSTREAM_BINARY` during external validation to reproduce its
-152 observations and compare the committed report. The portable theta variant
-is tested separately; the imported Foundation source retains its original bytes.
+PolyFun's [evaluator audit](https://github.com/Verified-zkEVM/PolyFun/blob/main/PolyFunCryptol/docs/evaluators.md) compares the release with
+upstream Cryptol, maps the integer discrepancy to Cryptol #2060, and distinguishes
+language intent from backend compatibility. The portable theta variant is tested
+there separately; the imported Foundation source retains its original bytes.
 
 The [coverage catalogue](docs/coverage.md) separates planned reference coverage,
 external probes and all-input Lean certificates, and records the next semantic
 and algorithm milestones. Shared hashes live in `VCVio/Algorithms/`; conformance
 proofs stay in this optional project.
 
-The official-loader [Foundation census](artifacts/foundation-inventory.json) covers
-all 135 tracked source files, including parameterized modules and interfaces.
-Export, Lean typing, semantic import, native view, independent equivalence and
-property proofs have separate statuses. See [tooling integration](docs/tooling.md)
-for reproduction and the distinction between corpus discovery and certificates.
-
-The [whole-module corpus report](artifacts/modules/corpus.json) now retains the
-declaration/dependency queue for every file, including private properties. All
-135 files decode and pass module/interface scope and kind validation with the
-identified compatibility frontend. The report attempts linking and typed
-elaboration of all 155 owned module instances. Selected complete closures are
-retained in `artifacts/modules/`; the separate
-[elaboration report](artifacts/modules/elaboration.json) keeps the focused
-six-module comparison. Imperative's two definitions import together
-with shared recursive references; generated bodies are checked against the
-retained source, and `Bridge.Imperative` exposes lazy loop equations. Module
-interpretation follows the source groups; exports close with the canonical
-polynomial `letE`/`letRec`, with a proved agreement to the shared environment. Reference,
-List, Sort, Enum and CRC remain rejected at partial numeric or aggregate/nominal
-types. No imported CRC equivalence or general source-preservation theorem is
-claimed. The implemented partial List
-view follows the existing tuple carrier and observes only the finite prefix;
-the independent native CRC register has proved chunk-composition laws and
+PolyFun's [Foundation status](https://github.com/Verified-zkEVM/PolyFun/blob/main/PolyFunCryptol/docs/compatibility.md) covers all 135 tracked
+source files and 155 module instances: export, scope, linking and typed
+elaboration, with every independent blocker. The retained utility bundle
+`artifacts/modules/list.json` supplies the complete `Imperative` import here.
+Imperative's two definitions import together with shared recursive references;
+generated bodies are checked against the retained source, and `Bridge.Imperative`
+exposes lazy loop equations. Module interpretation follows the source groups;
+exports close with the canonical polynomial `letE`/`letRec`, with a proved
+agreement to the shared environment. No imported CRC equivalence or general
+source-preservation theorem is claimed. The implemented partial List view
+follows the existing tuple carrier and observes only the finite prefix; the
+independent native CRC register has proved chunk-composition laws and
 normal/reference evaluator regressions. The local obligation ledger is empty;
 future named proof admissions must pass the compiled dependency audit, while
 admitted implementations remain rejected.

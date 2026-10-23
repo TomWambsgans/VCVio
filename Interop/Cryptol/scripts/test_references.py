@@ -16,7 +16,8 @@ import tempfile
 import time
 import zlib
 
-from export_references import verify_checkout
+import polyfun_tools  # noqa: F401
+from pins import verify_checkout
 from extract_foundation import CRYPTOL, FOUNDATION, ROOT
 
 LEAN = ROOT.parents[1] / ".lake/build/bin/cryptol-interop"

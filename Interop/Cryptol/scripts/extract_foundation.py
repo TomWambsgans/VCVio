@@ -18,9 +18,10 @@ import subprocess
 import tempfile
 import textwrap
 
+import polyfun_tools  # noqa: F401
+from pins import CRYPTOL, FOUNDATION
 
-FOUNDATION = "7d0528bd998682788f4e23661f2829298f9e47db"
-CRYPTOL = "61dd17b0c45ddf8c5c1e952afd5e789c4dc4ec4b"
+
 ROOT = Path(__file__).resolve().parents[1]
 
 COMPRESSION = """module PolyFunCompression where

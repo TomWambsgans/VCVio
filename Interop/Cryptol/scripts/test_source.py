@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Scope/kind acceptance, malformed-source rejection, and reference provenance."""
+"""Foundation bundle provenance, scalar and specialization imports, and malformed-source rejection.
+
+PolyFun's own source tests cover the language-level cases and importer canaries.
+"""
 
 from copy import deepcopy
 import argparse
@@ -10,7 +13,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 
-from inventory_foundation import validate as validate_inventory
+import polyfun_tools
 from quote_reference import quote_bundle
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -34,56 +37,21 @@ def nodes(value):
             yield from nodes(child)
 
 
-def extension_checks(artifacts, manifest):
-    for key, bundle_file, lean_file in [
-            ("specialization", "specialized-scalar-bundle.json", "Bridge/ImportedSpecializationSource.lean"),
-            ("canaries", "import-canaries.json", "Tests/Translation/ImportedSource.lean")]:
-        assert hashlib.sha256((artifacts / bundle_file).read_bytes()).hexdigest() == \
-            manifest[key]["bundle_sha256"]
-        assert hashlib.sha256((ROOT / lean_file).read_bytes()).hexdigest() == \
-            manifest[key]["lean_sha256"]
-        code, report = run(artifacts / bundle_file, "elaborate")
-        assert code == 0 and all(r["status"] == "typed" for r in report), report
-    assert hashlib.sha256((ROOT / "fixtures/ImportCanaries.cry").read_bytes()).hexdigest() == \
-        manifest["canaries"]["source_sha256"]
-    census = json.loads((ROOT / "artifacts/foundation-inventory.json").read_bytes())
-    assert census["exporter_sha256"] == manifest["exporter_sha256"]
-    print("Foundation census:", validate_inventory(census))
-    canaries = json.loads((artifacts / "import-canaries.json").read_bytes())
-    mutations = []
-
-    def canary(label, root, change):
-        mutant = deepcopy(canaries)
-        mutant["roots"] = [mutant["roots"][root]]
-        change(mutant)
-        mutations.append((label, mutant))
-
-    def wrong_record(b):
-        fields = b["roots"][0]["schema"]["body"]["args"][1][0]["args"][0]
-        fields[1][0] = "wrong"
-
-    def tuple_for_record(b):
-        arg = b["roots"][0]["schema"]["body"]["args"][1][0]
-        fields = arg["args"][0]
-        arg.update(tag="tuple", args=[len(fields), [t for _, t in fields]])
-
-    canary("record labels", 1, wrong_record)
-    canary("tuple/record carrier collision", 1, tuple_for_record)
-    canary("comprehension length", 4, lambda b: next(n for n in nodes(b["groups"])
-        if n.get("tag") == "comprehension")["args"].__setitem__(0, {"tag": "num", "args": ["2"]}))
-    canary("local declaration annotation", 0, lambda b: next(n for n in nodes(b["groups"])
-        if n.get("name", {}).get("text") == "saved")["schema"].update(
-            body={"tag": "con", "args": ["TC TCBit", []]}))
+def specialization_checks(artifacts, manifest):
+    assert hashlib.sha256((artifacts / "specialized-scalar-bundle.json").read_bytes()).hexdigest() == \
+        manifest["specialization"]["bundle_sha256"]
+    assert hashlib.sha256((ROOT / "Bridge/ImportedSpecializationSource.lean").read_bytes()).hexdigest() == \
+        manifest["specialization"]["lean_sha256"]
+    code, report = run(artifacts / "specialized-scalar-bundle.json", "elaborate")
+    assert code == 0 and all(r["status"] == "typed" for r in report), report
     specialized = json.loads((artifacts / "specialized-scalar-bundle.json").read_bytes())
     mutant = deepcopy(specialized)
     mutant["roots"][0]["expression"]["args"][1].reverse()
-    mutations.append(("specialized local dependency order", mutant))
     with tempfile.TemporaryDirectory(prefix="cryptol-extended-import-") as temporary:
         path = Path(temporary) / "mutated.json"
-        for label, mutant in mutations:
-            path.write_text(json.dumps(mutant))
-            code, report = run(path, "elaborate")
-            assert code != 0 and report["status"] == "rejected", (label, report)
+        path.write_text(json.dumps(mutant))
+        code, report = run(path, "elaborate")
+        assert code != 0 and report["status"] == "rejected", report
 
         # A same-typed semantic mutation must pass typing and fail the kernel certificate.
         mutant = deepcopy(specialized)
@@ -91,7 +59,9 @@ def extension_checks(artifacts, manifest):
         path.write_text(json.dumps(mutant))
         code, report = run(path, "elaborate")
         assert code == 0, report
-        source = quote_bundle(mutant, namespace="MutatedSpecialization").decode()
+        source = quote_bundle(mutant, namespace="Cryptol.Bridge.MutatedSpecialization",
+                              artifact="mutated.json", title="Mutated specialization",
+                              driver="Interop/Cryptol/scripts/test_source.py").decode()
         source = source.replace("public import PolyFunCryptol.Translation.SourceBundle", """
 public import Interop.Cryptol.Bridge.ImportedSpecialization
 import PolyFunCryptol.Translation.SourceElaboration
@@ -115,46 +85,12 @@ example : check bundle root = .ok ⟨_, Bridge.ImportedSpecialization.source⟩ 
                                 text=True, capture_output=True)
         assert result.returncode != 0 and "Tactic `rfl` failed" in result.stdout, result.stdout
         assert result.stdout.count("error:") == 1, result.stdout
-    print(f"Extended imports: 9 typed canaries, {len(mutations)} malformed imports rejected; "
-          "same-typed specialization mutation rejected by the kernel certificate")
-
-
-def external_canaries(cryptol, foundation):
-    from test_evaluators import observe
-    from export_references import CRYPTOL, FOUNDATION, verify_checkout
-
-    verify_checkout(foundation, FOUNDATION)
-    assert "Git commit " + CRYPTOL in subprocess.check_output([str(cryptol), "--version"], text=True)
-    code, imported = run(ROOT / "artifacts/references/import-canaries.json", "elaborate")
-    assert code == 0
-    observations = [
-        (0, "4 5", "4 5", "9"),
-        (1, "{flag=False, value=7}", "(False, (7, ()))", "7"),
-        (2, "(9, False)", "(9, (False, ()))", "9"),
-        (3, r"(\x -> x+1) (\x -> x*2) 10", r"(\x -> x+1) (\x -> x*2) 10", "21"),
-        (4, "[1,2,3]", "[1,2,3]", "[2, 3, 4]"),
-        (5, "([0...] : [inf]Integer) @ (12 : Integer)",
-            "([0...] : [inf]Integer) @ (12 : Integer)", "13"),
-        (6, "[1,2,3]", "[1,2,3]", "6"),
-        (7, "[]", "[]", "0"),
-        (8, "[4,5,6]", "[4,5,6]", "4"),
-    ]
-    for i, source_args, imported_args, expected in observations:
-        for mode in ("normal", "reference"):
-            for expression, args in ((imported[i]["root"], source_args),
-                                     (imported[i]["source"], imported_args)):
-                observe(cryptol, f"({expression}) {args}", expected, mode, foundation,
-                        ROOT / "fixtures/ImportCanaries.cry")
-    print("Imported canaries: 36 original/lowered normal/reference observations passed")
+    print("Specialization: typed candidate, dependency-order mutation rejected, "
+          "same-typed mutation rejected by the kernel certificate")
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--cryptol", type=Path)
-    parser.add_argument("--foundation", type=Path)
-    args = parser.parse_args()
-    if bool(args.cryptol) != bool(args.foundation):
-        parser.error("--cryptol and --foundation must be provided together")
+    argparse.ArgumentParser(description=__doc__).parse_args()
     artifacts = ROOT / "artifacts/references"
     source = artifacts / "bundle.json"
     data = source.read_bytes()
@@ -170,23 +106,12 @@ def main():
     assert hashlib.sha256(data).hexdigest() == manifest["bundle_sha256"]
     assert hashlib.sha256((artifacts / "FoundationReferences.cry").read_bytes()).hexdigest() == \
         manifest["entry_sha256"]
-    assert hashlib.sha256((ROOT / "exporter/Main.hs").read_bytes()).hexdigest() == \
+    assert hashlib.sha256(polyfun_tools.EXPORTER_SOURCE.read_bytes()).hexdigest() == \
         manifest["exporter_sha256"]
     code, report = run(source)
     assert code == 0 and report["status"] == "scoped", report
     assert report["declarations"] == manifest["validation"]["declarations"]
     assert report["roots"] == [e["root"] for e in manifest["entries"]]
-    numeric = json.loads((artifacts / "numeric-cases.json").read_text())
-    classes = json.loads((artifacts / "class-cases.json").read_text())
-    assert hashlib.sha256((artifacts / "numeric-cases.json").read_bytes()).hexdigest() == \
-        manifest["numeric_sha256"]
-    assert hashlib.sha256((artifacts / "class-cases.json").read_bytes()).hexdigest() == \
-        manifest["class_sha256"]
-    assert len(numeric) == manifest["numeric_cases"]
-    assert len(classes) == manifest["class_cases"]
-    assert numeric == json.loads(subprocess.check_output([str(LEAN), "model", "numeric"]))
-    assert classes == json.loads(subprocess.check_output([
-        str(LEAN), "source", "constraints", str(artifacts / "class-cases.json")]))
     mutations = []
 
     def add(label, change):
@@ -251,9 +176,7 @@ def main():
             code, report = run(path, "elaborate")
             assert code != 0 and report["status"] == "rejected", (label, report)
     print(f"Scalar elaboration: imported root typed, {len(mutations)} malformed terms rejected")
-    extension_checks(artifacts, manifest)
-    if args.cryptol:
-        external_canaries(args.cryptol, args.foundation)
+    specialization_checks(artifacts, manifest)
 
 
 if __name__ == "__main__":

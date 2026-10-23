@@ -1,32 +1,26 @@
 #!/usr/bin/env python3
-"""Export full Foundation dependency graphs through the pinned typed-AST exporter.
+"""Export full Foundation dependency graphs through PolyFun's pinned typed-AST exporter.
 
 The committed bundle is an input to Lean validation, not a typing certificate.
-This driver checks source provenance and compares the numeric semantics before
-writing any artifacts. The existing compression certificate is independent.
+This driver checks source provenance before writing any artifacts. PolyFun owns
+the language-level numeric, class and canary cases. The existing compression
+certificate is independent.
 """
 
 import argparse
-import hashlib
 import json
-import subprocess
 import tempfile
 from pathlib import Path
 
-from extract_foundation import COMPRESSION, CRYPTOL, FOUNDATION, ROOT
-from quote_reference import quote_bundle
+import polyfun_tools
+from pins import canonical, digest, run, verify_checkout
 from frontend import frontend_patches, check_frontend
+from quote_reference import quote_bundle
+from extract_foundation import COMPRESSION, CRYPTOL, FOUNDATION, ROOT
 
 FAMILIES = {"SHA2", "SHA3", "SHAKE", "Keccak", "AES", "CRC"}
+QUOTATION = dict(copyright="Devon Tuma", driver="Interop/Cryptol/scripts/export_references.py")
 ARTIFACTS = ROOT / "artifacts" / "references"
-
-
-def run(*args):
-    return subprocess.run(args, check=True, text=True, capture_output=True).stdout
-
-
-def digest(data):
-    return hashlib.sha256(data).hexdigest()
 
 
 def entry_module(entries):
@@ -44,17 +38,6 @@ def entry_module(entries):
     return wrapper, roots
 
 
-def verify_checkout(path, revision):
-    if run("git", "-C", str(path), "rev-parse", "HEAD").strip() != revision:
-        raise ValueError(f"wrong source revision: {path}")
-    if run("git", "-C", str(path), "status", "--porcelain", "--untracked-files=no").strip():
-        raise ValueError(f"modified tracked source files: {path}")
-
-
-def canonical(value):
-    return (json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n").encode()
-
-
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--exporter", required=True, type=Path)
@@ -70,15 +53,7 @@ def main():
     if len(entries) != 31 or entries[0]["id"] != "sha256-compression":
         raise ValueError("reference catalogue selection changed; review the entry module")
     wrapper, roots = entry_module(entries)
-    numeric = json.loads(run(str(args.exporter), "--numeric"))
-    if numeric != json.loads(run(str(args.lean), "model", "numeric")):
-        raise ValueError("Lean numeric semantics differs from pinned InfNat")
     with tempfile.TemporaryDirectory(prefix="cryptol-reference-") as temporary:
-        classes = json.loads(run(str(args.exporter), "--classes"))
-        case_file = Path(temporary) / "classes.json"
-        case_file.write_bytes(canonical(classes))
-        if classes != json.loads(run(str(args.lean), "source", "constraints", str(case_file))):
-            raise ValueError("Lean class resolution differs from the pinned class solver")
         path = Path(temporary) / "FoundationReferences.cry"
         path.write_text(wrapper)
         bundle = json.loads(run(str(args.exporter), str(args.foundation), str(path), *roots))
@@ -118,43 +93,34 @@ def main():
         if scalar["cryptol_revision"] != CRYPTOL or scalar["modules"] != bundle["modules"]:
             raise ValueError("scalar export changed the validated source provenance")
         scalar_data = canonical(scalar)
-        scalar_lean = quote_bundle(scalar)
+        scalar_lean = quote_bundle(scalar, namespace="Cryptol.Bridge.ImportedScalarSource",
+            artifact="artifacts/references/scalar-bundle.json",
+            title="Quoted Foundation scalar source", **QUOTATION)
         specialization = json.loads(run(str(args.exporter), "--specialize",
             str(args.foundation), str(path), "(sigma_256_0 : [32] -> [32])"))
         if specialization["source"] != scalar:
             raise ValueError("specialization changed its unspecialized endpoint")
         specialized_data = canonical(specialization["candidate"])
         specialized_lean = quote_bundle(specialization["candidate"],
-            namespace="ImportedSpecializationSource", artifact="specialized-scalar-bundle.json")
-        canary_source = ROOT / "fixtures/ImportCanaries.cry"
-        canaries = json.loads(run(str(args.exporter), str(args.foundation), str(canary_source),
-            "capture", "recordSelect", "tupleSelect", "higherOrder", "mapped", "streamMap", "folded",
-            "(guarded : [0]Integer -> Integer)", "(guarded : [3]Integer -> Integer)"))
-        canary_data = canonical(canaries)
-        canary_lean = quote_bundle(canaries, namespace="ImportedCanariesSource",
-            artifact="import-canaries.json", title="Quoted importer canaries")
-        for label, contents in [("candidate", specialized_data), ("canaries", canary_data)]:
-            checked = Path(temporary) / (label + ".json")
-            checked.write_bytes(contents)
-            reports = json.loads(run(str(args.lean), "source", "elaborate", str(checked)))
-            if not reports or any(r["status"] != "typed" for r in reports):
-                raise ValueError(f"typed import failed: {label}")
+            namespace="Cryptol.Bridge.ImportedSpecializationSource",
+            artifact="artifacts/references/specialized-scalar-bundle.json",
+            title="Quoted Foundation scalar source", **QUOTATION)
+        checked = Path(temporary) / "candidate.json"
+        checked.write_bytes(specialized_data)
+        reports = json.loads(run(str(args.lean), "source", "elaborate", str(checked)))
+        if not reports or any(r["status"] != "typed" for r in reports):
+            raise ValueError("typed import failed: candidate")
     manifest = {
         "schema_version": 1, "cryptol_revision": CRYPTOL, "foundation_revision": FOUNDATION,
         "frontend_patches": patches,
         "bundle_sha256": digest(data), "entry_sha256": digest(wrapper.encode()),
-        "exporter_sha256": digest((ROOT / "exporter/Main.hs").read_bytes()),
-        "numeric_cases": len(numeric),
-        "class_cases": len(classes),
-        "numeric_sha256": digest(canonical(numeric)), "class_sha256": digest(canonical(classes)),
+        "exporter_sha256": digest(polyfun_tools.EXPORTER_SOURCE.read_bytes()),
         "scalar_bundle_sha256": digest(scalar_data),
         "scalar_lean_sha256": digest(scalar_lean),
         "specialization": {"pass": specialization["pass"],
             "primitive_policy": specialization["primitive_policy"],
             "bundle_sha256": digest(specialized_data), "lean_sha256": digest(specialized_lean),
             "evidence": "Cryptol.Bridge.ImportedSpecialization.correct"},
-        "canaries": {"roots": len(canaries["roots"]), "bundle_sha256": digest(canary_data),
-            "lean_sha256": digest(canary_lean), "source_sha256": digest(canary_source.read_bytes())},
         "entries": [{"id": e["id"], "root": root} for e, root in zip(entries, roots)],
         "validation": {k: inspection[k] for k in ["status", "groups", "declarations", "modules"]},
         "trust_boundary": ["Pinned Cryptol parser, renamer, type checker and module elaborator",
@@ -165,8 +131,7 @@ def main():
     }
     outputs = {"bundle.json": data, "FoundationReferences.cry": wrapper.encode(),
                "scalar-bundle.json": scalar_data,
-               "specialized-scalar-bundle.json": specialized_data, "import-canaries.json": canary_data,
-               "numeric-cases.json": canonical(numeric), "class-cases.json": canonical(classes),
+               "specialized-scalar-bundle.json": specialized_data,
                "cryptol-license.txt": (args.cryptol_source / "LICENSE").read_bytes(),
                "manifest.json": (json.dumps(manifest, indent=2) + "\n").encode()}
     for name, contents in outputs.items():
@@ -178,16 +143,14 @@ def main():
             ARTIFACTS.mkdir(parents=True, exist_ok=True)
             path.write_bytes(contents)
     for name, contents in {"Bridge/ImportedScalarSource.lean": scalar_lean,
-            "Bridge/ImportedSpecializationSource.lean": specialized_lean,
-            "Tests/Translation/ImportedSource.lean": canary_lean}.items():
+            "Bridge/ImportedSpecializationSource.lean": specialized_lean}.items():
         path = ROOT / name
         if args.check:
             if not path.is_file() or path.read_bytes() != contents:
                 raise ValueError(f"stale source quotation: {path}")
         else:
             path.write_bytes(contents)
-    print(f"31 roots; {inspection['declarations']} declarations; {len(numeric)} numeric cases; "
-          f"{len(classes)} class cases; "
+    print(f"31 roots; {inspection['declarations']} declarations; "
           "source digests and Lean scope/kind checks passed")
 
 

@@ -69,14 +69,8 @@ if (( run_test )); then
   # This executable uses only the Lean implementations.
   "${lake_cmd[@]}" build cryptol-interop slhdsa_primitive_tests
   .lake/build/bin/slhdsa_primitive_tests
-  model_cmd=(python3 -u Interop/Cryptol/scripts/test_model.py)
-  if (( run_external )); then model_cmd+=(--cryptol "$CRYPTOL_BINARY"); fi
-  "${model_cmd[@]}"
-  source_cmd=(python3 -u Interop/Cryptol/scripts/test_source.py)
-  if (( run_external )); then
-    source_cmd+=(--cryptol "$CRYPTOL_BINARY" --foundation "$FOUNDATION_PATH")
-  fi
-  "${source_cmd[@]}"
+  # PolyFun's validation owns the model, importer, corpus and evaluator checks.
+  python3 -u Interop/Cryptol/scripts/test_source.py
   python3 -u Interop/Cryptol/scripts/test_modules.py
   python3 -u Interop/Cryptol/scripts/test_obligations.py
   crc_cmd=(python3 -u Interop/Cryptol/scripts/test_crc.py)
@@ -95,12 +89,6 @@ if (( run_test )); then
   "${lake_cmd[@]}" -R -d Interop/Cryptol/Consumer update VCVio --keep-toolchain
   "${lake_cmd[@]}" -d Interop/Cryptol/Consumer build --wfail --iofail
   if (( run_external )); then
-    if [[ -n "${CRYPTOL_UPSTREAM_BINARY:-}" ]]; then
-      python3 -u Interop/Cryptol/scripts/test_evaluators.py --cryptol "$CRYPTOL_BINARY" \
-        --upstream-cryptol "$CRYPTOL_UPSTREAM_BINARY" --foundation "$FOUNDATION_PATH" \
-        --report "$report_dir/evaluators.json"
-      cmp Interop/Cryptol/artifacts/evaluator-audit.json "$report_dir/evaluators.json"
-    fi
     python3 -u Interop/Cryptol/scripts/check_bridge.py --cryptol "$CRYPTOL_BINARY" \
       --foundation "$FOUNDATION_PATH" --report "$report_dir/external.json"
     if [[ -n "${CRYPTOL_EXPORTER:-}" ]]; then
@@ -108,9 +96,7 @@ if (( run_test )); then
       python3 -u Interop/Cryptol/scripts/export_references.py --check \
         --exporter "$CRYPTOL_EXPORTER" --foundation "$FOUNDATION_PATH" \
         --cryptol-source "$CRYPTOL_SOURCE"
-      python3 -u Interop/Cryptol/scripts/inventory_foundation.py --check \
-        --exporter "$CRYPTOL_EXPORTER" --foundation "$FOUNDATION_PATH"
-      python3 -u Interop/Cryptol/scripts/import_modules.py --check --all \
+      python3 -u Interop/Cryptol/scripts/import_imperative.py --check \
         --exporter "$CRYPTOL_EXPORTER" --foundation "$FOUNDATION_PATH" \
         --cryptol-source "$CRYPTOL_SOURCE"
     fi

@@ -8,7 +8,7 @@ certificate is reused. Typechecking a candidate is insufficient.
 
 The recommended semantic anchor for broader imports is the documented lazy
 language semantics, starting from the pinned reference account. The
-[semantic survey and revised milestones](evaluators.md) distinguish that account
+[semantic survey](https://github.com/Verified-zkEVM/PolyFun/blob/main/PolyFunCryptol/docs/evaluators.md) distinguish that account
 from both evaluator implementations and from SAW's translation. Known backend
 differences require versioned compatibility claims; they are not automatically
 changes to the canonical language model. The current partial-input theorems
@@ -69,87 +69,14 @@ cannot pass application/root checking merely because their Lean carriers match.
 
 ### Whole-module retention and checking
 
-`cryptol-lean-export --module-bundle FOUNDATION MODULE` exports the complete
-loaded module graph in `cryptol-module-bundle` version 3. It explicitly loads
-`Cryptol::Reference` without resetting the entry module's environment. The
-bundle retains private declarations, recursive groups, numeric/type/value
-parameters, constraints, synonyms, nominal definitions, enum constructor
-fields, properties, source identities, and primitive fallback redirects.
-Foreign ABI metadata uses a structured canonical description inside the opaque
-interface string; compiler debug output is unsuitable because it embeds local
-checkout paths.
-
-`SourceBundle.decodeModuleBundle` retains those definitions in Lean, including
-nominal applications and case alternatives. `ModuleBundle.checkModuleScopes`
-checks nominal arities/kinds, binding structure, module parameters, public
-identities, declaration metadata and fallback endpoints. Its certificate is an
-acceptance equation for this gate. `ModuleDefinition.findExport?` resolves a
-public declaration without expanding its dependency graph, and rejects
-ambiguous source spellings. The existing closed-expression typing certificates
-remain a separate, stronger gate for their supported fragment.
-
-```bash
-lake build cryptol-interop
-.lake/build/bin/cryptol-interop source modules Interop/Cryptol/artifacts/modules/list.json
-python3 Interop/Cryptol/scripts/import_modules.py --all \
-  --exporter "$CRYPTOL_EXPORTER" --foundation "$FOUNDATION_PATH" \
-  --cryptol-source "$CRYPTOL_SOURCE"
-```
-
-The corpus report separates frontend acceptance, body retention, scope checking,
-linking, expression typing, semantic import, native views, execution, source
-correspondence and property proofs. All **135 tracked files** decode and pass
-scope/kind checking with the explicitly identified compatibility frontend.
-All **155 owned module instances** also pass the structural linker. Interfaces
-have decoded parameter contracts and complete type synonyms; their checks are
-reported alongside modules, including interface-only entry files.
-
-The compatibility patch fixes one annotation-rewriting bug in the pinned
-[`ModuleBacktickInstance.hs`](https://github.com/GaloisInc/cryptol/blob/61dd17b0c45ddf8c5c1e952afd5e789c4dc4ec4b/src/Cryptol/TypeCheck/ModuleBacktickInstance.hs#L396):
-`CaseAlt` must apply `rewType` to its bound field types as well as rewrite its
-body. The patch is retained under `exporter/patches/`, and its digest is part of
-the exported frontend identity. The driver rejects any other tracked source
-edits or a disagreement between exporter and source identity. The original
-`Matrix::inverseIsCorrect` annotation retaining unbound parameter 5177 is a
-committed negative fixture and still fails Lean checking. This is an explicit
-frontend variant, not a guessed renaming inside Lean.
-
-Lean now recomputes direct dependencies from every retained body and checks them
-against the export metadata. Closure takes all members of a selected recursive
-group; linking schedules original groups and rejects cycles between distinct
-groups. Ordinary definitions and foreign declarations with pure bodies remain
-bodies. Only primitive declarations and bodyless foreign declarations can become
-`PrimitiveRequirement` inputs, carrying their original identities and full
-schemes. Official fallback bodies are linked first. Global resolution uses
-bundle-local IDs; qualified instance names and source spans are reporting data,
-not an unproved cross-bundle name equality.
-
-`artifacts/modules/corpus.json` attempts typed elaboration of all 155 instances.
-The current results are:
-
-| Result | Instances |
-|---|---:|
-| No value definitions (not executable import coverage) | 4 |
-| Parameterized scalar operator modules | 2 |
-| Complete Imperative module, no primitive requirements | 1 |
-| Complete common/properties module, three primitive requirements | 1 |
-| Complete primitive ring functor, seven primitive requirements | 1 |
-| Complete integer ring test closure, primitive requirements explicit | 1 |
-| Rejected at an explicit semantic/type boundary | 145 |
-
-The first rejected boundary is partial numeric types/applications in 115 cases,
-aggregate/nominal types in 7, `Field` in 6, `Prime` in 3, expression forms in 13,
-and scheme equality in 1. All twelve previous entailment-first failures pass that
-boundary; later constraints behind other first blockers remain unexamined. These are first
-blockers, not an exhaustive feature census. Whole List/Sort/Enum, CRC and SHA2
-semantic imports remain incomplete.
-
-Selected complete closures for List, CRC, the matrix regression, properties and
-field scalar operators and the primitive ring functor are committed. `elaboration.json` also retains the focused
-six-module comparison for Reference/List/Sort/Imperative/Enum/CRC. Neither scope
-nor linking acceptance is counted as source preservation. See the
-[compatibility implementation contract](compatibility.md) for exact trust
-boundaries, remaining migration work and proof targets.
+PolyFun owns the whole-module tooling: the exporter's `--module-bundle` mode, the
+Lean decoder, scope checker, linker and module elaborator, the per-instance
+diagnosis, and the census of all 135 tracked files. Its
+[tooling guide](https://github.com/Verified-zkEVM/PolyFun/blob/main/PolyFunCryptol/docs/tooling.md) lists the drivers and committed outputs, and
+its [Foundation status](https://github.com/Verified-zkEVM/PolyFun/blob/main/PolyFunCryptol/docs/compatibility.md) records every independent
+blocker of typed elaboration for all 155 module instances. This directory keeps
+only the retained utility bundle `artifacts/modules/list.json`, regenerated by
+`scripts/import_imperative.py`, for the `Imperative` import below.
 
 ### Shared open modules and generated loop interfaces
 
@@ -259,41 +186,17 @@ definition remains debt-free, and an admitted definition is rejected even if
 listed in the local ledger. These fixtures stay outside the library aggregates.
 
 On VCVio main with the published PolyFun revision
-`a4d80f7841766345aa9a7280a426020b11d7a043`, optional build/lint/tests/axioms pass.
+`bcd30b8e086309708377ecd917de7b1c95910a43`, optional build/lint/tests/axioms pass.
 The optional Bridge axiom sweep covers 495 declarations across 31 modules with no
 admissions or nonstandard-axiom taint. The language model is swept by PolyFun's
 suite, which covers 22,405 declarations across 574 modules with the same zero-debt
 result. Pinned
 external validation also passes at this pin. That covers byte-identical
-regeneration of the 31-root export, the 135-file census and the whole-module
-corpus, the 152-observation evaluator audit, and the Foundation bridge
-comparisons. The Cryptol 3.6.0 release supplied the binary. The exporter was
+regeneration of the 31-root export and the retained utility bundle, and the
+Foundation bridge comparisons. PolyFun's external validation regenerates the
+census, the Foundation status and the 152-observation evaluator audit. The Cryptol 3.6.0 release supplied the binary. The exporter was
 built against the identified compatibility frontend, and the upstream evaluator
 `51405420cb90cf9959ca4349eea0ae8b77487855` was built without FFI.
-
-`inventory_foundation.py` calls `--module` for every tracked `.cry` file at
-Foundation `7d0528bd998682788f4e23661f2829298f9e47db`. All **135 files** load and
-export through Cryptol 3.6.0. The committed census records 170 module/interface
-records, including generated parameter interfaces; 15 are interfaces and 34
-records have type or value parameters. It records 1,861 public value export
-occurrences, of which 1,196 are marked properties by the official AST. These are
-export occurrences across the loaded module records, not a count of independent
-proved algorithms.
-
-The census preserves schemas, module type/value parameters, constraints,
-public type/nominal exports, nested functor/signature names, dependency paths,
-source hashes, declaration line/column ranges and constructor counts. Declaration
-locations use a basename within the containing module provenance; expression
-locations remain a gap. Public-definition bodies include records, tuple
-selection, comprehensions, local recursive groups, nominal cases and foreign
-fallbacks. No regular-expression Cryptol parser was introduced.
-
-Every module has separate, initially `not-attempted`, fields for Lean typing,
-semantic import, native view, independent implementation equivalence and property
-proofs. Individual certificates remain in the existing coverage catalogue. A
-closed specialization certificate is not promoted to a polymorphic theorem for
-its entire module. Ordinary validation checks the census format and pin;
-external validation regenerates it through the official loader byte for byte.
 
 ## Architecture decisions
 
@@ -357,10 +260,9 @@ rather than completing every proof for another narrow primitive fragment.
 Import parameterized and recursive definitions before requiring specialization
 or total native implementations. Use the census to measure progress over complete
 dependency closures, including public properties as definitions. The
-[milestones](evaluators.md#revised-implementation-milestones) describe canonical
-syntax, upstream reference-definition reuse, native API generation, named proof
-obligations, and substantive consumers for PolyFun models. They are a proposed
-implementation sequence, not implemented coverage.
+[unified tracker](https://github.com/Verified-zkEVM/VCVio/issues/879) sequences
+canonical syntax, upstream reference-definition reuse, native API generation,
+named proof obligations, and substantive consumers for PolyFun models.
 
 ## Related tooling and ancestry
 
@@ -639,11 +541,12 @@ records typed contexts and supplies explicit scheme/constraint arguments,
 because Lean cannot generally invert substitution to infer them. Generated
 constraint proofs are replayed in the kernel. The regression compiles every
 body of common/properties and Ring::Primitive::Functor, not just one selected
-export. Internal replay uses same-package `import all` for checker definitions;
-ordinary consumers still use the proved public bridge interface.
+export. Internal replay runs in PolyFun's own tests; ordinary consumers here use the
+proved public bridge interface.
 
 Partial type evaluation has substitution and monotonicity proofs and is used
 by the constraint solver. The larger canonical `NumericExpr` migration remains
-open; no undefined numeric operation is given a default value. The [compatibility
-report](compatibility.md) distinguishes this preparation from the outstanding
-open-scheme/domain migration and records the current whole-corpus counts.
+open; no undefined numeric operation is given a default value. PolyFun's
+[Foundation status](https://github.com/Verified-zkEVM/PolyFun/blob/main/PolyFunCryptol/docs/compatibility.md) distinguishes this preparation from
+the outstanding open-scheme/domain migration and records the current whole-corpus
+counts.

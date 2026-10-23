@@ -7,11 +7,7 @@
   ],
   "bundle_sha256": "b010c25f298f602fba0e76b5e4dfca07c074600affcd9d866ef4646e68a47e7b",
   "entry_sha256": "caf0e9fae38d70d0cdc915cd45b8be918e0ba9b95b95b0fada22d5c8941c9a40",
-  "exporter_sha256": "eb56b71a92718b93788775d222168a72b89cc572f7099c7f0cd70246f64b849c",
-  "numeric_cases": 2020,
-  "class_cases": 345,
-  "numeric_sha256": "9c0a5c4df4474003545422686a7fa9ab401d309e097f2dba7eedc403da9ee5c8",
-  "class_sha256": "06addcaf599dacc61f7b15fc2cbd3fd26203f0ed958c674dc25ba0942eed45c4",
+  "exporter_sha256": "a0bd4ebc025bcf5a9dced0eafbdb13d3698d81d63786197899eec0d16806aa39",
   "scalar_bundle_sha256": "f55b811250ecb86f076b1f75206525f8821a9d2410cef3c1727533a98210cc03",
   "scalar_lean_sha256": "a04082ac92c8bbb56494d3debad1c1087b62efd093dd69a5b5ff64b191cc0c6f",
   "specialization": {
@@ -20,12 +16,6 @@
     "bundle_sha256": "4db0badd02ff62f61a25d4cb4b4060486d0cd2ba610573f0d3837c63a51c471d",
     "lean_sha256": "b02511bb67d345909065826a859d1de8d4e59c997e8606daab61b9eeb4bbd592",
     "evidence": "Cryptol.Bridge.ImportedSpecialization.correct"
-  },
-  "canaries": {
-    "roots": 9,
-    "bundle_sha256": "3cf88e52d22e449ccbc6541197cc11b52085134fd24e902074e9ddcd6996ddcc",
-    "lean_sha256": "04f785481383439b6c73b0a892c0793eac5ffbe040e9bdc6f3a61123f3af356e",
-    "source_sha256": "597d95a499c6f1156fad67431e2f0a5d6cabb7f0768d2313394b0a0980c6f8a4"
   },
   "entries": [
     {

@@ -12,8 +12,10 @@ from pathlib import Path
 import subprocess
 import tempfile
 
-from export_references import CRYPTOL, FOUNDATION, ROOT, verify_checkout
+import polyfun_tools  # noqa: F401
+from pins import CRYPTOL, FOUNDATION, verify_checkout
 from test_evaluators import observe
+from extract_foundation import ROOT
 
 PROFILES = [
     ("CCITT", "CRC16_CCITT_FALSE", dict(width=16, polynomial=0x1021, initial=0xffff,

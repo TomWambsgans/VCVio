@@ -31,17 +31,19 @@ def compiled_policy():
     if os.environ.get("POLYFUN_PATH"):
         lake += ["-R", "-K", "polyfunPath=" + os.environ["POLYFUN_PATH"]]
 
-    def run(command, **kwargs):
+    def run(command, *, stdout_only=False, **kwargs):
         result = subprocess.run(command, cwd=repo, capture_output=True, text=True,
                                 timeout=120, **kwargs)
         if result.returncode:
             raise AssertionError(result.stdout + result.stderr)
-        return result.stdout + result.stderr
+        # A local dependency override makes Lake warn on stderr.
+        return result.stdout if stdout_only else result.stdout + result.stderr
 
     run([*lake, "build", "polyfun-axiomsweep"])
     config = json.loads(run([*lake, "env", "python3", "-c",
         "import json,os,shutil; print(json.dumps({'path':os.environ['LEAN_PATH'],"
-        "'lean':shutil.which('lean'),'sweep':shutil.which('polyfun-axiomsweep')}))"]))
+        "'lean':shutil.which('lean'),'sweep':shutil.which('polyfun-axiomsweep')}))"],
+        stdout_only=True))
     assert config["lean"] and config["sweep"]
     with tempfile.TemporaryDirectory(prefix="cryptol-obligation-fixture-") as temporary:
         root = Path(temporary)
