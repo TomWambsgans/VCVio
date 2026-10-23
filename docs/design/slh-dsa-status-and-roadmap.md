@@ -143,9 +143,9 @@ existential forms exist only for the target (`unforgeableAdvantage_romScheme_le`
 `shakeAdvantage_pure_le_securityBound`, `shakeAdvantage_le_securityBound` and
 `shakeAdvantage_le_securityBound_hedged`, and for the six `shakeAdvantage_*_validatedParams`
 forms. The
-bounds are over the structured signatures of the internal functions: strong unforgeability over
-byte strings at the external API also needs the signature encoding to parse one-to-one, which is
-not proved. The accounting and the levels it reaches are in
+bounds extend to pure-mode byte-list public keys and signatures through `Security/Wire.lean`,
+with a fixed checked context and unchanged query budgets. Canonical parsing and injectivity are
+already proved in `Codec.lean`; prehash-mode collision accounting remains open. The accounting and the levels it reaches are in
 [`slh-dsa-classical-rom-bound.md`](slh-dsa-classical-rom-bound.md).
 
 | Result | Theorem | Module |
@@ -192,17 +192,19 @@ bounded in one potential with two further charged events (`Security/ByteLinkedBo
 are in [`slh-dsa-classical-rom-bound.md`](slh-dsa-classical-rom-bound.md).
 
 The single oracle answers every string with `m` bytes, the longest SHAKE256 output FIPS 205 reads.
-This is a modelling choice: a forger against a variable-length extendable-output oracle that reads
-more than `m` bytes sees only bytes no SLH-DSA evaluation reads, and is simulated against this
-oracle, query for query, by sampling those bytes itself; that simulation is not formalised. At
+The variable-length-XOF adversary transport remains unformalised: its simulator must retain
+cached suffixes consistently across repeated and extended requests. Concrete SHAKE prefix
+consistency at all widths is proved in `VCVio/Algorithms/KeccakPrefix.lean`. At
 `q_h = q_s = 2^64` the averaged byte-level levels of the 256-bit sets are 254.00 (256s) and 253.89
 (256f), 254.41 and 254.27 in hedged signing, equal, to two decimals, to the per-seed levels
 outside the weak set; the bound at every seed, weak seeds included, is at 253.68 and 253.59, and
 at 254.00 and 253.89 in hedged signing.
-Not proved: any byte-level model of the SHA-2 sets; and the external interfaces
-(Algorithms 21–25), which the theorem does not reach, so strong unforgeability over byte strings,
-which also needs the signature encoding to parse one-to-one, is not proved. There is no complete
-FIPS conformance result.
+Not proved: a byte-level model of SHA-2, prehash collision accounting, the variable-length-XOF
+game transport, and complete FIPS conformance. The pure-mode SHAKE wire game is covered by
+`wireStrongAdvantage_le_securityBound_validatedParams` and its hedged form. See the
+[validated review follow-up](slh-dsa-classical-rom-bound.md#validated-review-follow-up-2026-10-23)
+for the executable evaluators, kernel-certified table, budget-range certificates, wider vectors,
+security profiles, and remaining construction/deployment obligations.
 
 ## Security lane: slices, status, and source correspondence
 

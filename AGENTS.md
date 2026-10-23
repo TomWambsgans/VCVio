@@ -80,15 +80,18 @@ build boundaries and the staged consolidation.
   seed distributions. A model of the SHAKE parameter sets over a single SHAKE256 random oracle on
   byte strings is stated (`shakeRomScheme`); answering its oracle with SHAKE256 gives the library's
   FIPS 205 SHAKE internal algorithms (`shakeRomScheme_map_shakeAnswer`), which are checked against
-  pinned NIST ACVP vectors at SLH-DSA-SHAKE-128f; the SUF-CMA bound in that model, the three-oracle
+  pinned NIST ACVP vectors at SLH-DSA-SHAKE-128f, 192f, and 256f; the SUF-CMA bound in that model, the three-oracle
   bound plus `(q_s + 1) / 2^{8n}` and a weak-key term (at `n = 32` only the weak seeds' share of
   the bound at every seed), is `shakeStrongAdvantage_le_securityBound` (per public seed:
   `shakeStrongAdvantage_pure_le_securityBound`); in hedged signing `(q_s + 1) / 2^{8n}` becomes
   `1 / 2^{8n} + q_s (q_h + q_s + 1) / 2^{16n}` (`shakeStrongAdvantage_le_securityBound_hedged`).
   The EUF-CMA forms are `shakeAdvantage_le_securityBound`, `shakeAdvantage_pure_le_securityBound`
-  and `shakeAdvantage_le_securityBound_hedged`. The bounds are over the structured signatures of
-  the internal functions; SUF-CMA over byte strings at the external API, which also needs the
-  signature encoding to parse one-to-one, and a complete FIPS conformance result are not proved.
+  and `shakeAdvantage_le_securityBound_hedged`. `Security/Wire.lean` transports the bounds to
+  strict byte-list public keys and signatures in pure mode with a fixed checked context,
+  preserving both query budgets and strong freshness. Canonical parsing and injectivity are
+  proved in `Codec.lean`. `Security/Profile.lean` binds SHAKE parameters, signing mode, context,
+  codecs, uniform seed sampling, and the matching exact bound evaluator. Prehash collision
+  accounting, variable-length-XOF adversaries, and complete FIPS conformance remain open.
   Peer of `LatticeCrypto/`; depends on `VCVio`/`ToMathlib` but nothing in those imports it back.
 - `LatticeCryptoTest/`: ACVP vectors, executable regression tests, and cross-checks against native backends.
 - `VCVioTest/`: framework smoke tests and test support modules.

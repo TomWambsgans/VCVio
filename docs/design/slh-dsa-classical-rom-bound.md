@@ -93,17 +93,89 @@ The hedged terms are `prEvent_romSchemeRun_strongWins_or_runPrfKeyClash_le`
 
 **Oracle output length (modelling choice).** The oracle answers every string with `m` bytes, the
 longest SHAKE256 output FIPS 205 reads (`H_msg`; every other call reads the first `n ≤ m` bytes).
-A forger against a variable-length extendable-output oracle that reads more than `m` bytes at a
-string sees only bytes no SLH-DSA evaluation reads. Such a forger is simulated against this
-oracle, query for query, by sampling those bytes itself, so the choice loses nothing. That
-simulation is not formalised.
+A proposed simulation of a variable-length XOF adversary must sample and cache the unused
+suffix at each input, preserving it on repeated queries and extending it consistently on longer
+requests. That game transport and its query budget are not formalised. Deterministic SHAKE prefix
+consistency at arbitrary widths is proved in `VCVio/Algorithms/KeccakPrefix.lean`; it does not by
+itself establish the adversarial game transport.
 
-**What is not proved.** The SHA-2 parameter sets have no byte-level model. Strong unforgeability
-is stated over the structured signatures of the internal functions; over byte strings at the
-external API it also needs the fixed-length signature encoding to parse one-to-one, which is not
-proved. Of the levels below,
+**What is not proved.** The SHA-2 parameter sets have no byte-level model. The pure-mode wire interface is covered by
+`wireStrongAdvantage_le_securityBound_validatedParams` and its hedged form, using the canonical
+parsers already proved in `Codec.lean`. Prehash-mode security still needs collision accounting:
+colliding prehashes can turn distinct external messages into the same internal message. Of the levels below,
 "Three-oracle", the two "Byte level" and the two "Hedged" columns evaluate proved bounds; the other
 columns evaluate formulas that are not Lean results.
+
+## Validated review follow-up (2026-10-23)
+
+The review at `66f1750ca6e13a4233e96666451f7aa0bd630974` correctly identified missing wire-game
+transport and executable certified evaluation. It did not demonstrate a soundness defect in the
+internal theorem. The documentation's claim that one-to-one signature parsing was unproved was
+incorrect: `decodeSignature_eq_ok_iff` and `encodeSignature_injective` already establish it.
+
+`SignatureAlg/Wire.lean` supplies the named adversary `reduce`, its signing-log transport,
+accepted-pair freshness, probability bound, and unchanged `RomQueryBound`. `Security/Wire.lean`
+instantiates this adapter at the actual SHAKE public-key/signature codecs and fixes a checked
+pure-mode context. Arbitrary byte lists are accepted at the public boundary and malformed lengths
+are rejected before verification. `Security/Profile.lean` binds the SHAKE family, parameters,
+mode, context, uniform public-seed sampler, codecs, and matching bound evaluator. The existing
+internal scheme draws the secret seeds independently and uniformly; master-seed-derived public
+parameters need a separate distribution proof.
+
+`slhdsa_wire_tests` executes small adversaries against the wire wrapper and the reduced
+structured experiment. Its computable experiment runner is proved equal to the SUF experiment.
+Exact replay loses, a distinct valid signature on the signed message wins, and malformed
+signatures reject before invoking the underlying verifier. Exact call traces check repeated
+ambient requests and signing-query forwarding; malformed public keys also reject without
+underlying verification.
+
+`CoveringEval.lean` computes surjection counts with a table-based triangular recurrence proved by
+partitioning functions by image size. Binomial coefficients use descending factorials; budgets
+such as `2^64` are never enumerated. `Security/BoundEval.lean` proves that exact nonnegative
+rational evaluators equal the structured bound, the deterministic and hedged byte bounds, and
+the averaged weak-seed bounds. Its honest-address count uses the proved closed form.
+`lake exe slhdsa_bound_table` prints exact coefficient numerator/denominator pairs and a
+floating-point presentation. Its checked-in output is
+[`slh-dsa-security-bounds.csv`](slh-dsa-security-bounds.csv); regenerate it with
+`lake exe slhdsa_bound_table > docs/design/slh-dsa-security-bounds.csv` and independently compare
+every exact rational using
+`python3 scripts/check-slh-dsa-bound-table.py docs/design/slh-dsa-security-bounds.csv`.
+`lake test` builds the generator, regenerates its CSV into a temporary file, compares it
+byte-for-byte with the checked-in artifact, and runs that independent exact-arithmetic check
+on the generated output. This also runs through `scripts/validate.sh --test`; a mismatch
+fails without rewriting the published artifact.
+`Security/BoundCertificates.lean` kernel-checks all 18 rounded
+entries in the six-row table via rational power inequalities, without native proof axioms.
+
+`Security/RangeBound.lean` proves a separate uniform coefficient theorem for a positive minimum
+hash budget, a maximum hash budget, and a signing lifetime. `rangeCoefficients_certified`
+certifies **the three-oracle bound** at all six sets for `2^32 ≤ qh ≤ 2^64`, at each signing
+lifetime `qs ≤ 2^20`, `2^32`, or `2^64`: `securityBound ≤ qh / 2^(8n - 2)` throughout each
+rectangle. The sharper rounded table remains a point evaluation at `qh = qs = 2^64`; it is not
+claimed as a uniform floor for either wire signing mode.
+
+`SignatureAlg/RomWork.lean` proves whole-experiment budget transport:
+`K + qh + qs * S + V`, assuming certificates for key generation, signing, and verification of the
+actual oracle-backed scheme. Those honest certificates must include provider and `PRF_msg`
+traffic. `GeneralSchemeQueryBound.lean` alone does not discharge them because its PRFs are pure.
+SLH-DSA-specific honest derivation counts, randomness caps, input-length-weighted deployment
+costs, and time or cycle guarantees remain open.
+
+Independent NIST ACVP evidence now includes key generation, deterministic/hedged signing, and
+valid/invalid verification at SHAKE-128f, 192f, and 256f. The additional fixtures preserve the
+pinned `975de31e` source revision and hashes. `scripts/check-slh-dsa-byte-vectors.py` verifies
+record projections against a local copy of that corpus. Wire regressions cover short and appended
+signatures, exact replay, and a distinct signature on the same signed message. Multi-block SHAKE
+prefix tests include zero output, exact rate boundaries, and extended requests.
+
+The reuse concern is also valid. The current
+[leanSPHINCS specification](https://raw.githubusercontent.com/leanEthereum/leanVM/main/doc/lean_sphincs/main.tex)
+uses WOTS+C counter search, a different forest and address grammar, 256-bit secrets with 128-bit
+nodes, failure, pruning, and master-seed-derived public parameters. Its correctness and security
+are not obtained by selecting an SLH-DSA parameter bundle. A pinned second construction with
+those proofs remains required. Consolidating provider-parametric programs is a design follow-up;
+the existing specialization equations do not certify provider call counts. Neither a new
+construction theorem nor a variable-length-XOF game theorem is supplied by these adapters.
 
 ## The statement
 
@@ -427,8 +499,8 @@ implementation does depend on are:
   trace-target tests. An implementation is covered when its encoding agrees with the
   specification's, which these tests check on fixed inputs and a refinement proof would check for
   all.
-- **Interface.** The statement covers the internal functions; implementations expose the external
-  functions (Algorithms 21–25), which the theorem reaches only once the external layer is added.
+- **Interface.** The pure wire theorem fixes context and mode and reuses the strict codecs.
+  Prehash collision accounting and external entropy-failure contracts require separate proofs.
 - **Hash functions.** SHAKE256 and SHA-2 are idealized as random oracles. The SHA-2 instantiation,
   with `MGF1` in `H_msg` and `HMAC` in `PRF_msg`, is to be modelled separately from SHAKE.
 

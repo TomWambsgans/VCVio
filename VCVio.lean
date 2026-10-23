@@ -2,6 +2,7 @@ module  -- shake: keep-all --deprecated_module: ignore
 
 public import VCVio.Algorithms.Encoding
 public import VCVio.Algorithms.Keccak
+public import VCVio.Algorithms.KeccakPrefix
 public import VCVio.Algorithms.Sha2
 public import VCVio.CryptoFoundations.AKE.UAKE.Defs
 public import VCVio.CryptoFoundations.AKE.UAKE.Party
@@ -85,6 +86,7 @@ public import VCVio.CryptoFoundations.HardnessAssumptions.DiffieHellman
 public import VCVio.CryptoFoundations.HardnessAssumptions.EntropySmoothing
 public import VCVio.CryptoFoundations.HardnessAssumptions.HardRelation
 public import VCVio.CryptoFoundations.HardnessAssumptions.KeyedHash.Covering
+public import VCVio.CryptoFoundations.HardnessAssumptions.KeyedHash.CoveringEval
 public import VCVio.CryptoFoundations.HardnessAssumptions.KeyedHash.ITSR
 public import VCVio.CryptoFoundations.HardnessAssumptions.NoisyLearning
 public import VCVio.CryptoFoundations.HardnessAssumptions.OneWay
@@ -178,11 +180,13 @@ public import VCVio.CryptoFoundations.SigmaProtocol.ChallengeRestriction
 public import VCVio.CryptoFoundations.SignatureAlg
 public import VCVio.CryptoFoundations.SignatureAlg.Naturality
 public import VCVio.CryptoFoundations.SignatureAlg.RomQueryCount
+public import VCVio.CryptoFoundations.SignatureAlg.RomWork
 public import VCVio.CryptoFoundations.SignatureAlg.Routed
 public import VCVio.CryptoFoundations.SignatureAlg.SigningHazard
 public import VCVio.CryptoFoundations.SignatureAlg.Tagged
 public import VCVio.CryptoFoundations.SignatureAlg.Transcript
 public import VCVio.CryptoFoundations.SignatureAlg.TranscriptCongr
+public import VCVio.CryptoFoundations.SignatureAlg.Wire
 public import VCVio.CryptoFoundations.SignatureAlg.WithPost
 public import VCVio.CryptoFoundations.SymmEncAlg
 public import VCVio.CryptoFoundations.SymmEncAlg.Defs

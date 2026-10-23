@@ -7,6 +7,7 @@ Authors: Alexander Hicks
 module
 
 public import HashSig.SLHDSA.Security.ByteModel
+public import VCVio.Algorithms.KeccakPrefix
 public import HashSig.SLHDSA.Security.RomConformance
 public import ToMathlib.Data.ByteArray
 
@@ -19,9 +20,9 @@ strings with `m`-byte answers. Answering that oracle by SHAKE256 itself, `shakeA
 signing and verification are `GeneralScheme.keygenInternal`, `signInternal` and `verifyInternal`
 at the SHAKE bundle `shakePrimitives` of `HashSig.SLHDSA.Concrete.FIPS`. Every role reads a
 prefix of one `m`-byte answer, which is sound because SHAKE256's outputs are prefixes of one
-another at every length. The proof here establishes that prefix property within one squeeze block
-only, for outputs shorter than the `136`-byte rate, so the identification is stated under
-`n ≤ m < 136`. Every FIPS 205 parameter set satisfies it.
+another at every length. `VCVio.Algorithms.KeccakPrefix` proves this property across arbitrary
+rate blocks. The `*_of_le` conformance statements require only `n ≤ m`; the bounded-width
+entry points remain available for existing consumers. Every FIPS 205 parameter set satisfies it.
 
 ## The right-hand side against NIST vectors
 
@@ -194,23 +195,32 @@ theorem toList_shakeAnswer (x : List Byte) :
     (shakeAnswer vp x).toList = (Keccak.shake256 x.toByteArray vp.params.m).data.toList :=
   toList_byteArrayPrefixOrZero_shake256 _ _
 
-/-- For `n ≤ m < 136`, the first `n` bytes of the SHAKE256 answer are the `n`-byte output. -/
-theorem toList_prefixBytes_shakeAnswer (hnm : vp.params.n ≤ vp.params.m)
-    (hm : vp.params.m < 136) (x : List Byte) :
+/-- For arbitrary `n ≤ m`, including multiple SHAKE rate blocks, the first `n` bytes of
+the oracle answer are the `n`-byte SHAKE output. -/
+theorem toList_prefixBytes_shakeAnswer_of_le (hnm : vp.params.n ≤ vp.params.m)
+    (x : List Byte) :
     (prefixBytes vp.params.n (shakeAnswer vp x)).toList =
       (Keccak.shake256 x.toByteArray vp.params.n).data.toList := by
-  rw [toList_prefixBytes_of_le hnm, toList_shakeAnswer, Keccak.take_toList_data_shake256 hnm hm]
+  rw [toList_prefixBytes_of_le hnm, toList_shakeAnswer]
+  exact VCVio.Algorithms.Keccak.take_toList_shake256 _ hnm
+
+/-- For `n ≤ m < 136`, the first `n` bytes of the SHAKE256 answer are the `n`-byte output. -/
+theorem toList_prefixBytes_shakeAnswer (hnm : vp.params.n ≤ vp.params.m)
+    (_hm : vp.params.m < 136) (x : List Byte) :
+    (prefixBytes vp.params.n (shakeAnswer vp x)).toList =
+      (Keccak.shake256 x.toByteArray vp.params.n).data.toList :=
+  toList_prefixBytes_shakeAnswer_of_le hnm x
 
 /-! ## The oracle at each layout -/
 
 private theorem prefixBytes_shakeAnswer_thash (hnm : vp.params.n ≤ vp.params.m)
-    (hm : vp.params.m < 136) (pkSeed : Bytes vp.params.n) (adrsKey : Bytes 32)
+    (pkSeed : Bytes vp.params.n) (adrsKey : Bytes 32)
     (xs : List (Bytes vp.params.n)) :
     prefixBytes vp.params.n
         (shakeAnswer vp (pkSeed.toList ++ adrsKey.toList ++ (xs.map Vector.toList).flatten)) =
       shakeThash vp.params pkSeed adrsKey xs := by
   apply Vector.toList_inj.mp
-  rw [toList_prefixBytes_shakeAnswer hnm hm, shakeThash, toList_byteArrayPrefixOrZero_shake256,
+  rw [toList_prefixBytes_shakeAnswer_of_le hnm, shakeThash, toList_byteArrayPrefixOrZero_shake256,
     toByteArray_eq_of_toList_data_eq
       (l := pkSeed.toList ++ adrsKey.toList ++ (xs.map Vector.toList).flatten)]
   simp [ByteArray.data_append, shakeAddressKey]
@@ -223,21 +233,29 @@ private theorem shakeAnswer_hmsg (r pkSeed pkRoot : Bytes vp.params.n) (msg : Li
   simp [ByteArray.data_append]
 
 private theorem prefixBytes_shakeAnswer_prfMsg (hnm : vp.params.n ≤ vp.params.m)
-    (hm : vp.params.m < 136) (skPrf optRand : Bytes vp.params.n) (msg : List Byte) :
+    (skPrf optRand : Bytes vp.params.n) (msg : List Byte) :
     prefixBytes vp.params.n (shakeAnswer vp (skPrf.toList ++ optRand.toList ++ msg)) =
       shakePRFmsg skPrf optRand msg := by
   apply Vector.toList_inj.mp
-  rw [toList_prefixBytes_shakeAnswer hnm hm, shakePRFmsg, toList_byteArrayPrefixOrZero_shake256,
+  rw [toList_prefixBytes_shakeAnswer_of_le hnm, shakePRFmsg, toList_byteArrayPrefixOrZero_shake256,
     toByteArray_eq_of_toList_data_eq (l := skPrf.toList ++ optRand.toList ++ msg)]
   simp [ByteArray.data_append]
 
-/-- The oracle at the tweakable-hash layout, read at `n` bytes, is FIPS 205's SHAKE `T_ℓ`. -/
-theorem prefixBytes_shakeAnswer_encode_thash (hnm : vp.params.n ≤ vp.params.m)
-    (hm : vp.params.m < 136) (pkSeed : (shakeCore vp).PkSeed) (adrsKey : (shakeCore vp).AdrsKey)
+/-- Per-role SHAKE prefix conformance at arbitrary output widths. -/
+theorem prefixBytes_shakeAnswer_encode_thash_of_le (hnm : vp.params.n ≤ vp.params.m)
+    (pkSeed : (shakeCore vp).PkSeed) (adrsKey : (shakeCore vp).AdrsKey)
     (xs : List (shakeCore vp).Y) :
     prefixBytes vp.params.n (shakeAnswer vp (encode vp (.inl (.thash pkSeed adrsKey xs)))) =
       shakeThash vp.params pkSeed adrsKey xs :=
-  prefixBytes_shakeAnswer_thash hnm hm pkSeed adrsKey xs
+  prefixBytes_shakeAnswer_thash hnm pkSeed adrsKey xs
+
+/-- SHAKE conformance at output widths below one rate block. -/
+theorem prefixBytes_shakeAnswer_encode_thash (hnm : vp.params.n ≤ vp.params.m)
+    (_hm : vp.params.m < 136) (pkSeed : (shakeCore vp).PkSeed) (adrsKey : (shakeCore vp).AdrsKey)
+    (xs : List (shakeCore vp).Y) :
+    prefixBytes vp.params.n (shakeAnswer vp (encode vp (.inl (.thash pkSeed adrsKey xs)))) =
+      shakeThash vp.params pkSeed adrsKey xs :=
+  prefixBytes_shakeAnswer_thash hnm pkSeed adrsKey xs
 
 /-- The oracle at the `H_msg` layout is FIPS 205's SHAKE `H_msg`. -/
 theorem shakeAnswer_encode_hmsg (r : (shakeCore vp).Y) (pkSeed : (shakeCore vp).PkSeed)
@@ -246,12 +264,19 @@ theorem shakeAnswer_encode_hmsg (r : (shakeCore vp).Y) (pkSeed : (shakeCore vp).
       shakeHmsg vp.params r pkSeed pkRoot msg :=
   shakeAnswer_hmsg r pkSeed pkRoot msg
 
-/-- The oracle at the `PRF_msg` layout, read at `n` bytes, is FIPS 205's SHAKE `PRF_msg`. -/
-theorem prefixBytes_shakeAnswer_encode_prfMsg (hnm : vp.params.n ≤ vp.params.m)
-    (hm : vp.params.m < 136) (q : PrfMsgQuery (shakeCore vp).SkPrf (shakeCore vp).Y) :
+/-- Per-role SHAKE prefix conformance at arbitrary output widths. -/
+theorem prefixBytes_shakeAnswer_encode_prfMsg_of_le (hnm : vp.params.n ≤ vp.params.m)
+    (q : PrfMsgQuery (shakeCore vp).SkPrf (shakeCore vp).Y) :
     prefixBytes vp.params.n (shakeAnswer vp (encode vp (.inr q))) =
       shakePRFmsg (n := vp.params.n) q.skPrf q.optRand q.msg :=
-  prefixBytes_shakeAnswer_prfMsg hnm hm q.skPrf q.optRand q.msg
+  prefixBytes_shakeAnswer_prfMsg hnm q.skPrf q.optRand q.msg
+
+/-- SHAKE conformance at output widths below one rate block. -/
+theorem prefixBytes_shakeAnswer_encode_prfMsg (hnm : vp.params.n ≤ vp.params.m)
+    (_hm : vp.params.m < 136) (q : PrfMsgQuery (shakeCore vp).SkPrf (shakeCore vp).Y) :
+    prefixBytes vp.params.n (shakeAnswer vp (encode vp (.inr q))) =
+      shakePRFmsg (n := vp.params.n) q.skPrf q.optRand q.msg :=
+  prefixBytes_shakeAnswer_prfMsg hnm q.skPrf q.optRand q.msg
 
 /-! ## Scheme conformance -/
 
@@ -268,10 +293,8 @@ theorem romScheme_shakeCore_map_romAnswer
     (fun pkSeed skSeed a _ => shakeThash_toVector_singleton vp.params pkSeed skSeed a)
     optRand pkSeedDist
 
-/-- **Per-query conformance**: for `n ≤ m < 136`, answering each typed query by the SHAKE256 oracle
-at its encoding is answering it by the landed SHAKE function of its role. -/
-theorem unifFwdAnswerImpl_shakeAnswer_compose_encImpl (hnm : vp.params.n ≤ vp.params.m)
-    (hm : vp.params.m < 136) :
+/-- Single-SHAKE conformance for arbitrary output widths with `n ≤ m`. -/
+theorem unifFwdAnswerImpl_shakeAnswer_compose_encImpl_of_le (hnm : vp.params.n ≤ vp.params.m) :
     unifFwdAnswerImpl (shakeAnswer vp) ∘ₛ encImpl vp =
       unifFwdAnswerImpl (romAnswer (shakePrimitives vp.params)) := by
   funext t
@@ -283,7 +306,7 @@ theorem unifFwdAnswerImpl_shakeAnswer_compose_encImpl (hnm : vp.params.n ≤ vp.
           QueryImpl.add_apply_inr]
         change prefixBytes vp.params.n <$> (pure _ : ProbComp _) = (pure _ : ProbComp _)
         rw [map_pure]
-        exact congrArg pure (prefixBytes_shakeAnswer_encode_thash hnm hm pkSeed adrsKey xs)
+        exact congrArg pure (prefixBytes_shakeAnswer_encode_thash_of_le hnm pkSeed adrsKey xs)
     | hmsg r pkSeed pkRoot msg =>
         simp only [QueryImpl.apply_compose, encImpl, encHashImpl, unifFwdAnswerImpl,
           QueryImpl.add_apply_inr]
@@ -293,27 +316,38 @@ theorem unifFwdAnswerImpl_shakeAnswer_compose_encImpl (hnm : vp.params.n ≤ vp.
       QueryImpl.add_apply_inr]
     change prefixBytes vp.params.n <$> (pure _ : ProbComp _) = (pure _ : ProbComp _)
     rw [map_pure]
-    exact congrArg pure (prefixBytes_shakeAnswer_encode_prfMsg hnm hm q)
+    exact congrArg pure (prefixBytes_shakeAnswer_encode_prfMsg_of_le hnm q)
 
-/-- **Conformance of the single-oracle scheme.** For `n ≤ m < 136`, SLH-DSA over one random oracle
-on byte strings, with that oracle answered by SHAKE256 (`shakeAnswer vp`) and its uniform draws
-kept, is FIPS 205's SHAKE internal key generation, signing and verification
-(`internalAlg vp (shakePrimitives vp.params)`), for every `opt_rand` source and every public-seed
-distribution. -/
-theorem shakeRomScheme_map_shakeAnswer (hnm : vp.params.n ≤ vp.params.m)
-    (hm : vp.params.m < 136)
+/-- SHAKE conformance at output widths below one rate block. -/
+theorem unifFwdAnswerImpl_shakeAnswer_compose_encImpl (hnm : vp.params.n ≤ vp.params.m)
+    (_hm : vp.params.m < 136) :
+    unifFwdAnswerImpl (shakeAnswer vp) ∘ₛ encImpl vp =
+      unifFwdAnswerImpl (romAnswer (shakePrimitives vp.params)) :=
+  unifFwdAnswerImpl_shakeAnswer_compose_encImpl_of_le hnm
+
+/-- Single-SHAKE conformance for arbitrary output widths with `n ≤ m`. -/
+theorem shakeRomScheme_map_shakeAnswer_of_le (hnm : vp.params.n ≤ vp.params.m)
     (optRand : PublicKeyCore (shakeCore vp) → ProbComp (shakeCore vp).Y)
     (pkSeedDist : ProbComp (shakeCore vp).PkSeed) :
     (shakeRomScheme vp optRand pkSeedDist).map (simulateQ' (unifFwdAnswerImpl (shakeAnswer vp))) =
       internalAlg vp (shakePrimitives vp.params) optRand pkSeedDist := by
   rw [← romScheme_shakeCore_map_romAnswer,
-    ← unifFwdAnswerImpl_shakeAnswer_compose_encImpl hnm hm]
+    ← unifFwdAnswerImpl_shakeAnswer_compose_encImpl_of_le hnm]
   apply SignatureAlg.ext
   · simp [shakeRomScheme]
   · funext pk sk msg
     simp [shakeRomScheme]
   · funext pk msg sig
     simp [shakeRomScheme]
+
+/-- SHAKE conformance at output widths below one rate block. -/
+theorem shakeRomScheme_map_shakeAnswer (hnm : vp.params.n ≤ vp.params.m)
+    (_hm : vp.params.m < 136)
+    (optRand : PublicKeyCore (shakeCore vp) → ProbComp (shakeCore vp).Y)
+    (pkSeedDist : ProbComp (shakeCore vp).PkSeed) :
+    (shakeRomScheme vp optRand pkSeedDist).map (simulateQ' (unifFwdAnswerImpl (shakeAnswer vp))) =
+      internalAlg vp (shakePrimitives vp.params) optRand pkSeedDist :=
+  shakeRomScheme_map_shakeAnswer_of_le hnm optRand pkSeedDist
 
 /-- **Conformance at the FIPS 205 parameter sets.** At the parameters of every approved parameter
 set, SLH-DSA over one random oracle on byte strings, with that oracle answered by SHAKE256, is

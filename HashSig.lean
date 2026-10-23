@@ -42,6 +42,8 @@ public import HashSig.SLHDSA.Scheme
 public import HashSig.SLHDSA.SecretProvider
 public import HashSig.SLHDSA.Security
 public import HashSig.SLHDSA.Security.AddressKeys
+public import HashSig.SLHDSA.Security.BoundCertificates
+public import HashSig.SLHDSA.Security.BoundEval
 public import HashSig.SLHDSA.Security.ByteBound
 public import HashSig.SLHDSA.Security.ByteClash
 public import HashSig.SLHDSA.Security.ByteConformance
@@ -84,6 +86,8 @@ public import HashSig.SLHDSA.Security.LimitedProfile
 public import HashSig.SLHDSA.Security.LinkedHazards
 public import HashSig.SLHDSA.Security.NodeGraph
 public import HashSig.SLHDSA.Security.PrfKeyBound
+public import HashSig.SLHDSA.Security.Profile
+public import HashSig.SLHDSA.Security.RangeBound
 public import HashSig.SLHDSA.Security.ReachableTargets
 public import HashSig.SLHDSA.Security.RomConformance
 public import HashSig.SLHDSA.Security.RomDescentSecret
@@ -104,6 +108,7 @@ public import HashSig.SLHDSA.Security.TargetCounts
 public import HashSig.SLHDSA.Security.TraceTargets
 public import HashSig.SLHDSA.Security.Transport
 public import HashSig.SLHDSA.Security.WeakKeyBound
+public import HashSig.SLHDSA.Security.Wire
 public import HashSig.SLHDSA.Security.WotsWitnesses
 public import HashSig.SLHDSA.Security.XmssWitnesses
 public import HashSig.SLHDSA.Wots
