@@ -91,6 +91,7 @@ public import VCVioTest.ProgramLogic.VCGenCoreDelegation
 public import VCVioTest.Quantum.Basic
 public import VCVioTest.Quantum.CheckedReadAlgebra
 public import VCVioTest.Quantum.Compressed
+public import VCVioTest.Quantum.Emulated
 public import VCVioTest.Quantum.Hybrid
 public import VCVioTest.Quantum.InstabilityBound
 public import VCVioTest.Quantum.Kraus
