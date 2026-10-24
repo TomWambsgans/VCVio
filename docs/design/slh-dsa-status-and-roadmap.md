@@ -206,6 +206,34 @@ game transport, and complete FIPS conformance. The pure-mode SHAKE wire game is 
 for the executable evaluators, kernel-certified table, budget-range certificates, wider vectors,
 security profiles, and remaining construction/deployment obligations.
 
+## Specialized SHAKE-128s strong-unforgeability proof (#912)
+
+The specialized development under `HashSig/SLHDSA/SHAKE128s/` contains a transcription, its
+probability proof and a program/distribution bridge to the library's deterministic pure-mode
+SHAKE-128s scheme. `SLHDSA.SHAKE128s.slhDsa_sufCma_127` bounds strong forging probability by
+`q / 2^127` for `q ≥ 1`, under probability-one work and lifetime caps. The original game permits
+variable contexts in signing requests and uses byte-string signatures. It shares one random
+oracle with fixed 30-byte answers across key generation, signing, the adversary and verification;
+shorter hash roles read the first 16 bytes. Key seeds are independent and uniform.
+
+Work is the sum of signing requests, direct adversary hash calls and final-verification hash
+calls, including repeated oracle inputs. At most `2^64` signing requests are allowed. The model
+records key-generation and signer hashes separately and excludes them from this work bound.
+The public-key interface is structured. The fixed-context byte-public-key wire bridge and its
+budget/minimum-bound transport remain planned.
+
+The original general-depth results, all-six-set deterministic/hedged SHAKE bounds, pure-wire
+reductions, exact evaluators, certified table and three-oracle range certificates remain
+available. The two design records describe their distinct accounting and interfaces:
+[general ROM bounds](slh-dsa-classical-rom-bound.md) and
+[specialized SHAKE-128s](slh-dsa-shake128s-suf-cma.md).
+
+The canonical additive build checkpoint B0, independent final review and full validation remain
+pending for this reconstruction. Its compiler regression is a named executable,
+`slhdsa_shake128s_compiler_tests`, whose checks import the enlarged `HashSig` umbrella. The
+variable-length-XOF game transport, concrete-SHAKE computational security, prehash collision
+accounting, honest-work certificates and second construction remain separate work.
+
 ## Security lane: slices, status, and source correspondence
 
 The lane follows the plan's D1A → D1B → conditional theorem order, stated for arbitrary `d` with

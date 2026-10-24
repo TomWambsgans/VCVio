@@ -97,6 +97,15 @@ build boundaries and the staged consolidation.
   construction remain open. The SHA-2 parameter sets have no single-oracle model. A complete
   FIPS conformance result is not proved; see `docs/design/slh-dsa-status-and-roadmap.md` and,
   for the accounting and levels, `docs/design/slh-dsa-classical-rom-bound.md`.
+  `HashSig/SLHDSA/SHAKE128s/` adds a specialized deterministic SHAKE-128s pure-mode proof,
+  `SLHDSA.SHAKE128s.slhDsa_sufCma_127`. Its signing requests carry variable contexts and its
+  signatures are byte strings. Over one shared random oracle with fixed 30-byte answers and
+  independent uniform key seeds, the winning probability is at most `q / 2^127` for `q ≥ 1`,
+  subject to probability-one work and signing-request caps. Work counts signing requests, direct
+  adversary hash calls and final-verification hash calls; the signing lifetime is at most
+  `2^64` requests. Key-generation and signer hashes are outside that work count. The
+  [specialized design record](docs/design/slh-dsa-shake128s-suf-cma.md) specifies this interface.
+  The fixed-context wire bridge, transported budget and combined minimum bound remain planned.
 - `LatticeCryptoTest/` contains ACVP vectors, regression tests, and differential checks against native backends.
 - `HashSigTest/` contains hash-signature test and validation modules.
 - `Examples/` contains compact framework proofs including OneTimePad, ElGamal, and Schnorr.

@@ -92,6 +92,15 @@ build boundaries and the staged consolidation.
   proved in `Codec.lean`. `Security/Profile.lean` binds SHAKE parameters, signing mode, context,
   codecs, uniform seed sampling, and the matching exact bound evaluator. Prehash collision
   accounting, variable-length-XOF adversaries, and complete FIPS conformance remain open.
+  The specialized `HashSig/SLHDSA/SHAKE128s/` subtree contains `Statement/`, `Proof/` and `Bridge/`
+  for deterministic pure-mode SHAKE-128s over one fixed 30-byte random oracle, with independent
+  uniform key seeds. `SLHDSA.SHAKE128s.slhDsa_sufCma_127` allows message/context signing requests
+  and byte-string signatures. Its work counts signing requests, direct adversary hash calls and
+  final-verification hash calls, with a separate `2^64` signing-request lifetime cap;
+  key-generation and signer hashes are excluded. The general security, wire, evaluator and
+  certificate modules remain alongside it. The fixed-context wire bridge and its budget/minimum
+  transport are planned integration work. See
+  [the specialized design record](docs/design/slh-dsa-shake128s-suf-cma.md).
   Peer of `LatticeCrypto/`; depends on `VCVio`/`ToMathlib` but nothing in those imports it back.
 - `LatticeCryptoTest/`: ACVP vectors, executable regression tests, and cross-checks against native backends.
 - `VCVioTest/`: framework smoke tests and test support modules.
