@@ -98,8 +98,16 @@ build boundaries and the staged consolidation.
   and byte-string signatures. Its work counts signing requests, direct adversary hash calls and
   final-verification hash calls, with a separate `2^64` signing-request lifetime cap;
   key-generation and signer hashes are excluded. The general security, wire, evaluator and
-  certificate modules remain alongside it. The fixed-context wire bridge and its budget/minimum
-  transport are planned integration work. See
+  certificate modules remain alongside it. `SHAKE128s/Bridge/Wire.lean` exports the exact
+  fixed-context advantage equality and the syntactic-to-counted budget transports; the verifier
+  overhead has a proved universal cap of 3929 oracle calls. `SHAKE128s/Statement/Theorems/WireStrongUnforgeability.lean`
+  exports `wireStrongAdvantage_le_workBound` and `wireStrongAdvantage_le_min_bound` for
+  `RomQueryBound qh qs` and `qs ≤ 2^64`. The common scope is deterministic signing, a fixed valid
+  context, independent uniform seeds, and the shared fixed-30-byte oracle.
+  `slhdsa_shake128s_game_tests` exercises actual counted work through the proved-equal computable
+  runner in `HashSigTest/SLHDSA/SHAKE128s/Support.lean`; `slhdsa_shake128s_wire_bridge_tests`
+  executes the actual adapter's translation, freshness, framing and rejection controls.
+  Both are explicit `lake test` steps. See
   [the specialized design record](docs/design/slh-dsa-shake128s-suf-cma.md).
   Peer of `LatticeCrypto/`; depends on `VCVio`/`ToMathlib` but nothing in those imports it back.
 - `LatticeCryptoTest/`: ACVP vectors, executable regression tests, and cross-checks against native backends.
