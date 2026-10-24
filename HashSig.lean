@@ -274,6 +274,7 @@ public import HashSig.SLHDSA.SHAKE128s.Proof.WriterState
 public import HashSig.SLHDSA.SHAKE128s.Statement.BitSecurity
 public import HashSig.SLHDSA.SHAKE128s.Statement.FIPS205
 public import HashSig.SLHDSA.SHAKE128s.Statement.Game
+public import HashSig.SLHDSA.SHAKE128s.Statement.Game.QueryBudget
 public import HashSig.SLHDSA.SHAKE128s.Statement.RandomOracleModel
 public import HashSig.SLHDSA.SHAKE128s.Statement.Scheme
 public import HashSig.SLHDSA.SHAKE128s.Statement.Security

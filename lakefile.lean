@@ -421,6 +421,7 @@ script test (args) do
     #["exe", "slhdsa_byte_model_tests"],
     #["exe", "slhdsa_wire_tests"],
     #["exe", "slhdsa_shake128s_compiler_tests"],
+    #["exe", "slhdsa_shake128s_game_tests"],
     #["exe", "slhdsa_shake128s_wire_bridge_tests"],
     #["build", "slhdsa_bound_table"]]
   if args.contains "--ffi" then
@@ -512,6 +513,10 @@ lean_exe slhdsa_wire_tests where
 /-- Finite-index compiler controls through the combined hash-signature import. -/
 lean_exe slhdsa_shake128s_compiler_tests where
   root := `HashSigTest.SLHDSA.SHAKE128s.Compiler
+
+/-- Actual source-counted game controls, with separate full-call and cache-miss counters. -/
+lean_exe slhdsa_shake128s_game_tests where
+  root := `HashSigTest.SLHDSA.SHAKE128s.Game
 
 /-- Fixed-context wire query translation through the actual SHAKE-128s adversary adapter. -/
 lean_exe slhdsa_shake128s_wire_bridge_tests where
