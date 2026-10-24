@@ -421,6 +421,7 @@ script test (args) do
     #["exe", "slhdsa_byte_model_tests"],
     #["exe", "slhdsa_wire_tests"],
     #["exe", "slhdsa_shake128s_compiler_tests"],
+    #["exe", "slhdsa_shake128s_wire_bridge_tests"],
     #["build", "slhdsa_bound_table"]]
   if args.contains "--ffi" then
     steps := steps ++ #[#["exe", "mlkem_test"], #["exe", "mldsa_test"], #["exe", "falcon_test"]]
@@ -511,6 +512,10 @@ lean_exe slhdsa_wire_tests where
 /-- Finite-index compiler controls through the combined hash-signature import. -/
 lean_exe slhdsa_shake128s_compiler_tests where
   root := `HashSigTest.SLHDSA.SHAKE128s.Compiler
+
+/-- Fixed-context wire query translation through the actual SHAKE-128s adversary adapter. -/
+lean_exe slhdsa_shake128s_wire_bridge_tests where
+  root := `HashSigTest.SLHDSA.SHAKE128s.WireBridge
 
 /-- Sizes, distinctness, cross-role disjointness, and pinned membership of the reachable security
 target ledgers, on small validated profiles. -/
