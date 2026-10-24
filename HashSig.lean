@@ -46,6 +46,7 @@ public import HashSig.SLHDSA.SHAKE128s.Bridge.Scheme
 public import HashSig.SLHDSA.SHAKE128s.Bridge.Transfer
 public import HashSig.SLHDSA.SHAKE128s.Bridge.Wire
 public import HashSig.SLHDSA.SHAKE128s.Bridge.Wire.Defs
+public import HashSig.SLHDSA.SHAKE128s.Bridge.Wire.Equality
 public import HashSig.SLHDSA.SHAKE128s.Bridge.Wire.KeyLog
 public import HashSig.SLHDSA.SHAKE128s.Bridge.Wire.QueryBudget
 public import HashSig.SLHDSA.SHAKE128s.Bridge.Wots
