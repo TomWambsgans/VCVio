@@ -282,6 +282,7 @@ public import HashSig.SLHDSA.SHAKE128s.Statement.RandomOracleModel
 public import HashSig.SLHDSA.SHAKE128s.Statement.Scheme
 public import HashSig.SLHDSA.SHAKE128s.Statement.Security
 public import HashSig.SLHDSA.SHAKE128s.Statement.Theorems.StrongUnforgeability
+public import HashSig.SLHDSA.SHAKE128s.Statement.Theorems.WireStrongUnforgeability
 public import HashSig.SLHDSA.SHAKE128s.Statement.UnforgeabilityGame
 public import HashSig.SLHDSA.Scheme
 public import HashSig.SLHDSA.SecretProvider
